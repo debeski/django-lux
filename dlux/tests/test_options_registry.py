@@ -103,6 +103,60 @@ class VisibilityGatingTests(TestCase):
         state['on'] = True
         self.assertEqual([c['id'] for c in options.get_visible_cards(self._req(self.superuser))], ['cfg.card'])
 
+    def test_a_title_that_raises_does_not_hide_the_settings_surface(self):
+        """A tile vanishing over cosmetic text reads as "the page lost my
+        settings", and the cause is only in the log. Text fails soft; only
+        visible() fails closed, because that one is a permission decision.
+        """
+        def boom(request):
+            raise RuntimeError('bad title')
+        options.register_app_settings(
+            namespace='proj.settings', title=boom, fields=[{'name': 'enabled'}])
+        with self.assertLogs('dlux', level='ERROR'):
+            visible = options.get_visible_app_settings(self._req(self.superuser))
+        self.assertEqual([item['namespace'] for item in visible], ['proj.settings'])
+        self.assertEqual(visible[0]['title'], 'proj.settings')
+
+    def test_a_lazy_title_is_accepted_and_resolved_at_render(self):
+        """The natural way to give a title that follows the reader's language.
+        Rejecting it is what pushed callers into wrapping one in a lambda."""
+        from django.utils.functional import lazy
+
+        calls = []
+
+        def _text():
+            calls.append(1)
+            return 'Letterhead'
+
+        lazy_text = lazy(_text, str)
+        options.register_app_settings(
+            namespace='proj.settings', title=lazy_text(), fields=[{'name': 'enabled'}])
+        self.assertEqual(calls, [], 'a lazy title must not be resolved at registration')
+        visible = options.get_visible_app_settings(self._req(self.superuser))
+        self.assertEqual(str(visible[0]['title']), 'Letterhead')
+
+    def test_a_zero_argument_callable_is_accepted(self):
+        """`lambda: ...` reads as naturally as `lambda request: ...` when the
+        text only needs evaluating late, so it must not be a trap."""
+        options.register_app_settings(
+            namespace='proj.settings',
+            title=lambda: 'Late Title',
+            description=lambda: 'Late Description',
+            fields=[{'name': 'enabled'}],
+        )
+        visible = options.get_visible_app_settings(self._req(self.superuser))
+        self.assertEqual(visible[0]['title'], 'Late Title')
+        self.assertEqual(visible[0]['description'], 'Late Description')
+
+    def test_a_callable_of_the_wrong_shape_is_rejected_at_registration(self):
+        """Loudly, at startup — not silently, on the page, months later."""
+        with self.assertRaises(ValueError):
+            options.register_app_settings(
+                namespace='proj.settings',
+                title=lambda request, extra: 'nope',
+                fields=[{'name': 'enabled'}],
+            )
+
     def test_visible_predicate_fails_closed(self):
         def boom(request):
             raise RuntimeError('config lookup failed')

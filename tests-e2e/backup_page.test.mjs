@@ -41,7 +41,7 @@ describe('backup page layout', { concurrency: 1 }, () => {
   test('the Back link lives inside an existing grid cell', async () => {
     // The regression, stated exactly. Checking the link's own parent is not
     // enough — wrapping it in a div moves it one level down while still adding
-    // a grid row. What matters is that it sits inside the hero cell.
+    // a grid row. What matters is that it sits inside the Ribbon cell.
     const { ctx, page } = await backupPage();
     try {
       const placement = await page.evaluate(() => {
@@ -51,16 +51,16 @@ describe('backup page layout', { concurrency: 1 }, () => {
         // Which direct child of the grid contains it?
         const cell = [...grid.children].find((child) => child.contains(link));
         return {
-          insideHero: !!link.closest('.dlux-backup-hero'),
-          cellIsHero: !!cell && cell.classList.contains('dlux-backup-hero'),
+          insideRibbon: !!link.closest('.dlux-ribbon-header'),
+          cellIsRibbon: !!cell && cell.classList.contains('dlux-ribbon-header'),
           gridRows: grid.children.length,
         };
       });
       assert.equal(placement.missing, undefined, 'the Back link is not on the page');
-      assert.equal(placement.insideHero, true, 'the Back link is outside the hero');
+      assert.equal(placement.insideRibbon, true, 'the Back link is outside the Ribbon');
       assert.equal(
-        placement.cellIsHero, true,
-        'the Back link introduced its own grid row instead of using the hero cell',
+        placement.cellIsRibbon, true,
+        'the Back link introduced its own grid row instead of using the Ribbon cell',
       );
     } finally { await ctx.close(); }
   });

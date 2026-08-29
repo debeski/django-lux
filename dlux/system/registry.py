@@ -193,6 +193,7 @@ def build_default_system_config():
         'login_config': default_login_config(),
         'titlebar_config': default_titlebar_config(),
         'search_config': default_search_config(),
+        'ribbon_config': {},
         'sidebar_config': default_sidebar_config(),
         'navbar_config': default_navbar_config(),
         'log_config': default_log_config(),

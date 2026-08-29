@@ -1,0 +1,5 @@
+<div class="dlux-ribbon-header dlux-ribbon-layout-default {{ ribbon.skin_class }}" data-dlux-card-surface>
+    {% include "dlux/ribbon/_heading.html" %}
+    {% if ribbon.has_tabs %}{% include "dlux/ribbon/_strips.html" %}{% endif %}
+    {% if ribbon.form %}{% include "dlux/ribbon/_form.html" %}{% endif %}
+</div>

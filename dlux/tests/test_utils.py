@@ -774,8 +774,8 @@ class UtilsTests(TestCase):
         'default_language': 'en',
         'translations': {
             'ar': {
-                'label_systemsettings_public_root': 'الوصول العام للجذر',
-                'label_public_root': 'الجذر العام',
+                'label_systemsettings_public_root': 'الوصول إلى الصفحة العامة',
+                'label_public_root': 'الصفحة العامة',
             }
         },
     })
@@ -792,7 +792,10 @@ class UtilsTests(TestCase):
         fields = _build_generic_detail_context(instance, request=request)
         labels = {field['label']: field['value'] for field in fields}
 
-        self.assertIn('الوصول العام للجذر', labels)
+        self.assertIn('الوصول إلى الصفحة العامة', labels)
+        self.assertIn('فصل الصفحة العامة عن الصفحة الرئيسية', labels)
+        self.assertFalse(any(' '.join(('Public', 'root')) in label for label in labels))
+        self.assertFalse(any(' '.join(('الجذر', 'العام')) in label for label in labels))
 
     def test_is_scope_enabled(self):
         """Test is_scope_enabled utility function."""
@@ -1082,6 +1085,40 @@ class UtilsTests(TestCase):
         username_field = filter_obj.form.fields['username']
         self.assertNotEqual(username_field.label, '')
         self.assertIsNone(username_field.widget.attrs.get('placeholder'))
+
+    def test_advanced_filter_ignores_table_view_state_with_custom_clear_keys(self):
+        from django.template import Context, Template
+        from django_filters import FilterSet
+        from dlux.utils import advanced_filter_helper
+
+        class TestFilter(FilterSet):
+            class Meta:
+                model = User
+                fields = ['username']
+
+        config = {
+            'fields': ['username'],
+            'clear_preserve_keys': ['kind'],
+        }
+        for query in ('page=2', 'per_page=50', 'sort=username'):
+            with self.subTest(query=query):
+                request = self.factory.get(f'/?{query}')
+                filter_obj = TestFilter(request.GET, queryset=User.objects.all())
+                advanced_filter_helper(filter_obj, config=config, request=request)
+
+                html = Template(
+                    '{% load crispy_forms_tags %}{% crispy form %}'
+                ).render(Context({'form': filter_obj.form}))
+
+                self.assertNotIn('dlux-filter-clear', html)
+
+        request = self.factory.get('/?per_page=50&username=test')
+        filter_obj = TestFilter(request.GET, queryset=User.objects.all())
+        advanced_filter_helper(filter_obj, config=config, request=request)
+        html = Template(
+            '{% load crispy_forms_tags %}{% crispy form %}'
+        ).render(Context({'form': filter_obj.form}))
+        self.assertIn('dlux-filter-clear', html)
 
     def test_has_submit_button(self):
         """Test has_submit_button function."""

@@ -1,0 +1,8 @@
+<div class="dlux-ribbon-header dlux-ribbon-layout-stacked {{ ribbon.skin_class }}" data-dlux-card-surface>
+    {% include "dlux/ribbon/_heading.html" with hide_actions=True %}
+    {% if ribbon.has_tabs %}{% include "dlux/ribbon/_strips.html" %}{% endif %}
+    {% if ribbon.form %}{% include "dlux/ribbon/_form.html" %}{% endif %}
+    {% if ribbon.actions %}
+        <div class="dlux-ribbon-actions dlux-ribbon-actions-below">{% include "dlux/ribbon/_actions.html" %}</div>
+    {% endif %}
+</div>

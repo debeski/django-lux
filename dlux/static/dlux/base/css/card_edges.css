@@ -1,0 +1,117 @@
+/* Every state is defined, not just `normal`.
+   Bootstrap's own card radius is already 0.375rem, so defining the variable
+   only for `normal` left the setting invisible on every card that carried no
+   radius of its own. Curved and normal use the same 1.35rem/0.375rem pair as
+   table edges; half-rounded keeps the house radius only on the bottom. */
+body {
+    --dlux-card-edge-radius: 1.35rem;
+    --dlux-card-edge-top-radius: 1.35rem;
+    --dlux-card-edge-bottom-radius: 1.35rem;
+    --dlux-card-edge-shape: 1.35rem;
+    --dlux-card-edge-inner-radius: calc(1.35rem - 1px);
+}
+
+body[data-dlux-card-edges="normal"] {
+    --dlux-card-edge-radius: 0.375rem;
+    --dlux-card-edge-top-radius: 0.375rem;
+    --dlux-card-edge-bottom-radius: 0.375rem;
+    --dlux-card-edge-shape: 0.375rem;
+    --dlux-card-edge-inner-radius: calc(0.375rem - 1px);
+}
+
+body[data-dlux-card-edges="half_rounded"] {
+    --dlux-card-edge-radius: 1.35rem;
+    --dlux-card-edge-top-radius: 0;
+    --dlux-card-edge-bottom-radius: 1.35rem;
+    --dlux-card-edge-shape: 0 0 1.35rem 1.35rem;
+    --dlux-card-edge-inner-radius: 0;
+}
+
+body :where(
+    .card:not(.dlux-table-card),
+    .alert,
+    .glass-profile,
+    .glass-card:not(.modal-content):not(.dlux-table-card),
+    .glass-container:not(.dlux-table-shell),
+    [class$="-card"]:not(.dlux-table-card):not(.modal-content),
+    [class*="-card "]:not(.dlux-table-card):not(.modal-content),
+    [class$="__card"]:not(.modal-content),
+    [class*="__card "]:not(.modal-content),
+    [data-dlux-card-surface]
+):not([data-dlux-card-edges-ignore]) {
+    --bs-card-border-radius: var(--dlux-card-edge-radius);
+    --bs-card-inner-border-radius: var(--dlux-card-edge-inner-radius);
+    border-radius: var(--dlux-card-edge-shape) !important;
+}
+
+/* A child with its own opaque background paints over the corner the surface
+   just rounded, so the card measures as rounded while still rendering square.
+   Every theme except the light/colour palettes gives `.card-body` a solid
+   background with `!important`, which is exactly when this shows.
+
+   Scoped to the card sections that carry a background, not to any first or
+   last child: a blanket rule also rounded a `.list-group` sitting at the card's
+   edge, which left its last row curved along the bottom and square along the
+   top. Bootstrap rounds `.card > .list-group:first-child/:last-child` from
+   `--bs-card-inner-border-radius`; half-rounded zeros that scalar and restores
+   only the final list row's bottom corners below.
+
+   Logical properties, so it holds in RTL. */
+body :where(
+    .card:not(.dlux-table-card),
+    .alert,
+    .glass-profile,
+    .glass-card:not(.modal-content):not(.dlux-table-card),
+    .glass-container:not(.dlux-table-shell),
+    [class$="-card"]:not(.dlux-table-card):not(.modal-content),
+    [class*="-card "]:not(.dlux-table-card):not(.modal-content),
+    [class$="__card"]:not(.modal-content),
+    [class*="__card "]:not(.modal-content),
+    [data-dlux-card-surface]
+):not([data-dlux-card-edges-ignore]) > :where(
+    .card-body,
+    .card-header,
+    .card-footer
+):first-child {
+    border-start-start-radius: inherit;
+    border-start-end-radius: inherit;
+}
+
+body :where(
+    .card:not(.dlux-table-card),
+    .alert,
+    .glass-profile,
+    .glass-card:not(.modal-content):not(.dlux-table-card),
+    .glass-container:not(.dlux-table-shell),
+    [class$="-card"]:not(.dlux-table-card):not(.modal-content),
+    [class*="-card "]:not(.dlux-table-card):not(.modal-content),
+    [class$="__card"]:not(.modal-content),
+    [class*="__card "]:not(.modal-content),
+    [data-dlux-card-surface]
+):not([data-dlux-card-edges-ignore]) > :where(
+    .card-body,
+    .card-header,
+    .card-footer
+):last-child {
+    border-end-start-radius: inherit;
+    border-end-end-radius: inherit;
+}
+
+body[data-dlux-card-edges="half_rounded"] :where(
+    .card:not(.dlux-table-card),
+    .alert,
+    .glass-profile,
+    .glass-card:not(.modal-content):not(.dlux-table-card),
+    .glass-container:not(.dlux-table-shell),
+    [class$="-card"]:not(.dlux-table-card):not(.modal-content),
+    [class*="-card "]:not(.dlux-table-card):not(.modal-content),
+    [class$="__card"]:not(.modal-content),
+    [class*="__card "]:not(.modal-content),
+    [data-dlux-card-surface]
+):not([data-dlux-card-edges-ignore]) > :where(
+    .list-group:last-child,
+    .list-group:last-child > .list-group-item:last-child
+) {
+    border-end-start-radius: max(0px, calc(var(--dlux-card-edge-bottom-radius) - 1px)) !important;
+    border-end-end-radius: max(0px, calc(var(--dlux-card-edge-bottom-radius) - 1px)) !important;
+}

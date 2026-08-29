@@ -28,6 +28,7 @@ from ..system.constants import (
     SETUP_STEP_LOGIN,
     SETUP_STEP_SIDEBAR,
     SETUP_STEP_NAVBAR,
+    SETUP_STEP_RIBBON,
     SETUP_STEP_TITLEBAR,
     SETUP_STEP_SEARCH,
     SETUP_STEP_NOTIFICATIONS,
@@ -46,6 +47,9 @@ from ..system.constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
+    CARD_EDGES_CHOICES,
     FORM_DENSITY_CHOICES,
     FORM_DENSITY_VALUES,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
@@ -58,8 +62,16 @@ from ..system.constants import (
     THEME_PICKER_LOCATION_VALUES,
     THEME_PICKER_LOCATION_TITLEBAR,
     DEFAULT_THEME_PICKER_LOCATION,
+    RIBBON_ADVANCED_TRIGGER_CHOICES,
+    RIBBON_LAYOUT_CHOICES,
+    RIBBON_STYLE_CHOICES,
     ROW_ACTIONS_STYLE_CHOICES,
     ROW_ACTIONS_STYLE_VALUES,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    RIBBON_NESTING_CHOICES,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
     DEFAULT_ROW_ACTIONS_STYLE,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
@@ -75,6 +87,7 @@ from ..system.constants import (
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
+    TABLE_EDGES_CHOICES,
     TITLEBAR_ALIGN_CHOICES,
     TITLEBAR_ALIGN_VALUES,
     TITLEBAR_HEIGHT_CHOICES,
@@ -151,7 +164,7 @@ from ..assets import adopt_stored_asset, create_managed_asset
 from ..fonts import get_font_choices
 
 from ._shared import FONT_CHOICES, THEME_CHOICES, _LEGACY_HOME_URL, _json_dump, logger
-from .builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_archive_file_widget, _get_ui_direction, build_archive_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
+from .builders import DluxRelayAwareSelect, EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_archive_file_widget, _get_ui_direction, build_archive_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 def _system_settings_sidebar_tools_available(cleaned_data):
@@ -282,6 +295,20 @@ class SystemSettingsForm(
         choices=TABLE_DENSITY_CHOICES,
         widget=forms.HiddenInput(),
     )
+    table_edges = forms.ChoiceField(
+        required=False,
+        choices=TABLE_EDGES_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    card_edges = forms.ChoiceField(
+        required=False,
+        choices=CARD_EDGES_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    table_accent_edges = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     default_form_density = forms.ChoiceField(
         required=False,
         choices=FORM_DENSITY_CHOICES,
@@ -300,6 +327,34 @@ class SystemSettingsForm(
     row_actions_style = forms.ChoiceField(
         required=False,
         choices=ROW_ACTIONS_STYLE_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    ribbon_layout = forms.ChoiceField(
+        required=False,
+        choices=RIBBON_LAYOUT_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    ribbon_style = forms.ChoiceField(
+        required=False,
+        choices=RIBBON_STYLE_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    ribbon_advanced_trigger = forms.ChoiceField(
+        required=False,
+        choices=RIBBON_ADVANCED_TRIGGER_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    ribbon_nesting = forms.ChoiceField(
+        required=False,
+        choices=RIBBON_NESTING_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    ribbon_title = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    ribbon_config = forms.JSONField(
+        required=False,
         widget=forms.HiddenInput(),
     )
     sticky_table_headers = forms.BooleanField(
@@ -433,6 +488,10 @@ class SystemSettingsForm(
         required=False,
         initial=True,
     )
+    sidebar_accent_edge = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     sidebar_enable_reorder = forms.BooleanField(
         required=False,
         initial=True,
@@ -485,6 +544,10 @@ class SystemSettingsForm(
     titlebar_show_logo = forms.BooleanField(
         required=False,
         initial=True,
+    )
+    titlebar_accent_edge = forms.BooleanField(
+        required=False,
+        initial=False,
     )
     titlebar_show_title = forms.BooleanField(
         required=False,
@@ -795,6 +858,17 @@ class SystemSettingsForm(
     privacy_notice_text = forms.CharField(required=False, max_length=500)
     registration_require_consent = forms.BooleanField(required=False, initial=False)
 
+    def clean_ribbon_config(self):
+        """Normalise the builder's JSON before it is stored.
+
+        A strip with no usable source, an unknown source type, or a field
+        source with no field name is dropped here — the failure belongs in the
+        editor that caused it, not on a list page days later.
+        """
+        from ..system.normalizers import normalize_ribbon_config
+
+        return normalize_ribbon_config(self.cleaned_data.get('ribbon_config'))
+
     class Meta:
         model = apps.get_model('dlux', 'SystemSettings')
         exclude = ['logo', 'favicon']
@@ -849,6 +923,7 @@ class SystemSettingsForm(
             'languages',
             'translations_override',
             'sidebar_config',
+            'ribbon_config',
             'sidebar_show_notification_badges',
             'sidebar_toggle_icon',
             'navbar_config',
@@ -952,7 +1027,7 @@ class SystemSettingsForm(
         self.fields['home_url'].label = s.get('form_sys_home_url', "Home URL")
         self.fields['home_url'].help_text = s.get(
             'help_sys_home_url',
-            'Choose the main Home URL. It remains the authenticated home destination and login redirect even when anonymous public-root traffic is split elsewhere.',
+            'Choose the main Home URL. It remains the authenticated home destination and login redirect even when anonymous public page traffic is split elsewhere.',
         )
         self.fields['home_url'].widget.attrs.update({
             'class': 'form-control glass-input',
@@ -968,10 +1043,10 @@ class SystemSettingsForm(
             'class': 'form-select glass-input',
         })
         self.fields['public_root_url'].required = False
-        self.fields['public_root_url'].label = s.get('form_sys_public_root_url', 'Anonymous Public Root URL')
+        self.fields['public_root_url'].label = s.get('form_sys_public_root_url', 'Anonymous Public Page URL')
         self.fields['public_root_url'].help_text = s.get(
             'help_sys_public_root_url',
-            'Optional: when separate public-root mode is enabled, anonymous users landing on `/` are redirected here instead of the main Home URL.',
+            'Optional: when separate public page mode is enabled, anonymous users landing on `/` are redirected here instead of the main Home URL.',
         )
         self.fields['public_root_url'].widget.attrs.update({
             'class': 'form-control glass-input',
@@ -980,11 +1055,11 @@ class SystemSettingsForm(
         })
         self.fields['public_root_url_discovered'].label = s.get(
             'form_sys_public_root_url_discovered',
-            'Choose anonymous public root from discovered pages',
+            'Choose anonymous public page from discovered pages',
         )
         self.fields['public_root_url_discovered'].help_text = s.get(
             'help_sys_public_root_url_discovered',
-            'Optional: select a discovered page to auto-fill the anonymous public-root destination, or leave it blank and enter a custom URL.',
+            'Optional: select a discovered page to auto-fill the anonymous public page destination, or leave it blank and enter a custom URL.',
         )
         self.fields['public_root_url_discovered'].widget.attrs.update({
             'class': 'form-select glass-input',
@@ -993,36 +1068,36 @@ class SystemSettingsForm(
             ('', s.get('form_sys_public_root_theme_default', 'Use system default theme')),
             *[(theme['slug'], theme['label']) for theme in get_theme_options(s, config.get('allowed_themes'))],
         )
-        self.fields['public_root_theme'].label = s.get('form_sys_public_root_theme', 'Public root theme')
+        self.fields['public_root_theme'].label = s.get('form_sys_public_root_theme', 'Public page theme')
         self.fields['public_root_theme'].help_text = s.get(
             'help_sys_public_root_theme',
-            'Theme applied to the public root for anonymous visitors. Leave on the system default to inherit the normal theme.',
+            'Theme applied to the public page for anonymous visitors. Leave on the system default to inherit the normal theme.',
         )
-        self.fields['public_root_title'].label = s.get('form_sys_public_root_title', 'Public root page title')
+        self.fields['public_root_title'].label = s.get('form_sys_public_root_title', 'Public page title')
         self.fields['public_root_title'].help_text = s.get(
             'help_sys_public_root_title',
-            'Optional browser/tab title shown to anonymous visitors on the public root. Leave blank to use the system name.',
+            'Optional browser/tab title shown to anonymous visitors on the public page. Leave blank to use the system name.',
         )
         self.fields['public_root_meta_description'].label = s.get(
-            'form_sys_public_root_meta_description', 'Public root meta description'
+            'form_sys_public_root_meta_description', 'Public page meta description'
         )
         self.fields['public_root_meta_description'].help_text = s.get(
             'help_sys_public_root_meta_description',
-            'Optional meta description tag emitted on the public root for search engines and link previews.',
+            'Optional meta description tag emitted on the public page for search engines and link previews.',
         )
         self.fields['show_titlebar_on_public'].label = s.get(
-            'form_sys_show_titlebar_on_public', 'Show titlebar on public root'
+            'form_sys_show_titlebar_on_public', 'Show titlebar on public page'
         )
         self.fields['show_titlebar_on_public'].help_text = s.get(
             'help_sys_show_titlebar_on_public',
-            'Show the titlebar to anonymous visitors on the public root. Hidden by default.',
+            'Show the titlebar to anonymous visitors on the public page. Hidden by default.',
         )
         self.fields['show_sidebar_on_public'].label = s.get(
-            'form_sys_show_sidebar_on_public', 'Show sidebar on public root'
+            'form_sys_show_sidebar_on_public', 'Show sidebar on public page'
         )
         self.fields['show_sidebar_on_public'].help_text = s.get(
             'help_sys_show_sidebar_on_public',
-            'Show the sidebar to anonymous visitors on the public root. Hidden by default.',
+            'Show the sidebar to anonymous visitors on the public page. Hidden by default.',
         )
         self.fields['default_language'].label = s.get('form_sys_default_lang', "Default Language")
         self.fields['default_theme'].label = s.get('form_sys_default_theme', "Default Theme")
@@ -1108,6 +1183,31 @@ class SystemSettingsForm(
             (DEFAULT_TABLE_DENSITY, s.get('table_density_balanced', 'Balanced')),
             ('roomy', s.get('table_density_roomy', 'Roomy')),
         )
+        self.fields['table_edges'].label = s.get('form_sys_table_edges', 'Table edges')
+        self.fields['table_edges'].help_text = s.get(
+            'help_sys_table_edges',
+            'Choose curved, half-rounded, or standard-radius table corners.',
+        )
+        self.fields['table_edges'].choices = (
+            (DEFAULT_TABLE_EDGES, s.get('table_edges_curved', 'Curved')),
+            ('half_rounded', s.get('table_edges_half_rounded', 'Half-rounded')),
+            ('normal', s.get('table_edges_normal', 'Normal')),
+        )
+        self.fields['card_edges'].label = s.get('form_sys_card_edges', 'Card edges')
+        self.fields['card_edges'].help_text = s.get(
+            'help_sys_card_edges',
+            'Choose curved, half-rounded, or standard-radius card corners.',
+        )
+        self.fields['card_edges'].choices = (
+            (DEFAULT_CARD_EDGES, s.get('card_edges_curved', 'Curved')),
+            ('half_rounded', s.get('card_edges_half_rounded', 'Half-rounded')),
+            ('normal', s.get('card_edges_normal', 'Normal')),
+        )
+        self.fields['table_accent_edges'].label = s.get('form_sys_table_accent_edges', 'Table accent edges')
+        self.fields['table_accent_edges'].help_text = s.get(
+            'help_sys_table_accent_edges',
+            'Use the active theme color around Dlux tables.',
+        )
         self.fields['default_form_density'].label = s.get('form_sys_default_form_density', "Default Form Density")
         self.fields['default_form_density'].help_text = s.get(
             'help_sys_default_form_density',
@@ -1147,6 +1247,46 @@ class SystemSettingsForm(
             (DEFAULT_ROW_ACTIONS_STYLE, s.get('row_actions_context', 'Context menu')),
             ('column', s.get('row_actions_column', 'Actions column')),
             ('both', s.get('row_actions_both', 'Both')),
+        )
+        self.fields['ribbon_layout'].label = s.get('form_sys_ribbon_layout', 'List page ribbon')
+        self.fields['ribbon_layout'].help_text = s.get(
+            'help_sys_ribbon_layout',
+            'How the band carrying a list page title, filters and actions is laid out.',
+        )
+        self.fields['ribbon_layout'].choices = (
+            (DEFAULT_RIBBON_LAYOUT, s.get('ribbon_layout_default', 'Default')),
+            ('stacked', s.get('ribbon_layout_stacked', 'Stacked')),
+            ('compact', s.get('ribbon_layout_compact', 'Compact')),
+        )
+        self.fields['ribbon_style'].label = s.get('form_sys_ribbon_style', 'Ribbon style')
+        self.fields['ribbon_style'].help_text = s.get(
+            'help_sys_ribbon_style',
+            'How the ribbon looks, independently of how it is arranged.',
+        )
+        self.fields['ribbon_style'].choices = (
+            (DEFAULT_RIBBON_STYLE, s.get('ribbon_style_accent', 'Accent')),
+            ('panel', s.get('ribbon_style_panel', 'Panel')),
+            ('flat', s.get('ribbon_style_flat', 'Flat')),
+        )
+        self.fields['ribbon_nesting'].label = s.get('form_sys_ribbon_nesting', 'Nested tabs')
+        self.fields['ribbon_nesting'].help_text = s.get(
+            'help_sys_ribbon_nesting',
+            'How a tab strip nested under another attaches to it.',
+        )
+        self.fields['ribbon_advanced_trigger'].label = s.get('form_sys_ribbon_advanced_trigger', 'Advanced filters')
+        self.fields['ribbon_advanced_trigger'].help_text = s.get(
+            'help_sys_ribbon_advanced_trigger',
+            'How the advanced filters are reached: behind a toggle, always open, or not offered.',
+        )
+        self.fields['ribbon_advanced_trigger'].choices = (
+            (DEFAULT_RIBBON_ADVANCED_TRIGGER, s.get('ribbon_advanced_button', 'Toggle button')),
+            ('always', s.get('ribbon_advanced_always', 'Always open')),
+            ('off', s.get('ribbon_advanced_off', 'Hidden')),
+        )
+        self.fields['ribbon_title'].label = s.get('form_sys_ribbon_title', 'Title in the ribbon')
+        self.fields['ribbon_title'].help_text = s.get(
+            'help_sys_ribbon_title',
+            'Show the page title inside the ribbon instead of above it.',
         )
         self.fields['sticky_table_headers'].label = s.get('form_sys_sticky_table_headers', 'Sticky table headers')
         self.fields['sticky_table_headers'].help_text = s.get(
@@ -1240,6 +1380,11 @@ class SystemSettingsForm(
         self.fields['sidebar_enabled'].help_text = s.get(
             'help_sys_sidebar_enabled',
             'Show the runtime sidebar. When disabled, content expands and sidebar toolbar controls are ignored.',
+        )
+        self.fields['sidebar_accent_edge'].label = s.get('form_sys_sidebar_accent_edge', 'Sidebar accent edge')
+        self.fields['sidebar_accent_edge'].help_text = s.get(
+            'help_sys_sidebar_accent_edge',
+            'Use the active theme color on the sidebar edge facing the page content.',
         )
         self.fields['sidebar_enable_reorder'].label = s.get('form_sys_sidebar_enable_reorder', 'Enable sidebar reorder')
         self.fields['sidebar_enable_reorder'].help_text = s.get(
@@ -1336,6 +1481,11 @@ class SystemSettingsForm(
         )
         self.fields['titlebar_show_title'].label = s.get('form_sys_titlebar_show_title', 'Show titlebar title')
         self.fields['titlebar_show_logo'].label = s.get('form_sys_titlebar_show_logo', 'Show titlebar logo')
+        self.fields['titlebar_accent_edge'].label = s.get('form_sys_titlebar_accent_edge', 'Titlebar accent edge')
+        self.fields['titlebar_accent_edge'].help_text = s.get(
+            'help_sys_titlebar_accent_edge',
+            'Use the active theme color along the bottom edge of the titlebar.',
+        )
         self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
         self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Titlebar buttons shape')
         self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
@@ -1531,22 +1681,22 @@ class SystemSettingsForm(
         self.fields['notification_auto_crud_enabled'].label = s.get('form_sys_notification_auto_crud', 'Enable automatic ScopedModel CRUD notifications')
         self.fields['notification_auto_crud_enabled'].help_text = s.get(
             'help_sys_notification_auto_crud',
-            'Master switch for automatic notifications emitted by ScopedModel create, update, and delete events.',
+            'Routes ScopedModel changes to authorized watchers and related users. The actor receives only configured flash feedback by default.',
         )
         self.fields['notification_auto_create'].label = s.get('form_sys_notification_auto_create', 'Automatic create notifications')
         self.fields['notification_auto_create'].help_text = s.get(
             'help_sys_notification_auto_create',
-            'When automatic CRUD notifications are enabled, emit notifications for new ScopedModel records.',
+            'Notify authorized recipients about new ScopedModel records, excluding the actor by default.',
         )
         self.fields['notification_auto_update'].label = s.get('form_sys_notification_auto_update', 'Automatic update mode')
         self.fields['notification_auto_update'].help_text = s.get(
             'help_sys_notification_auto_update',
-            'Off suppresses update notifications; Summary emits quiet changed-field summaries; Full emits update notifications with full metadata.',
+            'Off suppresses update notifications; Summary sends quiet changed-field summaries to authorized recipients; Full keeps richer update metadata.',
         )
         self.fields['notification_auto_delete'].label = s.get('form_sys_notification_auto_delete', 'Automatic delete notifications')
         self.fields['notification_auto_delete'].help_text = s.get(
             'help_sys_notification_auto_delete',
-            'When automatic CRUD notifications are enabled, emit notifications for deleted ScopedModel records.',
+            'Notify authorized recipients about deleted ScopedModel records, excluding the actor by default.',
         )
         self.fields['notification_flash_position'].choices = (
             ('top_center', s.get('notification_position_top_center', 'Top center')),
@@ -1751,6 +1901,7 @@ class SystemSettingsForm(
         })
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
         self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
+        self._bind_transport_availability(s)
         self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
         self.fields['email_config_host'].label = s.get('form_sys_email_host', 'Provider SMTP host')
         self.fields['email_config_port'].label = s.get('form_sys_email_port', 'Provider SMTP port')
@@ -1807,18 +1958,18 @@ class SystemSettingsForm(
             'data-email-test-recipient': '',
             'class': 'form-control glass-input',
         })
-        self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Root Access')
+        self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Page Access')
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
-            'Allow anonymous (non-logged-in) users to access the root URL (/). When enabled, the system will not force-redirect to login.',
+            'Allow anonymous (non-logged-in) users to access the public page at the root URL (/). When enabled, the system will not force-redirect to login.',
         )
         self.fields['public_root_split_enabled'].label = s.get(
             'form_sys_public_root_split_enabled',
-            'Separate anonymous public root from Home URL',
+            'Separate anonymous public page from Home URL',
         )
         self.fields['public_root_split_enabled'].help_text = s.get(
             'help_sys_public_root_split_enabled',
-            'When enabled, anonymous users can be redirected to a separate Public Root URL while authenticated users still use the main Home URL.',
+            'When enabled, anonymous users can be redirected to a separate Public Page URL while authenticated users still use the main Home URL.',
         )
         email_status = get_email_service_status()
         # Mail-dependent settings are editable only once email is switched on AND a
@@ -1895,6 +2046,46 @@ class SystemSettingsForm(
                     'roomy': {
                         'icon': 'bi-layout-text-window-reverse',
                         'description': s.get('table_density_roomy_desc', 'Uses larger rows and more breathing room.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['table_edges'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'curved': {
+                        'icon': 'bi-app',
+                        'description': s.get('table_edges_curved_desc', 'Use the distinctive rounded Dlux table shell.'),
+                    },
+                    'half_rounded': {
+                        'icon': 'bi-square-half',
+                        'description': s.get('table_edges_half_rounded_desc', 'Use square top corners and curved bottom corners.'),
+                    },
+                    'normal': {
+                        'icon': 'bi-square',
+                        'description': s.get('table_edges_normal_desc', 'Use restrained standard-radius table corners.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['card_edges'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'curved': {
+                        'icon': 'bi-app-indicator',
+                        'description': s.get('card_edges_curved_desc', 'Keep each Dlux card\'s designed rounded corners.'),
+                    },
+                    'half_rounded': {
+                        'icon': 'bi-square-half',
+                        'description': s.get('card_edges_half_rounded_desc', 'Use square top corners and curved bottom corners.'),
+                    },
+                    'normal': {
+                        'icon': 'bi-square',
+                        'description': s.get('card_edges_normal_desc', 'Use restrained standard-radius card corners.'),
                     },
                 },
             ),
@@ -1980,6 +2171,94 @@ class SystemSettingsForm(
             ),
         )
         _bind_choice_selector_widget(
+            self.fields['ribbon_nesting'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                # Keyed by the choice *values*, or the option loses its icon the
+                # moment a value is renamed.
+                option_meta={
+                    'chain': {
+                        'icon': 'bi-arrow-return-right',
+                        'description': s.get(
+                            'ribbon_nesting_chain_desc',
+                            'The nested strip continues its parent\u2019s own row after a mark.'),
+                    },
+                    'rail': {
+                        'icon': 'bi-list-nested',
+                        'description': s.get(
+                            'ribbon_nesting_rail_desc',
+                            'The nested strip is indented behind a rule that starts at its parent.'),
+                    },
+                    'tiered': {
+                        'icon': 'bi-text-indent-left',
+                        'description': s.get(
+                            'ribbon_nesting_tiered_desc',
+                            'No rule and no mark \u2014 weight alone carries the depth.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['ribbon_layout'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'default': {
+                        'icon': 'bi-layout-text-window-reverse',
+                        'description': s.get('ribbon_layout_default_desc', 'Title and actions on one row, filters beneath.'),
+                    },
+                    'stacked': {
+                        'icon': 'bi-layout-three-columns',
+                        'description': s.get('ribbon_layout_stacked_desc', 'Actions on their own row below the filters.'),
+                    },
+                    'compact': {
+                        'icon': 'bi-funnel',
+                        'description': s.get('ribbon_layout_compact_desc', 'Everything in one row, with no title.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['ribbon_style'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'accent': {
+                        'icon': 'bi-bookmark-fill',
+                        'description': s.get('ribbon_style_accent_desc', 'A coloured edge down the side of a bordered header.'),
+                    },
+                    'panel': {
+                        'icon': 'bi-square-half',
+                        'description': s.get('ribbon_style_panel_desc', 'A softly rounded, raised panel.'),
+                    },
+                    'flat': {
+                        'icon': 'bi-dash-lg',
+                        'description': s.get('ribbon_style_flat_desc', 'No panel at all, just a dividing rule.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['ribbon_advanced_trigger'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'button': {
+                        'icon': 'bi-binoculars-fill',
+                        'description': s.get('ribbon_advanced_button_desc', 'Hidden behind an Advanced button that remembers its state.'),
+                    },
+                    'always': {
+                        'icon': 'bi-eye',
+                        'description': s.get('ribbon_advanced_always_desc', 'Every filter is visible at all times.'),
+                    },
+                    'off': {
+                        'icon': 'bi-eye-slash',
+                        'description': s.get('ribbon_advanced_off_desc', 'Only the primary filters are offered.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
             self.fields['titlebar_global_search_mode'],
             DluxChoiceSelectorWidget(
                 variant='toggle',
@@ -2006,7 +2285,7 @@ class SystemSettingsForm(
             self.fields['public_root_theme'],
             DluxChoiceSelectorWidget(
                 variant='swatch',
-                attrs={'class': 'dlux-public-root-theme-picker'},
+                attrs={'class': 'dlux-public-page-theme-picker'},
                 option_meta={
                     '': {'icon': 'bi-circle-half'},
                     **{
@@ -2116,6 +2395,99 @@ class SystemSettingsForm(
                     'end': {
                         'icon': 'bi-text-right',
                         'description': s.get('titlebar_align_end_desc', 'Pin the title to the end side.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['notification_flash_position'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'top_center': {
+                        'icon': 'bi-align-top',
+                        'description': s.get('notification_position_top_center_desc', 'Centred above the page content.'),
+                    },
+                    'top_start': {
+                        'icon': 'bi-box-arrow-in-up-left',
+                        'description': s.get('notification_position_top_start_desc', 'Top corner on the reading side.'),
+                    },
+                    'top_end': {
+                        'icon': 'bi-box-arrow-in-up-right',
+                        'description': s.get('notification_position_top_end_desc', 'Top corner on the far side.'),
+                    },
+                    'titlebar_end': {
+                        'icon': 'bi-window',
+                        'description': s.get('notification_position_titlebar_end_desc', 'Tucked under the titlebar.'),
+                    },
+                    'bottom_start': {
+                        'icon': 'bi-box-arrow-in-down-left',
+                        'description': s.get('notification_position_bottom_start_desc', 'Bottom corner on the reading side.'),
+                    },
+                    'bottom_end': {
+                        'icon': 'bi-box-arrow-in-down-right',
+                        'description': s.get('notification_position_bottom_end_desc', 'Bottom corner on the far side.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['notification_flash_size'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'compact': {
+                        'icon': 'bi-arrows-angle-contract',
+                        'description': s.get('notification_size_compact_desc', 'A slim strip that stays out of the way.'),
+                    },
+                    'balanced': {
+                        'icon': 'bi-square',
+                        'description': s.get('notification_size_balanced_desc', 'The standard flash size.'),
+                    },
+                    'prominent': {
+                        'icon': 'bi-arrows-angle-expand',
+                        'description': s.get('notification_size_prominent_desc', 'A larger flash that is hard to miss.'),
+                    },
+                },
+            ),
+        )
+        # Sizes use a letter rather than an icon, matching `titlebar_title_size`.
+        _bind_choice_selector_widget(
+            self.fields['notification_flash_text_size'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'sm': {
+                        'surface_label': 'S',
+                        'description': s.get('notification_text_size_sm_desc', 'Compact flash text.'),
+                    },
+                    'md': {
+                        'surface_label': 'M',
+                        'description': s.get('notification_text_size_md_desc', 'Balanced default flash text.'),
+                    },
+                    'lg': {
+                        'surface_label': 'L',
+                        'description': s.get('notification_text_size_lg_desc', 'Larger flash text.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['notification_auto_update'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'off': {
+                        'icon': 'bi-slash-circle',
+                        'description': s.get('notification_update_off_desc', 'No notification when a record is edited.'),
+                    },
+                    'summary': {
+                        'icon': 'bi-card-text',
+                        'description': s.get('notification_update_summary_desc', 'One line naming the record that changed.'),
+                    },
+                    'full': {
+                        'icon': 'bi-card-list',
+                        'description': s.get('notification_update_full_desc', 'Every changed field, listed.'),
                     },
                 },
             ),
@@ -2405,7 +2777,7 @@ class SystemSettingsForm(
         _layout_initial_source = dict(_existing_layout) if isinstance(_existing_layout, dict) else {}
         for _layout_key in (
             'footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url',
-            'default_form_density', 'default_modal_size', 'sticky_table_headers',
+            'table_edges', 'card_edges', 'table_accent_edges', 'default_form_density', 'default_modal_size', 'sticky_table_headers',
             'resizable_table_columns', 'zebra_striping', 'show_audit_fields', 'show_soft_deleted',
         ):
             if _layout_key not in _layout_initial_source and config.get(_layout_key) is not None:
@@ -2546,6 +2918,7 @@ class SystemSettingsForm(
                 initial_sidebar_config = {}
 
         self.initial['sidebar_enabled'] = bool(initial_sidebar_config.get('enabled', True))
+        self.initial['sidebar_accent_edge'] = bool(initial_sidebar_config.get('accent_edge', False))
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
         self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
         self.initial['sidebar_show_icons'] = bool(initial_sidebar_config.get('show_icons', True))
@@ -2595,6 +2968,7 @@ class SystemSettingsForm(
         )
         self.initial['titlebar_show_title'] = bool(initial_titlebar_config.get('show_title', True))
         self.initial['titlebar_show_logo'] = bool(initial_titlebar_config.get('show_logo', True))
+        self.initial['titlebar_accent_edge'] = bool(initial_titlebar_config.get('accent_edge', False))
         self.initial['titlebar_show_home_button'] = bool(initial_titlebar_config.get('show_home_button', True))
         self.initial['titlebar_home_shape'] = initial_titlebar_config.get(
             'buttons_shape',
@@ -2891,6 +3265,36 @@ class SystemSettingsForm(
                 'DLUX_STRINGS': s,
             },
         )
+        from ..ribbon.catalog import ribbon_tab_catalog
+
+        self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,
+            'dlux/setup/ribbon_builder.html',
+            {
+                'ribbon_catalog_json': _json_dump(ribbon_tab_catalog(request=self.request), ensure_ascii=False),
+                'languages_json': _json_dump(current_languages, ensure_ascii=False),
+                'ribbon_config_json': _json_dump(self.initial.get('ribbon_config') or {}, ensure_ascii=False),
+                'ribbon_builder_strings_json': _json_dump({
+                    'kind_all': s.get('ribbon_kind_all', 'All'),
+                    'kind_field': s.get('ribbon_kind_field', 'one tab per value'),
+                    'kind_flag': s.get('ribbon_kind_flag', 'rows where true'),
+                    'kind_static': s.get('ribbon_kind_static', 'fixed'),
+                    'add_all': s.get('ribbon_builder_add_all', 'All (everything)'),
+                    'locked': s.get('ribbon_builder_locked', 'fixed in code'),
+                    'relation_primary': s.get('ribbon_relation_primary', 'Tabs'),
+                    'relation_child': s.get('ribbon_relation_child', 'Within'),
+                    'relation_axis': s.get('ribbon_relation_axis', 'Across'),
+                    'restore_strip': s.get('ribbon_builder_restore_strip', 'Restore'),
+                    'remove_strip': s.get('ribbon_builder_remove_strip', 'Remove'),
+                    'drawn_note': s.get('ribbon_builder_drawn_note',
+                                        'Drawn here \u2014 open the page to see its tabs.'),
+                    'no_icons': s.get('sidebar_no_icons_found', 'No icons match your search.'),
+                    'locked_hint': s.get('ribbon_builder_locked_hint',
+                                         'This page needs these tabs, so they cannot be removed or extended. '
+                                         'Renaming and reordering them is fine.'),
+                }, ensure_ascii=False),
+                'DLUX_STRINGS': s,
+            },
+        )
         self.navbar_builder_html = self._step_render(SETUP_STEP_NAVBAR,
             'dlux/setup/navbar_builder.html',
             {
@@ -3002,7 +3406,7 @@ class SystemSettingsForm(
 
         # Build step 1 fields dynamically - import only shown in initial setup
         step_1_fields = [
-            self._step_badge(s, 'system_setup_step1', 'Step 1: Identity'),
+            self._step_badge(s, 'branding', 'Branding'),
         ]
         if self.mode == 'setup':
             step_1_fields.append(build_archive_file_field('settings_import_file'))
@@ -3110,6 +3514,33 @@ class SystemSettingsForm(
 
 
 
+    def _bind_transport_availability(self, strings):
+        """Offer relay transport only while the relay is actually listening.
+
+        Probed rather than inferred: `email_config.transport` records what was
+        chosen, not whether the process exists, and the Options panel's
+        "smtp-relay" badge has always been an echo of that setting rather than a
+        reachability check. A deployment with no relay container could pick it
+        here and discover the mistake only on the next test send.
+
+        Safe to gate on because the relay does not depend on this setting to
+        run: `dlux.smtp_relay` starts its listener unconditionally and resolves
+        its upstream per message, so it answers before it is ever configured.
+        """
+        from ..utils import internal_smtp_relay_available
+
+        field = self.fields['email_config_transport']
+        if internal_smtp_relay_available():
+            return
+
+        reason = strings.get(
+            'help_sys_email_transport_relay_missing',
+            'The internal SMTP relay is not running, so this deployment cannot use it.')
+        field.widget = DluxRelayAwareSelect(
+            choices=field.choices, unavailable={'relay'}, reason=reason)
+        field.widget.attrs.update({'class': 'form-select glass-input'})
+        field.help_text = reason
+
     def _apply_imported_settings(self, cleaned, imported):
         if not imported:
             return
@@ -3132,6 +3563,9 @@ class SystemSettingsForm(
             'allow_user_font_override',
             'allow_user_language_override',
             'default_table_density',
+            'table_edges',
+            'card_edges',
+            'table_accent_edges',
             'email_2fa',
             'forgot_password_enabled',
             'prevent_multiple_active_sessions',
@@ -3189,6 +3623,7 @@ class SystemSettingsForm(
         if isinstance(sidebar, dict):
             cleaned['sidebar_config'] = sidebar
             cleaned['sidebar_enabled'] = bool(sidebar.get('enabled', True))
+            cleaned['sidebar_accent_edge'] = bool(sidebar.get('accent_edge', False))
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
@@ -3251,12 +3686,13 @@ class SystemSettingsForm(
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
             titlebar = normalize_titlebar_config(titlebar)
+            cleaned['titlebar_accent_edge'] = bool(titlebar.get('accent_edge', False))
             cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
             cleaned['titlebar_show_logo'] = bool(titlebar.get('show_logo', True))
             cleaned['titlebar_show_home_button'] = bool(titlebar.get('show_home_button', True))
-            # Legacy titlebar hide flag now maps to the centralized public-root
+            # Legacy titlebar hide flag now maps to the centralized public page
             # show toggle (inverted). Only seed it when the import didn't already
-            # provide an explicit public-root value.
+            # provide an explicit public page value.
             if 'show_titlebar_on_public' not in cleaned:
                 cleaned['show_titlebar_on_public'] = not bool(
                     titlebar.get('hide_on_public_unauthenticated_index', False)
@@ -3365,6 +3801,7 @@ class SystemSettingsForm(
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
             sidebar['enabled'] = bool(cleaned.get('sidebar_enabled', True))
+            sidebar['accent_edge'] = bool(cleaned.get('sidebar_accent_edge', False))
             if sidebar['enabled']:
                 sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
                 sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
@@ -3382,6 +3819,7 @@ class SystemSettingsForm(
             sidebar = normalize_sidebar_behavior(sidebar)
             cleaned['sidebar_config'] = sidebar
             cleaned['sidebar_enabled'] = bool(sidebar.get('enabled', True))
+            cleaned['sidebar_accent_edge'] = bool(sidebar.get('accent_edge', False))
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
@@ -3538,10 +3976,11 @@ class SystemSettingsForm(
             'include_data': bool(cleaned.get('titlebar_global_search_include_data', False)),
         })
         cleaned['titlebar_config'] = normalize_titlebar_config({
+            'accent_edge': bool(cleaned.get('titlebar_accent_edge', False)),
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
             'show_home_button': bool(cleaned.get('titlebar_show_home_button', True)),
-            # Deprecated: titlebar visibility on the public root is now controlled
+            # Deprecated: titlebar visibility on the public page is now controlled
             # by public_root_config.show_titlebar_on_public. Keep the legacy key in
             # sync (inverted) so old consumers/exports stay coherent.
             'hide_on_public_unauthenticated_index': not bool(
@@ -3635,6 +4074,7 @@ class SystemSettingsForm(
                     'delete': bool(cleaned.get('notification_auto_delete', True)),
                     'actor_flash_actions': ['create', 'delete', 'error'],
                     'watchable': True,
+                    'include_actor': False,
                 },
             })
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
@@ -3730,6 +4170,15 @@ class SystemSettingsForm(
             # flat so apply_system_settings_import routes it into layout_config.
             'options_style': layout_config.get('options_style', DEFAULT_OPTIONS_STYLE),
             'row_actions_style': layout_config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE),
+            'table_edges': layout_config.get('table_edges', DEFAULT_TABLE_EDGES),
+            'card_edges': layout_config.get('card_edges', DEFAULT_CARD_EDGES),
+            'table_accent_edges': bool(layout_config.get('table_accent_edges', False)),
+            'ribbon_layout': layout_config.get('ribbon_layout', DEFAULT_RIBBON_LAYOUT),
+            'ribbon_style': layout_config.get('ribbon_style', DEFAULT_RIBBON_STYLE),
+            'ribbon_title': layout_config.get('ribbon_title', True),
+            'ribbon_advanced_trigger': layout_config.get(
+                'ribbon_advanced_trigger', DEFAULT_RIBBON_ADVANCED_TRIGGER),
+            'ribbon_nesting': layout_config.get('ribbon_nesting', DEFAULT_RIBBON_NESTING),
             'default_table_density': layout_config.get(
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),

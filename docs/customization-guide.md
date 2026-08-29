@@ -11,7 +11,7 @@ This page is the integration map for projects that extend DjangoLux. Each topic 
 ## UI and behavior
 
 - [UI Integration](ui-integration.md) — sections, dynamic modals, Dlux tables, filters, row actions, downloads, activity logging, tutorials, and components.
-- [Template and Form Customization](template-customization.md) — extension partials, page bases, form footers, assets, public-root chrome, and assisted entry.
+- [Template and Form Customization](template-customization.md) — extension partials, page bases, form footers, assets, public page chrome, and assisted entry.
 - [Developer Guide](developer-guide.md) — framework mental model, discovery, model behavior, public component catalog, and implementation contracts.
 
 ## Extension rules

@@ -607,6 +607,68 @@
     border-top-color: rgba(0, 180, 216, 0.14) !important;
 }
 
+:root.theme-gothic .archive-file-card {
+    border-color: rgba(0, 180, 216, 0.18) !important;
+    background:
+        radial-gradient(circle at top, rgba(0, 180, 216, 0.08), transparent 62%),
+        linear-gradient(180deg, rgba(26, 16, 37, 0.98), rgba(10, 5, 16, 0.97)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.04),
+        0 16px 34px -28px rgba(0, 0, 0, 0.76) !important;
+}
+
+:root.theme-gothic .archive-file-field.is-dragover .archive-file-card,
+:root.theme-gothic .archive-file-card:hover,
+:root.theme-gothic .archive-file-card:focus-visible {
+    border-color: rgba(0, 180, 216, 0.42) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.06),
+        0 0 0 0.14rem rgba(0, 180, 216, 0.08),
+        0 18px 36px -28px rgba(157, 78, 221, 0.32) !important;
+}
+
+:root.theme-gothic .archive-file-tag {
+    background: rgba(0, 180, 216, 0.12) !important;
+    color: var(--gothic-cyan) !important;
+    border: 1px solid rgba(0, 180, 216, 0.2) !important;
+}
+
+:root.theme-gothic .archive-file-tool {
+    background: rgba(224, 224, 255, 0.07) !important;
+    color: var(--gothic-cyan) !important;
+    border: 1px solid rgba(0, 180, 216, 0.14) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-gothic .archive-file-tool-upload {
+    background: rgba(0, 180, 216, 0.16) !important;
+    color: var(--gothic-cyan) !important;
+}
+
+:root.theme-gothic .archive-file-tool-scan {
+    background: rgba(157, 78, 221, 0.16) !important;
+    color: var(--gothic-magenta) !important;
+}
+
+:root.theme-gothic .archive-file-tool-clear {
+    background: rgba(255, 143, 177, 0.14) !important;
+    color: #ffb3ca !important;
+}
+
+:root.theme-gothic .archive-file-icon {
+    background: rgba(0, 180, 216, 0.11) !important;
+    color: var(--gothic-cyan) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 180, 216, 0.16) !important;
+}
+
+:root.theme-gothic .archive-file-name {
+    color: var(--title) !important;
+}
+
+:root.theme-gothic .archive-file-meta {
+    color: var(--dlux-setup-muted) !important;
+}
+
 /* 6. Buttons - Chrome & Neon */
 :root.theme-gothic .btn-primary, 
 :root.theme-gothic .btn-primary *,

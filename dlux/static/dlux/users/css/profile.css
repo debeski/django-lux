@@ -210,6 +210,9 @@ html[dir="rtl"] .timeline-dot {
 }
 
 /* --- Profile Completeness --- */
+/* Deliberately fixed, and marked `data-dlux-card-edges-ignore` in the template:
+   this wraps a progress meter, and a card-sized radius on an 8px-tall track
+   swallows the bar. Its own proportions are the point. */
 .completeness-container {
     margin-bottom: 2rem;
     background: rgba(255,255,255,0.3);
@@ -299,7 +302,9 @@ html[dir="rtl"] .timeline-dot {
     align-items: center;
     padding: 0.85rem;
     border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.14);
-    border-radius: 14px;
+    /* Follows the Card edges setting: a panel sitting inside a card looks
+       wrong keeping its own corner while the card changes shape around it. */
+    border-radius: var(--dlux-card-edge-shape, 14px);
     background: rgba(255, 255, 255, 0.42);
 }
 

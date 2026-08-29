@@ -1,0 +1,669 @@
+/* Ported from the list header this generalises, class-for-class and rule-for-
+   rule, so a page moving to the ribbon looks identical to the one it replaces.
+   The form itself keeps the `dlux-filter` class: `form_fields.css` and all
+   seven themes style filter rows through it, and duplicating those selectors
+   per theme is exactly the trap the `.btn-link` fix called out. The ribbon's
+   own JS keys off `data-dlux-ribbon-autosubmit`, and the helper's off
+   `data-dlux-filter-autosubmit`, so sharing the class cannot double-bind. */
+
+.dlux-ribbon-header {
+    display: grid;
+    min-width: 0;
+    margin-block-end: 1rem;
+    color: var(--title, var(--bs-body-color, #212529));
+    /* `card_edges.css` defines these for every setting, so the fallback is only
+       for a page that somehow loads the ribbon without it. It must never be
+       flatter than the `normal` radius, or the setting reads inverted: curved
+       would look squarer than normal. */
+    --dlux-ribbon-edge-radius: var(--dlux-card-edge-radius, 1.35rem);
+    --dlux-ribbon-edge-shape: var(--dlux-card-edge-shape, var(--dlux-ribbon-edge-radius));
+}
+
+/* --- Accent: a coloured edge down the side of a bordered header. ----------- */
+.dlux-ribbon-skin-accent {
+    padding: .875rem 1.125rem;
+    border-radius: var(--dlux-ribbon-edge-shape, var(--dlux-ribbon-edge-radius));
+    border-block: 1px solid color-mix(in srgb, var(--primal, #475569) 18%, transparent);
+    border-inline: .25rem solid var(--primal, var(--bs-primary, #475569));
+    background: color-mix(
+        in srgb,
+        var(--table-row, var(--bs-body-bg, #fff)) 94%,
+        var(--primal, var(--bs-primary, #475569))
+    );
+}
+
+/* --- Glass: a softly rounded, raised panel. ---------------------------------
+   The element also carries `glass-profile`, which every theme already restyles,
+   so the dark themes replace this surface with their own. The surface here is
+   the plain card token rather than a mix: darkening the body background made a
+   grey slab that sat badly on the light and colour-palette themes, which do not
+   restyle `glass-profile`. The border and shadow do the raising. */
+.dlux-ribbon-skin-panel {
+    padding: 1.35rem 1.5rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    border-radius: var(--dlux-ribbon-edge-shape, var(--dlux-ribbon-edge-radius));
+    background: var(--bs-card-bg, var(--bs-body-bg, #fff));
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.34);
+}
+
+.dlux-ribbon-skin-panel .dlux-ribbon-heading h1 {
+    font-size: clamp(1.35rem, 2.4vw, 2rem);
+    font-weight: 800;
+}
+
+.dlux-ribbon-skin-panel .dlux-ribbon-filter {
+    border-block-start-color: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+}
+
+.dlux-ribbon-skin-panel .dlux-ribbon-actions .btn {
+    border-radius: 50rem;
+}
+
+/* --- Flat: no card, just a rule, for pages where the list should lead. ------- */
+.dlux-ribbon-skin-flat {
+    padding: .25rem 0 .75rem;
+    border-radius: 0;
+    border-block-end: 1px solid var(--bs-border-color, rgba(0, 0, 0, .175));
+    background: none;
+}
+
+.dlux-ribbon-skin-flat .dlux-ribbon-heading h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.dlux-ribbon-skin-flat .dlux-ribbon-filter {
+    border-block-start: 0;
+    padding-block-start: .25rem;
+}
+
+/* Spacing mirrors the reports hero (`reports/css/overview.css`): a 1.5rem gap
+   between the copy and the actions, and 1rem between the icon tile and the
+   text. The icon used to sit inline inside the `h1`, which locked it against
+   the title and left the subtitle nowhere sensible to go. */
+.dlux-ribbon-header-row {
+    display: grid;
+    /* The heading keeps a floor and the actions yield to it. A bare
+       `max-content` actions column never gives way, so a wide action — the
+       backup page puts a three-field form there — crushed the title into a
+       column barely wider than one word. `min(100%, ...)` keeps the floor from
+       overflowing a narrow screen. */
+    grid-template-columns: minmax(min(100%, 14rem), 1fr) minmax(0, max-content);
+    align-items: center;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+.dlux-ribbon-heading {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    text-align: start;
+}
+
+/* Its own tile rather than a glyph in the heading, so the title and the
+   subtitle share one column beside it and the block reads as one unit. */
+.dlux-ribbon-icon {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 1rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--primal, #0d6efd);
+    font-size: 1.35rem;
+}
+
+.dlux-ribbon-copy {
+    min-width: 0;
+}
+
+.dlux-ribbon-heading h1 {
+    margin: 0;
+    color: inherit;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0;
+}
+
+.dlux-ribbon-heading p {
+    max-width: 60rem;
+    margin: .25rem 0 0;
+    color: var(--htitle, var(--bs-secondary-color, #6c757d));
+    font-size: .875rem;
+    line-height: 1.45;
+}
+
+.dlux-ribbon-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: .75rem;
+    max-width: 100%;
+    justify-self: end;
+}
+
+.dlux-ribbon-actions .btn {
+    min-height: 2.5rem;
+    padding-inline: 1rem;
+}
+
+.dlux-ribbon-actions-below {
+    justify-self: start;
+    margin-block-start: .75rem;
+}
+
+.dlux-ribbon-filter {
+    min-width: 0;
+    margin-block-start: .75rem;
+    padding-block-start: .75rem;
+    border-block-start: 1px solid color-mix(in srgb, var(--primal, #475569) 12%, transparent);
+}
+
+/* Compact is a single row, so the filter block carries no divider of its own
+   and the actions ride along as the last column of the filter row. */
+.dlux-ribbon-actions-inline {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .5rem;
+    justify-self: auto;
+}
+
+.dlux-ribbon-layout-compact .dlux-ribbon-filter .dlux-filter {
+    padding: 0 !important;
+}
+
+.dlux-ribbon-header-bare .dlux-ribbon-filter {
+    margin-block-start: 0;
+    padding-block-start: 0;
+    border-block-start: 0;
+}
+
+.dlux-ribbon-filter .dlux-filter {
+    min-width: 0;
+    padding: 0 !important;
+}
+
+.dlux-ribbon-filter .dlux-filter > .row:first-of-type {
+    flex-wrap: nowrap;
+    align-items: stretch !important;
+    min-width: 0;
+}
+
+.dlux-ribbon-filter .dlux-filter > .row:first-of-type > * {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+}
+
+.dlux-ribbon-filter .dlux-filter > .row:first-of-type > .flex-fill {
+    flex: 1 1 16rem !important;
+}
+
+.dlux-ribbon-filter .dlux-filter > .collapse,
+.dlux-ribbon-filter .dlux-filter > .m-0:not(.row) {
+    padding-block-start: .625rem;
+}
+
+@media (max-width: 575.98px) {
+    .dlux-ribbon-skin-accent {
+        padding: .875rem;
+    }
+
+    .dlux-ribbon-skin-panel {
+        padding: 1rem;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: stretch;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type > .form-group:first-child {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type > [class*="col-md-2"] {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type > .form-group:nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+        width: 100%;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type > [class*="col-md-3"] {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
+    .dlux-ribbon-filter .dlux-filter > .row:first-of-type > [class*="col-md-3"]:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 399.98px) {
+    .dlux-ribbon-header-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dlux-ribbon-actions {
+        justify-self: start;
+    }
+}
+
+/* The chip look comes from `dlux-filter-chip` in form_actions.css, which the
+   toggle already carries. Only the pressed-state rules are keyed to the
+   helper's own `dlux-filter-toggle` class, and the ribbon must not use that
+   one: the helper's script binds panel state to it, so sharing it would leave
+   two scripts restoring the same panel from two localStorage keys. */
+.dlux-filter .btn.dlux-ribbon-toggle {
+    color: var(--bs-body-color, #212529) !important;
+}
+
+.dlux-filter .btn.dlux-ribbon-toggle[aria-expanded="true"] {
+    color: var(--primal_dark, #0d6efd) !important;
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.3) !important;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.1), transparent 58%),
+        linear-gradient(180deg, rgba(244, 248, 255, 0.99), rgba(236, 242, 250, 0.95)) !important;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.045);
+}
+
+.dlux-filter .btn.dlux-ribbon-toggle[aria-expanded="true"] i {
+    color: inherit !important;
+}
+
+/* A ribbon setting the chosen layout has already answered. Left visible so the
+   reader can see what the layout decided, rather than silently vanishing. */
+.dlux-ribbon-setting-disabled {
+    opacity: .5;
+}
+
+.dlux-ribbon-setting-disabled,
+.dlux-ribbon-setting-disabled * {
+    cursor: not-allowed;
+}
+
+/* The tab strip: between the heading and the filters, because it chooses what
+   the filters are about. Pills rather than a docked tab bar — these are links
+   that reload the page and change the whole band, so promising "this card is
+   what switches" would be a lie. */
+.dlux-ribbon-tabs {
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin: 0;
+    padding: 0;
+}
+
+/* The rule goes above the strip, not below it.
+   The title says what the page is; the tabs and the filters both say which
+   records — so the boundary is under the title, and one separator marks it.
+   With the rule below the strip instead, the tabs read as an appendage of the
+   filter row and nothing at all divided them from the heading. */
+/* Matched on the strips wrapper as well as a bare strip: a page that splits
+   more than one way wraps its strips in `.dlux-ribbon-strips`, which stopped
+   the adjacent-sibling selector matching and silently took the separator and
+   its spacing with it — the heading sat flush against the tabs again. */
+.dlux-ribbon-header-row + .dlux-ribbon-tabs,
+.dlux-ribbon-header-row + .dlux-ribbon-strips {
+    margin-block-start: .75rem;
+    padding-block-start: .75rem;
+    border-block-start: 1px solid color-mix(in srgb, var(--primal, #475569) 12%, transparent);
+}
+
+/* Tabs and filters are one zone, so they are spaced, not divided. */
+.dlux-ribbon-tabs + .dlux-ribbon-filter,
+.dlux-ribbon-strips + .dlux-ribbon-filter {
+    margin-block-start: .625rem;
+    padding-block-start: 0;
+    border-block-start: 0;
+}
+
+.dlux-ribbon-tabs .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .85rem;
+    border-radius: 50rem;
+    color: var(--bs-body-color);
+    font-size: .9rem;
+}
+
+/* --- Nested strips ---------------------------------------------------------
+   Depth means containment and nothing else. A child strip narrows *within* its
+   parent, so it is drawn attached to it and dies with it; an axis cuts across
+   everything above, so it is deliberately not a pill at all — a row that looks
+   like a child while meaning something orthogonal is what makes a stack of
+   strips read as assembled rather than designed. */
+
+.dlux-ribbon-strips {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+}
+
+/* A child reads as subordinate: smaller, tinted rather than filled. */
+.dlux-ribbon-tabs--child .nav-link {
+    padding: .22rem .68rem;
+    font-size: .82rem;
+    color: var(--bs-secondary-color);
+}
+
+.dlux-ribbon-tabs--child .nav-link.active {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+/* Chain: the child continues the parent's own line after a mark, the way a
+   path reads. Tightest, and the default — long labels simply wrap. */
+.dlux-ribbon-chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+}
+
+.dlux-ribbon-chain-mark {
+    width: .5rem;
+    height: .5rem;
+    border-block-start: 1px solid var(--bs-border-color);
+    border-inline-end: 1px solid var(--bs-border-color);
+    transform: rotate(45deg);
+    opacity: .8;
+}
+
+/* Rail: the child is indented behind a rule that starts at its parent, so the
+   containment is drawn rather than implied. */
+.dlux-ribbon-rail {
+    margin-inline-start: .6rem;
+    padding-inline-start: 1.15rem;
+    border-inline-start: 2px solid var(--bs-border-color);
+}
+
+.dlux-ribbon-rail-label {
+    display: block;
+    font-size: .72rem;
+    color: var(--bs-secondary-color);
+    margin-block-end: .25rem;
+}
+
+/* Tiered: no rail and no mark — weight alone carries the depth, which stays
+   calm where a rail would turn into a ladder. */
+.dlux-ribbon-nesting-tiered .dlux-ribbon-tabs--child {
+    margin-inline-start: .25rem;
+}
+
+/* An axis is a different question, so it gets a different control. */
+.dlux-ribbon-axis {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.dlux-ribbon-axis-label {
+    font-size: .72rem;
+    color: var(--bs-secondary-color);
+}
+
+.dlux-ribbon-segmented {
+    display: inline-flex;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .55rem;
+    overflow: hidden;
+}
+
+.dlux-ribbon-segment {
+    padding: .26rem .72rem;
+    font-size: .8rem;
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    border-inline-start: 1px solid var(--bs-border-color);
+}
+
+.dlux-ribbon-segment:first-child { border-inline-start: 0; }
+
+.dlux-ribbon-segment:hover {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.08);
+    color: var(--bs-body-color);
+}
+
+.dlux-ribbon-segment.active {
+    background: var(--primal, #0d6efd);
+    color: #fff;
+}
+
+.dlux-ribbon-tab-count {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: inherit;
+    font-size: .75rem;
+}
+
+.dlux-ribbon-tabs .nav-link.active .dlux-ribbon-tab-count {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* --- The tab-strip builder, in Settings -> Ribbon -------------------------- */
+.dlux-ribbon-builder__bar,
+.dlux-ribbon-builder__add {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.dlux-ribbon-builder__strips {
+    display: grid;
+    gap: .75rem;
+    margin-block: .75rem;
+}
+
+.dlux-ribbon-builder__strip {
+    padding: .875rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--dlux-card-edge-radius, 1.35rem);
+    background: var(--bs-tertiary-bg);
+}
+
+.dlux-ribbon-builder__strip-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-block-end: .5rem;
+}
+
+.dlux-ribbon-builder__row {
+    max-width: 16rem;
+    margin-block-end: .75rem;
+}
+
+.dlux-ribbon-builder__sources {
+    display: grid;
+    gap: .35rem;
+    margin-block-end: .75rem;
+}
+
+/* One row per tab: what it is, where it came from, then its overrides. */
+.dlux-ribbon-builder__source {
+    display: grid;
+    grid-template-columns: max-content minmax(6rem, 1fr) minmax(0, 1fr) minmax(0, 1fr) max-content max-content max-content;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .5rem;
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+}
+
+.dlux-ribbon-builder__source-kind {
+    padding: .1rem .5rem;
+    border-radius: 50rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--primal, #0d6efd);
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.dlux-ribbon-builder__source-name {
+    font-family: var(--bs-font-monospace);
+    font-size: .8125rem;
+    overflow-wrap: anywhere;
+}
+
+.dlux-ribbon-builder__icon {
+    font-family: var(--bs-font-monospace);
+}
+
+@media (max-width: 767.98px) {
+    .dlux-ribbon-builder__source {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dlux-ribbon-builder__strip-tools {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.dlux-ribbon-builder__strip--off > :not(.dlux-ribbon-builder__strip-head) {
+    opacity: .45;
+}
+
+.dlux-ribbon-builder__models {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.dlux-ribbon-builder__model {
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--dlux-card-edge-radius, 1.35rem);
+    background: var(--bs-tertiary-bg);
+    padding: .75rem .9rem;
+}
+
+.dlux-ribbon-builder__model-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-block-end: .5rem;
+}
+
+.dlux-ribbon-builder__model-name { display: flex; align-items: baseline; gap: .5rem; }
+.dlux-ribbon-builder__model-tools { display: flex; align-items: center; gap: .5rem; }
+
+.dlux-ribbon-builder__group + .dlux-ribbon-builder__group {
+    margin-block-start: .65rem;
+}
+
+.dlux-ribbon-builder__group-title {
+    margin-block: .25rem;
+    color: var(--bs-secondary-color);
+    font-size: .72rem;
+    text-transform: uppercase;
+}
+
+/* One row per strip, drawn the way the page draws it. */
+.dlux-ribbon-builder__preview {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding-block: .3rem;
+    flex-wrap: wrap;
+}
+
+.dlux-ribbon-builder__preview[data-relation="child"] {
+    margin-inline-start: 1rem;
+    padding-inline-start: .75rem;
+    border-inline-start: 2px solid var(--bs-border-color);
+}
+
+.dlux-ribbon-builder__preview-kind {
+    flex: none;
+    min-width: 4.5rem;
+    font-size: .68rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.dlux-ribbon-builder__pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem;
+    flex: 1 1 16rem;
+}
+
+.dlux-ribbon-builder__pills.is-segmented {
+    gap: 0;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .55rem;
+    overflow: hidden;
+}
+
+.dlux-ribbon-builder__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .28rem .7rem;
+    border: 1px solid transparent;
+    border-radius: 50rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: .85rem;
+    cursor: grab;
+}
+
+.dlux-ribbon-builder__pill.is-child { font-size: .78rem; padding: .2rem .6rem; }
+
+.dlux-ribbon-builder__pill.is-segment {
+    border-radius: 0;
+    border: 0;
+    border-inline-start: 1px solid var(--bs-border-color);
+    background: transparent;
+}
+.dlux-ribbon-builder__pills.is-segmented .dlux-ribbon-builder__pill:first-child { border-inline-start: 0; }
+
+.dlux-ribbon-builder__pill:hover { border-color: var(--bs-border-color); }
+
+.dlux-ribbon-builder__pill.is-active {
+    background: var(--primal, #0d6efd);
+    color: #fff;
+    border-color: transparent;
+}
+
+/* Hidden is shown, not removed: an operator needs to find it again to unhide. */
+.dlux-ribbon-builder__pill.is-hidden-tab {
+    opacity: .45;
+    text-decoration: line-through;
+}
+
+.dlux-ribbon-builder__pill.is-dragging { opacity: .5; cursor: grabbing; }
+.dlux-ribbon-builder__pill.is-drop-target { outline: 2px dashed var(--primal, #0d6efd); outline-offset: 2px; }
+
+.dlux-ribbon-builder__split,
+.dlux-ribbon-builder__relation {
+    flex: 0 1 11rem;
+}
+
+.dlux-ribbon-builder__badge {
+    margin-inline-start: .5rem;
+    padding: .05rem .45rem;
+    border-radius: 50rem;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .7rem;
+}

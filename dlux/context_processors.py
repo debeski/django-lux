@@ -59,7 +59,7 @@ def _normalize_runtime_path(value):
 
 
 def _is_public_index(request, final_config):
-    """True when this request is an anonymous visitor on the public root page.
+    """True when this request is an anonymous visitor on the public page.
 
     Centralizes the detection previously embedded in the titlebar-hide check so
     titlebar, sidebar, public theme, and public SEO overrides all share one rule.
@@ -85,7 +85,7 @@ def _is_public_index(request, final_config):
 
 
 def _should_hide_titlebar_for_public_index(request, final_config):
-    # Titlebar is hidden on the public root unless explicitly shown.
+    # Titlebar is hidden on the public page unless explicitly shown.
     if not _is_public_index(request, final_config):
         return False
     homepage = normalize_homepage_config(final_config.get('homepage_config') or final_config)
@@ -489,7 +489,7 @@ def dlux_context(request):
     if user_prefs.get('modal_size') not in MODAL_SIZE_VALUES:
         user_prefs = {**user_prefs, 'modal_size': default_modal_size}
     user_prefs = resolve_sidebar_density_preference(user_prefs, final_config)
-    # Public-root theme override: anonymous visitors on the public root see the
+    # Public page theme override: anonymous visitors on the public page see the
     # admin-selected fixed theme instead of the system default / their own pref.
     public_index_theme = _is_public_index(request, final_config)
     public_root_theme = public_homepage['theme']
@@ -504,7 +504,7 @@ def dlux_context(request):
     project_overrides = final_config.get('localization', {}).get('translations', final_config.get('translations', None))
     dlux_strings = get_strings(current_lang, overrides=project_overrides)
     allowed_theme_names = list(get_effective_allowed_themes(final_config))
-    # Ensure the public-root theme's stylesheet is emitted even if it is not in
+    # Ensure the public page theme's stylesheet is emitted even if it is not in
     # the normally-allowed set, so the forced public theme actually applies.
     if public_index_theme and public_root_theme and public_root_theme not in allowed_theme_names:
         allowed_theme_names = [*allowed_theme_names, public_root_theme]
@@ -695,7 +695,7 @@ def dlux_context(request):
     context['hide_titlebar_for_public_index'] = bool(
         is_public_index and not public_homepage['show_titlebar']
     )
-    # Sidebar visibility: always for authenticated users; for anonymous public-root
+    # Sidebar visibility: always for authenticated users; for anonymous public page
     # visitors only when explicitly enabled. Replaces the old base.html hardcode
     # that hid the sidebar for every unauthenticated user.
     _user = getattr(request, 'user', None)

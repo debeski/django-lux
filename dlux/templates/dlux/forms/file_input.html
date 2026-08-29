@@ -1,7 +1,7 @@
 <div
     class="archive-file-field{% if widget.asset_picker %} archive-file-field--asset{% endif %}"
     data-archive-file-widget
-    {% if widget.asset_picker %}data-asset-picker data-asset-kind="{{ widget.kind }}" data-archive-file-primary="library"{% endif %}
+    {% if widget.asset_picker %}data-asset-picker data-asset-kind="{{ widget.kind }}" data-asset-upload-url="{{ widget.asset_upload_url }}" data-archive-file-primary="library"{% endif %}
     data-field-label="{{ widget.field_label }}"
     data-empty-title="{{ widget.empty_title }}"
     data-empty-meta="{{ widget.empty_meta }}"
@@ -135,7 +135,7 @@
                         <span>{{ asset.title }}</span>
                     </button>
                 {% empty %}
-                    <p class="small text-muted mb-0">{{ widget.library_empty }}</p>
+                    <p class="small text-muted mb-0" data-asset-picker-empty>{{ widget.library_empty }}</p>
                 {% endfor %}
             </div>
         </div>

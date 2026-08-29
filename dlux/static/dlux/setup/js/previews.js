@@ -78,6 +78,9 @@
         if (form.querySelector('[name="zebra_striping"]')) {
             document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
         }
+        if (form.querySelector('[name="table_accent_edges"]')) {
+            document.body.dataset.dluxTableAccent = readBooleanField(form, '#id_table_accent_edges', false) ? 'on' : 'off';
+        }
     }
 
     function applyNotificationPreview(form) {

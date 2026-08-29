@@ -27,75 +27,13 @@
             <nav class="dlux-setup-step-nav"
                              aria-label="{{ DLUX_STRINGS.system_setup_step_nav_aria }}"
                              data-dlux-wizard-step-nav>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="0">
-                                <span class="dlux-setup-step-nav__bullet">1</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_branding|default:"Branding" }}</span>
+                            {% for step in setup_steps %}
+                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="{{ step.index }}">
+                                <span class="dlux-setup-step-nav__bullet">{{ step.number }}</span>
+                                <span class="dlux-setup-step-nav__label">{{ step.label }}</span>
                             </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="1">
-                                <span class="dlux-setup-step-nav__bullet">2</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_languages|default:"Languages" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="2">
-                                <span class="dlux-setup-step-nav__bullet">3</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_homepage|default:"Homepage" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="3">
-                                <span class="dlux-setup-step-nav__bullet">4</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_email|default:"Email" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="4">
-                                <span class="dlux-setup-step-nav__bullet">5</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_security|default:"Access &amp; Security" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="5">
-                                <span class="dlux-setup-step-nav__bullet">6</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_login_page|default:"Login Page" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="6">
-                                <span class="dlux-setup-step-nav__bullet">7</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_sidebar|default:"Sidebar" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="7">
-                                <span class="dlux-setup-step-nav__bullet">8</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_navbar|default:"Nav Bar" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="8">
-                                <span class="dlux-setup-step-nav__bullet">9</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_titlebar|default:"Titlebar" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="9">
-                                <span class="dlux-setup-step-nav__bullet">10</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_search|default:"Global Search" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="10">
-                                <span class="dlux-setup-step-nav__bullet">11</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_notifications|default:"Notifications" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="11">
-                                <span class="dlux-setup-step-nav__bullet">12</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_appearance|default:"Themes &amp; Typography" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="12">
-                                <span class="dlux-setup-step-nav__bullet">13</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_layout|default:"Layout" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="13">
-                                <span class="dlux-setup-step-nav__bullet">14</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_logging|default:"Logging" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="14">
-                                <span class="dlux-setup-step-nav__bullet">15</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_profile|default:"Profile Page" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="15">
-                                <span class="dlux-setup-step-nav__bullet">16</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_backups|default:"Backups" }}</span>
-                            </button>
-                            <button class="dlux-setup-step-nav__item" type="button" data-dlux-wizard-step-target="16">
-                                <span class="dlux-setup-step-nav__bullet">17</span>
-                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_extras|default:"Extra Features" }}</span>
-                            </button>
-            </nav>
+                            {% endfor %}
+                        </nav>
                 {% crispy form %}
             </div>
             <div class="dlux-setup-footer" data-dlux-setup-footer></div>

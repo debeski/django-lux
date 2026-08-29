@@ -6,21 +6,10 @@
     gap: 1.35rem;
 }
 
-.dlux-backup-hero {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    padding: 1.25rem 1.4rem;
-    border: 1px solid var(--dlux-backup-border);
-    border-radius: 1.35rem;
-    background: var(--dlux-backup-surface);
-    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.34);
-}
-
-.dlux-backup-hero .page-title {
-    color: var(--title, var(--bs-heading-color));
-    font-weight: 800;
+/* The page grid already spaces its children, so the ribbon's own bottom margin
+   would stack on top of the gap. */
+.dlux-backup-page > .dlux-ribbon-header {
+    margin-block-end: 0;
 }
 
 .dlux-backup-create-form {
@@ -40,7 +29,6 @@
 
 .dlux-backup-notice {
     margin: 0;
-    border-radius: 1.05rem;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
@@ -89,9 +77,20 @@
     min-width: 0;
 }
 
-.dlux-backup-page .dlux-table-shell {
-    border-radius: 1.05rem;
-    clip-path: inset(0 round 1.05rem);
+/* No radius here: `.dlux-table-shell` follows the Table edges setting through
+   `--dlux-table-edge-radius`, and a page-level override outranked it, pinning
+   every table on this page to one shape whatever the setting said. */
+
+/* Backup filenames are long unbroken tokens, so they set the table's minimum
+   width and push it past the card. The scroll container cannot rescue it here:
+   sticky headers need `overflow: visible` on the shell and the scroller above
+   992px, and a single `visible` axis forces the other to `visible` too, so the
+   table cannot clip and scroll while the header still sticks. Letting the name
+   wrap keeps the table inside its card without touching either behaviour.
+   First cell only: the size column reads "535.1 KB" and breaking anywhere
+   splits it across two lines at the non-breaking space. */
+.dlux-backup-page .dlux-data-table td:first-child {
+    overflow-wrap: anywhere;
 }
 
 .dlux-backup-page code {
@@ -102,7 +101,6 @@
 }
 
 @media (max-width: 1199.98px) {
-    .dlux-backup-hero,
     .dlux-backup-create-form {
         align-items: stretch;
         flex-direction: column;

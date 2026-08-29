@@ -124,6 +124,9 @@ document.addEventListener('DOMContentLoaded', function() {
     resetModalFooter();
 
     let currentBaseUrl = '';
+    // What the modal is actually showing. Equal to currentBaseUrl until the
+    // modal navigates deeper (a section-manager table -> one of its records).
+    let currentLoadedUrl = '';
     let activeLoadToken = 0;
 
     function persistModalState() {
@@ -235,10 +238,18 @@ document.addEventListener('DOMContentLoaded', function() {
         openModalAndLoad(url, trigger);
     });
 
+    modalBody.addEventListener('click', function(e) {
+        const link = e.target.closest('[data-dlux-modal-nav] a[href]');
+        if (!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        openModalAndLoad(link.href);
+    });
+
     // 2. Load Content via AJAX
     function openModalAndLoad(url, trigger = null) {
         const loadToken = activeLoadToken + 1;
         activeLoadToken = loadToken;
+        currentLoadedUrl = url;
 
         // New content is coming — clear any pinned footer from the previous view.
         resetModalFooter();
@@ -348,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                submitForm(form);
+                submitForm(form, e.submitter);
             });
         }
 
@@ -380,10 +391,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Back buttons (View Mode)
+        //
+        // Back returns to the record list the modal was opened on. A modal
+        // opened straight at one record -- a row action firing
+        // dlux:dynamic_modal:open with that record's URL, which is how a
+        // modal-first project opens every view -- has no list behind it, and
+        // reloading currentBaseUrl just redrew the same detail view. With
+        // nowhere to go back to, Back is a close.
         const backBtns = modalBody.querySelectorAll('.dynamic-back-btn');
         backBtns.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
+                if (!currentBaseUrl || currentLoadedUrl === currentBaseUrl) {
+                    dynamicModal.hide();
+                    return;
+                }
                 openModalAndLoad(currentBaseUrl);
             });
         });
@@ -413,10 +435,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 4. Form Submission Logic
-    function submitForm(form) {
+    function submitForm(form, submitter) {
         // The submit button may have been relocated into the sticky footer
         // (associated back via the form= attribute), so look there too.
-        const submitBtn = form.querySelector('[type="submit"]')
+        const submitBtn = submitter || form.querySelector('[type="submit"]')
             || (footer && footer.querySelector('[type="submit"]'));
         // Shared loading-button spinner for the lifetime of the POST. Falls back
         // to a plain disable if the helper somehow isn't loaded.
@@ -431,6 +453,9 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         const formData = new FormData(form);
+        if (submitter && submitter.name && !submitter.disabled) {
+            formData.append(submitter.name, submitter.value || '');
+        }
         const actionUrl = form.getAttribute('action') || currentBaseUrl;
 
         // Resolve absolute URL for action
@@ -461,6 +486,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }))
         .then(data => {
             if (data.success) {
+                if (Array.isArray(data.assets) && data.assets.length) {
+                    document.dispatchEvent(new CustomEvent('dlux:managed-assets-uploaded', {
+                        detail: { assets: data.assets },
+                    }));
+                }
                 if (data.add_more) {
                     // "Save and add more": reload the page so the parent table reflects
                     // the new record (preserving the current URL/query), then reopen this
@@ -472,6 +502,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.refresh_parent) {
                     clearModalState();
                     window.location.reload();
+                    return;
+                }
+                if (data.reload_current) {
+                    openModalAndLoad(currentLoadedUrl);
                     return;
                 }
                 // Refresh the list and clear the form by reloading the base URL

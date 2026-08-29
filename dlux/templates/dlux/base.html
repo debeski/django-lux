@@ -44,6 +44,7 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/navbar/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/buttons.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/titlebar/css/main.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/ribbon/css/ribbon.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/notifications/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/tables/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/dropdowns.css' %}">
@@ -62,6 +63,7 @@
     {% for theme in DLUX_THEMES %}
     <link rel="stylesheet" href="{% dlux_static theme.css_path %}">
     {% endfor %}
+    <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/card_edges.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/titlebar/css/surfaces.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/language/css/main.css' %}">
@@ -111,6 +113,10 @@
     <script src="{% dlux_static 'dlux/setup/js/language.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/shell.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/ribbon/js/ribbon_settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/ribbon/js/ribbon.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/lookup/js/lookup.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/wizard/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/navbar/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/signature.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -126,7 +132,7 @@
     <script src="{% dlux_static 'dlux/system/js/unsaved_guard.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>
-<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-table-resize="{{ APP_CONFIG.appearance.resizable_table_columns|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
+<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-table-resize="{{ APP_CONFIG.appearance.resizable_table_columns|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-table-edges="{{ APP_CONFIG.appearance.table_edges|default:'curved' }}" data-dlux-card-edges="{{ APP_CONFIG.appearance.card_edges|default:'curved' }}" data-dlux-sidebar-accent="{{ APP_CONFIG.navigation.sidebar.accent_edge|yesno:'on,off' }}" data-dlux-titlebar-accent="{{ APP_CONFIG.appearance.titlebar.accent_edge|yesno:'on,off' }}" data-dlux-table-accent="{{ APP_CONFIG.appearance.table_accent_edges|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
 
     <!-- Title Bar -->
     {% block titlebar %}
@@ -140,7 +146,7 @@
 
     {% block layout %}
     {# Use the sidebar+main chrome for authenticated users and for anonymous     #}
-    {# public-root visitors when the sidebar is explicitly shown there.          #}
+    {# public page visitors when the sidebar is explicitly shown there.          #}
     {% if request.user.is_authenticated or dlux_show_sidebar %}
         <div class="col overflow-hidden">
             <div class="row g-0 m-0 d-flex flex-grow-1 flex-nowrap">

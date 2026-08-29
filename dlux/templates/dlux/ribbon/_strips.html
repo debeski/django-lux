@@ -1,0 +1,31 @@
+{% if ribbon.nesting == "chain" %}
+<div class="dlux-ribbon-strips dlux-ribbon-nesting-chain no-print">
+    <div class="dlux-ribbon-chain">
+        {% include "dlux/ribbon/_tabs.html" %}
+        {% for strip in ribbon.nested_strips %}{% if strip.is_child %}
+        <span class="dlux-ribbon-chain-mark" aria-hidden="true"></span>
+        {% include "dlux/ribbon/_strip.html" %}
+        {% endif %}{% endfor %}
+    </div>
+    {% include "dlux/ribbon/_axes.html" %}
+</div>
+{% elif ribbon.nesting == "rail" %}
+<div class="dlux-ribbon-strips dlux-ribbon-nesting-rail no-print">
+    {% include "dlux/ribbon/_tabs.html" %}
+    {% for strip in ribbon.nested_strips %}{% if strip.is_child %}
+    <div class="dlux-ribbon-rail">
+        {% if strip.label %}<span class="dlux-ribbon-rail-label">{{ strip.label }}</span>{% endif %}
+        {% include "dlux/ribbon/_strip.html" %}
+    </div>
+    {% endif %}{% endfor %}
+    {% include "dlux/ribbon/_axes.html" %}
+</div>
+{% else %}
+<div class="dlux-ribbon-strips dlux-ribbon-nesting-tiered no-print">
+    {% include "dlux/ribbon/_tabs.html" %}
+    {% for strip in ribbon.nested_strips %}{% if strip.is_child %}
+    {% include "dlux/ribbon/_strip.html" %}
+    {% endif %}{% endfor %}
+    {% include "dlux/ribbon/_axes.html" %}
+</div>
+{% endif %}

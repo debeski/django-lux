@@ -141,6 +141,7 @@ class SidebarCleanMixin:
             raise ValidationError("Sidebar entries must be a list.")
         return sanitize_sidebar_config({
             'enabled': parsed.get('enabled', True),
+            'accent_edge': parsed.get('accent_edge', False),
             'home_url_name': None,
             'entries': entries,
             'enable_reorder': parsed.get('enable_reorder', True),

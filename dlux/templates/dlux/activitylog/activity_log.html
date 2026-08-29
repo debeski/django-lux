@@ -1,36 +1,14 @@
 {% extends 'dlux/list_base.html' %}
 {% load django_tables2 %}
 {% load static %}
-{% load crispy_forms_tags %}
 {% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.log_title }}{% endblock %}
 
 {% block content %}
 
-    <div class="row">
-        <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-clock-history me-2"></i> {{ DLUX_STRINGS.log_title }}</h2>
-        </div>
-    </div>
+    {% dlux_ribbon %}
 
-    {% if log_category_tabs %}
-    <ul class="nav nav-tabs border-0 mb-3 no-print" role="tablist">
-        {% for tab in log_category_tabs %}
-        <li class="nav-item" role="presentation">
-            <a class="nav-link {% if tab.active %}active{% endif %}"
-               href="?category={{ tab.key }}" role="tab">
-                {{ tab.label }}
-                <span class="badge rounded-pill text-bg-secondary ms-1">{{ tab.count }}</span>
-            </a>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-
-    <div class="py-2 no-print">
-        {% crispy filter.form %}
-    </div>
 
     <div class="card border-0 shadow-sm rounded-4 dlux-table-card">
         <div class="card-body p-0">
@@ -59,5 +37,6 @@
 {% endblock %}
 
 {% block scripts %}
+    {{ block.super }}
     <script src="{% dlux_static 'dlux/activitylog/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

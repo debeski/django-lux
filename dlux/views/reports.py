@@ -75,14 +75,71 @@ def reports_overview_view(request):
     active_backup = latest_completed_backup = None
     if can_download_backup:
         active_backup, latest_completed_backup = _report_backup_page_state(request.user)
-    return render(request, "dlux/reports/overview.html", {
-        "DLUX_STRINGS": get_strings(),
+    strings = get_strings()
+    context = {
+        "DLUX_STRINGS": strings,
         "overview": overview,
         "window": window,
         "can_download_backup": can_download_backup,
         "active_report_backup": active_backup,
         "latest_completed_report_backup": latest_completed_backup,
-    })
+    }
+    context["ribbon"] = _reports_ribbon(request, strings, context)
+    return render(request, "dlux/reports/overview.html", context)
+
+
+def _reports_ribbon(request, strings, context):
+    """The page header, as a Ribbon.
+
+    No filterset: this page's controls belong to the report builder's own form,
+    which the export buttons submit through `form=`/`formaction=`. The Ribbon
+    carries the title, the description and those actions.
+    """
+    from django.template.loader import render_to_string
+
+    from ..ribbon import build_action, build_ribbon
+
+    actions = [
+        {
+            "label": strings.get("reports_print_report", "Print report"),
+            "icon": "bi bi-printer",
+            "css_class": "btn btn-outline-primary rounded-pill",
+            "type": "submit",
+            "attrs": {
+                "form": "general-report-form",
+                "formmethod": "get",
+                "formaction": reverse("reports_print"),
+                "formtarget": "_blank",
+                "title": strings.get("reports_print_hint", ""),
+            },
+        },
+        {
+            "label": strings.get("reports_export_entries_xlsx", "Export entries"),
+            "icon": "bi bi-filetype-xlsx",
+            "css_class": "btn btn-outline-primary rounded-pill",
+            "type": "submit",
+            "attrs": {
+                "form": "general-report-form",
+                "formmethod": "get",
+                "formaction": reverse("reports_overview_xlsx"),
+                "title": strings.get("reports_export_entries_hint", ""),
+            },
+        },
+    ]
+    if context["can_download_backup"]:
+        # A composite control (button, progress, status, download link), so it
+        # comes through as rendered markup rather than a label and an icon.
+        actions.append({"html": render_to_string(
+            "dlux/reports/_backup_action.html", context, request=request,
+        )})
+    return build_ribbon(
+        None,
+        request=request,
+        title=strings.get("reports_title", "Reports"),
+        subtitle=strings.get("reports_subtitle", ""),
+        title_icon="bi bi-bar-chart-fill",
+        actions=[a for a in (build_action(spec, request=request) for spec in actions) if a],
+    )
 
 
 @login_required

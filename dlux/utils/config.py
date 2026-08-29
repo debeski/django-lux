@@ -36,8 +36,15 @@ from ..system.constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
     DEFAULT_ROW_ACTIONS_STYLE,
+    JSON_ONLY_LAYOUT_KEYS,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
     MODAL_SIZE_CLASSES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
     REGISTRATION_ACTIVATION_VALUES,
@@ -406,6 +413,9 @@ def build_config_groups(config, current_language=None):
             'default_theme': config.get('default_theme', 'light'),
             'allowed_themes': list(config.get('allowed_themes', [])),
             'default_table_density': config.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'table_edges': config.get('table_edges', DEFAULT_TABLE_EDGES),
+            'card_edges': config.get('card_edges', DEFAULT_CARD_EDGES),
+            'table_accent_edges': bool(config.get('table_accent_edges', False)),
             'default_form_density': config.get('default_form_density', DEFAULT_FORM_DENSITY),
             'default_modal_size': config.get('default_modal_size', DEFAULT_MODAL_SIZE),
             'modal_size_class': MODAL_SIZE_CLASSES.get(
@@ -417,6 +427,12 @@ def build_config_groups(config, current_language=None):
             'zebra_striping': bool(config.get('zebra_striping', True)),
             'options_style': config.get('options_style', DEFAULT_OPTIONS_STYLE),
             'row_actions_style': config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE),
+            'ribbon_layout': config.get('ribbon_layout', DEFAULT_RIBBON_LAYOUT),
+            'ribbon_style': config.get('ribbon_style', DEFAULT_RIBBON_STYLE),
+            'ribbon_title': bool(config.get('ribbon_title', True)),
+            'ribbon_advanced_trigger': config.get(
+                'ribbon_advanced_trigger', DEFAULT_RIBBON_ADVANCED_TRIGGER),
+            'ribbon_nesting': config.get('ribbon_nesting', DEFAULT_RIBBON_NESTING),
             'footer_enabled': bool(config.get('footer_enabled', True)),
             'footer_text': config.get('footer_text', '') or '',
             'footer_link_text': config.get('footer_link_text', '') or '',
@@ -1015,6 +1031,33 @@ def _stored_asset_url(field_file):
         return ''
 
 
+#: Attribute the merged config is parked on for the length of one request.
+SYSTEM_CONFIG_REQUEST_ATTR = '_dlux_system_config'
+
+
+def clear_system_config_cache():
+    """Drop the per-request merged config, so a save is seen by its own request.
+
+    The settings form writes and then re-renders inside one request; without
+    this it would redraw itself from the config it read on the way in.
+    """
+    request = _current_request()
+    if request is not None:
+        try:
+            delattr(request, SYSTEM_CONFIG_REQUEST_ATTR)
+        except AttributeError:
+            pass
+
+
+def _current_request():
+    try:
+        from dlux.middleware import get_current_request
+
+        return get_current_request()
+    except Exception:
+        return None
+
+
 # System Config - Function merges defaults, settings, and DB-backed runtime config.
 def get_system_config():
     """
@@ -1022,7 +1065,29 @@ def get_system_config():
     1. Default config
     2. settings.DLUX_CONFIG (host project codebase)
     3. SystemSettings Singleton (database UI overrides)
+
+    Merged once per request. It is reached for every translated attribute on
+    every row — `TranslatedName.__getattr__` asks it for the default language —
+    so rebuilding it each time cost 105 of the 134 remaining queries on a
+    500-row list page, all of them re-reading the same managed assets. Outside a
+    request there is nowhere to park it, so it is rebuilt as before.
     """
+    request = _current_request()
+    if request is not None:
+        cached = getattr(request, SYSTEM_CONFIG_REQUEST_ATTR, None)
+        if cached is not None:
+            return cached
+
+    config = _build_system_config()
+    if request is not None:
+        try:
+            setattr(request, SYSTEM_CONFIG_REQUEST_ATTR, config)
+        except Exception:
+            pass
+    return config
+
+
+def _build_system_config():
     default_config = build_default_system_config()
 
     # Project settings
@@ -1195,16 +1260,15 @@ def get_system_config():
         # the stored layout_config dict rather than a model attribute.
         _layout_json = getattr(sys_settings, 'layout_config', None)
         if isinstance(_layout_json, dict):
-            _options_style = _layout_json.get('options_style')
-            if _options_style and _should_apply_db_override(
-                _options_style, default_config.get('options_style', DEFAULT_OPTIONS_STYLE)
-            ):
-                db_config['options_style'] = _options_style
-            _row_actions_style = _layout_json.get('row_actions_style')
-            if _row_actions_style and _should_apply_db_override(
-                _row_actions_style, default_config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE)
-            ):
-                db_config['row_actions_style'] = _row_actions_style
+            for _key in JSON_ONLY_LAYOUT_KEYS:
+                _value = _layout_json.get(_key)
+                # `ribbon_title` is a bool, and False is a real stored choice —
+                # test for absence, not falsiness, or turning the title off
+                # would never survive a reload.
+                if _value is None or _value == '':
+                    continue
+                if _should_apply_db_override(_value, default_config.get(_key)):
+                    db_config[_key] = _value
             # JSON-only opt-in flags (default False): surface them as flat keys so
             # audit_fields_visible()/soft_deleted_visible() can read them.
             for _flag in ('show_audit_fields', 'show_soft_deleted'):

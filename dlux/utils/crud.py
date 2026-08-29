@@ -681,6 +681,11 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inlin
 # Filter UI - Function builds grouped advanced filter layouts.
 def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True):
     """
+    DEPRECATED — superseded by `dlux.ribbon` (see docs/ribbon.md), which derives
+    the same band from the FilterSet with no per-view config and lets the
+    administrator choose its layout. Removed in v1.9.0; this function is
+    unchanged until then.
+
     Build an "advanced" filter helper with:
     - a primary row of fields
     - a pill-shaped search/clear control
@@ -885,7 +890,8 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     def _has_active_filters():
         if not request or not request.GET:
             return False
-        return any(k not in clear_preserve_keys and v for k, v in request.GET.items())
+        non_filter_keys = {*clear_preserve_keys, 'page', 'per_page', 'sort'}
+        return any(k not in non_filter_keys and v for k, v in request.GET.items())
 
     advanced_specs = config.get('advanced_fields') or []
     advanced_names = {
@@ -993,11 +999,34 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     filter_instance.form.helper = helper
 
 # Form Choices - Function safely replaces a field placeholder choice.
+def _sync_widget_choices(field):
+    """Push the field's choices onto its widget.
+
+    A form field and its widget hold choices separately. `ModelChoiceField`
+    hands its widget a live `ModelChoiceIterator`, so changing `empty_label`
+    shows up in the rendered `<select>` on its own — but a plain `ChoiceField`
+    (including django-filter's) gives the widget a snapshot list, so the same
+    change never reaches the markup and the placeholder stays "---------".
+    That asymmetry is why a model-backed filter picked up its label while a
+    year or a status filter did not.
+    """
+    widget = getattr(field, 'widget', None)
+    if widget is None or not hasattr(field, 'choices'):
+        return
+    try:
+        widget.choices = field.choices
+    except (AttributeError, TypeError):
+        # A widget that does not carry choices (a text input behind a custom
+        # field, say) has nothing to sync and is not an error.
+        pass
+
+
 def set_first_choice(field, placeholder):
     """Set the first choice of a specified field safely without overwriting data."""
     # 1. Handle fields with explicit empty_label (ModelChoiceField, etc.)
     if hasattr(field, 'empty_label'):
         field.empty_label = placeholder
+        _sync_widget_choices(field)
         return
 
     # 2. Handle ChoiceFields or fields with a choices attribute
@@ -1023,8 +1052,9 @@ def set_first_choice(field, placeholder):
     else:
         # Otherwise insert a standard empty string choice
         choices.insert(0, ('', placeholder))
-        
+
     field.choices = choices
+    _sync_widget_choices(field)
 
 # Form Choices - Function translates Django choices through DLUX_STRINGS.
 def translate_choices(choices, dlux_strings):

@@ -1,0 +1,10 @@
+<div class="dlux-ribbon-header-row">
+    <div class="dlux-ribbon-heading">
+        {% if ribbon.shows_title and ribbon.title_icon %}<span class="dlux-ribbon-icon"><i class="{{ ribbon.title_icon }}"></i></span>{% endif %}
+        <div class="dlux-ribbon-copy">
+            {% if ribbon.shows_title and ribbon.title %}<h1>{{ ribbon.title }}</h1>{% endif %}
+            {% if ribbon.subtitle %}<p>{{ ribbon.subtitle }}</p>{% endif %}
+        </div>
+    </div>
+    {% if not hide_actions %}<div class="dlux-ribbon-actions">{% include "dlux/ribbon/_actions.html" %}</div>{% endif %}
+</div>

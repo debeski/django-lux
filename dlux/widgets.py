@@ -312,6 +312,28 @@ class _DluxSelectorMixin:
         )
 
 
+class DluxMultiFileInput(DluxFileInput):
+    """A file control that accepts a whole selection at once.
+
+    Uploading a folder of images one modal round-trip at a time is the kind of
+    chore a library screen exists to remove. Django needs both halves — the
+    `multiple` attribute so the browser offers it, and
+    `allow_multiple_selected` so `value_from_datadict` returns every file rather
+    than the last one.
+    """
+
+    allow_multiple_selected = True
+
+    def __init__(self, attrs=None, **kwargs):
+        super().__init__(attrs={**(attrs or {}), 'multiple': True}, **kwargs)
+
+    def value_from_datadict(self, data, files, name):
+        if hasattr(files, 'getlist'):
+            return files.getlist(name)
+        single = files.get(name)
+        return [single] if single else []
+
+
 class DluxChoiceSelectorWidget(_DluxSelectorMixin, widgets.ChoiceWidget):
     input_type = 'radio'
     allow_multiple_selected = False
@@ -322,3 +344,98 @@ class DluxMultipleChoiceSelectorWidget(_DluxSelectorMixin, widgets.ChoiceWidget)
     input_type = 'checkbox'
     allow_multiple_selected = True
     use_fieldset = False
+
+
+class DluxLookupInput(forms.Widget):
+    """A search-and-add box for a ForeignKey: type a name, get the record.
+
+    Renders everything the control needs — the visible name box, the hidden key
+    that is actually posted, the rows to search, and the "did you mean" panel —
+    so a project adds one field and touches no template.
+
+    Two values ride alongside the key. `<name>__typed` carries what was actually
+    typed, which is what the field resolves when no row was picked; `__confirm`
+    carries the reader's answer to a near-match refusal. Both are the widget's
+    business, so a form never declares them.
+    """
+
+    template_name = 'dlux/forms/lookup_input.html'
+
+    def __init__(self, attrs=None, *, near_ratio=None, boilerplate_share=None,
+                 placeholder=''):
+        from .lookup import DEFAULT_BOILERPLATE_SHARE, DEFAULT_NEAR_RATIO
+
+        self.near_ratio = DEFAULT_NEAR_RATIO if near_ratio is None else near_ratio
+        self.boilerplate_share = (
+            DEFAULT_BOILERPLATE_SHARE if boilerplate_share is None else boilerplate_share)
+        self.placeholder = placeholder
+        #: Set by the field while cleaning, and read back when the bound form
+        #: re-renders: the record a refused name resembled, and the consent.
+        self.near = None
+        #: Whether this field may add a record; the consent box is pointless
+        #: on a search-only field, and offering it there is a dead end.
+        self.allow_create = False
+        self.confirm = False
+        self.typed = ''
+        self.rows = []
+        super().__init__(attrs=attrs)
+
+    def value_from_datadict(self, data, files, name):
+        """The key if a row was picked, else whatever was typed.
+
+        The field tells the two apart: a key is a key, and anything else is a
+        name to resolve. Keeping both in one value is what lets this be a single
+        field rather than a field and two companions a project has to declare.
+        """
+        # `str()` because a key is not always posted as text: tests and API
+        # callers pass an int, and a raw dict is a perfectly ordinary way to
+        # build this form.
+        self.typed = str(data.get(name + '__typed') or '').strip()
+        self.confirm = bool(data.get(name + '__confirm'))
+        picked = str(data.get(name) or '').strip()
+        if picked and not picked.isdigit():
+            # The field's own name carrying a name rather than a key: what a
+            # test or an API client posts, and it resolves the same way.
+            self.typed = self.typed or picked
+        return picked or self.typed
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        widget = context['widget']
+        widget['name'] = name
+        widget['rows'] = self.rows
+        widget['near'] = self.near
+        widget['confirm'] = self.confirm
+        widget['allow_create'] = self.allow_create
+        widget['near_ratio'] = self.near_ratio
+        widget['boilerplate_share'] = self.boilerplate_share
+        widget['placeholder'] = self.placeholder
+        widget['text_value'] = self.typed or self._label_for(value)
+        widget['text_class'] = (
+            str(self.attrs.get('class', '') or '') + ' form-control').strip()
+        try:
+            from .translations import get_strings
+            strings = get_strings()
+        except Exception:
+            strings = {}
+        widget['near_label'] = getattr(self.near, 'name', '') if self.near else ''
+        widget['near_message'] = strings.get(
+            'lookup_near_match', 'A very similar entry already exists.')
+        widget['confirm_label'] = strings.get(
+            'lookup_confirm_new', 'No, add it as a new entry')
+        # The hidden key must not carry a name that failed to resolve, or a
+        # re-render would post a value the field already rejected.
+        if not str(value or '').isdigit():
+            widget['value'] = ''
+        # The full context, not the inner dict: returning `widget` makes every
+        # `{{ widget.* }}` in the template resolve to nothing, silently.
+        return context
+
+    def _label_for(self, value):
+        """The name of the record a bound key stands for, for the visible box."""
+        if value in (None, ''):
+            return ''
+        for row in self.rows:
+            if str(row.get('value')) == str(value):
+                return row.get('label', '')
+        return ''

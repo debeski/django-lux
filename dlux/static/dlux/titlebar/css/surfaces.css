@@ -25,3 +25,7 @@
     -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
     backdrop-filter: blur(16px) saturate(1.2) !important;
 }
+
+:root body[data-dlux-titlebar-accent="on"] .titlebar {
+    border-block-end: .25rem solid var(--primal, var(--bs-primary, #475569)) !important;
+}

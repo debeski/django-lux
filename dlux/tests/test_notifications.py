@@ -2,16 +2,26 @@ from dlux.tests.harness import setup_test_environment
 
 setup_test_environment()
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.sessions.backends.db import SessionStore
 from django.core.cache import cache
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from dlux.forms import SystemSettingsForm
-from dlux.models import DluxNotification, DluxNotificationRule, DluxNotificationState, SystemSettings
+from dlux.models import (
+    DluxNotification,
+    DluxNotificationRule,
+    DluxNotificationState,
+    DluxNotificationWatch,
+    Scope,
+    ScopeSettings,
+    SystemSettings,
+)
 from dlux.notifications import (
     FLASH_SESSION_KEY,
     NotificationLockedError,
@@ -21,7 +31,9 @@ from dlux.notifications import (
     get_notification_context,
     mark_notification_read,
     notify,
+    notify_model_event,
 )
+from dlux.system.normalizers import normalize_notification_config
 
 
 User = get_user_model()
@@ -45,6 +57,16 @@ class NotificationPipelineTests(TestCase):
         request.user = self.user
         request.session = SessionStore()
         return request
+
+    def _user_with_permission(self, username, codename='view_scope'):
+        user = User.objects.create_user(username=username, password='testpass123')
+        permission = Permission.objects.get(
+            content_type__app_label='dlux',
+            content_type__model='scope',
+            codename=codename,
+        )
+        user.user_permissions.add(permission)
+        return user
 
     def test_notify_success_creates_inbox_state_and_flash(self):
         request = self._request()
@@ -147,6 +169,189 @@ class NotificationPipelineTests(TestCase):
         self.assertIsNotNone(notification)
         self.assertTrue(DluxNotification.objects.filter(pk=notification.pk).exists())
         self.assertNotIn(FLASH_SESSION_KEY, request.session)
+
+    def test_automatic_crud_success_is_transient_for_actor(self):
+        request = self._request()
+        subject = Scope.objects.create(name='Actor feedback')
+
+        notification = notify_model_event(
+            subject,
+            'create',
+            activity_log=SimpleNamespace(pk=1001),
+            request=request,
+            user=self.user,
+        )
+
+        self.assertIsNone(notification)
+        self.assertFalse(DluxNotificationState.objects.filter(user=self.user).exists())
+        self.assertFalse(DluxNotification.objects.exists())
+        self.assertIsNone(request.session[FLASH_SESSION_KEY][0]['id'])
+
+    def test_automatic_crud_routes_to_authorized_watcher_but_never_actor(self):
+        request = self._request()
+        subject = Scope.objects.create(name='Watched scope')
+        watcher = self._user_with_permission('authorized-watcher')
+        self.user.user_permissions.add(Permission.objects.get(
+            content_type__app_label='dlux',
+            content_type__model='scope',
+            codename='view_scope',
+        ))
+        DluxNotificationWatch.objects.create(user=watcher, model_key='dlux.scope')
+        DluxNotificationWatch.objects.create(user=self.user, model_key='dlux.scope')
+
+        notification = notify_model_event(
+            subject,
+            'create',
+            activity_log=SimpleNamespace(pk=1002),
+            request=request,
+            user=self.user,
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_type, DluxNotification.AUDIENCE_WATCHERS)
+        self.assertEqual(
+            list(notification.states.values_list('user_id', flat=True)),
+            [watcher.pk],
+        )
+        self.assertIsNone(request.session[FLASH_SESSION_KEY][0]['id'])
+
+    def test_automatic_crud_rejects_watcher_without_view_permission(self):
+        request = self._request()
+        subject = Scope.objects.create(name='Protected scope')
+        watcher = User.objects.create_user(username='unauthorized-watcher', password='testpass123')
+        DluxNotificationWatch.objects.create(user=watcher, model_key='dlux.scope')
+
+        notification = notify_model_event(
+            subject,
+            'create',
+            activity_log=SimpleNamespace(pk=1003),
+            request=request,
+            user=self.user,
+        )
+
+        self.assertIsNone(notification)
+        self.assertFalse(DluxNotificationState.objects.filter(user=watcher).exists())
+
+    def test_automatic_crud_uses_related_recipient_and_visibility_hooks(self):
+        request = self._request()
+        subject = Scope.objects.create(name='Related scope')
+        allowed = self._user_with_permission('related-allowed')
+        denied = self._user_with_permission('related-denied')
+
+        def recipients(_subject, *, action, actor):
+            self.assertEqual(action, 'create')
+            self.assertEqual(actor, self.user)
+            return [allowed, denied]
+
+        def visible_to(_subject, *, user, action, actor):
+            return user == allowed
+
+        with patch.object(Scope, 'dlux_notification_recipients', recipients, create=True), patch.object(
+            Scope,
+            'dlux_notification_visible_to',
+            visible_to,
+            create=True,
+        ):
+            notification = notify_model_event(
+                subject,
+                'create',
+                activity_log=SimpleNamespace(pk=1004),
+                request=request,
+                user=self.user,
+            )
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(
+            list(notification.states.values_list('user_id', flat=True)),
+            [allowed.pk],
+        )
+
+    def test_automatic_crud_rejects_cross_scope_watcher(self):
+        scope_settings = ScopeSettings.load()
+        scope_settings.is_enabled = True
+        scope_settings.save(update_fields=['is_enabled'])
+        actor_scope = Scope.objects.create(name='Actor scope')
+        other_scope = Scope.objects.create(name='Other scope')
+        self.user.profile.scope = actor_scope
+        self.user.profile.save(update_fields=['scope'])
+        watcher = self._user_with_permission('cross-scope-watcher')
+        watcher.profile.scope = other_scope
+        watcher.profile.save(update_fields=['scope'])
+        DluxNotificationWatch.objects.create(user=watcher, model_key='dlux.scope')
+        request = self._request()
+
+        notification = notify(
+            'Scoped event.',
+            obj=actor_scope,
+            request=request,
+            source='scoped_model',
+            action='update',
+            scope=actor_scope,
+            to='watchers',
+        )
+
+        self.assertIsNone(notification)
+        self.assertFalse(DluxNotificationState.objects.filter(user=watcher).exists())
+
+    def test_rule_can_explicitly_include_actor_for_automatic_event(self):
+        request = self._request()
+        subject = Scope.objects.create(name='Actor rule')
+        DluxNotificationRule.objects.create(
+            name='Include actor',
+            match_config={'source': 'scoped_model', 'action': 'create'},
+            delivery_config={'to': 'actor', 'include_actor': True},
+            created_by=self.user,
+            updated_by=self.user,
+        )
+
+        notification = notify_model_event(
+            subject,
+            'create',
+            activity_log=SimpleNamespace(pk=1005),
+            request=request,
+            user=self.user,
+        )
+
+        self.assertTrue(notification.states.filter(user=self.user).exists())
+
+    def test_event_key_is_durable_idempotency_boundary(self):
+        request = self._request()
+        first = notify('One logical job.', request=request, action='job_done', event_key='job:42')
+        cache.clear()
+        second = notify('One logical job.', request=request, action='job_done', event_key='job:42')
+
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(DluxNotification.objects.filter(event_key='job:42').count(), 1)
+        self.assertEqual(DluxNotificationState.objects.filter(notification=first, user=self.user).count(), 1)
+
+    def test_long_event_key_is_hashed_without_losing_idempotency(self):
+        request = self._request()
+        event_key = 'external-delivery:' + ('x' * 300)
+        first = notify('Long external key.', request=request, action='delivery', event_key=event_key)
+        cache.clear()
+        second = notify('Long external key.', request=request, action='delivery', event_key=event_key)
+
+        self.assertEqual(first.pk, second.pk)
+        self.assertTrue(first.event_key.startswith('sha256:'))
+        self.assertLessEqual(len(first.event_key), 255)
+
+    def test_badge_disabled_rule_keeps_drawer_item_out_of_badge_counts(self):
+        request = self._request()
+        DluxNotificationRule.objects.create(
+            name='Drawer only',
+            match_config={'action': 'drawer_only'},
+            delivery_config={'badge': False},
+            created_by=self.user,
+            updated_by=self.user,
+        )
+
+        notification = notify('Drawer only.', request=request, obj=self.user, action='drawer_only')
+        context = get_notification_context(request)
+
+        self.assertFalse(notification.badge_enabled)
+        self.assertEqual(len(context['items']), 1)
+        self.assertEqual(context['unread_count'], 0)
+        self.assertEqual(context['section_counts'], {})
 
     def test_mark_read_and_dismiss_helpers_only_touch_current_user_state(self):
         request = self._request()
@@ -295,6 +500,11 @@ class NotificationPipelineTests(TestCase):
 class NotificationSettingsFormTests(TestCase):
     def setUp(self):
         cache.delete(SystemSettings.__name__)
+
+    def test_automatic_crud_excludes_actor_by_default(self):
+        config = normalize_notification_config({})
+
+        self.assertFalse(config['automatic']['include_actor'])
 
     def test_flash_controls_have_localized_help_text(self):
         from dlux.translations import get_strings

@@ -17,6 +17,7 @@ from ...system.constants import (
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_RIBBON,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
@@ -29,6 +30,8 @@ from ...system.constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
     FORM_DENSITY_CHOICES,
     FORM_DENSITY_VALUES,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
@@ -42,7 +45,15 @@ from ...system.constants import (
     THEME_PICKER_LOCATION_TITLEBAR,
     DEFAULT_THEME_PICKER_LOCATION,
     ROW_ACTIONS_STYLE_CHOICES,
+    RIBBON_ADVANCED_TRIGGER_VALUES,
+    RIBBON_LAYOUT_VALUES,
+    RIBBON_STYLE_VALUES,
     ROW_ACTIONS_STYLE_VALUES,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    RIBBON_NESTING_VALUES,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
     DEFAULT_ROW_ACTIONS_STYLE,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
@@ -58,6 +69,8 @@ from ...system.constants import (
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
+    TABLE_EDGES_VALUES,
+    CARD_EDGES_VALUES,
     TITLEBAR_ALIGN_CHOICES,
     TITLEBAR_ALIGN_VALUES,
     TITLEBAR_HEIGHT_CHOICES,
@@ -212,6 +225,15 @@ class AppearanceCleanMixin:
     def clean_default_form_density(self):
         return self._clean_preserved_choice('default_form_density', SETUP_STEP_LAYOUT, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
 
+    def clean_table_edges(self):
+        return self._clean_preserved_choice('table_edges', SETUP_STEP_LAYOUT, TABLE_EDGES_VALUES, DEFAULT_TABLE_EDGES)
+
+    def clean_card_edges(self):
+        return self._clean_preserved_choice('card_edges', SETUP_STEP_LAYOUT, CARD_EDGES_VALUES, DEFAULT_CARD_EDGES)
+
+    def clean_table_accent_edges(self):
+        return self._clean_preserved_toggle('table_accent_edges', SETUP_STEP_LAYOUT, False)
+
     def clean_default_modal_size(self):
         return self._clean_preserved_choice('default_modal_size', SETUP_STEP_LAYOUT, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
 
@@ -220,6 +242,21 @@ class AppearanceCleanMixin:
 
     def clean_row_actions_style(self):
         return self._clean_preserved_choice('row_actions_style', SETUP_STEP_LAYOUT, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
+
+    def clean_ribbon_layout(self):
+        return self._clean_preserved_choice('ribbon_layout', SETUP_STEP_LAYOUT, RIBBON_LAYOUT_VALUES, DEFAULT_RIBBON_LAYOUT)
+
+    def clean_ribbon_style(self):
+        return self._clean_preserved_choice('ribbon_style', SETUP_STEP_LAYOUT, RIBBON_STYLE_VALUES, DEFAULT_RIBBON_STYLE)
+
+    def clean_ribbon_advanced_trigger(self):
+        return self._clean_preserved_choice('ribbon_advanced_trigger', SETUP_STEP_LAYOUT, RIBBON_ADVANCED_TRIGGER_VALUES, DEFAULT_RIBBON_ADVANCED_TRIGGER)
+
+    def clean_ribbon_nesting(self):
+        return self._clean_preserved_choice('ribbon_nesting', SETUP_STEP_RIBBON, RIBBON_NESTING_VALUES, DEFAULT_RIBBON_NESTING)
+
+    def clean_ribbon_title(self):
+        return self._clean_preserved_toggle('ribbon_title', SETUP_STEP_LAYOUT, True)
 
     def clean_sticky_table_headers(self):
         return self._clean_preserved_toggle('sticky_table_headers', SETUP_STEP_LAYOUT, True)

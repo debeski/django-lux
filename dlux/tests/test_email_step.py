@@ -13,14 +13,16 @@ from django.urls import reverse
 from dlux.forms import EMAIL_DEPENDENT_SETTING_FIELDS, SystemSettingsForm
 from dlux.models import SystemSettings
 from dlux.system.constants import (
+    SETUP_STEP_APPEARANCE,
     SETUP_STEP_COUNT,
     SETUP_STEP_EMAIL,
     SETUP_STEP_HOMEPAGE,
     SETUP_STEP_LANGUAGES,
     SETUP_STEP_SECURITY,
+    SETUP_STEPS,
 )
 from dlux.system.normalizers import email_config_fingerprint, normalize_email_config
-from dlux.utils import email_features_unlocked
+from dlux.utils import email_features_unlocked, internal_smtp_relay_available
 from dlux.middleware import _thread_locals
 from dlux.utils.import_export import apply_system_settings_import
 
@@ -76,21 +78,41 @@ class EmailStepPlacementTests(TestCase):
     def test_email_step_precedes_access_and_security(self):
         """Security options depend on mail, so mail is configured first."""
         self.assertLess(SETUP_STEP_EMAIL, SETUP_STEP_SECURITY)
-        self.assertEqual(SETUP_STEP_EMAIL, SETUP_STEP_HOMEPAGE + 1)
-        self.assertEqual(SETUP_STEP_COUNT, 17)
+        self.assertEqual(SETUP_STEP_COUNT, len(SETUP_STEPS))
+
+    def test_the_order_keeps_each_step_after_what_feeds_it(self):
+        """The two dependencies the wizard order exists to satisfy.
+
+        Theme & Fonts assigns fonts per language, so it follows Languages; the
+        Homepage theme picker is populated from `allowed_themes`, so it follows
+        Theme & Fonts. Homepage used to run third and offered a choice from a
+        list decided nine steps later.
+        """
+        self.assertLess(SETUP_STEP_LANGUAGES, SETUP_STEP_APPEARANCE)
+        self.assertLess(SETUP_STEP_APPEARANCE, SETUP_STEP_HOMEPAGE)
 
     def test_options_panel_exposes_one_tile_per_wizard_step(self):
         import re
         from pathlib import Path
 
+        from dlux.translations import get_strings
+        from dlux.views.options import setup_step_cards
+
         template = (
             Path(__file__).resolve().parents[1]
             / 'templates' / 'dlux' / 'system' / 'options.html'
         ).read_text(encoding='utf-8')
-        steps = [int(value) for value in re.findall(r"SystemSettings' 1 %\}\?step=(\d+)", template)]
 
-        self.assertEqual(steps, list(range(SETUP_STEP_COUNT)))
-        self.assertIn('DLUX_STRINGS.system_settings_email', template)
+        # One loop rather than one hand-written tile per step, which is how the
+        # Ribbon step came to have no tile and the wizard nav came to be a step
+        # short of the panels it addresses.
+        self.assertIn('{% for step in setup_steps %}', template)
+        self.assertIn('?step={{ step.index }}', template)
+
+        cards = setup_step_cards(get_strings('en'))
+        self.assertEqual([card['index'] for card in cards], list(range(SETUP_STEP_COUNT)))
+        self.assertIn(get_strings('en')['system_settings_email'],
+                      [card['label'] for card in cards])
 
 
 class EmailVerificationLifecycleTests(_IsolatedSettingsTestCase):
@@ -572,3 +594,98 @@ class TimeoutSettingPersistenceTests(_IsolatedSettingsTestCase):
 
         self.assertTrue(SystemSettings.load().email_config['verified'])
         self.assertEqual(SystemSettings.load().email_config['timeout'], 200)
+
+
+class InternalRelayAvailabilityTests(TestCase):
+    """Relay transport is offered only while the relay is listening.
+
+    The Options panel's "smtp-relay" detail has always been an echo of
+    `email_config.transport` — a label for what was chosen, not a check that
+    anything is there. A deployment without the relay container could therefore
+    select a transport that hands every message to a socket nothing is on, and
+    find out on the next test send.
+    """
+
+    @staticmethod
+    def _fake_relay():
+        """A socket that speaks just enough SMTP to be recognised."""
+        import socket
+        import threading
+
+        listener = socket.socket()
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(1)
+
+        def serve():
+            try:
+                conn, _addr = listener.accept()
+                with conn:
+                    conn.sendall(b'220 dlux test relay\r\n')
+                    while True:
+                        line = conn.recv(1024)
+                        if not line or line.upper().startswith(b'QUIT'):
+                            conn.sendall(b'221 Bye\r\n')
+                            return
+                        conn.sendall(b'250 OK\r\n')
+            except OSError:
+                pass
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        return listener, listener.getsockname()[1]
+
+    def test_a_listening_relay_is_found(self):
+        listener, port = self._fake_relay()
+        try:
+            self.assertTrue(internal_smtp_relay_available(host='127.0.0.1', port=port))
+        finally:
+            listener.close()
+
+    def test_a_missing_relay_is_not_found_and_fails_fast(self):
+        """The probe runs while the settings page renders, so it cannot hang.
+
+        Both real "not deployed" shapes resolve immediately: nothing bound to
+        the port, and no such host at all.
+        """
+        import time
+
+        for kwargs in ({'host': '127.0.0.1', 'port': 9}, {'host': 'no-such-relay-host.invalid'}):
+            started = time.monotonic()
+            self.assertFalse(internal_smtp_relay_available(**kwargs), kwargs)
+            self.assertLess(time.monotonic() - started, 5, kwargs)
+
+    def _transport_widget(self, transport='direct'):
+        from dlux.models import SystemSettings
+
+        instance = SystemSettings(is_configured=False)
+        instance.email_config = {**(instance.email_config or {}), 'transport': transport}
+        form = SystemSettingsForm(instance=instance, mode='modal')
+        return str(form['email_config_transport'])
+
+    @override_settings(DLUX_SMTP_RELAY_PORT=9)
+    def test_the_relay_choice_is_disabled_when_no_relay_answers(self):
+        html = self._transport_widget()
+        self.assertIn('value="relay" disabled', html)
+        self.assertNotIn('value="direct" disabled', html)
+
+    def test_the_relay_choice_stays_available_when_the_relay_answers(self):
+        listener, port = self._fake_relay()
+        try:
+            with override_settings(DLUX_SMTP_RELAY_HOST='127.0.0.1', DLUX_SMTP_RELAY_PORT=port):
+                html = self._transport_widget()
+        finally:
+            listener.close()
+        self.assertNotIn('disabled', html)
+
+    @override_settings(DLUX_SMTP_RELAY_PORT=9)
+    def test_a_relay_already_in_use_is_never_disabled(self):
+        """A relay that is merely down must not reset an operator's transport.
+
+        A disabled option that is also the selected one is submitted by some
+        browsers and dropped by others, so the stored choice is left alone and
+        only *newly* choosing an absent relay is prevented.
+        """
+        html = self._transport_widget(transport='relay')
+        self.assertIn('value="relay" selected', html)
+        self.assertNotIn('disabled', html)

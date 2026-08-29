@@ -1,4 +1,4 @@
-"""Login page and public root cleaning.
+"""Login page and public page cleaning.
 
 Mixed into SystemSettingsForm; see dlux/forms/system_settings.py.
 """

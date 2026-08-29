@@ -13,6 +13,25 @@
     margin-top: 1rem;
 }
 
+.dlux-form-actions--with-fields {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.dlux-form-footer-fields,
+.dlux-form-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.dlux-form-footer-fields .mb-3,
+.dlux-form-footer-fields .form-check {
+    margin-bottom: 0 !important;
+}
+
 .dlux-form-footer {
     display: flex;
     flex-wrap: wrap;

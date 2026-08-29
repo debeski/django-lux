@@ -116,8 +116,10 @@ urlpatterns = [
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
-    path('sys/assets/', views.asset_manager_page, name='asset_manager'),
-    path('sys/assets/delete/<int:pk>/', views.asset_manager_delete, name='asset_manager_delete'),
+    path('sys/setup/assets/upload/', views.managed_image_picker_upload, name='managed_image_picker_upload'),
+    path('sys/assets/', views.asset_manager_page, name='manage_assets'),
+    path('sys/assets/delete/<int:pk>/', views.asset_manager_delete, name='manage_assets_delete'),
+    path('sys/assets/rename/<int:pk>/', views.asset_manager_rename, name='manage_assets_rename'),
     # ScanLink installer distribution. The manifest is what the tray app polls;
     # the download view is the only route to the bytes, which are stored as
     # protected managed assets and are not reachable over MEDIA_URL.
@@ -128,6 +130,7 @@ urlpatterns = [
     path('scanlink/toggle/', views.scanlink_toggle, name='scanlink_toggle'),
     path('sys/options/app-settings/<str:namespace>/', views.app_settings_modal_view, name='dlux_app_settings_modal'),
     path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
+    path('sys/api/ribbon-tabs/', views.ribbon_tabs_preview_view, name='ribbon_tabs_preview'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
     path('sys/admin/data-reset/preview/', views.data_reset_preview_view, name='dlux_data_reset_preview'),
     path('sys/admin/data-reset/execute/', views.data_reset_execute_view, name='dlux_data_reset_execute'),

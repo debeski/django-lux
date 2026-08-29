@@ -11,19 +11,38 @@
 
 .dlux-managed-asset-card {
     overflow: hidden;
+    /* `.glass-profile` pads its own contents by 2rem; the preview is meant to
+       run edge to edge, and the body brings its own padding. */
+    padding: 0;
 }
 
+/* The image is positioned rather than centred by the grid. A centred grid item
+   is not stretched, so `height: 100%` on it had no definite basis to resolve
+   against and fell back to the intrinsic size — a square logo rendered at
+   376px inside a 160px box and painted straight over the name, dimensions,
+   usage line and delete button below it. Absolute insets resolve against the
+   box's own definite height, and `overflow` here means nothing can reach the
+   body even if a future rule gets it wrong again. */
 .dlux-managed-asset-preview {
+    position: relative;
     height: 160px;
-    display: grid;
-    place-items: center;
     background: var(--bs-tertiary-bg);
+    overflow: hidden;
 }
 
 .dlux-managed-asset-preview img {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0.5rem;
+    width: calc(100% - 1rem);
+    height: calc(100% - 1rem);
     object-fit: contain;
+}
+
+.dlux-managed-asset-preview i {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
 }
 
 .dlux-managed-asset-preview i {
@@ -36,4 +55,69 @@
 
 .dlux-managed-asset-body code {
     overflow-wrap: anywhere;
+}
+
+.dlux-managed-asset-name {
+    min-width: 0;
+}
+
+.dlux-managed-asset-title {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: start;
+    overflow-wrap: anywhere;
+}
+
+.dlux-managed-asset-title:hover,
+.dlux-managed-asset-title:focus-visible {
+    color: var(--bs-primary);
+    text-decoration: underline;
+}
+
+.dlux-managed-asset-name input {
+    width: min(100%, 18rem);
+    margin-bottom: 0.25rem;
+}
+
+.dlux-asset-empty {
+    grid-column: 1 / -1;
+    padding: 2.5rem 1rem;
+    border-block: 1px solid var(--bs-border-color);
+}
+
+.dlux-managed-font-list {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.dlux-managed-font-family {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.dlux-managed-font-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.dlux-managed-font-heading code {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 575.98px) {
+    .dlux-managed-assets-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dlux-managed-font-heading {
+        display: block;
+    }
 }

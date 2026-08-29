@@ -1,6 +1,6 @@
 /* Setup wizard: security and access options.
  *
- * Public root, public registration, client-IP resolution, auth hardening and
+ * Public page, public registration, client-IP resolution, auth hardening and
  * the login page layout. Small in lines, large in consequence — this is the UI
  * whose enabled/disabled state DSRP-1 requires to match what the backend will
  * accept.
@@ -21,30 +21,30 @@
         setDependentFieldEnabled
     } = root.DluxSetupDom;
 
-    function syncPublicRootVisibility(form) {
+    function syncPublicPageVisibility(form) {
         if (!form) {
             return;
         }
 
-        const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
+        const publicPageToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
         const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
-        const publicRootDependents = Array.from(form.querySelectorAll('[data-public-root-dependent]'));
-        const splitDependents = Array.from(form.querySelectorAll('[data-public-root-split-dependent]'));
-        if (!publicRootToggle || !splitToggle) {
+        const publicPageDependents = Array.from(form.querySelectorAll('[data-public-page-dependent]'));
+        const splitDependents = Array.from(form.querySelectorAll('[data-public-page-split-dependent]'));
+        if (!publicPageToggle || !splitToggle) {
             return;
         }
 
-        const publicRootEnabled = Boolean(publicRootToggle.checked);
-        if (!publicRootEnabled && splitToggle.checked) {
+        const publicPageEnabled = Boolean(publicPageToggle.checked);
+        if (!publicPageEnabled && splitToggle.checked) {
             splitToggle.checked = false;
         }
-        const splitEnabled = publicRootEnabled && Boolean(splitToggle.checked);
+        const splitEnabled = publicPageEnabled && Boolean(splitToggle.checked);
 
-        const rootReason = dependentReason(publicRootToggle);
-        publicRootDependents.forEach((field) => setDependentFieldEnabled(field, publicRootEnabled, rootReason));
+        const pageReason = dependentReason(publicPageToggle);
+        publicPageDependents.forEach((field) => setDependentFieldEnabled(field, publicPageEnabled, pageReason));
         const splitReason = dependentReason(splitToggle);
         splitDependents.forEach((field) => setDependentFieldEnabled(field, splitEnabled, splitReason));
-        setNamedFieldDisabled(form, 'public_root_split_enabled', !publicRootEnabled);
+        setNamedFieldDisabled(form, 'public_root_split_enabled', !publicPageEnabled);
         setNamedFieldDisabled(form, 'public_root_url_discovered', !splitEnabled);
         setNamedFieldDisabled(form, 'public_root_url', !splitEnabled);
     }
@@ -76,33 +76,33 @@
         });
     }
 
-    function initPublicRootOptions(root) {
+    function initPublicPageOptions(root) {
         const forms = root.matches && root.matches('form.dlux-system-setup-form')
             ? [root]
             : Array.from(root.querySelectorAll('form.dlux-system-setup-form'));
 
         forms.forEach((form) => {
-            if (form.dataset.publicRootBound === 'true') {
-                syncPublicRootVisibility(form);
+            if (form.dataset.publicPageBound === 'true') {
+                syncPublicPageVisibility(form);
                 return;
             }
 
-            const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
+            const publicPageToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
             const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
-            if (!publicRootToggle || !splitToggle) {
+            if (!publicPageToggle || !splitToggle) {
                 return;
             }
 
-            form.dataset.publicRootBound = 'true';
+            form.dataset.publicPageBound = 'true';
 
             form.addEventListener('change', (event) => {
                 const target = event.target;
                 if (!target || (target.name !== 'public_root' && target.name !== 'public_root_split_enabled')) {
                     return;
                 }
-                syncPublicRootVisibility(form);
+                syncPublicPageVisibility(form);
             });
-            syncPublicRootVisibility(form);
+            syncPublicPageVisibility(form);
         });
     }
 
@@ -229,9 +229,9 @@
     }
 
     root.DluxSetup = Object.assign(root.DluxSetup || {}, {
-        syncPublicRootVisibility,
+        syncPublicPageVisibility,
         initPublicRegistrationOptions,
-        initPublicRootOptions,
+        initPublicPageOptions,
         initClientIpOptions,
         initAuthSecurityOptions,
         initLoginPageOptions

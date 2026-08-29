@@ -132,26 +132,13 @@
     --dlux-table-row-danger-hover-bg: rgba(118, 28, 66, 0.92);
 }
 
-/* Animated Background Effect */
-:root.theme-neon::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+/* Page Background */
+:root.theme-neon body {
     background: 
         radial-gradient(ellipse at 20% 80%, rgba(255, 0, 255, 0.08) 0%, transparent 50%),
         radial-gradient(ellipse at 80% 20%, rgba(0, 255, 255, 0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 50%, rgba(191, 0, 255, 0.03) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: -1;
-    animation: cyberPulse 8s ease-in-out infinite;
-}
-
-@keyframes cyberPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+        radial-gradient(ellipse at 50% 50%, rgba(191, 0, 255, 0.03) 0%, transparent 70%),
+        var(--cyber-black) !important;
 }
 
 /* Force options to inherit neon theme colors */
@@ -925,7 +912,7 @@
 :root.theme-neon .btn,
 .theme-neon .btn {
     border: 1px solid rgba(0, 255, 255, 0.25) !important;
-    transition: all 0.2s ease !important;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
 }
 
 :root.theme-neon .btn:hover {
@@ -1025,7 +1012,6 @@
     box-shadow: 
         0 4px 20px rgba(0, 0, 0, 0.4),
         0 0 30px rgba(0, 255, 255, 0.08) !important;
-    backdrop-filter: blur(10px) !important;
 }
 
 :root.theme-neon .info-label,
@@ -1186,27 +1172,25 @@
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
 }
 
-:root.theme-neon .lang-option,
-.theme-neon .lang-option {
+:root.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle),
+.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle) {
     background-color: rgba(18, 18, 31, 0.92) !important;
     border-color: rgba(0, 255, 255, 0.16) !important;
     color: #9fb0cb !important;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24) !important;
 }
 
-:root.theme-neon .lang-option:hover,
-.theme-neon .lang-option:hover {
+:root.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle):hover,
+.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle):hover {
     background-color: rgba(20, 24, 40, 0.96) !important;
     border-color: rgba(0, 255, 255, 0.3) !important;
     color: var(--neon-cyan) !important;
 }
 
-:root.theme-neon .lang-option.lang-active,
-:root.theme-neon .lang-option.active,
-:root.theme-neon .lang-active,
-.theme-neon .lang-option.lang-active,
-.theme-neon .lang-option.active,
-.theme-neon .lang-active {
+:root.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle).lang-active,
+:root.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle).active,
+.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle).lang-active,
+.theme-neon .lang-option:not(.dlux-choice-option__surface--toggle).active {
     background-color: rgba(0, 255, 255, 0.12) !important;
     border-color: var(--neon-cyan) !important;
     color: var(--neon-cyan) !important;
@@ -1810,31 +1794,6 @@
         0 0 14px rgba(0, 255, 255, 0.03) !important;
 }
 
-/* 33. Floating Scan Lines Effect (Subtle) */
-:root.theme-neon body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 255, 255, 0.015) 2px,
-        rgba(0, 255, 255, 0.015) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
-    animation: scanlines 10s linear infinite;
-}
-
-@keyframes scanlines {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(4px); }
-}
-
 /* 34. Code/Pre Blocks - Terminal Style */
 :root.theme-neon code,
 :root.theme-neon pre {
@@ -1908,7 +1867,6 @@
 :root.theme-neon .disabled,
 :root.theme-neon :disabled {
     opacity: 0.5 !important;
-    filter: grayscale(0.5) !important;
 }
 
 /* 39. Links - Neon Glow */
@@ -1916,7 +1874,7 @@
     color: var(--neon-cyan) !important;
     text-decoration: none !important;
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.2) !important;
-    transition: all 0.2s ease !important;
+    transition: color 0.2s ease, text-shadow 0.2s ease !important;
 }
 
 :root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
@@ -2332,10 +2290,5 @@ html[dir="rtl"] :root.theme-neon .activity-timeline {
     :root.theme-neon * {
         text-shadow: none !important;
         box-shadow: none !important;
-    }
-    
-    :root.theme-neon body::after,
-    :root.theme-neon::before {
-        display: none !important;
     }
 }

@@ -294,13 +294,61 @@ def build_translation_matrix(enabled_languages, overrides=None):
     return rows
 
 
+#: The only keys the translation layer reads out of the system config.
+_LANGUAGE_CONFIG_KEYS = (
+    'default_language',
+    'allow_user_language_override',
+    'languages',
+    'translations',
+)
+
+
+def _language_config():
+    """The four config keys this module needs, resolved once per request.
+
+    get_strings() and get_current_language_code() run for every translated
+    string — around 195 times while rendering one list page — and each was
+    calling get_system_config(), which rebuilds the whole merged configuration:
+    defaults plus project settings plus DB overrides, deep-copying every nested
+    dict on the way. That was roughly 90% of the request, to read four keys.
+
+    Memoised on the request rather than the process, so a settings change is
+    live on the next request. Only present keys are copied, so callers' own
+    ``.get(key, default)`` fallbacks still behave. Outside a request (management
+    commands, Celery) there is nothing to memoise on and it resolves as before.
+    """
+    from dlux.utils import get_system_config
+
+    request = None
+    try:
+        from dlux.middleware import get_current_request
+
+        request = get_current_request()
+    except Exception:
+        request = None
+
+    if request is not None:
+        cached = getattr(request, '_dlux_language_config', None)
+        if cached is not None:
+            return cached
+
+    config = get_system_config()
+    resolved = {key: config[key] for key in _LANGUAGE_CONFIG_KEYS if key in config}
+
+    if request is not None:
+        try:
+            request._dlux_language_config = resolved
+        except Exception:
+            pass
+    return resolved
+
+
 def get_current_language_code(request=None):
     from django.utils.translation import get_language
     
     # ── 1. Fetch System Settings ──
     try:
-        from dlux.utils import get_system_config
-        sys_config = get_system_config()
+        sys_config = _language_config()
         default_sys_lang = sys_config.get('default_language', 'en')
         allow_user_language_override = bool(sys_config.get('allow_user_language_override', True))
         available_languages = sys_config.get('languages', {}) or {}
@@ -370,8 +418,7 @@ def get_strings(lang_code=None, overrides=None):
     default_sys_lang = 'en'
     if apps_ready:
         try:
-            from dlux.utils import get_system_config
-            sys_config = get_system_config()
+            sys_config = _language_config()
             default_sys_lang = sys_config.get('default_language', 'en')
             if overrides is None:
                 overrides = sys_config.get('translations', {})

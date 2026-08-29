@@ -6,20 +6,13 @@
     gap: 1.5rem;
 }
 
-.dlux-report-hero {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    padding: 1.35rem 1.5rem;
-    border: 1px solid var(--dlux-report-border);
-    border-radius: 1.35rem;
-    background: var(--dlux-report-surface);
-    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.34);
+/* The page grid already spaces its children, so the ribbon's own bottom margin
+   would stack on top of the gap and leave this header sitting further from its
+   content than on every other page. */
+.dlux-reports-page > .dlux-ribbon-header {
+    margin-block-end: 0;
 }
 
-.dlux-report-hero-copy,
-.dlux-report-exports,
 .dlux-report-builder-heading,
 .dlux-report-builder-panel-heading,
 .dlux-report-builder-actions {
@@ -27,23 +20,6 @@
     align-items: center;
 }
 
-.dlux-report-hero-copy {
-    gap: 1rem;
-}
-
-.dlux-report-hero-icon {
-    display: grid;
-    width: 3rem;
-    height: 3rem;
-    place-items: center;
-    flex: 0 0 auto;
-    border-radius: 1rem;
-    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
-    color: var(--primal, #0d6efd);
-    font-size: 1.35rem;
-}
-
-.dlux-report-hero h1,
 .dlux-report-builder h2,
 .dlux-report-table-card h2 {
     margin: 0;
@@ -51,20 +27,9 @@
     font-weight: 800;
 }
 
-.dlux-report-hero h1 {
-    font-size: clamp(1.35rem, 2.4vw, 2rem);
-}
-
-.dlux-report-hero p,
 .dlux-report-builder-heading p {
     margin: 0.25rem 0 0;
     color: var(--dlux-report-muted);
-}
-
-.dlux-report-exports {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 0.75rem;
 }
 
 .dlux-report-backup-action {
@@ -346,7 +311,6 @@
 }
 
 @media (max-width: 991.98px) {
-    .dlux-report-hero,
     .dlux-report-builder-heading {
         align-items: flex-start;
         flex-direction: column;

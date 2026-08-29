@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 import re
-from copy import deepcopy
+from copy import copy, deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 import inspect
@@ -58,6 +58,26 @@ except ImportError:
 # ── intra-package imports (shared + feature deps) ──
 from .common import is_scope_enabled
 from .crud import _build_generic_filter_class, _build_generic_table_class
+
+
+def _remove_crispy_layout_field(layout_object, field_name):
+    """Remove a field and empty wrappers from a crispy layout tree."""
+    fields = getattr(layout_object, "fields", None)
+    if not isinstance(fields, list):
+        return True
+
+    retained = []
+    for child in fields:
+        if isinstance(child, str):
+            if child != field_name:
+                retained.append(child)
+            continue
+        if _remove_crispy_layout_field(child, field_name):
+            retained.append(child)
+
+    layout_object.fields = retained
+    return bool(retained)
+
 
 # Model Discovery - Helper casefolds names for fuzzy model lookup.
 def _normalize_fuzzy_string(s):
@@ -388,6 +408,12 @@ def resolve_form_class_for_model(model):
                 super().__init__(*args, **kwargs)
                 if 'scope' in self.fields and not is_scope_enabled():
                     del self.fields['scope']
+                    helper = getattr(self, 'helper', None)
+                    layout = getattr(helper, 'layout', None)
+                    if layout is not None:
+                        self.helper = copy(helper)
+                        self.helper.layout = deepcopy(layout)
+                        _remove_crispy_layout_field(self.helper.layout, 'scope')
         form_class = ScopeDynamicForm
 
     return form_class

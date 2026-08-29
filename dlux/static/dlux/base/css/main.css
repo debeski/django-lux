@@ -417,6 +417,33 @@ form label {
     /* Removed hardcoded color: black; to support theme inheritance */
 }
 
+/* Bootstrap sets --bs-nav-pills-link-active-bg to a literal #0d6efd on
+   .nav-pills instead of reading --bs-primary, so an active pill stayed
+   Bootstrap blue under every theme while the controls beside it followed the
+   palette. Rebound on the same selector, which wins on cascade order because
+   this sheet loads after Bootstrap. .nav-tabs needs no equivalent: its active
+   background already resolves through var(--bs-body-bg). */
+.nav-pills {
+    --bs-nav-pills-link-active-bg: var(--bs-primary);
+}
+
+/* A link button is a link: no fill, ever. Twelve of the thirteen themes set a
+   blanket --bs-btn-hover-bg on :root, which Bootstrap applies to every button
+   variant including .btn-link — so a ghost button grew a solid dark background
+   on hover. Under mono that lands #334155 behind text already coloured
+   --bs-link-hover-color (#1e293b): about 1.4:1, where 4.5:1 is the readable
+   floor. Neutralised here rather than in each theme, since every theme that
+   sets the variable has the same problem. */
+.btn-link {
+    --bs-btn-bg: transparent;
+    --bs-btn-hover-bg: transparent;
+    --bs-btn-active-bg: transparent;
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-border-color: transparent;
+}
+
 #mainContent {
     height: calc(100vh - var(--header-height, 60px));
     max-height: calc(100vh - var(--header-height, 60px));

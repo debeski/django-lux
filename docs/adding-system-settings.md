@@ -219,9 +219,50 @@ _field('layout', 'show_audit_fields', field_type='bool', default=False,
 
 ### Step 7 — Import routing for JSON-only keys (`utils/import_export.py`)
 `legacy_flat` keys route themselves via the generic `hasattr(instance, field_name)`
-setter. A **JSON-only** key needs an explicit `elif` in `apply_system_settings_import`
-to fold it into its group dict (see the `options_style` branch). Skip this and
-import/bootstrap won't apply it. (Trap 9.)
+setter. A **JSON-only** key needs routing in `apply_system_settings_import` to fold
+it into its group dict. For a JSON-only **layout** key, add the name to
+`JSON_ONLY_LAYOUT_KEYS` (`system/constants.py`) — the export, import and runtime
+override paths all read that one list. Other groups still need an explicit `elif`.
+Skip this and import/bootstrap won't apply it. (Trap 9.)
+
+### Step 7a — Where the field goes in its step
+
+Two conventions govern placement, and both are pinned by tests:
+
+**Within a section, order by control type:** toggles first, then selectors, then
+free-text/number fields, then builders. Per section, not per step — a step whose
+sections are split by subject (Layout, for instance) would read worse with every
+toggle hoisted to the top.
+
+**Put the field in the step it belongs to by subject, not by storage.** Record
+visibility is stored in `layout_config` but lives in *Access & Security*, because
+it answers who may see a record rather than how a page looks. The storage group
+and the wizard step are independent; `settings_diff.GROUPS` mirrors the **step**,
+so move the name there too when you move the field.
+
+### Step 7b — Bind a visible widget (choice fields)
+
+A choice field declared with `widget=forms.HiddenInput()` — the house pattern for
+`options_style`, `row_actions_style` and the ribbon keys — is **invisible** until
+`_bind_choice_selector_widget()` attaches a `DluxChoiceSelectorWidget` in
+`__init__`. Skip that and the setting still posts, still normalizes and still
+round-trips through import/export, so every pipeline test passes while the step
+shows nothing. Assert the bound widget type in a test, not just the stored value.
+
+### Step 7b2 — Keep `option_meta` keyed on the choice values
+
+`DluxChoiceSelectorWidget(option_meta={...})` is keyed by choice **value**. If a
+value is renamed and the meta key is not, that option silently loses its icon and
+description and renders its bare value as both label and caption. Assert the key
+set equals the choice set.
+
+### Step 7c — New static directories need collecting
+
+A new directory under `dlux/static/` is **not** picked up by a running stack
+until `collectstatic` runs there. `{% dlux_static %}` builds its cache-buster
+from the source file's mtime, so the URL updates and the `<link>` looks correct
+while the file itself 404s and the page silently renders unstyled. Check the
+asset's HTTP status, not just that the tag is present.
 
 ### Step 8 — Translations (`translations.py`)
 Add `form_sys_<name>` and `help_sys_<name>` to **both** the EN and AR dicts. No raw

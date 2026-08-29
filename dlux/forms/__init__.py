@@ -105,3 +105,4 @@ __all__ = [
     'get_assignable_permissions_queryset',
     'logger',
 ]
+from .lookup import DluxLookupField  # noqa: F401

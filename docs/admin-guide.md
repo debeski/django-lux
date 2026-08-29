@@ -10,7 +10,7 @@ The short version:
 
 - Use `/sys/setup/` for first launch and `/sys/options/` for ongoing changes.
 - Put deployable defaults in `DLUX_CONFIG`; use System Settings for live policy; let `Profile.preferences` remain personal.
-- Treat `homepage_config` and `search_config` as the canonical configuration for new work. Legacy flat/titlebar/public-root keys are v1.x mirrors.
+- Treat `homepage_config` and `search_config` as the canonical configuration for new work. Legacy flat/titlebar/public page keys are v1.x mirrors.
 - Configure proxy/IP policy before relying on rate limits, lockout, or activity-log attribution.
 
 ## Run the application

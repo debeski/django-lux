@@ -5,12 +5,42 @@ toggles, email controls, file fields and modal/wizard action bars."""
 import json
 from crispy_forms.layout import Field, Div, HTML
 from crispy_forms.bootstrap import FormActions
+from django import forms
 from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 from ..translations import get_current_language_code
 from ..utils import normalize_titlebar_actions_order
 from ..widgets import DluxFileInput
 
+
+
+class DluxRelayAwareSelect(forms.Select):
+    """A Select that greys out transports whose service is not deployed.
+
+    The internal relay is a separate process. When it is not running, choosing
+    relay transport configures mail that cannot leave the building — the app
+    hands every message to a socket nothing is listening on. Offering the choice
+    and letting it fail on the next test send teaches that lesson slowly; the
+    option simply not being available says it immediately.
+
+    The stored value is never disabled, even when unreachable. A relay that is
+    merely down should not silently reset an operator's transport to direct, and
+    a disabled option that is also the selected one is submitted by some
+    browsers and dropped by others.
+    """
+
+    def __init__(self, *args, unavailable=(), reason='', **kwargs):
+        super().__init__(*args, **kwargs)
+        self.unavailable = set(unavailable)
+        self.reason = reason
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if str(value) in self.unavailable and not selected:
+            option['attrs']['disabled'] = True
+            if self.reason:
+                option['attrs']['title'] = self.reason
+        return option
 
 def _bind_choice_selector_widget(field, widget):
     widget.choices = field.choices

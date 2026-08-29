@@ -60,6 +60,8 @@ class NotificationEvent:
     email: bool | None = None
     audience_type: str = ''
     expires_at: object | None = None
+    event_key: str = ''
+    include_actor: bool | None = None
 
 
 def _normalize_level(level):
@@ -202,6 +204,7 @@ def _should_dedupe(event):
         'object': obj_meta.get('source_object_id', ''),
         'message': event.message,
         'metadata': event.metadata,
+        'event_key': event.event_key,
     })
     cache_key = f'dlux:notification:dedupe:{key}'
     if cache.get(cache_key):
@@ -278,6 +281,72 @@ def _broadcast_users(scope=None):
     return list(qs)
 
 
+def _related_users(event):
+    resolver = getattr(event.obj, 'dlux_notification_recipients', None)
+    if not callable(resolver):
+        return []
+    try:
+        return _coerce_user_list(resolver(action=event.action, actor=event.user))
+    except Exception:
+        return []
+
+
+def _scope_allows_recipient(user, scope, obj=None):
+    if getattr(user, 'is_superuser', False):
+        return True
+    try:
+        from .utils import get_user_scope, is_global_staff, is_scope_enabled
+
+        if not is_scope_enabled() or is_global_staff(user):
+            return True
+        meta = getattr(obj, '_meta', None)
+        has_scoped_object = False
+        if meta is not None:
+            try:
+                meta.get_field('scope')
+                has_scoped_object = True
+            except Exception:
+                pass
+        if scope is None and not has_scoped_object:
+            return True
+        user_scope = get_user_scope(user)
+        return getattr(user_scope, 'pk', None) == getattr(scope, 'pk', None)
+    except Exception:
+        return False
+
+
+def _view_permission_for_object(obj):
+    meta = getattr(obj, '_meta', None)
+    if meta is None:
+        return ''
+    policy = getattr(obj.__class__, 'dlux_notify', None)
+    if isinstance(policy, dict) and policy.get('view_permission'):
+        return str(policy['view_permission']).strip()
+    return f'{meta.app_label}.view_{meta.model_name}'
+
+
+def _recipient_can_view_event(user, event, scope):
+    if not _scope_allows_recipient(user, scope, event.obj):
+        return False
+    obj = event.obj
+    if obj is None or getattr(user, 'is_superuser', False):
+        return True
+    permission = _view_permission_for_object(obj)
+    if permission:
+        try:
+            if not (user.has_perm(permission, obj) or user.has_perm(permission)):
+                return False
+        except Exception:
+            return False
+    visibility = getattr(obj, 'dlux_notification_visible_to', None)
+    if callable(visibility):
+        try:
+            return bool(visibility(user=user, action=event.action, actor=event.user))
+        except Exception:
+            return False
+    return True
+
+
 def _rule_value_matches(expected, actual):
     if expected in (None, '', [], ()):
         return True
@@ -309,7 +378,10 @@ def _base_delivery(event, config):
     actor_flash_actions = set(automatic.get('actor_flash_actions') or [])
     explicit_audience = bool(event.recipients)
     if isinstance(event.to, str):
-        explicit_audience = explicit_audience or event.to.strip().lower() in {'watchers', 'staff', 'broadcast', 'users'}
+        explicit_audience = explicit_audience or bool({
+            token.strip().lower()
+            for token in event.to.replace(',', '+').split('+')
+        }.intersection({'watchers', 'related', 'staff', 'broadcast', 'users'}))
     elif isinstance(event.to, (list, tuple, set)):
         explicit_audience = explicit_audience or bool(event.to)
     if event.persist is None:
@@ -333,6 +405,9 @@ def _base_delivery(event, config):
         'flash': flash,
         'badge': True,
         'email': email,
+        'include_actor': (
+            bool(automatic.get('include_actor', False)) if is_auto else True
+        ) if event.include_actor is None else bool(event.include_actor),
         'to': event.to,
         'recipients': event.recipients,
         'audience_type': event.audience_type or '',
@@ -352,7 +427,7 @@ def _apply_rules(event, config, scope, obj_meta):
         if not _rule_matches(rule, event, obj_meta):
             continue
         rule_delivery = rule.delivery_config if isinstance(rule.delivery_config, dict) else {}
-        for key in ('persist', 'flash', 'badge', 'email'):
+        for key in ('persist', 'flash', 'badge', 'email', 'include_actor'):
             if key in rule_delivery:
                 delivery[key] = bool(rule_delivery.get(key))
         for key in ('to', 'recipients', 'audience_type', 'expires_at'):
@@ -371,14 +446,14 @@ def _apply_rules(event, config, scope, obj_meta):
 
 
 def _resolve_recipients(event, delivery, scope, obj_meta):
-    recipients = []
+    candidates = []
     explicit = _coerce_user_list(delivery.get('recipients'))
     if explicit:
-        recipients.extend(explicit)
+        candidates.extend((user, 'explicit') for user in explicit)
 
     to_value = delivery.get('to')
     if to_value is None:
-        to_value = 'actor+watchers' if event.source in {'scoped_model', 'generic_crud', 'context_menu'} else 'actor'
+        to_value = 'watchers+related' if event.source in {'scoped_model', 'generic_crud', 'context_menu'} else 'actor'
     if isinstance(to_value, str):
         tokens = {token.strip().lower() for token in to_value.replace(',', '+').split('+') if token.strip()}
     elif isinstance(to_value, (list, tuple, set)):
@@ -388,21 +463,35 @@ def _resolve_recipients(event, delivery, scope, obj_meta):
 
     actor = event.user
     if 'actor' in tokens and actor:
-        recipients.append(actor)
+        candidates.append((actor, 'actor'))
     if 'watchers' in tokens:
-        recipients.extend(_watcher_users(obj_meta.get('source_model_key'), scope))
+        candidates.extend((user, 'watcher') for user in _watcher_users(obj_meta.get('source_model_key'), scope))
+    if 'related' in tokens:
+        candidates.extend((user, 'related') for user in _related_users(event))
     if 'staff' in tokens:
-        recipients.extend(_staff_users(scope))
+        candidates.extend((user, 'staff') for user in _staff_users(scope))
     if 'broadcast' in tokens or delivery.get('audience_type') == 'broadcast':
-        recipients.extend(_broadcast_users(scope))
+        candidates.extend((user, 'broadcast') for user in _broadcast_users(scope))
 
-    seen = set()
-    unique = []
-    for user in recipients:
+    origins = {}
+    users = {}
+    for user, origin in candidates:
         pk = getattr(user, 'pk', None)
-        if pk and getattr(user, 'is_active', True) and pk not in seen:
-            seen.add(pk)
-            unique.append(user)
+        if not pk or not getattr(user, 'is_active', True):
+            continue
+        users[pk] = user
+        origins.setdefault(pk, set()).add(origin)
+
+    actor_id = getattr(actor, 'pk', None)
+    include_actor = bool(delivery.get('include_actor'))
+    unique = []
+    for pk, user in users.items():
+        if actor_id == pk and not include_actor:
+            continue
+        direct_actor = actor_id == pk and 'actor' in origins.get(pk, set())
+        if not direct_actor and not _recipient_can_view_event(user, event, scope):
+            continue
+        unique.append(user)
     return unique
 
 
@@ -482,7 +571,26 @@ def get_flash_notifications(request):
 def _create_notification(event, scope, obj_meta, delivery, config):
     DluxNotification = apps.get_model('dlux', 'DluxNotification')
     expires_at = delivery.get('expires_at') or _expiry_from_config(config)
-    notification = DluxNotification.objects.create(
+    to_value = delivery.get('to')
+    if isinstance(to_value, str):
+        audience_tokens = {token.strip().lower() for token in to_value.replace(',', '+').split('+') if token.strip()}
+    elif isinstance(to_value, (list, tuple, set)):
+        audience_tokens = {str(token).strip().lower() for token in to_value if str(token).strip()}
+    else:
+        audience_tokens = set()
+    audience_type = delivery.get('audience_type') or event.audience_type
+    if not audience_type:
+        if 'broadcast' in audience_tokens:
+            audience_type = 'broadcast'
+        elif delivery.get('recipients') or audience_tokens.intersection({'staff', 'users'}):
+            audience_type = 'users'
+        elif 'watchers' in audience_tokens:
+            audience_type = 'watchers'
+        elif 'related' in audience_tokens:
+            audience_type = 'users'
+        else:
+            audience_type = 'actor'
+    values = dict(
         title=event.title[:180],
         message=event.message,
         level=event.level,
@@ -495,14 +603,24 @@ def _create_notification(event, scope, obj_meta, delivery, config):
         source_label=obj_meta.get('source_label', '')[:255],
         target_url=(event.target_url or '')[:512],
         request_path=(event.request_path or '')[:512],
-        audience_type=(delivery.get('audience_type') or event.audience_type or 'actor')[:24],
+        audience_type=str(audience_type)[:24],
+        badge_enabled=bool(delivery.get('badge', True)),
         metadata=event.metadata if isinstance(event.metadata, dict) else {},
         scope=scope,
         expires_at=expires_at,
         created_by=event.user,
         updated_by=event.user,
     )
-    return notification
+    event_key = str(event.event_key or '').strip() or None
+    if event_key:
+        if len(event_key) > 255:
+            event_key = f"sha256:{hashlib.sha256(event_key.encode('utf-8')).hexdigest()}"
+        notification, _created = DluxNotification.all_objects.get_or_create(
+            event_key=event_key,
+            defaults=values,
+        )
+        return notification
+    return DluxNotification.objects.create(**values)
 
 
 def _create_states(notification, recipients):
@@ -584,7 +702,7 @@ def emit_notification_event(event):
 
     notification = None
     states = []
-    should_persist = bool(delivery.get('persist') or delivery.get('email'))
+    should_persist = bool(recipients and (delivery.get('persist') or delivery.get('email')))
     if should_persist:
         try:
             notification = _create_notification(event, event.scope, obj_meta, delivery, config)
@@ -595,7 +713,12 @@ def emit_notification_event(event):
             states = []
 
     if delivery.get('flash') and config.get('flash', {}).get('enabled', True):
-        queue_flash_notification(event.request, _flash_payload(event, obj_meta, notification))
+        actor_id = getattr(event.user, 'pk', None)
+        actor_has_state = any(getattr(user, 'pk', None) == actor_id for user in recipients)
+        queue_flash_notification(
+            event.request,
+            _flash_payload(event, obj_meta, notification if actor_has_state else None),
+        )
 
     if delivery.get('email') and config.get('email', {}).get('enabled', False):
         _send_notification_email(notification, states)
@@ -625,6 +748,8 @@ def _notify(
     email=None,
     audience_type='',
     expires_at=None,
+    event_key='',
+    include_actor=None,
     source='manual',
     **options,
 ):
@@ -659,6 +784,8 @@ def _notify(
         email=email,
         audience_type=audience_type,
         expires_at=expires_at,
+        event_key=event_key,
+        include_actor=include_actor,
     )
     return emit_notification_event(event)
 
@@ -770,8 +897,10 @@ def notify_model_event(instance, action, *, details=None, activity_log=None, req
         request=request,
         user=user,
         metadata=metadata,
-        to='actor+watchers' if policy.get('watchable', True) else 'actor',
+        to='watchers+related' if policy.get('watchable', True) else 'related',
         flash=flash_override,
+        event_key=f"crud:activity:{activity_log.pk}" if getattr(activity_log, 'pk', None) else '',
+        include_actor=bool(policy.get('include_actor', False)),
     )
 
 
@@ -793,6 +922,7 @@ def serialize_notification_state(state, request=None):
         'source_object_id': notification.source_object_id,
         'source_label': notification.source_label,
         'target_url': notification.target_url,
+        'badge_enabled': notification.badge_enabled,
         'metadata': metadata,
         'created_at': notification.created_at.isoformat() if notification.created_at else '',
         'read': bool(state.read_at),
@@ -831,14 +961,15 @@ def get_notification_context(request, limit=None):
         Q(notification__expires_at__isnull=True) | Q(notification__expires_at__gt=now)
     ).order_by('-notification__created_at')
     unread_qs = qs.filter(read_at__isnull=True)
-    unread_count = unread_qs.count()
+    badge_qs = unread_qs.filter(notification__badge_enabled=True)
+    unread_count = badge_qs.count()
     unread_level = ''
-    latest_unread = unread_qs.first()
+    latest_unread = badge_qs.first()
     if latest_unread:
         unread_level = latest_unread.notification.level
     section_counts = {
         row['notification__source_model_key']: row['count']
-        for row in unread_qs.exclude(notification__source_model_key='').order_by().values(
+        for row in badge_qs.exclude(notification__source_model_key='').order_by().values(
             'notification__source_model_key'
         ).annotate(count=Count('pk'))
     }

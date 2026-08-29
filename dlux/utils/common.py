@@ -220,12 +220,38 @@ def is_scope_enabled():
         bool: True if enabled, False otherwise.
     """
     from django.db.utils import ProgrammingError, OperationalError
+
+    # ScopeSettings.load() is an uncached get_or_create, and this is called once
+    # per scoped queryset — dozens of times while rendering one list page, each
+    # a database round trip for the same boolean. Memoised on the request rather
+    # than cached in the model, because ScopeSettings is deliberately a leaf data
+    # module (see BASELINE_DEFERRED_CLUSTERS in test_import_graph) and a
+    # process-wide cache would also outlive a test database.
+    try:
+        from ..middleware import get_current_request
+
+        request = get_current_request()
+    except Exception:
+        request = None
+
+    if request is not None:
+        memo = getattr(request, '_dlux_scope_enabled', None)
+        if memo is not None:
+            return memo
+
     try:
         ScopeSettings = apps.get_model('dlux', 'ScopeSettings')
-        return ScopeSettings.load().is_enabled
+        enabled = ScopeSettings.load().is_enabled
     except (LookupError, ProgrammingError, OperationalError):
         # Fallback if model or table isn't ready (e.g., during migrations or empty DB)
         return False
+
+    if request is not None:
+        try:
+            request._dlux_scope_enabled = enabled
+        except Exception:
+            pass
+    return enabled
 
 
 def _iter_queryset_by_pk(qs, chunk_size=200):

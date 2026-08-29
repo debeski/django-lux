@@ -4,6 +4,7 @@ from django import forms
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, ProgrammingError, transaction
+from django.urls import reverse
 from ..translations import get_strings
 from ..widgets import DluxFileInput
 
@@ -83,6 +84,7 @@ class AssetPickerWidget(DluxFileInput):
         widget = context['widget']
         widget.update({
             'asset_picker': True,
+            'asset_upload_url': reverse('managed_image_picker_upload') if self.kind == 'image' else '',
             'field_label': self.field_label,
             'show_scan': False,
             'empty_meta': strings.get('asset_picker_empty_meta', 'Choose a saved file or use upload.'),
@@ -142,10 +144,54 @@ class AssetPickerField(forms.Field):
         return AssetSelection()
 
 
-class ManagedAssetUploadForm(forms.Form):
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        if not isinstance(data, (list, tuple)):
+            data = [data] if data else []
+        files = [super(MultipleFileField, self).clean(item, initial) for item in data]
+        if self.required and not files:
+            raise ValidationError(self.error_messages['required'], code='required')
+        return files
+
+
+class ManagedImageUploadForm(forms.Form):
+    file = MultipleFileField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        strings = get_strings()
+        self.fields['file'].label = strings.get('asset_field_file', 'File')
+        self.fields['file'].widget.attrs.update({
+            'accept': '.gif,.ico,.jpeg,.jpg,.png,.webp,image/gif,image/jpeg,image/png,image/webp,image/x-icon',
+            'class': 'visually-hidden',
+            'data-managed-image-input': '',
+        })
+
+    def clean_file(self):
+        uploads = self.cleaned_data['file']
+        for upload in uploads:
+            validate_asset_upload(upload, 'image')
+        return uploads
+
+    def save(self, *, user=None):
+        assets = []
+        created_count = 0
+        for upload in self.cleaned_data['file']:
+            asset, created = create_managed_asset(upload, kind='image', user=user)
+            assets.append(asset)
+            created_count += int(created)
+        return assets, created_count
+
+
+class ManagedFontUploadForm(forms.Form):
     title = forms.CharField(max_length=150, required=False)
-    kind = forms.ChoiceField(choices=(('image', 'Image'), ('font', 'WOFF2 Font')))
-    file = forms.FileField()
+    file = forms.FileField(widget=DluxFileInput)
     font_slug = forms.CharField(max_length=50, required=False)
     font_family = forms.CharField(max_length=100, required=False)
     font_label = forms.CharField(max_length=100, required=False)
@@ -166,7 +212,6 @@ class ManagedAssetUploadForm(forms.Form):
         strings = get_strings()
         labels = {
             'title': strings.get('asset_field_title', 'Name'),
-            'kind': strings.get('asset_field_kind', 'File type'),
             'file': strings.get('asset_field_file', 'File'),
             'font_slug': strings.get('asset_field_font_slug', 'Font slug'),
             'font_family': strings.get('asset_field_font_family', 'CSS family'),
@@ -176,52 +221,45 @@ class ManagedAssetUploadForm(forms.Form):
         }
         for field_name, label in labels.items():
             self.fields[field_name].label = label
-        self.fields['kind'].choices = (
-            ('image', strings.get('asset_kind_image', 'Image')),
-            ('font', strings.get('asset_kind_font', 'WOFF2 font')),
-        )
         self.fields['font_style'].choices = (
             ('normal', strings.get('asset_font_style_normal', 'Normal')),
             ('italic', strings.get('asset_font_style_italic', 'Italic')),
         )
         self.fields['file'].widget = DluxFileInput(
             field_label=self.fields['file'].label,
-            attrs={'accept': '.gif,.ico,.jpeg,.jpg,.png,.webp,.woff2'},
+            attrs={'accept': '.woff2,font/woff2'},
         )
         for field_name in ('title', 'font_slug', 'font_family', 'font_label'):
             self.fields[field_name].widget.attrs['class'] = 'form-control glass-input'
-        for field_name in ('kind', 'font_weight', 'font_style'):
+        for field_name in ('font_weight', 'font_style'):
             self.fields[field_name].widget.attrs['class'] = 'form-select glass-input'
 
     def clean(self):
         cleaned = super().clean()
-        kind = cleaned.get('kind')
         upload = cleaned.get('file')
-        if upload and kind:
+        if upload:
             try:
-                validate_asset_upload(upload, kind)
+                validate_asset_upload(upload, 'font')
             except ValidationError as exc:
                 self.add_error('file', exc)
-        if kind == 'font':
-            slug = str(cleaned.get('font_slug') or '').strip().lower()
-            family = str(cleaned.get('font_family') or '').strip()
-            if not FONT_SLUG_RE.fullmatch(slug):
-                self.add_error('font_slug', "Use a lowercase slug beginning with a letter.")
-            if not FONT_FAMILY_RE.fullmatch(family):
-                self.add_error('font_family', "Enter a valid CSS font family name.")
-            if not cleaned.get('font_weight'):
-                self.add_error('font_weight', "Choose a font weight.")
+        slug = str(cleaned.get('font_slug') or '').strip().lower()
+        family = str(cleaned.get('font_family') or '').strip()
+        if not FONT_SLUG_RE.fullmatch(slug):
+            self.add_error('font_slug', "Use a lowercase slug beginning with a letter.")
+        if not FONT_FAMILY_RE.fullmatch(family):
+            self.add_error('font_family', "Enter a valid CSS font family name.")
+        if not cleaned.get('font_weight'):
+            self.add_error('font_weight', "Choose a font weight.")
         return cleaned
 
     def save(self, *, user=None):
-        asset, created = create_managed_asset(
-            self.cleaned_data['file'],
-            kind=self.cleaned_data['kind'],
-            title=self.cleaned_data.get('title', ''),
-            user=user,
-        )
-        font = None
-        if self.cleaned_data['kind'] == 'font':
+        with transaction.atomic():
+            asset, created = create_managed_asset(
+                self.cleaned_data['file'],
+                kind='font',
+                title=self.cleaned_data.get('title', ''),
+                user=user,
+            )
             font, _variant = register_managed_font(
                 asset,
                 slug=self.cleaned_data['font_slug'],

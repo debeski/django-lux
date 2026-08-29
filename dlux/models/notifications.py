@@ -43,7 +43,9 @@ class DluxNotification(ScopedModel):
     source_label = models.CharField(max_length=255, blank=True, verbose_name="Source Label")
     target_url = models.CharField(max_length=512, blank=True, verbose_name="Target URL")
     request_path = models.CharField(max_length=512, blank=True, verbose_name="Request Path")
+    event_key = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name="Event Key")
     audience_type = models.CharField(max_length=24, choices=AUDIENCE_CHOICES, default=AUDIENCE_ACTOR, verbose_name="Audience Type")
+    badge_enabled = models.BooleanField(default=True, db_default=True, verbose_name="Badge Enabled")
     metadata = models.JSONField(default=dict, blank=True, verbose_name="Metadata")
     expires_at = models.DateTimeField(blank=True, null=True, db_index=True, verbose_name="Expires At")
 

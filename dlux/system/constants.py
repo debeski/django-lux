@@ -121,6 +121,20 @@ TABLE_DENSITY_CHOICES = (
     ('roomy', 'Roomy'),
 )
 TABLE_DENSITY_VALUES = {value for value, _label in TABLE_DENSITY_CHOICES}
+DEFAULT_TABLE_EDGES = 'curved'
+TABLE_EDGES_CHOICES = (
+    (DEFAULT_TABLE_EDGES, 'Curved'),
+    ('half_rounded', 'Half-rounded'),
+    ('normal', 'Normal'),
+)
+TABLE_EDGES_VALUES = {value for value, _label in TABLE_EDGES_CHOICES}
+DEFAULT_CARD_EDGES = 'curved'
+CARD_EDGES_CHOICES = (
+    (DEFAULT_CARD_EDGES, 'Curved'),
+    ('half_rounded', 'Half-rounded'),
+    ('normal', 'Normal'),
+)
+CARD_EDGES_VALUES = {value for value, _label in CARD_EDGES_CHOICES}
 DEFAULT_SIDEBAR_DENSITY = DEFAULT_TABLE_DENSITY
 SIDEBAR_DENSITY_CHOICES = TABLE_DENSITY_CHOICES
 SIDEBAR_DENSITY_VALUES = TABLE_DENSITY_VALUES
@@ -186,6 +200,80 @@ OPTIONS_STYLE_CHOICES = (
 )
 DEFAULT_OPTIONS_STYLE = 'tabs'
 OPTIONS_STYLE_VALUES = {value for value, _label in OPTIONS_STYLE_CHOICES}
+# How the ribbon looks, independently of how it is arranged: the standard
+# bordered header, the soft rounded surface the reports page uses, or a
+# borderless rule for pages that want the list to lead.
+DEFAULT_RIBBON_STYLE = 'accent'
+RIBBON_STYLE_CHOICES = (
+    (DEFAULT_RIBBON_STYLE, 'Accent'),
+    ('panel', 'Panel'),
+    ('flat', 'Flat'),
+)
+RIBBON_STYLE_VALUES = {value for value, _label in RIBBON_STYLE_CHOICES}
+
+# Tab strips an administrator drew, keyed by "app_label.ModelName". The value is
+# the same shape a view's `ribbon_tabs` takes, so a strip declared in code and
+# one drawn in Settings are the same object by the time anything renders it.
+#
+#   {"storage.Asset": {"param": "category", "sources": [...]}}
+#
+# A view that declares its own strip wins: the developer had a reason, and a
+# setting quietly overriding code is the kind of surprise that costs an hour.
+DEFAULT_RIBBON_CONFIG = {}
+RIBBON_TAB_SOURCE_TYPES = ('all', 'field', 'flag', 'static')
+
+# Layout keys that live only in layout_config — there is no legacy column on
+# SystemSettings for them, so import/export has to route them through the JSON
+# rather than setattr. Add a new JSON-only layout key here and the import,
+# export and runtime-override paths pick it up.
+JSON_ONLY_LAYOUT_KEYS = (
+    'options_style',
+    'row_actions_style',
+    'table_edges',
+    'card_edges',
+    'table_accent_edges',
+    'ribbon_layout',
+    'ribbon_style',
+    'ribbon_title',
+    'ribbon_advanced_trigger',
+    'ribbon_nesting',
+)
+
+# The ribbon: the band at the top of a list page carrying its title, its actions
+# and its filters. Page chrome, like the navbar and the titlebar, and configured
+# the same way — the administrator picks how it looks, the developer declares
+# nothing. See `dlux.ribbon`.
+#
+# Style: the standard header card — title and actions on one row, filters on the
+# row beneath (default); the same with the actions moved below the filters, for
+# a list with many of them; or filters alone, with no title card.
+DEFAULT_RIBBON_LAYOUT = 'default'
+RIBBON_LAYOUT_CHOICES = (
+    (DEFAULT_RIBBON_LAYOUT, 'Default'),
+    ('stacked', 'Stacked'),
+    ('compact', 'Compact'),
+)
+RIBBON_LAYOUT_VALUES = {value for value, _label in RIBBON_LAYOUT_CHOICES}
+# How the advanced filters are reached: behind a toggle (default), always open,
+# or not offered at all — a list whose advanced fields are noise for its users.
+#: How a strip nested under another attaches to it. Only ever visible on a list
+#: that splits more than one way — with a single strip all three render the same,
+#: which is why this is named for nesting rather than for tabs.
+DEFAULT_RIBBON_NESTING = 'chain'
+RIBBON_NESTING_CHOICES = (
+    (DEFAULT_RIBBON_NESTING, 'Inline chain'),
+    ('rail', 'Nested rail'),
+    ('tiered', 'Tier by weight'),
+)
+RIBBON_NESTING_VALUES = {value for value, _label in RIBBON_NESTING_CHOICES}
+
+DEFAULT_RIBBON_ADVANCED_TRIGGER = 'button'
+RIBBON_ADVANCED_TRIGGER_CHOICES = (
+    (DEFAULT_RIBBON_ADVANCED_TRIGGER, 'Toggle button'),
+    ('always', 'Always open'),
+    ('off', 'Hidden'),
+)
+RIBBON_ADVANCED_TRIGGER_VALUES = {v for v, _l in RIBBON_ADVANCED_TRIGGER_CHOICES}
 # Table row-actions trigger style (layout_config.row_actions_style): right-click/
 # long-press context menu (default, unchanged behavior), a dedicated three-dot
 # actions column, or both. Distinct from the per-table `dlux_actions` Meta flag,
@@ -199,7 +287,7 @@ ROW_ACTIONS_STYLE_CHOICES = (
 ROW_ACTIONS_STYLE_VALUES = {value for value, _label in ROW_ACTIONS_STYLE_CHOICES}
 # Max length of the optional global footer copyright/credit line (layout_config).
 LAYOUT_FOOTER_TEXT_MAX_LENGTH = 300
-# Max lengths for the optional public-root SEO overrides (public_root_config).
+# Max lengths for the optional public page SEO overrides (public_root_config).
 PUBLIC_ROOT_TITLE_MAX_LENGTH = 120
 PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH = 300
 DEFAULT_SIDEBAR_COLLAPSE_MODE = 'icons'
@@ -373,24 +461,95 @@ THEME_PICKER_LOCATION_CHOICES = (
 THEME_PICKER_LOCATION_VALUES = frozenset(value for value, _ in THEME_PICKER_LOCATION_CHOICES)
 
 
-SETUP_STEP_IDENTITY = 0
-SETUP_STEP_LANGUAGES = 1
-SETUP_STEP_HOMEPAGE = 2
-SETUP_STEP_EMAIL = 3
-SETUP_STEP_SECURITY = 4
-SETUP_STEP_LOGIN = 5
-SETUP_STEP_SIDEBAR = 6
-SETUP_STEP_NAVBAR = 7
-SETUP_STEP_TITLEBAR = 8
-SETUP_STEP_SEARCH = 9
-SETUP_STEP_NOTIFICATIONS = 10
-SETUP_STEP_APPEARANCE = 11
-SETUP_STEP_LAYOUT = 12
-SETUP_STEP_LOGGING = 13
-SETUP_STEP_PROFILE = 14
-SETUP_STEP_BACKUPS = 15
-SETUP_STEP_EXTRAS = 16
-SETUP_STEP_COUNT = 17
+#: The setup wizard's steps, in the order they are presented.
+#:
+#: This tuple is the one place that order lives. The step constants below are
+#: positions in it, and the wizard nav, the Options tiles, the step badges and
+#: global search all read it instead of restating it — before this, order was
+#: spelled out in five places and three of them had drifted: the Ribbon step
+#: rendered fourteenth, announced itself as "Step 18", was opened by the nav
+#: button labelled "Logging", and was missing from search entirely.
+#:
+#: A row is (slug, icon, search keywords). The slug names the step's strings:
+#: `system_settings_<slug>` for its label, `<slug>_desc` for its description,
+#: and `system_setup_step_<slug>` for the badge inside the panel. Adding a step
+#: is one row here plus those strings.
+#:
+#: Order follows what a step depends on, then what it is about. Languages feeds
+#: the per-language fonts on Themes & Fonts, which populates `allowed_themes`,
+#: which fills the Homepage theme picker — so those three keep that sequence.
+#: Titlebar precedes Sidebar and Navbar because it is the one piece of chrome
+#: that cannot be turned off; the other two are optional.
+SETUP_STEPS = (
+    ('branding', 'bi-buildings-fill',
+     ('identity', 'system name', 'logo', 'favicon', 'branding', 'organization')),
+    ('languages', 'bi-translate',
+     ('language', 'locale', 'translation', 'rtl', 'default language')),
+    ('email', 'bi-envelope-at',
+     ('email', 'smtp', 'mail', 'mail server', 'delivery', 'relay', 'sender',
+      'from address', 'test email', 'verify email')),
+    ('security', 'bi-shield-lock',
+     ('security', '2fa', 'two factor', 'password', 'strong password', 'lockout',
+      'login lockout', 'inactivity', 'timeout', 'session', 'purge session',
+      'browser close', 'sign out', 'client ip', 'privacy', 'consent', 'registration')),
+    ('appearance', 'bi-palette-fill',
+     ('theme', 'appearance', 'font', 'typography', 'color', 'dark mode',
+      'table edges', 'card edges', 'curved', 'rounded')),
+    ('titlebar', 'bi-window-stack',
+     ('titlebar', 'title bar', 'user hub', 'actions')),
+    ('sidebar', 'bi-layout-sidebar-inset',
+     ('sidebar', 'menu', 'navigation', 'collapse', 'side nav')),
+    ('navbar', 'bi-signpost-split',
+     ('navbar', 'nav bar', 'breadcrumb', 'hierarchy')),
+    ('ribbon', 'bi-menu-button-wide-fill',
+     ('ribbon', 'tabs', 'tab strip', 'filters', 'list header', 'page ribbon')),
+    ('layout', 'bi-grid-1x2-fill',
+     ('components', 'layout', 'table density', 'form density', 'modal size',
+      'zebra', 'sticky headers', 'resizable columns', 'audit fields',
+      'soft deleted', 'options page', 'row actions')),
+    ('homepage', 'bi-house-gear-fill',
+     ('homepage', 'home url', 'landing page', 'public homepage', 'public page',
+      'public theme')),
+    ('login_page', 'bi-box-arrow-in-right',
+     ('login page', 'hero', 'banner', 'login style', 'split', 'centered')),
+    ('profile', 'bi-person-badge',
+     ('profile', 'avatar', 'profile page')),
+    ('search', 'bi-search',
+     ('global search', 'search', 'search mode', 'data records')),
+    ('notifications', 'bi-bell-fill',
+     ('notification', 'flash', 'toast', 'drawer', 'alerts')),
+    ('logging', 'bi-journal-text',
+     ('logging', 'activity log', 'audit', 'retention')),
+    ('backups', 'bi-safe2-fill',
+     ('backup', 'restore', 'export', 'import')),
+    ('extras', 'bi-puzzle-fill',
+     ('extra', 'features', 'integrations', 'scanlink', 'scanner', 'scan', 'twain')),
+)
+
+SETUP_STEP_SLUGS = tuple(slug for slug, _icon, _keywords in SETUP_STEPS)
+SETUP_STEP_INDEX = {slug: index for index, slug in enumerate(SETUP_STEP_SLUGS)}
+
+# Names kept as they were: `SETUP_STEP_LAYOUT` still backs `layout_config`, so
+# renaming it to match the step's new label would only split the two apart.
+SETUP_STEP_IDENTITY = SETUP_STEP_INDEX['branding']
+SETUP_STEP_LANGUAGES = SETUP_STEP_INDEX['languages']
+SETUP_STEP_EMAIL = SETUP_STEP_INDEX['email']
+SETUP_STEP_SECURITY = SETUP_STEP_INDEX['security']
+SETUP_STEP_APPEARANCE = SETUP_STEP_INDEX['appearance']
+SETUP_STEP_TITLEBAR = SETUP_STEP_INDEX['titlebar']
+SETUP_STEP_SIDEBAR = SETUP_STEP_INDEX['sidebar']
+SETUP_STEP_NAVBAR = SETUP_STEP_INDEX['navbar']
+SETUP_STEP_RIBBON = SETUP_STEP_INDEX['ribbon']
+SETUP_STEP_LAYOUT = SETUP_STEP_INDEX['layout']
+SETUP_STEP_HOMEPAGE = SETUP_STEP_INDEX['homepage']
+SETUP_STEP_LOGIN = SETUP_STEP_INDEX['login_page']
+SETUP_STEP_PROFILE = SETUP_STEP_INDEX['profile']
+SETUP_STEP_SEARCH = SETUP_STEP_INDEX['search']
+SETUP_STEP_NOTIFICATIONS = SETUP_STEP_INDEX['notifications']
+SETUP_STEP_LOGGING = SETUP_STEP_INDEX['logging']
+SETUP_STEP_BACKUPS = SETUP_STEP_INDEX['backups']
+SETUP_STEP_EXTRAS = SETUP_STEP_INDEX['extras']
+SETUP_STEP_COUNT = len(SETUP_STEPS)
 
 EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
@@ -467,6 +626,7 @@ SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'titlebar_config',
     'search_config',
     'sidebar_config',
+    'ribbon_config',
     'navbar_config',
     'log_config',
     'profile_config',
@@ -492,6 +652,9 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'allow_user_font_override',
     'allow_user_language_override',
     'default_table_density',
+    'table_edges',
+    'card_edges',
+    'table_accent_edges',
     'default_form_density',
     'default_modal_size',
     'sticky_table_headers',
@@ -501,6 +664,11 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'show_soft_deleted',
     'options_style',
     'row_actions_style',
+    'ribbon_layout',
+    'ribbon_style',
+    'ribbon_title',
+    'ribbon_advanced_trigger',
+    'ribbon_nesting',
     'footer_enabled',
     'footer_text',
     'footer_link_text',
@@ -538,6 +706,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'languages',
     'translations_override',
     'sidebar_config',
+    'ribbon_config',
     'navbar_config',
     'log_config',
     'profile_config',

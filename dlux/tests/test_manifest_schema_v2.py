@@ -33,7 +33,7 @@ V2 = {
     'requires': {
         'updater_schema': '>=1',
         'baked_image': '>=1.7.0',
-        'services': {'composer': '>=5.3.0'},
+        'services': {'composer': '>=1.3.8'},
     },
     'migrations': {'effect': 'additive', 'rollback_compatible': True, 'downtime': 'none'},
     'install': {'inline': 'allowed'},
@@ -73,7 +73,7 @@ class NormalisationTests(SimpleTestCase):
         """The gap schema 1 had no way to state: Composer is a hard requirement
         from 1.8.0 and the manifest could not say so."""
         out = validate_release_manifest(_manifest(), '1.8.0')
-        self.assertEqual(out['required_services'], {'composer': '>=5.3.0'})
+        self.assertEqual(out['required_services'], {'composer': '>=1.3.8'})
 
     def test_rollback_incompatible_maps_to_the_image_rebuild_policy(self):
         out = validate_release_manifest(

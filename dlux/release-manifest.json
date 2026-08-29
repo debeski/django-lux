@@ -2,11 +2,12 @@
   "schema_version": 2,
   "version": "1.8.2",
   "display": {
-    "summary": "The Options page defaults to tabs, Theme and Language are always separate cards, and the setup wizard scrolls to each step.",
+    "summary": "Configurable multi-strip ribbons, name-based relation lookups, managed image/font workflows, and faster request-level rendering.",
     "highlights": [
-      "Theme and Language are always their own Options cards; the size-dependent merge is removed.",
-      "Options layout defaults to tabs; the style choices no longer share a constant with the default.",
-      "Wizard Next/Back scrolls the new step into view rather than keeping the previous step's scroll position."
+      "Ribbon lists support configurable primary, child, and axis strips with parent-scoped discovery and separate pre-defined/admin controls.",
+      "DluxLookupField provides scoped name search, optional create-on-save, typo confirmation, and Arabic spelling normalization.",
+      "Asset Manager separates Images and Fonts, supports immediate setup-safe uploads, inline image naming, and font inventory details.",
+      "Request-level settings, language, and scope caches reduce repeated list-page work; translated table fields render automatically."
     ],
     "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.2"
   },
@@ -14,7 +15,7 @@
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
     "services": {
-      "composer": ">=5.3.0"
+      "composer": ">=1.3.8"
     }
   },
   "migrations": {

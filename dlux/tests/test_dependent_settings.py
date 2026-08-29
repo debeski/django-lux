@@ -267,9 +267,9 @@ class DependentFieldConversionTests(SimpleTestCase):
         js = self._js
 
         self.assertIn('setDependentFieldEnabled(field, enabled, registrationReason)', js)
-        self.assertIn('setDependentFieldEnabled(field, publicRootEnabled, rootReason)', js)
+        self.assertIn('setDependentFieldEnabled(field, publicPageEnabled, pageReason)', js)
         self.assertIn('setDependentFieldEnabled(field, splitEnabled, splitReason)', js)
-        self.assertNotIn("field.classList.toggle('d-none', !publicRootEnabled)", js)
+        self.assertNotIn("field.classList.toggle('d-none', !publicPageEnabled)", js)
         self.assertNotIn("field.classList.toggle('d-none', !enabled)", js)
 
     def test_logging_and_profile_builders_no_longer_hide(self):

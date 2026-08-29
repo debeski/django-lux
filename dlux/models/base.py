@@ -23,6 +23,42 @@ class SingletonModel(models.Model):
         pass
 
     @classmethod
+    def _verification_scope(cls):
+        """Where a "row already verified" mark lives: the current request.
+
+        Outside a request — a management command, a shell, a task — there is no
+        scope, so the probe runs every time exactly as it always did.
+        """
+        try:
+            from ..middleware import get_current_request
+
+            return get_current_request()
+        except Exception:
+            return None
+
+    @classmethod
+    def _row_verified_this_request(cls):
+        scope = cls._verification_scope()
+        if scope is None:
+            return False
+        return cls.__name__ in getattr(scope, '_dlux_singleton_verified', ())
+
+    @classmethod
+    def _mark_row_verified(cls):
+        scope = cls._verification_scope()
+        if scope is None:
+            return
+        seen = getattr(scope, '_dlux_singleton_verified', None)
+        if seen is None:
+            seen = set()
+            try:
+                scope._dlux_singleton_verified = seen
+            except Exception:
+                # A request object that refuses attributes just keeps probing.
+                return
+        seen.add(cls.__name__)
+
+    @classmethod
     def load(cls):
         try:
             obj = cache.get(cls.__name__)
@@ -43,11 +79,21 @@ class SingletonModel(models.Model):
                 pass
             obj = None
 
-        if obj is not None:
-            # Check if object still exists in DB to prevent stale cache after DB wipes
+        if obj is not None and not cls._row_verified_this_request():
+            # Guard against a cache that outlived its row — a dropped and
+            # recreated database, a restore, a wiped dev volume — where the
+            # pickle unpickles perfectly and describes a row that is gone.
+            #
+            # Once per request, not once per call. `load()` is reached for every
+            # translated string, so probing each time cost 106 of the 239 queries
+            # on a 500-row list page while asking the same question every time.
+            # A row cannot vanish part-way through a request in any way this
+            # check would save us from, and the very next request re-verifies.
             try:
                 if not cls.objects.filter(pk=obj.pk).exists():
                     obj = None
+                else:
+                    cls._mark_row_verified()
             except Exception:
                 obj = None
 
@@ -211,6 +257,14 @@ class SingletonModel(models.Model):
              try:
                  from ..context_processors import clear_sidebar_cache
                  clear_sidebar_cache()
+             except Exception:
+                 pass
+             # The merged config is memoised for the length of a request, and the
+             # settings form saves and then re-renders inside one — without this
+             # it would redraw itself from what it read on the way in.
+             try:
+                 from ..utils.config import clear_system_config_cache
+                 clear_system_config_cache()
              except Exception:
                  pass
 

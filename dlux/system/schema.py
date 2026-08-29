@@ -3,7 +3,16 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .constants import DEFAULT_OPTIONS_STYLE, DEFAULT_THEME_PICKER_LOCATION
+from .constants import (
+    DEFAULT_OPTIONS_STYLE,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
+    DEFAULT_THEME_PICKER_LOCATION,
+)
 from .defaults import (
     default_auth_config,
     default_backup_config,
@@ -38,6 +47,7 @@ from .normalizers import (
     normalize_log_config,
     normalize_login_config,
     normalize_navbar_config,
+    normalize_ribbon_config,
     normalize_notification_config,
     normalize_profile_config,
     normalize_public_root_config,
@@ -237,6 +247,9 @@ SYSTEM_SETTING_GROUPS = (
         admin_section='appearance',
         fields=(
             _field('layout', 'default_table_density', default='balanced', widget='choice', legacy_flat=True),
+            _field('layout', 'table_edges', default=DEFAULT_TABLE_EDGES, widget='choice', legacy_flat=True),
+            _field('layout', 'card_edges', default=DEFAULT_CARD_EDGES, widget='choice', legacy_flat=True),
+            _field('layout', 'table_accent_edges', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('layout', 'default_form_density', default='balanced', widget='choice', legacy_flat=True),
             _field('layout', 'default_modal_size', default='standard', widget='choice', legacy_flat=True),
             _field('layout', 'sticky_table_headers', field_type='bool', default=True, widget='switch', legacy_flat=True),
@@ -246,6 +259,11 @@ SYSTEM_SETTING_GROUPS = (
             _field('layout', 'show_soft_deleted', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('layout', 'options_style', default=DEFAULT_OPTIONS_STYLE, widget='choice', legacy_flat=True),
             _field('layout', 'row_actions_style', default='context', widget='choice', legacy_flat=True),
+            _field('layout', 'ribbon_layout', default=DEFAULT_RIBBON_LAYOUT, widget='choice', legacy_flat=True),
+            _field('layout', 'ribbon_style', default=DEFAULT_RIBBON_STYLE, widget='choice', legacy_flat=True),
+            _field('layout', 'ribbon_title', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('layout', 'ribbon_advanced_trigger', default=DEFAULT_RIBBON_ADVANCED_TRIGGER, widget='choice', legacy_flat=True),
+            _field('layout', 'ribbon_nesting', default=DEFAULT_RIBBON_NESTING, widget='choice', legacy_flat=True),
             _field('layout', 'footer_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'footer_text', default='', widget='text', legacy_flat=True),
             _field('layout', 'footer_link_text', default='', widget='text', legacy_flat=True),
@@ -327,6 +345,16 @@ SYSTEM_SETTING_GROUPS = (
         label_key='system_settings_search',
         setup_step='search',
         admin_section='search',
+    ),
+    SettingGroup(
+        key='ribbon',
+        storage_field='ribbon_config',
+        aliases=('ribbon', 'ribbon_tabs'),
+        default_factory=dict,
+        normalizer=normalize_ribbon_config,
+        label_key='system_settings_ribbon',
+        setup_step='ribbon',
+        admin_section='navigation',
     ),
     SettingGroup(
         key='sidebar',

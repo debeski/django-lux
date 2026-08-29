@@ -19,10 +19,12 @@ Security model (firm, Dlux-first):
   ``|safe`` untrusted values themselves.
 """
 
+import inspect
 import logging
 import re
 
 from django import forms
+from django.utils.functional import Promise
 
 from .system.constants import (
     DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES,
@@ -249,10 +251,27 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
     JSON value. Supply either ``fields`` or ``form_class``.
     """
     namespace = _validate_namespace(namespace, label='register_app_settings')
-    if not (isinstance(title, str) and title) and not callable(title):
-        raise ValueError(f"register_app_settings[{namespace}]: title must be a non-empty string or callable")
-    if description is not None and not isinstance(description, str) and not callable(description):
-        raise ValueError(f"register_app_settings[{namespace}]: description must be a string, callable, or None")
+    # A lazy translation proxy is the natural way to give a title that has to
+    # follow the reader's language, and it is neither a `str` nor callable.
+    # Rejecting it is what pushed callers into wrapping one in a lambda, where
+    # the argument count then became a trap.
+    if not isinstance(title, Promise) and not (isinstance(title, str) and title) and not callable(title):
+        raise ValueError(
+            f"register_app_settings[{namespace}]: title must be a non-empty string, "
+            "a lazy string, or a callable"
+        )
+    if (description is not None and not isinstance(description, (str, Promise))
+            and not callable(description)):
+        raise ValueError(
+            f"register_app_settings[{namespace}]: description must be a string, "
+            "a lazy string, a callable, or None"
+        )
+    # Arity is checked here rather than left to the first render. A callable of
+    # the wrong shape used to raise while the Options page was being built, and
+    # the tile was dropped — a settings surface silently missing, with the cause
+    # only in the log.
+    title = _text_callable(title, namespace, 'title')
+    description = _text_callable(description, namespace, 'description')
     if not isinstance(icon, str) or not _SAFE_ICON.match(icon):
         raise ValueError(f"register_app_settings[{namespace}]: invalid icon {icon!r}")
     if not isinstance(order, int) or isinstance(order, bool):
@@ -294,6 +313,36 @@ def unregister_app_settings(namespace):
     _SETTINGS_REGISTRY.pop(namespace, None)
 
 
+def _text_callable(value, namespace, label):
+    """Accept `f(request)` or `f()`, and hand back a one-argument callable.
+
+    Both read naturally at the call site — `lambda request: ...` when the text
+    depends on who is asking, `lambda: ...` when it only needs to be evaluated
+    late — so both are allowed rather than one being a trap. A lazy translation
+    proxy is not callable at all and passes straight through.
+    """
+    if not callable(value):
+        return value
+    try:
+        signature = inspect.signature(value)
+    except (TypeError, ValueError):
+        # Builtins and C callables expose no signature; take them as given.
+        return value
+    try:
+        signature.bind(None)
+        return value
+    except TypeError:
+        pass
+    try:
+        signature.bind()
+    except TypeError:
+        raise ValueError(
+            f"register_app_settings[{namespace}]: {label} callable must accept "
+            "the request or no arguments"
+        ) from None
+    return lambda request, _inner=value: _inner()
+
+
 def _resolve_registered_text(value, request):
     if callable(value):
         return value(request)
@@ -318,13 +367,19 @@ def get_visible_app_settings(request):
                     definition['namespace'],
                 )
                 continue
-        try:
-            item = dict(definition)
-            item['title'] = _resolve_registered_text(definition['title'], request)
-            item['description'] = _resolve_registered_text(definition['description'], request)
-        except Exception:
-            logger.exception("App settings '%s' title/description failed; skipping it.", definition['namespace'])
-            continue
+        item = dict(definition)
+        # Unlike visible(), which fails closed because it is a permission
+        # decision, text that raises is only cosmetic. Dropping the tile for it
+        # hid a whole settings surface and read as "the page lost my settings".
+        for key, fallback in (('title', definition['namespace']), ('description', '')):
+            try:
+                item[key] = _resolve_registered_text(definition[key], request)
+            except Exception:
+                logger.exception(
+                    "App settings '%s' %s raised; showing the tile with a fallback.",
+                    definition['namespace'], key,
+                )
+                item[key] = fallback
         visible.append(item)
     return sorted(visible, key=lambda c: (c['order'], c['namespace']))
 

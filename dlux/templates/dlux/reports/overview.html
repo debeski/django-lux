@@ -9,57 +9,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3 dlux-reports-page">
-    <section class="glass-profile dlux-report-hero">
-        <div class="dlux-report-hero-copy">
-            <span class="dlux-report-hero-icon"><i class="bi bi-bar-chart-fill"></i></span>
-            <div>
-                <h1>{{ DLUX_STRINGS.reports_title }}</h1>
-                <p>{{ DLUX_STRINGS.reports_subtitle }}</p>
-            </div>
-        </div>
-        <div class="dlux-report-exports">
-            <button type="submit" form="general-report-form" formmethod="get" formaction="{% url 'reports_print' %}" formtarget="_blank" class="btn btn-outline-primary rounded-pill" title="{{ DLUX_STRINGS.reports_print_hint }}">
-                <i class="bi bi-printer me-1"></i>{{ DLUX_STRINGS.reports_print_report }}
-            </button>
-            <button type="submit" form="general-report-form" formmethod="get" formaction="{% url 'reports_overview_xlsx' %}" class="btn btn-outline-primary rounded-pill" title="{{ DLUX_STRINGS.reports_export_entries_hint }}">
-                <i class="bi bi-filetype-xlsx me-1"></i>{{ DLUX_STRINGS.reports_export_entries_xlsx }}
-            </button>
-            {% if can_download_backup %}
-            <div class="dlux-report-backup-action">
-                <button type="button"
-                        id="reports-backup-btn"
-                        class="btn btn-primary rounded-pill"
-                        title="{{ DLUX_STRINGS.reports_backup_create_hint }}"
-                        data-start-url="{% url 'reports_backup_start' %}"
-                        data-csrf="{{ csrf_token }}"
-                        data-window="{{ overview.window }}"
-                        data-active-status-url="{% if active_report_backup %}{% url 'reports_backup_status' active_report_backup.token %}{% endif %}"
-                        data-active-progress="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"
-                        data-active-progress-message="{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}"
-                        data-label-idle="{{ DLUX_STRINGS.reports_backup_create }}"
-                        data-label-busy="{{ DLUX_STRINGS.reports_backup_building }}"
-                        data-msg-preparing="{{ DLUX_STRINGS.reports_backup_preparing }}"
-                        data-msg-ready="{{ DLUX_STRINGS.reports_backup_ready }}"
-                        data-msg-failed="{{ DLUX_STRINGS.reports_backup_failed }}"
-                        data-msg-just-now="{{ DLUX_STRINGS.reports_backup_just_now }}">
-                    <i class="bi bi-file-earmark-zip me-1"></i><span data-reports-backup-label>{{ DLUX_STRINGS.reports_backup_create }}</span>
-                </button>
-                <div id="reports-backup-progress" class="{% if not active_report_backup %}d-none{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}">
-                    <progress class="dlux-backup-progress" max="100" value="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"></progress>
-                </div>
-                <small id="reports-backup-status" class="dlux-report-backup-status">{% if active_report_backup %}{{ active_report_backup.progress_message|default:DLUX_STRINGS.reports_backup_preparing }}{% endif %}</small>
-                <a id="reports-backup-latest"
-                   class="dlux-report-backup-latest{% if not latest_completed_report_backup %} d-none{% endif %}"
-                   {% if latest_completed_report_backup %}href="{% url 'reports_backup_download' latest_completed_report_backup.token %}"{% endif %}>
-                    <i class="bi bi-download"></i>
-                    <span>{{ DLUX_STRINGS.reports_backup_download_latest }}</span>
-                    <span data-reports-backup-latest-meta>{% if latest_completed_report_backup %}{{ latest_completed_report_backup.file_size|filesizeformat }} · {% dlux_timesince latest_completed_report_backup.completed_at %}{% endif %}</span>
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </section>
+<div class="dlux-reports-page">
+    {% dlux_ribbon %}
 
     <form id="general-report-form" method="get" class="dlux-form glass-container dlux-report-builder">
         <input type="hidden" name="builder" value="1">

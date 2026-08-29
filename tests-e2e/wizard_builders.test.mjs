@@ -304,4 +304,43 @@ describe('wizard log + profile builders', { concurrency: 1 }, () => {
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
+
+  test('sidebar selected items reorder inside their group by drag and drop', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      await stepContaining(page, '[data-builder-selected-tree]');
+      const order = await page.evaluate(() => {
+        const hidden = document.querySelector('.dlux-system-setup-form [name="sidebar_config"]');
+        const selectedTree = document.querySelector('[data-builder-selected-tree]');
+        if (!hidden || !selectedTree) return { error: 'sidebar builder missing' };
+        hidden.value = JSON.stringify({
+          enabled: true,
+          entries: [{
+            kind: 'group',
+            id: 'reports-group',
+            label: 'Reports',
+            icon: 'bi-folder2-open',
+            items: [
+              { kind: 'item', id: 'first-entry', url_name: 'first_route', label: 'First', icon: 'bi-1-circle' },
+              { kind: 'item', id: 'second-entry', url_name: 'second_route', label: 'Second', icon: 'bi-2-circle' },
+            ],
+          }],
+        });
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+
+        const source = selectedTree.querySelector('.dlux-builder-node.is-group .dlux-builder-node[data-entry-id="first-entry"]');
+        const target = selectedTree.querySelector('.dlux-builder-node.is-group .dlux-builder-node[data-entry-id="second-entry"]');
+        if (!source || !target) return { error: 'group children did not render' };
+        const box = target.getBoundingClientRect();
+        source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true }));
+        target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientY: box.bottom - 1 }));
+        target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientY: box.bottom - 1 }));
+        source.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true }));
+        return JSON.parse(hidden.value).entries[0].items.map((item) => item.id);
+      });
+
+      assert.deepEqual(order, ['second-entry', 'first-entry']);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
 });

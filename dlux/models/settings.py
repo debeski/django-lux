@@ -193,7 +193,7 @@ class SystemSettings(SingletonModel):
     auth_config = models.JSONField(default=default_auth_config, blank=True, verbose_name="Authentication Configuration")
     email_config = models.JSONField(default=default_email_config, blank=True, verbose_name="Email Configuration")
     registration_config = models.JSONField(default=default_registration_config, blank=True, verbose_name="Registration Configuration")
-    public_root_config = models.JSONField(default=default_public_root_config, blank=True, verbose_name="Public Root Configuration")
+    public_root_config = models.JSONField(default=default_public_root_config, blank=True, verbose_name="Public Page Configuration")
     homepage_config = models.JSONField(
         default=default_homepage_config,
         db_default=default_homepage_config(),
@@ -215,6 +215,7 @@ class SystemSettings(SingletonModel):
         verbose_name="Search Configuration",
     )
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
+    ribbon_config = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Ribbon Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     log_config = models.JSONField(default=default_log_config, blank=True, verbose_name="Logging Configuration")
     profile_config = models.JSONField(default=default_profile_config, blank=True, verbose_name="Profile Page Configuration")

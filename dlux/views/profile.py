@@ -1,12 +1,14 @@
 # Fundemental imports
 import logging
+from importlib import import_module
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.contrib.sessions.models import Session
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -105,6 +107,20 @@ def _session_device_metadata_from_request(request):
     return sync_session_device_metadata(request)
 
 
+def _load_session_from_configured_backend(session_key):
+    if not session_key:
+        return None, {}, None
+    try:
+        session_engine = import_module(settings.SESSION_ENGINE)
+        session_store = session_engine.SessionStore(session_key=session_key)
+        data = dict(session_store.items())
+        if not data:
+            return session_store, {}, None
+        return session_store, data, session_store.get_expiry_date()
+    except Exception:
+        return None, {}, None
+
+
 def _profile_sessions_for_user(user, current_session_key=None, current_session_data=None, current_expire_date=None):
     sessions = []
     now = timezone.now()
@@ -118,25 +134,41 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
     trusted_by_id = {device.pk: device for device in trusted_devices}
     trusted_by_session_key = {device.session_key: device for device in trusted_devices if device.session_key}
     PresenceSession = apps.get_model('dlux', 'UserPresenceSession')
+    presence_sessions = list(PresenceSession.objects.filter(user=user))
     presence_by_session_hash = {
         item.session_key_hash: item
-        for item in PresenceSession.objects.filter(user=user)
+        for item in presence_sessions
     }
+    open_presence_keys = {
+        item.session_key
+        for item in presence_sessions
+        if item.session_key and item.ended_at is None and item.revoked_at is None
+    }
+    database_expiry = {
+        session.session_key: session.expire_date
+        for session in Session.objects.filter(expire_date__gt=now).order_by('-expire_date')
+    }
+    candidate_keys = list(database_expiry)
+    candidate_keys.extend(key for key in open_presence_keys if key not in database_expiry)
+    if current_session_key and current_session_key not in candidate_keys:
+        candidate_keys.append(current_session_key)
 
-    for session in Session.objects.filter(expire_date__gt=now).order_by('-expire_date'):
-        try:
-            data = session.get_decoded()
-        except Exception:
-            continue
-
-        if str(data.get('_auth_user_id') or '') != user_id:
-            continue
-
-        if current_session_key and session.session_key == current_session_key and isinstance(current_session_data, dict):
-            metadata = current_session_data.get('dlux_device') if isinstance(current_session_data.get('dlux_device'), dict) else {}
+    stale_presence_keys = []
+    for session_key in candidate_keys:
+        is_current = bool(current_session_key and session_key == current_session_key)
+        if is_current and isinstance(current_session_data, dict):
+            session_store = None
+            data = current_session_data
+            expire_date = current_expire_date
         else:
-            metadata = data.get('dlux_device') if isinstance(data.get('dlux_device'), dict) else {}
-        presence_session = presence_by_session_hash.get(hash_session_key(session.session_key))
+            session_store, data, expire_date = _load_session_from_configured_backend(session_key)
+        if str(data.get('_auth_user_id') or '') != user_id:
+            if session_store is not None and session_key in open_presence_keys:
+                stale_presence_keys.append(session_key)
+            continue
+
+        metadata = data.get('dlux_device') if isinstance(data.get('dlux_device'), dict) else {}
+        presence_session = presence_by_session_hash.get(hash_session_key(session_key))
         observed_user_agents = presence_session.user_agents if presence_session is not None and isinstance(presence_session.user_agents, list) else []
         observed_ips = presence_session.ip_addresses if presence_session is not None and isinstance(presence_session.ip_addresses, list) else []
         user_agent = metadata.get('user_agent') or (observed_user_agents[0] if observed_user_agents else '')
@@ -153,25 +185,27 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             except (TypeError, ValueError):
                 trusted_device = None
         if trusted_device is None:
-            trusted_device = trusted_by_session_key.get(session.session_key)
+            trusted_device = trusted_by_session_key.get(session_key)
 
-        is_current = bool(current_session_key and session.session_key == current_session_key)
         has_current_session = has_current_session or is_current
 
         sessions.append({
-            'session_key': session.session_key,
+            'session_key': session_key,
             'is_current': is_current,
             'device_label': _device_label(user_agent),
             'user_agent': user_agent,
             'ip_address': metadata.get('ip_address') or (observed_ips[0] if observed_ips else ''),
             'first_seen': first_seen,
             'last_seen': last_seen,
-            'expire_date': session.expire_date,
+            'expire_date': expire_date or database_expiry.get(session_key) or now,
             'is_trusted': trusted_device is not None,
             'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
             'estimated_seconds': presence_session.estimated_seconds if presence_session is not None else 0,
             'request_count': presence_session.request_count if presence_session is not None else 0,
         })
+
+    if stale_presence_keys:
+        mark_presence_sessions_ended(stale_presence_keys)
 
     if current_session_key and not has_current_session:
         metadata = current_session_data.get('dlux_device') if isinstance(current_session_data, dict) and isinstance(current_session_data.get('dlux_device'), dict) else {}
@@ -388,11 +422,12 @@ def revoke_profile_session(request, session_key):
         return failure_response
 
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
-    target_session = get_object_or_404(Session, session_key=session_key)
-    try:
-        decoded = target_session.get_decoded()
-    except Exception:
-        decoded = {}
+    target_session, decoded, _ = _load_session_from_configured_backend(session_key)
+    if target_session is None:
+        raise Http404
+    if not decoded:
+        mark_presence_sessions_ended([session_key])
+        raise Http404
 
     if str(decoded.get('_auth_user_id') or '') != str(request.user.pk):
         message = get_strings().get('session_revoke_denied', 'That session does not belong to your account.')
@@ -424,7 +459,7 @@ def revoke_profile_session(request, session_key):
         )
         return redirect('user_profile')
 
-    target_session.delete()
+    target_session.delete(session_key)
     mark_presence_sessions_ended([session_key], revoked=True)
     if not is_current_session:
         # The other browser will get a "signed out remotely" interstitial next visit.

@@ -1,0 +1,21 @@
+<div class="row g-2 align-items-start mb-0">
+    {% for slot in ribbon.primary %}{% include "dlux/ribbon/_field.html" %}{% endfor %}
+    <div class="col-sm-12 col-md-2 col-lg-auto">
+        <div class="d-flex w-100 dlux-filter-controls">
+            {% if ribbon.has_active_filters and ribbon.clear_url %}
+                <button type="submit" class="btn btn-secondary dlux-filter-chip dlux-filter-submit rounded-start-pill rounded-end-0 flex-grow-1"><i class="bi bi-search"></i></button>
+                <a href="{{ ribbon.clear_url }}" class="btn btn-warning dlux-filter-chip dlux-filter-clear rounded-end-pill rounded-start-0 px-3"><i class="bi bi-x-lg"></i></a>
+            {% else %}
+                <button type="submit" class="btn btn-secondary dlux-filter-chip dlux-filter-submit rounded-pill flex-grow-1"><i class="bi bi-search"></i></button>
+            {% endif %}
+        </div>
+    </div>
+    {% if ribbon.has_advanced and ribbon.advanced_trigger == 'button' %}
+        <div class="col-sm-12 col-md-3 col-lg-auto">
+            <button class="btn btn-outline-secondary dlux-filter-chip dlux-ribbon-toggle w-100" type="button" data-bs-toggle="collapse" data-bs-target="#{{ ribbon.panel_id }}" aria-expanded="{% if ribbon.advanced_open %}true{% else %}false{% endif %}" aria-controls="{{ ribbon.panel_id }}"><i class="bi bi-binoculars-fill me-2"></i>{{ ribbon.strings.filter_advanced_search_action|default:"Advanced" }}</button>
+        </div>
+    {% endif %}
+    {% if inline_actions and ribbon.actions %}
+        <div class="col-auto dlux-ribbon-actions dlux-ribbon-actions-inline">{% include "dlux/ribbon/_actions.html" %}</div>
+    {% endif %}
+</div>

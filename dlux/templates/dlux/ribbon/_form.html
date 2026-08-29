@@ -1,0 +1,7 @@
+<div class="dlux-ribbon-filter no-print">
+    <form method="get" class="py-3 row g-2 no-print m-0 dlux-form dlux-filter dlux-ribbon" data-dlux-ribbon-autosubmit="true">
+        {% include "dlux/ribbon/_primary.html" with inline_actions=inline_actions %}
+        {% if ribbon.has_advanced %}{% include "dlux/ribbon/_advanced.html" %}{% endif %}
+        {% include "dlux/ribbon/_hidden.html" %}
+    </form>
+</div>

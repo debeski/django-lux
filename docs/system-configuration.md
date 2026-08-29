@@ -26,7 +26,7 @@ The current wizard has seventeen steps:
 5. **Access and security** — authentication, sessions, registration, consent, and client-IP policy.
 6. **Login page** — layout, logo treatment, color, and localized hero message.
 7. **Sidebar** — navigation tree, visibility, toolbar, and personal reordering policy.
-8. **Nav Bar** — hierarchy/history mode, navigation root, and user override policy.
+8. **Navbar** — hierarchy/history mode, navigation root, and user override policy.
 9. **Titlebar** — home/logo, actions, language switcher, geometry, and surface.
 10. **Global Search** — titlebar search display and optional record search.
 11. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
@@ -39,7 +39,7 @@ The current wizard has seventeen steps:
 
 System Settings modal editors opened from Options use these same categories but show only the selected category. Setup export/import is intended for reusable development and staging configuration: it exports settings JSON, not uploaded logo/favicon binaries or host-specific email verification state.
 
-`SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public-root keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
+`SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public page keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
 
 ## Email delivery
 
@@ -62,11 +62,11 @@ The same category controls login lockout, strong-password policy, browser-close 
 
 ## Navigation and appearance
 
-The sidebar and Nav Bar are runtime navigation, not setup-only previews. Saved sidebar visibility is permission-aware; a page does not become available merely because it appears in the tree. User reordering, if allowed, is a personal layer on top of the saved system tree.
+The sidebar and Navbar are runtime navigation, not setup-only previews. Saved sidebar visibility is permission-aware; a page does not become available merely because it appears in the tree. User reordering, if allowed, is a personal layer on top of the saved system tree.
 
-The Nav Bar can use a curated hierarchy or a browser-session history. Its Navigation Root can remain neutral, follow the configured homepage, or use a discovered route without rewriting the stored hierarchy. Dynamic views can supply `dlux_navbar_crumbs` when their object-level labels cannot be represented by the static tree.
+The Navbar can use a curated hierarchy or a browser-session history. Its Navigation Root can remain neutral, follow the configured homepage, or use a discovered route without rewriting the stored hierarchy. Dynamic views can supply `dlux_navbar_crumbs` when their object-level labels cannot be represented by the static tree.
 
-Imported navigation is validated against the live URLconf. Sidebar entries and Nav Bar route nodes naming a route this project does not define are dropped on import — from a first-launch `config.json`, an Options-page settings import, or `dlux_settings import` — so the builders only ever show entries that can actually render. A stale Nav Bar node's children are kept and lifted into its place, and a stale Navigation Root falls back to neutral. Manual Nav Bar nodes and sidebar entries carrying a literal `url` are never route-checked.
+Imported navigation is validated against the live URLconf. Sidebar entries and Navbar route nodes naming a route this project does not define are dropped on import — from a first-launch `config.json`, an Options-page settings import, or `dlux_settings import` — so the builders only ever show entries that can actually render. A stale Navbar node's children are kept and lifted into its place, and a stale Navigation Root falls back to neutral. Manual Navbar nodes and sidebar entries carrying a literal `url` are never route-checked.
 
 Themes and fonts use shared registries, so their setup choices, validation, previews, and runtime stylesheet selection remain aligned. Project-owned entries are documented in [Project Configuration](project-configuration.md#themes-and-fonts).
 

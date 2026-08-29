@@ -527,6 +527,7 @@
 :root.theme-retro .dlux-options-reset-action,
 :root.theme-gothic .dlux-options-reset-action,
 :root.theme-prism .dlux-options-reset-action,
+:root.theme-aether .dlux-options-reset-action,
 :root.theme-neon .dlux-options-reset-action {
     background:
         linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
@@ -541,11 +542,13 @@
 :root.theme-retro .dlux-options-reset-action:hover,
 :root.theme-gothic .dlux-options-reset-action:hover,
 :root.theme-prism .dlux-options-reset-action:hover,
+:root.theme-aether .dlux-options-reset-action:hover,
 :root.theme-neon .dlux-options-reset-action:hover,
 :root.theme-dark .dlux-options-reset-action:focus-visible,
 :root.theme-retro .dlux-options-reset-action:focus-visible,
 :root.theme-gothic .dlux-options-reset-action:focus-visible,
 :root.theme-prism .dlux-options-reset-action:focus-visible,
+:root.theme-aether .dlux-options-reset-action:focus-visible,
 :root.theme-neon .dlux-options-reset-action:focus-visible {
     background:
         linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
@@ -560,6 +563,7 @@
 :root.theme-retro .dlux-options-reset-action i,
 :root.theme-gothic .dlux-options-reset-action i,
 :root.theme-prism .dlux-options-reset-action i,
+:root.theme-aether .dlux-options-reset-action i,
 :root.theme-neon .dlux-options-reset-action i {
     color: currentColor !important;
 }

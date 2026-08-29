@@ -139,9 +139,9 @@
         updateSetupStepValidationState
     } = window.DluxSetupDom;
     const {
-        syncPublicRootVisibility,
+        syncPublicPageVisibility,
         initPublicRegistrationOptions,
-        initPublicRootOptions,
+        initPublicPageOptions,
         initClientIpOptions,
         initAuthSecurityOptions,
         initLoginPageOptions
@@ -299,6 +299,7 @@
         const parsed = parseJson(hiddenInput.value || '{}', {});
         const nextConfig = parsed && typeof parsed === 'object' ? parsed : {};
         nextConfig.enabled = readBooleanField(form, '#id_sidebar_enabled', true);
+        nextConfig.accent_edge = readBooleanField(form, '#id_sidebar_accent_edge', false);
         nextConfig.enable_reorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
         nextConfig.show_toolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
         nextConfig.show_icons = readBooleanField(form, '#id_sidebar_show_icons', true);
@@ -734,6 +735,7 @@
         }
 
         const showTitle = readBooleanField(form, '#id_titlebar_show_title', true);
+        const accentEdge = readBooleanField(form, '#id_titlebar_accent_edge', false);
         const showLogo = readBooleanField(form, '#id_titlebar_show_logo', true);
         const showHome = readBooleanField(form, '#id_titlebar_show_home_button', true);
         const showLanguageSwitcher = readBooleanField(form, '#id_titlebar_show_language_switcher', false);
@@ -772,6 +774,7 @@
         titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
         titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
         titlebar.dataset.titlebarShowLanguageSwitcher = showLanguageSwitcher ? 'true' : 'false';
+        document.body.dataset.dluxTitlebarAccent = accentEdge ? 'on' : 'off';
         applyTitlebarActionOrderPreview(titlebar, actionOrder);
 
         titlebar.querySelectorAll('[data-titlebar-home]').forEach((homeButton) => {
@@ -813,6 +816,7 @@
         }
 
         const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
+        const accentEdge = readBooleanField(form, '#id_sidebar_accent_edge', false);
         const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
         const showNotificationBadges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
         const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
@@ -831,6 +835,7 @@
 
         setPreviewVisibility(sidebar, sidebarEnabled);
         sidebar.dataset.sidebarEnabled = sidebarEnabled ? 'true' : 'false';
+        document.body.dataset.dluxSidebarAccent = accentEdge ? 'on' : 'off';
         sidebar.dataset.sidebarShowIcons = showIcons ? 'true' : 'false';
         sidebar.dataset.sidebarCollapseMode = collapseMode;
         sidebar.dataset.sidebarDensity = density;
@@ -1164,7 +1169,8 @@
                 renderAll();
             });
 
-            wrapper.addEventListener('dragstart', () => {
+            wrapper.addEventListener('dragstart', (event) => {
+                event.stopPropagation();
                 state.dragging = { pane: 'selected', id: entry.id, kind: entry.kind };
                 wrapper.classList.add('is-dragging');
             });
@@ -1177,6 +1183,7 @@
             wrapper.addEventListener('dragover', (event) => {
                 if (!state.dragging) return;
                 event.preventDefault();
+                event.stopPropagation();
                 const rect = wrapper.getBoundingClientRect();
                 const before = event.clientY < rect.top + rect.height / 2;
                 wrapper.classList.toggle('dlux-builder-drop-before', before);
@@ -2008,7 +2015,7 @@
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'sticky_table_headers', 'resizable_table_columns', 'zebra_striping', 'footer_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'table_accent_edges', 'sticky_table_headers', 'resizable_table_columns', 'zebra_striping', 'footer_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }
@@ -2056,6 +2063,7 @@
         if (sidebar) {
             applyImportedSidebarSettings(form, sidebar);
             setCheckboxField(form, 'sidebar_enabled', sidebar.enabled !== false);
+            setCheckboxField(form, 'sidebar_accent_edge', sidebar.accent_edge === true);
             setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
             setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
             setCheckboxField(form, 'sidebar_show_icons', sidebar.show_icons !== false);
@@ -2081,6 +2089,7 @@
         const titlebarSource = settings.titlebar_config || settings.titlebar;
         const titlebar = titlebarSource && typeof titlebarSource === 'object' ? titlebarSource : null;
         if (titlebar) {
+            setCheckboxField(form, 'titlebar_accent_edge', titlebar.accent_edge === true);
             setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
             setCheckboxField(form, 'titlebar_show_logo', titlebar.show_logo !== false);
             setCheckboxField(form, 'titlebar_show_home_button', titlebar.show_home_button !== false);
@@ -2203,6 +2212,7 @@
     // drifted (a new field disabled in one copy and live in the other).
     const DEPENDENT_FIELDS = {
         sidebar: [
+            'sidebar_accent_edge',
             'sidebar_enable_reorder',
             'sidebar_enable_toolbar',
             'sidebar_show_icons',
@@ -2251,6 +2261,7 @@
             const sidebarDisabledNote = form.querySelector('[data-sidebar-disabled-note]');
             const showIconsToggle = form.querySelector('#id_sidebar_show_icons');
             const notificationBadgesToggle = form.querySelector('#id_sidebar_show_notification_badges');
+            const accentEdgeToggle = form.querySelector('#id_sidebar_accent_edge');
             const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
             const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
             const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
@@ -2332,6 +2343,7 @@
             });
             [
                 allowThemeOverrideToggle,
+                accentEdgeToggle,
                 reorderToggle,
                 allowUserDensityToggle,
                 notificationBadgesToggle,
@@ -2553,6 +2565,7 @@
             }
 
             const showTitleToggle = form.querySelector('#id_titlebar_show_title');
+            const accentEdgeToggle = form.querySelector('#id_titlebar_accent_edge');
             const showLogoToggle = form.querySelector('#id_titlebar_show_logo');
             const showHomeButtonToggle = form.querySelector('#id_titlebar_show_home_button');
             const showLanguageSwitcherToggle = form.querySelector('#id_titlebar_show_language_switcher');
@@ -2590,6 +2603,9 @@
             }
 
             showTitleToggle.addEventListener('change', syncTitlebarDependencies);
+            if (accentEdgeToggle) {
+                accentEdgeToggle.addEventListener('change', syncTitlebarDependencies);
+            }
             showLogoToggle.addEventListener('change', syncTitlebarDependencies);
             showHomeButtonToggle.addEventListener('change', syncTitlebarDependencies);
             if (showLanguageSwitcherToggle) {
@@ -2709,7 +2725,7 @@
         root.querySelectorAll('form.dlux-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
         initPublicRegistrationOptions(root);
-        initPublicRootOptions(root);
+        initPublicPageOptions(root);
         initClientIpOptions(root);
         initAuthSecurityOptions(root);
         initGlobalSearchOptions(root);

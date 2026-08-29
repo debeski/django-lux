@@ -231,15 +231,15 @@ The setup flow first asks the superuser to choose the setup language. That choic
 
 The setup wizard then runs in thirteen steps:
 
-1. Identity: language-keyed system names (JSON dict), logo, favicon, setup import, and public-root title/metadata when public root access is enabled.
+1. Identity: language-keyed system names (JSON dict), logo, favicon, setup import, and public page title/metadata when public page access is enabled.
 2. Localization: explicit language catalog, default language, user language override policy, and the translation matrix editor.
-3. Access and security: public root access, global home URL, public registration/email 2FA toggles, trusted-session enforcement, Dlux email delivery path/secret storage, and client IP resolution.
+3. Access and security: public page access, global home URL, public registration/email 2FA toggles, trusted-session enforcement, Dlux email delivery path/secret storage, and client IP resolution.
 4. Login Page: login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message.
-5. Sidebar: sidebar builder and sidebar behavior controls, plus public-root sidebar visibility when public root access is enabled.
-6. Nav Bar: optional authenticated nav bar mode, override policy, and hierarchy tree.
-7. Titlebar: titlebar controls (logo/home visibility, treatment, button shape, user-hub layout style, action order, alignment, height, surface), plus public-root titlebar visibility when public root access is enabled.
+5. Sidebar: sidebar builder and sidebar behavior controls, plus public page sidebar visibility when public page access is enabled.
+6. Navbar: optional authenticated navbar mode, override policy, and hierarchy tree.
+7. Titlebar: titlebar controls (logo/home visibility, treatment, button shape, user-hub layout style, action order, alignment, height, surface), plus public page titlebar visibility when public page access is enabled.
 8. Notifications: flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
-9. Themes and Typography: theme availability, default theme, theme override policy, fonts, and the public-root theme when public root access is enabled.
+9. Themes and Typography: theme availability, default theme, theme override policy, fonts, and the public page theme when public page access is enabled.
 10. Layout: table, form, modal, Options-page, audit-field, and soft-delete visibility controls.
 11. Logging: user/system activity logging, audit event logging, and retention controls.
 12. Profile Page: profile-page modules and first-login user setup/onboarding options.

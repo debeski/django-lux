@@ -41,6 +41,7 @@ from ..utils import (
     user_can_view_user_directory,
 )
 from ..reports.users import build_user_report, build_user_report_xlsx
+from ..ribbon import RibbonMixin
 from ..translations import get_strings
 
 
@@ -259,11 +260,49 @@ def session_keepalive_view(request):
 
 
 # User Management — List view with filtering, pagination, and scope-aware queryset
-class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
+class UserListView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
     model = User
     table_class = import_string('dlux.tables.UserTable')
     filterset_class = import_string('dlux.filters.UserFilter')  # Set the filter class to apply filtering
     template_name = "dlux/users/manage_users.html"
+    ribbon_title_icon = 'bi bi-people'
+
+    def _ribbon_strings(self):
+        from ..translations import get_current_language_code
+
+        return get_strings(get_current_language_code(self.request))
+
+    def get_ribbon_title(self):
+        return self._ribbon_strings().get('manage_users', 'User Management')
+
+    def get_ribbon_actions(self):
+        s = self._ribbon_strings()
+        specs = [{
+            'label': s.get('add_user', 'Add New User'),
+            'icon': 'bi bi-person-plus-fill',
+            'css_class': 'btn btn-primary rounded-pill',
+            'attrs': {
+                'data-dynamic-modal': reverse('modal_user'),
+                'data-modal-title': s.get('add_user', 'Add New User'),
+            },
+        }]
+        if is_scope_enabled() and self.request.user.is_superuser:
+            specs.append({
+                'label': s.get('manage_scopes_btn', 'Manage Scopes'),
+                'icon': 'bi bi-list',
+                'css_class': 'btn btn-info rounded-pill',
+                'attrs': {'id': 'btn-manage-scopes', 'data-url': reverse('manage_scopes')},
+            })
+        if self.request.user.has_perm('dlux.manage_groups') or self.request.user.is_superuser:
+            specs.append({
+                'label': s.get('manage_groups_btn', 'Manage Groups'),
+                'icon': 'bi bi-people-fill',
+                'css_class': 'btn btn-info rounded-pill',
+                'attrs': {'id': 'btn-manage-groups', 'data-url': reverse('manage_groups')},
+            })
+        from ..ribbon import build_action
+
+        return [build_action(spec, request=self.request) for spec in specs]
 
     def get_paginate_by(self, queryset):
         # Let django-tables2 own pagination. Applying ListView pagination here
@@ -332,9 +371,9 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user_filter = self.get_filterset(self.filterset_class)
-        from ..utils import setup_filter_helper
-        setup_filter_helper(user_filter, self.request)
+        # FilterView already built and bound one; reusing it keeps the ribbon,
+        # the table and this view on the same instance.
+        user_filter = context.get("filter") or self.get_filterset(self.filterset_class)
         
         scope_enabled = is_scope_enabled()
         

@@ -125,6 +125,32 @@ def include_once(context, template_name):
     return t.render(context.flatten())
 
 
+@register.simple_tag(takes_context=True)
+def dlux_ribbon(context, ribbon=None):
+    """Render a list page's ribbon — its title, filters and actions.
+
+    Reads `ribbon` from the context (put there by `dlux.ribbon.RibbonMixin`)
+    unless one is passed explicitly.
+    """
+    from django.template.loader import render_to_string
+
+    ribbon = ribbon if ribbon is not None else context.get('ribbon')
+    if ribbon is None:
+        return ""
+    return mark_safe(render_to_string(
+        'dlux/ribbon/ribbon.html',
+        {'ribbon': ribbon, 'request': context.get('request')},
+    ))
+
+
+@register.filter
+def dlux_ribbon_field(form, name):
+    """The bound field for `name`, or empty when the form does not have it."""
+    if form is None or name not in getattr(form, 'fields', {}):
+        return ""
+    return form[name]
+
+
 @register.inclusion_tag('dlux/navbar/main.html', takes_context=True)
 def dlux_navbar(context):
     request = context.get('request')

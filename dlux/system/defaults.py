@@ -11,12 +11,18 @@ from .constants import (
     DEFAULT_NAVBAR_MODE,
     DEFAULT_NAVBAR_ROOT_MODE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
     DEFAULT_ROW_ACTIONS_STYLE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_TOGGLE_ICON,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
     TITLEBAR_ACTIONS_ORDER,
     TITLEBAR_USER_HUB_STYLE_DROPDOWN,
@@ -167,6 +173,7 @@ def default_notification_config():
             'delete': True,
             'actor_flash_actions': ['create', 'delete', 'error'],
             'watchable': True,
+            'include_actor': False,
         },
     }
 
@@ -174,6 +181,9 @@ def default_notification_config():
 def default_layout_config():
     return {
         'default_table_density': DEFAULT_TABLE_DENSITY,
+        'table_edges': DEFAULT_TABLE_EDGES,
+        'card_edges': DEFAULT_CARD_EDGES,
+        'table_accent_edges': False,
         'default_form_density': DEFAULT_FORM_DENSITY,
         'default_modal_size': DEFAULT_MODAL_SIZE,
         'sticky_table_headers': True,
@@ -186,6 +196,13 @@ def default_layout_config():
         'show_audit_fields': False,
         'show_soft_deleted': False,
         'options_style': DEFAULT_OPTIONS_STYLE,
+        # The list-page ribbon: its style, whether it carries the page title,
+        # how its advanced filters are reached, and where its actions sit.
+        'ribbon_layout': DEFAULT_RIBBON_LAYOUT,
+        'ribbon_style': DEFAULT_RIBBON_STYLE,
+        'ribbon_title': True,
+        'ribbon_nesting': DEFAULT_RIBBON_NESTING,
+        'ribbon_advanced_trigger': DEFAULT_RIBBON_ADVANCED_TRIGGER,
         # Table row-actions trigger: 'context' (right-click/long-press menu),
         # 'column' (dedicated three-dot column), or 'both'.
         'row_actions_style': DEFAULT_ROW_ACTIONS_STYLE,
@@ -239,6 +256,7 @@ def default_login_config():
 
 def default_titlebar_config():
     return {
+        'accent_edge': False,
         'show_title': True,
         'show_logo': True,
         'show_home_button': True,
@@ -276,6 +294,7 @@ def default_search_config():
 def default_sidebar_config():
     return {
         'enabled': True,
+        'accent_edge': False,
         'home_url_name': None,
         'entries': [],
         'enable_reorder': True,

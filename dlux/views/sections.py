@@ -71,6 +71,20 @@ def _normalize_section_model_token(value):
 
 
 def _scope_filtered_modal_queryset(model, user):
+    """The set the dynamic modal may resolve an object from.
+
+    Scope first, then whatever the project registered — see `dlux.access`. Row
+    ownership is not something dlux models, but this is the one lookup all three
+    of edit, view and delete route through, so it is the place a project needs
+    to reach. It used to reach it by wrapping this function from outside.
+    """
+    queryset = _scope_only_modal_queryset(model, user)
+    from ..access import apply_modal_queryset_filters
+
+    return apply_modal_queryset_filters(queryset, user)
+
+
+def _scope_only_modal_queryset(model, user):
     queryset = model._default_manager.all()
     if not is_scope_enabled() or getattr(user, 'is_superuser', False):
         return queryset
@@ -211,7 +225,7 @@ def core_models_view(request):
         return render(request, 'dlux/sections/manage_sections.html', {
             'error': 'هناك خطأ في تحميل المودل.',
             'active_model': model_param,
-            'models': [{'name': sm['model_name'], 'ar_names': sm['verbose_name_plural'], 'count': sm['model'].objects.count()} for sm in section_models],
+            'models': [{'name': sm['model_name'], 'verbose_name_plural': sm['verbose_name_plural'], 'count': sm['model'].objects.count()} for sm in section_models],
         })
     
     instance_id = request.GET.get('id')
@@ -248,6 +262,9 @@ def core_models_view(request):
     # them transparently while a superadmin has the "show soft-deleted" review
     # mode on, and hides them otherwise. No view-level branch needed.
     queryset = selected_model._default_manager.all()
+    # Initialised because a section model need not declare a FilterSet, and both
+    # the context and the ribbon read this either way.
+    filter_obj = None
     if FilterClass:
         filter_obj = FilterClass(request.GET or None, queryset=queryset)
         setup_filter_helper(filter_obj, request)
@@ -467,12 +484,45 @@ def core_models_view(request):
 
         form.helper.layout = Layout(*layout_components)
 
+    # The header band, same as every other dlux list screen. Two things here are
+    # unlike the others: the tabs *switch model* rather than narrow a queryset,
+    # so they carry no lookup and `narrow()` correctly leaves the queryset alone;
+    # and the active tab may come from the session rather than the query string,
+    # which `default` expresses — an absent `?model=` falls back to it.
+    from ..ribbon import RibbonTab, build_ribbon, build_ribbon_tabs
+
+    ribbon_tabs = build_ribbon_tabs(
+        {
+            'param': 'model',
+            'default': model_param,
+            'items': [
+                RibbonTab(
+                    key=sm['model_name'],
+                    label=sm['verbose_name_plural'],
+                    count=sm['model']._default_manager.count(),
+                )
+                for sm in section_models
+            ],
+        },
+        request=request,
+    )
+    # The title stays put while the tabs change: it says what the page is, and
+    # the tab already says which section is open. It used to restate the model.
+    ribbon = build_ribbon(
+        filter_obj,
+        request=request,
+        title=ui_strings.get('manage_sections', 'Section Management'),
+        title_icon='bi bi-diagram-3',
+        tabs=ribbon_tabs,
+    )
+
     context = {
+        'ribbon': ribbon,
         'active_model': model_param,
         'models': [
             {
                 'name': sm['model_name'], 
-                'ar_names': sm['verbose_name_plural'],
+                'verbose_name_plural': sm['verbose_name_plural'],
                 'count': sm['model']._default_manager.count()
             } 
             for sm in section_models
@@ -484,8 +534,8 @@ def core_models_view(request):
         'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
         'show_cancel': 'id' in request.GET, # Kept for other uses if any
         'cancel_url': cancel_url,
-        'ar_name': selected_data['verbose_name'],
-        'ar_names': selected_data['verbose_name_plural'],
+        'verbose_name': selected_data['verbose_name'],
+        'verbose_name_plural': selected_data['verbose_name_plural'],
         'subsection_forms': subsection_forms, # subsection forms for modals (kept outside main form)
         'subsection_selects': subsection_selects,
         'has_subsections': len(subsection_selects) > 0,
@@ -868,6 +918,19 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
 
         return action, show_table, show_form
 
+    def _should_refresh_parent_after_save(self, model, form):
+        if self._should_add_more_after_save(form):
+            return False
+        explicit = getattr(form, 'refresh_parent', None)
+        if explicit is not None:
+            return bool(explicit)
+        _, show_table, _ = self._resolve_modal_surface(model)
+        return not show_table
+
+    def _should_add_more_after_save(self, form):
+        posted = getattr(self.request, 'POST', {})
+        return bool(getattr(form, 'add_more', False) or 'save_add_more' in posted)
+
     def _is_user_model(self, model):
         return bool(
             model
@@ -1083,8 +1146,8 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             
             return JsonResponse({
                 'success': True,
-                'refresh_parent': getattr(form, 'refresh_parent', False),
-                'add_more': getattr(form, 'add_more', False),
+                'refresh_parent': self._should_refresh_parent_after_save(model, form),
+                'add_more': self._should_add_more_after_save(form),
             })
         
         context = {

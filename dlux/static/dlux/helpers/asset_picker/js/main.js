@@ -1,4 +1,30 @@
 (function () {
+    function csrfToken(picker) {
+        const input = picker.closest('form')?.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (input) return input.value;
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.content || '';
+        const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function setUploadError(picker, message) {
+        const input = picker.querySelector('[data-asset-picker-upload]');
+        const feedback = picker.querySelector('[data-archive-file-client-error]');
+        const card = picker.querySelector('[data-archive-file-drop]');
+        if (input) input.setCustomValidity(message || '');
+        picker.classList.toggle('is-invalid', Boolean(message));
+        if (card) {
+            if (message) card.setAttribute('aria-invalid', 'true');
+            else card.removeAttribute('aria-invalid');
+        }
+        if (feedback) {
+            feedback.textContent = message || '';
+            feedback.hidden = !message;
+            feedback.classList.toggle('d-block', Boolean(message));
+        }
+    }
+
     function initializePicker(picker) {
         if (!picker || picker.dataset.assetPickerReady === 'true') return;
         picker.dataset.assetPickerReady = 'true';
@@ -51,23 +77,23 @@
             });
         }
 
-        picker.querySelectorAll('[data-asset-picker-option]').forEach(function (option) {
-            option.addEventListener('click', function () {
-                picker.querySelectorAll('[data-asset-picker-option]').forEach(function (item) {
-                    item.classList.remove('is-selected');
-                });
-                option.classList.add('is-selected');
-                valueInput.value = option.dataset.assetId || '';
-                clearInput.checked = false;
-                if (uploadInput) uploadInput.value = '';
-                syncCard(
-                    option.dataset.assetName,
-                    option.dataset.assetUrl,
-                    picker.dataset.assetKind === 'font' ? 'bi bi-file-earmark-font-fill' : 'bi bi-file-earmark-image-fill'
-                );
-                closeLibrary();
-                valueInput.dispatchEvent(new Event('change', { bubbles: true }));
+        picker.addEventListener('click', function (event) {
+            const option = event.target.closest('[data-asset-picker-option]');
+            if (!option || !picker.contains(option)) return;
+            picker.querySelectorAll('[data-asset-picker-option]').forEach(function (item) {
+                item.classList.remove('is-selected');
             });
+            option.classList.add('is-selected');
+            valueInput.value = option.dataset.assetId || '';
+            clearInput.checked = false;
+            if (uploadInput) uploadInput.value = '';
+            syncCard(
+                option.dataset.assetName,
+                option.dataset.assetUrl,
+                picker.dataset.assetKind === 'font' ? 'bi bi-file-earmark-font-fill' : 'bi bi-file-earmark-image-fill'
+            );
+            closeLibrary();
+            valueInput.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
         const search = picker.querySelector('[data-asset-picker-search]');
@@ -93,6 +119,41 @@
                 picker.querySelectorAll('[data-asset-picker-option]').forEach(function (item) {
                     item.classList.remove('is-selected');
                 });
+
+                const uploadUrl = picker.dataset.assetUploadUrl;
+                if (!uploadUrl || picker.dataset.assetUploading === 'true') return;
+                picker.dataset.assetUploading = 'true';
+                setUploadError(picker, '');
+                const body = new FormData();
+                body.append('file', file);
+                fetch(uploadUrl, {
+                    method: 'POST',
+                    body: body,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken(picker),
+                    },
+                })
+                    .then(function (response) {
+                        return response.json().then(function (data) {
+                            if (!response.ok || !data.success) {
+                                throw new Error(data.error || 'The file could not be uploaded.');
+                            }
+                            return data;
+                        });
+                    })
+                    .then(function (data) {
+                        document.dispatchEvent(new CustomEvent('dlux:managed-assets-uploaded', {
+                            detail: { assets: data.assets || [], sourcePicker: picker },
+                        }));
+                    })
+                    .catch(function (error) {
+                        setUploadError(picker, error.message);
+                    })
+                    .finally(function () {
+                        delete picker.dataset.assetUploading;
+                    });
             });
         }
 
@@ -127,6 +188,52 @@
     function initializeAll(root) {
         (root || document).querySelectorAll('[data-asset-picker]').forEach(initializePicker);
     }
+
+    function addAssetOption(picker, asset) {
+        if (!asset || String(asset.kind || '') !== String(picker.dataset.assetKind || '')) return null;
+        const grid = picker.querySelector('[data-asset-picker-grid]');
+        if (!grid) return null;
+        let option = grid.querySelector(`[data-asset-picker-option][data-asset-id="${asset.id}"]`);
+        if (!option) {
+            option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'archive-file-library__option';
+            option.dataset.assetPickerOption = '';
+            option.dataset.assetId = String(asset.id || '');
+            const image = document.createElement('img');
+            image.alt = '';
+            option.appendChild(image);
+            option.appendChild(document.createElement('span'));
+            grid.querySelector('[data-asset-picker-empty]')?.remove();
+            grid.appendChild(option);
+        }
+        option.dataset.assetName = asset.title || '';
+        option.dataset.assetUrl = asset.url || '';
+        const image = option.querySelector('img');
+        if (image) image.src = asset.url || '';
+        const label = option.querySelector('span');
+        if (label) label.textContent = asset.title || '';
+        return option;
+    }
+
+    document.addEventListener('dlux:managed-assets-uploaded', function (event) {
+        const detail = event.detail || {};
+        const assets = Array.isArray(detail.assets) ? detail.assets : [];
+        const sourcePicker = detail.sourcePicker;
+        let sourceOption = null;
+        document.querySelectorAll('[data-asset-picker]').forEach(function (picker) {
+            assets.forEach(function (asset) {
+                const option = addAssetOption(picker, asset);
+                if (picker === sourcePicker && !sourceOption) sourceOption = option;
+            });
+        });
+        if (sourceOption) {
+            const uploadInput = sourcePicker.querySelector('[data-asset-picker-upload]');
+            if (uploadInput) uploadInput.value = '';
+            setUploadError(sourcePicker, '');
+            sourceOption.click();
+        }
+    });
 
     document.addEventListener('DOMContentLoaded', function () { initializeAll(document); });
     new MutationObserver(function (mutations) {

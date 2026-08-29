@@ -1,0 +1,114 @@
+{% load dlux_tags %}
+<div class="dlux-ribbon-builder" data-ribbon-builder
+     data-catalog='{{ ribbon_catalog_json }}'
+     data-config='{{ ribbon_config_json }}'
+     data-languages='{{ languages_json }}'
+     data-strings='{{ ribbon_builder_strings_json }}'
+     data-preview-url="{% url 'ribbon_tabs_preview' %}">
+
+    <p class="text-muted small mb-3">{{ DLUX_STRINGS.ribbon_builder_intro|default:"Give a list page extra tab strips, or reshape the strips it already has, without touching code." }}</p>
+
+    <div class="dlux-ribbon-builder__models" data-ribbon-models></div>
+
+    <div class="dlux-ribbon-builder__bar mt-3">
+        <select class="form-select" data-ribbon-model aria-label="{{ DLUX_STRINGS.ribbon_builder_model|default:'Model' }}"></select>
+        <select class="form-select" data-ribbon-new-field
+                aria-label="{{ DLUX_STRINGS.ribbon_builder_split|default:'Split by' }}"
+                title="{{ DLUX_STRINGS.ribbon_builder_split_hint|default:'The field this strip splits on. Its values become the tabs.' }}"></select>
+        <select class="form-select" data-ribbon-new-relation
+                aria-label="{{ DLUX_STRINGS.ribbon_builder_relation|default:'Strip type' }}"
+                title="{{ DLUX_STRINGS.ribbon_builder_relation_hint|default:'How this extra strip relates to the strip before it.' }}"></select>
+        <input type="text" class="form-control" data-ribbon-new-param
+               placeholder="{{ DLUX_STRINGS.ribbon_builder_param|default:'Query key' }}"
+               title="{{ DLUX_STRINGS.ribbon_builder_param_hint|default:'The key this strip puts in the address bar. Leave blank to name it after the field.' }}">
+        <button type="button" class="btn btn-outline-primary rounded-pill text-nowrap" data-ribbon-add-strip>
+            <i class="bi bi-plus-lg me-1"></i>{{ DLUX_STRINGS.ribbon_builder_add_strip|default:"Add strip" }}
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-transparent border-0">
+            <strong class="d-block mb-1">{{ DLUX_STRINGS.ribbon_inspector_title|default:"Inspector" }}</strong>
+            <p class="text-muted small mb-0">{{ DLUX_STRINGS.ribbon_inspector_desc|default:"Rename the selected tab and choose its icon without leaving the page." }}</p>
+        </div>
+        <div class="card-body">
+            <div class="small text-muted" data-ribbon-inspector-empty>{{ DLUX_STRINGS.ribbon_inspector_empty|default:"Select a tab above to edit it." }}</div>
+            <div class="d-none" data-ribbon-inspector>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <strong data-ribbon-inspector-name></strong>
+                    <code class="small" data-ribbon-inspector-key></code>
+                </div>
+                <div class="row g-3 align-items-start">
+                    <div class="col-lg-5">
+                        <div class="mb-3">
+                            <label class="form-label">{{ DLUX_STRINGS.sidebar_label_field|default:"Label" }}</label>
+                            <div data-ribbon-label-inputs></div>
+                            <div class="form-text">{{ DLUX_STRINGS.ribbon_label_help|default:"Leave a language blank to keep the name the page already uses." }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="dlux-ribbon-builder-icon">{{ DLUX_STRINGS.sidebar_icon_field|default:"Icon" }}</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-stars" data-ribbon-icon-preview></i></span>
+                                <input id="dlux-ribbon-builder-icon" type="text" class="form-control glass-input" data-ribbon-icon-input placeholder="bi-tag">
+                            </div>
+                        </div>
+                        <div class="form-check form-switch" data-ribbon-shown-wrap>
+                            <input class="form-check-input" type="checkbox" role="switch" id="dlux-ribbon-builder-shown" data-ribbon-shown checked>
+                            <label class="form-check-label" for="dlux-ribbon-builder-shown">{{ DLUX_STRINGS.ribbon_builder_enabled|default:"Shown" }}</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <label class="form-label">{{ DLUX_STRINGS.sidebar_icon_field|default:"Icon" }}</label>
+                        <div class="dlux-builder-icon-picker p-2 rounded-4 border" data-ribbon-icon-picker>
+                            <label for="dlux-ribbon-builder-icon-search" class="visually-hidden">{{ DLUX_STRINGS.sidebar_icon_search|default:'Search icons' }}</label>
+                            <input id="dlux-ribbon-builder-icon-search" type="search" class="form-control form-control-sm glass-input mb-2" data-ribbon-icon-search placeholder="{{ DLUX_STRINGS.sidebar_icon_search|default:'Search icons...' }}" aria-label="{{ DLUX_STRINGS.sidebar_icon_search|default:'Search icons' }}">
+                            <div class="dlux-builder-icon-suggestions" data-ribbon-icon-suggestions></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<template data-ribbon-model-template>
+    <section class="dlux-ribbon-builder__model" data-model>
+        <header class="dlux-ribbon-builder__model-head">
+            <div class="dlux-ribbon-builder__model-name">
+                <strong data-model-label></strong>
+                <code class="small" data-model-key></code>
+            </div>
+            <div class="dlux-ribbon-builder__model-tools">
+                <span class="dlux-ribbon-builder__badge" data-model-badge hidden></span>
+            </div>
+        </header>
+        <div class="dlux-ribbon-builder__group" data-declared-section>
+            <div class="dlux-ribbon-builder__group-title">{{ DLUX_STRINGS.ribbon_builder_predefined_strips|default:"Pre-defined strips" }}</div>
+            <div data-model-declared-strips></div>
+        </div>
+        <div class="dlux-ribbon-builder__group" data-extra-section>
+            <div class="dlux-ribbon-builder__group-title">{{ DLUX_STRINGS.ribbon_builder_extra_strips|default:"Extra strips" }}</div>
+            <div data-model-extra-strips></div>
+        </div>
+    </section>
+</template>
+
+<template data-ribbon-strip-row-template>
+    <div class="dlux-ribbon-builder__preview" data-strip-row>
+        <span class="dlux-ribbon-builder__preview-kind" data-strip-kind></span>
+        <div class="dlux-ribbon-builder__pills" data-strip-pills></div>
+        <select class="form-select form-select-sm dlux-ribbon-builder__split" data-strip-field hidden
+                aria-label="{{ DLUX_STRINGS.ribbon_builder_split|default:'Split by' }}"
+                title="{{ DLUX_STRINGS.ribbon_builder_split_hint|default:'The field this strip splits on. Its values become the tabs.' }}"></select>
+        <select class="form-select form-select-sm dlux-ribbon-builder__relation" data-strip-relation hidden
+                aria-label="{{ DLUX_STRINGS.ribbon_builder_relation|default:'Strip type' }}"
+                title="{{ DLUX_STRINGS.ribbon_builder_relation_hint|default:'How this extra strip relates to the strip before it.' }}"></select>
+        <div class="dlux-ribbon-builder__strip-tools" data-strip-tools></div>
+    </div>
+</template>
+
+<template data-ribbon-pill-template>
+    <button type="button" class="dlux-ribbon-builder__pill" data-pill draggable="true">
+        <i data-pill-icon hidden></i><span data-pill-label></span>
+    </button>
+</template>

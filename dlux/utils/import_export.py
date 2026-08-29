@@ -28,6 +28,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
 from ..system.constants import (
     DEFAULT_HOME_URL,
+    JSON_ONLY_LAYOUT_KEYS,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
@@ -134,12 +135,9 @@ def export_system_settings_payload(instance=None):
             # field; keep exporting them as flat keys for backward-compatible
             # import files.
             value = auth_export.get(field_name)
-        elif field_name == 'options_style':
-            # JSON-only layout key (no legacy column): export from layout_config.
-            value = layout_export.get('options_style')
-        elif field_name == 'row_actions_style':
-            # JSON-only layout key: export from layout_config.
-            value = layout_export.get('row_actions_style')
+        elif field_name in JSON_ONLY_LAYOUT_KEYS:
+            # No legacy column for these: export them from layout_config.
+            value = layout_export.get(field_name)
         elif field_name in asset_fields:
             asset = getattr(instance, asset_fields[field_name], None)
             value = getattr(asset, 'file', None)
@@ -408,15 +406,11 @@ def apply_system_settings_import(
             auth = dict(getattr(instance, 'auth_config', None) or {})
             auth[field_name] = value
             instance.auth_config = normalize_auth_config(auth)
-        elif field_name == 'options_style':
-            # JSON-only layout key (no legacy column): route into layout_config.
+        elif field_name in JSON_ONLY_LAYOUT_KEYS:
+            # No legacy column for these: route into layout_config, where the
+            # normalizer validates the value.
             layout = dict(getattr(instance, 'layout_config', None) or {})
-            layout['options_style'] = value
-            instance.layout_config = normalize_layout_config(layout)
-        elif field_name == 'row_actions_style':
-            # JSON-only layout key: route into layout_config (normalizer validates).
-            layout = dict(getattr(instance, 'layout_config', None) or {})
-            layout['row_actions_style'] = value
+            layout[field_name] = value
             instance.layout_config = normalize_layout_config(layout)
         elif field_name == 'auth_config' and isinstance(value, dict):
             instance.auth_config = normalize_auth_config(value)

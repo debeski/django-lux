@@ -1,0 +1,12 @@
+{% for strip in ribbon.nested_strips %}{% if strip.is_axis %}
+<div class="dlux-ribbon-axis">
+    {% if strip.label %}<span class="dlux-ribbon-axis-label">{{ strip.label }}</span>{% endif %}
+    <div class="dlux-ribbon-segmented" role="tablist">
+        {% for tab in strip %}
+        <a class="dlux-ribbon-segment{% if tab.active %} active{% endif %}" href="{{ tab.url }}" role="tab"{% if tab.active %} aria-current="page"{% endif %}>
+            {% if tab.icon %}<i class="{{ tab.icon }} me-1"></i>{% endif %}{{ tab.label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}{% endfor %}

@@ -23,7 +23,7 @@ Language catalogs define the display name, direction, and optional flag. A langu
 
 ## Labels and permissions
 
-Model, section, route, and permission labels resolve through the same catalog. Provide project keys for custom models and actions rather than hard-coding English in a template or view. Per-language sidebar/Nav Bar labels are optional overrides: a blank value falls back to the discovered translated route name.
+Model, section, route, and permission labels resolve through the same catalog. Provide project keys for custom models and actions rather than hard-coding English in a template or view. Per-language sidebar/Navbar labels are optional overrides: a blank value falls back to the discovered translated route name.
 
 ## Verification
 

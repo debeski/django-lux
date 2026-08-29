@@ -174,7 +174,7 @@ def system_backup_page(request):
 
     backups = _recent_system_backups()
     restores = _recent_system_restores()
-    return render(request, 'dlux/backup/manage.html', {
+    context = {
         **_backup_rows_context(backups),
         'backup_revision': _system_backup_revision(backups),
         **_restore_rows_context(restores),
@@ -182,7 +182,33 @@ def system_backup_page(request):
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
-    })
+    }
+    context['ribbon'] = _backup_ribbon(request, context)
+    return render(request, 'dlux/backup/manage.html', context)
+
+
+def _backup_ribbon(request, context):
+    """The page header, as a Ribbon.
+
+    No filterset: this page lists what exists rather than filtering it. The
+    create control is a form with three fields and a status line, so it comes
+    through as rendered markup rather than a label and an icon.
+    """
+    from django.template.loader import render_to_string
+
+    from ..ribbon import build_action, build_ribbon
+
+    strings = get_strings()
+    return build_ribbon(
+        None,
+        request=request,
+        title=strings.get('sysbackup_title', 'Backup & Restore'),
+        subtitle=strings.get('sysbackup_subtitle', ''),
+        title_icon='bi bi-safe2-fill',
+        actions=[build_action({'html': render_to_string(
+            'dlux/backup/_create_action.html', context, request=request,
+        )}, request=request)],
+    )
 
 
 @login_required

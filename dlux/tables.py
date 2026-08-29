@@ -21,6 +21,19 @@ User = get_user_model()
 # viewer's language and keeps module import free of translation lookups.
 _lazy_label = lazy(lambda key, default: get_strings().get(key, default), str)
 
+
+def _translated_renderer(field):
+    """A ``render_<field>`` for django-tables2 to find on the table instance.
+
+    A plain function taking ``record``: ``call_with_appropriate`` inspects the
+    signature to decide what to pass, so the argument name is the contract.
+    """
+    def render(record):
+        return getattr(record, f"t_{field}")
+
+    return render
+
+
 class DluxTable(tables.Table):
     """
     Framework-owned base table for Dlux-managed data grids.
@@ -36,6 +49,42 @@ class DluxTable(tables.Table):
         dlux_per_page = DEFAULT_TABLE_PAGE_SIZE
         dlux_per_page_options = TABLE_PAGE_SIZE_OPTIONS
         dlux_resizable_columns = True
+
+    def __init__(self, *args, **kwargs):
+        # Before super(), because BoundColumns.__init__ resolves each column's
+        # renderer with getattr(table, "render_<name>") while binding — an
+        # attribute set afterwards is never consulted.
+        self._install_translated_renderers()
+        super().__init__(*args, **kwargs)
+
+    def _install_translated_renderers(self):
+        """Render a column in the viewer's language when the model translates it.
+
+        ``TranslationMixin`` gives a model ``t_<field>``, but django-tables2 reads
+        the raw field, so a list stayed in the source language under any other
+        interface language even where a translation existed — the model half of
+        the feature shipped without the table half.
+
+        Applies to every name in the model's ``translated_fields`` that is also a
+        column, so a table gets this by declaring the field once on the model
+        rather than by remembering a mixin per table.
+
+        Two things deliberately left alone. A ``render_<field>`` defined on the
+        table wins, since a table that has already said how to draw a column
+        means it. And a row whose *base* field is empty still renders the column
+        default: django-tables2 short-circuits on the raw value before any
+        renderer runs, so a translation cannot rescue a blank canonical value —
+        which matches the mixin's own contract, where the base field is the
+        canonical one and the translations are optional.
+        """
+        model = getattr(self._meta, "model", None)
+        translated = getattr(model, "translated_fields", None) or ()
+        for field in translated:
+            if field not in self.base_columns:
+                continue
+            if hasattr(type(self), f"render_{field}"):
+                continue
+            setattr(self, f"render_{field}", _translated_renderer(field))
 
     def get_dlux_record_name(self, record):
         if hasattr(record, 'get_full_name'):

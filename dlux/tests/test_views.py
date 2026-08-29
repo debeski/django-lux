@@ -17,6 +17,7 @@ from django.db import connection
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.utils import timezone
 from datetime import timedelta
+from importlib import import_module
 import json
 import tempfile
 from pathlib import Path
@@ -24,7 +25,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dlux.models import GroupProfile, Scope, Section, SystemSettings
-from dlux.system.constants import SETUP_STEP_BACKUPS
+from dlux.system.constants import (
+    SETUP_STEP_BACKUPS,
+    SETUP_STEP_COUNT,
+    SETUP_STEP_SECURITY,
+)
+from django.utils.html import escape
+
 from dlux.translations import get_strings
 from dlux.utils import get_user_management_tier_state_for_user
 
@@ -425,16 +432,22 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        for step in range(17):
+        for step in range(SETUP_STEP_COUNT):
             self.assertContains(response, f'?step={step}"')
         self.assertContains(response, reverse('system_settings_export'))
         self.assertContains(response, 'dlux-admin-settings-grid')
         self.assertContains(response, 'dlux-system-settings-tile')
         self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and footer identity."')
-        self.assertContains(response, 'data-modal-title="Homepage"')
-        self.assertContains(response, 'data-modal-title="Global Search"')
-        self.assertContains(response, 'data-modal-title="Themes &amp; Typography"')
-        self.assertContains(response, 'data-modal-title="Layout"')
+        # Titles come from the step table, so renaming a step is one edit and
+        # not a hunt through hardcoded copies.
+        strings = get_strings('en')
+        self.assertEqual(strings['system_settings_homepage'], 'Home & Public Pages')
+        self.assertEqual(strings['system_settings_navbar'], 'Navbar')
+        self.assertEqual(strings['system_settings_appearance'], 'Themes & Fonts')
+        for key in ('system_settings_homepage', 'system_settings_search',
+                    'system_settings_appearance', 'system_settings_layout',
+                    'system_settings_navbar'):
+            self.assertContains(response, f'data-modal-title="{escape(strings[key])}"')
 
     def test_options_view_uses_shared_selector_markup_for_font_picker(self):
         response = self.client.get(reverse('options_view'))
@@ -473,17 +486,18 @@ class GeneralViewsTests(TestCase):
         cache.clear()
 
         response = self.client.get(
-            reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=4',
+            reverse('modal_manager', args=['dlux', 'SystemSettings', 1])
+            + f'?step={SETUP_STEP_SECURITY}',
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dlux-wizard-initial-step="4"', payload['html'])
+        self.assertIn(f'data-dlux-wizard-initial-step="{SETUP_STEP_SECURITY}"', payload['html'])
         self.assertIn('data-dlux-allowed-theme-count="2"', payload['html'])
         self.assertIn('data-dlux-language-count="2"', payload['html'])
         self.assertNotIn('data-setup-theme-allowed=', payload['html'])
-        self.assertIn('?step=4', payload['html'])
+        self.assertIn(f'?step={SETUP_STEP_SECURITY}', payload['html'])
         self.assertIn('dlux-btn-submit', payload['html'])
         self.assertNotIn('dlux-form-action-primary', payload['html'])
         self.assertNotIn('dlux-form-action-neutral', payload['html'])
@@ -668,8 +682,55 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertTrue(payload['success'])
+        self.assertFalse(payload['refresh_parent'])
         self.assertTrue(Scope.objects.filter(name='NoDupScope').exists())
         self.assertEqual(safe_log.call_count, 1)
+
+    def test_form_only_modal_defaults_to_refreshing_its_parent(self):
+        from dlux.views import DynamicModalManagerView
+
+        view = DynamicModalManagerView()
+        view.request = SimpleNamespace(GET={})
+        view.show_table = False
+
+        self.assertTrue(
+            view._should_refresh_parent_after_save(Scope, SimpleNamespace())
+        )
+        self.assertFalse(
+            view._should_refresh_parent_after_save(
+                Scope, SimpleNamespace(refresh_parent=False)
+            )
+        )
+
+    def test_save_add_more_overrides_form_only_parent_refresh(self):
+        from dlux.views import DynamicModalManagerView
+
+        view = DynamicModalManagerView()
+        view.request = SimpleNamespace(GET={}, POST={'save_add_more': ''})
+        view.show_table = False
+        form = SimpleNamespace(refresh_parent=True)
+
+        self.assertTrue(view._should_add_more_after_save(form))
+        self.assertFalse(view._should_refresh_parent_after_save(Scope, form))
+
+        view.request.POST = {}
+        form.add_more = True
+        self.assertTrue(view._should_add_more_after_save(form))
+        self.assertFalse(view._should_refresh_parent_after_save(Scope, form))
+
+    def test_generic_modal_response_preserves_save_add_more_action(self):
+        response = self.client.post(
+            reverse('modal_manager', args=['dlux', 'Scope', 'new']),
+            {'name': 'Successive Scope', 'save_add_more': ''},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['success'])
+        self.assertTrue(payload['add_more'])
+        self.assertFalse(payload['refresh_parent'])
+        self.assertTrue(Scope.objects.filter(name='Successive Scope').exists())
 
     def test_generic_modal_delete_relies_on_signal_logging_for_scope_delete(self):
         scope = Scope.objects.create(name='DeleteNoDupScope')
@@ -777,7 +838,7 @@ class GeneralViewsTests(TestCase):
         arabic_strings = get_strings('ar')
         self.assertContains(response, arabic_strings['system_setup_page_desc'])
         self.assertContains(response, 'dlux-setup-step-badge')
-        self.assertContains(response, arabic_strings['system_setup_step2'])
+        self.assertContains(response, arabic_strings['system_settings_branding'])
         self.assertContains(response, arabic_strings['system_settings_appearance'])
         self.assertContains(response, arabic_strings['system_settings_layout'])
         self.assertContains(response, 'aria-label="التنقل بين خطوات التهيئة"')
@@ -1427,12 +1488,17 @@ class ActivityLogViewsTests(TestCase):
 
         request = RequestFactory().get(reverse('user_activity_log'))
         request.user = self.user
-        view = UserActivityLogView()
-        view.request = request
-        view.args = ()
-        view.kwargs = {}
 
-        with CaptureQueriesContext(connection) as captured:
+        def walk():
+            """Touch every relation the table's accessors reach.
+
+            A fresh view each time: the ribbon caches its tab strip per instance,
+            so reusing one would measure cache warmth rather than the query cost.
+            """
+            view = UserActivityLogView()
+            view.request = request
+            view.args = ()
+            view.kwargs = {}
             logs = list(view.get_queryset())
             for log in logs:
                 if log.created_by and getattr(log.created_by, 'profile', None):
@@ -1440,7 +1506,30 @@ class ActivityLogViewsTests(TestCase):
                     if scope:
                         _ = scope.name
 
-        self.assertLessEqual(len(captured), 6)
+        walk()  # warm the settings caches, which are process-wide, not per view
+
+        with CaptureQueriesContext(connection) as first:
+            walk()
+
+        for index in range(8, 40):
+            UserActivityLog.objects.create(
+                created_by=self.user,
+                action='CREATE',
+                model_name=f'Entry {index}',
+            )
+
+        with CaptureQueriesContext(connection) as second:
+            walk()
+
+        # The number, not a ceiling: what this guards is that reading the table's
+        # relations costs the same for 40 rows as for 8. A fixed ceiling had to be
+        # raised whenever the page gained a constant query — the ribbon's tab-count
+        # aggregate, say — which is exactly the kind of edit that quietly disarms
+        # an N+1 guard. Growing with the row count is the failure worth catching.
+        self.assertEqual(
+            len(second), len(first),
+            f'query count grew with row count: {len(first)} -> {len(second)}',
+        )
 
     def test_activity_log_detail_view_renders_structured_changes_and_masks_totp_secret(self):
         from dlux.models import UserActivityLog
@@ -2715,6 +2804,54 @@ class ProfileSessionDeviceTests(TestCase):
         second_response = second_client.get(reverse('user_profile'))
         self.assertEqual(second_response.status_code, 302)
 
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+    def test_profile_lists_and_revokes_another_cache_backed_session(self):
+        cache.clear()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        second_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+
+        response = first_client.get(reverse('user_profile'))
+
+        self.assertEqual(len(response.context['active_sessions']), 2)
+        self.assertContains(response, 'Firefox on Windows')
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session_key]),
+            {'current_password': 'devicespass123'},
+        )
+
+        self.assertRedirects(response, reverse('user_profile'))
+        self.assertEqual(second_client.get(reverse('user_profile')).status_code, 302)
+
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+    def test_profile_closes_stale_presence_for_missing_cache_session(self):
+        from django.conf import settings
+
+        cache.clear()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        second_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+        PresenceSession = apps.get_model('dlux', 'UserPresenceSession')
+        presence = PresenceSession.objects.get(user=self.user, session_key=second_session_key)
+        session_engine = import_module(settings.SESSION_ENGINE)
+        session_engine.SessionStore(session_key=second_session_key).delete()
+
+        response = first_client.get(reverse('user_profile'))
+
+        presence.refresh_from_db()
+        self.assertIsNotNone(presence.ended_at)
+        self.assertIsNone(presence.revoked_at)
+        self.assertEqual(len(response.context['active_sessions']), 1)
+
     def test_profile_session_revoke_requires_current_password(self):
         first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
@@ -2975,6 +3112,30 @@ class ProfileSessionDeviceTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Session.objects.filter(session_key=first_session_key).exists())
+
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+    def test_standard_login_keeps_other_cache_sessions_when_single_session_disabled(self):
+        from django.conf import settings
+
+        cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": False}
+        settings_obj.is_configured = True
+        settings_obj.save()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+
+        first_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        first_session_key = first_client.cookies[settings.SESSION_COOKIE_NAME].value
+        second_response = second_client.post(reverse('login'), {
+            'username': 'devices',
+            'password': 'devicespass123',
+        })
+
+        self.assertEqual(second_response.status_code, 302)
+        session_engine = import_module(settings.SESSION_ENGINE)
+        self.assertTrue(session_engine.SessionStore().exists(first_session_key))
+        self.assertEqual(first_client.get(reverse('user_profile')).status_code, 200)
 
     def test_single_session_enforcement_no_op_without_current_session_key(self):
         from types import SimpleNamespace

@@ -179,36 +179,85 @@ class ManagedAssetTests(TestCase):
     def test_asset_manager_is_superuser_only(self):
         normal = get_user_model().objects.create_user('normal', password='pw')
         self.client.force_login(normal)
-        self.assertEqual(self.client.get(reverse('asset_manager')).status_code, 403)
+        self.assertEqual(self.client.get(reverse('manage_assets')).status_code, 403)
+        self.assertEqual(self.client.post(
+            reverse('managed_image_picker_upload'), {'file': image_upload()}
+        ).status_code, 403)
         self.client.force_login(self.user)
-        response = self.client.get(reverse('asset_manager'))
+        response = self.client.get(reverse('manage_assets'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('html', response.json())
         html = response.json()['html']
         self.assertNotIn('<html', html)
         self.assertIn('data-dlux-modal-footer', html)
-        self.assertIn('data-managed-asset-form', html)
-        self.assertIn('>Name</label>', html)
+        self.assertIn('data-managed-image-form', html)
+        self.assertIn('data-dlux-modal-nav', html)
+        self.assertIn('/sys/assets/?asset_tab=fonts', html)
+        self.assertNotIn('name="kind"', html)
+        self.assertNotIn('>Name</label>', html)
+
+        fonts = self.client.get(reverse('manage_assets'), {'asset_tab': 'fonts'}).json()['html']
+        self.assertIn('data-managed-font-form', fonts)
+        self.assertIn('>Name</label>', fonts)
+        self.assertNotIn('data-dlux-modal-footer', fonts)
 
     def test_asset_manager_uploads_and_blocks_deleting_used_asset(self):
         self.client.force_login(self.user)
-        response = self.client.post(reverse('asset_manager'), {
-            'title': 'Reusable Brand',
-            'kind': 'image',
-            'file': image_upload(),
-        })
+        response = self.client.post(reverse('manage_assets'), {'file': image_upload()})
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()['success'])
-        asset = ManagedAsset.objects.get(title='Reusable Brand')
+        payload = response.json()
+        self.assertTrue(payload['success'])
+        self.assertTrue(payload['reload_current'])
+        asset = ManagedAsset.objects.get(kind='image')
+        self.assertEqual(payload['assets'], [{
+            'id': asset.pk,
+            'title': asset.title,
+            'url': asset.url,
+            'kind': 'image',
+        }])
         instance = SystemSettings.load()
         instance.logo_asset = asset
         instance.save()
 
-        response = self.client.post(reverse('asset_manager_delete', args=[asset.pk]))
+        response = self.client.post(reverse('manage_assets_delete', args=[asset.pk]))
 
         self.assertEqual(response.status_code, 409)
         self.assertFalse(response.json()['success'])
         self.assertTrue(ManagedAsset.objects.filter(pk=asset.pk).exists())
+
+    def test_image_name_can_be_edited_without_changing_slug(self):
+        asset, _created = create_managed_asset(image_upload(), kind='image')
+        original_slug = asset.slug
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('manage_assets_rename', args=[asset.pk]), {
+            'title': 'Main public logo',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        asset.refresh_from_db()
+        self.assertEqual(asset.title, 'Main public logo')
+        self.assertEqual(asset.slug, original_slug)
+
+    def test_font_tab_upload_registers_one_font_variant(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            f"{reverse('manage_assets')}?asset_tab=fonts",
+            {
+                'title': 'Acme Regular',
+                'font_slug': 'acme',
+                'font_family': 'Acme Sans',
+                'font_label': 'Acme',
+                'font_weight': '400',
+                'font_style': 'normal',
+                'file': font_upload(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['reload_current'])
+        self.assertTrue(ManagedFontFamily.objects.filter(slug='acme', variants__weight=400).exists())
 
     def test_settings_form_renders_central_asset_picker(self):
         html = str(SystemSettingsForm(instance=SystemSettings.load()))
@@ -221,6 +270,32 @@ class ManagedAssetTests(TestCase):
         self.assertNotIn('dropdown-menu', html)
         self.assertIn('name="logo_upload"', html)
         self.assertIn('name="login_logo_asset"', html)
+        self.assertIn('data-asset-upload-url="/sys/setup/assets/upload/"', html)
+
+    def test_invalid_image_upload_returns_picker_safe_error(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('managed_image_picker_upload'), {
+            'file': SimpleUploadedFile('not-image.txt', b'plain text', content_type='text/plain'),
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+        self.assertTrue(response.json()['error'])
+
+    def test_picker_upload_persists_before_system_is_configured(self):
+        self.client.force_login(self.user)
+        system_settings = SystemSettings.load()
+        system_settings.is_configured = False
+        system_settings.save()
+
+        response = self.client.post(reverse('managed_image_picker_upload'), {
+            'file': image_upload('during-setup.png'),
+        })
+
+        self.assertEqual(response.status_code, 200)
+        asset_id = response.json()['assets'][0]['id']
+        self.assertTrue(ManagedAsset.objects.filter(pk=asset_id, title='during-setup').exists())
 
     def test_selected_asset_picker_uses_active_language_copy(self):
         asset, _created = create_managed_asset(image_upload(), kind='image', title='Brand')
@@ -237,14 +312,15 @@ class ManagedAssetTests(TestCase):
         self.assertNotIn('Current file on this record.', html)
 
     def test_manager_form_uses_translated_field_labels(self):
-        from dlux.forms.assets import ManagedAssetUploadForm
+        from dlux.forms.assets import ManagedFontUploadForm, ManagedImageUploadForm
 
-        form = ManagedAssetUploadForm()
+        image_form = ManagedImageUploadForm()
+        font_form = ManagedFontUploadForm()
 
-        self.assertEqual(form.fields['title'].label, 'Name')
-        self.assertEqual(form.fields['kind'].label, 'File type')
-        self.assertEqual(form.fields['font_family'].label, 'CSS family')
-        self.assertEqual(form.fields['file'].widget.template_name, 'dlux/forms/file_input.html')
+        self.assertEqual(set(image_form.fields), {'file'})
+        self.assertEqual(font_form.fields['title'].label, 'Name')
+        self.assertEqual(font_form.fields['font_family'].label, 'CSS family')
+        self.assertEqual(font_form.fields['file'].widget.template_name, 'dlux/forms/file_input.html')
 
 
 class AssetPickerSearchFieldTests(SimpleTestCase):
@@ -259,3 +335,96 @@ class AssetPickerSearchFieldTests(SimpleTestCase):
         block = block[:block.index('}')]
 
         self.assertIn('padding-inline-start: 2.25rem !important;', block)
+
+
+class ManagerUploadBatchTests(TestCase):
+    """The library screen takes a whole selection, not one file per round trip.
+
+    `forms.FileField` validates a single upload, so a control marked `multiple`
+    kept only the last file chosen — the selection looked accepted and four
+    fifths of it vanished.
+    """
+
+    def _form(self, files, **data):
+        """Built the way Django builds it: `request.FILES` is a MultiValueDict,
+        which is what lets a `multiple` control deliver more than one file."""
+        from django.utils.datastructures import MultiValueDict
+
+        from dlux.forms.assets import ManagedImageUploadForm
+
+        payload = {}
+        payload.update(data)
+        return ManagedImageUploadForm(payload, MultiValueDict({'file': list(files)}))
+
+    def test_every_selected_file_is_saved(self):
+        form = self._form([image_upload('one.png', (10, 20, 30)),
+                           image_upload('two.png', (40, 50, 60))])
+        self.assertTrue(form.is_valid(), form.errors)
+        assets, created = form.save()
+        self.assertEqual(len(assets), 2)
+        self.assertEqual(created, 2)
+
+    def test_one_file_still_works(self):
+        form = self._form([image_upload('solo.png')])
+        self.assertTrue(form.is_valid(), form.errors)
+        assets, created = form.save()
+        self.assertEqual((len(assets), created), (1, 1))
+
+    def test_names_are_derived_from_each_uploaded_file(self):
+        form = self._form([image_upload('a.png', (1, 2, 3)),
+                           image_upload('b.png', (4, 5, 6))])
+        self.assertTrue(form.is_valid(), form.errors)
+        assets, _created = form.save()
+        self.assertEqual([asset.title for asset in assets], ['a', 'b'])
+
+    def test_every_file_in_the_batch_is_validated(self):
+        """Not just the first — one bad file must refuse the whole selection."""
+        form = self._form([image_upload('fine.png'),
+                           SimpleUploadedFile('theme.css', b'body{}', content_type='text/css')])
+        self.assertFalse(form.is_valid())
+        self.assertIn('file', form.errors)
+
+    def test_the_control_offers_multiple_selection(self):
+        from dlux.forms.assets import ManagedImageUploadForm
+
+        html = str(ManagedImageUploadForm()['file'])
+        self.assertIn('multiple', html)
+
+
+class ManagerLayoutTests(SimpleTestCase):
+    """Two layout faults the screen shipped with."""
+
+    CSS = _STATIC / 'assets' / 'css' / 'main.css'
+    HTML = _TEMPLATES / 'assets' / 'manager.html'
+
+    def test_the_preview_cannot_paint_over_the_card_body(self):
+        """A centred grid item is not stretched, so `height: 100%` on the image
+        had no definite basis and fell back to its intrinsic size — a square
+        logo rendered far taller than its 160px box and covered the name,
+        dimensions, usage line and delete button underneath it."""
+        css = self.CSS.read_text()
+        preview = css[css.index('.dlux-managed-asset-preview {'):]
+        preview = preview[:preview.index('}')]
+        self.assertIn('position: relative', preview)
+        self.assertIn('overflow: hidden', preview)
+
+        image = css[css.index('.dlux-managed-asset-preview img {'):]
+        image = image[:image.index('}')]
+        self.assertIn('position: absolute', image)
+        self.assertNotIn('place-items', preview)
+
+    def test_only_image_upload_opts_into_the_modal_footer(self):
+        markup = self.HTML.read_text()
+        self.assertIn('data-dlux-modal-footer', markup)
+        self.assertIn('data-managed-image-upload-trigger', markup)
+        self.assertIn('data-managed-font-form', markup)
+
+    def test_the_form_takes_the_shared_field_styling(self):
+        self.assertIn('class="dlux-form mb-4"', self.HTML.read_text())
+
+    def test_the_font_metadata_uses_two_rows_before_the_file_row(self):
+        markup = self.HTML.read_text()
+        self.assertEqual(markup.count('data-managed-font-row='), 3)
+        self.assertIn('data-managed-font-row="identity"', markup)
+        self.assertIn('data-managed-font-row="variant"', markup)
+        self.assertIn('data-managed-font-row="file"', markup)

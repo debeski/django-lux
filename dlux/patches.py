@@ -985,12 +985,52 @@ def _patch_model_meta():
 
 
 # ──────────────────────────────────────────────────────────
+def _patch_modelform_save_lookup():
+    """Save a record a `DluxLookupField` invented, just before its parent.
+
+    The field hands back an *unsaved* instance for a name that matched nothing,
+    because validating a form must never write — a form failing a later rule
+    would otherwise leave the record behind. Something has to write it before
+    the parent is saved, though, or assigning it raises. Doing that here rather
+    than in a mixin is what keeps a project's form free of a `save()` override:
+    the field is declared, and nothing else is.
+    """
+    from django import forms as django_forms
+
+    _original_save = django_forms.BaseModelForm.save
+
+    def _patched_save(self, commit=True):
+        pending = []
+        for name, field in getattr(self, 'fields', {}).items():
+            if not hasattr(field, 'create'):
+                continue
+            value = self.cleaned_data.get(name)
+            if value is not None and getattr(value, 'pk', True) is None:
+                pending.append((name, value))
+        for name, value in pending:
+            # Logged and recorded like any other create — a record appearing is
+            # worth an audit trail — but not flashed at the actor. Adding it was
+            # a side effect of saving this form, not a second thing they did,
+            # and a banner for it reads as one.
+            if not hasattr(value, '_dlux_notify_flash'):
+                value._dlux_notify_flash = False
+            value.save()
+            self.cleaned_data[name] = value
+            setattr(self.instance, name, value)
+        return _original_save(self, commit=commit)
+
+    if not getattr(django_forms.BaseModelForm.save, '_dlux_lookup_wrapped', False):
+        _patched_save._dlux_lookup_wrapped = True
+        django_forms.BaseModelForm.save = _patched_save
+
+
 # Entry point
 # ──────────────────────────────────────────────────────────
 
 def apply_scoped_patches():
     """Apply all scope auto-injection patches. Called from AppConfig.ready()."""
     _patch_modelform_init()
+    _patch_modelform_save_lookup()
     _patch_filterset_init()
     _patch_table_init()
     _patch_requestconfig_configure()

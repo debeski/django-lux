@@ -149,7 +149,7 @@ urlpatterns = [
 ]
 ```
 
-With that root include in place, dlux provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, dlux falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404. On a fresh and unconfigured install, Dlux also guards ordinary anonymous requests so a public root page cannot bypass first-time setup; once setup is complete, your existing root view continues to behave normally.
+With that root include in place, dlux provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, dlux falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404. On a fresh and unconfigured install, Dlux also guards ordinary anonymous requests so a public page cannot bypass first-time setup; once setup is complete, your existing root view continues to behave normally.
 
 3. Run the setup command.
 

@@ -40,7 +40,7 @@ DjangoLux does not do.
 | **Presence / online status** | `UserPresenceSession` | Per-user last-seen, device label, **IP address list**, **user-agent list** |
 | **Login lockout** | Django cache (not the DB) | Rolling per-**IP** and per-**username** failed-attempt counters; expire with the configured window/lock duration |
 | **Public registration** | `PublicRegistration` | Email, hashed verification token, **IP address**, **user agent**, activation/approval metadata (only when public registration is enabled) |
-| **Notifications** | `DluxNotification` | User-facing event content and target metadata per recipient |
+| **Notifications** | `DluxNotification` | User-facing event content and target metadata, delivered only through per-recipient state after scope and view-permission checks |
 
 Client-IP resolution (which header DjangoLux trusts for the IP addresses above) is
 itself configurable — see the Admin Guide, Step 3 / Access & Security.

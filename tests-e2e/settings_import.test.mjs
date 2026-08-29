@@ -35,7 +35,7 @@ after(async () => {
 const CONFIG = JSON.stringify({
   format: 'django-lux.system-settings',
   dlux_version: '1.8.0',
-  settings: { home_url: '/imported/', footer_text: 'imported footer' },
+  settings: { footer_text: 'imported footer', footer_link_text: 'imported link' },
 });
 
 async function optionsPage() {
@@ -104,7 +104,7 @@ describe('options config import', { concurrency: 1 }, () => {
     const { ctx, page, errors } = await optionsPage();
     try {
       await uploadConfig(page);
-      const card = '[data-settings-import-group]';
+      const card = '[data-settings-import-group]:has([data-settings-import-check][value="footer_text"])';
       const master = `${card} .app-master-checkbox`;
 
       await page.click(master);
@@ -162,9 +162,9 @@ describe('options config import', { concurrency: 1 }, () => {
     try {
       await uploadConfig(page);
       // Cards start collapsed; open the one holding the change before ticking.
-      await page.click('[data-settings-import-group] .permissions-card-header');
+      await page.click('[data-settings-import-group]:has([data-settings-import-check][value="footer_text"]) .permissions-card-header');
       await page.waitForTimeout(500);
-      await page.click('[data-settings-import-check][value="home_url"]');
+      await page.click('[data-settings-import-check][value="footer_text"]');
       await Promise.all([
         page.waitForLoadState('networkidle'),
         page.click('[data-settings-import-apply]'),
@@ -177,9 +177,9 @@ describe('options config import', { concurrency: 1 }, () => {
         const r = await fetch('/sys/settings/export/', { credentials: 'same-origin' });
         return (await r.json()).settings;
       });
-      assert.equal(applied.home_url, '/imported/', 'the ticked change was not applied');
+      assert.equal(applied.footer_text, 'imported footer', 'the ticked change was not applied');
       assert.notEqual(
-        applied.footer_text, 'imported footer',
+        applied.footer_link_text, 'imported link',
         'an unticked change rode along with the apply',
       );
       assert.deepEqual(errors, []);

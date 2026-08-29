@@ -126,7 +126,7 @@ axes. Schema 2 states facts and lets the updater decide:
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
-    "services": { "composer": ">=5.3.0" }
+    "services": { "composer": ">=1.3.8" }
   },
   "migrations": { "effect": "additive", "rollback_compatible": true, "downtime": "none" },
   "install":  { "inline": "allowed" },
@@ -140,7 +140,9 @@ axes. Schema 2 states facts and lets the updater decide:
 permission, not an override, so an author cannot wave a destructive migration
 through.
 
-`requires` describes the **deployment**, never the package. There is deliberately
+`requires` describes the **deployment**, never the package. The Composer service
+floor is its application version; Docker Compose 5.3.0+ remains a separate host
+requirement for generated `pre_start` hooks. There is deliberately
 no `python` or dependency key: the wheel already declares those in
 `Requires-Python`/`Requires-Dist`, pip enforces them, and a second copy here
 could only ever disagree with the authority. `services` is what schema 1 had no

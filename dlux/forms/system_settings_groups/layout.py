@@ -8,6 +8,7 @@ from crispy_forms.bootstrap import FormActions
 from django.urls import NoReverseMatch, reverse
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
+    SETUP_STEP_INDEX,
     SETUP_STEP_LANGUAGES,
     SETUP_STEP_HOMEPAGE,
     SETUP_STEP_SECURITY,
@@ -20,6 +21,7 @@ from ...system.constants import (
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_RIBBON,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
@@ -130,10 +132,20 @@ from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_wid
 
 
 class LayoutMixin:
-    def _step_badge(self, strings, key, fallback):
+    def _step_badge(self, strings, slug, fallback):
+        """The "Step N: Name" pill inside a wizard panel.
+
+        Both halves are derived: the number is the step's position in
+        `SETUP_STEPS`, and the name is the same string the nav and the Options
+        tile show. Before this each call spelled out its own number in a
+        positional translation key, and the Ribbon panel had drifted to
+        announcing itself as step 18 while rendering fourteenth.
+        """
         if self.mode != 'setup':
             return HTML('')
-        label = strings.get(key, fallback)
+        number = SETUP_STEP_INDEX[slug] + 1
+        label = strings.get(f'system_settings_{slug}', fallback)
+        label = f"{strings.get('system_setup_step_prefix', 'Step')} {number}: {label}"
         return HTML(
             f"<div class='dlux-setup-step-badge mb-3'>"
             f"<span class='badge rounded-pill text-bg-primary'>{label}</span>"
@@ -181,7 +193,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_IDENTITY),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step2', 'Step 2: Languages'),
+                        self._step_badge(s, 'languages', 'Languages'),
                         HTML(self.language_catalog_html),
                         Row(
                             Div(Field('default_language'), css_class='d-none'),
@@ -194,66 +206,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_LANGUAGES),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step3', 'Step 3: Homepage'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Root Destinations')}</h6>"),
-                        Row(
-                            Div(Field('home_url_discovered'), css_class='col-lg-6'),
-                            Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'allow_user_home_url', css_class='col-lg-6'),
-                            build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Div(
-                            Row(
-                                build_settings_toggle_field(self, 'public_root_split_enabled', css_class='col-lg-12'),
-                                css_class='g-3 mb-3',
-                            ),
-                            Row(
-                                Div(
-                                    Field('public_root_url_discovered'),
-                                    css_class=(
-                                        "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
-                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
-                                    ),
-                                    data_public_root_split_dependent='true',
-                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
-                                ),
-                                Div(
-                                    Field('public_root_url', dir='ltr'),
-                                    css_class=(
-                                        "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
-                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
-                                    ),
-                                    data_public_root_split_dependent='true',
-                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
-                                ),
-                            ),
-                            Row(
-                                Div(Field('public_root_theme'), css_class='col-lg-12'),
-                                css_class='g-3 mb-3',
-                            ),
-                            HTML(f"<h6 class='fw-bold my-3'>{s.get('public_root_identity_settings_title', 'Public Root Identity')}</h6>"),
-                            Row(
-                                Div(Field('public_root_title', dir='auto'), css_class='col-lg-6'),
-                                Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-6'),
-                                css_class='g-3 mb-3',
-                            ),
-                            Row(
-                                build_settings_toggle_field(self, 'show_titlebar_on_public', css_class='col-lg-6'),
-                                build_settings_toggle_field(self, 'show_sidebar_on_public', css_class='col-lg-6'),
-                                css_class='g-3 mb-3',
-                            ),
-                            css_class=f"dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                            data_public_root_dependent='true',
-                            aria_disabled='false' if self.initial.get('public_root', False) else 'true',
-                        ),
-                        Field('homepage_config'),
-                        css_class=self._step_css_class(SETUP_STEP_HOMEPAGE),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step4', 'Step 4: Email'),
+                        self._step_badge(s, 'email', 'Email'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"),
                         HTML(f"<p class='small text-muted mb-3'>{s.get('email_step_intro', '')}</p>"),
                         Row(
@@ -314,7 +267,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_EMAIL),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step5', 'Step 5: Access & Security'),
+                        self._step_badge(s, 'security', 'Access & Security'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', s.get('system_settings_security', 'Access & Security'))}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
@@ -363,6 +316,12 @@ class LayoutMixin:
                             data_auth_conditional_fields='true',
                         ),
                         Field('auth_config'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('record_visibility_settings_title', 'Record Visibility')}</h6>"),
+                        Row(
+                            build_settings_toggle_field(self, 'show_audit_fields', css_class='col-12 col-lg-6'),
+                            build_settings_toggle_field(self, 'show_soft_deleted', css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
                         HTML(
                             f"<p class='small text-muted mb-3'>"
@@ -444,7 +403,306 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_SECURITY),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step6', 'Step 6: Login Page'),
+                        self._step_badge(s, 'appearance', 'Themes & Fonts'),
+                        Row(
+                            Div(
+                                HTML(self.theme_picker_html),
+                                Field('default_theme'),
+                                css_class='mb-3'
+                            ),
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
+                        ),
+                        Row(
+                            Div(
+                                Field('theme_picker_location'),
+                                css_class=(
+                                    'col-12 dlux-theme-picker-location dlux-dependent-settings'
+                                    + ('' if self.initial.get('allow_user_theme_override', True) else ' is-disabled')
+                                ),
+                                data_theme_picker_location='true',
+                                data_sidebar_hostable='true' if self._sidebar_toolbar_hostable else 'false',
+                                aria_disabled='false' if self.initial.get('allow_user_theme_override', True) else 'true',
+                            ),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
+                        HTML(self.font_picker_html),
+                        # Field('allowed_fonts'),
+                        build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
+                        HTML(self.language_fonts_editor_html),
+                        Field('default_fonts'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('edges_settings_title', 'Surfaces & Edges')}</h6>"),
+                        Row(
+                            Div(Field('table_edges'), css_class='col-12 col-lg-6'),
+                            Div(Field('card_edges'), css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3'
+                        ),
+                        css_class=self._step_css_class(SETUP_STEP_APPEARANCE),
+                    ),
+                    Div(
+                        self._step_badge(s, 'titlebar', 'Titlebar'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
+                        Row(
+                            build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-4'),
+                            build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-4'),
+                            build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-4'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'titlebar_show_language_switcher', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'titlebar_accent_edge', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('titlebar_title_align'), css_class='col-lg-6'),
+                            Div(Field('titlebar_title_size'), css_class='col-lg-6'),
+                        ),
+                        Row(
+                            Div(Field('titlebar_home_shape'), css_class='col-lg-6'),
+                            Div(Field('titlebar_height'), css_class='col-lg-6'),
+                        ),
+                        Row(
+                            Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(self.titlebar_actions_order_html),
+                        Field('titlebar_actions_order'),
+                        Row(
+                            Div(Field('titlebar_surface'), css_class='col-lg-12'),
+                        ),
+                        Row(
+                            Div(
+                                Field('titlebar_logo_treatment'),
+                                css_class=(
+                                    "col-lg-8 dlux-logo-treatment-primary dlux-titlebar-logo-dependent dlux-dependent-settings dlux-titlebar-logo-treatment-primary"
+                                    f"{'' if self.initial.get('titlebar_show_logo', True) else ' is-disabled'}"
+                                    f"{' dlux-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
+                                ),
+                                aria_disabled='false' if self.initial.get('titlebar_show_logo', True) else 'true',
+                            ),
+                            Div(
+                                Field('titlebar_logo_treatment_shape'),
+                                css_class=(
+                                    "col-lg-4 dlux-titlebar-logo-plate-dependent"
+                                    f"{' d-none' if not (self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') == 'plate') else ''}"
+                                ),
+                                aria_hidden='false' if (
+                                    self.initial.get('titlebar_show_logo', True)
+                                    and self.initial.get('titlebar_logo_treatment', 'none') == 'plate'
+                                ) else 'true',
+                            ),
+                            css_class='g-3 mb-3',
+                        ),
+                        css_class=self._step_css_class(SETUP_STEP_TITLEBAR),
+                    ),
+                    Div(
+                        self._step_badge(s, 'sidebar', 'Sidebar'),
+                        Row(
+                            build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(
+                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enabled', True) else ''}' "
+                            f"data-sidebar-disabled-note>"
+                            f"{s.get('sidebar_disabled_navigation_note', 'Disabling the sidebar can leave the app without built-in navigation. You will need to rely on dashboards and modals, or add your own back buttons and navigation entries in forms, lists, and dashboards. As of v2.2.0, Dynamic Sections Manager is only available through the sidebar, so add a dashboard button or custom entry if you need access. This warning will be updated if a built-in workaround is added later.')}"
+                            f"</div>"
+                        ),
+                        HTML("<div class='dlux-sidebar-dependent-settings' data-sidebar-dependent>"),
+                        HTML(
+                            f"<div class='d-none' data-sidebar-tooling-state "
+                            f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'sidebar_enable_reorder', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'sidebar_enable_toolbar', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'sidebar_show_icons', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'sidebar_allow_user_density', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'sidebar_show_notification_badges', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'sidebar_accent_edge', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(
+                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
+                            f"data-sidebar-toolbar-note>"
+                            f"{s.get('sidebar_toolbar_disable_note', 'Disabling the sidebar toolbar also removes the only built-in shortcut to Dynamic Sections Manager. If you still want UI access, enable system items in the sidebar builder and add Section Management to your sidebar.')}"
+                            f"</div>"
+                        ),
+                        Row(
+                            Div(Field('sidebar_density'), css_class='col-lg-6'),
+                            Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
+                        ),
+                        Row(
+                            Div(HTML(self.sidebar_toggle_icon_html), css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(self.sidebar_builder_html),
+                        HTML("</div>"),
+                        Field('sidebar_config'),
+                        Field('sidebar_toggle_icon'),
+                        css_class=self._step_css_class(SETUP_STEP_SIDEBAR),
+                    ),
+                    Div(
+                        self._step_badge(s, 'navbar', 'Navbar'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
+
+                        Row(
+                            build_settings_toggle_field(self, 'navbar_enabled', css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(
+                            f"<div class='dlux-dependent-settings dlux-navbar-dependent-settings"
+                            f"{'' if self.initial.get('navbar_enabled', False) else ' is-disabled'}' "
+                            f"aria-disabled='{'false' if self.initial.get('navbar_enabled', False) else 'true'}' "
+                            f"data-navbar-dependent>"
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'navbar_allow_user_mode_override', css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Div(Field('navbar_default_mode'), css_class='mb-3'),
+                        HTML(self.navbar_builder_html),
+                        HTML("</div>"),
+                        Field('navbar_config'),
+                        css_class=self._step_css_class(SETUP_STEP_NAVBAR),
+                    ),
+                    Div(
+                        self._step_badge(s, 'ribbon', 'Ribbon'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('ribbon_settings_title', 'List Page Ribbon')}</h6>"),
+                        # Disabled by ribbon_settings.js under `compact`, which
+                        # is a single row and so has no title to show.
+                        Row(
+                            build_settings_toggle_field(self, 'ribbon_title', css_class='col-12'),
+                            css_class='g-3 mb-3',
+                            data_dlux_ribbon_dependent='ribbon_title',
+                        ),
+                        Row(
+                            Div(Field('ribbon_style'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        Row(
+                            Div(Field('ribbon_layout'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        Row(
+                            Div(Field('ribbon_advanced_trigger'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        Row(
+                            Div(Field('ribbon_nesting'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('ribbon_tabs_settings_title', 'Tab Strips')}</h6>"),
+                        HTML(self.ribbon_builder_html),
+                        Field('ribbon_config'),
+                        css_class=self._step_css_class(SETUP_STEP_RIBBON),
+                    ),
+                    Div(
+                        self._step_badge(s, 'layout', 'Layout'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables and Cards')}</h6>"),
+                        Row(
+                            build_settings_toggle_field(self, 'table_accent_edges', css_class='col-12 col-lg-6'),
+                            build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'resizable_table_columns', css_class='col-12 col-lg-6'),
+                            build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('default_table_density'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        Row(
+                            Div(Field('row_actions_style'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('forms_settings_title', 'Forms')}</h6>"),
+                        Row(
+                            Div(Field('default_form_density'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
+                        Row(
+                            Div(Field('default_modal_size'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('options_page_settings_title', 'Options Page')}</h6>"),
+                        Row(
+                            Div(Field('options_style'), css_class='col'),
+                            css_class='mb-3'
+                        ),
+                        css_class=self._step_css_class(SETUP_STEP_LAYOUT),
+                    ),
+                    Div(
+                        self._step_badge(s, 'homepage', 'Homepage'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Page Destinations')}</h6>"),
+                        Row(
+                            Div(Field('home_url_discovered'), css_class='col-lg-6'),
+                            Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'allow_user_home_url', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Div(
+                            Row(
+                                build_settings_toggle_field(self, 'public_root_split_enabled', css_class='col-lg-12'),
+                                css_class='g-3 mb-3',
+                            ),
+                            Row(
+                                Div(
+                                    Field('public_root_url_discovered'),
+                                    css_class=(
+                                        "col-lg-6 dlux-public-page-split-dependent dlux-dependent-settings"
+                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
+                                    ),
+                                    data_public_page_split_dependent='true',
+                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
+                                ),
+                                Div(
+                                    Field('public_root_url', dir='ltr'),
+                                    css_class=(
+                                        "col-lg-6 dlux-public-page-split-dependent dlux-dependent-settings"
+                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
+                                    ),
+                                    data_public_page_split_dependent='true',
+                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
+                                ),
+                            ),
+                            Row(
+                                Div(Field('public_root_theme'), css_class='col-lg-12'),
+                                css_class='g-3 mb-3',
+                            ),
+                            HTML(f"<h6 class='fw-bold my-3'>{s.get('public_root_identity_settings_title', 'Public Page Identity')}</h6>"),
+                            Row(
+                                Div(Field('public_root_title', dir='auto'), css_class='col-lg-6'),
+                                Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-6'),
+                                css_class='g-3 mb-3',
+                            ),
+                            Row(
+                                build_settings_toggle_field(self, 'show_titlebar_on_public', css_class='col-lg-6'),
+                                build_settings_toggle_field(self, 'show_sidebar_on_public', css_class='col-lg-6'),
+                                css_class='g-3 mb-3',
+                            ),
+                            css_class=f"dlux-public-page-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
+                            data_public_page_dependent='true',
+                            aria_disabled='false' if self.initial.get('public_root', False) else 'true',
+                        ),
+                        Field('homepage_config'),
+                        css_class=self._step_css_class(SETUP_STEP_HOMEPAGE),
+                    ),
+                    Div(
+                        self._step_badge(s, 'login_page', 'Login Page'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('login_page_settings_title', 'Login Page Settings')}</h6>"),
                         HTML(f"<p class='small text-muted mb-3'>{s.get('login_page_settings_desc', 'Choose the login page layout and customise the side banner and logo treatment.')}</p>"),
                         # Row 1: layout style — full width, as-is
@@ -520,134 +778,14 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_LOGIN),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step7', 'Step 7: Sidebar'),
-                        Row(
-                            build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(
-                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enabled', True) else ''}' "
-                            f"data-sidebar-disabled-note>"
-                            f"{s.get('sidebar_disabled_navigation_note', 'Disabling the sidebar can leave the app without built-in navigation. You will need to rely on dashboards and modals, or add your own back buttons and navigation entries in forms, lists, and dashboards. As of v2.2.0, Dynamic Sections Manager is only available through the sidebar, so add a dashboard button or custom entry if you need access. This warning will be updated if a built-in workaround is added later.')}"
-                            f"</div>"
-                        ),
-                        HTML("<div class='dlux-sidebar-dependent-settings' data-sidebar-dependent>"),
-                        HTML(
-                            f"<div class='d-none' data-sidebar-tooling-state "
-                            f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'sidebar_enable_reorder', css_class='col-lg-6'),
-                            build_settings_toggle_field(self, 'sidebar_enable_toolbar', css_class='col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'sidebar_show_icons', css_class='col-lg-6'),
-                            build_settings_toggle_field(self, 'sidebar_allow_user_density', css_class='col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'sidebar_show_notification_badges', css_class='col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(
-                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
-                            f"data-sidebar-toolbar-note>"
-                            f"{s.get('sidebar_toolbar_disable_note', 'Disabling the sidebar toolbar also removes the only built-in shortcut to Dynamic Sections Manager. If you still want UI access, enable system items in the sidebar builder and add Section Management to your sidebar.')}"
-                            f"</div>"
-                        ),
-                        Row(
-                            Div(Field('sidebar_density'), css_class='col-lg-6'),
-                            Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
-                        ),
-                        Row(
-                            Div(HTML(self.sidebar_toggle_icon_html), css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(self.sidebar_builder_html),
-                        HTML("</div>"),
-                        Field('sidebar_config'),
-                        Field('sidebar_toggle_icon'),
-                        css_class=self._step_css_class(SETUP_STEP_SIDEBAR),
+                        self._step_badge(s, 'profile', 'Profile Page'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
+                        HTML(self.profile_builder_html),
+                        Field('profile_config'),
+                        css_class=self._step_css_class(SETUP_STEP_PROFILE),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step8', 'Step 8: Nav Bar'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
-
-                        Row(
-                            build_settings_toggle_field(self, 'navbar_enabled', css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(
-                            f"<div class='dlux-dependent-settings dlux-navbar-dependent-settings"
-                            f"{'' if self.initial.get('navbar_enabled', False) else ' is-disabled'}' "
-                            f"aria-disabled='{'false' if self.initial.get('navbar_enabled', False) else 'true'}' "
-                            f"data-navbar-dependent>"
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'navbar_allow_user_mode_override', css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Div(Field('navbar_default_mode'), css_class='mb-3'),
-                        HTML(self.navbar_builder_html),
-                        HTML("</div>"),
-                        Field('navbar_config'),
-                        css_class=self._step_css_class(SETUP_STEP_NAVBAR),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step9', 'Step 9: Titlebar'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
-                        Row(
-                            build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-4'),
-                            build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-4'),
-                            build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-4'),
-                            build_settings_toggle_field(self, 'titlebar_show_language_switcher', css_class='col-lg-6 col-xl-4'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            Div(Field('titlebar_title_align'), css_class='col-lg-6'),
-                            Div(Field('titlebar_title_size'), css_class='col-lg-6'),
-                        ),
-                        Row(
-                            Div(Field('titlebar_home_shape'), css_class='col-lg-6'),
-                            Div(Field('titlebar_height'), css_class='col-lg-6'),
-                        ),
-                        Row(
-                            Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(self.titlebar_actions_order_html),
-                        Field('titlebar_actions_order'),
-                        Row(
-                            Div(Field('titlebar_surface'), css_class='col-lg-12'),
-                        ),
-                        Row(
-                            Div(
-                                Field('titlebar_logo_treatment'),
-                                css_class=(
-                                    "col-lg-8 dlux-logo-treatment-primary dlux-titlebar-logo-dependent dlux-dependent-settings dlux-titlebar-logo-treatment-primary"
-                                    f"{'' if self.initial.get('titlebar_show_logo', True) else ' is-disabled'}"
-                                    f"{' dlux-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
-                                ),
-                                aria_disabled='false' if self.initial.get('titlebar_show_logo', True) else 'true',
-                            ),
-                            Div(
-                                Field('titlebar_logo_treatment_shape'),
-                                css_class=(
-                                    "col-lg-4 dlux-titlebar-logo-plate-dependent"
-                                    f"{' d-none' if not (self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') == 'plate') else ''}"
-                                ),
-                                aria_hidden='false' if (
-                                    self.initial.get('titlebar_show_logo', True)
-                                    and self.initial.get('titlebar_logo_treatment', 'none') == 'plate'
-                                ) else 'true',
-                            ),
-                            css_class='g-3 mb-3',
-                        ),
-                        css_class=self._step_css_class(SETUP_STEP_TITLEBAR),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step10', 'Step 10: Global Search'),
+                        self._step_badge(s, 'search', 'Global Search'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('global_search_settings_title', 'Global Search')}</h6>"),
                         Row(
                             Div(Field('titlebar_global_search_mode'), css_class='col-lg-12'),
@@ -666,7 +804,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_SEARCH),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step11', 'Step 11: Notifications'),
+                        self._step_badge(s, 'notifications', 'Notifications'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('notification_settings_title', 'Notifications')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'notifications_enabled', css_class='col-lg-12'),
@@ -686,18 +824,6 @@ class LayoutMixin:
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            Div(Field('notification_flash_position'), css_class='col-lg-4'),
-                            Div(Field('notification_flash_size'), css_class='col-lg-4'),
-                            Div(Field('notification_flash_text_size'), css_class='col-lg-4'),
-                            css_class='g-3',
-                        ),
-                        Row(
-                            Div(Field('notification_flash_timeout_ms'), css_class='col-lg-4'),
-                            Div(Field('notification_flash_max_visible'), css_class='col-lg-4'),
-                            Div(Field('notification_auto_update'), css_class='col-lg-4'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
                             build_settings_toggle_field(self, 'notification_auto_crud_enabled', css_class='col-lg-4'),
                             build_settings_toggle_field(self, 'notification_auto_create', css_class='col-lg-4'),
                             build_settings_toggle_field(self, 'notification_auto_delete', css_class='col-lg-4'),
@@ -708,99 +834,39 @@ class LayoutMixin:
                             build_settings_toggle_field(self, 'notification_email_default', css_class='col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
+                        # Position carries six options, so it takes the full row
+                        # rather than being squeezed into a third of one.
+                        Row(
+                            Div(Field('notification_flash_position'), css_class='col-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('notification_flash_size'), css_class='col-12 col-lg-6'),
+                            Div(Field('notification_flash_text_size'), css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('notification_auto_update'), css_class='col-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('notification_flash_timeout_ms'), css_class='col-12 col-lg-6'),
+                            Div(Field('notification_flash_max_visible'), css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
                         HTML("</div>"),
                         Field('notification_config'),
                         css_class=self._step_css_class(SETUP_STEP_NOTIFICATIONS),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step12', 'Step 12: Themes & Typography'),
-                        Row(
-                            Div(
-                                HTML(self.theme_picker_html),
-                                Field('default_theme'),
-                                css_class='mb-3'
-                            ),
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
-                        ),
-                        Row(
-                            Div(
-                                Field('theme_picker_location'),
-                                css_class=(
-                                    'col-12 dlux-theme-picker-location dlux-dependent-settings'
-                                    + ('' if self.initial.get('allow_user_theme_override', True) else ' is-disabled')
-                                ),
-                                data_theme_picker_location='true',
-                                data_sidebar_hostable='true' if self._sidebar_toolbar_hostable else 'false',
-                                aria_disabled='false' if self.initial.get('allow_user_theme_override', True) else 'true',
-                            ),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
-                        HTML(self.font_picker_html),
-                        # Field('allowed_fonts'),
-                        build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
-                        HTML(self.language_fonts_editor_html),
-                        Field('default_fonts'),
-                        css_class=self._step_css_class(SETUP_STEP_APPEARANCE),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step13', 'Step 13: Layout'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
-                        Row(
-                            Div(Field('default_table_density'), css_class='col'),
-                            css_class='mb-3'
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-4'),
-                            build_settings_toggle_field(self, 'resizable_table_columns', css_class='col-12 col-lg-4'),
-                            build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-4'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            Div(Field('row_actions_style'), css_class='col'),
-                            css_class='mb-3'
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('record_visibility_settings_title', 'Record Visibility')}</h6>"),
-                        Row(
-                            build_settings_toggle_field(self, 'show_audit_fields', css_class='col-12 col-lg-6'),
-                            build_settings_toggle_field(self, 'show_soft_deleted', css_class='col-12 col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('forms_settings_title', 'Forms')}</h6>"),
-                        Row(
-                            Div(Field('default_form_density'), css_class='col'),
-                            css_class='mb-3'
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
-                        Row(
-                            Div(Field('default_modal_size'), css_class='col'),
-                            css_class='mb-3'
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('options_page_settings_title', 'Options Page')}</h6>"),
-                        Row(
-                            Div(Field('options_style'), css_class='col'),
-                            css_class='mb-3'
-                        ),
-                        css_class=self._step_css_class(SETUP_STEP_LAYOUT),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step14', 'Step 14: Logging'),
+                        self._step_badge(s, 'logging', 'Logging'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
                         HTML(self.log_builder_html),
                         Field('log_config'),
                         css_class=self._step_css_class(SETUP_STEP_LOGGING),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step15', 'Step 15: Profile Page'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
-                        HTML(self.profile_builder_html),
-                        Field('profile_config'),
-                        css_class=self._step_css_class(SETUP_STEP_PROFILE),
-                    ),
-                    Div(
-                        self._step_badge(s, 'system_setup_step16', 'Step 16: Backups'),
+                        self._step_badge(s, 'backups', 'Backups'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_title', 'System Backup Policy')}</h6>"),
                         HTML(f"<div class='alert alert-info'>{s.get('backup_settings_update_notice', 'Inline updates and rollbacks always create and verify a full system backup before maintenance. An update is stopped if that backup fails.')}</div>"),
                         build_settings_toggle_field(self, 'backup_scheduled_enabled', css_class='col-12'),
@@ -823,7 +889,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_BACKUPS),
                     ),
                     Div(
-                        self._step_badge(s, 'system_setup_step17', 'Step 17: Extra Features'),
+                        self._step_badge(s, 'extras', 'Extra Features'),
                         HTML(f"<div class='alert alert-info'>{s.get('extras_settings_intro', 'Optional integrations that stay switched off until a deployment needs them. Each one is inert while disabled.')}</div>"),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('scanlink_settings_title', 'ScanLink Scanning')}</h6>"),
                         build_settings_toggle_field(self, 'scanlink_enabled', css_class='col-12'),

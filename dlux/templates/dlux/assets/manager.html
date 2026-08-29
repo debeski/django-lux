@@ -1,51 +1,41 @@
 {% load dlux_tags %}
 <link rel="stylesheet" href="{% dlux_static 'dlux/assets/css/main.css' %}">
 <div class="dlux-asset-manager">
-    <p class="text-muted small mb-3">{{ DLUX_STRINGS.asset_manager_desc|default:'Reusable images and WOFF2 fonts. CSS and JavaScript uploads are never accepted.' }}</p>
+    <nav class="mb-4" data-dlux-modal-nav aria-label="{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}">
+        {% dlux_ribbon ribbon %}
+    </nav>
 
-    <form method="post" enctype="multipart/form-data" action="{% url 'asset_manager' %}" data-managed-asset-form>
+    {% if active_tab == 'images' %}
+    <form method="post" enctype="multipart/form-data" action="{{ image_action_url }}" data-managed-image-form>
         {% csrf_token %}
-        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-        <div class="row g-3">
-            <div class="col-md-5">
-                <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
-                {{ form.title }}{{ form.title.errors }}
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="{{ form.kind.id_for_label }}">{{ form.kind.label }}</label>
-                {{ form.kind }}{{ form.kind.errors }}
-            </div>
-            <div class="col-12">
-                <label class="visually-hidden" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
-                {{ form.file }}{{ form.file.errors }}
-            </div>
-        </div>
-        <div class="row g-3 mt-1" data-managed-font-fields>
-            <div class="col-md-4"><label class="form-label" for="{{ form.font_slug.id_for_label }}">{{ form.font_slug.label }}</label>{{ form.font_slug }}{{ form.font_slug.errors }}</div>
-            <div class="col-md-4"><label class="form-label" for="{{ form.font_family.id_for_label }}">{{ form.font_family.label }}</label>{{ form.font_family }}{{ form.font_family.errors }}</div>
-            <div class="col-md-4"><label class="form-label" for="{{ form.font_label.id_for_label }}">{{ form.font_label.label }}</label>{{ form.font_label }}{{ form.font_label.errors }}</div>
-            <div class="col-md-3"><label class="form-label" for="{{ form.font_weight.id_for_label }}">{{ form.font_weight.label }}</label>{{ form.font_weight }}{{ form.font_weight.errors }}</div>
-            <div class="col-md-3"><label class="form-label" for="{{ form.font_style.id_for_label }}">{{ form.font_style.label }}</label>{{ form.font_style }}{{ form.font_style.errors }}</div>
-        </div>
-        <div class="d-flex justify-content-end" data-dlux-modal-footer>
-            <button type="submit" class="btn btn-primary rounded-pill"><i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.asset_upload_action|default:'Upload' }}</button>
+        {{ image_form.file }}
+        {% if image_form.non_field_errors %}<div class="alert alert-danger">{{ image_form.non_field_errors }}</div>{% endif %}
+        {% if image_form.file.errors %}<div class="alert alert-danger">{{ image_form.file.errors }}</div>{% endif %}
+        <div data-dlux-modal-footer>
+            <button type="submit" class="btn btn-primary" data-managed-image-upload-trigger>
+                <i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.asset_upload_images|default:'Upload images' }}
+            </button>
         </div>
     </form>
 
-    <div class="d-flex align-items-center justify-content-between mt-4 mb-3">
-        <h6 class="mb-0">{{ DLUX_STRINGS.asset_library_title|default:'Saved files' }}</h6>
-        <span class="badge text-bg-secondary">{{ assets|length }}</span>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="mb-0">{{ DLUX_STRINGS.asset_images_title|default:'Saved images' }}</h6>
+        <span class="badge text-bg-secondary">{{ images|length }}</span>
     </div>
     <div class="dlux-managed-assets-grid">
-        {% for asset in assets %}
+        {% for asset in images %}
         <article class="glass-profile dlux-managed-asset-card">
             <div class="dlux-managed-asset-preview">
-                {% if asset.kind == 'image' and asset.url %}<img src="{{ asset.url }}" alt="{{ asset.title }}">{% else %}<i class="bi bi-file-earmark-font-fill"></i>{% endif %}
+                {% if asset.url %}<img src="{{ asset.url }}" alt="{{ asset.title }}">{% endif %}
             </div>
             <div class="dlux-managed-asset-body">
                 <div class="d-flex align-items-start justify-content-between gap-2">
-                    <div><h6 class="mb-1">{{ asset.title }}</h6><code>{{ asset.slug }}</code></div>
-                    <span class="badge text-bg-light">{% if asset.kind == 'font' %}{{ DLUX_STRINGS.asset_kind_font|default:'Font' }}{% else %}{{ DLUX_STRINGS.asset_kind_image|default:'Image' }}{% endif %}</span>
+                    <div class="dlux-managed-asset-name">
+                        <button type="button" class="dlux-managed-asset-title" data-managed-image-title data-rename-url="{% url 'manage_assets_rename' asset.pk %}" title="{{ DLUX_STRINGS.asset_rename_hint|default:'Rename image' }}">{{ asset.title }}</button>
+                        <input type="text" class="form-control form-control-sm glass-input" value="{{ asset.title }}" maxlength="150" data-managed-image-title-input hidden>
+                        <code>{{ asset.slug }}</code>
+                    </div>
+                    <span class="badge text-bg-light">{{ DLUX_STRINGS.asset_kind_image|default:'Image' }}</span>
                 </div>
                 <p class="small text-muted mt-2 mb-2">{{ asset.filename }} · {{ asset.size_bytes }} B{% if asset.width %} · {{ asset.width }}×{{ asset.height }}{% endif %}</p>
                 {% if asset.usage_report %}
@@ -59,14 +49,56 @@
             </div>
         </article>
         {% empty %}
-        <div class="glass-profile p-4 text-center text-muted">{{ DLUX_STRINGS.asset_library_empty|default:'No saved files yet.' }}</div>
+        <div class="dlux-asset-empty text-center text-muted">{{ DLUX_STRINGS.asset_images_empty|default:'No saved images yet.' }}</div>
         {% endfor %}
     </div>
+    {% else %}
+    <form method="post" enctype="multipart/form-data" class="dlux-form mb-4" action="{{ font_action_url }}" data-managed-font-form>
+        {% csrf_token %}
+        {% if font_form.non_field_errors %}<div class="alert alert-danger">{{ font_form.non_field_errors }}</div>{% endif %}
+        <div class="row g-3" data-managed-font-row="identity">
+            <div class="col-md-3"><label class="form-label" for="{{ font_form.title.id_for_label }}">{{ font_form.title.label }}</label>{{ font_form.title }}{{ font_form.title.errors }}</div>
+            <div class="col-md-3"><label class="form-label" for="{{ font_form.font_label.id_for_label }}">{{ font_form.font_label.label }}</label>{{ font_form.font_label }}{{ font_form.font_label.errors }}</div>
+            <div class="col-md-3"><label class="form-label" for="{{ font_form.font_slug.id_for_label }}">{{ font_form.font_slug.label }}</label>{{ font_form.font_slug }}{{ font_form.font_slug.errors }}</div>
+            <div class="col-md-3"><label class="form-label" for="{{ font_form.font_family.id_for_label }}">{{ font_form.font_family.label }}</label>{{ font_form.font_family }}{{ font_form.font_family.errors }}</div>
+        </div>
+        <div class="row g-3 mt-0" data-managed-font-row="variant">
+            <div class="col-md-6"><label class="form-label" for="{{ font_form.font_weight.id_for_label }}">{{ font_form.font_weight.label }}</label>{{ font_form.font_weight }}{{ font_form.font_weight.errors }}</div>
+            <div class="col-md-6"><label class="form-label" for="{{ font_form.font_style.id_for_label }}">{{ font_form.font_style.label }}</label>{{ font_form.font_style }}{{ font_form.font_style.errors }}</div>
+        </div>
+        <div class="row g-3 mt-0" data-managed-font-row="file">
+            <div class="col-12"><label class="visually-hidden" for="{{ font_form.file.id_for_label }}">{{ font_form.file.label }}</label>{{ font_form.file }}{{ font_form.file.errors }}</div>
+        </div>
+        <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.asset_upload_font|default:'Upload font' }}</button>
+        </div>
+    </form>
 
-    {% if managed_fonts %}
-    <div class="mt-4">
-        <h6>{{ DLUX_STRINGS.asset_fonts_title|default:'Registered fonts' }}</h6>
-        {% for font in managed_fonts %}<span class="badge text-bg-light me-2 mb-2">{{ font.label }} · {{ font.variants.count }}</span>{% endfor %}
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="mb-0">{{ DLUX_STRINGS.asset_fonts_title|default:'Registered fonts' }}</h6>
+        <span class="badge text-bg-secondary">{{ managed_fonts|length }}</span>
+    </div>
+    <div class="dlux-managed-font-list">
+        {% for font in managed_fonts %}
+        <section class="dlux-managed-font-family">
+            <div class="dlux-managed-font-heading">
+                <div><strong>{{ font.label }}</strong><div class="small text-muted">{{ font.family }}</div></div>
+                <code>{{ font.slug }}</code>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>{{ DLUX_STRINGS.asset_field_font_weight|default:'Weight' }}</th><th>{{ DLUX_STRINGS.asset_field_font_style|default:'Style' }}</th><th>{{ DLUX_STRINGS.asset_field_file|default:'File' }}</th><th class="text-end">{{ DLUX_STRINGS.asset_size|default:'Size' }}</th></tr></thead>
+                    <tbody>
+                        {% for variant in font.variants.all %}
+                        <tr><td>{{ variant.weight }}</td><td>{{ variant.get_style_display }}</td><td>{{ variant.asset.filename }}</td><td class="text-end">{{ variant.asset.size_bytes }} B</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% empty %}
+        <div class="dlux-asset-empty text-center text-muted">{{ DLUX_STRINGS.asset_fonts_empty|default:'No registered fonts yet.' }}</div>
+        {% endfor %}
     </div>
     {% endif %}
 </div>

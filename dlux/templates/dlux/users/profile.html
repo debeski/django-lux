@@ -42,7 +42,7 @@
                     
                     <!-- Completeness -->
                     {% if profile_show_completion %}
-                    <div class="completeness-container">
+                    <div class="completeness-container" data-dlux-card-edges-ignore>
                         <div class="completeness-label">
                             <span>{{ DLUX_STRINGS.profile_completeness }}</span>
                             <span>{{ stats.completeness }}%</span>
@@ -130,7 +130,7 @@
                     
                     <!-- Account Health (security nudge) -->
                     {% if profile_security_nudges != 'off' %}
-                    <div class="mt-4 p-3 rounded bg-light border">
+                    <div class="mt-4 p-3 rounded bg-light border" data-dlux-card-surface>
                         <small class="text-muted d-block mb-1">{{ DLUX_STRINGS.account_health }}</small>
                         {% if stats.health == 'good' %}
                             <div class="d-flex align-items-center justify-content-center gap-2 text-success fw-bold">

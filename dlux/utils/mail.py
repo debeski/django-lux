@@ -62,6 +62,45 @@ DLUX_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 
 DLUX_INTERNAL_SMTP_RELAY_PORT = 1025
 
+# How long the relay reachability probe waits. It runs while a settings page is
+# being rendered, so it has to fail fast: the relay either sits on the same
+# internal network (a millisecond away) or is not deployed at all, and there is
+# no middle case worth waiting for.
+DLUX_SMTP_RELAY_PROBE_TIMEOUT = 1.5
+
+
+def internal_smtp_relay_available(host=None, port=None, timeout=None):
+    """Whether the internal SMTP relay is listening.
+
+    Answers "is that process deployed", which is deliberately independent of
+    what `email_config` says: `dlux.smtp_relay` starts its listener
+    unconditionally and resolves its upstream per message, so it accepts
+    connections before it has ever been configured. That is what makes it safe
+    to offer relay transport only when this is true — the two cannot deadlock.
+
+    Reads the SMTP greeting rather than just completing a TCP handshake, so
+    something else holding the port does not read as a relay. Sends no mail and
+    needs no credentials: the listener speaks plaintext with no auth, because
+    only the app can reach it.
+    """
+    import smtplib
+    import socket
+
+    from django.conf import settings as django_settings
+
+    host = host or getattr(django_settings, 'DLUX_SMTP_RELAY_HOST', DLUX_INTERNAL_SMTP_RELAY_HOST)
+    port = port or getattr(django_settings, 'DLUX_SMTP_RELAY_PORT', DLUX_INTERNAL_SMTP_RELAY_PORT)
+    timeout = timeout or DLUX_SMTP_RELAY_PROBE_TIMEOUT
+    try:
+        client = smtplib.SMTP(host, int(port), timeout=timeout)
+    except (OSError, socket.timeout, smtplib.SMTPException):
+        return False
+    try:
+        client.quit()
+    except (OSError, smtplib.SMTPException):
+        pass
+    return True
+
 # Client-side SMTP timeouts. These are deliberately a *pair* with the relay's own
 # upstream timeout (DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT, used by the scaffolded
 # dlux/smtp_relay.py), and the ordering between them is the whole point:

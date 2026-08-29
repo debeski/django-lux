@@ -11,10 +11,12 @@ from dlux.system.constants import (
     SETUP_STEP_EMAIL,
     SETUP_STEP_HOMEPAGE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_RIBBON,
     SETUP_STEP_SEARCH,
     SETUP_STEP_SECURITY,
 )
 from dlux.search import get_component_index, run_search, search_components
+from dlux.translations import get_strings
 from dlux.system.normalizers import normalize_search_config, normalize_titlebar_config
 from dlux.utils import get_system_config
 
@@ -86,18 +88,18 @@ class ComponentIndexTests(TestCase):
 
     def test_layout_section_maps_to_its_wizard_step(self):
         index = get_component_index('en')
-        layout = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Layout')
+        layout = next(e for e in index if e['type'] == 'setting' and e['label'] == get_strings('en')['system_settings_layout'])
         self.assertIn(f'?step={SETUP_STEP_LAYOUT}', layout['url'])
 
     def test_email_section_deeplinks_to_its_own_step(self):
         index = get_component_index('en')
-        email = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Email')
+        email = next(e for e in index if e['type'] == 'setting' and e['label'] == get_strings('en')['system_settings_email'])
         self.assertIn(f'?step={SETUP_STEP_EMAIL}', email['url'])
 
     def test_homepage_and_search_have_dedicated_steps(self):
         index = get_component_index('en')
-        homepage = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Homepage')
-        search = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Global Search')
+        homepage = next(e for e in index if e['type'] == 'setting' and e['label'] == get_strings('en')['system_settings_homepage'])
+        search = next(e for e in index if e['type'] == 'setting' and e['label'] == get_strings('en')['system_settings_search'])
         self.assertIn(f'?step={SETUP_STEP_HOMEPAGE}', homepage['url'])
         self.assertIn(f'?step={SETUP_STEP_SEARCH}', search['url'])
 
@@ -107,7 +109,7 @@ class ComponentIndexTests(TestCase):
         self.assertTrue(option_urls)
         self.assertTrue(all('/sys/options/#dlux-option-' in url for url in option_urls))
         labels = {e['label'] for e in index if e['type'] == 'option'}
-        self.assertIn('Color Theme', labels)
+        self.assertIn('Theme', labels)
 
 
 class AppCardSearchTests(TestCase):
@@ -189,6 +191,11 @@ class ArabicLocalizationTests(TestCase):
         self.assertNotEqual(themes['label'], layout['label'])
         self.assertTrue(themes['label'])
         self.assertTrue(layout['label'])
+
+    def test_arabic_ribbon_label_names_the_page_ribbon(self):
+        ribbon = self._setting_at_step(get_component_index('ar'), SETUP_STEP_RIBBON)
+
+        self.assertEqual(ribbon['label'], 'شريط الصفحة')
 
     def test_arabic_query_matches_arabic_labels(self):
         security = self._setting_at_step(get_component_index('ar'), 2)

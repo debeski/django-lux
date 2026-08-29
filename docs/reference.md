@@ -189,6 +189,7 @@ Section security contract:
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
 - `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
 - `/accounts/profile/` exposes `sign_out_other_sessions` only on the authenticated user's own password-change form and only while `prevent_multiple_active_sessions` is false. On a successful change, an enabled toggle excludes the current browser from revocation, deletes every other discoverable database or cache-backed session, marks its presence row ended/revoked, and then lets Django rotate the retained session key. Trusted-device records are not revoked. The backend ignores a forged toggle while single-session enforcement is enabled.
+- `/accounts/profile/` resolves signed-in devices and session revocation through the configured `SESSION_ENGINE`. Database rows provide discovery for database sessions; `UserPresenceSession` is the durable index for cache-backed sessions. Missing cache entries are omitted and their stale presence rows are closed without marking them revoked.
 - the create-user modal can mark a new account with `profile.preferences["force_password_change"]`; `DluxMiddleware` then redirects that user to `/accounts/profile/?force_password_change=1` until the profile password-change form succeeds and clears the marker. While this marker is active, the first-login Initial User Setup auto-modal is deferred so the password-change requirement remains the only blocking first action. The forced change must set a password different from the current one.
 - `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint used by the Options Admin panel command launcher. It requires the acting superuser's current password and sets the same `profile.preferences["force_password_change"]` marker on every non-superuser user, preserving other preference keys and skipping all superusers.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `dlux.view_activitylog` permission or superuser status rather than plain `is_staff`
@@ -229,6 +230,7 @@ Backup export contract:
 - destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
 - Profile can trust the current browser after current-password confirmation; untrusted sessions cannot revoke trusted sessions
 - when `prevent_multiple_active_sessions` is enabled, each newly authenticated session revokes every other active session for that user; the older browser is redirected to the session-ended page on its next request
+- when `prevent_multiple_active_sessions` is disabled, successful logins do not revoke another browser's database- or cache-backed session; changing the system setting takes effect through normalized runtime config without a restart
 - email 2FA supports auto-send on login and 120s resend cooldown to reduce authentication friction
 - TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
 
@@ -379,6 +381,33 @@ register_app_settings(
     ],
 )
 ```
+
+**Titles, descriptions and labels that follow the reader's language.** Pass a
+lazy string — a plain `str` is resolved once, at import, and freezes the tile to
+whichever language happened to be active when the worker booted:
+
+```python
+from django.utils.translation import gettext_lazy as _
+
+register_app_settings(
+    namespace="myproject.catalog",
+    title=_("Catalog Settings"),                    # lazy: resolved per request
+    description=_("Project-wide catalog defaults."),
+    fields=[{"name": "enabled", "label": _("Enable catalog")}],
+)
+```
+
+`title` and `description` accept a string, a lazy string, `f(request)`, or
+`f()` — both callable shapes, because both read naturally and neither should be
+a trap. A callable of any other shape raises at registration, where the mistake
+is, rather than on the Options page months later. Field `label` and `help_text`
+are handed to the form field untouched, so a lazy value stays lazy there too.
+
+If a title or description raises while the page is being built, the tile is
+still shown with its namespace as the title and the error is logged: text is
+cosmetic, and hiding a whole settings surface over it reads to an operator as
+the page losing their settings. `visible()` is the exception and fails closed,
+because that one is a permission decision.
 
 Supported field `type` values are `boolean`, `choice`, `multiple_choice`,
 `char`, `text`, `integer`, `number`, and `json`. Choice fields can use Dlux's
@@ -531,6 +560,7 @@ notify.success("Saved.")
 notify.error("Could not delete record.", obj=record)
 notify("Backup completed.", action="backup_complete", target_url="/sys/backup/")
 notify.success(message_key="msg_password_changed")
+notify.error("Export failed.", event_key=f"export:{job.pk}:failed")
 ```
 
 Optional routing stays compact:
@@ -550,17 +580,19 @@ For language-aware Dlux-owned notices, pass `message_key` and optional `title_ke
 
 Notification data model:
 
-- `DluxNotification(ScopedModel)`: durable event content, level, category, source/action, source model/object metadata, target URL, request path, metadata, audience type, and expiry.
+- `DluxNotification(ScopedModel)`: durable event content, level, category, source/action, source model/object metadata, target URL, request path, unique optional `event_key`, per-event badge eligibility, metadata, audience type, and expiry.
 - `DluxNotificationState`: per-user read/dismiss/email state for each delivered notification.
-- `DluxNotificationRule(ScopedModel)`: JSON match/delivery rules for persist/flash/badge/email/recipient routing.
+- `DluxNotificationRule(ScopedModel)`: JSON match/delivery rules for persist/flash/badge/email/recipient routing and deliberate actor inclusion.
 - `DluxNotificationWatch(ScopedModel)`: model-level watches per user/scope; object-level watches are intentionally deferred.
 
 Automatic behavior:
 
-- `ScopedModel` create/update/delete events are notification-capable by default unless the model sets `dlux_notify = False`.
-- Updates use the activity-log diff payload, including existing sensitive-field masking, and default to quiet persisted summaries rather than flash.
+- `ScopedModel` create/update/delete events are notification-capable by default unless the model sets `dlux_notify = False`. Successful automatic CRUD excludes the actor from durable delivery; configured create/delete flash feedback remains request-local and does not create an unread state or sidebar badge.
+- Durable automatic CRUD routes to model watchers plus users returned by the object's `dlux_notification_recipients()` hook. Dlux requires active users, matching scope, the model's view permission, and any row-level `dlux_notification_visible_to()` check before creating recipient state. Permission makes a user eligible; it does not subscribe every permission holder.
+- Updates use the activity-log diff payload, including existing sensitive-field masking, and default to quiet persisted summaries for recipients rather than actor flash.
 - Generic modal/context-menu CRUD attaches route/surface metadata before the signal pipeline emits the event.
-- Activity logs remain the audit source; notifications are user-facing delivery records that may link to activity metadata.
+- Activity logs remain the audit source; notifications are user-facing delivery records, so an automatic event with no eligible recipient leaves no orphan notification row.
+- Automatic CRUD uses `crud:activity:<pk>` as its durable event key. Other retryable/asynchronous callers should pass their own stable `event_key`; the database unique constraint is the idempotency boundary, while the existing two-second cache guard only suppresses same-request bursts.
 
 Model tuning:
 
@@ -570,12 +602,21 @@ class Invoice(ScopedModel):
         "watchable": True,
         "update": "summary",
         "flash": ["create", "delete"],
+        "view_permission": "billing.view_invoice",
     }
+
+    def dlux_notification_recipients(self, *, action, actor):
+        return [self.owner, self.approver]
+
+    def dlux_notification_visible_to(self, *, user, action, actor):
+        return user in {self.owner, self.approver}
 
 
 class TempCalculation(ScopedModel):
     dlux_notify = False
 ```
+
+The standard `app_label.view_model` permission is required unless `view_permission` names another permission. `dlux_notification_visible_to()` is an additional row-level restriction, not a permission grant. A delivery rule may set `to` from `actor`, `watchers`, `related`, `staff`, `users`, and `broadcast`; automatic sources still remove the actor unless that rule explicitly sets `include_actor: true`.
 
 System Settings store `notification_config` with:
 
@@ -589,6 +630,7 @@ System Settings store `notification_config` with:
 - `automatic.create/delete`: per-action gates under the automatic CRUD source
 - `automatic.update`: `off`, `summary`, or `full`; summary emits quiet changed-field summaries and full keeps richer update metadata
 - `automatic.actor_flash_actions/watchable`: actor flash defaults and model-watch support
+- `automatic.include_actor`: defaults to `false`; rules or model policy must deliberately opt successful automatic CRUD into durable self-notification
 
 The separate `sidebar_config.show_notification_badges` flag controls whether
 model-backed sidebar entries use each notification's existing
@@ -596,7 +638,8 @@ model-backed sidebar entries use each notification's existing
 `notification_config.drawer.badge_enabled`; the global notifications master
 switch still disables both. Sidebar groups aggregate unique child model keys,
 counts are scoped to the current user's undismissed/unexpired notification
-states, and the notification list API returns the same mapping as
+states whose event has `badge_enabled=True`; a `badge: false` delivery rule keeps
+the item in the drawer without increasing titlebar/sidebar counts. The notification list API returns the same mapping as
 `section_counts` for live updates.
 
 DEBUG-only internal test trigger:
@@ -612,6 +655,12 @@ System Settings store titlebar layout in `titlebar_config`:
 - `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
 
 `dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
+
+Titlebar keyboard shortcuts:
+
+- `Ctrl/Cmd+K` focuses the global search box.
+- `Ctrl/Cmd+J` opens Options through the rendered Options link.
+- `Ctrl/Cmd+H` opens Home through the rendered titlebar Home link.
 
 ### Global search
 
@@ -899,7 +948,7 @@ theme/typography/layout/language configs) and **not** per-user prefs (those live
 System and anonymous landing behavior now share `homepage_config`: `default_url`
 is the authenticated/system destination and `public.url` is the optional separate
 anonymous destination. Per-user `user_home_url` remains in `Profile.preferences`.
-The old `home_url`, `public_root_config`, and flat public-root keys are synchronized
+The old `home_url`, `public_root_config`, and flat public page keys are synchronized
 compatibility mirrors through v1.x; see `docs/deprecation-countdown.md`.
 
 **Initial User Setup** is the per-user first-login counterpart to the system setup wizard: a
@@ -991,7 +1040,7 @@ Variant switches (email transport, client-IP mode, login style) still hide their
 inapplicable fields — they are not on/off dependencies. Because a disabled control does not post, each
 group's save path keeps the stored configuration and only flips `enabled` when
 the master toggle is off — never rebuild a group from flat fields without that
-guard, or switching the feature off will reset it. The cross-step public-root and
+guard, or switching the feature off will reset it. The cross-step public page and
 public-registration flags are the deliberate exception: their fields are injected
 into other steps, so they stay hidden when inapplicable.
 
@@ -1096,6 +1145,12 @@ Common runtime feature flags in `get_system_config()`:
 - `inactivity_timeout_enabled` — Enable idle sign-out. When on, `DluxMiddleware` expires the session after inactivity (overriding the static `DLUX_SESSION_IDLE_TIMEOUT_SECONDS`), and authenticated pages load `session_timeout.js`, which shows a countdown modal ~30s before expiry with a "Stay signed in" dismiss (pings `/accounts/session-keepalive/`) and a "Sign out now" action (default off).
 - `inactivity_timeout_minutes` — Minutes of inactivity before sign-out while `inactivity_timeout_enabled` is on (1–1440, default 10).
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
+  The `relay` option is offered only while the internal relay answers on
+  `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`, overridable via
+  `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally
+  and resolves its upstream per message, so reachability never depends on this
+  setting. A relay already stored is left selectable even while it is down, so an
+  outage cannot quietly reset a deployment to direct SMTP.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.
@@ -1127,20 +1182,20 @@ Common runtime feature flags in `get_system_config()`:
   proxy ahead of the bundled Caddy/nginx. See
   [Getting Started → Behind a Front Proxy](getting-started.md#behind-a-front-proxy--tls-terminator).
 - `public_root_theme` — Fixed theme applied to anonymous visitors on the public
-  root (`public_root_config.public_root_theme`, blank = inherit the normal theme).
+  page (`public_root_config.public_root_theme`, blank = inherit the normal theme).
   Its stylesheet is emitted even if it is not in the normally-allowed theme set.
-  The control appears under Themes and Typography only while public root is enabled.
+  The control appears under Themes and Typography only while public page is enabled.
 - `public_root_title` / `public_root_meta_description` — Optional `<title>` and
   `<meta name="description">` emitted only for the anonymous public index
   (`public_root_config.*`, length-bounded). Exposed as `APP_CONFIG.security.*`;
-  the controls appear under Identity only while public root is enabled.
-- `show_titlebar_on_public` / `show_sidebar_on_public` — Centralized public-root
+  the controls appear under Identity only while public page is enabled.
+- `show_titlebar_on_public` / `show_sidebar_on_public` — Centralized public page
   chrome toggles (`public_root_config.*`, both default **off** = hidden). They
   supersede the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
   (legacy data migrates inverted) and gate `base.html`'s titlebar/sidebar for
-  anonymous public-root visitors via the shared `_is_public_index()` context flag.
+  anonymous public page visitors via the shared `_is_public_index()` context flag.
   Their controls appear under Titlebar and Sidebar respectively, only while public
-  root is enabled.
+  page is enabled.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 - `default_form_density` — System default form field spacing (`balanced`, `dense`,
   or `roomy`), independent of table density. Drives `--dlux-form-*` CSS variables
@@ -1148,6 +1203,36 @@ Common runtime feature flags in `get_system_config()`:
 - `default_modal_size` — Default width of the shared dynamic modal (`compact` →
   `modal-lg`, `standard` → `modal-xl`, `wide` → `modal-xl dlux-modal-wide`). The
   resolved class is `APP_CONFIG.appearance.modal_size_class`.
+- `table_edges` — Global Dlux table-shell corner style (`layout_config`, JSON-only,
+  no migration; edited on the **Themes & Fonts** step, since edge shape is a
+  surface decision like the palette and every builder previews in it):
+  `curved` uses the shipped 1.35rem radius, `half_rounded` uses
+  square top corners with 1.35rem bottom corners, and `normal` uses the standard
+  Bootstrap 0.375rem radius. `base.html` emits the normalized choice as
+  `body[data-dlux-table-edges]`; `tables/css/main.css` applies it through shared
+  top, bottom, and shape variables to the shell, card, header cells, and footer.
+- `card_edges` — Global Dlux outer-card corner style (`layout_config`, JSON-only,
+  no migration; edited on the **Themes & Fonts** step alongside `table_edges`):
+  `curved` applies the house `1.35rem` radius, `half_rounded`
+  applies `0 0 1.35rem 1.35rem`, and `normal` applies the standard `0.375rem`.
+  Child card sections, list-group bottoms, Ribbon surfaces, and profile panels
+  consume the same shape contract. Opt an element in with
+  `data-dlux-card-surface` or out with `data-dlux-card-edges-ignore`; a control
+  whose proportions are the point — a progress track, say — should opt out
+  rather than cohere. `base.html` emits the
+  normalized choice as `body[data-dlux-card-edges]`; `base/css/card_edges.css`
+  targets Bootstrap and Dlux card surfaces while excluding table cards and modal
+  shells. Custom card surfaces can opt in with `data-dlux-card-surface` or opt out
+  with `data-dlux-card-edges-ignore`.
+- Accent edges are independent, default-off JSON settings with no migration:
+  `sidebar_config.accent_edge` is configured in Sidebar,
+  `titlebar_config.accent_edge` in Titlebar, and
+  `layout_config.table_accent_edges` under Layout's table controls. `base.html`
+  emits one body state attribute per surface. Their rules live in each surface's
+  existing stylesheet and use the active theme's `--primal` color with CSS
+  logical borders, so sidebar and table edges follow RTL/LTR direction. The
+  titlebar accent is declared after theme surface rules so their bottom-border
+  styles cannot mask it.
 - `sticky_table_headers` / `resizable_table_columns` / `zebra_striping` — Toggle
   (default on) the sticky table header row, draggable table-column resizing, and
   alternating row shading; gated in `tables.css` / `tables.js` via
@@ -1174,6 +1259,30 @@ Common runtime feature flags in `get_system_config()`:
   The column is added by the patched `Table.__init__` and its three-dot button
   (`.dlux-row-actions-trigger`) reuses the row's `data-dlux-actions` payload via the
   shared context-menu JS. Exposed at `APP_CONFIG.appearance.row_actions_style`.
+- `ribbon_layout` — How the list-page ribbon is arranged (`layout_config`,
+  JSON-only, no migration): `default` (title and actions on one row, filters
+  beneath), `stacked` (actions on their own row under the filters), or `compact`
+  (one row: no title, actions as the last column of the filter row). Rendered by
+  `{% dlux_ribbon %}` from `dlux/templates/dlux/ribbon/_<layout>.html`.
+  The layout alone decides where the actions sit, so there is no separate
+  setting for it. `compact` also overrides `ribbon_title`, enforced server-side
+  by `Ribbon.shows_title` and mirrored in the Ribbon step by
+  `ribbon/js/ribbon_settings.js`.
+- `ribbon_style` — How the ribbon looks, independently of its arrangement
+  (`layout_config`, JSON-only): `accent` (a coloured edge down the side of a
+  bordered header), `panel` (a softly rounded, raised panel), or `flat` (no
+  panel, just a dividing rule). Emitted as `dlux-ribbon-skin-<style>` on the
+  root, which also carries `data-dlux-card-surface` so `card_edges` applies, and
+  `glass-profile` on the panel skin so the themes own its surface. A new style is
+  a CSS block plus a choice and an `option_meta` entry.
+- `ribbon_title` — Whether the page title renders inside the ribbon (`layout_config`,
+  JSON-only, default `True`). Off means the ribbon carries filters and actions only
+  and the page supplies its own heading.
+- `ribbon_advanced_trigger` — How the advanced filters are reached (`layout_config`,
+  JSON-only): `button` (default, a toggle whose open state is remembered per list in
+  `localStorage`), `always` (the panel is always open and no toggle renders), or
+  `off` (the advanced fields are not rendered at all). A server-rendered open panel
+  wins over a stored "collapsed" so a filter that is in effect is never hidden.
 - `footer_text` — Optional copyright/description line for the global page footer
   (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
   *System Settings → Identity → Footer* and exposed to templates as
@@ -1193,7 +1302,7 @@ Options/runtime UI notes:
 - the wide System Info card intentionally keeps a double-column span inside the grid
 - Autofill and Reset Defaults are standalone cards in the shared Options card system, not nested sub-cards
 - `tabs` style keeps Theme and Language as separate cards/tabs even when the card/compact layouts would merge a small number of choices into one combined card
-- the authenticated Nav Bar groups Dlux-owned routes under an unclickable `System` crumb by default; unplaced Dlux system routes may also follow `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup & Restore falls under Application Options unless the hierarchy builder explicitly places it elsewhere; configurable Dlux system routes remain available in that builder for overrides
+- the authenticated Navbar groups Dlux-owned routes under an unclickable `System` crumb by default; unplaced Dlux system routes may also follow `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup & Restore falls under Application Options unless the hierarchy builder explicitly places it elsewhere; configurable Dlux system routes remain available in that builder for overrides
 
 ## Framework-Owned Table Surface
 
@@ -1289,6 +1398,91 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | --- | --- |
 | `build_archive_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. Field validation errors render visibly below the archive card; set `field.widget.attrs['data-max-file-bytes']` for immediate client size validation while retaining server-side validation. |
 | `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
+| `DluxLookupField(queryset=..., create={...})` | Turn a ForeignKey into a search-and-add box: type a name, reuse an exact match, get warned about a near miss, add what is genuinely new. See below. |
+
+### Search-and-add fields (`DluxLookupField`)
+
+A dropdown makes a reader scroll a register of hundreds; a free text box makes a
+second "Acme Trading" the moment somebody types a space differently. A lookup
+field is the middle, and a form declares one field to get it:
+
+```python
+from dlux.forms import DluxLookupField
+
+class InvoiceForm(forms.ModelForm):
+    supplier = DluxLookupField(
+        queryset=Party.objects.filter(kind='company', is_active=True),
+        create={'kind': 'company', 'subtype': 'supplier'},
+    )
+```
+
+That is the whole adoption. No companion fields, no `clean()`, no `save()`, no
+template, no script.
+
+**What is derived.** The queryset a `ModelChoiceField` already carries *is* the
+search scope, so searching needs no configuration. Only `create` has to be
+stated, because what a new row must be is not derivable from a queryset. Passing
+the same mapping used to scope the queryset is usually right: it keeps a record
+created here findable by the field that created it.
+
+| `create` | Behaviour |
+| --- | --- |
+| omitted / `None` | **Search only** — the default. A name matching nothing is a validation error, and the control never offers to add. |
+| `True` | Add a record carrying only the name. |
+| `{...}` | Add a record carrying the name plus these values. |
+
+Adding is opt-**in**: a field left as it comes searches a fixed list and nothing
+else, which is what most fields want. On such a field a near miss is reported as
+a suggestion — *"No entry called X. Did you mean Y?"* — and the consent box is
+not rendered at all, because offering to add on a field that cannot add is a
+dead end.
+
+**What a typed name means**, in order — only the last is a new record:
+
+1. an exact name (case- and space-insensitive) is *that* record, reused;
+2. a name close to an existing one is refused, naming what it resembles;
+3. anything else is new.
+
+Case 2 is a question rather than a verdict, because two real bodies can have
+near-identical names. The widget renders the suggestion as a one-click button
+and a consent box beside it; a submit carrying that consent goes ahead. Consent
+never duplicates an *exact* name — it answers "is this a typo?", not "make me a
+second copy".
+
+**Arabic.** Names are folded before comparison — hamzated alef to alef, `ة` to
+`ه`, `ى` to `ي`, tatweel and harakat dropped — so the ways the script writes one
+letter do not read as typos. `شركه النور` *is* `شركة النور`: reused exactly,
+nothing to confirm. Latin text contains none of these, so other alphabets are
+unaffected.
+
+**Tuning.** The defaults were measured against a register of 92 Arabic company
+names: `near_ratio=0.90` catches every simulated typo and flags five pairs that
+are not duplicates, which is the right trade when a false positive costs one
+click and a false negative costs a duplicate. A register of part numbers or
+postcodes will want its own values.
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `create` | `None` | What a new record must be, or search-only. |
+| `search_field` | `'name'` | The attribute searched and written. |
+| `near_ratio` | `0.90` | How alike two names must be to be treated as a typo. |
+| `boilerplate_share` | `0.15` | A word on this share of the register stops distinguishing anything in it. |
+
+**How it posts.** One field name carries both: a key when a row was picked, the
+typed name otherwise, so tests and API callers can post either. `<name>__typed`
+and `<name>__confirm` ride alongside and belong to the widget — a form never
+declares them. Matching runs on the server, so a form posted without the script
+resolves identically; the script only ranks the rows as you type.
+
+**Notifications.** A record the field adds is logged like any other create, but
+does not flash at the actor: adding it was a side effect of saving the form, not
+a second act, and automatic CRUD would otherwise announce it as one. The parent
+object's own banner is unaffected.
+
+**Why a name that matched nothing is unsaved.** The field returns an *unsaved*
+instance, and `dlux.patches` writes it immediately before the form's own object.
+Validating a form must never write, or a form failing a later rule leaves a
+record behind.
 
 ### Alert Auto-Close Contract
 
@@ -1320,6 +1514,20 @@ notice.setAttribute('data-autoclose', 'false');
 
 `dlux/base/js/signature.js` is the removable, client-only DjangoLux attribution layer. It reads `<html data-dlux="DjangoLux X.Y.Z ...">`, prints one quiet console credit on load, exposes non-enumerable `window.lux` / `window.dlux` console getters, and reveals a compact `.dlux-signature-pop` visual credit when a user types `dlux` on the page outside input, textarea, select, or contenteditable targets. It makes no network calls and stores no data.
 
+## Naming: Management Screens
+
+Two conventions, so the name tells you what a thing is:
+
+- **URL names are `manage_<plural>`** — `manage_users`, `manage_scopes`,
+  `manage_groups`, `manage_sections`, `manage_assets`.
+- **Template names say whether it is a page or a fragment.**
+  `manage_<plural>.html` is a full page that extends a base;
+  `_<noun>_manager.html` is an embeddable partial rendered into a modal, and
+  carries the leading underscore dlux uses for every partial.
+
+`dlux/tests/test_ribbon.py` asserts both, so the distinction stays load-bearing
+rather than coincidental.
+
 ## Template Tags and Filters
 
 ### `dlux_tags`
@@ -1329,6 +1537,8 @@ notice.setAttribute('data-autoclose', 'false');
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
+| `dlux_ribbon` | simple tag | Render a list page's ribbon — title, filters and actions — from the `ribbon` context object put there by `dlux.ribbon.RibbonMixin`; `{% dlux_ribbon %}`, or pass one explicitly. Renders nothing when there is no ribbon. See [Ribbon](ribbon.md). |
+| `dlux_ribbon_field` | filter | The bound field for a name, or empty when the form lacks it — used by the ribbon templates |
 | `dlux_audit_trail` | inclusion tag | Render a grouped audit block (created/edited/deleted by and at) for a model instance — `{% dlux_audit_trail object %}`. Self-gates on the `show_audit_fields` setting + `dlux.view_audit_fields` permission (deleted line is superadmin-only); renders nothing otherwise. Drop into any detail template to replace hand-rolled audit sections. |
 
 ### `dlux_translation`
@@ -1372,7 +1582,7 @@ notice.setAttribute('data-autoclose', 'false');
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
-| `advanced_filter_helper()` | Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
+| `advanced_filter_helper()` | **Deprecated (removed in v1.9.0 — use `dlux.ribbon`).** Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
 | `arabic_search_q(term, fields)` | Variant-aware Arabic `icontains`: one OR'd `Q` over `fields` matching every common spelling of `term` (alef/hamza forms, ي/ى/ئ, ة/ه, ق/غ, و/ؤ, Farsi ی/ک, Arabic-Indic digits, ignoring diacritics/tatweel/hamza) via `__iregex` — stored values need no migration |
 | `arabic_search_pattern(term)` | The underlying regex builder (confusable letters become character classes); reusable for custom lookups |
 | `normalize_arabic(value)` | Fold a string to one canonical Arabic spelling (for Python-side comparison, dedup keys, or a stored shadow column); `ARABIC_EQUIVALENCE_GROUPS` is the overridable default fold table (`groups=` kwarg on all three) |

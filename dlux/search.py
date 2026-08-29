@@ -23,6 +23,8 @@ from django.db.models import Q
 from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
 
+from .system.constants import SETUP_STEPS
+
 logger = logging.getLogger('dlux')
 
 SEARCH_INDEX_CACHE_TIMEOUT = 300
@@ -34,45 +36,11 @@ MIN_QUERY_LEN = 2
 # System Settings sections, mirroring the Options page tiles so a settings hit
 # opens exactly the same step-deep-linked dynamic modal the UI already uses:
 # (step index, title string key, icon, extra keyword hints for field-level finds).
-SETTINGS_SECTIONS = (
-    (0, 'system_settings_branding', 'bi-palette-fill',
-     ('identity', 'system name', 'logo', 'favicon', 'branding', 'organization')),
-    (1, 'system_settings_languages', 'bi-translate',
-     ('language', 'locale', 'translation', 'rtl', 'default language')),
-    (2, 'system_settings_homepage', 'bi-house-gear-fill',
-     ('homepage', 'home url', 'landing page', 'public homepage', 'public root', 'public theme')),
-    (3, 'system_settings_email', 'bi-envelope-at',
-     ('email', 'smtp', 'mail', 'mail server', 'delivery', 'relay', 'sender',
-      'from address', 'test email', 'verify email')),
-    (4, 'system_settings_security', 'bi-shield-lock',
-     ('security', '2fa', 'two factor', 'password', 'strong password', 'lockout', 'login lockout',
-      'inactivity', 'timeout', 'session', 'purge session', 'browser close', 'sign out',
-      'client ip', 'privacy', 'consent', 'registration')),
-    (5, 'system_settings_login_page', 'bi-box-arrow-in-right',
-     ('login page', 'hero', 'banner', 'login style', 'split', 'centered')),
-    (6, 'system_settings_sidebar', 'bi-layout-sidebar-inset',
-     ('sidebar', 'menu', 'navigation', 'collapse', 'side nav')),
-    (7, 'system_settings_navbar', 'bi-signpost-split',
-     ('navbar', 'nav bar', 'breadcrumb', 'hierarchy')),
-    (8, 'system_settings_titlebar', 'bi-window-stack',
-     ('titlebar', 'title bar', 'user hub', 'actions')),
-    (9, 'system_settings_search', 'bi-search',
-     ('global search', 'search', 'search mode', 'data records')),
-    (10, 'system_settings_notifications', 'bi-bell-fill',
-     ('notification', 'flash', 'toast', 'drawer', 'alerts')),
-    (11, 'system_settings_appearance', 'bi-brush',
-     ('theme', 'appearance', 'font', 'typography', 'color', 'dark mode')),
-    (12, 'system_settings_layout', 'bi-grid-1x2-fill',
-     ('layout', 'table density', 'form density', 'modal size', 'zebra', 'sticky headers',
-      'resizable columns', 'audit fields', 'soft deleted', 'options page')),
-    (13, 'system_settings_logging', 'bi-journal-text',
-     ('logging', 'activity log', 'audit', 'retention')),
-    (14, 'system_settings_profile', 'bi-person-badge',
-     ('profile', 'avatar', 'profile page')),
-    (15, 'system_settings_backups', 'bi-safe2-fill',
-     ('backup', 'restore', 'export', 'import')),
-    (16, 'system_settings_extras', 'bi-puzzle-fill',
-     ('extra', 'features', 'integrations', 'scanlink', 'scanner', 'scan', 'twain')),
+# Derived from the wizard's own step table, so a step cannot be added, moved or
+# renamed and then be missing here — which is exactly what happened to Ribbon.
+SETTINGS_SECTIONS = tuple(
+    (index, f'system_settings_{slug}', icon, keywords)
+    for index, (slug, icon, keywords) in enumerate(SETUP_STEPS)
 )
 
 # Curated titlebar/nav actions that are not ordinary sidebar routes. Deduped

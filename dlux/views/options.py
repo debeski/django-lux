@@ -59,6 +59,81 @@ from dlux.utils import (
 logger = logging.getLogger(__name__)
 
 
+
+
+@login_required
+@require_POST
+def ribbon_tabs_preview_view(request):
+    """The tabs a strip would draw, for a strip that has not been saved yet.
+
+    The builder cannot work this out itself. Tabs from a choice field are in the
+    catalog already, but a strip over a relation is one tab per *row* — the
+    reader's own scoped rows at that — and only the server can enumerate those.
+    Without this a strip drawn in Settings rendered as an empty preview: nothing
+    to reorder, rename, hide, or even look at, until it had been saved and the
+    page reopened.
+
+    Draws through `build_ribbon_tabs`, the same call a list page makes, so the
+    preview cannot drift from what the page will actually show.
+    """
+    if not (request.user.is_superuser or is_global_staff(request.user)):
+        raise PermissionDenied
+
+    from ..ribbon.tabs import build_ribbon_tabs
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except ValueError:
+        return JsonResponse({'error': 'invalid payload'}, status=400)
+
+    model_key = str(payload.get('model') or '')
+    sources = payload.get('sources')
+    if not model_key or not isinstance(sources, list):
+        return JsonResponse({'error': 'model and sources are required'}, status=400)
+
+    # Only models the builder itself offers, so this cannot be used to enumerate
+    # rows of a table that has nothing to do with the ribbon.
+    from ..ribbon.catalog import ribbon_view_models
+
+    entry = ribbon_view_models().get(model_key)
+    if entry is None:
+        return JsonResponse({'error': 'unknown model'}, status=404)
+
+    try:
+        tabs = build_ribbon_tabs(
+            {'param': str(payload.get('param') or 'tab'), 'sources': sources},
+            model=entry[0], request=request,
+        )
+    except Exception as exc:
+        # A half-built strip is normal here — the operator is still choosing.
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    return JsonResponse({'tabs': [
+        {'key': tab.key, 'label': tab.label, 'icon': tab.icon or ''} for tab in tabs
+    ]})
+
+
+def setup_step_cards(strings):
+    """The wizard's steps with their strings resolved, in presentation order.
+
+    Both the Options tiles and the setup nav render from this, so neither can
+    drift from the other or from `SETUP_STEPS` — the drift this replaces had the
+    nav opening the wrong panel for every step past the thirteenth.
+    """
+    from ..system.constants import SETUP_STEPS
+
+    return [
+        {
+            'index': index,
+            'number': index + 1,
+            'slug': slug,
+            'icon': icon,
+            'label': strings.get(f'system_settings_{slug}', slug.replace('_', ' ').title()),
+            'description': strings.get(f'system_settings_{slug}_desc', ''),
+        }
+        for index, (slug, icon, _keywords) in enumerate(SETUP_STEPS)
+    ]
+
 def _configured_home_url():
     config = get_system_config()
     return normalize_homepage_config(config.get('homepage_config') or config)['default_url']
@@ -689,6 +764,7 @@ def options_view(request):
         'show_system_diagnostics': show_system_diagnostics,
         'current_time': server_time,
         'server_time_backend_display': server_time.strftime('%Y-%m-%d %H:%M:%S'),
+        'setup_steps': setup_step_cards(get_strings(get_current_language_code(request))),
     }
     # Permission-filtered landing-page options (when the admin allows per-user landing pages).
     profile_config = get_system_config().get('profile_config') or {}
@@ -1119,6 +1195,7 @@ def system_setup_view(request):
         'form': form,
         'page_title': 'System Setup',
         'hide_sidebar_toggle': True,
+        'setup_steps': setup_step_cards(get_strings(get_current_language_code(request))),
     }
     return render(request, 'dlux/setup/main.html', context)
 

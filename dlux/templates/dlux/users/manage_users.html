@@ -13,16 +13,7 @@
 
 {% block content %}
 
-    <div class="row">
-        <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-people me-2"></i> {{ DLUX_STRINGS.manage_users }}</h2>
-        </div>
-    </div>
-
-
-    <div class="py-2 no-print">
-        {% crispy filter.form %}
-    </div>
+    {% dlux_ribbon %}
 
     <div class="card border-0 shadow-sm dlux-table-card">
         <div class="card-body p-0">
@@ -31,22 +22,6 @@
     </div>
 
     <div class="d-flex align-items-center mt-3">
-        <button type="button" class="btn btn-primary rounded-pill no-print" title="{{ DLUX_STRINGS.add_user }}"
-                data-dynamic-modal="{% url 'modal_user' %}" data-modal-title="{{ DLUX_STRINGS.add_user }}">
-            <i class="bi bi-person-plus-fill me-2 h4"></i> {{ DLUX_STRINGS.add_user }}
-        </button>
-    
-        {% if scope_enabled and request.user.is_superuser %}
-        <button type="button" class="btn btn-info rounded-pill no-print ms-2" title="{{ DLUX_STRINGS.manage_scopes_btn }}" id="btn-manage-scopes" data-url="{% url 'manage_scopes' %}">
-            <i class="bi bi-list me-1 h4"></i> {{ DLUX_STRINGS.manage_scopes_btn }}
-        </button>
-        {% endif %}
-
-        {% if perms.dlux.manage_groups or request.user.is_superuser %}
-        <button type="button" class="btn btn-info rounded-pill no-print ms-2" title="{{ DLUX_STRINGS.manage_groups_btn|default:'Manage Groups' }}" id="btn-manage-groups" data-url="{% url 'manage_groups' %}">
-            <i class="bi bi-people-fill me-1 h4"></i> {{ DLUX_STRINGS.manage_groups_btn|default:"Manage Groups" }}
-        </button>
-        {% endif %}
 
         {% if request.user.is_superuser %}
         <div class="d-inline-block ms-auto no-print d-flex gap-3">

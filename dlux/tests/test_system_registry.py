@@ -199,7 +199,7 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertIn('search_config', default_config)
 
 
-class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
+class NewLayoutAndPublicPageKeysTests(SimpleTestCase):
     def test_layout_defaults_include_new_keys(self):
         layout = system_defaults.default_layout_config()
         self.assertEqual(layout['default_form_density'], 'balanced')

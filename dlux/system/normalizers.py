@@ -21,6 +21,8 @@ from .constants import (
     DEFAULT_SIDEBAR_TOGGLE_ICON,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_TABLE_EDGES,
+    DEFAULT_CARD_EDGES,
     EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
     EMAIL_CONFIG_PROVIDER_PRESET_VALUES,
     EMAIL_CONFIG_SECRET_STORAGES,
@@ -29,11 +31,19 @@ from .constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_RIBBON_ADVANCED_TRIGGER,
+    DEFAULT_RIBBON_NESTING,
+    DEFAULT_RIBBON_LAYOUT,
+    DEFAULT_RIBBON_STYLE,
     DEFAULT_ROW_ACTIONS_STYLE,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     LOGIN_STYLE_VALUES,
     MODAL_SIZE_VALUES,
     OPTIONS_STYLE_VALUES,
+    RIBBON_ADVANCED_TRIGGER_VALUES,
+    RIBBON_LAYOUT_VALUES,
+    RIBBON_NESTING_VALUES,
+    RIBBON_STYLE_VALUES,
     ROW_ACTIONS_STYLE_VALUES,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
@@ -51,6 +61,8 @@ from .constants import (
     SIDEBAR_TOGGLE_ICON_PATTERN,
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
+    TABLE_EDGES_VALUES,
+    CARD_EDGES_VALUES,
     TITLEBAR_ACTIONS_ORDER,
     TITLEBAR_ACTIONS_ORDER_VALUES,
     TITLEBAR_ALIGN_VALUES,
@@ -518,6 +530,12 @@ def normalize_layout_config(value):
     density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
     if density not in TABLE_DENSITY_VALUES:
         density = DEFAULT_TABLE_DENSITY
+    table_edges = cfg.get('table_edges') or DEFAULT_TABLE_EDGES
+    if table_edges not in TABLE_EDGES_VALUES:
+        table_edges = DEFAULT_TABLE_EDGES
+    card_edges = cfg.get('card_edges') or DEFAULT_CARD_EDGES
+    if card_edges not in CARD_EDGES_VALUES:
+        card_edges = DEFAULT_CARD_EDGES
     form_density = cfg.get('default_form_density') or DEFAULT_FORM_DENSITY
     if form_density not in FORM_DENSITY_VALUES:
         form_density = DEFAULT_FORM_DENSITY
@@ -530,9 +548,24 @@ def normalize_layout_config(value):
     row_actions_style = cfg.get('row_actions_style') or DEFAULT_ROW_ACTIONS_STYLE
     if row_actions_style not in ROW_ACTIONS_STYLE_VALUES:
         row_actions_style = DEFAULT_ROW_ACTIONS_STYLE
+    ribbon_layout = cfg.get('ribbon_layout') or DEFAULT_RIBBON_LAYOUT
+    if ribbon_layout not in RIBBON_LAYOUT_VALUES:
+        ribbon_layout = DEFAULT_RIBBON_LAYOUT
+    ribbon_style = cfg.get('ribbon_style') or DEFAULT_RIBBON_STYLE
+    if ribbon_style not in RIBBON_STYLE_VALUES:
+        ribbon_style = DEFAULT_RIBBON_STYLE
+    ribbon_nesting = cfg.get('ribbon_nesting') or DEFAULT_RIBBON_NESTING
+    if ribbon_nesting not in RIBBON_NESTING_VALUES:
+        ribbon_nesting = DEFAULT_RIBBON_NESTING
+    advanced_trigger = cfg.get('ribbon_advanced_trigger') or DEFAULT_RIBBON_ADVANCED_TRIGGER
+    if advanced_trigger not in RIBBON_ADVANCED_TRIGGER_VALUES:
+        advanced_trigger = DEFAULT_RIBBON_ADVANCED_TRIGGER
     footer_enabled = cfg.get('footer_enabled', True)
     return {
         'default_table_density': density,
+        'table_edges': table_edges,
+        'card_edges': card_edges,
+        'table_accent_edges': bool(cfg.get('table_accent_edges', False)),
         'default_form_density': form_density,
         'default_modal_size': modal_size,
         'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
@@ -542,6 +575,11 @@ def normalize_layout_config(value):
         'show_soft_deleted': bool(cfg.get('show_soft_deleted', False)),
         'options_style': options_style,
         'row_actions_style': row_actions_style,
+        'ribbon_layout': ribbon_layout,
+        'ribbon_style': ribbon_style,
+        'ribbon_title': bool(cfg.get('ribbon_title', True)),
+        'ribbon_nesting': ribbon_nesting,
+        'ribbon_advanced_trigger': advanced_trigger,
         'footer_enabled': bool(footer_enabled),
         'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
         'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),
@@ -632,6 +670,7 @@ def normalize_titlebar_actions_order(value):
 def normalize_titlebar_config(titlebar_config):
     config = titlebar_config if isinstance(titlebar_config, dict) else {}
     normalized = default_titlebar_config()
+    normalized['accent_edge'] = bool(config.get('accent_edge', normalized['accent_edge']))
     normalized['show_title'] = bool(config.get('show_title', normalized['show_title']))
     normalized['show_logo'] = bool(config.get('show_logo', normalized['show_logo']))
     normalized['show_home_button'] = bool(config.get('show_home_button', normalized['show_home_button']))
@@ -747,6 +786,7 @@ def normalize_sidebar_behavior(sidebar_config):
     config = sidebar_config if isinstance(sidebar_config, dict) else {}
     normalized = default_sidebar_config()
     normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
+    normalized['accent_edge'] = bool(config.get('accent_edge', normalized['accent_edge']))
     normalized['home_url_name'] = config.get('home_url_name') if config.get('home_url_name') else None
     if isinstance(config.get('entries'), list):
         normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
@@ -1090,6 +1130,7 @@ def normalize_notification_config(value=None):
                 if str(action or '').strip()
             ],
             'watchable': _to_bool(automatic.get('watchable'), defaults['automatic']['watchable']),
+            'include_actor': _to_bool(automatic.get('include_actor'), defaults['automatic']['include_actor']),
         },
     }
 
@@ -1124,3 +1165,189 @@ __all__ = [
     'normalize_titlebar_config',
     'normalize_typography_config',
 ]
+
+
+def _normalize_overlay(strip):
+    """The presentation an administrator may change on an already-built strip.
+
+    This is the half of a stored strip that carries no meaning: which tabs show,
+    in what order, under what name and icon. It applies to a strip however that
+    strip was declared — including one whose lookups are `Q` objects or a
+    request-scoped queryset, which JSON could never express and which therefore
+    used to put the whole model out of reach.
+    """
+    overlay = {}
+    hidden = strip.get('hidden')
+    if isinstance(hidden, (list, tuple)):
+        keys = [str(key) for key in hidden]
+        if keys:
+            overlay['hidden'] = keys
+    order = strip.get('order')
+    if isinstance(order, (list, tuple)):
+        keys = [str(key) for key in order]
+        if keys:
+            overlay['order'] = keys
+    icons = strip.get('icons')
+    if isinstance(icons, dict):
+        cleaned = {
+            str(key): str(text).strip()
+            for key, text in icons.items()
+            if str(text or '').strip()
+        }
+        if cleaned:
+            overlay['icons'] = cleaned
+
+    # A renamed tab is renamed *per language*, the way every other name an
+    # operator sets in Settings is. A bare string is read as one name for every
+    # language, which is what the shape was before and what a hand-patched
+    # config still means.
+    labels = strip.get('labels')
+    if isinstance(labels, dict):
+        cleaned = {}
+        for key, value in labels.items():
+            if isinstance(value, dict):
+                per_language = {
+                    str(code): str(text).strip()
+                    for code, text in value.items()
+                    if str(text or '').strip()
+                }
+                if per_language:
+                    cleaned[str(key)] = per_language
+            elif str(value or '').strip():
+                cleaned[str(key)] = str(value).strip()
+        if cleaned:
+            overlay['labels'] = cleaned
+    return overlay
+
+
+def normalize_ribbon_config(value):
+    """Clean a stored tab-strip config.
+
+    Everything here is defensive: this JSON is edited by a builder, imported
+    from another deployment, and hand-patched in a shell. A malformed strip must
+    fall out rather than raise on a page render, because the failure would land
+    on a list page rather than in the editor that caused it.
+
+    A model has two strip lists. ``strips`` stores overlays and removals for
+    strips declared by the view. ``extra_strips`` stores strips created in
+    System Settings.
+    """
+    from .constants import RIBBON_TAB_SOURCE_TYPES
+
+    cfg = value if isinstance(value, dict) else {}
+    cleaned = {}
+
+    for model_key, entry in cfg.items():
+        if not isinstance(model_key, str) or '.' not in model_key:
+            continue
+        if not isinstance(entry, dict):
+            continue
+
+        declared = []
+        for strip in entry.get('strips') or []:
+            if not isinstance(strip, dict):
+                continue
+            kept = _normalize_declared_ribbon_strip(strip)
+            if kept is not None:
+                declared.append(kept)
+
+        extra = []
+        for strip in entry.get('extra_strips') or []:
+            if not isinstance(strip, dict):
+                continue
+            kept = _normalize_extra_ribbon_strip(strip, RIBBON_TAB_SOURCE_TYPES)
+            if kept is not None:
+                extra.append(kept)
+
+        if declared or extra:
+            model_entry = {}
+            if declared:
+                model_entry['strips'] = declared
+            if extra:
+                model_entry['extra_strips'] = extra
+            cleaned[model_key] = model_entry
+
+    return cleaned
+
+
+def _normalize_declared_ribbon_strip(strip):
+    """One declared strip: removal plus presentation overlay."""
+    disabled = strip.get('enabled') is False
+    overlay = _normalize_overlay(strip)
+    if not disabled and not overlay:
+        return None
+
+    entry = dict(overlay)
+    if disabled:
+        entry['enabled'] = False
+    param = str(strip.get('param') or '').strip()
+    if param:
+        entry['param'] = param
+    try:
+        index = int(strip.get('index'))
+    except (TypeError, ValueError):
+        index = None
+    if index is not None and index < 0:
+        index = None
+    if not param and index is None:
+        return None
+    if index is not None:
+        entry['index'] = index
+    return entry
+
+
+def _normalize_extra_ribbon_strip(strip, RIBBON_TAB_SOURCE_TYPES):
+    """One Settings-created strip: sources plus its own presentation overlay."""
+    sources = []
+    for source in (strip.get('sources') or []):
+        if not isinstance(source, dict):
+            continue
+        kind = str(source.get('type') or '').strip()
+        if kind not in RIBBON_TAB_SOURCE_TYPES:
+            continue
+        entry = {'type': kind}
+        if kind in ('field', 'flag'):
+            field = str(source.get('field') or '').strip()
+            if not field:
+                continue
+            entry['field'] = field
+        if kind == 'static':
+            entry['key'] = str(source.get('key') or '').strip()
+            if not entry['key']:
+                continue
+        for optional in ('label', 'icon'):
+            text = str(source.get(optional) or '').strip()
+            if text:
+                entry[optional] = text
+        for listed in ('only', 'exclude'):
+            values = source.get(listed)
+            if isinstance(values, (list, tuple)) and values:
+                entry[listed] = [str(v) for v in values]
+        sources.append(entry)
+
+    if not sources:
+        return None
+
+    entry = dict(_normalize_overlay(strip))
+    entry['sources'] = sources
+    param = str(strip.get('param') or '').strip()
+    if param:
+        entry['param'] = param
+    relation = str(strip.get('relation') or '').strip()
+    if relation in {'child', 'axis'}:
+        entry['relation'] = relation
+    label = str(strip.get('label') or '').strip()
+    if label:
+        entry['label'] = label
+    default = str(strip.get('default') or '').strip()
+    if default:
+        entry['default'] = default
+    drop = strip.get('drop')
+    if isinstance(drop, (list, tuple)) and drop:
+        entry['drop'] = [str(d) for d in drop]
+    when = strip.get('when')
+    if isinstance(when, str) and when.strip():
+        entry['when'] = when.strip()
+    elif isinstance(when, (list, tuple)) and when:
+        entry['when'] = [str(w) for w in when if str(w).strip()]
+    return entry

@@ -1,0 +1,10 @@
+<ul class="nav nav-pills dlux-ribbon-tabs no-print" role="tablist">
+    {% for tab in ribbon.tabs %}
+    <li class="nav-item" role="presentation">
+        <a class="nav-link{% if tab.active %} active{% endif %}" href="{{ tab.url }}" role="tab"{% if tab.active %} aria-current="page"{% endif %}>
+            {% if tab.icon %}<i class="{{ tab.icon }} me-1"></i>{% endif %}{{ tab.label }}
+            {% if tab.count is not None %}<span class="badge rounded-pill dlux-ribbon-tab-count">{{ tab.count }}</span>{% endif %}
+        </a>
+    </li>
+    {% endfor %}
+</ul>

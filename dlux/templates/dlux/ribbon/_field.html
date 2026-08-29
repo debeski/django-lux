@@ -1,0 +1,6 @@
+{% load crispy_forms_field %}{% load dlux_tags %}
+{% for name in slot.names %}{% with bound=ribbon.form|dlux_ribbon_field:name %}{% if bound %}
+<div class="{{ col_class|default:'form-group col-auto' }}{% if slot.is_search %} flex-fill{% endif %}">
+    <div id="div_id_{{ name }}" class="mb-3 mb-0">{% crispy_field bound %}</div>
+</div>
+{% endif %}{% endwith %}{% endfor %}

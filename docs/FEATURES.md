@@ -1,6 +1,6 @@
 # DjangoLux Feature Inventory
 
-**Current source:** v1.8.1 (unreleased documentation update)
+**Current source:** v1.8.2
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
 

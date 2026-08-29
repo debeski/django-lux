@@ -50,6 +50,7 @@ GROUPS = (
         'enforce_strong_passwords', 'strong_password_min_length',
         'purge_session_on_exit', 'inactivity_timeout_enabled',
         'inactivity_timeout_minutes', 'client_ip_config',
+        'show_audit_fields', 'show_soft_deleted',
         'public_registration_enabled', 'registration_activation_mode',
         'registration_throttle_enabled', 'honeypot_enabled', 'privacy_policy_url',
         'terms_url', 'privacy_notice_text', 'registration_require_consent',
@@ -78,10 +79,11 @@ GROUPS = (
         'allow_user_font_override',
     )),
     ('layout', 'system_settings_layout', (
-        'default_table_density', 'default_form_density', 'default_modal_size',
+        'default_table_density', 'table_edges', 'card_edges', 'table_accent_edges', 'default_form_density', 'default_modal_size',
         'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
-        'show_audit_fields', 'show_soft_deleted', 'options_style',
-        'row_actions_style',
+        'options_style', 'row_actions_style',
+        'ribbon_layout', 'ribbon_style', 'ribbon_title',
+        'ribbon_advanced_trigger', 'ribbon_nesting', 'ribbon_config',
     )),
     ('logging', 'system_settings_logging', (
         'log_config',

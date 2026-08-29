@@ -13,6 +13,7 @@ from pathlib import Path
 from dlux.tests.settings import *  # noqa: F401,F403
 
 BASE_DIR = Path(__file__).resolve().parent
+ROOT_URLCONF = 'urls'
 
 DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']

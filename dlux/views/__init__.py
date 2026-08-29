@@ -6,6 +6,7 @@ from .options import (
     data_reset_execute_view,
     data_reset_preview_view,
     celery_health_check_view,
+    ribbon_tabs_preview_view,
     debug_notifications_view,
     email_config_apply_view,
     email_health_check_view,
@@ -172,4 +173,4 @@ from .control_link import (
     control_panel_status_view,
 )
 
-from .assets import asset_manager_delete, asset_manager_page
+from .assets import asset_manager_delete, asset_manager_page, asset_manager_rename, managed_image_picker_upload

@@ -41,13 +41,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Ctrl/Cmd-J opens the Options view (mirrors Ctrl/Cmd-K for global search).
-    // Navigate via the rendered options link so gating/URL stay server-driven:
-    // no link (unavailable) means the shortcut is a no-op.
+    function findFirstLink(selector) {
+        const link = document.querySelector(selector);
+        return link && link.href ? link : null;
+    }
+
+    // Ctrl/Cmd-J opens Options and Ctrl/Cmd-H opens Home.
+    // Navigate via rendered links so gating/URLs stay server-driven.
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
-            const link = document.querySelector('[data-dlux-options-link], [data-titlebar-action-key="settings"]');
-            if (link && link.href) {
+            const link = findFirstLink('[data-dlux-options-link], [data-titlebar-action-key="settings"]');
+            if (link) {
+                e.preventDefault();
+                window.location.href = link.href;
+            }
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
+            const link = findFirstLink('[data-titlebar-home]');
+            if (link) {
                 e.preventDefault();
                 window.location.href = link.href;
             }

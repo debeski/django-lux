@@ -1,0 +1,5 @@
+<div class="{% if ribbon.advanced_trigger == 'button' %}collapse {% if ribbon.advanced_open %}show {% endif %}{% endif %}m-0" id="{{ ribbon.panel_id }}">
+    <div class="row g-2 align-items-start mb-0">
+        {% for slot in ribbon.advanced %}{% include "dlux/ribbon/_field.html" with col_class="col-auto flex-fill" %}{% endfor %}
+    </div>
+</div>

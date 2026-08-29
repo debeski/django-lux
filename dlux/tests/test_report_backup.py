@@ -441,7 +441,7 @@ class WriteBackupZipWindowTests(TestCase):
     def test_backup_button_label_describes_creating_not_downloading(self):
         template = (
             Path(__file__).resolve().parents[1]
-            / 'templates' / 'dlux' / 'reports' / 'overview.html'
+            / 'templates' / 'dlux' / 'reports' / '_backup_action.html'
         ).read_text(encoding='utf-8')
         action = template.split('id="reports-backup-btn"', 1)[1].split('</button>', 1)[0]
 

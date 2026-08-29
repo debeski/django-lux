@@ -113,6 +113,7 @@ Through `dlux.patches.apply_scoped_patches()`, the system intercepts the `__init
 - **Discovery**: It checks if the underlying model inherits from `ScopedModel`.
 - **Injection**: If so, it automatically adds a `scope` field/filter/column if one hasn't been explicitly defined or excluded.
 - **Access Control**: It locks the field for non-superusers, ensuring they cannot change their assigned scope.
+- **Disabled scopes**: Resolved CRUD and section forms remove both the injected field and any matching nodes in a custom Crispy layout. A form helper may therefore include `scope` unconditionally; Dlux clones shared helpers before pruning them so a later settings change can re-enable the field safely.
 
 #### 2. Universal Translation Patches
 Through `apply_global_translation_patches()`, the system:
@@ -180,11 +181,11 @@ Which profile accepts which action:
 | `landing` | `page` | yes |
 
 Two consequences worth knowing. A **form page** (`chapter_add`) is a real
-destination: it is searchable, placeable in the Nav Bar hierarchy, and offered in
+destination: it is searchable, placeable in the Navbar hierarchy, and offered in
 the sidebar builder behind the *Show form pages* toggle — but it is never added
-to a zero-config sidebar and cannot be a landing page or a Nav Bar root. An
+to a zero-config sidebar and cannot be a landing page or a Navbar root. An
 **id-bound page** (`chapter_edit`, `chapter_detail`) cannot be reversed without
-arguments, so every feature that needs a real href drops it; only the Nav Bar
+arguments, so every feature that needs a real href drops it; only the Navbar
 hierarchy accepts it, because its nodes match on route name and a URL-less crumb
 renders as plain text.
 
@@ -193,7 +194,7 @@ exact token across the full URL namespace/name and resolved path, including
 suffixes such as `records_api`, nested names such as `catalog:api:records`, and
 callback class or function names such as `RecordsAPIView`. Ordinary names that
 merely contain the letters, such as `rapid_report`, remain discoverable. Stored
-sidebar/Nav Bar trees and imported/exported settings are sanitized by the same
+sidebar/Navbar trees and imported/exported settings are sanitized by the same
 rule; when an old API hierarchy node contains valid page children, those children
 are kept.
 
@@ -228,6 +229,7 @@ This means staff users will only see sidebar items for models they have explicit
 Dlux-owned screens must reuse the framework primitive before falling back to a raw Django widget or generic Bootstrap structure:
 
 - `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy layouts, use `build_archive_file_field()` so the file card, validation output, drag/drop behavior, toolbar, and translations stay intact. Do not write a raw `<input type="file">` in a Dlux-owned template.
+- `DluxLookupField` from `dlux.forms` when a ForeignKey has more rows than a dropdown should hold, or when readers would otherwise create a second record for one that already exists. It renders a box you type into, reuses an exact name, refuses a near miss with what it resembles, and — given `create` — adds a record that genuinely is new. Do not hand-build a `<datalist>` and a hidden key beside a text input.
 - `AssetPickerField` from `dlux.forms.assets` when a field can select a reusable `ManagedAsset` or register a direct upload. Its file card opens the saved-file library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
 - `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
 - Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces. It is lazy-rendered, searchable, keyboard-closeable, and shares the same `ICON_SUGGESTIONS` catalog as the sidebar builder. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
@@ -236,7 +238,7 @@ Dlux-owned screens must reuse the framework primitive before falling back to a r
 - Compact auxiliary tables inside System Settings that do not need the full `DluxTable` shell must still own a surface. Use the setup theme tokens such as `--dlux-setup-item-bg` and `--dlux-setup-item-border`; do not leave the body transparent against the modal. A sticky auxiliary header must layer `--dlux-table-header-surface` over an opaque `--table-row` backdrop so scrolling content cannot bleed through translucent theme gradients.
 - The universal dynamic-modal protocol (`data-dynamic-modal`, JSON `{html}` fragments, and `data-dlux-modal-footer`) for modal workflows, and `window.DluxLoadingButton` for asynchronous button state.
 - `data-dlux-context` plus the Dlux row-action schema for context menus, and `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip implementations.
-- `from dlux.notifications import notify` for user-facing success, warning, and error feedback so drawer/history behavior remains consistent.
+- `from dlux.notifications import notify` for user-facing success, warning, and error feedback so drawer/history behavior remains consistent. Supply a stable `event_key` for retryable background events; automatic CRUD already keys durable delivery to its activity-log row and does not persist success back to the actor.
 
 ### Markup wrappers
 
@@ -425,7 +427,7 @@ That cluster of subsystems is a big part of why DjangoLux should be treated like
 If you are wiring a normal list screen today, the supported path is:
 
 - extend `dlux/list_base.html`
-- call `setup_filter_helper()` or `advanced_filter_helper()` in the view
+- add `RibbonMixin` to the view (see [Ribbon](ribbon.md)); on pages not yet migrated, call `setup_filter_helper()` or `advanced_filter_helper()`
 - render the table with `{% render_table table %}` and do not wrap it in another `.table-responsive`
 - prefer `dlux.tables.DluxTable` for handwritten tables
 

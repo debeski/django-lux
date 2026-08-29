@@ -39,9 +39,9 @@ Use `DluxFileInput` or `AssetPickerField` for files, not a raw file input. The s
 
 If a page must combine list and form behavior, extend one base and include only the complementary asset partial it genuinely needs. Use `{% include_once %}` when a reusable partial may be included from multiple paths.
 
-## Public root and layout behavior
+## Public Page And Layout Behavior
 
-Anonymous public-root presentation is configured in System Settings: its theme, title, description, sidebar, and titlebar are category-owned controls beneath the public-homepage configuration. Do not hand-code a second public root chrome; the shared context flags drive the normal base template.
+Anonymous public page presentation is configured in System Settings: its theme, title, description, sidebar, and titlebar are category-owned controls beneath the public-homepage configuration. Do not hand-code a second public page chrome; the shared context flags drive the normal base template.
 
 Use logical CSS properties and framework classes so layout mirrors in RTL. In particular, do not position title actions, back links, or rails with physical left/right assumptions. See [Translations](translation-guide.md) for validation.
 

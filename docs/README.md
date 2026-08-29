@@ -35,6 +35,7 @@ Use the sections below based on what you are trying to do.
 - [Project Configuration](project-configuration.md) for `DLUX_CONFIG`, custom themes/fonts, app settings, and integration setup.
 - [Translations](translation-guide.md) for `DLUX_STRINGS`, overrides, and RTL verification.
 - [UI Integration](ui-integration.md) for sections, modals, tables, filters, downloads, activity logging, and tutorials.
+- [Ribbon](ribbon.md) for the list-page band carrying a page's title, filters, and actions.
 - [Template Customization](template-customization.md) for extension partials, page bases, form footers, and assisted entry.
 - [Adding a System Setting](adding-system-settings.md) — the A→Z procedure and trap list for adding a first-class setting to the `SystemSettings` pipeline (framework contributors).
 
@@ -52,7 +53,7 @@ Use the sections below based on what you are trying to do.
 
 ## Current Major Capabilities
 
-- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public-root destination, centralized Client IP resolution configuration, sidebar behavior controls, and scheduled backup/storage/retention policy.
+- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public page destination, centralized Client IP resolution configuration, sidebar behavior controls, and scheduled backup/storage/retention policy.
 - A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, draggable Options cards, built-in two-factor authentication flows, and 30-day trusted device management.
 - A disabled-by-default public registration playground with mandatory email verification, SMTP readiness checks, throttles, honeypot protection, and optional superuser approval.
 - A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.

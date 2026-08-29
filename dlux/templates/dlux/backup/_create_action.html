@@ -1,0 +1,36 @@
+    <div class="d-flex flex-column align-items-stretch gap-1">
+        <a href="{% url 'options_view' %}" class="btn btn-outline-secondary btn-sm rounded-pill dlux-back-link dlux-backup-back align-self-end">
+            <i class="bi bi-arrow-left me-1"></i>{{ DLUX_STRINGS.sysbackup_back_to_options|default:'Back to Options' }}
+        </a>
+        <form id="sysbackup-create-form"
+              class="dlux-form dlux-backup-create-form"
+              data-create-url="{% url 'system_backup_create' %}"
+              data-msg-preparing="{{ DLUX_STRINGS.sysbackup_preparing }}"
+              data-msg-ready="{{ DLUX_STRINGS.sysbackup_ready }}"
+              data-msg-failed="{{ DLUX_STRINGS.sysbackup_failed }}"
+              data-msg-last-signal="{{ DLUX_STRINGS.sysbackup_last_signal|default:'Last update' }}"
+              data-msg-stalled="{{ DLUX_STRINGS.sysbackup_stalled_note|default:'No progress reported for {seconds}s.' }}">
+            {% csrf_token %}
+            <div>
+                <label class="form-label small mb-1" for="sysbackup-passphrase">{{ DLUX_STRINGS.sysbackup_passphrase_label }}</label>
+                <input type="password" id="sysbackup-passphrase" name="backup_passphrase" class="form-control form-control-sm glass-input" autocomplete="new-password" data-dlux-password-rules="off">
+            </div>
+            <div>
+                <label class="form-label small mb-1" for="sysbackup-passphrase-confirm">{{ DLUX_STRINGS.sysbackup_passphrase_confirm }}</label>
+                <input type="password" id="sysbackup-passphrase-confirm" name="backup_passphrase_confirm" class="form-control form-control-sm glass-input" autocomplete="new-password" data-dlux-password-rules="off">
+            </div>
+            <div>
+                <label class="form-label small mb-1" for="sysbackup-scope">{{ DLUX_STRINGS.sysbackup_scope_label|default:'Scope' }}</label>
+                <select id="sysbackup-scope" name="backup_scope" class="form-select form-select-sm glass-input">
+                    <option value="full">{{ DLUX_STRINGS.sysbackup_scope_full|default:'Full (database + media)' }}</option>
+                    <option value="data">{{ DLUX_STRINGS.sysbackup_scope_data|default:'Quick — data only (no media)' }}</option>
+                </select>
+            </div>
+            <button type="submit"
+                    id="sysbackup-create-btn"
+                    class="btn btn-primary rounded-pill text-nowrap">
+                <i class="bi bi-file-zip-fill me-1"></i>{{ DLUX_STRINGS.sysbackup_create }}
+            </button>
+        </form>
+        <small id="sysbackup-create-status" class="text-muted text-center"></small>
+    </div>

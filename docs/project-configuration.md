@@ -18,7 +18,7 @@ DLUX_CONFIG = {
 }
 ```
 
-Use `homepage_config` and `search_config` for new work. v1.x still accepts the legacy homepage/public-root and titlebar search aliases, but they are compatibility mirrors scheduled for removal in v2.0; see [Deprecation Countdown](deprecation-countdown.md).
+Use `homepage_config` and `search_config` for new work. v1.x still accepts the legacy homepage/public page and titlebar search aliases, but they are compatibility mirrors scheduled for removal in v2.0; see [Deprecation Countdown](deprecation-countdown.md).
 
 Project-owned application settings belong below `extra_config['app'][namespace]` and should use a registered app settings tile instead of extending the core System Settings form. `extra_config` itself must not be seeded with framework defaults: doing so can overwrite host-project data.
 

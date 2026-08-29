@@ -92,8 +92,22 @@
         field.classList.toggle('is-disabled', !enabled);
         field.setAttribute('aria-disabled', enabled ? 'false' : 'true');
         field.removeAttribute('aria-hidden');
+        const selectorRoots = new Set();
         field.querySelectorAll('input, select, textarea, button').forEach((control) => {
             control.disabled = !enabled;
+            if (enabled) {
+                control.removeAttribute('aria-disabled');
+            } else {
+                control.setAttribute('aria-disabled', 'true');
+            }
+            const selectorRoot = control.closest('[data-dlux-selector]');
+            if (selectorRoot && field.contains(selectorRoot)) {
+                selectorRoots.add(selectorRoot);
+            }
+        });
+        selectorRoots.forEach((selectorRoot) => {
+            selectorRoot.classList.toggle('is-disabled', !enabled);
+            selectorRoot.setAttribute('aria-disabled', enabled ? 'false' : 'true');
         });
     }
 
@@ -264,7 +278,11 @@
 
     function stepHasRenderedServerError(step) {
         if (!step || step.dataset.dluxStepUserEdited === 'true') return false;
-        return Boolean(step.querySelector('.invalid-feedback, .errorlist, .alert-danger'));
+        return Array.from(step.querySelectorAll('.invalid-feedback, .errorlist, .alert-danger'))
+            .some((error) => (
+                String(error.textContent || '').trim() &&
+                !isElementHiddenInsideStep(error, step)
+            ));
     }
 
     function stepHasValidationError(step) {

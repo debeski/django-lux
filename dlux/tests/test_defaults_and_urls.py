@@ -98,7 +98,7 @@ def _wizard_step_field_names(html):
     return parser.steps
 
 
-class _PublicRootDependentFieldParser(HTMLParser):
+class _PublicPageDependentFieldParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.div_stack = []
@@ -107,7 +107,7 @@ class _PublicRootDependentFieldParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == 'div':
-            self.div_stack.append(attrs.get('data-public-root-dependent') == 'true')
+            self.div_stack.append(attrs.get('data-public-page-dependent') == 'true')
         if tag in {'input', 'select', 'textarea'} and any(self.div_stack):
             name = attrs.get('name')
             if name:
@@ -119,7 +119,7 @@ class _PublicRootDependentFieldParser(HTMLParser):
 
 
 def _public_root_dependent_field_names(html):
-    parser = _PublicRootDependentFieldParser()
+    parser = _PublicPageDependentFieldParser()
     parser.feed(html)
     return parser.fields
 
@@ -1860,8 +1860,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertLessEqual(
             {'default_table_density', 'default_form_density', 'default_modal_size',
              'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
-             'show_audit_fields', 'show_soft_deleted', 'options_style'},
+             'options_style'},
             steps[SETUP_STEP_LAYOUT],
+        )
+        # Record visibility is an access question, not a layout one, so it lives
+        # in Access & Security and must not drift back into Layout.
+        self.assertLessEqual(
+            {'show_audit_fields', 'show_soft_deleted'},
+            steps[SETUP_STEP_SECURITY],
+        )
+        self.assertTrue(
+            steps[SETUP_STEP_LAYOUT].isdisjoint({'show_audit_fields', 'show_soft_deleted'})
         )
         self.assertTrue(
             steps[SETUP_STEP_APPEARANCE].isdisjoint({
@@ -1947,8 +1956,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
         self.assertIn('data-dlux-settings-toggle-field=\'titlebar_show_home_button\'', html)
-        self.assertIn('data-public-root-dependent="true"', html)
-        self.assertIn('data-public-root-split-dependent="true"', html)
+        self.assertIn('data-public-page-dependent="true"', html)
+        self.assertIn('data-public-page-split-dependent="true"', html)
 
     def test_setup_form_hides_public_root_split_dependents_until_enabled(self):
         form = SystemSettingsForm(
@@ -1962,11 +1971,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dlux-public-root-dependent', html)
-        self.assertIn('dlux-public-root-split-dependent', html)
+        self.assertIn('dlux-public-page-dependent', html)
+        self.assertIn('dlux-public-page-split-dependent', html)
         self.assertIn('d-none', html)
-        self.assertIn('data-public-root-dependent="true"', html)
-        self.assertIn('data-public-root-split-dependent="true"', html)
+        self.assertIn('data-public-page-dependent="true"', html)
+        self.assertIn('data-public-page-split-dependent="true"', html)
 
     @override_settings(DLUX_CONFIG={
         'public_root': True,
@@ -1980,11 +1989,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
-        dependent_class_start = html.index('dlux-public-root-split-dependent')
+        dependent_class_start = html.index('dlux-public-page-split-dependent')
         dependent_class_end = html.index('>', dependent_class_start)
 
         self.assertIn('data-dlux-settings-toggle-field=\'public_root_split_enabled\'', html)
-        self.assertIn('dlux-public-root-split-dependent', html)
+        self.assertIn('dlux-public-page-split-dependent', html)
         self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
 
     def test_setup_form_uses_translated_step_three_public_root_labels(self):
@@ -2188,7 +2197,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(saved.show_sidebar_on_public)
 
     def test_public_root_setup_js_uses_single_form_scoped_controller(self):
-        # Every script in the wizard's directory — the public-root controller
+        # Every script in the wizard's directory — the public page controller
         # now lives in setup/js/security.js. These assertions are about
         # behaviour existing in the wizard, not which file holds it.
         js_dir = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
@@ -2800,6 +2809,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader)", contents)
         self.assertIn('function initSystemSetupStepValidation(root) {', contents)
         self.assertIn('function updateSetupStepValidationState(form) {', contents)
+        self.assertIn("String(error.textContent || '').trim()", contents)
+        self.assertIn('!isElementHiddenInsideStep(error, step)', contents)
         self.assertIn('return !field.checkValidity();', contents)
         self.assertIn("step.classList.toggle('dlux-setup-step-has-error', hasError);", contents)
         self.assertIn("navItem.classList.toggle('has-validation-error', hasError);", contents)
@@ -2859,6 +2870,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('flex-wrap: wrap;', contents)
         self.assertIn('justify-content: center;', contents)
         self.assertIn('width: auto;', contents)
+
+    def test_user_hub_shortcuts_use_rendered_links(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'titlebar' / 'js' / 'user_hub.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertIn('function findFirstLink(selector)', contents)
+        self.assertIn("e.key === 'j' || e.key === 'J'", contents)
+        self.assertIn("e.key === 'h' || e.key === 'H'", contents)
+        self.assertIn("'[data-dlux-options-link], [data-titlebar-action-key=\"settings\"]'", contents)
+        self.assertIn("'[data-titlebar-home]'", contents)
+        self.assertIn('window.location.href = link.href;', contents)
 
     def test_tutorial_uses_modal_user_trigger_on_manage_users(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'tutorial' / 'js' / 'main.js'
@@ -3184,7 +3206,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('id="resetActions"', contents)
         self.assertNotIn('<style nonce=', contents)
         self.assertNotIn('<script nonce=', contents)
-        self.assertIn('DLUX_STRINGS.system_settings_security', contents)
+        # The settings tiles render from `setup_steps`, one loop rather than
+        # eighteen copies, so assert the loop instead of any one step's string.
+        self.assertIn('{% for step in setup_steps %}', contents)
+        self.assertIn("?step={{ step.index }}", contents)
         self.assertNotIn("default:'Access & Security'", contents)
 
     def test_dlux_first_component_catalog_includes_icon_picker(self):
@@ -3329,10 +3354,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.dlux-theme-preview--aether', contents)
         self.assertIn('#a8ffe4', contents)
 
-    def test_prism_and_aether_theme_owned_file_field_and_logo_overrides(self):
+    def test_dark_family_themes_own_file_field_overrides(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
 
-        for theme_name in ('prism', 'aether'):
+        for theme_name in ('dark', 'retro', 'gothic', 'prism', 'aether', 'neon'):
             contents = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
             self.assertIn(f':root.theme-{theme_name} .archive-file-card {{', contents)
             self.assertIn(f':root.theme-{theme_name} .archive-file-field.is-dragover .archive-file-card,', contents)
@@ -3340,6 +3365,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
             self.assertIn(f':root.theme-{theme_name} .archive-file-tool-scan {{', contents)
             self.assertIn(f':root.theme-{theme_name} .archive-file-tool-clear {{', contents)
             self.assertIn(f':root.theme-{theme_name} .archive-file-meta {{', contents)
+
+    def test_prism_and_aether_theme_owned_logo_overrides(self):
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
+
+        for theme_name in ('prism', 'aether'):
+            contents = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
             self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {{', contents)
             self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {{', contents)
             self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {{', contents)
@@ -3354,6 +3385,55 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:hover,', contents)
         self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,', contents)
         self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary,', contents)
+        self.assertIn(':root.theme-aether .dlux-options-reset-action,', contents)
+        self.assertIn(':root.theme-aether .dlux-options-reset-action:hover,', contents)
+        self.assertIn(':root.theme-aether .dlux-options-reset-action:focus-visible,', contents)
+        self.assertIn(':root.theme-aether .dlux-options-reset-action i,', contents)
+
+    def test_neon_language_pill_rules_do_not_capture_choice_selectors(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'neon.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        self.assertIn('.lang-option:not(.dlux-choice-option__surface--toggle)', contents)
+        self.assertNotRegex(contents, r'(?m)^\s*:root\.theme-neon\s+\.lang-active\b')
+        self.assertNotRegex(contents, r'(?m)^\s*\.theme-neon\s+\.lang-active\b')
+
+    def test_neon_avoids_page_wide_expensive_effects(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'neon.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        self.assertNotIn('animation: cyberPulse', contents)
+        self.assertNotIn('animation: scanlines', contents)
+        self.assertNotIn('@keyframes cyberPulse', contents)
+        self.assertNotIn('@keyframes scanlines', contents)
+        self.assertNotIn(':root.theme-neon::before', contents)
+        self.assertNotIn(':root.theme-neon body::after', contents)
+        self.assertIn(':root.theme-neon body {', contents)
+        self.assertNotIn('filter: grayscale', contents)
+        self.assertNotIn('backdrop-filter:', contents)
+        self.assertNotIn('transition: all', contents)
+
+    def test_choice_selector_disabled_container_has_css_state(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'selector' / 'css' / 'main.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        self.assertIn('.dlux-choice-selector.is-disabled .dlux-choice-option,', contents)
+        self.assertIn('.dlux-choice-selector.is-disabled .dlux-choice-option__surface,', contents)
+        self.assertIn('.dlux-choice-selector.is-disabled .dlux-choice-option--toggle .dlux-choice-toggle,', contents)
+        self.assertIn('.dlux-choice-selector.is-disabled .dlux-choice-option--toggle .dlux-choice-option__surface--toggle,', contents)
+
+    def test_choice_selector_inputs_stay_hidden_against_theme_disabled_rules(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'selector' / 'css' / 'main.css'
+        contents = css_path.read_text(encoding='utf-8')
+        selector = '.dlux-choice-selector[data-dlux-selector] .dlux-choice-option .dlux-choice-option__input'
+        block = contents[contents.index(selector):contents.index('}', contents.index(selector))]
+
+        self.assertIn('opacity: 0 !important;', block)
+        self.assertIn('appearance: none;', block)
+        self.assertIn('-webkit-appearance: none;', block)
+        self.assertIn('background: transparent !important;', block)
+        self.assertIn('border: 0 !important;', block)
+        self.assertIn('filter: none !important;', block)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'auth' / 'verify.html'
@@ -3439,6 +3519,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("embeddedBody.replaceWith", script)
         self.assertIn("actions.querySelectorAll('button')", script)
         self.assertNotIn("actions.querySelector('.dlux-btn-next, .dlux-btn-prev')", script)
+
+    def test_dynamic_modal_posts_the_clicked_submit_action(self):
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'dynamic_modal' / 'js' / 'main.js'
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn('submitForm(form, e.submitter);', script)
+        self.assertIn('const submitBtn = submitter ||', script)
+        self.assertIn("formData.append(submitter.name, submitter.value || '');", script)
+        self.assertLess(script.index('if (data.add_more)'), script.index('if (data.refresh_parent)'))
 
     def test_dynamic_modal_wizard_controls_can_live_in_the_shared_footer(self):
         script_path = (
@@ -3548,8 +3637,13 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('name="ms_', html)
         self.assertNotIn('name="sidebarSystemItemsToggle-', html)
         # Coarse budget guarding against JS-only editor controls leaking into the
-        # POST; raised for the Step 13 backup-recovery fields.
-        self.assertLess(len(re.findall(r'\sname=', html)), 230)
+        # POST. Raised for the Step 13 backup-recovery fields, then the ribbon
+        # layout fields, then the four notification dropdowns. A dlux choice
+        # selector emits one radio per option where a plain Select emitted a
+        # single control, so converting a field raises this by (options - 1).
+        # Already one over before the step reorder — the accent-edge toggles
+        # added earlier pushed it past the last raise, not this change.
+        self.assertLess(len(re.findall(r'\sname=', html)), 268)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

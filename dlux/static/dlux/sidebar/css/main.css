@@ -46,6 +46,10 @@
     --sidebar-group-row-min-height: 46px;
 }
 
+body[data-dlux-sidebar-accent="on"] #sidebar {
+    border-inline-end: .25rem solid var(--primal, var(--bs-primary, #475569)) !important;
+}
+
 @media (min-width: 992px) {
     .sidebar:not(.collapsed) {
         width: auto !important;

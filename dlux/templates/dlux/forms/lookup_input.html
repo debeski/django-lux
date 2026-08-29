@@ -1,0 +1,40 @@
+{% load dlux_tags l10n %}
+<div class="dlux-lookup position-relative" data-dlux-lookup
+     data-lookup-name="{{ widget.name }}"
+     data-lookup-ratio="{{ widget.near_ratio|unlocalize }}"
+     data-lookup-share="{{ widget.boilerplate_share|unlocalize }}">
+    <input type="text" class="{{ widget.text_class }}"
+           value="{{ widget.text_value }}"
+           id="{{ widget.attrs.id }}_text"
+           autocomplete="off"
+           {% if widget.placeholder %}placeholder="{{ widget.placeholder }}"{% endif %}
+           data-lookup-text>
+    <input type="hidden" name="{{ widget.name }}" value="{{ widget.value|default_if_none:'' }}"
+           id="{{ widget.attrs.id }}" data-lookup-value>
+    <input type="hidden" name="{{ widget.name }}__typed" value="{{ widget.text_value }}" data-lookup-typed>
+    <input type="hidden" name="{{ widget.name }}__confirm" value="{{ widget.confirm|yesno:'on,' }}" data-lookup-confirm>
+
+    <datalist id="{{ widget.attrs.id }}_options" data-lookup-options>
+        {% for row in widget.rows %}
+        <option value="{{ row.label }}" data-id="{{ row.value }}"></option>
+        {% endfor %}
+    </datalist>
+
+    {% if widget.near %}
+    <div class="alert alert-warning py-2 px-3 mt-2 d-flex flex-wrap align-items-center gap-2" data-lookup-near>
+        <i class="bi bi-exclamation-triangle"></i>
+        <span class="flex-grow-1 small">{{ widget.near_message }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-lookup-pick
+                data-lookup-pick-id="{{ widget.near.pk }}">{{ widget.near_label }}</button>
+        {% if widget.allow_create %}
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="{{ widget.attrs.id }}_confirm"
+                   data-lookup-consent{% if widget.confirm %} checked{% endif %}>
+            <label class="form-check-label small" for="{{ widget.attrs.id }}_confirm">
+                {{ widget.confirm_label }}
+            </label>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

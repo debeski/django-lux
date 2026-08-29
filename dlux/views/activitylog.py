@@ -10,6 +10,7 @@ from django_filters.views import FilterView
 
 # Project imports
 from ..utils import get_user_scope, is_global_staff, is_scope_enabled, translate_activity_log_model_name, user_can_view_activity_log
+from ..ribbon import RibbonMixin
 from ..translations import get_strings
 
 # The three log categories surfaced as tabs. 'audit' is privileged and only shown to
@@ -18,11 +19,18 @@ LOG_CATEGORY_TABS = ('user', 'system', 'audit')
 
 
 # Activity Log View — Paginated, filterable list of user activity with scope support
-class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
+class UserActivityLogView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
     model = apps.get_model('dlux', 'ActivityLog')
     table_class = import_string('dlux.tables.UserActivityLogTable')
     filterset_class = import_string('dlux.filters.UserActivityLogFilter')
     template_name = "dlux/activitylog/activity_log.html"
+    ribbon_title_icon = 'bi bi-clock-history'
+    #: The category tabs live in the query string, and the ribbon is a GET form,
+    #: so the key has to survive a filter submit and a Clear.
+    ribbon_preserve_keys = ('category',)
+
+    def get_ribbon_title(self):
+        return get_strings().get('log_title', 'Activity Log')
 
     def get_paginate_by(self, queryset):
         # Let django-tables2 own pagination. FilterView/ListView pagination here
@@ -41,10 +49,6 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
     def _visible_categories(self):
         return [c for c in LOG_CATEGORY_TABS if c != 'audit' or self._can_view_audit()]
 
-    def _active_category(self):
-        requested = (self.request.GET.get('category') or 'user').strip().lower()
-        visible = self._visible_categories()
-        return requested if requested in visible else 'user'
 
     def _base_queryset(self):
         """Scope/permission-filtered queryset before category narrowing (for tab counts)."""
@@ -69,7 +73,8 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
         return qs
 
     def get_queryset(self):
-        return self._base_queryset().filter(category=self._active_category())
+        # The strip carries its own lookup, so narrowing is the ribbon's job.
+        return self._ribbon_tabs().narrow(self._base_queryset())
 
     def get_table(self, **kwargs):
         table = super().get_table(**kwargs)
@@ -85,39 +90,57 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
         kwargs['request'] = self.request
         return kwargs
 
+    def get_ribbon_tabs(self):
+        """The category strip, declared rather than hand-rolled.
+
+        `only` because `audit` is privileged, and `default` because this list
+        has no "All" tab — the reader always stands in one category.
+        """
+        from ..ribbon import build_ribbon_tabs
+
+        strings = get_strings()
+        return build_ribbon_tabs(
+            {
+                'param': 'category',
+                'default': 'user',
+                'sources': [{
+                    'type': 'field',
+                    'field': 'category',
+                    'only': self._visible_categories(),
+                }],
+            },
+            model=self.model,
+            request=self.request,
+            strings={
+                **strings,
+                **{f'tab_category_{c}': strings.get(f'log_tab_{c}', c.title())
+                   for c in LOG_CATEGORY_TABS},
+            },
+            counts=self._category_counts(),
+        )
+
+    def _category_counts(self):
+        """One COUNT per category.
+
+        `_base_queryset()` carries `.order_by('-created_at')`, and a
+        values()/annotate() aggregate folds any ordering field into the GROUP
+        BY — so without clearing it the rows group by (category, created_at),
+        one row per timestamp, and every badge reads 1.
+        """
+        from django.db.models import Count
+
+        return {
+            row['category']: row['n']
+            for row in self._base_queryset().order_by().values('category').annotate(n=Count('id'))
+        }
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Standardize Filter Layout
-        from ..utils import setup_filter_helper
-        activity_filter = self.get_filterset(self.filterset_class)
-        setup_filter_helper(activity_filter, self.request)
+        # FilterView already built and bound one; the Ribbon reads the same
+        # instance from the context, so building a second here would leave the
+        # band describing a different form than the table was filtered with.
+        context.setdefault('filter', self.filterset)
 
-        context['filter'] = activity_filter
-
-        # Category tabs (user/system/audit) with per-category counts.
-        from django.db.models import Count
-        s = get_strings()
-        base = self._base_queryset()
-        # NOTE: _base_queryset() carries `.order_by('-created_at')`. A values()/annotate()
-        # aggregate folds any ordering field into the GROUP BY, so without clearing it the
-        # rows group by (category, created_at) — one row per timestamp, each n=1 — and every
-        # non-empty tab badge would read 1. `.order_by()` drops the ordering so the grouping
-        # is by category alone and the counts are correct.
-        counts = {
-            row['category']: row['n']
-            for row in base.order_by().values('category').annotate(n=Count('id'))
-        }
-        active = self._active_category()
-        labels = {
-            'user': s.get('log_tab_user', 'User'),
-            'system': s.get('log_tab_system', 'System'),
-            'audit': s.get('log_tab_audit', 'Audit'),
-        }
-        context['log_category_tabs'] = [
-            {'key': c, 'label': labels.get(c, c.title()), 'count': counts.get(c, 0), 'active': c == active}
-            for c in self._visible_categories()
-        ]
-        context['active_log_category'] = active
         return context
 
 

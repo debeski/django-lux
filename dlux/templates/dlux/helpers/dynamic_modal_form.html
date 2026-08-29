@@ -11,7 +11,15 @@
     {% csrf_token %}
     {% crispy form %}
     {% if not hide_form_buttons %}
-        <div class="dlux-form-actions mt-3 pt-3 border-top">
+        <div class="dlux-form-actions{% if form.dlux_footer_bound_fields %} dlux-form-actions--with-fields{% endif %} mt-3 pt-3 border-top">
+            {% if form.dlux_footer_bound_fields %}
+                <div class="dlux-form-footer-fields">
+                    {% for footer_field in form.dlux_footer_bound_fields %}
+                        {{ footer_field|as_crispy_field }}
+                    {% endfor %}
+                </div>
+                <div class="dlux-form-action-buttons">
+            {% endif %}
             {% if instance %}
                 <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ DLUX_STRINGS.btn_update|default:'Update' }}" title="{{ DLUX_STRINGS.btn_update|default:'Update' }}">
                     <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
@@ -27,6 +35,7 @@
                     <span class="visually-hidden">{{ DLUX_STRINGS.btn_add_new|default:"Add" }}</span>
                 </button>
             {% endif %}
+            {% if form.dlux_footer_bound_fields %}</div>{% endif %}
         </div>
     {% endif %}
 </form>

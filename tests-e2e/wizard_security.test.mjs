@@ -1,5 +1,5 @@
 // Functional tests for the wizard's security & access cluster:
-// initPublicRegistrationOptions, initPublicRootOptions, initClientIpOptions,
+// initPublicRegistrationOptions, initPublicPageOptions, initClientIpOptions,
 // initAuthSecurityOptions, initLoginPageOptions.
 //
 // Written BEFORE those five move to setup/js/security.js.
@@ -14,7 +14,11 @@
 
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { startServer, loggedInPage, openWizard, chromium } from './server.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 let server;
 let browser;
@@ -83,14 +87,126 @@ async function assertGates(page, master, dependents) {
 }
 
 describe('wizard security cluster', { concurrency: 1 }, () => {
-  test('public root gates its title, description and split option', async () => {
+  test('asset-picker uploads persist immediately and reach later setup steps', async () => {
     const { ctx, page, errors } = await wizard();
     try {
+      const upload = page.locator('[name="logo_upload"]');
+      await upload.setInputFiles(path.join(HERE, '..', 'dlux', 'static', 'favicon.ico'));
+      await page.waitForFunction(() => Boolean(document.querySelector('[name="logo_asset"]')?.value));
+
+      const uploaded = await page.evaluate(() => {
+        const id = document.querySelector('[name="logo_asset"]')?.value || '';
+        const loginOption = document.querySelector(
+          `[name="login_logo_asset"] + input + input + [data-asset-picker-library] [data-asset-id="${id}"]`
+        );
+        return {
+          id,
+          pendingFiles: document.querySelector('[name="logo_upload"]')?.files.length,
+          loginHasAsset: Boolean(loginOption),
+        };
+      });
+      assert.ok(uploaded.id, 'the immediate upload did not select a managed asset');
+      assert.equal(uploaded.pendingFiles, 0, 'the saved asset remained a pending form upload');
+      assert.equal(uploaded.loginHasAsset, true, 'the Login picker did not receive the new asset');
+
+      await openWizard(page);
+      const persisted = await page.locator(
+        `[name="login_logo_asset"] + input + input + [data-asset-picker-library] [data-asset-id="${uploaded.id}"]`
+      ).count();
+      assert.equal(persisted, 1, 'the asset disappeared after reloading unsaved setup');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
+  test('untouched optional file widgets do not mark Identity or Login invalid', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      const states = await page.evaluate(() => {
+        const steps = [...document.querySelectorAll('.wizard-step')];
+        return ['logo_upload', 'login_logo_upload'].map((name) => {
+          const input = document.querySelector(`[name="${name}"]`);
+          const step = input && input.closest('.wizard-step');
+          const index = step ? steps.indexOf(step) : -1;
+          const nav = document.querySelector(`[data-dlux-wizard-step-target="${index}"]`);
+          return {
+            name,
+            found: Boolean(input && step && nav),
+            required: Boolean(input && input.required),
+            valid: Boolean(input && input.checkValidity()),
+            warning: Boolean(nav && nav.classList.contains('has-validation-error')),
+            invalidControls: step ? [...step.querySelectorAll('input, select, textarea')]
+              .filter((control) => typeof control.checkValidity === 'function' && !control.checkValidity())
+              .map((control) => ({ name: control.name, type: control.type, required: control.required })) : [],
+          };
+        });
+      });
+
+      for (const state of states) {
+        assert.equal(state.found, true, `${state.name} setup control is missing`);
+        assert.equal(state.required, false, `${state.name} should be optional`);
+        assert.equal(state.valid, true, `${state.name} should be valid while untouched`);
+        assert.equal(state.warning, false,
+          `${state.name} step should not show a warning: ${JSON.stringify(state.invalidControls)}`);
+      }
+      const visibleErrorIsRetained = await page.evaluate(() => {
+        const form = document.querySelector('.dlux-system-setup-form');
+        const input = form.querySelector('[name="logo_upload"]');
+        const step = input.closest('.wizard-step');
+        const index = [...form.querySelectorAll('.wizard-step')].indexOf(step);
+        const error = document.createElement('div');
+        error.className = 'invalid-feedback';
+        error.textContent = 'Server validation error';
+        step.appendChild(error);
+        window.DluxSetupDom.updateSetupStepValidationState(form);
+        return document.querySelector(`[data-dlux-wizard-step-target="${index}"]`)
+          .classList.contains('has-validation-error');
+      });
+      assert.equal(visibleErrorIsRetained, true, 'a visible server error must still mark its step');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
+  test('public page gates its title, description and split option', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      await page.evaluate(() => {
+        const form = document.querySelector('.dlux-system-setup-form');
+        window.DluxSetupDom.setNamedFieldDisabled(form, 'public_root_theme', true);
+      });
       await assertGates(page, 'public_root', [
         'public_root_title',
         'public_root_meta_description',
         'public_root_split_enabled',
       ]);
+      const enabledAppearance = await page.evaluate(() => {
+        const block = document.querySelector('[data-public-page-dependent]');
+        const themeSelector = document.querySelector('[name="public_root_theme"]')
+          ?.closest('[data-dlux-selector]');
+        return {
+          disabledClass: block?.classList.contains('is-disabled'),
+          opacity: block ? getComputedStyle(block).opacity : null,
+          themeDisabledClass: themeSelector?.classList.contains('is-disabled'),
+          themeAriaDisabled: themeSelector?.getAttribute('aria-disabled'),
+        };
+      });
+      assert.deepEqual(enabledAppearance, {
+        disabledClass: false,
+        opacity: '1',
+        themeDisabledClass: false,
+        themeAriaDisabled: 'false',
+      },
+        'editable public page fields must also lose their disabled appearance');
+
+      await setToggle(page, 'public_root', false);
+      const disabledAppearance = await page.evaluate(() => {
+        const block = document.querySelector('[data-public-page-dependent]');
+        return {
+          disabledClass: block?.classList.contains('is-disabled'),
+          opacity: block ? getComputedStyle(block).opacity : null,
+        };
+      });
+      assert.equal(disabledAppearance.disabledClass, true);
+      assert.notEqual(disabledAppearance.opacity, '1');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
@@ -171,7 +287,7 @@ describe('wizard security cluster', { concurrency: 1 }, () => {
     } finally { await ctx.close(); }
   });
 
-  test('public sidebar and notification badges share one row but remain independent', async () => {
+  test('public page sidebar toggle is scoped without locking notification badges', async () => {
     const { ctx, page, errors } = await wizard();
     try {
       await stepContaining(page, '[data-dlux-settings-toggle-field="show_sidebar_on_public"]');
@@ -182,22 +298,18 @@ describe('wizard security cluster', { concurrency: 1 }, () => {
         const publicCard = document.querySelector(
           '[data-dlux-settings-toggle-field="show_sidebar_on_public"]',
         );
-        const notificationColumn = notificationCard?.closest('.col-lg-6');
-        const publicColumn = publicCard?.closest('[data-public-root-dependent]');
-        if (!notificationColumn || !publicColumn) return { missing: true };
-        const notificationBox = notificationColumn.getBoundingClientRect();
-        const publicBox = publicColumn.getBoundingClientRect();
+        const publicColumn = publicCard?.closest('.col-lg-6');
+        const publicBlock = publicCard?.closest('[data-public-page-dependent]');
+        if (!notificationCard || !publicColumn || !publicBlock) return { missing: true };
         return {
-          sameParent: notificationColumn.parentElement === publicColumn.parentElement,
-          sameTop: Math.abs(notificationBox.top - publicBox.top) <= 2,
-          separated: notificationBox.right <= publicBox.left || publicBox.right <= notificationBox.left,
+          scoped: publicBlock.contains(publicCard),
+          unrelatedOutside: !publicBlock.contains(notificationCard),
         };
       });
 
-      assert.equal(layout.missing, undefined, 'the merged Sidebar row is incomplete');
-      assert.equal(layout.sameParent, true, 'the public-sidebar toggle is still in a separate row');
-      assert.equal(layout.sameTop, true, 'the Sidebar toggles are not aligned on one row');
-      assert.equal(layout.separated, true, 'the Sidebar toggles overlap');
+      assert.equal(layout.missing, undefined, 'the public page sidebar toggle is missing');
+      assert.equal(layout.scoped, true, 'the public page sidebar toggle is not scoped to public page access');
+      assert.equal(layout.unrelatedOutside, true, 'notification badges must not be scoped to public page access');
       assert.equal(await disabled(page, 'show_sidebar_on_public'), true);
       assert.equal(await disabled(page, 'sidebar_show_notification_badges'), false);
 
@@ -212,7 +324,7 @@ describe('wizard security cluster', { concurrency: 1 }, () => {
     } finally { await ctx.close(); }
   });
 
-  test('public titlebar and language switcher share one row but remain independent', async () => {
+  test('public page titlebar toggle is scoped without locking the language switcher', async () => {
     const { ctx, page, errors } = await wizard();
     try {
       await stepContaining(page, '[data-dlux-settings-toggle-field="show_titlebar_on_public"]');
@@ -223,22 +335,18 @@ describe('wizard security cluster', { concurrency: 1 }, () => {
         const publicCard = document.querySelector(
           '[data-dlux-settings-toggle-field="show_titlebar_on_public"]',
         );
-        const languageColumn = languageCard?.closest('.col-xl-4');
-        const publicColumn = publicCard?.closest('[data-public-root-dependent]');
-        if (!languageColumn || !publicColumn) return { missing: true };
-        const languageBox = languageColumn.getBoundingClientRect();
-        const publicBox = publicColumn.getBoundingClientRect();
+        const publicColumn = publicCard?.closest('.col-lg-6');
+        const publicBlock = publicCard?.closest('[data-public-page-dependent]');
+        if (!languageCard || !publicColumn || !publicBlock) return { missing: true };
         return {
-          sameParent: languageColumn.parentElement === publicColumn.parentElement,
-          sameTop: Math.abs(languageBox.top - publicBox.top) <= 2,
-          separated: languageBox.right <= publicBox.left || publicBox.right <= languageBox.left,
+          scoped: publicBlock.contains(publicCard),
+          unrelatedOutside: !publicBlock.contains(languageCard),
         };
       });
 
-      assert.equal(layout.missing, undefined, 'the merged Titlebar row is incomplete');
-      assert.equal(layout.sameParent, true, 'the public-titlebar toggle is still in a separate row');
-      assert.equal(layout.sameTop, true, 'the Titlebar toggles are not aligned on one row');
-      assert.equal(layout.separated, true, 'the Titlebar toggles overlap');
+      assert.equal(layout.missing, undefined, 'the public page titlebar toggle is missing');
+      assert.equal(layout.scoped, true, 'the public page titlebar toggle is not scoped to public page access');
+      assert.equal(layout.unrelatedOutside, true, 'language switcher must not be scoped to public page access');
       const languageDisabled = await disabled(page, 'titlebar_show_language_switcher');
       assert.equal(await disabled(page, 'show_titlebar_on_public'), true);
 

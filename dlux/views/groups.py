@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.utils.module_loading import import_string
 from django.views.decorators.http import require_POST
@@ -50,7 +51,32 @@ def _render_manager(request):
         row.dlux_can_manage = can_manage_group_preset(request.user, row)
     table = GroupPresetTable(rows, request=request)
     RequestConfig(request).configure(table)
-    return render_to_string('dlux/groups/group_manager.html', {'table': table}, request=request)
+    return render_to_string(
+        'dlux/groups/_group_manager.html',
+        {'table': table, 'ribbon': _manager_ribbon(request)},
+        request=request,
+    )
+
+
+def _manager_ribbon(request):
+    """The modal's header, as a Ribbon: title, description and the Add button."""
+    from ..ribbon import build_action, build_ribbon
+    from ..translations import get_current_language_code, get_strings
+
+    s = get_strings(get_current_language_code(request))
+    return build_ribbon(
+        None,
+        request=request,
+        title=s.get('manage_groups_label', 'Manage Groups'),
+        subtitle=s.get('manage_groups_desc', ''),
+        title_icon='bi bi-people-fill',
+        actions=[build_action({
+            'label': s.get('add_group', 'Add Group'),
+            'icon': 'bi bi-plus-lg',
+            'css_class': 'btn btn-success rounded-pill js-group-nav',
+            'attrs': {'data-url': reverse('get_group_form')},
+        }, request=request)],
+    )
 
 
 # Group Management — AJAX modal: returns the preset table (manage_groups gated)

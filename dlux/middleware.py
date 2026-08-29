@@ -121,7 +121,7 @@ class DluxMiddleware:
         the configured root destination during system setup. If the system
         is not yet configured, redirect to the setup wizard instead.
 
-        When public_root is disabled, anonymous users are sent to the
+        When the public page is disabled, anonymous users are sent to the
         login page instead of the public destination.
 
         If the dev DOES have a view at '/' (response is not 404),
@@ -138,7 +138,7 @@ class DluxMiddleware:
         targets = self._resolve_root_targets(config)
         home_url = targets['home_url']
 
-        # When public_root is off, anonymous users must log in first
+        # When public page access is off, anonymous users must log in first.
         user = getattr(request, 'user', None)
         is_authenticated = bool(user and getattr(user, 'is_authenticated', False))
         if not targets['public_enabled']:
@@ -388,8 +388,8 @@ class DluxMiddleware:
 
         - LOGIN_REDIRECT_URL  → always points to home_url
         - LOGOUT_REDIRECT_URL → anonymous public destination when
-                                 public_root is on, login page when
-                                 public_root is off
+                                 public page access is on, login page when
+                                 public page access is off
         """
         try:
             from dlux.utils import get_system_config
