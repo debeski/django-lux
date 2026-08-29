@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Source manifest is v1.8.2; all release gates pass and tag/push is pending.
+- Dlux v1.8.2 is tagged, published on PyPI, and released with viewer artifacts.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 
@@ -26,7 +26,6 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Tag and publish Dlux v1.8.2 after the verified release commit.
   - [ ] Finish framework promotion from dlux-crm-gov's `common` app; only the generic list-page decision remains.
   - [ ] 4/4 Generic list page: `dlux/templates/dlux/list_base.html` supplies filter assets only — no content block, header, Add button or `render_table` — so dlux's own five list screens (`manage_users`, `activity_log`, `group_manager`, `scope_manager`, `manage_sections`) each hand-roll one. Decide whether dlux takes an opinion on list layout; if yes, promote `ScopedListView` + `scoped_list.html` on top of the Ribbon (which now owns the header/filter/actions band).
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_check --apply`.
@@ -35,6 +34,7 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:**
+  - [x] v1.8.2 released (2026-08-29): Ribbon, lookup, managed assets, settings/surface controls, request caches, access/session/notification updates, and schema-2 Composer gating.
   - [x] System Settings image uploads now persist immediately, select their returned managed-asset ID, and update every compatible open picker; the setup-allowed endpoint works before initial configuration (2026-08-28).
   - [x] Initial setup no longer marks untouched Identity/Login steps invalid (2026-08-28): step validation ignores empty hidden Dlux file-widget feedback while retaining visible non-empty server errors.
   - [x] Public Page naming and dependent state aligned (2026-08-28): current UI/docs use Public Page / الصفحة العامة, storage keys remain `public_root`, and nested selectors clear disabled visuals when the master is enabled.
@@ -49,7 +49,7 @@
 ### One-line info about last verified Tests:
 - 2026-08-29: Full package suite passed 2160 tests with 2 expected skips; all 85 test modules are included in the CI runner.
 - 2026-08-29: Full browser suite passed 106 tests and standalone builder JavaScript passed 41 tests.
-- 2026-08-29: Migration dry-run, schema-2 release check, wheel/sdist build, artifact contents, `twine check`, and `git diff --check` pass.
+- 2026-08-29: Migration/release/artifact gates pass; GitHub's 3.11–3.13 matrix, PyPI publish, viewer build, and release jobs succeeded.
 
 ### One-line info about last time edited Docs:
 - 2026-08-29: Release, Ribbon, managed-assets, Public Page, settings, and integration documentation reflects v1.8.2.
