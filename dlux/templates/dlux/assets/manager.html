@@ -18,9 +18,16 @@
         </div>
     </form>
 
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3 gap-2">
         <h6 class="mb-0">{{ DLUX_STRINGS.asset_images_title|default:'Saved images' }}</h6>
-        <span class="badge text-bg-secondary">{{ images|length }}</span>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-danger" data-asset-prune
+                    data-prune-url="{{ prune_url }}"
+                    title="{{ DLUX_STRINGS.asset_prune_hint|default:'Remove files nothing is using' }}">
+                <i class="bi bi-trash3 me-1"></i>{{ DLUX_STRINGS.asset_prune|default:'Clean up unused' }}
+            </button>
+            <span class="badge text-bg-secondary">{{ images|length }}</span>
+        </div>
     </div>
     <div class="dlux-managed-assets-grid">
         {% for asset in images %}

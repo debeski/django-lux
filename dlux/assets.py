@@ -128,11 +128,22 @@ def _asset_title(upload, title=''):
     return (Path(str(getattr(upload, 'name', '') or '')).stem or 'Asset')[:150]
 
 
-def create_managed_asset(upload, *, kind, user=None, title=''):
+def create_managed_asset(upload, *, kind, user=None, title='', namespace=''):
+    """Store an upload as a ``ManagedAsset``, reusing an identical one.
+
+    De-duplication is keyed on ``(namespace, checksum)``, never on the checksum
+    alone. Matching globally would hand one pool's row — title and all — to a
+    caller who uploaded the same bytes into another, which turns the storage
+    saving into a way of learning what is in a pool you cannot see.
+    """
+    from .models.assets import default_namespace_for_kind
+
     metadata = validate_asset_upload(upload, kind)
+    namespace = str(namespace or '') or default_namespace_for_kind(kind)
     Asset = apps.get_model('dlux', 'ManagedAsset')
     existing = Asset.objects.filter(
         kind=kind,
+        namespace=namespace,
         checksum=metadata['checksum'],
         is_active=True,
     ).first()
@@ -142,6 +153,7 @@ def create_managed_asset(upload, *, kind, user=None, title=''):
     asset = Asset(
         title=_asset_title(upload, title),
         kind=kind,
+        namespace=namespace,
         file=upload,
         created_by=user if getattr(user, 'is_authenticated', False) else None,
         **metadata,
@@ -151,13 +163,19 @@ def create_managed_asset(upload, *, kind, user=None, title=''):
     return asset, True
 
 
-def adopt_stored_asset(field_file, *, user=None, title=''):
+def adopt_stored_asset(field_file, *, user=None, title='', namespace=''):
+    """Bring a file already on disk into the library, in place.
+
+    This is the migration path off a plain ``ImageField``: the bytes are not
+    copied, the existing stored name becomes the asset's file, and the record
+    starts pointing at the asset instead.
+    """
     stored_name = str(getattr(field_file, 'name', '') or '').strip()
     storage = getattr(field_file, 'storage', None)
-    return adopt_storage_asset(stored_name, storage=storage, user=user, title=title)
+    return adopt_storage_asset(stored_name, storage=storage, user=user, title=title, namespace=namespace)
 
 
-def adopt_storage_asset(stored_name, *, storage=None, user=None, title=''):
+def adopt_storage_asset(stored_name, *, storage=None, user=None, title='', namespace=''):
     stored_name = str(stored_name or '').strip()
     normalized_parts = Path(stored_name).parts
     if not stored_name or Path(stored_name).is_absolute() or '..' in normalized_parts:
@@ -172,13 +190,19 @@ def adopt_storage_asset(stored_name, *, storage=None, user=None, title=''):
     except (OSError, ValidationError):
         return None
 
+    from .models.assets import default_namespace_for_kind
+
+    namespace = str(namespace or '') or default_namespace_for_kind('image')
     Asset = apps.get_model('dlux', 'ManagedAsset')
-    existing = Asset.objects.filter(kind='image', checksum=metadata['checksum'], is_active=True).first()
+    existing = Asset.objects.filter(
+        kind='image', namespace=namespace, checksum=metadata['checksum'], is_active=True,
+    ).first()
     if existing:
         return existing
     asset = Asset(
         title=_asset_title(Path(stored_name), title),
         kind='image',
+        namespace=namespace,
         file=stored_name,
         created_by=user if getattr(user, 'is_authenticated', False) else None,
         **metadata,
@@ -247,3 +271,32 @@ def register_managed_font(asset, *, slug, family, label='', weight=400, style='n
 def collect_asset_usages(asset):
     from dlux.utils import collect_related_objects
     return collect_related_objects(asset)
+
+
+#: How long an asset is left alone regardless of whether anything points at it.
+#:
+#: Instant upload registers the asset the moment a file is chosen — before the
+#: form that will reference it has been saved. Pruning without a grace period
+#: would delete the picture out of somebody's half-finished record.
+ASSET_PRUNE_MIN_AGE_HOURS = 24
+
+
+def prunable_assets(kind=None, *, min_age_hours=ASSET_PRUNE_MIN_AGE_HOURS, namespaces=None):
+    """Assets nothing references and that are old enough to be safe to remove.
+
+    Reference checking is the same relation walk the manager already shows per
+    card, so what this returns is exactly the set whose Delete is enabled.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    Asset = apps.get_model('dlux', 'ManagedAsset')
+    queryset = Asset.objects.all()
+    if kind:
+        queryset = queryset.filter(kind=kind)
+    if namespaces:
+        queryset = queryset.filter(namespace__in=list(namespaces))
+    if min_age_hours:
+        queryset = queryset.filter(created_at__lte=timezone.now() - timedelta(hours=min_age_hours))
+    return [asset for asset in queryset.order_by('title', 'pk') if not collect_asset_usages(asset)]

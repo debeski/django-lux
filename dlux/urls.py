@@ -117,10 +117,13 @@ urlpatterns = [
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
-    path('sys/setup/assets/upload/', views.managed_image_picker_upload, name='managed_image_picker_upload'),
+    path('sys/assets/upload/', views.managed_asset_picker_upload, name='managed_asset_picker_upload'),
+    # Pre-1.9 route, kept so a cached page or an unchanged template still posts somewhere real.
+    path('sys/setup/assets/upload/', views.managed_asset_picker_upload, name='managed_image_picker_upload'),
     path('sys/assets/', views.asset_manager_page, name='manage_assets'),
     path('sys/assets/delete/<int:pk>/', views.asset_manager_delete, name='manage_assets_delete'),
     path('sys/assets/rename/<int:pk>/', views.asset_manager_rename, name='manage_assets_rename'),
+    path('sys/assets/prune/', views.asset_manager_prune, name='manage_assets_prune'),
     # ScanLink installer distribution. The manifest is what the tray app polls;
     # the download view is the only route to the bytes, which are stored as
     # protected managed assets and are not reachable over MEDIA_URL.

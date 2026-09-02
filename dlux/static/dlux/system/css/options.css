@@ -1017,6 +1017,17 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     background: rgba(var(--primal-rgb, 71, 85, 105), 0.06);
 }
 
+/* Permanent mode should not look like the same dialog. The dialog itself carries
+   the danger edge so the operator cannot mistake which run they are about to
+   start; the rows stay legible. */
+.dlux-data-reset-permanent .modal-content {
+    border: 1px solid var(--bs-danger, #dc3545);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-danger-rgb, 220, 53, 69), 0.18);
+}
+.dlux-data-reset-permanent .dlux-data-reset-list {
+    border-top-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.28);
+}
+
 .dlux-admin-panel-top {
     display: flex;
     flex-wrap: wrap;

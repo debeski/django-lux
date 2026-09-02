@@ -18,7 +18,11 @@ Public-registration defaults are selected in Manage Scopes and Manage Groups, no
 
 Users can configure TOTP, recover backup codes, manage trusted devices, and end recorded sessions from Profile. Trusted sessions take precedence over untrusted sessions. When single-session enforcement is enabled, a successful login or completed 2FA login ends the user's other sessions. Otherwise, password change can optionally end other signed-in devices while retaining the current browser.
 
-Administrators can use the Admin panel command rail for bulk forced password change and destructive data reset. Both require the current password; reset data excludes System Settings, updater state, permission groups, and superusers. Take a full system backup before using data reset.
+Administrators can use the Admin panel command rail for bulk forced password change and destructive data reset. Both require the current password; reset data excludes System Settings, updater state, permission groups, superusers, and any model whose rows are only a line of another record (an invoice's items go with the invoice). Take a full system backup before using data reset.
+
+Reset data runs in one of two modes. **Soft** — the default — soft-deletes `ScopedModel` subclasses so they stay recoverable, and hard-deletes everything else. **Permanent** hard-deletes every selected model and empties those models' recycle bins as well, so rows soft-deleted by any earlier action go too; it requires the confirmation word typed into the dialog on top of the password, and there is no undo. Use it only to start a system over.
+
+Bulk writes run no `save()` or `delete()`, so a figure a project derives in those methods — a stock balance, a cached total — is stale once the rows behind it are cleared. A project repairs its own by connecting to `dlux.admin_actions.data_reset.data_reset_finished`.
 
 ## Activity logs and reports
 

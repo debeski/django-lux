@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import OperationalError, ProgrammingError, transaction
 from django.urls import reverse
 from ..translations import get_strings
+from ..models.assets import SHARED_ASSET_NAMESPACE
 from ..widgets import DluxFileInput
 
 from ..assets import (
@@ -28,8 +29,16 @@ class AssetSelection:
 class AssetPickerWidget(DluxFileInput):
     needs_multipart_form = True
 
-    def __init__(self, *, kind='image', attrs=None):
+    def __init__(self, *, kind='image', namespace='', reads=(), identity='', capture='', attrs=None):
         self.kind = kind
+        self.namespace = namespace or ''
+        self.reads = tuple(reads or ())
+        #: `app_label.modelname.fieldname`. The upload endpoint resolves this
+        #: against its own registry — it is an identifier, never a grant.
+        self.identity = identity or ''
+        #: '' | 'environment' | 'user'. Set it and a phone opens the camera
+        #: instead of the file chooser.
+        self.capture = capture or ''
         self.legacy_url = ''
         self.legacy_name = ''
         self.asset_choices = None
@@ -37,6 +46,22 @@ class AssetPickerWidget(DluxFileInput):
 
     def set_asset_choices(self, assets):
         self.asset_choices = list(assets) if assets is not None else None
+
+    def readable_namespaces(self):
+        """The write namespace, this field's `reads`, and always the shared pool.
+
+        Anything uploaded straight through the Asset Manager lands in
+        `dlux.shared` and is offered everywhere: an admin putting a file in the
+        library by hand is doing it so a form can use it, and having to name
+        which form in advance would defeat the point.
+        """
+        if not self.namespace:
+            return ()
+        namespaces = [self.namespace]
+        namespaces.extend(ns for ns in self.reads if ns not in namespaces)
+        if SHARED_ASSET_NAMESPACE not in namespaces:
+            namespaces.append(SHARED_ASSET_NAMESPACE)
+        return tuple(namespaces)
 
     def _compatible_assets(self):
         if self.asset_choices is not None:
@@ -48,9 +73,32 @@ class AssetPickerWidget(DluxFileInput):
             # server-side transaction stays aborted and takes the next statement
             # in the enclosing atomic block down with it.
             with transaction.atomic():
-                return list(Asset.objects.filter(kind=self.kind, is_active=True).order_by('title', 'pk'))
+                queryset = Asset.objects.filter(kind=self.kind, is_active=True)
+                queryset = self._narrow_to_namespaces(queryset)
+                return list(queryset.order_by('title', 'pk'))
         except (AssertionError, OperationalError, ProgrammingError):
             return []
+
+    def _narrow_to_namespaces(self, queryset):
+        """Restrict a queryset to what this field may read.
+
+        A row whose namespace is empty predates the column and belongs to
+        whatever its kind defaults to, so it is matched when that default is one
+        of the namespaces being read — and only then.
+        """
+        from django.db.models import Q
+
+        from ..models.assets import default_namespace_for_kind
+
+        namespaces = self.readable_namespaces()
+        if not namespaces:
+            # A hand-built picker that names no namespace still sees everything,
+            # which is what it saw before the column existed.
+            return queryset
+        condition = Q(namespace__in=namespaces)
+        if default_namespace_for_kind(self.kind) in namespaces:
+            condition |= Q(namespace='')
+        return queryset.filter(condition)
 
     def value_from_datadict(self, data, files, name):
         asset_name = f'{name}_asset'
@@ -84,7 +132,12 @@ class AssetPickerWidget(DluxFileInput):
         widget = context['widget']
         widget.update({
             'asset_picker': True,
-            'asset_upload_url': reverse('managed_image_picker_upload') if self.kind == 'image' else '',
+            # One endpoint for every kind now: fonts used to have no instant
+            # upload at all and fell back to carrying the file on form submit.
+            'asset_upload_url': reverse('managed_asset_picker_upload'),
+            'asset_field_identity': self.identity,
+            'asset_namespace': self.namespace,
+            'capture': self.capture,
             'field_label': self.field_label,
             'show_scan': False,
             'empty_meta': strings.get('asset_picker_empty_meta', 'Choose a saved file or use upload.'),
@@ -114,10 +167,24 @@ class AssetPickerWidget(DluxFileInput):
 
 
 class AssetPickerField(forms.Field):
-    def __init__(self, *, kind='image', **kwargs):
+    """Choose a reusable ``ManagedAsset``, or add one by uploading it now.
+
+    ``namespace`` is the pool an upload lands in and ``reads`` widens what the
+    picker lists without widening what it writes. ``identity``
+    (``app_label.modelname.fieldname``) is what the upload endpoint resolves to
+    decide whether this user may write to that pool; a field built by hand
+    without one gets no instant upload and falls back to the form-submit path.
+    """
+
+    def __init__(self, *, kind='image', namespace='', reads=(), identity='', capture='', **kwargs):
         kwargs.setdefault('required', False)
-        kwargs['widget'] = AssetPickerWidget(kind=kind)
+        kwargs['widget'] = AssetPickerWidget(
+            kind=kind, namespace=namespace, reads=reads, identity=identity, capture=capture,
+        )
         self.kind = kind
+        self.namespace = namespace or ''
+        self.reads = tuple(reads or ())
+        self.identity = identity or ''
         super().__init__(**kwargs)
 
     def clean(self, value):
@@ -136,7 +203,11 @@ class AssetPickerField(forms.Field):
         asset_id = str(value.get('asset_id') or '').strip()
         if asset_id:
             Asset = apps.get_model('dlux', 'ManagedAsset')
-            asset = Asset.objects.filter(pk=asset_id, kind=self.kind, is_active=True).first()
+            queryset = Asset.objects.filter(pk=asset_id, kind=self.kind, is_active=True)
+            # Re-checked here and not only in the picker: the id arrives in the
+            # POST body, so a namespace the field cannot read must be refused
+            # rather than merely hidden.
+            asset = self.widget._narrow_to_namespaces(queryset).first()
             if asset is None:
                 raise ValidationError("Choose an available compatible asset.")
             return AssetSelection(asset=asset)
@@ -179,11 +250,11 @@ class ManagedImageUploadForm(forms.Form):
             validate_asset_upload(upload, 'image')
         return uploads
 
-    def save(self, *, user=None):
+    def save(self, *, user=None, namespace=''):
         assets = []
         created_count = 0
         for upload in self.cleaned_data['file']:
-            asset, created = create_managed_asset(upload, kind='image', user=user)
+            asset, created = create_managed_asset(upload, kind='image', user=user, namespace=namespace)
             assets.append(asset)
             created_count += int(created)
         return assets, created_count

@@ -270,7 +270,10 @@ class ManagedAssetTests(TestCase):
         self.assertNotIn('dropdown-menu', html)
         self.assertIn('name="logo_upload"', html)
         self.assertIn('name="login_logo_asset"', html)
-        self.assertIn('data-asset-upload-url="/sys/setup/assets/upload/"', html)
+        # 1.9: every picker posts to the general endpoint, not the setup-only one.
+        # The old route still resolves so a cached page keeps working.
+        self.assertIn('data-asset-upload-url="/sys/assets/upload/"', html)
+        self.assertIn('data-asset-namespace="dlux.systemsettings"', html)
 
     def test_invalid_image_upload_returns_picker_safe_error(self):
         self.client.force_login(self.user)

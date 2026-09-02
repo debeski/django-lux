@@ -174,4 +174,11 @@ from .control_link import (
     control_panel_status_view,
 )
 
-from .assets import asset_manager_delete, asset_manager_page, asset_manager_rename, managed_image_picker_upload
+from .assets import (
+    asset_manager_delete,
+    asset_manager_page,
+    asset_manager_prune,
+    asset_manager_rename,
+    managed_asset_picker_upload,
+    managed_image_picker_upload,
+)

@@ -5,7 +5,6 @@ Mixed into SystemSettingsForm; see dlux/forms/system_settings.py.
 """
 
 import json
-from pathlib import Path
 from django.template.loader import render_to_string
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
@@ -124,8 +123,8 @@ from ...utils import (
     seed_navbar_config_from_sidebar,
 )
 from ...system.registry import get_setting_group
-from ..assets import AssetPickerField, AssetSelection
-from ...assets import adopt_stored_asset, create_managed_asset
+from ..assets import AssetPickerField
+from ...models.assets import DEFAULT_ASSET_NAMESPACE
 from .._shared import FONT_CHOICES, THEME_CHOICES, _LEGACY_HOME_URL, _json_dump, logger
 
 
@@ -178,32 +177,23 @@ class PreservedValueMixin:
         return str(value or '').strip()[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
 
     def _resolve_asset_selection(self, field_name, current_asset, *, legacy_file=None, commit=True):
-        selection = self.cleaned_data.get(field_name)
-        if not isinstance(selection, AssetSelection):
-            selection = AssetSelection(omitted=True)
-        if selection.upload:
-            if not commit:
-                return current_asset
-            asset, _created = create_managed_asset(
-                selection.upload,
-                kind='image',
-                title=Path(str(getattr(selection.upload, 'name', '') or '')).stem,
-                user=self._user or getattr(self.request, 'user', None),
-            )
-            return asset
-        if selection.asset is not None:
-            return selection.asset
-        if selection.clear:
-            return None
-        if current_asset is not None:
-            return current_asset
-        if commit and legacy_file:
-            return adopt_stored_asset(
-                legacy_file,
-                user=self._user or getattr(self.request, 'user', None),
-                title=Path(str(getattr(legacy_file, 'name', '') or '')).stem,
-            )
-        return None
+        """Branding assets go through the same public helper a project uses.
+
+        This method was the only implementation of the rule until 1.9; it now
+        calls `dlux.forms.resolve_asset_selection` so System Settings is a
+        consumer of the public API rather than a second copy of it.
+        """
+        from ..asset_fields import resolve_asset_selection
+
+        return resolve_asset_selection(
+            self.cleaned_data.get(field_name),
+            current_asset,
+            kind='image',
+            namespace=DEFAULT_ASSET_NAMESPACE,
+            legacy_file=legacy_file,
+            user=self._user or getattr(self.request, 'user', None),
+            commit=commit,
+        )
 
     def _read_imported_settings(self):
         uploaded = self.cleaned_data.get('settings_import_file')

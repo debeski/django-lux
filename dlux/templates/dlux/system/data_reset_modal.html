@@ -23,6 +23,21 @@ is populated by data_reset.js from the preview endpoint. DSRP-1: no inline JS.
                         <label class="form-check-label" for="dluxDataResetMedia">{{ DLUX_STRINGS.data_reset_delete_media|default:'Also delete related media files' }}</label>
                     </div>
                 </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="dluxDataResetPermanent" data-data-reset-permanent>
+                    <label class="form-check-label fw-semibold text-danger" for="dluxDataResetPermanent">{{ DLUX_STRINGS.data_reset_mode_permanent|default:'Delete permanently instead of soft-deleting' }}</label>
+                </div>
+                <div class="alert alert-danger d-none" role="alert" data-autoclose="false" data-data-reset-permanent-panel>
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-fire flex-shrink-0 mt-1"></i>
+                        <span>{{ DLUX_STRINGS.data_reset_permanent_warning|default:'Permanent mode removes every selected row for good — including rows already soft-deleted earlier — and cannot be undone. Related lines are removed with their parent record.' }}</span>
+                    </div>
+                    <label class="form-label small fw-semibold mt-3 mb-1" for="dluxDataResetConfirm" data-data-reset-confirm-label></label>
+                    <input type="text" class="form-control" id="dluxDataResetConfirm" autocomplete="off"
+                           spellcheck="false" dir="auto" data-data-reset-confirm
+                           data-confirm-word="{{ DLUX_STRINGS.data_reset_confirm_word|default:'DELETE' }}"
+                           data-confirm-template="{{ DLUX_STRINGS.data_reset_confirm_label|default:'Type {word} to confirm' }}">
+                </div>
                 <div class="dlux-data-reset-list" data-data-reset-list></div>
                 <div class="mt-3 d-none" data-data-reset-result aria-live="polite"></div>
             </div>

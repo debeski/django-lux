@@ -982,24 +982,55 @@ def data_reset_preview_view(request):
     return JsonResponse({'status': 'success', 'models': build_reset_catalog(request.user, strings)})
 
 
+def _permanent_confirmed(request, strings):
+    """The typed acknowledgement permanent mode requires on top of the password.
+
+    Either the localized word or the English default is accepted: an operator
+    reading an Arabic UI types the Arabic word, and a script or a second-language
+    session is not locked out by a translation.
+    """
+    from ..admin_actions.data_reset import DATA_RESET_CONFIRM_WORD
+
+    typed = str(request.POST.get('confirm_permanent') or '').strip().casefold()
+    if not typed:
+        return False
+    expected = {
+        str(strings.get('data_reset_confirm_word') or '').strip().casefold(),
+        DATA_RESET_CONFIRM_WORD.casefold(),
+    }
+    return typed in {word for word in expected if word}
+
+
 @login_required
 @require_POST
 def data_reset_execute_view(request):
     """Superuser-only: current-password-gated execution of a data reset on the
-    selected models (scoped → soft-delete, others → hard-delete)."""
+    selected models.
+
+    Soft mode (the default) soft-deletes scoped models and hard-deletes the rest.
+    Permanent mode hard-deletes everything selected and empties those models'
+    recycle bins, so it additionally requires the typed confirmation word — the
+    password proves who is asking, this proves they know it cannot be undone.
+    """
     strings = get_strings(get_current_language_code(request))
     if not request.user.is_superuser:
         return JsonResponse({'status': 'error', 'message': strings.get('permission_denied', 'Permission denied.')}, status=403)
     if failure := require_current_password(request, redirect_name='options_view'):
         return failure
 
-    from ..admin_actions.data_reset import execute_reset
+    from ..admin_actions.data_reset import RESET_MODE_PERMANENT, execute_reset, normalize_mode
     selected = request.POST.getlist('models')
     if not selected:
         return JsonResponse({'status': 'error', 'message': strings.get('data_reset_no_models', 'Select at least one model to reset.')}, status=400)
     delete_media = str(request.POST.get('delete_media') or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    mode = normalize_mode(request.POST.get('mode'))
+    if mode == RESET_MODE_PERMANENT and not _permanent_confirmed(request, strings):
+        return JsonResponse({'status': 'error', 'message': strings.get(
+            'data_reset_confirm_required',
+            'Type the confirmation word to permanently delete this data.',
+        )}, status=400)
 
-    results = execute_reset(request.user, selected, delete_media=delete_media)
+    results = execute_reset(request.user, selected, delete_media=delete_media, mode=mode)
     total_deleted = sum(int(r.get('deleted') or 0) for r in results)
     soft = sum(int(r.get('deleted') or 0) for r in results if r.get('scoped'))
     hard = total_deleted - soft
@@ -1009,6 +1040,11 @@ def data_reset_execute_view(request):
         'data_reset_success',
         'Data reset complete: {total} row(s) cleared ({soft} soft-deleted, {hard} permanently).',
     )
+    if mode == RESET_MODE_PERMANENT:
+        message_template = strings.get(
+            'data_reset_success_permanent',
+            'Data reset complete: {total} row(s) permanently deleted.',
+        )
     try:
         message = message_template.format(total=total_deleted, soft=soft, hard=hard)
     except Exception:
@@ -1022,7 +1058,7 @@ def data_reset_execute_view(request):
             'DELETE',
             instance=request.user,
             model_name='user',
-            details={'models': selected, 'delete_media': delete_media,
+            details={'models': selected, 'mode': mode, 'delete_media': delete_media,
                      'total_deleted': total_deleted, 'results': results},
         )
     except Exception:
@@ -1033,11 +1069,11 @@ def data_reset_execute_view(request):
         request=request,
         action='data_reset',
         category='security',
-        metadata={'total_deleted': total_deleted, 'soft': soft, 'hard': hard},
+        metadata={'total_deleted': total_deleted, 'soft': soft, 'hard': hard, 'mode': mode},
     )
 
     return JsonResponse({'status': 'success', 'message': message, 'results': results,
-                         'total_deleted': total_deleted, 'blocked': bool(blocked)})
+                         'mode': mode, 'total_deleted': total_deleted, 'blocked': bool(blocked)})
 
 
 def _debug_bool_param(request, name, default=None):

@@ -62,6 +62,112 @@ class ResetCatalogTests(TestCase):
         self.assertEqual(by_key.get('dlux.trusteddevice'), 'الأجهزة الموثوقة')
 
 
+class ResetChildModelTests(TestCase):
+    """A model that is only a line of another record is never offered."""
+
+    def test_cascade_child_is_detected_and_excluded(self):
+        # ManagedFontVariant belongs to a ManagedFontFamily by a required CASCADE FK.
+        variant = apps.get_model('dlux.ManagedFontVariant')
+        family = apps.get_model('dlux.ManagedFontFamily')
+        self.assertIs(dr.cascade_parent(variant), family)
+        self.assertFalse(dr.is_reset_eligible(variant))
+        self.assertTrue(dr.is_reset_eligible(family))
+
+    def test_user_is_never_treated_as_a_parent(self):
+        # Devices cascade from a user, but clearing users is not how an operator
+        # clears devices — they stay selectable in their own right.
+        device = apps.get_model('dlux.TrustedDevice')
+        self.assertIsNone(dr.cascade_parent(device))
+        self.assertTrue(dr.is_reset_eligible(device))
+
+    def test_scoped_model_is_never_a_line(self):
+        self.assertIsNone(dr.cascade_parent(apps.get_model('dlux.ActivityLog')))
+
+    def test_child_is_absent_from_the_catalog_and_refused_by_execute(self):
+        su = User.objects.create_superuser('root', 'r@x.com', 'pw')
+        keys = {c['key'] for c in dr.build_reset_catalog(su)}
+        self.assertNotIn('dlux.managedfontvariant', keys)
+        result = dr.execute_reset(su, ['dlux.managedfontvariant'])[0]
+        self.assertEqual(result['status'], 'skipped')
+        self.assertEqual(result['reason'], 'not_eligible')
+
+
+class ResetPermanentModeTests(TestCase):
+    def setUp(self):
+        self.su = User.objects.create_superuser('root', 'r@x.com', 'pw')
+        from dlux.middleware import _thread_locals
+        _thread_locals.user = self.su
+        self.AL = apps.get_model('dlux.ActivityLog')
+
+    def _rows(self, live=2, trashed=3):
+        from django.utils import timezone
+        # Creating the superuser above logs its own activity row; start from zero
+        # so the counts below are exactly what this test wrote.
+        self.AL.all_objects.all().delete()
+        for _ in range(live):
+            self.AL.all_objects.create(action='LIVE', model_name='x', category='user')
+        for _ in range(trashed):
+            self.AL.all_objects.create(action='OLD', model_name='x', category='user',
+                                       deleted_at=timezone.now())
+
+    def test_mode_normalization_defaults_to_soft(self):
+        self.assertEqual(dr.normalize_mode(None), dr.RESET_MODE_SOFT)
+        self.assertEqual(dr.normalize_mode('nonsense'), dr.RESET_MODE_SOFT)
+        self.assertEqual(dr.normalize_mode('PERMANENT'), dr.RESET_MODE_PERMANENT)
+
+    def test_permanent_hard_deletes_scoped_rows_and_empties_the_bin(self):
+        self._rows(live=2, trashed=3)
+        results = dr.execute_reset(self.su, ['dlux.activitylog'], mode=dr.RESET_MODE_PERMANENT)
+        entry = next(r for r in results if r['key'] == 'dlux.activitylog')
+        self.assertEqual(entry['status'], 'deleted')
+        self.assertEqual(entry['deleted'], 5)          # live + already soft-deleted
+        self.assertEqual(self.AL.all_objects.count(), 0)
+
+    def test_soft_mode_leaves_the_bin_alone(self):
+        self._rows(live=2, trashed=3)
+        results = dr.execute_reset(self.su, ['dlux.activitylog'])
+        entry = next(r for r in results if r['key'] == 'dlux.activitylog')
+        self.assertEqual(entry['status'], 'soft_deleted')
+        self.assertEqual(entry['deleted'], 2)           # only the live rows
+        self.assertEqual(self.AL.all_objects.count(), 5)
+
+    def test_catalog_reports_the_recycle_bin_separately(self):
+        self._rows(live=2, trashed=3)
+        entry = next(c for c in dr.build_reset_catalog(self.su) if c['key'] == 'dlux.activitylog')
+        self.assertEqual(entry['count'], 2)
+        self.assertEqual(entry['trashed'], 3)
+
+    def test_finished_signal_carries_the_run(self):
+        self._rows(live=1, trashed=0)
+        seen = {}
+
+        def receiver(sender, **kwargs):
+            seen.update(kwargs)
+
+        dr.data_reset_finished.connect(receiver)
+        try:
+            dr.execute_reset(self.su, ['dlux.activitylog'], mode=dr.RESET_MODE_PERMANENT)
+        finally:
+            dr.data_reset_finished.disconnect(receiver)
+        self.assertEqual(seen.get('mode'), dr.RESET_MODE_PERMANENT)
+        self.assertEqual(seen.get('models'), ['dlux.activitylog'])
+        self.assertEqual(seen.get('actor'), self.su)
+        self.assertTrue(seen.get('results'))
+
+    def test_a_failing_receiver_never_fails_the_reset(self):
+        self._rows(live=1, trashed=0)
+
+        def boom(sender, **kwargs):
+            raise RuntimeError('receiver exploded')
+
+        dr.data_reset_finished.connect(boom)
+        try:
+            results = dr.execute_reset(self.su, ['dlux.activitylog'])
+        finally:
+            dr.data_reset_finished.disconnect(boom)
+        self.assertEqual(results[0]['status'], 'soft_deleted')
+
+
 class ResetExecutionTests(TestCase):
     def test_scoped_model_is_soft_deleted(self):
         su = User.objects.create_superuser('root', 'r@x.com', 'pw')
@@ -131,3 +237,23 @@ class ResetEndpointTests(TestCase):
         # non-superuser blocked
         self.assertEqual(self._client(self.joe).post('/sys/admin/data-reset/execute/',
                          {'current_password': 'pw', 'models': ['dlux.activitylog']}, **AJAX).status_code, 403)
+
+    def test_permanent_mode_requires_the_typed_word(self):
+        client = self._client(self.su)
+        base = {'current_password': 'pw12345!', 'models': ['dlux.activitylog'], 'mode': 'permanent'}
+        # missing
+        self.assertEqual(client.post('/sys/admin/data-reset/execute/', base, **AJAX).status_code, 400)
+        # wrong
+        self.assertEqual(client.post('/sys/admin/data-reset/execute/',
+                                     dict(base, confirm_permanent='yes'), **AJAX).status_code, 400)
+        # the English default, case-insensitively
+        r = client.post('/sys/admin/data-reset/execute/', dict(base, confirm_permanent='delete'), **AJAX)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['mode'], 'permanent')
+
+    def test_unknown_mode_falls_back_to_soft_and_needs_no_word(self):
+        r = self._client(self.su).post('/sys/admin/data-reset/execute/',
+                                       {'current_password': 'pw12345!', 'models': ['dlux.activitylog'],
+                                        'mode': 'obliterate'}, **AJAX)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['mode'], 'soft')

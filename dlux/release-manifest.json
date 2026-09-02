@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.8.3",
+  "version": "1.8.4",
   "display": {
-    "summary": "Inspector-backed builders, configurable ribbon actions, reusable list pages, modal managers, and section/form cleanup for system surfaces.",
+    "summary": "Managed assets become a public API any project can declare, with namespaced pools and permission-checked instant upload; plus a permanent mode for data reset.",
     "highlights": [
-      "Nav Bar, Sidebar, and Ribbon builders share the Dlux inspector shell with anchored popover editing and icon-picker integration.",
-      "Ribbon configuration discovers declared page actions, filters destinations, de-duplicates endpoints, and supports custom/removable/restorable buttons.",
-      "Dynamic modal managers provide list/form/detail flows with guarded deletes, modal-owned navigation, and footerless table lists.",
-      "Section Management uses an expandable editor, stable form grids/footer toggles, one dismiss control, and a shortcut-only sidebar toggle.",
-      "File upload helpers and markup move from archive_file naming to file_field naming with v1.x compatibility shims."
+      "New ManagedAssetField(kind, namespace, reads) declares an asset-backed file field in one line, with the picker, upload and save-time resolution supplied.",
+      "Assets carry a namespace, so a picker lists one pool instead of the whole library and de-duplication cannot reach across pools.",
+      "Instant upload works on any project form: the endpoint reads the field's own declaration for namespace, kind and permission instead of demanding a superuser.",
+      "resolve_asset_selection, apply_asset_pickers, build_asset_field and ManagedAssetFormMixin are public; System Settings now consumes them.",
+      "Data reset gained a permanent mode behind a typed confirmation, stopped offering line models, and signals projects to rebuild derived figures."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.4"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -20,7 +20,7 @@
     }
   },
   "migrations": {
-    "effect": "none",
+    "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },

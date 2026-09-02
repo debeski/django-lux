@@ -61,7 +61,66 @@
             });
     }
 
+    function s(key, fallback) {
+        const value = (window.DLUX_STRINGS || {})[key];
+        return (typeof value === 'string' && value.length) ? value : fallback;
+    }
+
+    function prune(button) {
+        if (button.dataset.pruning === 'true') return;
+        button.dataset.pruning = 'true';
+        const post = function (confirmed) {
+            const body = new FormData();
+            if (confirmed) body.append('confirm', '1');
+            return fetch(button.dataset.pruneUrl, {
+                method: 'POST',
+                body: body,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken(),
+                },
+            }).then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok || !data.success) throw new Error(data.error || s('asset_prune_failed', 'Clean-up failed.'));
+                    return data;
+                });
+            });
+        };
+
+        // Ask first, and name what is going: the preview is the whole point of
+        // a two-step delete.
+        post(false).then(function (preview) {
+            if (!preview.count) {
+                window.alert(preview.message || s('asset_prune_none', 'No unused files to clean up.'));
+                return null;
+            }
+            const listed = (preview.titles || []).join('\n');
+            const question = s('asset_prune_confirm', 'Permanently delete {count} unused file(s)?')
+                .replace('{count}', String(preview.count));
+            if (!window.confirm(listed ? (question + '\n\n' + listed) : question)) return null;
+            return post(true);
+        }).then(function (result) {
+            if (!result) return;
+            if (window.showToast && result.message) window.showToast(result.message);
+            // Same refresh the upload path uses, so the grid and counts agree.
+            const nav = document.querySelector('[data-dlux-modal-nav] a[aria-current="page"], [data-dlux-modal-nav] a.active');
+            if (nav) { nav.click(); } else { window.location.reload(); }
+        }).catch(function (error) {
+            window.alert(error.message);
+        }).finally(function () {
+            delete button.dataset.pruning;
+        });
+    }
+
     document.addEventListener('click', function (event) {
+        const pruneButton = event.target.closest('[data-asset-prune]');
+        if (pruneButton) {
+            event.preventDefault();
+            prune(pruneButton);
+            return;
+        }
+
         const uploadButton = event.target.closest('[data-managed-image-upload-trigger]');
         if (uploadButton) {
             event.preventDefault();

@@ -126,6 +126,10 @@
                 setUploadError(picker, '');
                 const body = new FormData();
                 body.append('file', file);
+                // Names the field this picker belongs to. The server resolves it
+                // against its own registry for the namespace, the accepted kind
+                // and the permission — it is not trusted for any of them.
+                if (picker.dataset.assetField) body.append('field', picker.dataset.assetField);
                 fetch(uploadUrl, {
                     method: 'POST',
                     body: body,

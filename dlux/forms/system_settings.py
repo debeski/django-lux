@@ -163,6 +163,7 @@ from ..system.registry import get_setting_group
 from ..widgets import DluxChoiceSelectorWidget
 from .assets import AssetPickerField, AssetSelection
 from ..assets import adopt_stored_asset, create_managed_asset
+from ..models.assets import DEFAULT_ASSET_NAMESPACE
 from ..fonts import get_font_choices
 
 from ._shared import FONT_CHOICES, THEME_CHOICES, _LEGACY_HOME_URL, _json_dump, logger
@@ -218,10 +219,14 @@ class SystemSettingsForm(
     LayoutMixin,
     forms.ModelForm,
 ):
-    logo = AssetPickerField(kind='image')
-    favicon = AssetPickerField(kind='image')
-    login_logo = AssetPickerField(kind='image')
-    login_background = AssetPickerField(kind='image')
+    # Branding lives in its own namespace, so these four pickers list logos and
+    # favicons rather than every product photo in the system. They carry no field
+    # identity on purpose: without one the upload endpoint keeps its
+    # superuser-only path, which is the right audience for branding.
+    logo = AssetPickerField(kind='image', namespace=DEFAULT_ASSET_NAMESPACE)
+    favicon = AssetPickerField(kind='image', namespace=DEFAULT_ASSET_NAMESPACE)
+    login_logo = AssetPickerField(kind='image', namespace=DEFAULT_ASSET_NAMESPACE)
+    login_background = AssetPickerField(kind='image', namespace=DEFAULT_ASSET_NAMESPACE)
     _SCHEMA_SIMPLE_CONFIG_GROUPS = (
         'auth_config',
         'registration_config',

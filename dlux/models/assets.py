@@ -15,13 +15,49 @@ from ..fonts import clear_font_cache
 PROTECTED_ASSET_KINDS = frozenset({'installer'})
 PROTECTED_ASSET_PREFIX = 'dlux/assets/private'
 
+#: The pool an asset belongs to, as ``app_label.modelname``.
+#:
+#: A picker lists only the namespaces its field is declared to read, so branding
+#: never appears on a product form and product photos never bury the favicon.
+#: It is a property of the asset, not a filter a caller has to remember, which is
+#: also what keeps checksum de-duplication from reaching across a boundary and
+#: handing one pool's row to another.
+#:
+#: Namespaces dlux owns:
+DEFAULT_ASSET_NAMESPACE = 'dlux.systemsettings'   # branding: logo, favicon, login
+FONT_ASSET_NAMESPACE = 'dlux.fonts'
+INSTALLER_ASSET_NAMESPACE = 'dlux.scanlink'
+#: Reserved: a curated pool any field may name in its ``reads`` list. Nothing
+#: writes here yet; it exists so a shared library has a home when one is wanted.
+SHARED_ASSET_NAMESPACE = 'dlux.shared'
+
+#: A namespace is a dotted identifier, not free text — it is used in storage
+#: paths and matched against field declarations.
+ASSET_NAMESPACE_MAX_LENGTH = 100
+
+
+def default_namespace_for_kind(kind):
+    return {
+        'font': FONT_ASSET_NAMESPACE,
+        'installer': INSTALLER_ASSET_NAMESPACE,
+    }.get(str(kind or ''), DEFAULT_ASSET_NAMESPACE)
+
+
+def _namespace_path_segment(namespace):
+    """A namespace is already constrained to dotted identifiers; keep it readable
+    in the media tree rather than hashing it."""
+    cleaned = ''.join(ch for ch in str(namespace or '') if ch.isalnum() or ch in '._-')
+    return cleaned or DEFAULT_ASSET_NAMESPACE
+
 
 def managed_asset_upload_to(instance, filename):
     suffix = Path(str(filename or '')).suffix.lower()
     kind = getattr(instance, 'kind', '') or ''
+    namespace = _namespace_path_segment(getattr(instance, 'namespace', '') or default_namespace_for_kind(kind))
     if kind in PROTECTED_ASSET_KINDS:
-        return f"{PROTECTED_ASSET_PREFIX}/{kind}/{uuid.uuid4().hex}{suffix}"
-    return f"dlux/assets/{kind}/{uuid.uuid4().hex}{suffix}"
+        return f"{PROTECTED_ASSET_PREFIX}/{kind}/{namespace}/{uuid.uuid4().hex}{suffix}"
+    # Only new saves take this path, so existing files keep their stored names.
+    return f"dlux/assets/{kind}/{namespace}/{uuid.uuid4().hex}{suffix}"
 
 
 class ManagedAsset(models.Model):
@@ -42,6 +78,23 @@ class ManagedAsset(models.Model):
     title = models.CharField(max_length=150, verbose_name="Asset Name")
     slug = models.SlugField(max_length=180, unique=True, verbose_name="Asset Slug")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, db_default=KIND_IMAGE, verbose_name="Asset Type")
+    #: Empty means "whatever this kind defaults to" — see `effective_namespace`.
+    #:
+    #: Rows predating the column are left empty rather than stamped with one
+    #: value, because one value would be wrong for two of the three kinds: every
+    #: pre-existing asset was branding, a font, or a ScanLink installer, and
+    #: those belong in three different pools. Deriving it costs nothing, needs no
+    #: data migration (which would put the release outside the inline-safe
+    #: operation allowlist), and self-heals — `save()` fills in a concrete value
+    #: the first time any row is written.
+    namespace = models.CharField(
+        max_length=ASSET_NAMESPACE_MAX_LENGTH,
+        blank=True,
+        default='',
+        db_default='',
+        db_index=True,
+        verbose_name="Asset Namespace",
+    )
     file = models.FileField(upload_to=managed_asset_upload_to, verbose_name="Asset File")
     mime_type = models.CharField(max_length=100, blank=True, db_default='', verbose_name="MIME Type")
     size_bytes = models.PositiveBigIntegerField(default=0, db_default=0, verbose_name="File Size")
@@ -66,9 +119,19 @@ class ManagedAsset(models.Model):
         verbose_name_plural = "Managed Assets"
         default_permissions = ()
         ordering = ('kind', 'title', 'pk')
+        indexes = [
+            # The picker's query: one namespace (or a short read list), one kind,
+            # active only.
+            models.Index(fields=('namespace', 'kind', 'is_active'), name='dlux_asset_ns_kind_idx'),
+        ]
 
     def __str__(self):
         return self.title
+
+    @property
+    def effective_namespace(self):
+        """The pool this asset is in, derived when the column is still empty."""
+        return self.namespace or default_namespace_for_kind(self.kind)
 
     @property
     def filename(self):
@@ -94,6 +157,10 @@ class ManagedAsset(models.Model):
             return ''
 
     def save(self, *args, **kwargs):
+        # A row written from here on always carries its namespace explicitly, so
+        # the derived fallback only ever covers rows older than the column.
+        if not self.namespace:
+            self.namespace = default_namespace_for_kind(self.kind)
         if not self.slug:
             base = slugify(self.title) or self.kind or 'asset'
             candidate = base[:160]

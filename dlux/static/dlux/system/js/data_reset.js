@@ -7,6 +7,11 @@
  * models + a delete-media toggle → the Reset button re-sends the password to the
  * execute endpoint. Scoped models are soft-deleted server-side; the rest are
  * permanently removed. Superusers and system settings are never listed.
+ *
+ * The permanent switch turns the whole run into a hard delete — every badge
+ * flips, the counts grow by each model's recycle bin, and the Reset button stays
+ * disabled until the confirmation word is typed. The server re-checks that word;
+ * this is the part that makes the operator read the sentence above it.
  */
 (function () {
     'use strict';
@@ -39,23 +44,80 @@
         var resultEl = modalEl.querySelector('[data-data-reset-result]');
         var selectAll = modalEl.querySelector('[data-data-reset-select-all]');
         var selectNone = modalEl.querySelector('[data-data-reset-select-none]');
+        var permanentEl = modalEl.querySelector('[data-data-reset-permanent]');
+        var permanentPanel = modalEl.querySelector('[data-data-reset-permanent-panel]');
+        var confirmEl = modalEl.querySelector('[data-data-reset-confirm]');
+        var confirmLabelEl = modalEl.querySelector('[data-data-reset-confirm-label]');
         var modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
 
         var executeUrl = chip.getAttribute('data-execute-url');
         var password = '';   // held only while the selection modal is open
+        var softLabel = executeBtn.innerHTML;
+        var rows = [];       // [{model, cb, count, kind}] — repainted per mode
 
-        modalEl.addEventListener('hidden.bs.modal', function () { password = ''; });
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            password = '';
+            // The dangerous mode never survives a close: reopening starts safe.
+            if (permanentEl) { permanentEl.checked = false; }
+            if (confirmEl) { confirmEl.value = ''; }
+            applyMode();
+        });
+
+        function isPermanent() { return !!(permanentEl && permanentEl.checked); }
+
+        function confirmWord() {
+            return (confirmEl && confirmEl.getAttribute('data-confirm-word')) || 'DELETE';
+        }
+        function confirmOk() {
+            if (!isPermanent()) { return true; }
+            if (!confirmEl) { return false; }
+            return confirmEl.value.trim().toLocaleLowerCase() === confirmWord().trim().toLocaleLowerCase();
+        }
 
         function checkboxes() {
             return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"][data-model]'));
         }
         function refreshExecuteState() {
             var any = checkboxes().some(function (cb) { return cb.checked; });
-            executeBtn.disabled = !any;
+            executeBtn.disabled = !any || !confirmOk();
+        }
+
+        /* Repaint everything the mode changes: the warning panel, the per-row
+           badge and count, and the button that carries out the run. */
+        function applyMode() {
+            var permanent = isPermanent();
+            if (permanentPanel) { permanentPanel.classList.toggle('d-none', !permanent); }
+            if (confirmLabelEl) {
+                var template = (confirmEl && confirmEl.getAttribute('data-confirm-template')) || 'Type {word} to confirm';
+                confirmLabelEl.textContent = template.replace('{word}', confirmWord());
+            }
+            modalEl.classList.toggle('dlux-data-reset-permanent', permanent);
+            executeBtn.innerHTML = permanent
+                ? '<i class="bi bi-fire me-1"></i>' + s('data_reset_execute_permanent', 'Permanently delete selected data')
+                : softLabel;
+            rows.forEach(function (entry) {
+                var scopedSoft = entry.model.scoped && !permanent;
+                entry.kind.className = scopedSoft ? 'badge text-bg-info' : 'badge text-bg-danger';
+                entry.kind.textContent = scopedSoft
+                    ? s('data_reset_soft_badge', 'soft-delete')
+                    : s('data_reset_hard_badge', 'permanent');
+                var trashed = permanent ? (entry.model.trashed || 0) : 0;
+                var total = (entry.model.count || 0) + trashed;
+                entry.count.textContent = String(total);
+                entry.count.title = trashed
+                    ? s('data_reset_trashed', '{count} already soft-deleted').replace('{count}', String(trashed))
+                    : '';
+                // A model with nothing live but a full recycle bin is only
+                // actionable in permanent mode.
+                entry.cb.disabled = !total;
+                if (entry.cb.disabled) { entry.cb.checked = false; }
+            });
+            refreshExecuteState();
         }
 
         function renderList(models) {
             listEl.innerHTML = '';
+            rows = [];
             resultEl.classList.add('d-none');
             resultEl.innerHTML = '';
             if (!models.length) {
@@ -71,7 +133,6 @@
                 cb.className = 'form-check-input flex-shrink-0 m-0';
                 cb.id = 'dlux-data-reset-' + i;
                 cb.setAttribute('data-model', m.key);
-                cb.disabled = !m.count;
                 cb.addEventListener('change', refreshExecuteState);
                 row.appendChild(cb);
                 row.htmlFor = cb.id;
@@ -84,18 +145,11 @@
 
                 var count = document.createElement('span');
                 count.className = 'badge text-bg-secondary';
-                count.textContent = String(m.count);
                 row.appendChild(count);
 
                 var kind = document.createElement('span');
-                if (m.scoped) {
-                    kind.className = 'badge text-bg-info';
-                    kind.textContent = s('data_reset_soft_badge', 'soft-delete');
-                } else {
-                    kind.className = 'badge text-bg-danger';
-                    kind.textContent = s('data_reset_hard_badge', 'permanent');
-                }
                 row.appendChild(kind);
+                rows.push({ model: m, cb: cb, count: count, kind: kind });
 
                 if (m.has_media) {
                     var media = document.createElement('i');
@@ -105,7 +159,7 @@
                 }
                 listEl.appendChild(row);
             });
-            refreshExecuteState();
+            applyMode();   // paints counts and badges for the current mode
         }
 
         function openPrompt() {
@@ -135,9 +189,12 @@
         function execute() {
             var selected = checkboxes().filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.getAttribute('data-model'); });
             if (!selected.length || !password) { return; }
+            if (!confirmOk()) { return; }
             var body = new URLSearchParams();
             body.set('current_password', password);
             body.set('delete_media', mediaEl && mediaEl.checked ? '1' : '0');
+            body.set('mode', isPermanent() ? 'permanent' : 'soft');
+            if (isPermanent()) { body.set('confirm_permanent', confirmEl.value.trim()); }
             selected.forEach(function (key) { body.append('models', key); });
 
             executeBtn.disabled = true;
@@ -166,6 +223,8 @@
 
         chip.addEventListener('click', openPrompt);
         executeBtn.addEventListener('click', execute);
+        if (permanentEl) { permanentEl.addEventListener('change', applyMode); }
+        if (confirmEl) { confirmEl.addEventListener('input', refreshExecuteState); }
         if (selectAll) { selectAll.addEventListener('click', function () { checkboxes().forEach(function (cb) { if (!cb.disabled) { cb.checked = true; } }); refreshExecuteState(); }); }
         if (selectNone) { selectNone.addEventListener('click', function () { checkboxes().forEach(function (cb) { cb.checked = false; }); refreshExecuteState(); }); }
     }

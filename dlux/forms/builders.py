@@ -103,6 +103,17 @@ def build_file_field(field_name, css_class=None):
     return Field(field_name, **field_kwargs)
 
 
+def build_asset_field(field_name, css_class=None):
+    """A `ManagedAssetField` in a crispy layout.
+
+    The same wrapper `build_file_field` uses: the asset picker *is* the file
+    card, with a library popover added, so it needs no template of its own.
+    Kept as a separate name because a layout reads better when it says which
+    kind of field it is placing.
+    """
+    return build_file_field(field_name, css_class=css_class)
+
+
 # Named for project-archive's document forms, where this widget started. Kept
 # importable through v1.x for the host projects still on the old name; removed
 # in v1.9.0.

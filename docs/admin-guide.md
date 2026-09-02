@@ -27,4 +27,4 @@ Useful companion references:
 
 ## Admin safety rules
 
-Interface visibility never replaces backend authorization. System-changing actions are POST-only; security-sensitive actions also require the current password. Take a full backup before destructive data reset or restore work, and use `composer check` before changing a generated Compose stack.
+Interface visibility never replaces backend authorization. System-changing actions are POST-only; security-sensitive actions also require the current password. Take a full backup before destructive data reset or restore work, and use `composer check` before changing a generated Compose stack. Reset data additionally offers a permanent mode that empties the recycle bin and cannot be undone; it is gated behind a typed confirmation word as well as the password.

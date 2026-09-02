@@ -38,6 +38,7 @@ TEST_LABELS = [
     'dlux.tests.test_theme_variables',
     'dlux.tests.test_table_translation',
     'dlux.tests.test_admin_actions',
+    'dlux.tests.test_asset_fields',
     'dlux.tests.test_data_reset',
     'dlux.tests.test_password_reset',
     'dlux.tests.test_dlux_setup',

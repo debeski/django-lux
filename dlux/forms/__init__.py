@@ -36,11 +36,25 @@ from .builders import (  # noqa: F401
     _get_ui_direction,
     _wrap_modal_action_buttons,
     build_archive_file_field,
+    build_asset_field,
     build_file_field,
     build_email_test_control,
     build_email_toggle_field,
     build_settings_toggle_field,
     build_titlebar_actions_order_builder,
+)
+from .assets import (  # noqa: F401
+    AssetPickerField,
+    AssetPickerWidget,
+    AssetSelection,
+)
+from .asset_fields import (  # noqa: F401
+    ManagedAssetFormMixin,
+    apply_asset_pickers,
+    apply_asset_selections,
+    build_asset_picker,
+    managed_asset_fields,
+    resolve_asset_selection,
 )
 from .auth import (  # noqa: F401
     CustomPasswordChangeForm,
@@ -76,6 +90,9 @@ from .system_settings import (  # noqa: F401
 )
 
 __all__ = [
+    'AssetPickerField',
+    'AssetPickerWidget',
+    'AssetSelection',
     'CustomPasswordChangeForm',
     'CustomUserChangeForm',
     'CustomUserCreationForm',
@@ -99,8 +116,15 @@ __all__ = [
     'User',
     'UserModalForm',
     'UserProfileEditForm',
+    'ManagedAssetFormMixin',
+    'apply_asset_pickers',
+    'apply_asset_selections',
+    'build_asset_picker',
     'build_archive_file_field',
+    'build_asset_field',
     'build_file_field',
+    'managed_asset_fields',
+    'resolve_asset_selection',
     'build_email_test_control',
     'build_email_toggle_field',
     'build_settings_toggle_field',
