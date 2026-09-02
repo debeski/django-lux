@@ -7,6 +7,18 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.3
+
+- **Inspector-Backed Builders**: Added shared `dlux/helpers/inspector` CSS/JS and migrated Nav Bar, Sidebar, and Ribbon builders to anchored popover editors with localized fields, panel actions, shared icon picker integration, and selection state separated from saved configuration.
+- **Configurable Ribbon Actions**: Ribbon discovery now reads declared actions from class and function views, filters destinations through `ribbon_destination` metadata, de-duplicates endpoints, and lets admins edit, remove, restore, and add destination-backed buttons in `ribbon_config`.
+- **Dynamic Modal Managers**: `DynamicModalManagerView.as_view(model=..., manager=True)` now provides list/form/detail manager flows with nested modal navigation, modal-owned delete URLs, no page-behind refresh on manager saves, and footerless table lists.
+- **Sections Management Surface**: `manage_sections` now uses a collapsed expandable editor, manage-only Ribbon Add/Edit flow, cardless table rendering, stable section form grids/footer toggles, one dismiss control, localized unsaved-change confirmation, and a shortcut-only `sidebar_config.show_sections_manager` toggle.
+- **Reusable List Page**: Added `dlux/list_page.html` for Ribbon-plus-table record screens with extension blocks for table content, page attributes, modals, styles, and scripts; Activity Log now uses it without its former table card wrapper.
+- **Shared Guards And Navigation**: Scope, group, and section deletes share POST-only related-record guards; section modals map `dlux.view_sections`/`dlux.manage_sections`; framework back links use the RTL-aware `dlux-back-link`; `Ctrl/Cmd-U` opens User Management through the rendered permission-gated link.
+- **System Settings UX**: Email and Access & Security steps now use Dlux choice selectors for delivery, secret storage, provider, client-IP, and activation settings, while Profile, Reports, Pending registrations, and Control Panel are configurable system destinations.
+- **Responsive System Surfaces**: Backup/Restore and Ribbon action rows now fit phone widths, backup creation/upload controls share the page Ribbon/action layout, and `RibbonMixin.get_ribbon_subtitle()` feeds request-time subtitles for Users and Activity Log.
+- **File Field Rename**: Renamed the public file-upload helper and markup family from `archive_file` to `file_field`, including `build_file_field()`, `file_field_*` context keys, `.dlux-file-*` classes, and `data-dlux-file-*` hooks, with documented v1.x compatibility shims for the old helper/key/class names.
+
 ## v1.8.2
 
 - **Configurable Multi-Strip Ribbons**: Added the reusable Ribbon band for page titles, filters, actions, and tabs; lists can declare primary, child, and axis strips, while System Settings separately manages pre-defined overlays/removals and admin-created extra strips. Child discovery is scoped to the active parent, fixed ribbons remain locked, and Dlux management, reports, backup, group, and scope screens use the same component.

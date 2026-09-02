@@ -19,14 +19,14 @@
     }
 
     function widgetForButton(button) {
-        return button.closest("[data-archive-file-widget]");
+        return button.closest("[data-dlux-file-widget]");
     }
 
     function setWidgetStatus(button, message) {
         const widget = widgetForButton(button);
         if (!widget) return;
 
-        const meta = widget.querySelector("[data-archive-file-meta]");
+        const meta = widget.querySelector("[data-dlux-file-meta]");
         if (!meta) return;
 
         if (!button.dataset.scanOriginalMeta) {
@@ -40,7 +40,7 @@
         const widget = widgetForButton(button);
         if (!widget) return;
 
-        const meta = widget.querySelector("[data-archive-file-meta]");
+        const meta = widget.querySelector("[data-dlux-file-meta]");
         if (!meta) return;
 
         if (button.dataset.scanOriginalMeta !== undefined) {

@@ -144,6 +144,8 @@ def build_ribbon(
     layout=None,
     strings=None,
     panel_id='dlux-ribbon-advanced',
+    custom_actions_key='',
+    custom_actions_host='',
 ):
     """Build a `Ribbon` from a FilterSet, honouring any explicit overrides.
 
@@ -175,12 +177,33 @@ def build_ribbon(
             preserve_keys = tuple(preserve_keys or ()) + (strip.param,)
 
     form = getattr(filterset, 'form', None)
+    resolved_actions = list(actions or [])
+    if custom_actions_key:
+        from .tabs import configured_action_overlays_for_key, configured_custom_actions_for_key
+
+        # Overlays first, so a button an administrator removed is gone before the
+        # duplicate check runs and cannot suppress the one that replaced it.
+        resolved_actions = _apply_action_overlays(
+            resolved_actions,
+            configured_action_overlays_for_key(custom_actions_key),
+            request=request,
+        )
+        resolved_actions.extend(
+            action
+            for action in (
+                build_action(spec, request=request)
+                for spec in configured_custom_actions_for_key(custom_actions_key, custom_actions_host)
+            )
+            if action is not None
+        )
+    resolved_actions = _dedupe_actions_by_destination(resolved_actions)
+
     ribbon = Ribbon(
         form=form,
         title=title,
         title_icon=title_icon,
         subtitle=subtitle,
-        actions=list(actions or []),
+        actions=resolved_actions,
         strips=strips,
         nesting=layout.get('ribbon_nesting') or 'chain',
         hidden=list(hidden or []),
@@ -302,12 +325,19 @@ def build_action(spec, request=None):
         user = getattr(request, 'user', None)
         if user is None or not user.has_perm(permission):
             return None
+    permissions = spec.pop('permissions', None)
+    if permissions and request is not None:
+        from dlux.utils import user_has_any_permission_tokens
+
+        user = getattr(request, 'user', None)
+        if not user_has_any_permission_tokens(user, permissions, default_visible_to_all=False):
+            return None
     from django.utils.safestring import mark_safe
 
     raw_html = spec.get('html', '')
     return RibbonAction(
         url=spec.get('url', '') or '',
-        label=spec.get('label', ''),
+        label=_action_label(spec, request),
         icon=spec.get('icon', ''),
         css_class=spec.get('css_class') or spec.get('btn_class') or 'btn btn-primary',
         type=spec.get('type') or 'button',
@@ -315,3 +345,111 @@ def build_action(spec, request=None):
         # Developer-supplied markup from view code, not user input.
         html=mark_safe(raw_html) if raw_html else '',
     )
+
+
+def action_destination_key(action):
+    """What a button points at, as a stable identity.
+
+    A ribbon button *is* its destination: two buttons opening the same endpoint are
+    the same button however they were declared, and whichever attribute carries it.
+    That identity is what the runtime dedupes on, and what an administrator's edits
+    to a code-declared button are keyed by — stable across a view reordering its
+    `ribbon_actions`, which a positional key is not. A button that is raw `html`
+    has no destination and is left alone.
+    """
+    attrs = getattr(action, 'attrs', None) or {}
+    for candidate in (
+        attrs.get('data-dynamic-modal'),
+        # A submit button posts the page's form somewhere; that somewhere is its
+        # destination just as much as an href is.
+        attrs.get('formaction'),
+        # dlux's own manager buttons open a modal from `data-url` through their own
+        # handler rather than the dynamic-modal contract. Same endpoint, different
+        # attribute — keying on the attribute would have called them different
+        # buttons, which is the very pair an administrator ends up duplicating.
+        attrs.get('data-url'),
+        # A composite control — a start button with its own progress and download
+        # link — is rendered markup, so `attrs` never reach the page. They still
+        # say what the control is, which is enough to remove or restore it.
+        attrs.get('data-start-url'),
+        getattr(action, 'url', ''),
+    ):
+        endpoint = str(candidate or '').strip()
+        if endpoint:
+            return f'dest:{endpoint}'
+    return ''
+
+
+def _apply_action_overlays(actions, overlays, request=None):
+    """Administrator edits to buttons a view declared in code.
+
+    The same overlay model declared tab strips have: removed, renamed, re-iconed,
+    and restorable by dropping the entry.
+    """
+    if not overlays:
+        return list(actions)
+    from dataclasses import replace
+
+    kept = []
+    for action in actions:
+        overlay = overlays.get(action_destination_key(action))
+        if not isinstance(overlay, dict):
+            kept.append(action)
+            continue
+        if overlay.get('enabled') is False:
+            continue
+        changes = {}
+        label = _action_label(overlay, request)
+        if label:
+            changes['label'] = label
+        icon = str(overlay.get('icon') or '').strip()
+        if icon:
+            changes['icon'] = icon
+        # `replace`, not assignment: a view may hand the same RibbonAction back on
+        # every request, and an overlay must not edit it for good.
+        kept.append(replace(action, **changes) if changes else action)
+    return kept
+
+
+def _dedupe_actions_by_destination(actions):
+    """One button per destination, whoever declared it.
+
+    A view's own Add button, a dlux-supplied one and an administrator's can all
+    end up pointing at the same manager. Showing the reader three buttons that do
+    the same thing is never right, so the first declaration wins — code before
+    configuration.
+    """
+    seen = set()
+    kept = []
+    for action in actions:
+        key = action_destination_key(action)
+        if key:
+            if key in seen:
+                continue
+            seen.add(key)
+        kept.append(action)
+    return kept
+
+
+def _action_label(spec, request=None):
+    labels = spec.get('labels')
+    if isinstance(labels, dict):
+        try:
+            from dlux.translations import get_current_language_code
+
+            code = get_current_language_code(request)
+        except Exception:
+            code = ''
+        candidates = [code]
+        if '-' in code:
+            candidates.append(code.split('-', 1)[0])
+        candidates.extend(('en', 'ar'))
+        for candidate in candidates:
+            text = str(labels.get(candidate) or '').strip()
+            if text:
+                return text
+        for text in labels.values():
+            text = str(text or '').strip()
+            if text:
+                return text
+    return spec.get('label', '')

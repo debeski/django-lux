@@ -46,6 +46,43 @@
     flex: 1 1 100%;
 }
 
+.dlux-section-form-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+}
+
+.dlux-section-form-footer .dlux-form-actions {
+    margin-top: 0;
+}
+
+.dlux-section-form-footer-toggle {
+    flex: 0 1 18rem;
+}
+
+.dlux-section-form-footer-toggle .dlux-settings-toggle-field {
+    margin-bottom: 0 !important;
+    padding: 0.65rem 0.85rem !important;
+    border-radius: 0.9rem !important;
+}
+
+.dlux-section-form-footer-toggle .dlux-settings-toggle-field__label {
+    font-size: 0.86rem;
+}
+
+.dlux-section-form-row {
+    align-items: stretch;
+}
+
+.dlux-section-form-field {
+    min-width: 0;
+}
+
 @media (min-width: 768px) {
     .dlux-form-page {
         contain: layout;

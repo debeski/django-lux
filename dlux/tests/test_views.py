@@ -19,6 +19,7 @@ from django.utils import timezone
 from datetime import timedelta
 from importlib import import_module
 import json
+import re
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -667,6 +668,28 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(settings_obj.default_fonts, {'en': 'cairo', 'ar': 'cairo'})
         self.assertEqual(settings_obj.default_table_density, 'roomy')
 
+    def test_section_manager_modal_table_drops_its_chrome_and_lists_every_record(self):
+        from dlux.system.constants import DEFAULT_TABLE_PAGE_SIZE
+
+        Scope.objects.bulk_create([
+            Scope(name=f'ModalScope{index}')
+            for index in range(DEFAULT_TABLE_PAGE_SIZE + 2)
+        ])
+
+        response = self.client.get(
+            reverse('modal_manager', args=['dlux', 'Scope', 'new']),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = json.loads(response.content)['html']
+        self.assertNotIn('dlux-table-footer', html)
+        self.assertNotIn('dlux-table-page-size', html)
+        self.assertNotIn('card-header', html)
+        # The marker that keeps the form's action bar out of the sticky footer.
+        self.assertIn('data-dlux-modal-list', html)
+        self.assertIn(f'ModalScope{DEFAULT_TABLE_PAGE_SIZE + 1}', html)
+
     def test_generic_modal_manager_relies_on_signal_logging_for_scope_create(self):
         fake_request = SimpleNamespace(META={})
         with patch('dlux.models.UserActivityLog.safe_log') as safe_log, \
@@ -1266,6 +1289,20 @@ class ScopeViewsTests(TestCase):
         response = self.client.get(reverse('manage_scopes'))
         self.assertEqual(response.status_code, 200)
 
+    def test_scope_manager_modal_renders_without_a_table_footer(self):
+        from dlux.system.constants import DEFAULT_TABLE_PAGE_SIZE
+
+        Scope.objects.bulk_create([
+            Scope(name=f'FooterScope{index}')
+            for index in range(DEFAULT_TABLE_PAGE_SIZE + 2)
+        ])
+
+        html = json.loads(self.client.get(reverse('manage_scopes')).content)['html']
+
+        self.assertNotIn('dlux-table-footer', html)
+        self.assertNotIn('dlux-table-page-size', html)
+        self.assertIn(f'FooterScope{DEFAULT_TABLE_PAGE_SIZE + 1}', html)
+
     def test_scope_form_saves_description(self):
         response = self.client.post(
             reverse('save_scope'),
@@ -1294,6 +1331,35 @@ class ScopeViewsTests(TestCase):
         self.assertFalse(first.is_public_registration_default)
         self.assertTrue(second.is_public_registration_default)
         self.assertIn('Public default', second_response.json()['html'])
+
+    def test_delete_scope_removes_scope_without_related_records(self):
+        scope = Scope.objects.create(name='Unused Scope')
+
+        response = self.client.post(reverse('delete_scope', args=[scope.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['success'])
+        self.assertFalse(Scope.objects.filter(pk=scope.pk).exists())
+        self.assertIn('html', payload)
+
+    def test_delete_scope_blocks_and_reports_related_records(self):
+        scope = Scope.objects.create(name='Used Scope')
+        scoped_user = User.objects.create_user(
+            username='scoped-delete-block',
+            email='scoped-delete-block@example.com',
+            password='pw',
+        )
+        scoped_user.profile.scope = scope
+        scoped_user.profile.save(update_fields=['scope'])
+
+        response = self.client.post(reverse('delete_scope', args=[scope.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload['success'])
+        self.assertTrue(payload['related'])
+        self.assertTrue(Scope.objects.filter(pk=scope.pk).exists())
 
     def test_scope_detail_returns_users_data_and_activity_counts(self):
         scope = Scope.objects.create(
@@ -1418,6 +1484,7 @@ class ActivityLogViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('filter', response.context)
         self.assertIn('table', response.context)
+        self.assertEqual(response.context['ribbon'].subtitle, get_strings()['activity_log_desc'])
         self.assertEqual(response.context['filter'].form.fields['keyword'].label, '')
 
     def test_activity_log_view_translates_system_settings_model_name_in_arabic(self):
@@ -1662,6 +1729,33 @@ class SecurityHardeningViewTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_generic_modal_manager_allows_manage_sections_for_section_models(self):
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        with patch.object(Scope, 'is_section', True, create=True):
+            response = self.client.get(
+                reverse('modal_manager', args=['dlux', 'Scope', 'new']),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_generic_modal_delete_allows_manage_sections_for_section_models(self):
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+        scope = Scope.objects.create(name='Unused Section Delete')
+
+        with patch.object(Scope, 'is_section', True, create=True):
+            response = self.client.post(
+                reverse('modal_delete', args=['dlux', 'Scope', scope.pk]),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        self.assertFalse(Scope.objects.filter(pk=scope.pk).exists())
+
     def test_profile_edit_modal_is_self_only(self):
         self.client.login(username='regular', password='regularpass123')
 
@@ -1809,6 +1903,7 @@ class SecurityHardeningViewTests(TestCase):
         response = self.client.get(reverse('manage_users'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['ribbon'].subtitle, get_strings()['manage_users_desc'])
 
     def test_manage_users_uses_table_pagination_without_double_paginating_page_two(self):
         self._grant_user_permission(self.staff_user, 'view_user')
@@ -2046,6 +2141,62 @@ class SecurityHardeningViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_manage_sections_table_is_not_wrapped_in_page_card(self):
+        self._grant_section_permission(self.regular_user, 'view_sections')
+        self.client.login(username='regular', password='regularpass123')
+        Scope.objects.create(name='Section Table Surface')
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': None,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+        from dlux.utils.crud import _build_generic_table_class
+        from dlux.views import sections as section_views
+
+        mock_section[0]['form_class'] = section_views.resolve_form_class_for_model(Scope)
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        html = response.content.decode()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('dlux-table-shell', html)
+        self.assertNotIn('card border-0 shadow-sm pt-2', html)
+        self.assertNotIn('data-dlux-section-add', html)
+        self.assertNotIn('data-dlux-section-form-panel', html)
+
+    def test_hiding_the_sections_shortcut_leaves_the_page_reachable(self):
+        """The toggle hides the sidebar-toolbar shortcut, nothing more.
+
+        It used to 404 `manage_sections` and its endpoints as well, which made a
+        Sections Manager entry placed through the sidebar builder dead on arrival —
+        the entry rendered and every click on it answered 404. Permissions still
+        decide who may open it.
+        """
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            **(settings_obj.sidebar_config or {}),
+            'show_sections_manager': False,
+        }
+        settings_obj.save()
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        self.assertEqual(self.client.get(reverse('manage_sections')).status_code, 200)
+
+        response = self.client.get(
+            reverse('get_section_details'),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertNotEqual(response.status_code, 404)
+
     def test_manage_sections_post_requires_manage_sections_permission(self):
         self._grant_section_permission(self.regular_user, 'view_sections')
         self.client.login(username='regular', password='regularpass123')
@@ -2091,6 +2242,27 @@ class SecurityHardeningViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_delete_section_blocks_and_reports_related_records(self):
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+        scope = Scope.objects.create(name='Section Delete Block Scope')
+        self.other_user.profile.scope = scope
+        self.other_user.profile.save(update_fields=['scope'])
+        allowed_section = {'model': Scope, 'model_name': 'scope'}
+
+        with patch('dlux.views.sections._resolve_allowed_section_definition', return_value=allowed_section):
+            response = self.client.post(
+                reverse('delete_section'),
+                json.dumps({'model': 'scope', 'pk': scope.pk}),
+                content_type='application/json',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload['success'])
+        self.assertTrue(payload['related'])
+        self.assertTrue(Scope.objects.filter(pk=scope.pk).exists())
 
     def test_add_subsection_rejects_non_subsection_models_even_with_manage_permission(self):
         self._grant_section_permission(self.regular_user, 'manage_sections')
@@ -2150,6 +2322,331 @@ class SecurityHardeningViewTests(TestCase):
         self.assertFalse(payload['success'])
         self.assertNotIn('sensitive traceback marker', payload['error'])
         self.assertNotIn('traceback', payload)
+
+    def test_manage_sections_sets_textarea_rows_to_2(self):
+        class ScopeWithNotesForm(forms.ModelForm):
+            notes = forms.CharField(widget=forms.Textarea, required=False)
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'notes']
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeWithNotesForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context.get('form')
+        self.assertIsNotNone(form)
+        self.assertIn('notes', form.fields)
+        self.assertEqual(form.fields['notes'].widget.attrs.get('rows'), 2)
+        html = response.content.decode()
+        self.assertIn('rows="2"', html)
+
+    def test_manage_sections_auto_layout_uses_grid_and_footer_toggles(self):
+        class ScopeAutoForm(forms.ModelForm):
+            section = forms.ChoiceField(choices=(('main', 'Main'), ('extra', 'Extra')))
+            enabled = forms.BooleanField(required=False, label='Enabled')
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'default_theme', 'description', 'section', 'enabled']
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeAutoForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('col-12 col-lg-6 dlux-section-form-field', html)
+        self.assertIn('name="section"', html)
+        self.assertIn('name="default_theme"', html)
+        self.assertIn('dlux-section-form-footer', html)
+        self.assertIn("data-dlux-settings-toggle-field='enabled'", html)
+        self.assertIn("name='enabled'", html)
+        self.assertLess(html.index("data-dlux-settings-toggle-field='enabled'"), html.index('dlux-form-action-primary'))
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertIn('data-dlux-section-add="true"', html)
+        self.assertIn('data-dlux-section-form-panel', form_fragment)
+        self.assertNotIn('collapse show mb-4 no-print', form_fragment)
+        self.assertNotIn('col-auto align-self-end mb-3', html)
+
+    def test_manage_sections_add_query_opens_blank_form_panel(self):
+        class ScopeAutoForm(forms.ModelForm):
+            class Meta:
+                model = Scope
+                fields = ['name']
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeAutoForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope&form=add')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertIn('collapse show mb-4 no-print', form_fragment)
+        self.assertIn('data-dlux-section-form-mode="add"', form_fragment)
+        self.assertIn('action="/sys/sections/?model=scope&amp;form=add"', form_fragment)
+        # One dismiss, in the action row beside Save: the card header used to
+        # carry a second one for the same thing.
+        self.assertEqual(form_fragment.count('data-dlux-section-cancel'), 1)
+        self.assertNotIn('justify-content-between gap-3 pb-0', form_fragment)
+
+    def test_manage_sections_invalid_post_keeps_form_panel_open(self):
+        class ScopeAutoForm(forms.ModelForm):
+            class Meta:
+                model = Scope
+                fields = ['name']
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeAutoForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.post(reverse('manage_sections') + '?model=scope', {'name': ''})
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertIn('collapse show mb-4 no-print', form_fragment)
+        self.assertIn('data-dlux-section-form-mode="add"', form_fragment)
+        self.assertFalse(Scope.objects.filter(name='').exists())
+
+    def test_manage_sections_auto_layout_shows_cancel_only_while_editing(self):
+        class ScopeAutoForm(forms.ModelForm):
+            enabled = forms.BooleanField(required=False, label='Enabled')
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'enabled']
+
+        scope = Scope.objects.create(name='Editable Scope')
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeAutoForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + f'?model=scope&id={scope.pk}')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertIn('collapse show mb-4 no-print', form_fragment)
+        self.assertIn('data-dlux-section-form-mode="edit"', form_fragment)
+        self.assertIn('dlux-form-action-neutral', form_fragment)
+
+    def test_manage_sections_auto_footer_can_be_field_opt_in(self):
+        class ScopeAutoForm(forms.ModelForm):
+            reviewed = forms.BooleanField(required=False, label='Reviewed')
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'reviewed']
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.fields['reviewed'].dlux_footer = True
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeAutoForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("data-dlux-settings-toggle-field='reviewed'", html)
+        self.assertLess(html.index("data-dlux-settings-toggle-field='reviewed'"), html.index('dlux-form-action-primary'))
+
+    def test_manage_sections_respects_declared_footer_bound_fields(self):
+        from crispy_forms.helper import FormHelper
+        from crispy_forms.layout import Column, Field, Layout, Row
+
+        class ScopeCustomForm(forms.ModelForm):
+            enabled = forms.BooleanField(required=False, label='Enabled')
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'enabled']
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.helper = FormHelper()
+                self.helper.form_tag = False
+                self.helper.layout = Layout(Row(Column(Field('name'), css_class='col-12')))
+                self.dlux_footer_bound_fields = [self['enabled']]
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeCustomForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("data-dlux-settings-toggle-field='enabled'", html)
+        self.assertIn('dlux-section-form-footer', html)
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertNotIn('form-check form-switch', form_fragment)
+        self.assertIn('dlux-form-action-primary', form_fragment)
+        self.assertIn('dlux-form-action-neutral', form_fragment)
+
+    def test_manage_sections_declared_footer_does_not_add_actions_when_form_has_submit(self):
+        from crispy_forms.helper import FormHelper
+        from crispy_forms.layout import Column, Field, Layout, Row, Submit
+
+        class ScopeCustomForm(forms.ModelForm):
+            enabled = forms.BooleanField(required=False, label='Enabled')
+
+            class Meta:
+                model = Scope
+                fields = ['name', 'enabled']
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.helper = FormHelper()
+                self.helper.form_tag = False
+                self.helper.layout = Layout(Row(Column(Field('name'), css_class='col-12')))
+                self.helper.add_input(Submit('submit', 'Save'))
+                self.dlux_footer_bound_fields = [self['enabled']]
+
+        self._grant_section_permission(self.regular_user, 'manage_sections')
+        self.client.login(username='regular', password='regularpass123')
+
+        mock_section = [{
+            'model': Scope,
+            'model_name': 'scope',
+            'app_label': 'dlux',
+            'verbose_name': 'Scope',
+            'verbose_name_plural': 'Scopes',
+            'form_class': ScopeCustomForm,
+            'table_class': None,
+            'filter_class': None,
+            'subsections': [],
+        }]
+
+        from dlux.utils.crud import _build_generic_table_class
+        mock_section[0]['table_class'] = _build_generic_table_class(Scope)
+
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        form_fragment = html[:html.index('<h2 class="page-title">')]
+        self.assertIn("data-dlux-settings-toggle-field='enabled'", form_fragment)
+        self.assertNotIn('dlux-form-action-primary', form_fragment)
+        self.assertIn('dlux-form-action-neutral', form_fragment)
+
 
 
 class TwoFactorSecurityViewTests(TestCase):
@@ -3686,3 +4183,145 @@ class ProfileConfigAndOnboardingTests(TestCase):
         u.profile.save(update_fields=['preferences'])
         page_after_clear = c.get(reverse('user_profile'))
         self.assertTrue(page_after_clear.context['DLUX_SHOW_INITIAL_USER_SETUP'])
+
+
+class ListPageTemplateTests(TestCase):
+    """`dlux/list_page.html`: the ribbon-over-table arrangement, as a base."""
+
+    def setUp(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        self.user = User.objects.create_superuser('lister', 'lister@example.com', 'pw12345678')
+        self.factory = RequestFactory()
+
+    def _render(self, extra_context=None, template=None):
+        from django.template.loader import render_to_string
+        from django.utils.module_loading import import_string
+        from dlux.ribbon import build_ribbon
+
+        request = self.factory.get('/records/')
+        request.user = self.user
+        request.session = {}
+        table = import_string('dlux.tables.UserTable')(User.objects.all(), request=request)
+        context = {
+            'page_title': 'Records',
+            'ribbon': build_ribbon(None, request=request, title='Records'),
+            'table': table,
+        }
+        context.update(extra_context or {})
+        return render_to_string(template or 'dlux/list_page.html', context, request=request)
+
+    def test_it_renders_the_ribbon_over_the_table_with_no_card_between(self):
+        html = self._render()
+
+        self.assertIn('dlux-list-page', html)
+        self.assertIn('dlux-ribbon-header', html)
+        self.assertIn('dlux-table-shell', html)
+        self.assertLess(html.index('dlux-ribbon-header'), html.index('dlux-table-shell'))
+        self.assertNotIn('dlux-table-card', html)
+
+    def test_a_view_adds_its_own_assets_without_touching_the_template(self):
+        html = self._render({
+            'extra_styles': ('dlux/tables/css/main.css',),
+            'extra_scripts': ('dlux/tables/js/main.js',),
+        })
+
+        self.assertIn('dlux/tables/css/main.css', html)
+        self.assertIn('dlux/tables/js/main.js', html)
+
+    def test_its_blocks_are_the_documented_insertion_points(self):
+        source = (
+            Path(__file__).resolve().parents[1]
+            / 'templates' / 'dlux' / 'list_page.html'
+        ).read_text(encoding='utf-8')
+
+        for block in (
+            'list_page_attrs', 'list_before_table', 'list_body',
+            'list_after_table', 'list_modals',
+        ):
+            self.assertIn('{% block ' + block + ' %}', source)
+
+
+class StackedModalManagerTests(TestCase):
+    """`manager=True`: one route, three surfaces, all inside the same modal."""
+
+    MANAGER_PATH = '/sys/modals/manager/dlux/Scope/new/'
+
+    def setUp(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        self.user = User.objects.create_superuser('stacked', 'stacked@example.com', 'pw12345678')
+        self.factory = RequestFactory()
+        self.scope = Scope.objects.create(name='Stacked Scope')
+
+    def _surface(self, query='', method='get', data=None):
+        path = f'{self.MANAGER_PATH}?{query}' if query else self.MANAGER_PATH
+        request = getattr(self.factory, method)(path, data or {})
+        request.user = self.user
+        request.session = {}
+        view = DynamicModalManagerViewFactory()
+        return view(request)
+
+    def _html(self, query=''):
+        response = self._surface(query)
+        self.assertEqual(response.status_code, 200)
+        return json.loads(response.content)['html']
+
+    def test_list_surface_is_a_ribbon_and_a_table_with_an_in_modal_add(self):
+        html = self._html()
+
+        self.assertIn('dlux-ribbon-header', html)
+        self.assertIn('dlux-data-table', html)
+        self.assertIn('data-dlux-modal-nav', html)
+        self.assertIn('action=add', html)
+        self.assertNotIn('<form', html)
+
+    def test_add_surface_is_a_form_with_a_back_action(self):
+        html = self._html('action=add')
+
+        self.assertIn('dlux-ribbon-header', html)
+        self.assertIn('<form', html)
+        self.assertIn('dynamic-back-btn', html)
+        self.assertNotIn('dlux-data-table', html)
+
+    def test_back_reads_as_the_frameworks_back_control(self):
+        """`.dlux-back-link` + `bi-arrow-left` is the idiom base CSS mirrors in RTL."""
+        html = self._html('action=add')
+
+        back = re.search(r'<button[^>]*dynamic-back-btn[^>]*>.*?</button>', html, re.S)
+        self.assertIsNotNone(back)
+        self.assertIn('dlux-back-link', back.group(0))
+        self.assertIn('bi bi-arrow-left', back.group(0))
+        self.assertNotIn('bi-arrow-right', back.group(0))
+
+    def test_detail_surface_carries_exactly_one_back_control(self):
+        html = self._html(f'id={self.scope.pk}&action=view')
+
+        self.assertIn('dlux-ribbon-header', html)
+        self.assertNotIn('<form', html)
+        self.assertEqual(html.count('dynamic-back-btn'), 1)
+        self.assertIn(f'id={self.scope.pk}', html)
+
+    def test_saving_returns_to_the_manager_instead_of_reloading_the_page(self):
+        response = self._surface('action=add', method='post', data={'name': 'Saved In Modal'})
+
+        payload = json.loads(response.content)
+        self.assertTrue(payload['success'])
+        self.assertFalse(payload['refresh_parent'])
+        self.assertTrue(Scope.objects.filter(name='Saved In Modal').exists())
+
+
+def DynamicModalManagerViewFactory():
+    from dlux.views import DynamicModalManagerView
+
+    return DynamicModalManagerView.as_view(
+        model=Scope,
+        manager=True,
+        manager_icon='bi bi-diagram-3-fill',
+    )

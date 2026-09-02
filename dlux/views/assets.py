@@ -183,3 +183,7 @@ def asset_manager_delete(request, pk):
         message = strings.get('asset_deleted', 'File “{asset}” deleted.').format(asset=title)
         notify.success(message, request=request, action='managed_asset_delete', category='assets')
         return JsonResponse({'success': True})
+
+# Answers `{'html': ...}`, so it is a modal endpoint rather than a page —
+# what a ribbon button must open as a dynamic modal, not navigate to.
+asset_manager_page.dlux_modal = True

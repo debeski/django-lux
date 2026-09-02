@@ -139,7 +139,11 @@
 
 .dlux-ribbon-actions {
     display: flex;
-    flex-wrap: nowrap;
+    /* Wrap, always. `nowrap` had the row keep every action on one line whatever
+       the width: the buttons were squeezed below their own text until they read
+       as circles, and the ones that still would not fit hung outside the ribbon
+       card and off the screen. A row that cannot fit belongs on two lines. */
+    flex-wrap: wrap;
     align-items: center;
     gap: .75rem;
     max-width: 100%;
@@ -147,6 +151,10 @@
 }
 
 .dlux-ribbon-actions .btn {
+    /* A button is as wide as its label. Letting flex shrink it is what turned
+       "Manage Categories" into a clipped circle rather than moving it to the
+       next line. */
+    flex: 0 0 auto;
     min-height: 2.5rem;
     padding-inline: 1rem;
 }
@@ -250,7 +258,10 @@
     }
 }
 
-@media (max-width: 399.98px) {
+/* Below this the title and the actions stop sharing a line. 399.98px was too
+   late: every common phone is 390-430px wide, so the actions kept a column of
+   whatever was left after a 14rem title floor and were crushed inside it. */
+@media (max-width: 575.98px) {
     .dlux-ribbon-header-row {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -575,6 +586,14 @@
     text-transform: uppercase;
 }
 
+.dlux-ribbon-builder__inspector {
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-body-bg);
+    padding: .85rem;
+    box-shadow: 0 .35rem 1rem rgba(var(--bs-body-color-rgb), .08);
+}
+
 /* One row per strip, drawn the way the page draws it. */
 .dlux-ribbon-builder__preview {
     display: flex;
@@ -590,13 +609,43 @@
     border-inline-start: 2px solid var(--bs-border-color);
 }
 
+/* The caption is a button: it selects the strip itself, which is the only way to
+   reach Remove/Restore for a strip whose split produces no tabs to click. */
 .dlux-ribbon-builder__preview-kind {
     flex: none;
     min-width: 4.5rem;
+    padding: .15rem .35rem;
+    border: 1px solid transparent;
+    border-radius: .4rem;
+    background: none;
     font-size: .68rem;
     letter-spacing: .05em;
+    text-align: start;
     text-transform: uppercase;
     color: var(--bs-secondary-color);
+}
+
+.dlux-ribbon-builder__preview-kind:hover {
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+/* A removed strip's tabs are inert, so its caption is the only way back to
+   Restore — it has to look like a control, not a label. */
+.dlux-ribbon-builder__preview-kind.is-off {
+    border-color: var(--bs-border-color);
+    border-style: dashed;
+}
+
+.dlux-ribbon-builder__removed-flag {
+    margin-inline-start: .35rem;
+    color: var(--bs-danger);
+    font-weight: 600;
+}
+
+.dlux-ribbon-builder__preview-kind.is-active {
+    border-color: var(--primal, var(--bs-primary));
+    color: var(--bs-body-color);
 }
 
 .dlux-ribbon-builder__pills {

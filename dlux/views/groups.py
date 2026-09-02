@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -13,8 +13,10 @@ from django.views.decorators.http import require_POST
 from django_tables2 import RequestConfig
 
 # Project imports
+from ..translations import get_strings
 from ..utils import (
     can_manage_group_preset,
+    collect_related_objects,
     get_visible_group_presets,
 )
 
@@ -49,8 +51,8 @@ def _render_manager(request):
         # Per-row flag so the actions template hides edit/members on presets the
         # actor may see (for assignment) but not manage (e.g. global presets).
         row.dlux_can_manage = can_manage_group_preset(request.user, row)
-    table = GroupPresetTable(rows, request=request)
-    RequestConfig(request).configure(table)
+    table = GroupPresetTable(rows, request=request, dlux_show_footer=False)
+    RequestConfig(request, paginate=False).configure(table)
     return render_to_string(
         'dlux/groups/_group_manager.html',
         {'table': table, 'ribbon': _manager_ribbon(request)},
@@ -148,8 +150,8 @@ def _render_members(request, group, form=None):
         .select_related('user', 'assigned_by')
         .order_by('-assigned_at')
     )
-    table = GroupMembershipTable(history, request=request)
-    RequestConfig(request).configure(table)
+    table = GroupMembershipTable(history, request=request, dlux_show_footer=False)
+    RequestConfig(request, paginate=False).configure(table)
     return render_to_string(
         'dlux/groups/group_members.html',
         {'form': form, 'table': table, 'group': group, 'group_id': group.pk},
@@ -189,6 +191,33 @@ def save_group_members(request, pk):
 
 @login_required
 @require_POST
+def delete_group(request, pk):
+    _require_manage_groups(request)
+    group = get_object_or_404(Group, pk=pk)
+    if not can_manage_group_preset(request.user, group):
+        raise PermissionDenied
+
+    related = collect_related_objects(group, ignore_relations=('dlux_profile', 'permissions'))
+    if related:
+        return JsonResponse({
+            'success': False,
+            'error': get_strings().get('delete_error_related', 'Cannot delete record because it is linked to other items.'),
+            'related': related,
+        })
+
+    try:
+        group.delete()
+    except ProtectedError:
+        return JsonResponse({
+            'success': False,
+            'error': get_strings().get('delete_error_related', 'Cannot delete record because it is linked to other items.'),
+        })
+
+    return JsonResponse({'success': True, 'html': _render_manager(request)})
+
+
+@login_required
+@require_POST
 def toggle_group_public_registration_default(request, pk):
     _require_manage_groups(request)
     group = get_object_or_404(Group, pk=pk)
@@ -204,3 +233,7 @@ def toggle_group_public_registration_default(request, pk):
         'is_default': profile.is_public_registration_default,
         'html': _render_manager(request),
     })
+
+# Answers `{'html': ...}`, so it is a modal endpoint rather than a page —
+# what a ribbon button must open as a dynamic modal, not navigate to.
+manage_groups.dlux_modal = True

@@ -12,6 +12,8 @@
 
     const {
         dependentReason,
+        getNamedFieldInputs,
+        getNamedFieldValue,
         restoreImportedEmailPasswordNotice,
         setCheckboxField,
         setDependentSectionEnabled,
@@ -176,7 +178,6 @@
             // Email owns its own wizard step now: the SMTP fields follow the step's
             // own enable toggle, not whichever feature happens to need mail.
             const emailEnabledToggle = form.querySelector('#id_email_config_enabled');
-            const secretStorageInput = form.querySelector('[name="email_config_secret_storage"]');
             const passwordInput = form.querySelector('[name="email_config_password"]');
             const passwordField = form.querySelector('.dlux-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
             if (!section || !emailEnabledToggle) {
@@ -193,11 +194,17 @@
                 mailgun: { host: 'smtp.mailgun.org', port: 587, use_tls: true, use_ssl: false },
                 relay: { host: '', port: 1025, use_tls: false, use_ssl: false },
             };
-            const presetInput = form.querySelector('[data-email-provider-preset]');
+            // Delivery path, provider preset and secret storage are Dlux choice
+            // selectors: a group of radios, not one <select>. Reading `.value` off
+            // the first element returns the first option regardless of what is
+            // checked, so go through the named-field accessors instead.
+            const presetInputs = getNamedFieldInputs(form, 'email_config_provider_preset');
+            const secretStorageInputs = getNamedFieldInputs(form, 'email_config_secret_storage');
 
             function syncEmailConfigVisibility() {
                 const enabled = Boolean(emailEnabledToggle && emailEnabledToggle.checked);
-                const encryptedDbSecret = enabled && (!secretStorageInput || secretStorageInput.value === 'encrypted_db');
+                const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage');
+                const encryptedDbSecret = enabled && (!secretStorageInputs.length || secretStorage === 'encrypted_db');
                 setDependentSectionEnabled(form, section, enabled, [], dependentReason(emailEnabledToggle));
                 [
                     'email_config_transport',
@@ -232,7 +239,7 @@
             }
 
             function applyProviderPreset() {
-                const preset = presetInput && PROVIDER_PRESETS[presetInput.value];
+                const preset = PROVIDER_PRESETS[getNamedFieldValue(form, 'email_config_provider_preset')];
                 if (!preset) {
                     return;
                 }
@@ -244,14 +251,14 @@
                 setCheckboxField(form, 'email_config_use_ssl', preset.use_ssl);
             }
 
-            [emailEnabledToggle, secretStorageInput].forEach((field) => {
+            [emailEnabledToggle].concat(secretStorageInputs).forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncEmailConfigVisibility);
                 }
             });
-            if (presetInput) {
-                presetInput.addEventListener('change', applyProviderPreset);
-            }
+            presetInputs.forEach((field) => {
+                field.addEventListener('change', applyProviderPreset);
+            });
             initEmailApply(form);
             initEmailSendTest(form);
             syncEmailConfigVisibility();

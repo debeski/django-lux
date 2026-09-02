@@ -5,8 +5,8 @@
             <p class="text-muted small mb-0">{{ scope.description }}</p>
         {% endif %}
     </div>
-    <button type="button" class="btn btn-secondary rounded-pill js-load-scope-form" data-url="{% url 'manage_scopes' %}">
-        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
+    <button type="button" class="btn btn-outline-secondary rounded-pill dlux-back-link js-load-scope-form" data-url="{% url 'manage_scopes' %}">
+        <i class="bi bi-arrow-left me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
     </button>
 </div>
 

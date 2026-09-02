@@ -358,7 +358,7 @@ def resolve_form_class_for_model(model):
             or _resolve_model_class(model, "get_form_class_path")
         )
 
-    # Prepare widgets with autofill attributes for ForeignKeys (Global)
+    # Prepare widgets with autofill attributes for ForeignKeys (Global) and default 2 rows for TextFields
     widgets = {}
     for field in model._meta.get_fields():
         if field.is_relation and (field.many_to_one or field.one_to_one) and field.related_model:
@@ -366,6 +366,8 @@ def resolve_form_class_for_model(model):
             source = f"{field.related_model._meta.app_label}.{field.related_model._meta.model_name}"
             from django.forms import Select
             widgets[field.name] = Select(attrs={'data-autofill-source': source})
+        elif isinstance(field, dj_models.TextField):
+            widgets[field.name] = forms.Textarea(attrs={'rows': 2})
 
     try:
         has_scope_field = model._meta.get_field("scope") is not None
@@ -400,21 +402,24 @@ def resolve_form_class_for_model(model):
         else:
             form_class = modelform_factory(model, fields='__all__', widgets=widgets)
 
-    if has_scope_field:
-        # Model Forms - Class injects request-aware scope defaults into generated forms.
-        class ScopeDynamicForm(form_class):
-            # Model Forms - Method removes unmanaged request kwargs before Django form init.
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                if 'scope' in self.fields and not is_scope_enabled():
-                    del self.fields['scope']
-                    helper = getattr(self, 'helper', None)
-                    layout = getattr(helper, 'layout', None)
-                    if layout is not None:
-                        self.helper = copy(helper)
-                        self.helper.layout = deepcopy(layout)
-                        _remove_crispy_layout_field(self.helper.layout, 'scope')
-        form_class = ScopeDynamicForm
+    # Model Forms - Class injects request-aware scope defaults and compact textarea rows into generated forms.
+    class DluxDynamicModelForm(form_class):
+        # Model Forms - Method removes unmanaged request kwargs before Django form init and ensures 2-row textareas.
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            for field in self.fields.values():
+                if isinstance(field.widget, forms.Textarea):
+                    if field.widget.attrs.get('rows') in (None, 10, '10'):
+                        field.widget.attrs['rows'] = 2
+            if has_scope_field and 'scope' in self.fields and not is_scope_enabled():
+                del self.fields['scope']
+                helper = getattr(self, 'helper', None)
+                layout = getattr(helper, 'layout', None)
+                if layout is not None:
+                    self.helper = copy(helper)
+                    self.helper.layout = deepcopy(layout)
+                    _remove_crispy_layout_field(self.helper.layout, 'scope')
+    form_class = DluxDynamicModelForm
 
     return form_class
 

@@ -111,6 +111,7 @@ urlpatterns = [
     path('sys/groups/form/<int:pk>/', views.get_group_form, name='get_group_form'),
     path('sys/groups/save/', views.save_group, name='save_group'),
     path('sys/groups/save/<int:pk>/', views.save_group, name='save_group'),
+    path('sys/groups/<int:pk>/delete/', views.delete_group, name='delete_group'),
     path('sys/groups/<int:pk>/members/', views.group_members, name='group_members'),
     path('sys/groups/<int:pk>/members/save/', views.save_group_members, name='save_group_members'),
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),

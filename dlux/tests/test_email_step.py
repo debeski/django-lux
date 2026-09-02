@@ -668,6 +668,10 @@ class InternalRelayAvailabilityTests(TestCase):
         html = self._transport_widget()
         self.assertIn('value="relay" disabled', html)
         self.assertNotIn('value="direct" disabled', html)
+        # The Delivery path control is a radio group now, so the step's enable
+        # toggle re-enables every input in it. The lock marker is what keeps the
+        # unreachable relay out of reach when that happens.
+        self.assertIn('data-dlux-selector-locked="true"', html)
 
     def test_the_relay_choice_stays_available_when_the_relay_answers(self):
         listener, port = self._fake_relay()
@@ -687,5 +691,5 @@ class InternalRelayAvailabilityTests(TestCase):
         only *newly* choosing an absent relay is prevented.
         """
         html = self._transport_widget(transport='relay')
-        self.assertIn('value="relay" selected', html)
+        self.assertIn('value="relay" checked', html)
         self.assertNotIn('disabled', html)

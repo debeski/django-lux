@@ -183,32 +183,49 @@ def system_backup_page(request):
         'backup_config': get_system_config().get('backup_config', {}),
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
     }
-    context['ribbon'] = _backup_ribbon(request, context)
+    context['ribbon'] = _backup_ribbon(request)
     return render(request, 'dlux/backup/manage.html', context)
 
 
-def _backup_ribbon(request, context):
+def _backup_ribbon(request):
     """The page header, as a Ribbon.
 
-    No filterset: this page lists what exists rather than filtering it. The
-    create control is a form with three fields and a status line, so it comes
-    through as rendered markup rather than a label and an icon.
+    No filterset: this page lists what exists rather than filtering it. Backup
+    creation is the page's primary POST form, so the template renders it as a
+    separate row under the title/actions band.
     """
-    from django.template.loader import render_to_string
-
     from ..ribbon import build_action, build_ribbon
 
     strings = get_strings()
+    actions = _backup_action_specs(request)
     return build_ribbon(
         None,
         request=request,
         title=strings.get('sysbackup_title', 'Backup & Restore'),
         subtitle=strings.get('sysbackup_subtitle', ''),
         title_icon='bi bi-safe2-fill',
-        actions=[build_action({'html': render_to_string(
-            'dlux/backup/_create_action.html', context, request=request,
-        )}, request=request)],
+        actions=[
+            action
+            for action in (build_action(spec, request=request) for spec in actions)
+            if action
+        ],
+        custom_actions_key='route.system_backup_page',
+        custom_actions_host='system_backup_page',
     )
+
+
+def _backup_action_specs(request=None):
+    strings = get_strings()
+    return [{
+        'label': strings.get('sysbackup_back_to_options', 'Back to Options'),
+        'icon': 'bi bi-arrow-left',
+        'css_class': 'btn btn-outline-secondary rounded-pill dlux-back-link',
+        'url': reverse('options_view'),
+    }]
+
+
+system_backup_page.dlux_ribbon_host = True
+system_backup_page.dlux_ribbon_actions = _backup_action_specs
 
 
 @login_required

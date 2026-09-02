@@ -23,44 +23,7 @@
         </select>
     </div>
 
-    <section class="dlux-navbar-builder__pane dlux-navbar-builder__inspector-row mb-3">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <button type="button" class="btn btn-outline-primary btn-sm" data-navbar-add-manual>
-                <i class="bi bi-folder-plus me-1"></i>{{ DLUX_STRINGS.navbar_add_manual_node }}
-            </button>
-            <div class="dlux-navbar-inspector-actions d-none" data-navbar-inspector-actions>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-clear-selection
-                        title="{{ DLUX_STRINGS.navbar_clear_selection|default:'Clear selection' }}"
-                        aria-label="{{ DLUX_STRINGS.navbar_clear_selection|default:'Clear selection' }}">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-up>
-                    <i class="bi bi-arrow-up"></i> {{ DLUX_STRINGS.move_up }}
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-down>
-                    <i class="bi bi-arrow-down"></i> {{ DLUX_STRINGS.move_down }}
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-root>
-                    <i class="bi bi-distribute-horizontal"></i> {{ DLUX_STRINGS.sidebar_move_root }}
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" data-navbar-remove-node>
-                    <i class="bi bi-trash3"></i> {{ DLUX_STRINGS.sidebar_remove_entry }}
-                </button>
-            </div>
-        </div>
-        <div class="text-muted small mt-2" data-navbar-inspector-empty>{{ DLUX_STRINGS.navbar_node_inspector_empty }}</div>
-        <div class="d-none mt-3" data-navbar-inspector>
-            <div class="row g-3 align-items-start">
-                <div class="col-md-5">
-                    <label class="form-label" for="dlux-navbar-node-url-{{ mode }}">{{ DLUX_STRINGS.navbar_node_url }}</label>
-                    <input id="dlux-navbar-node-url-{{ mode }}" type="text" class="form-control glass-input" data-navbar-node-url
-                           placeholder="/dashboard/">
-                    <div class="form-text">{{ DLUX_STRINGS.navbar_node_url_help }}</div>
-                </div>
-                <div class="col-md-7" data-navbar-label-inputs></div>
-            </div>
-        </div>
-    </section>
+    <section class="dlux-navbar-builder__inspector-row mb-3" data-navbar-inspector-shell></section>
 
     <div class="dlux-navbar-builder__grid">
         <section class="dlux-navbar-builder__pane">

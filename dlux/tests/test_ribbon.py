@@ -1,6 +1,7 @@
 from django.urls import reverse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from dlux.tests.harness import setup_test_environment
 
@@ -12,7 +13,7 @@ from django.template import Context, Template
 from django.test import Client, TestCase
 
 from dlux.models import SystemSettings
-from dlux.ribbon import KIND_RANGE, KIND_SEARCH, build_ribbon, split_range_suffix
+from dlux.ribbon import KIND_RANGE, KIND_SEARCH, RibbonMixin, build_ribbon, split_range_suffix
 from dlux.system.constants import SYSTEM_SETTINGS_EXPORT_FIELDS
 from dlux.system.normalizers import normalize_layout_config
 from dlux.utils.config import get_system_config
@@ -176,6 +177,24 @@ class RibbonOverrideTests(TestCase):
         self.assertEqual(ribbon.title, 'Users')
         self.assertEqual(ribbon.actions[0].url, '/add/')
 
+    def test_subtitle_can_be_computed_per_request(self):
+        class View(RibbonMixin):
+            request = SimpleNamespace(GET={}, resolver_match=None)
+
+            def get_ribbon_filterset(self):
+                return None
+
+            def get_ribbon_subtitle(self):
+                return 'Translated subtitle'
+
+            def get_custom_ribbon_actions(self):
+                return []
+
+            def visible_ribbon_strips(self):
+                return []
+
+        self.assertEqual(View().get_ribbon().subtitle, 'Translated subtitle')
+
 
 class RibbonActionPermissionTests(TestCase):
     def test_action_is_dropped_when_the_user_lacks_the_permission(self):
@@ -193,6 +212,25 @@ class RibbonActionPermissionTests(TestCase):
         from dlux.ribbon import build_action
 
         self.assertIsNotNone(build_action({'url': '/add/'}, request=None))
+
+    def test_action_permission_lists_are_supported(self):
+        from types import SimpleNamespace
+
+        from dlux.ribbon import build_action
+
+        denied = SimpleNamespace(user=SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: False,
+        ))
+        allowed = SimpleNamespace(user=SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda perm: perm == 'auth.add_user',
+        ))
+        spec = {'url': '/add/', 'label': 'Add', 'permissions': ['auth.add_user']}
+        self.assertIsNone(build_action(spec, request=denied))
+        self.assertIsNotNone(build_action(spec, request=allowed))
 
 
 class RibbonActiveFilterTests(TestCase):
@@ -377,6 +415,256 @@ class RibbonFieldNormalisationTests(TestCase):
 
     def test_fields_carry_a_direction(self):
         self.assertIn('dir', _ribbon().form.fields['keyword'].widget.attrs)
+
+
+class RibbonActionIdentityTests(TestCase):
+    """A ribbon button is its destination.
+
+    Two buttons opening the same modal or linking to the same URL are the same
+    button however they were declared, so only one is drawn — and an
+    administrator's edits to a code-declared button hang off that identity rather
+    than its position in `ribbon_actions`, which a view is free to reorder.
+    """
+
+    def _action(self, **kwargs):
+        from dlux.ribbon import RibbonAction
+
+        return RibbonAction(**kwargs)
+
+    def test_the_key_is_the_endpoint_whichever_attribute_carries_it(self):
+        """dlux's own manager buttons open a modal from `data-url` through their own
+        handler rather than the dynamic-modal contract. Keying on the attribute
+        called them different buttons from an administrator's `data-dynamic-modal`
+        one — which is the very pair that ends up duplicated."""
+        from dlux.ribbon.build import action_destination_key
+
+        modal = self._action(label='Add', attrs={'data-dynamic-modal': '/groups/manage/'})
+        data_url = self._action(label='Groups', attrs={'data-url': '/groups/manage/'})
+        link = self._action(label='Groups', url='/groups/manage/')
+        html_only = self._action(label='Raw')
+
+        self.assertEqual(action_destination_key(modal), 'dest:/groups/manage/')
+        self.assertEqual(action_destination_key(data_url), 'dest:/groups/manage/')
+        self.assertEqual(action_destination_key(link), 'dest:/groups/manage/')
+        self.assertEqual(action_destination_key(html_only), '')
+
+    def test_one_button_per_destination_whoever_declared_it(self):
+        from dlux.ribbon.build import _dedupe_actions_by_destination
+
+        first = self._action(label="View's own", url='/groups/manage/')
+        duplicate = self._action(label='Added by an admin', url='/groups/manage/')
+        modal = self._action(label='Users', attrs={'data-dynamic-modal': '/modal/user/'})
+        same_modal = self._action(label='Users again', attrs={'data-dynamic-modal': '/modal/user/'})
+        other = self._action(label='Reports', url='/reports/')
+
+        kept = _dedupe_actions_by_destination([first, duplicate, modal, same_modal, other])
+
+        # Code before configuration: the first declaration of a destination wins.
+        self.assertEqual([action.label for action in kept], ["View's own", 'Users', 'Reports'])
+
+    def test_buttons_with_no_destination_are_never_merged(self):
+        """Two raw-html actions are not the same action; they just say nothing."""
+        from dlux.ribbon.build import _dedupe_actions_by_destination
+
+        kept = _dedupe_actions_by_destination([
+            self._action(label='One'), self._action(label='Two'),
+        ])
+
+        self.assertEqual([action.label for action in kept], ['One', 'Two'])
+
+    def test_an_overlay_removes_renames_and_re_icons_a_declared_button(self):
+        from dlux.ribbon.build import _apply_action_overlays
+
+        actions = [
+            self._action(label='Add User', icon='bi-plus', attrs={'data-dynamic-modal': '/modal/user/'}),
+            self._action(label='Reports', icon='bi-graph-up', url='/reports/'),
+            self._action(label='Groups', url='/groups/'),
+        ]
+        overlays = {
+            'dest:/modal/user/': {'enabled': False},
+            'dest:/reports/': {'labels': {'en': 'Statistics'}, 'icon': 'bi-bar-chart'},
+        }
+
+        kept = _apply_action_overlays(actions, overlays)
+
+        self.assertEqual([action.label for action in kept], ['Statistics', 'Groups'])
+        self.assertEqual(kept[0].icon, 'bi-bar-chart')
+
+    def test_an_overlay_never_edits_the_action_a_view_handed_over(self):
+        """A view may return the same RibbonAction instance on every request, so an
+        overlay that mutated it would leak into the next reader's page."""
+        from dlux.ribbon.build import _apply_action_overlays
+
+        original = self._action(label='Reports', url='/reports/')
+
+        kept = _apply_action_overlays([original], {'dest:/reports/': {'labels': {'en': 'Stats'}}})
+
+        self.assertEqual(kept[0].label, 'Stats')
+        self.assertEqual(original.label, 'Reports')
+
+    def test_restoring_a_button_is_the_absence_of_an_overlay(self):
+        from dlux.system.normalizers import _normalize_ribbon_action_overlays
+
+        self.assertEqual(_normalize_ribbon_action_overlays({'dest:/x/': {}}), {})
+        self.assertEqual(
+            _normalize_ribbon_action_overlays({'dest:/x/': {'enabled': False}}),
+            {'dest:/x/': {'enabled': False}},
+        )
+        # `enabled: True` is the default, so it is not worth storing either.
+        self.assertEqual(_normalize_ribbon_action_overlays({'dest:/x/': {'enabled': True}}), {})
+        self.assertEqual(_normalize_ribbon_action_overlays('nonsense'), {})
+
+
+class RibbonBuilderDeclaredActionAssetTests(TestCase):
+    """The builder treats a code-declared button the way it treats a declared strip."""
+
+    BUILDER_JS = (
+        Path(__file__).resolve().parent.parent
+        / 'static' / 'dlux' / 'ribbon' / 'js' / 'ribbon_builder.js'
+    )
+
+    def test_declared_buttons_are_selectable_editable_and_restorable(self):
+        js = self.BUILDER_JS.read_text()
+
+        self.assertIn('const actionOverlayState = {};', js)
+        self.assertIn('function actionOverlayFor(modelKey, key)', js)
+        self.assertIn('function actionOverlayDirty(overlay)', js)
+        self.assertIn('function dropActionOverlay(modelKey, key)', js)
+        self.assertIn("const type = locked ? 'declared-action' : 'action';", js)
+        self.assertIn("id: 'restore-action'", js)
+        # Restore is dropping the overlay, exactly as it is for a declared strip.
+        self.assertIn('dropActionOverlay(selected.modelKey, selected.key);', js)
+        self.assertIn('overlay.enabled = false;', js)
+        # A button with no destination cannot be addressed, so it stays fixed.
+        self.assertIn("const overlayKey = locked ? String(action.key || '') : '';", js)
+        self.assertIn('if (locked && !overlayKey) {', js)
+
+    def test_the_builder_shows_one_button_per_destination(self):
+        js = self.BUILDER_JS.read_text()
+
+        self.assertIn('function customActionDestinationKey(action)', js)
+        self.assertIn('const seenDestinations = new Set();', js)
+        self.assertIn('function withoutDuplicates(action, key)', js)
+
+    def test_an_overlay_carrying_only_an_icon_keeps_the_developers_name(self):
+        """`firstLabel` always answers with something, so asking it whether a rename
+        exists reported the placeholder as the name and overwrote the real one."""
+        js = self.BUILDER_JS.read_text()
+
+        self.assertIn('function overrideLabel(labels)', js)
+        self.assertIn("(overlay && overrideLabel(overlay.labels)) || action.label", js)
+        self.assertNotIn("(overlay && firstLabel(overlay.labels, ''))", js)
+
+    def test_a_submit_buttons_endpoint_is_its_formaction(self):
+        """The Reports buttons post the page's own form; where they post it is
+        their destination just as much as an href is."""
+        from dlux.ribbon.build import action_destination_key
+        from dlux.ribbon import RibbonAction
+
+        action = RibbonAction(label='Print', type='submit', attrs={
+            'form': 'general-report-form', 'formaction': '/reports/print/',
+        })
+
+        self.assertEqual(action_destination_key(action), 'dest:/reports/print/')
+
+    def test_a_function_host_can_declare_its_buttons_for_the_builder(self):
+        """A function page builds its ribbon inline, so there is no instance to
+        ask — it names its buttons on the function instead. Without this the
+        builder listed Reports as a ribbon host carrying no buttons at all."""
+        from dlux.ribbon.catalog import _declared_function_actions
+
+        def host(request):
+            return None
+
+        host.dlux_ribbon_actions = [
+            {'label': 'Print', 'attrs': {'formaction': '/reports/print/'}},
+        ]
+        summaries = _declared_function_actions(host, None)
+        self.assertEqual([s['label'] for s in summaries], ['Print'])
+        self.assertEqual(summaries[0]['key'], 'dest:/reports/print/')
+
+        # A callable form, for buttons that depend on the request.
+        host.dlux_ribbon_actions = lambda request: [{'label': 'Export', 'url': '/x/'}]
+        self.assertEqual(
+            [s['label'] for s in _declared_function_actions(host, None)], ['Export'])
+
+        # And a host that declares nothing is simply a host with no buttons.
+        del host.dlux_ribbon_actions
+        self.assertEqual(_declared_function_actions(host, None), [])
+
+    def test_reports_declares_the_buttons_its_page_draws(self):
+        """One spec list for the renameable buttons, so what an administrator
+        renames is what the page shows."""
+        from dlux.views.reports import (
+            _reports_action_specs, _reports_catalog_actions, reports_overview_view,
+        )
+
+        self.assertIs(reports_overview_view.dlux_ribbon_actions, _reports_catalog_actions)
+        specs = _reports_action_specs()
+        self.assertEqual(len(specs), 2)
+        self.assertTrue(all(spec['attrs'].get('formaction') for spec in specs))
+
+    def test_backup_declares_the_back_button_its_page_draws(self):
+        """Backup is a function host too, so the builder needs an explicit action
+        catalog just like Reports."""
+        from dlux.ribbon.catalog import _declared_function_actions
+        from dlux.views.backup import _backup_action_specs, system_backup_page
+
+        self.assertIs(system_backup_page.dlux_ribbon_actions, _backup_action_specs)
+        specs = _backup_action_specs()
+        self.assertEqual(len(specs), 1)
+        self.assertEqual(specs[0]['url'], reverse('options_view'))
+
+        summaries = _declared_function_actions(system_backup_page, None)
+        self.assertEqual([summary['label'] for summary in summaries], ['Back to Options'])
+        self.assertEqual(summaries[0]['key'], f"dest:{reverse('options_view')}")
+
+    def test_the_backup_control_is_listed_for_removal_but_never_drawn_from_the_catalog(self):
+        """It is rendered markup, so the catalog carries a stand-in for it. That
+        stand-in must not reach the page: sharing one list put it ahead of the real
+        markup, the duplicate check dropped the markup, and the page drew an empty
+        button where the backup control had been."""
+        from dlux.views.reports import _reports_action_specs, _reports_catalog_actions
+
+        catalog = _reports_catalog_actions()
+        page = _reports_action_specs()
+
+        self.assertEqual(len(catalog), 3)
+        self.assertEqual(len(page), 2)
+        stand_in = catalog[-1]
+        self.assertEqual(stand_in['kind'], 'html')
+        self.assertEqual(stand_in['attrs']['data-start-url'], reverse('reports_backup_start'))
+        self.assertNotIn(stand_in, page)
+
+    def test_a_composite_control_is_identified_by_the_job_it_starts(self):
+        from dlux.ribbon.build import action_destination_key
+        from dlux.ribbon import RibbonAction
+
+        action = RibbonAction(html='<div>widget</div>', attrs={'data-start-url': '/start/'})
+
+        self.assertEqual(action_destination_key(action), 'dest:/start/')
+
+    def test_building_the_catalog_never_writes(self):
+        """Asking a view for its buttons runs the view's own code, which reads and
+        — through a settings singleton it happens to touch — can write. A catalog
+        describes what exists; building one must not change anything."""
+        source = (
+            Path(__file__).resolve().parent.parent / 'ribbon' / 'catalog.py'
+        ).read_text()
+        built = source[source.index('def _view_built_actions('):source.index('def _host_actions(')]
+        self.assertIn('with transaction.atomic():', built)
+        self.assertIn('transaction.set_rollback(True)', built)
+
+    def test_the_catalog_gives_each_declared_button_its_destination(self):
+        from dlux.ribbon.catalog import _action_summary
+
+        modal = _action_summary({'label': 'Users', 'attrs': {'data-dynamic-modal': '/m/'}}, 0)
+        link = _action_summary({'label': 'Reports', 'url': '/reports/'}, 1)
+        raw = _action_summary({'html': '<b>x</b>'}, 2)
+
+        self.assertEqual(modal['key'], 'dest:/m/')
+        self.assertEqual(link['key'], 'dest:/reports/')
+        self.assertEqual(raw['key'], '')
 
 
 class RibbonActionRenderingTests(TestCase):
@@ -595,6 +883,32 @@ class RibbonChromeHookTests(TestCase):
     def _ribbon_css(self):
         return (Path(__file__).resolve().parents[1]
                 / 'static' / 'dlux' / 'ribbon' / 'css' / 'ribbon.css').read_text()
+
+    def test_the_action_row_wraps_instead_of_crushing_its_buttons(self):
+        """On a phone the row kept every action on one line: buttons were squeezed
+        below their own labels until they read as circles, and the ones that still
+        would not fit hung outside the ribbon card and off the screen."""
+        css = self._ribbon_css()
+        actions = css[css.index('\n.dlux-ribbon-actions {'):]
+        actions = actions[:actions.index('}')]
+        self.assertIn('flex-wrap: wrap;', actions)
+        self.assertNotIn('flex-wrap: nowrap;', actions)
+
+        button = css[css.index('\n.dlux-ribbon-actions .btn {'):]
+        button = button[:button.index('}')]
+        # A button is as wide as its label; shrinking it is what made it a circle.
+        self.assertIn('flex: 0 0 auto;', button)
+
+    def test_the_title_stops_sharing_a_line_with_the_actions_on_a_phone(self):
+        """399.98px was too late — every common phone is 390-430px wide, so the
+        actions kept whatever column was left beside a 14rem title floor."""
+        css = self._ribbon_css()
+        self.assertIn('@media (max-width: 575.98px) {', css)
+        block = css[css.rindex('@media (max-width: 575.98px) {'):]
+        block = block[:block.index('\n}')]
+        self.assertIn('.dlux-ribbon-header-row', block)
+        self.assertIn('grid-template-columns: minmax(0, 1fr);', block)
+        self.assertNotIn('@media (max-width: 399.98px)', css)
 
     def test_skins_defer_to_the_shared_edge_radius_variable(self):
         css = self._ribbon_css()
@@ -1135,9 +1449,8 @@ class RibbonHeadingLayoutTests(TestCase):
             self.assertEqual(decl('.dlux-ribbon-icon {', prop), value)
 
     def test_the_heading_column_has_a_floor(self):
-        """A bare `max-content` actions column never yields, so a wide action —
-        the backup page puts a three-field form there — crushed the title into a
-        column barely wider than one word."""
+        """A bare `max-content` actions column never yields, so a wide action
+        can crush the title into a column barely wider than one word."""
         import re
 
         css = (Path(__file__).resolve().parents[1]
@@ -1159,6 +1472,7 @@ class RibbonHeadingLayoutTests(TestCase):
                / 'static' / 'dlux' / 'backup' / 'css' / 'manage.css').read_text()
         self.assertNotIn('.dlux-backup-hero', css)
         # The create control moved to a partial and still needs its styling.
+        self.assertIn('.dlux-backup-create-row', css)
         self.assertIn('.dlux-backup-create-form', css)
 
     def test_reports_does_not_double_the_page_padding(self):
@@ -1268,44 +1582,119 @@ class ManagerModalRibbonTests(TestCase):
 
 
 class RibbonBuilderIconPickerTests(TestCase):
-    """The inspector's icon grid is the sidebar inspector's, not a second one.
+    """The inspector borrows the shared icon picker field rather than owning a grid.
 
-    Two implementations of this exist and they share their markup: the sidebar
-    builder renders the grid inline and always open, while
-    `dlux/helpers/icon_picker.html` is a self-contained *field* with a trigger
-    and a collapsed body, bound to a named form field. A builder inspector wants
-    the first. Getting it wrong is invisible in Python and shows up as a grid of
-    unstyled glyphs, which is how it shipped twice.
+    Two implementations of this existed. `dlux/helpers/icon_picker.html` is a
+    self-contained field with a trigger and a collapsed body, bound to a named form
+    field; the builders each had a second copy rendered inline and always open. The
+    inline one rebuilt ~600 buttons on every render of the inspector, which is what
+    made the Ribbon step drag, and inside a popover it filled the panel instead of
+    dropping over it. The Sidebar and Ribbon builders now borrow the shared field.
     """
 
-    def test_the_grid_uses_the_shared_choice_class(self):
-        source = (
-            Path(__file__).resolve().parent.parent
-            / 'static' / 'dlux' / 'ribbon' / 'js' / 'ribbon_builder.js'
-        ).read_text()
-        self.assertIn('dlux-builder-icon-choice', source)
-        self.assertNotIn(
-            'dlux-builder-icon-option', source,
-            'that class has no styles anywhere in dlux',
-        )
+    BUILDER_JS = (
+        Path(__file__).resolve().parent.parent
+        / 'static' / 'dlux' / 'ribbon' / 'js' / 'ribbon_builder.js'
+    )
 
-    def test_the_grid_draws_from_the_shared_suggestion_list(self):
-        source = (
-            Path(__file__).resolve().parent.parent
-            / 'static' / 'dlux' / 'ribbon' / 'js' / 'ribbon_builder.js'
-        ).read_text()
-        self.assertIn('window.DluxIconPicker', source)
+    def test_the_builder_borrows_the_shared_picker_and_owns_no_grid(self):
+        source = self.BUILDER_JS.read_text()
+        self.assertIn("data-icon-field=\"ribbon_builder_entry_icon\"", source)
+        self.assertIn('data-ribbon-icon-picker-holder', source)
+        # No second implementation left behind.
+        self.assertNotIn('function renderIconChoices', source)
+        self.assertNotIn('ICON_SUGGESTIONS', source)
+        self.assertNotIn('dlux-builder-icon-suggestions', source)
 
-    def test_the_picker_is_inline_and_always_open(self):
-        """The field component collapses behind a trigger; an inspector's does
-        not, so the builder must not be using that one."""
+    def test_the_picker_is_server_rendered_once_and_parked(self):
         template = (
             Path(__file__).resolve().parent.parent
             / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
         ).read_text()
-        self.assertIn('dlux-builder-icon-picker', template)
-        self.assertIn('dlux-builder-icon-suggestions', template)
-        self.assertNotIn('data-dlux-icon-picker', template)
+        self.assertIn("data-ribbon-icon-picker-holder", template)
+        self.assertIn("field_name='ribbon_builder_entry_icon'", template)
+        # `inline=False` is the collapsed-body form, which drops over the panel
+        # instead of filling it.
+        self.assertIn('inline=False', template)
+        # The picker reports a pick by writing to the field its `field_name` names;
+        # with no such field the pick goes nowhere.
+        self.assertIn(
+            'name="ribbon_builder_entry_icon" data-dlux-unsaved-ignore data-ribbon-icon-value',
+            template,
+        )
+
+    def test_the_grid_opens_upward_when_there_is_no_room_below(self):
+        """Near the bottom of a scrollable modal the grid would open past the edge
+        that clips it, where it can be neither clicked nor scrolled to."""
+        js = (
+            Path(__file__).resolve().parent.parent
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'js' / 'main.js'
+        ).read_text()
+
+        self.assertIn('function placeBody()', js)
+        # Room is the box that actually clips the grid, not the viewport: inside a
+        # modal there is screen below it and none inside it.
+        self.assertIn('function visibleBounds(element)', js)
+        self.assertIn("overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden'", js)
+        self.assertIn("body.classList.add('dlux-builder-icon-picker--above');", js)
+        # Placed after the grid is built, so its height is the one being placed.
+        self.assertLess(js.index('placeBody();'), js.index('search.focus();'))
+        self.assertLess(js.index('renderSuggestions();\n'), js.index('placeBody();'))
+        # And reset on close, or the next open inherits the last direction.
+        self.assertIn("if (body) body.classList.remove('dlux-builder-icon-picker--above');", js)
+
+        css = (
+            Path(__file__).resolve().parent.parent
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'css' / 'main.css'
+        ).read_text()
+        self.assertIn('.dlux-builder-icon-picker--popover.dlux-builder-icon-picker--above', css)
+        self.assertIn('inset-block-end: calc(100% + 0.45rem);', css)
+
+    def test_an_icon_can_be_cleared_where_empty_is_a_real_answer(self):
+        """A ribbon tab with no override keeps the icon the page already gives it, so
+        clearing the box has to mean cleared. Both emptying it and Reset used to write
+        the default straight back, leaving a bad icon name as the only way out."""
+        js = (
+            Path(__file__).resolve().parent.parent
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'js' / 'main.js'
+        ).read_text()
+        self.assertIn("const allowEmpty = picker.getAttribute('data-icon-allow-empty') === 'true';", js)
+        self.assertIn("const value = raw || (allowEmpty ? '' : defaultIcon);", js)
+        self.assertIn("apply(allowEmpty ? '' : defaultIcon)", js)
+
+        template = (
+            Path(__file__).resolve().parent.parent
+            / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
+        ).read_text()
+        self.assertIn('allow_empty=True', template)
+        # And the builder must not put an icon back on the way in.
+        builder = self.BUILDER_JS.read_text()
+        self.assertIn("const value = String(icon || '').trim();", builder)
+        self.assertNotIn("String(icon || '').trim() || 'bi-tag'", builder)
+
+    def test_a_removed_strip_can_still_be_restored(self):
+        """Its tabs go inert when it is off, so they cannot carry the way back."""
+        builder = self.BUILDER_JS.read_text()
+        remove = builder[builder.index('function removeStripOf('):builder.index('function restoreStripOf(')]
+        # Removing a declared strip keeps it selected, so Restore is already on screen.
+        self.assertIn("selected = {\n                    type: 'strip',", remove)
+        self.assertNotIn('selected = null;\n            commit();', remove)
+        # And an off strip advertises the caption as the route back.
+        self.assertIn("kind.classList.add('is-off');", builder)
+        self.assertIn("t('removed_strip', 'removed')", builder)
+
+        css = (
+            Path(__file__).resolve().parent.parent
+            / 'static' / 'dlux' / 'ribbon' / 'css' / 'ribbon.css'
+        ).read_text()
+        self.assertIn('.dlux-ribbon-builder__preview-kind.is-off', css)
+
+    def test_a_pick_reaches_the_builder(self):
+        source = self.BUILDER_JS.read_text()
+        self.assertIn("refs.iconValue.addEventListener('input'", source)
+        self.assertIn('iconTarget(String(refs.iconValue.value', source)
+        # The borrowed node goes back to its holder so the next render can re-mount it.
+        self.assertIn('refs.iconPickerHolder.appendChild(refs.iconPicker);', source)
 
 
 class RibbonBuilderDoesNotDirtyTheFormTests(TestCase):
@@ -1647,14 +2036,19 @@ class BuilderExtraStripTests(TestCase):
 
     def test_existing_strips_do_not_block_adding_extra_strips(self):
         source = self.BUILDER_JS.read_text()
-        body = source[source.index('function fillModelSelect'):source.index('if (refs.modelSelect)')]
+        body = source[source.index('function setupAddStripControls'):source.index('function addCustomAction')]
         self.assertNotIn('stripsOf(model.key).length', body)
-        self.assertIn('if (model.locked) return;', body)
+        self.assertIn('model.locked || !model.fields.length', body)
 
     def test_the_builder_writes_extra_strips_separately(self):
         source = self.BUILDER_JS.read_text()
         self.assertIn('modelEntry.extra_strips = extra;', source)
         self.assertIn('readExtraStrips', source)
+
+    def test_the_builder_preserves_custom_actions(self):
+        source = self.BUILDER_JS.read_text()
+        self.assertIn('readCustomActions', source)
+        self.assertIn('modelEntry.custom_actions = customOut;', source)
 
     def test_predefined_and_extra_strips_have_separate_hosts(self):
         template = (
@@ -1664,6 +2058,63 @@ class BuilderExtraStripTests(TestCase):
         self.assertIn('data-model-declared-strips', template)
         self.assertIn('data-model-extra-strips', template)
 
+    def test_add_strip_controls_are_inside_each_ribbon_host(self):
+        template = (
+            Path(__file__).resolve().parent.parent
+            / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
+        ).read_text()
+        self.assertIn('data-model-add-strip', template)
+        self.assertNotIn('data-ribbon-model aria-label', template)
+
+    def test_the_hand_rolled_inspector_templates_are_gone(self):
+        template = (
+            Path(__file__).resolve().parent.parent
+            / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
+        ).read_text()
+        self.assertIn('data-ribbon-action-template', template)
+        # The shell renders both inspectors now.
+        self.assertNotIn('data-ribbon-action-inspector-template', template)
+        self.assertNotIn('data-ribbon-inspector-template', template)
+        self.assertNotIn('data-ribbon-clear-selection', template)
+        self.assertNotIn('data-model-inspector', template)
+        self.assertNotIn('data-ribbon-label-inputs', template)
+        self.assertNotIn('data-ribbon-shown', template)
+        # Per-strip Remove/Restore moved into the inspector's action row.
+        self.assertNotIn('data-strip-tools', template)
+
+    def test_one_builder_level_shell_hosts_every_inspector(self):
+        template = (
+            Path(__file__).resolve().parent.parent
+            / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
+        ).read_text()
+        self.assertIn('data-ribbon-inspector-shell', template)
+        # The host sits outside the per-model template, which is re-cloned on every
+        # render — a shell created inside it would be rebuilt (and re-bound) each time.
+        model_template = template[
+            template.index('<template data-ribbon-model-template>'):
+            template.index('<template data-ribbon-strip-row-template>')
+        ]
+        self.assertNotIn('data-ribbon-inspector-shell', model_template)
+        # Add strip and Add button stay where they were.
+        self.assertIn('data-model-add-strip', model_template)
+        self.assertIn('data-model-add-action', model_template)
+
+    def test_tab_inspector_is_driven_by_the_shell_adapter(self):
+        source = self.BUILDER_JS.read_text()
+        self.assertIn('window.DluxInspectorShell.create(refs.inspectorShell', source)
+        self.assertIn("presentation: 'popover'", source)
+        # The ribbon has no builder-level toolbar, so the actions ride in the panel.
+        self.assertIn("actionsPlacement: 'panel'", source)
+        self.assertIn('dismissOnOutsideClick: true', source)
+        self.assertNotIn('function renderTabInspector', source)
+        self.assertNotIn('function renderActionInspector', source)
+        self.assertNotIn('function renderLanguageInputs', source)
+        strip_renderer = source[
+            source.index('function renderStripRow'):
+            source.index('function renderActionPill')
+        ]
+        self.assertNotIn('renderTabInspector', strip_renderer)
+
     def test_extra_strip_rows_pass_the_strip_to_the_renderer(self):
         source = self.BUILDER_JS.read_text()
         self.assertIn('renderStripRow(model.key, strip, extraHost || declaredHost, model.locked)', source)
@@ -1672,8 +2123,30 @@ class BuilderExtraStripTests(TestCase):
     def test_admin_made_strips_say_remove_not_restore(self):
         source = self.BUILDER_JS.read_text()
         self.assertIn("strip.origin === 'declared'", source)
-        self.assertIn("restore.textContent = t('restore_strip', 'Restore')", source)
-        self.assertIn("remove.textContent = t('remove_strip', 'Remove')", source)
+        # Both live in the inspector's action row now and act on the strip that owns
+        # the selected entry; only a declared strip offers Restore.
+        actions = source[source.index('function stripActions('):source.index('function iconField(')]
+        self.assertIn("id: 'restore-strip'", actions)
+        self.assertIn("id: 'remove-strip'", actions)
+        self.assertIn("if (found.strip.origin === 'declared') {", actions)
+        self.assertLess(actions.index("id: 'restore-strip'"), actions.index("id: 'remove-strip'"))
+        self.assertIn("t('restore_strip', 'Restore')", actions)
+        self.assertIn("t('remove_strip', 'Remove')", actions)
+
+    def test_a_strip_with_no_tabs_is_still_reachable(self):
+        """Remove/Restore moved into the inspector, which opens on a selected entry.
+
+        A strip whose split produces no tabs has no pill to select, so without a
+        strip-level selection an admin could never remove one they mis-created.
+        """
+        source = self.BUILDER_JS.read_text()
+        self.assertIn("type: 'strip',", source)
+        self.assertIn('function selectedStrip()', source)
+        template = (
+            Path(__file__).resolve().parent.parent
+            / 'templates' / 'dlux' / 'setup' / 'ribbon_builder.html'
+        ).read_text()
+        self.assertIn('<button type="button" class="dlux-ribbon-builder__preview-kind" data-strip-kind>', template)
 
 
 class BuilderCriteriaLabelTests(TestCase):
@@ -1705,6 +2178,7 @@ class BuilderCriteriaLabelTests(TestCase):
         """A static-only strip is not describable by the dropdown, and says so."""
         from django.contrib.auth.models import User
 
+        from dlux.ribbon import RibbonTab, RibbonTabs
         from dlux.ribbon.catalog import _declared_strips
 
         strips = _declared_strips(
@@ -1712,6 +2186,12 @@ class BuilderCriteriaLabelTests(TestCase):
              'sources': [{'type': 'static', 'key': 'a', 'label': 'A'}]},
             User, None)
         self.assertEqual(strips[0]['field'], '')
+
+        strips = _declared_strips(
+            RibbonTabs(param='status', items=[RibbonTab(key='open', label='Open')]),
+            User, None)
+        self.assertEqual(strips[0]['param'], 'status')
+        self.assertEqual(strips[0]['tabs'][0]['key'], 'open')
 
     def test_only_the_first_field_source_is_reported(self):
         """One dropdown cannot describe a strip mixing several splits."""

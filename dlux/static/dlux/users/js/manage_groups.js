@@ -70,6 +70,38 @@
             .catch(function (err) { console.error('dlux groups: action error', err); });
     }
 
+    function deleteGroup(url) {
+        if (!url || !confirm('هل أنت متأكد من الحذف؟')) return;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d && d.success && typeof d.html === 'string') {
+                    setBody(d.html);
+                } else {
+                    alert(formatDeleteError(d));
+                }
+            })
+            .catch(function (err) { console.error('dlux groups: delete error', err); });
+    }
+
+    function formatDeleteError(data) {
+        var message = data?.error || 'Cannot delete this item.';
+        var related = data?.related || {};
+        var lines = [];
+        Object.keys(related).forEach(function (label) {
+            var items = related[label] || [];
+            if (items.length) lines.push(label + ': ' + items.join(', '));
+        });
+        if (lines.length) message += '\n\n' + lines.join('\n');
+        return message;
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var openBtn = document.getElementById('btn-manage-groups');
         if (openBtn) {
@@ -103,6 +135,10 @@
             body.addEventListener('dlux:group:toggle-public-default', function (e) {
                 var url = e.detail?.data?.url || e.detail?.action?.data?.url;
                 postAction(url);
+            });
+            body.addEventListener('dlux:group:delete', function (e) {
+                var url = e.detail?.data?.url || e.detail?.action?.data?.url;
+                deleteGroup(url);
             });
         }
     });

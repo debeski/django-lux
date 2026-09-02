@@ -59,7 +59,7 @@ Use the sections below based on what you are trying to do.
 - A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
 - A shared theme registry that keeps theme validation, ordering, previews, and CSS inclusion aligned across setup, options, and the live runtime UI.
 - A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
-- Reusable helper APIs such as `require_current_password(...)`, `set_profile_totp_state(...)`, `build_archive_file_field(...)`, and `build_settings_toggle_field(...)` for extending security and System Settings surfaces without duplicating framework behavior.
+- Reusable helper APIs such as `require_current_password(...)`, `set_profile_totp_state(...)`, `build_file_field(...)`, and `build_settings_toggle_field(...)` for extending security and System Settings surfaces without duplicating framework behavior.
 - A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
 - Optional OIDC SSO packages that keep provider/client behavior separate from core Dlux runtime imports.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.

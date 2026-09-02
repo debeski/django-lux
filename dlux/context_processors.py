@@ -624,6 +624,7 @@ def dlux_context(request):
     context['sidebar_reorder_enabled'] = bool(sidebar_enabled and sidebar_runtime_config.get('enable_reorder', True))
     context['sidebar_has_sections_manager'] = bool(
         sidebar_enabled and
+        sidebar_runtime_config.get('show_sections_manager', True) and
         request.user.is_authenticated and
         has_section_models() and
         context['can_view_sections']

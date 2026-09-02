@@ -2,8 +2,8 @@
 
 <div class="d-flex justify-content-between mb-3">
     <h5 class="modal-title">{% if scope_id %}{{ DLUX_STRINGS.edit_scope|default:"Edit Scope" }}{% else %}{{ DLUX_STRINGS.add_scope|default:"Add New Scope" }}{% endif %}</h5>
-    <button class="btn btn-secondary rounded-pill js-load-scope-form" data-url="{% url 'manage_scopes' %}">
-        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
+    <button class="btn btn-outline-secondary rounded-pill dlux-back-link js-load-scope-form" data-url="{% url 'manage_scopes' %}">
+        <i class="bi bi-arrow-left me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
     </button>
 </div>
 

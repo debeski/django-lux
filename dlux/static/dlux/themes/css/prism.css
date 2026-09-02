@@ -451,60 +451,60 @@
     background: #ffffff !important;
 }
 
-:root.theme-prism .archive-file-card {
+:root.theme-prism .dlux-file-card {
     border-color: var(--prism-line) !important;
     background: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96)) !important;
     box-shadow: inset 0 1px 0 var(--prism-line-soft) !important;
 }
 
-:root.theme-prism .archive-file-field.is-dragover .archive-file-card,
-:root.theme-prism .archive-file-card:hover,
-:root.theme-prism .archive-file-card:focus-visible {
+:root.theme-prism .dlux-file-field.is-dragover .dlux-file-card,
+:root.theme-prism .dlux-file-card:hover,
+:root.theme-prism .dlux-file-card:focus-visible {
     border-color: rgba(232, 236, 242, 0.34) !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         0 10px 22px -20px rgba(0, 0, 0, 0.76) !important;
 }
 
-:root.theme-prism .archive-file-tag {
+:root.theme-prism .dlux-file-tag {
     background: rgba(232, 236, 242, 0.1) !important;
     color: var(--prism-pearl) !important;
     border-color: rgba(232, 236, 242, 0.16) !important;
 }
 
-:root.theme-prism .archive-file-tool {
+:root.theme-prism .dlux-file-tool {
     background: rgba(255, 255, 255, 0.07) !important;
     color: var(--prism-pearl) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     box-shadow: none !important;
 }
 
-:root.theme-prism .archive-file-tool-upload {
+:root.theme-prism .dlux-file-tool-upload {
     background: rgba(125, 211, 252, 0.14) !important;
     color: var(--prism-pearl) !important;
 }
 
-:root.theme-prism .archive-file-tool-scan {
+:root.theme-prism .dlux-file-tool-scan {
     background: rgba(232, 236, 242, 0.12) !important;
     color: var(--prism-silver) !important;
 }
 
-:root.theme-prism .archive-file-tool-clear {
+:root.theme-prism .dlux-file-tool-clear {
     background: rgba(248, 113, 113, 0.14) !important;
     color: #fecaca !important;
 }
 
-:root.theme-prism .archive-file-icon {
+:root.theme-prism .dlux-file-icon {
     background: rgba(232, 236, 242, 0.1) !important;
     color: var(--prism-pearl) !important;
     box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.12) !important;
 }
 
-:root.theme-prism .archive-file-name {
+:root.theme-prism .dlux-file-name {
     color: var(--prism-pearl) !important;
 }
 
-:root.theme-prism .archive-file-meta {
+:root.theme-prism .dlux-file-meta {
     color: var(--prism-muted) !important;
 }
 

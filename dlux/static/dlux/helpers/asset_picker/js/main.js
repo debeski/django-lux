@@ -10,8 +10,8 @@
 
     function setUploadError(picker, message) {
         const input = picker.querySelector('[data-asset-picker-upload]');
-        const feedback = picker.querySelector('[data-archive-file-client-error]');
-        const card = picker.querySelector('[data-archive-file-drop]');
+        const feedback = picker.querySelector('[data-dlux-file-client-error]');
+        const card = picker.querySelector('[data-dlux-file-drop]');
         if (input) input.setCustomValidity(message || '');
         picker.classList.toggle('is-invalid', Boolean(message));
         if (card) {
@@ -33,8 +33,8 @@
         const clearInput = picker.querySelector('[data-asset-picker-clear-value]');
         const uploadInput = picker.querySelector('[data-asset-picker-upload]');
         const library = picker.querySelector('[data-asset-picker-library]');
-        const toggle = picker.querySelector('[data-archive-file-library]');
-        const clearButton = picker.querySelector('[data-archive-file-clear]');
+        const toggle = picker.querySelector('[data-dlux-file-library]');
+        const clearButton = picker.querySelector('[data-dlux-file-clear]');
 
         function syncCard(name, url, icon) {
             picker.dataset.initialName = name || '';
@@ -197,7 +197,7 @@
         if (!option) {
             option = document.createElement('button');
             option.type = 'button';
-            option.className = 'archive-file-library__option';
+            option.className = 'dlux-file-library__option';
             option.dataset.assetPickerOption = '';
             option.dataset.assetId = String(asset.id || '');
             const image = document.createElement('img');

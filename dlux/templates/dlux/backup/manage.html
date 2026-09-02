@@ -13,6 +13,10 @@
 <div class="dlux-backup-page">
     {% dlux_ribbon %}
 
+    <section class="dlux-backup-create-row">
+        {% include 'dlux/backup/_create_action.html' %}
+    </section>
+
     <div class="alert alert-warning dlux-backup-notice d-flex align-items-start gap-2" data-autoclose="false">
         <i class="bi bi-exclamation-triangle-fill mt-1"></i>
         <div>{{ DLUX_STRINGS.sysbackup_notice }}</div>
@@ -101,11 +105,13 @@
                 <form method="post" action="{% url 'system_backup_upload' %}" enctype="multipart/form-data" class="dlux-form dlux-backup-upload-form">
                     {% csrf_token %}
                     {{ backup_upload_form.backup_file }}
-                    <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill text-nowrap">
-                        <i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.sysbackup_upload }}
-                    </button>
+                    <div class="dlux-backup-upload-form__footer">
+                        <p class="form-text mb-0">{{ DLUX_STRINGS.sysbackup_upload_help }}</p>
+                        <button type="submit" class="btn btn-primary btn-sm rounded-pill text-nowrap">
+                            <i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.sysbackup_upload }}
+                        </button>
+                    </div>
                 </form>
-                <p class="form-text mt-2 mb-0">{{ DLUX_STRINGS.sysbackup_upload_help }}</p>
             </section>
         </div>
 

@@ -1,0 +1,147 @@
+.dlux-inspector-shell {
+  display: grid;
+  gap: 0.8rem;
+  background: var(--dlux-setup-pane-bg, rgba(248, 250, 252, 0.85));
+  border: 1px solid var(--dlux-setup-pane-border, rgba(148, 163, 184, 0.35));
+  border-radius: 0.5rem;
+  color: var(--dlux-setup-text, inherit);
+  padding: 0.85rem;
+}
+
+.dlux-inspector-shell[hidden] {
+  display: none !important;
+}
+
+.dlux-inspector-shell__panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.dlux-inspector-shell--popover {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* `inset-block-start` is the fallback for an adapter with no anchor; when one is
+   supplied the shell sets `top` inline, placing the panel just below the row it
+   edits (or just above it when there is no room below). `overflow-y` matters in a
+   short scroll container: the shell caps the panel's height rather than letting it
+   run past the edge that clips it, and the content scrolls inside instead. */
+.dlux-inspector-shell--popover .dlux-inspector-shell__panel {
+  position: absolute;
+  inset-block-start: calc(100% + 0.5rem);
+  inset-inline: 0;
+  z-index: 35;
+  max-width: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--dlux-setup-pane-border, rgba(148, 163, 184, 0.35));
+  border-radius: 0.5rem;
+  background-color: var(--bs-body-bg, #fff);
+  background-image: linear-gradient(
+    var(--dlux-setup-pane-bg, transparent),
+    var(--dlux-setup-pane-bg, transparent)
+  );
+  box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+}
+
+.dlux-inspector-shell--popover .dlux-inspector-shell__panel.is-anchor-offscreen {
+  visibility: hidden;
+}
+
+.dlux-inspector-shell__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  align-items: start;
+}
+
+.dlux-inspector-shell__title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dlux-inspector-shell__subtitle {
+  grid-column: 1 / -1;
+}
+
+.dlux-inspector-shell__badge {
+  justify-self: end;
+}
+
+.dlux-inspector-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dlux-inspector-shell__actions .btn {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+}
+
+.dlux-inspector-shell__action--end {
+  margin-inline-start: auto;
+}
+
+.dlux-inspector-shell__action-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  margin: 0;
+}
+
+.dlux-inspector-shell__action-toggle .form-check-input {
+  margin: 0;
+  float: none;
+}
+
+/* Actions living inside the panel sit above the fields, divided from them. */
+.dlux-inspector-shell__panel > .dlux-inspector-shell__actions {
+  padding-block-end: 0.7rem;
+  border-block-end: 1px solid var(--dlux-setup-pane-border, rgba(148, 163, 184, 0.35));
+}
+
+/* Fields flex into whatever the row has: they share the available width evenly
+   and wrap to a new line once each would fall below
+   `--dlux-inspector-field-min`. */
+.dlux-inspector-shell__fields,
+.dlux-inspector-shell__localized-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.dlux-inspector-shell__field {
+  flex: 1 1 var(--dlux-inspector-field-min, 12rem);
+  min-width: 0;
+}
+
+.dlux-inspector-shell__field--full {
+  flex-basis: 100%;
+}
+
+.dlux-inspector-shell__toggle {
+  min-height: 2.375rem;
+  display: flex;
+  align-items: center;
+}
+
+.dlux-inspector-shell__empty {
+  margin: 0;
+}
+
+@media (max-width: 575.98px) {
+  .dlux-inspector-shell__action--end {
+    margin-inline-start: 0;
+    flex-basis: 100%;
+  }
+}

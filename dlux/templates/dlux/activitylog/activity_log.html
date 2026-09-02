@@ -1,26 +1,12 @@
-{% extends 'dlux/list_base.html' %}
-{% load django_tables2 %}
-{% load static %}
+{% extends 'dlux/list_page.html' %}
 {% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.log_title }}{% endblock %}
 
-{% block content %}
-
-    {% dlux_ribbon %}
-
-
-    <div class="card border-0 shadow-sm rounded-4 dlux-table-card">
-        <div class="card-body p-0">
-            {% render_table table %}
-        </div>
-    </div>
-
-    <!-- Log Detail Modal -->
+{% block list_modals %}
     <div class="modal fade" id="activityLogDetailModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content glass-card border-0 shadow-lg">
-                <!-- Content loaded via AJAX -->
                 <div class="modal-body text-center p-5"
                      id="activityLogDetailModalBody"
                      data-loading-text="{{ DLUX_STRINGS.loading|default:'Loading...' }}"
@@ -33,7 +19,6 @@
             </div>
         </div>
     </div>
-
 {% endblock %}
 
 {% block scripts %}

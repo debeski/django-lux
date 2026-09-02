@@ -85,6 +85,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // or rely on the `form=` association added below for submit buttons.
     const DEV_FOOTER_SELECTOR = '[data-dlux-modal-footer]';
 
+    // The records list a section-manager modal renders beneath its form.
+    const MODAL_LIST_SELECTOR = '[data-dlux-modal-list]';
+
     // Relocate an action bar into the sticky modal footer so it stays on screen while
     // the body scrolls. Buttons keep working: submit buttons are re-associated to the
     // form via the `form=` attribute (which still fires the form's submit event the JS
@@ -99,6 +102,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function syncModalFooter() {
         if (!footer) return;
         resetModalFooter();
+
+        // A form shown above a records list keeps its own action bar: pinned to the
+        // footer it would read as the submit for the table it sits under.
+        if (modalBody.querySelector(MODAL_LIST_SELECTOR)) return;
 
         const actions = modalBody.querySelector(DEV_FOOTER_SELECTOR)
             || modalBody.querySelector(BUILTIN_ACTION_SELECTOR);
@@ -205,19 +212,28 @@ document.addEventListener('DOMContentLoaded', function() {
         clearModalState();
     });
 
+    // A trigger inside the open modal navigates *deeper* — a manager's list to one
+    // of its records — so it must not become the surface Back and a save return to.
+    // Only a trigger on the page behind the modal opens a new base.
+    function isInModalTrigger(trigger) {
+        return !!(trigger && modalBody.contains(trigger));
+    }
+
     // 1. Listen for clicks on buttons with data-dynamic-modal attribute
     document.addEventListener('click', function(e) {
         const trigger = e.target.closest('[data-dynamic-modal]');
         if (!trigger) return;
 
         e.preventDefault();
-        
+
         const url = trigger.getAttribute('data-dynamic-modal');
         const title = trigger.getAttribute('data-modal-title') || 'Manage Records';
-        
-        currentBaseUrl = url;
-        if (titleText) titleText.textContent = title;
-        
+
+        if (!isInModalTrigger(trigger)) {
+            currentBaseUrl = url;
+            if (titleText) titleText.textContent = title;
+        }
+
         openModalAndLoad(url, trigger);
     }, true);
 
@@ -229,20 +245,29 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('dlux:dynamic_modal:open', function(e) {
         const url = e.detail.data?.url || e.detail.action?.url;
         const title = e.detail.data?.title || e.detail.action?.title || 'تفاصيل';
-        const trigger = e.detail.trigger || null;
-        
+        const trigger = e.detail.trigger || e.detail.originalTarget || null;
+
         if (!url) return;
-        currentBaseUrl = url;
-        if (titleText) titleText.textContent = title;
-        
-        openModalAndLoad(url, trigger);
+        if (!isInModalTrigger(trigger)) {
+            currentBaseUrl = url;
+            if (titleText) titleText.textContent = title;
+        }
+
+        openModalAndLoad(url, e.detail.trigger || null);
     });
 
+    // In-modal navigation: a container of links marked [data-dlux-modal-nav], or a
+    // single link/button carrying the marker itself with an href or data-url.
     modalBody.addEventListener('click', function(e) {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const marked = e.target.closest('[data-dlux-modal-nav]');
         const link = e.target.closest('[data-dlux-modal-nav] a[href]');
-        if (!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const target = link || marked;
+        if (!target) return;
+        const url = target.getAttribute('href') || target.dataset.url;
+        if (!url) return;
         e.preventDefault();
-        openModalAndLoad(link.href);
+        openModalAndLoad(url);
     });
 
     // 2. Load Content via AJAX
@@ -499,7 +524,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location.reload();
                     return;
                 }
-                if (data.refresh_parent) {
+                // A save made deeper in a stacked modal returns to the surface the
+                // modal was opened on, never to the page behind it: the record was
+                // reached from that list, and the list is what has to be redrawn.
+                if (data.refresh_parent && currentLoadedUrl === currentBaseUrl) {
                     clearModalState();
                     window.location.reload();
                     return;
@@ -530,10 +558,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 5. Delete Logic
-    function deleteRecord(pk) {
-        const deleteUrl = currentBaseUrl.endsWith('/') ? 
+    function buildRelatedText(related) {
+        if (!related || typeof related !== 'object') return '';
+        const lines = [];
+        Object.keys(related).forEach(function (group) {
+            const items = Array.isArray(related[group]) ? related[group] : [];
+            if (!items.length) return;
+            lines.push(group + ': ' + items.join(', '));
+        });
+        return lines.length ? '\n\n' + lines.join('\n') : '';
+    }
+
+    function deleteRecord(pk, explicitDeleteUrl) {
+        const deleteUrl = explicitDeleteUrl || (currentBaseUrl.endsWith('/') ?
             currentBaseUrl + 'delete/' + pk + '/' : 
-            currentBaseUrl + '/delete/' + pk + '/';
+            currentBaseUrl + '/delete/' + pk + '/');
             
         // Must send CSRF token!
         let csrfToken = '';
@@ -569,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 openModalAndLoad(currentBaseUrl);
             } else {
-                alert(data.error || 'Failed to delete record.');
+                alert((data.error || 'Failed to delete record.') + buildRelatedText(data.related));
             }
         })
         .catch(err => {
@@ -603,13 +642,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     modalEl.addEventListener('dlux:record:delete', function(e) {
         if (!modalEl.classList.contains('show')) return;
+        e.preventDefault();
         e.stopPropagation();
         
         const data = e.detail.data;
         if (!data || !data.id) return;
         
         if (confirm('Are you sure you want to delete this record (ID: ' + data.id + ')?')) {
-            deleteRecord(data.id);
+            deleteRecord(data.id, data.delete_url);
         }
     });
 

@@ -38,6 +38,13 @@
             if (!field.name || field.name === 'csrfmiddlewaretoken' || field.type === 'file') {
                 return;
             }
+            // A builder's scratch field exists only to wire a shared component to it
+            // (the icon picker reports a pick by writing to the field its `field_name`
+            // names). It carries the *selected* entry's value, so merely inspecting an
+            // entry rewrites it — which is not an edit, and must not arm the prompt.
+            if (field.hasAttribute('data-dlux-unsaved-ignore')) {
+                return;
+            }
             if (!byName.has(field.name)) {
                 byName.set(field.name, []);
             }

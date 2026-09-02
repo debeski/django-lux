@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 from copy import deepcopy
+from urllib.parse import urlsplit
 
 from .constants import (
     EMAIL_CONFIG_VERIFIED_FIELDS,
@@ -100,6 +101,19 @@ from .defaults import (
 
 
 _BACKUP_TARGET_SEGMENT_RE = re.compile(r'^[A-Za-z0-9._-]+$')
+_RIBBON_ACTION_ID_RE = re.compile(r'^[A-Za-z0-9_.:-]{1,80}$')
+_RIBBON_ACTION_HOST_RE = re.compile(r'^[A-Za-z0-9_.:-]{1,160}$')
+_RIBBON_ACTION_PERMISSION_RE = re.compile(r'^[A-Za-z0-9_.:-]{1,120}$')
+_RIBBON_ACTION_SAFE_ATTRS = {
+    'aria-label',
+    'data-dlux-modal-size',
+    'data-dynamic-modal',
+    'data-modal-title',
+    'form',
+    'formaction',
+    'formmethod',
+}
+_RIBBON_ACTION_LOCAL_URL_ATTRS = {'data-dynamic-modal', 'formaction'}
 
 
 def _coerce_import_bool(value):
@@ -792,6 +806,9 @@ def normalize_sidebar_behavior(sidebar_config):
         normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
     normalized['enable_reorder'] = bool(config.get('enable_reorder', normalized['enable_reorder']))
     normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
+    normalized['show_sections_manager'] = bool(
+        config.get('show_sections_manager', normalized['show_sections_manager'])
+    )
     normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
     normalized['show_notification_badges'] = bool(
         config.get('show_notification_badges', normalized['show_notification_badges'])
@@ -1230,7 +1247,8 @@ def normalize_ribbon_config(value):
 
     A model has two strip lists. ``strips`` stores overlays and removals for
     strips declared by the view. ``extra_strips`` stores strips created in
-    System Settings.
+    System Settings. ``custom_actions`` stores administrator-created buttons
+    under the route/view host that should render them.
     """
     from .constants import RIBBON_TAB_SOURCE_TYPES
 
@@ -1259,14 +1277,243 @@ def normalize_ribbon_config(value):
             if kept is not None:
                 extra.append(kept)
 
-        if declared or extra:
+        custom_actions = _normalize_ribbon_custom_actions(entry.get('custom_actions'))
+        action_overlays = _normalize_ribbon_action_overlays(entry.get('actions'))
+
+        if declared or extra or custom_actions or action_overlays:
             model_entry = {}
             if declared:
                 model_entry['strips'] = declared
             if extra:
                 model_entry['extra_strips'] = extra
+            if custom_actions:
+                model_entry['custom_actions'] = custom_actions
+            if action_overlays:
+                model_entry['actions'] = action_overlays
             cleaned[model_key] = model_entry
 
+    return cleaned
+
+
+def _normalize_ribbon_action_overlays(value):
+    """Administrator edits to the buttons a view declares in code.
+
+    Keyed by destination — `modal:<url>` or `url:<url>` — because that is what a
+    button *is*: the same identity the runtime dedupes on, and stable across a
+    view reordering its `ribbon_actions`. An entry carries only what was changed:
+    `enabled: false` for a removed button, `labels` for renames, `icon` for a new
+    glyph. An empty entry is dropped, which is what Restore leaves behind.
+    """
+    if not isinstance(value, dict):
+        return {}
+    cleaned = {}
+    for raw_key, raw_overlay in value.items():
+        key = str(raw_key or '').strip()
+        if not key or not isinstance(raw_overlay, dict):
+            continue
+        overlay = {}
+        if raw_overlay.get('enabled') is False:
+            overlay['enabled'] = False
+        labels = _normalize_ribbon_action_labels(raw_overlay)
+        if labels:
+            overlay['labels'] = labels
+        icon = str(raw_overlay.get('icon') or '').strip()
+        if icon:
+            overlay['icon'] = icon
+        if overlay:
+            cleaned[key] = overlay
+    return cleaned
+
+
+def _normalize_ribbon_custom_actions(value):
+    grouped = {}
+    if isinstance(value, dict):
+        candidates = value.items()
+    elif isinstance(value, (list, tuple)):
+        candidates = (('*', value),)
+    else:
+        return {}
+
+    for raw_host_key, raw_actions in candidates:
+        host_key = str(raw_host_key or '').strip()
+        if host_key != '*' and not _RIBBON_ACTION_HOST_RE.match(host_key):
+            continue
+        if not isinstance(raw_actions, (list, tuple)):
+            continue
+        actions = []
+        for raw_action in raw_actions:
+            if not isinstance(raw_action, dict):
+                continue
+            action = _normalize_ribbon_custom_action(raw_action)
+            if action is not None:
+                actions.append(action)
+        if actions:
+            grouped[host_key] = actions
+    return grouped
+
+
+def _normalize_ribbon_custom_action(action):
+    if action.get('html'):
+        return None
+    action_id = str(action.get('id') or action.get('key') or '').strip()
+    if not _RIBBON_ACTION_ID_RE.match(action_id):
+        return None
+
+    labels = _normalize_ribbon_action_labels(action)
+    label = str(action.get('label') or '').strip()
+    if not labels and not label:
+        return None
+
+    destination = _normalize_ribbon_action_destination(action.get('destination'))
+    url = _normalize_ribbon_local_url(action.get('url'))
+    attrs = _normalize_ribbon_action_attrs(action.get('attrs'))
+    if destination:
+        if destination['kind'] == 'modal':
+            attrs.setdefault('data-dynamic-modal', destination['url'])
+            title = _first_ribbon_action_label(labels, label) or destination.get('label')
+            if title:
+                attrs.setdefault('data-modal-title', title[:160])
+        elif not url:
+            url = destination['url']
+    if not url and not attrs.get('data-dynamic-modal') and not attrs.get('formaction'):
+        return None
+
+    cleaned = {'id': action_id}
+    if labels:
+        cleaned['labels'] = labels
+    elif label:
+        cleaned['label'] = label[:120]
+    icon = _normalize_ribbon_action_icon(action.get('icon'))
+    if icon:
+        cleaned['icon'] = icon
+    css_class = str(action.get('css_class') or action.get('btn_class') or '').strip()
+    if css_class:
+        cleaned['css_class'] = css_class[:160]
+    action_type = str(action.get('type') or '').strip().lower()
+    if action_type in {'button', 'submit', 'reset'}:
+        cleaned['type'] = action_type
+    permission = str(action.get('permission') or '').strip()
+    if permission and _RIBBON_ACTION_PERMISSION_RE.match(permission):
+        cleaned['permission'] = permission
+    permissions = _normalize_ribbon_action_permissions(action.get('permissions'))
+    if not permissions and destination:
+        permissions = destination.get('permissions') or []
+    if permissions:
+        cleaned['permissions'] = permissions
+    if url:
+        cleaned['url'] = url
+    if attrs:
+        cleaned['attrs'] = attrs
+    if destination:
+        cleaned['destination'] = destination
+    return cleaned
+
+
+def _normalize_ribbon_action_labels(action):
+    labels = action.get('labels')
+    if not isinstance(labels, dict):
+        return {}
+    cleaned = {}
+    for raw_code, raw_text in labels.items():
+        code = _normalize_language_code(raw_code)
+        text = str(raw_text or '').strip()
+        if code and text:
+            cleaned[code] = text[:120]
+    return cleaned
+
+
+def _normalize_ribbon_local_url(value):
+    raw = str(value or '').strip()
+    if not raw or len(raw) > 2048:
+        return ''
+    lowered = raw.lower()
+    if lowered.startswith(('javascript:', 'data:', 'vbscript:', '//')):
+        return ''
+    parts = urlsplit(raw)
+    if parts.scheme or parts.netloc:
+        return ''
+    if not raw.startswith(('/', '?', '#')):
+        return ''
+    return raw
+
+
+def _normalize_ribbon_action_permissions(value):
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, (list, tuple, set)):
+        return []
+    cleaned = []
+    for item in value:
+        permission = str(item or '').strip()
+        if permission and _RIBBON_ACTION_PERMISSION_RE.match(permission) and permission not in cleaned:
+            cleaned.append(permission)
+    return cleaned
+
+
+def _first_ribbon_action_label(labels, label=''):
+    text = str(label or '').strip()
+    if text:
+        return text
+    for value in (labels or {}).values():
+        text = str(value or '').strip()
+        if text:
+            return text
+    return ''
+
+
+def _normalize_ribbon_action_destination(value):
+    if not isinstance(value, dict):
+        return {}
+    kind = str(value.get('kind') or '').strip().lower()
+    if kind not in {'page', 'form', 'modal'}:
+        return {}
+    url = _normalize_ribbon_local_url(value.get('url'))
+    if not url:
+        return {}
+    destination = {'kind': kind, 'url': url}
+    route_name = str(value.get('route_name') or '').strip()
+    if route_name and _RIBBON_ACTION_HOST_RE.match(route_name):
+        destination['route_name'] = route_name
+    label = str(value.get('label') or '').strip()
+    if label:
+        destination['label'] = label[:120]
+    permissions = _normalize_ribbon_action_permissions(value.get('permissions'))
+    if permissions:
+        destination['permissions'] = permissions
+    return destination
+
+
+def _normalize_ribbon_action_icon(value):
+    raw = str(value or '').strip()
+    if not raw or len(raw) > 80:
+        return ''
+    return ' '.join(part for part in raw.split() if re.match(r'^[A-Za-z0-9_-]+$', part))[:80]
+
+
+def _normalize_ribbon_action_attrs(value):
+    if not isinstance(value, dict):
+        return {}
+    cleaned = {}
+    for raw_key, raw_value in value.items():
+        key = str(raw_key or '').strip().lower()
+        if key not in _RIBBON_ACTION_SAFE_ATTRS:
+            continue
+        text = str(raw_value or '').strip()
+        if not text:
+            continue
+        if key in _RIBBON_ACTION_LOCAL_URL_ATTRS:
+            text = _normalize_ribbon_local_url(text)
+            if not text:
+                continue
+        elif key == 'formmethod':
+            text = text.lower()
+            if text not in {'get', 'post'}:
+                continue
+        elif key == 'form' and not re.match(r'^[A-Za-z][A-Za-z0-9_-]{0,79}$', text):
+            continue
+        else:
+            text = text[:160]
+        cleaned[key] = text
     return cleaned
 
 

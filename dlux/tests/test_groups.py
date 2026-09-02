@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from dlux.forms import GroupPresetForm, GroupMembersForm
-from dlux.models import GroupProfile, GroupMembership, Scope, ScopeSettings
+from dlux.models import GroupProfile, GroupMembership, Scope, ScopeSettings, SystemSettings
 from dlux.utils import (
     can_manage_group_preset,
     get_visible_group_presets,
@@ -212,3 +212,40 @@ class GroupPresetPublicRegistrationDefaultViewTests(TestCase):
         self.group.dlux_profile.refresh_from_db()
         self.assertTrue(self.group.dlux_profile.is_public_registration_default)
         self.assertIn('Public default', response.json()['html'])
+
+
+class GroupPresetDeleteViewTests(TestCase):
+    def setUp(self):
+        settings = SystemSettings.load()
+        settings.is_configured = True
+        settings.save()
+        self.admin = User.objects.create_superuser('admin', 'admin@example.com', 'pw')
+        self.member = User.objects.create_user('member', 'member@example.com', 'pw')
+        self.client.login(username='admin', password='pw')
+        self.p_view, self.p_down = _assignable_perms()
+
+    def test_delete_group_allows_definition_only_preset(self):
+        group = Group.objects.create(name='Unused Preset')
+        group.permissions.add(self.p_view, self.p_down)
+        GroupProfile.objects.create(group=group, description='definition metadata')
+
+        response = self.client.post(reverse('delete_group', args=[group.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['success'])
+        self.assertFalse(Group.objects.filter(pk=group.pk).exists())
+        self.assertFalse(GroupProfile.objects.filter(group_id=group.pk).exists())
+
+    def test_delete_group_blocks_and_reports_member_links(self):
+        group = Group.objects.create(name='Used Preset')
+        GroupProfile.objects.create(group=group)
+        set_user_group_presets(self.member, [group], actor=self.admin)
+
+        response = self.client.post(reverse('delete_group', args=[group.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload['success'])
+        self.assertTrue(payload['related'])
+        self.assertTrue(Group.objects.filter(pk=group.pk).exists())

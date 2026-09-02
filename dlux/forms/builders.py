@@ -5,42 +5,12 @@ toggles, email controls, file fields and modal/wizard action bars."""
 import json
 from crispy_forms.layout import Field, Div, HTML
 from crispy_forms.bootstrap import FormActions
-from django import forms
 from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 from ..translations import get_current_language_code
 from ..utils import normalize_titlebar_actions_order
 from ..widgets import DluxFileInput
 
-
-
-class DluxRelayAwareSelect(forms.Select):
-    """A Select that greys out transports whose service is not deployed.
-
-    The internal relay is a separate process. When it is not running, choosing
-    relay transport configures mail that cannot leave the building — the app
-    hands every message to a socket nothing is listening on. Offering the choice
-    and letting it fail on the next test send teaches that lesson slowly; the
-    option simply not being available says it immediately.
-
-    The stored value is never disabled, even when unreachable. A relay that is
-    merely down should not silently reset an operator's transport to direct, and
-    a disabled option that is also the selected one is submitted by some
-    browsers and dropped by others.
-    """
-
-    def __init__(self, *args, unavailable=(), reason='', **kwargs):
-        super().__init__(*args, **kwargs)
-        self.unavailable = set(unavailable)
-        self.reason = reason
-
-    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
-        option = super().create_option(name, value, label, selected, index, subindex, attrs)
-        if str(value) in self.unavailable and not selected:
-            option['attrs']['disabled'] = True
-            if self.reason:
-                option['attrs']['title'] = self.reason
-        return option
 
 def _bind_choice_selector_widget(field, widget):
     widget.choices = field.choices
@@ -122,15 +92,22 @@ def _build_submit_only_actions(strings, submit_label, submit_icon, submit_class=
     )
 
 
-def _build_archive_file_widget(field_label="", show_scan=False, attrs=None):
+def _build_file_widget(field_label="", show_scan=False, attrs=None):
     return DluxFileInput(attrs=attrs, field_label=field_label, show_scan=show_scan)
 
 
-def build_archive_file_field(field_name, css_class=None):
+def build_file_field(field_name, css_class=None):
     field_kwargs = {'template': 'dlux/forms/crispy_file_field.html'}
     if css_class:
         field_kwargs['css_class'] = css_class
     return Field(field_name, **field_kwargs)
+
+
+# Named for project-archive's document forms, where this widget started. Kept
+# importable through v1.x for the host projects still on the old name; removed
+# in v1.9.0.
+_build_archive_file_widget = _build_file_widget
+build_archive_file_field = build_file_field
 
 
 def _boolean_field_checked(form, field_name):

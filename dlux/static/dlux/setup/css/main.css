@@ -346,19 +346,14 @@
   }
 }
 
-/* The node inspector lives on its own full-width row above the tree/routes grid.
-   Add Group is always shown; the selection-dependent actions appear inline after it
-   once a node is inspected. Toggling only `d-none` (Bootstrap's none is !important)
-   reliably hides it; when shown, this rule restores the inline-flex layout. */
-.dlux-navbar-inspector-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .dlux-navbar-builder__pane {
+  display: flex;
+  flex-direction: column;
+  height: 560px;
+  max-height: 70vh;
+  min-height: 380px;
   min-width: 0;
+  overflow: hidden;
   padding: 0.9rem;
   border: 1px solid var(--dlux-setup-pane-border);
   border-radius: 1rem;
@@ -367,8 +362,8 @@
 
 .dlux-navbar-tree,
 .dlux-navbar-route-list {
-  min-height: 16rem;
-  max-height: 30rem;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -448,17 +443,24 @@
   text-transform: uppercase;
 }
 
-.dlux-navbar-label-field {
-  display: grid;
-  gap: 0.35rem;
+.dlux-sidebar-builder__action-row .dlux-icon-picker-field {
+  margin: 0;
 }
 
-.dlux-navbar-label-field + .dlux-navbar-label-field {
-  margin-top: 0.75rem;
+.dlux-sidebar-builder__pane-card {
+  display: flex;
+  flex-direction: column;
+  height: 560px;
+  max-height: 70vh;
+  min-height: 380px;
 }
 
-.dlux-navbar-label-field small {
-  color: var(--dlux-setup-muted);
+.dlux-sidebar-builder__pane-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .dlux-setup-builder .card {
@@ -469,8 +471,8 @@
 
 .dlux-sidebar-tree,
 .dlux-sidebar-available {
-  min-height: 280px;
-  max-height: 460px;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
   padding: 0.25rem;
   border: 1px dashed var(--dlux-setup-pane-border);
@@ -978,9 +980,11 @@
 }
 
 @media (max-width: 991.98px) {
-  .dlux-sidebar-tree,
-  .dlux-sidebar-available {
-    max-height: 320px;
+  .dlux-navbar-builder__pane,
+  .dlux-sidebar-builder__pane-card {
+    height: 460px;
+    max-height: 70vh;
+    min-height: 360px;
   }
 
   .dlux-language-row {

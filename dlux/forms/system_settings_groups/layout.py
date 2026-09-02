@@ -128,7 +128,7 @@ from ...utils import (
     seed_navbar_config_from_sidebar,
 )
 from django.urls import reverse
-from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_archive_file_widget, _get_ui_direction, build_archive_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
+from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 class LayoutMixin:
@@ -222,23 +222,38 @@ class LayoutMixin:
                             f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
                             f"</p>"
                         ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('email_delivery_path_title', 'Delivery Path')}</h6>"),
                         Row(
-                            Div(Field('email_config_transport'), css_class='col-lg-3'),
-                            Div(Field('email_config_provider_preset'), css_class='col-lg-3'),
-                            Div(Field('email_config_secret_storage'), css_class='col-lg-3'),
-                            Div(Field('email_config_default_from_email'), css_class='col-lg-3'),
+                            Div(Field('email_config_transport'), css_class='col-12 col-lg-6'),
+                            Div(Field('email_config_secret_storage'), css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
                         ),
                         Row(
-                            Div(Field('email_config_host'), css_class='col-lg-4'),
-                            Div(Field('email_config_port'), css_class='col-lg-2'),
-                            build_email_toggle_field(self, 'email_config_use_tls', css_class='col-lg-2'),
-                            build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-lg-2'),
-                            Div(Field('email_config_username'), css_class='col-lg-2'),
+                            Div(Field('email_config_provider_preset'), css_class='col-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('email_connection_settings_title', 'SMTP Connection')}</h6>"),
+                        Row(
+                            build_email_toggle_field(self, 'email_config_use_tls', css_class='col-6 col-lg-3'),
+                            build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-6 col-lg-3'),
+                            css_class='g-3 mb-3',
                         ),
                         Row(
+                            Div(Field('email_config_host'), css_class='col-12 col-lg-6'),
+                            Div(Field('email_config_port'), css_class='col-6 col-lg-3'),
+                            Div(Field('email_config_timeout'), css_class='col-6 col-lg-3'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(Field('email_config_username'), css_class='col-12 col-lg-6'),
                             Div(Field('email_config_password'), css_class=email_password_field_class),
-                            Div(Field('email_config_timeout'), css_class='col-md-3'),
-                            Div(Field('email_config_failure_recipients'), css_class='col-md-5'),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('email_sender_settings_title', 'Sender & Alerts')}</h6>"),
+                        Row(
+                            Div(Field('email_config_default_from_email'), css_class='col-12 col-lg-6'),
+                            Div(Field('email_config_failure_recipients'), css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
                         ),
                         Field('email_config'),
                         HTML(
@@ -329,11 +344,14 @@ class LayoutMixin:
                             f"</p>"
                         ),
                         Row(
-                            Div(Field('client_ip_mode'), css_class='col-lg-4'),
+                            Div(Field('client_ip_mode'), css_class='col-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
                             Div(
                                 Field('client_ip_trusted_proxy_hops'),
                                 css_class=(
-                                    "col-lg-4 dlux-client-ip-hops-field"
+                                    "col-12 col-lg-6 dlux-client-ip-hops-field"
                                     f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_X_FORWARDED_FOR else ''}"
                                 ),
                                 data_client_ip_hops='true',
@@ -342,29 +360,25 @@ class LayoutMixin:
                             Div(
                                 Field('client_ip_custom_header'),
                                 css_class=(
-                                    "col-lg-4 dlux-client-ip-custom-header-field"
+                                    "col-12 col-lg-6 dlux-client-ip-custom-header-field"
                                     f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_CUSTOM else ''}"
                                 ),
                                 data_client_ip_custom_header='true',
                                 aria_hidden='false' if self.initial.get('client_ip_mode') == CLIENT_IP_MODE_CUSTOM else 'true',
                             ),
+                            css_class='g-3 mb-3',
                         ),
                         Field('client_ip_config'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('public_registration_settings_title', 'Public Registration')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            Div(
-                                Field('registration_activation_mode'),
-                                css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
-                                data_public_registration_dependent='true',
-                                aria_disabled='false' if self.initial.get('public_registration_enabled', False) else 'true',
-                            ),
                             build_settings_toggle_field(
                                 self,
                                 'registration_throttle_enabled',
-                                css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
+                                css_class=f"col-12 col-lg-4 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                                 attrs={
                                     'data_public_registration_dependent': 'true',
                                     'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
@@ -373,7 +387,7 @@ class LayoutMixin:
                             build_settings_toggle_field(
                                 self,
                                 'honeypot_enabled',
-                                css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
+                                css_class=f"col-12 col-lg-4 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                                 attrs={
                                     'data_public_registration_dependent': 'true',
                                     'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
@@ -382,11 +396,20 @@ class LayoutMixin:
                             build_settings_toggle_field(
                                 self,
                                 'registration_require_consent',
-                                css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
+                                css_class=f"col-12 col-lg-4 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                                 attrs={
                                     'data_public_registration_dependent': 'true',
                                     'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
                                 },
+                            ),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            Div(
+                                Field('registration_activation_mode'),
+                                css_class=f"col-12 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
+                                data_public_registration_dependent='true',
+                                aria_disabled='false' if self.initial.get('public_registration_enabled', False) else 'true',
                             ),
                             css_class='g-3',
                         ),
@@ -520,17 +543,21 @@ class LayoutMixin:
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            build_settings_toggle_field(self, 'sidebar_show_icons', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'sidebar_show_sections_manager', css_class='col-lg-6'),
                             build_settings_toggle_field(self, 'sidebar_allow_user_density', css_class='col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            build_settings_toggle_field(self, 'sidebar_show_notification_badges', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'sidebar_show_icons', css_class='col-lg-6'),
                             build_settings_toggle_field(self, 'sidebar_accent_edge', css_class='col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
+                        Row(
+                            build_settings_toggle_field(self, 'sidebar_show_notification_badges', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
                         HTML(
-                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
+                            f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) and self.initial.get('sidebar_show_sections_manager', True) else ''}' "
                             f"data-sidebar-toolbar-note>"
                             f"{s.get('sidebar_toolbar_disable_note', 'Disabling the sidebar toolbar also removes the only built-in shortcut to Dynamic Sections Manager. If you still want UI access, enable system items in the sidebar builder and add Section Management to your sidebar.')}"
                             f"</div>"
@@ -713,8 +740,8 @@ class LayoutMixin:
                             css_class='g-3 mt-1 mb-2',
                         ),
                         Row(
-                            Div(build_archive_file_field('login_logo'), css_class='col-lg-6'),
-                            Div(build_archive_file_field('login_background'), css_class='col-lg-6'),
+                            Div(build_file_field('login_logo'), css_class='col-lg-6'),
+                            Div(build_file_field('login_background'), css_class='col-lg-6'),
                             css_class='g-3 mb-2',
                         ),
                         # Row 2: hero message textareas — one column per language

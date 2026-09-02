@@ -35,10 +35,10 @@
 
 {% dlux_audit_trail object %}
 
-{% if request.GET.action == 'view' %}
+{% if request.GET.action == 'view' and not ribbon %}
 <div class="mt-4 text-end border-top pt-3">
-    <button type="button" class="btn btn-outline-secondary px-4 rounded-pill dynamic-back-btn">
-        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.btn_back|default:"رجوع" }}
+    <button type="button" class="btn btn-outline-secondary px-4 rounded-pill dlux-back-link dynamic-back-btn">
+        <i class="bi bi-arrow-left me-1"></i> {{ DLUX_STRINGS.btn_back|default:"رجوع" }}
     </button>
 </div>
 {% endif %}

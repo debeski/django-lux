@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (url) postScopeAction(url);
         });
 
-        scopeModalBody.addEventListener('dlux:scope:delete-disabled', function(e) {
+        scopeModalBody.addEventListener('dlux:scope:delete', function(e) {
             const url = e.detail?.data?.url || e.detail?.action?.data?.url;
             if (url) deleteScope(url);
         });
@@ -190,7 +190,11 @@ function deleteScope(url) {
     if (!confirm('هل أنت متأكد من الحذف؟')) return; // Basic confirmation
 
     fetch(url, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getScopeCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
     .then(response => response.json())
     .then(data => {
@@ -199,9 +203,23 @@ function deleteScope(url) {
             if (body) {
                 body.innerHTML = data.html;
             }
+        } else {
+            alert(formatScopeDeleteError(data));
         }
     })
     .catch(err => console.error('Error deleting scope:', err));
+}
+
+function formatScopeDeleteError(data) {
+    let message = data?.error || 'Cannot delete this item.';
+    const related = data?.related || {};
+    const lines = [];
+    Object.keys(related).forEach(function (label) {
+        const items = related[label] || [];
+        if (items.length) lines.push(`${label}: ${items.join(', ')}`);
+    });
+    if (lines.length) message += `\n\n${lines.join('\n')}`;
+    return message;
 }
 
 function getScopeCsrfToken() {

@@ -1,8 +1,8 @@
-.archive-file-field {
+.dlux-file-field {
     width: 100%;
 }
 
-.archive-file-field [data-archive-file-input="true"] {
+.dlux-file-field [data-dlux-file-input="true"] {
     position: absolute !important;
     width: 1px !important;
     height: 1px !important;
@@ -14,7 +14,7 @@
     border: 0 !important;
 }
 
-.archive-file-card {
+.dlux-file-card {
     position: relative;
     display: flex;
     min-height: 8.75rem;
@@ -33,29 +33,29 @@
     box-shadow: 0 2px 9px rgba(15, 23, 42, 0.026);
 }
 
-.archive-file-field.is-dragover .archive-file-card,
-.archive-file-card:hover,
-.archive-file-card:focus-visible {
+.dlux-file-field.is-dragover .dlux-file-card,
+.dlux-file-card:hover,
+.dlux-file-card:focus-visible {
     border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.48);
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.036);
     transform: translateY(-1px);
     outline: none;
 }
 
-.archive-file-field.is-invalid .archive-file-card,
-.is-invalid > .archive-file-field .archive-file-card {
+.dlux-file-field.is-invalid .dlux-file-card,
+.is-invalid > .dlux-file-field .dlux-file-card {
     border-color: var(--bs-danger, #dc3545);
     box-shadow: 0 0 0 0.18rem rgba(220, 53, 69, 0.14);
 }
 
-.archive-file-topbar {
+.dlux-file-topbar {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
 }
 
-.archive-file-tag {
+.dlux-file-tag {
     display: inline-flex;
     align-items: center;
     min-height: 1.8rem;
@@ -69,14 +69,14 @@
     max-width: calc(100% - 7.5rem);
 }
 
-.archive-file-tools {
+.dlux-file-tools {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0.45rem;
 }
 
-.archive-file-tool {
+.dlux-file-tool {
     display: inline-grid;
     place-items: center;
     width: 1.95rem;
@@ -90,28 +90,28 @@
     transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 
-.archive-file-tool:hover,
-.archive-file-tool:focus-visible {
+.dlux-file-tool:hover,
+.dlux-file-tool:focus-visible {
     transform: translateY(-1px);
     outline: none;
 }
 
-.archive-file-tool-upload {
+.dlux-file-tool-upload {
     background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
     color: var(--primal_dark, #0d6efd);
 }
 
-.archive-file-tool-scan {
+.dlux-file-tool-scan {
     background: rgba(255, 193, 7, 0.18);
     color: #9a6700;
 }
 
-.archive-file-tool-clear {
+.dlux-file-tool-clear {
     background: rgba(220, 53, 69, 0.1);
     color: #b42318;
 }
 
-.archive-file-body {
+.dlux-file-body {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -122,7 +122,7 @@
     padding-inline: 0.25rem;
 }
 
-.archive-file-icon {
+.dlux-file-icon {
     display: grid;
     place-items: center;
     width: 3.15rem;
@@ -133,7 +133,7 @@
     font-size: 1.6rem;
 }
 
-.archive-file-name {
+.dlux-file-name {
     max-width: 100%;
     font-weight: 700;
     line-height: 1.2;
@@ -142,7 +142,7 @@
     word-break: break-word;
 }
 
-.archive-file-meta {
+.dlux-file-meta {
     max-width: 100%;
     color: var(--bs-secondary-color, #6c757d);
     font-size: 0.82rem;
@@ -150,11 +150,11 @@
 }
 
 @media (max-width: 767.98px) {
-    .archive-file-card {
+    .dlux-file-card {
         min-height: 7.75rem;
     }
 
-    .archive-file-tag {
+    .dlux-file-tag {
         max-width: calc(100% - 6.6rem);
     }
 }

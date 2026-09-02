@@ -27,7 +27,7 @@
         </div>
         <div class="dlux-toolbar-right">
             {% if can_view_user_directory %}
-            <a href="{% url 'manage_users' %}" class="dlux-tool-btn" data-dlux-tooltip="{{ DLUX_STRINGS.manage_users }}">
+            <a href="{% url 'manage_users' %}" class="dlux-tool-btn" data-dlux-users-link data-dlux-tooltip="{{ DLUX_STRINGS.manage_users }}">
                 <i class="bi bi-people-fill"></i>
             </a>
             {% endif %}

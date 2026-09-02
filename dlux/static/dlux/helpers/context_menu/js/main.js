@@ -586,23 +586,38 @@
              queryParams = `?${queryParts.join('&')}`;
          }
 
-         // Submit via standard form to handle redirect or page reload
-         let form = document.getElementById('deleteSubsectionForm');
-         if (!form) {
-             form = document.createElement('form');
-             form.method = 'POST';
-             form.style.display = 'none';
-             const csrf = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-             if (csrf) {
-                 const inp = document.createElement('input');
-                 inp.type = 'hidden'; name='csrfmiddlewaretoken'; inp.value=csrf;
-                 form.appendChild(inp);
+         fetch(`${deleteUrl}${queryParams}`, {
+             method: 'POST',
+             headers: {
+                 'X-CSRFToken': getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                 'X-Requested-With': 'XMLHttpRequest'
              }
-             document.body.appendChild(form);
-         }
-         
-         form.action = `${deleteUrl}${queryParams}`;
-         form.submit();
+         })
+         .then(r => r.json())
+         .then(data => {
+             if (data.success) {
+                 window.location.reload();
+                 return;
+             }
+             if (data.related) {
+                 alert((data.error || 'Cannot delete this item.') + '\n\n' + buildRelatedText(data.related));
+             } else {
+                 alert(data.error || 'Cannot delete this item.');
+             }
+         })
+         .catch(e => {
+             console.error(e);
+             alert('Connection error');
+         });
+    }
+
+    function buildRelatedText(relatedData) {
+        const lines = [];
+        Object.keys(relatedData || {}).forEach(function (label) {
+            const items = relatedData[label] || [];
+            if (items.length) lines.push(`${label}: ${items.join(', ')}`);
+        });
+        return lines.join('\n');
     }
 
     function handleInlineAdd(e, btn) {

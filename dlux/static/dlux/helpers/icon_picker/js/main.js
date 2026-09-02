@@ -769,6 +769,11 @@
             const toggle = picker.querySelector('[data-icon-toggle]');
             const body = picker.querySelector('[data-icon-picker-body]');
             const isPopover = picker.getAttribute('data-icon-popover') === 'true';
+            // Where "no icon" is a real answer — a ribbon tab falls back to the icon
+            // the page already gives it — clearing the box has to mean cleared. Without
+            // this, emptying it and Reset both wrote the default straight back, and the
+            // only way to drop an icon was to type a name that did not exist.
+            const allowEmpty = picker.getAttribute('data-icon-allow-empty') === 'true';
             if (!form || !fieldName || !input || !suggestions) {
                 return;
             }
@@ -790,14 +795,18 @@
             }
 
             function currentValue() {
-                return String(input.value || '').trim().toLowerCase() || defaultIcon;
+                const raw = String(input.value || '').trim().toLowerCase();
+                return raw || (allowEmpty ? '' : defaultIcon);
             }
 
             function apply(icon, { rerender = true } = {}) {
-                const value = String(icon || '').trim().toLowerCase() || defaultIcon;
+                const raw = String(icon || '').trim().toLowerCase();
+                const value = raw || (allowEmpty ? '' : defaultIcon);
                 input.value = value;
                 if (preview) {
-                    preview.className = `bi ${value}`;
+                    // Nothing chosen still needs something to show on the trigger.
+                    preview.className = `bi ${value || defaultIcon}`;
+                    preview.classList.toggle('dlux-icon-picker-preview--empty', !value);
                 }
                 setNamedFieldValue(form, fieldName, value);
                 if (rerender && isOpen()) {
@@ -834,6 +843,46 @@
                 suggestions.appendChild(fragment);
             }
 
+            // The grid drops below the field, or rises above it when there is no room
+            // below. "Room" is the box that actually clips it — every scrolling or
+            // `overflow: hidden` ancestor, narrowed to the viewport — not the viewport
+            // alone: inside a scrollable modal there is usually screen below the modal
+            // and none inside it, and a grid opened into that gap can be neither
+            // clicked nor scrolled to.
+            function visibleBounds(element) {
+                const doc = element.ownerDocument;
+                const view = doc && doc.defaultView;
+                let top = 0;
+                let bottom = (view && view.innerHeight)
+                    || (doc && doc.documentElement && doc.documentElement.clientHeight)
+                    || 0;
+                if (!view || typeof view.getComputedStyle !== 'function') return { top, bottom };
+                let node = element.parentElement;
+                while (node && node !== doc.body) {
+                    const overflowY = view.getComputedStyle(node).overflowY;
+                    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden') {
+                        const rect = node.getBoundingClientRect();
+                        top = Math.max(top, rect.top);
+                        bottom = Math.min(bottom, rect.bottom);
+                    }
+                    node = node.parentElement;
+                }
+                return { top, bottom };
+            }
+
+            function placeBody() {
+                if (!isPopover || !body) return;
+                body.classList.remove('dlux-builder-icon-picker--above');
+                const bounds = visibleBounds(picker);
+                const fieldRect = picker.getBoundingClientRect();
+                const needed = body.offsetHeight + 8;
+                const roomBelow = bounds.bottom - fieldRect.bottom;
+                const roomAbove = fieldRect.top - bounds.top;
+                if (needed > roomBelow && roomAbove > roomBelow) {
+                    body.classList.add('dlux-builder-icon-picker--above');
+                }
+            }
+
             function open() {
                 if (!body || isOpen()) {
                     return;
@@ -846,12 +895,15 @@
                     document.addEventListener('click', onOutsideClick);
                 }
                 renderSuggestions();
+                // After the grid exists, so its height is the one being placed.
+                placeBody();
                 if (search) {
                     search.focus();
                 }
             }
 
             function close({ focusTrigger = false } = {}) {
+                if (body) body.classList.remove('dlux-builder-icon-picker--above');
                 if (!body || !isOpen()) {
                     return;
                 }
@@ -876,7 +928,9 @@
                 search.addEventListener('input', renderSuggestions);
             }
             if (reset) {
-                reset.addEventListener('click', () => apply(defaultIcon));
+                // Reset means "back to no choice" where empty is allowed, and "back to
+                // the default" where it is not.
+                reset.addEventListener('click', () => apply(allowEmpty ? '' : defaultIcon));
             }
             if (toggle) {
                 toggle.addEventListener('click', () => (isOpen() ? close() : open()));

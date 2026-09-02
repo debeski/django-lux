@@ -21,7 +21,7 @@ from ..widgets import DluxMultipleChoiceSelectorWidget
 
 from ._shared import User, _json_dump
 from .auth import _apply_autocomplete_attrs
-from .builders import _bind_choice_selector_widget, _build_archive_file_widget, _build_submit_actions, _build_wizard_actions, build_archive_file_field
+from .builders import _bind_choice_selector_widget, _build_file_widget, _build_submit_actions, _build_wizard_actions, build_file_field
 from .permissions import GroupedPermissionWidget, _apply_assignable_permission_filter, _extract_permission_codenames, get_assignable_permissions_queryset
 
 
@@ -806,7 +806,7 @@ class UserProfileEditForm(forms.ModelForm):
         self.fields['email'].label = s.get('form_email', "Email")
         self.fields['phone'].label = s.get('form_phone', "Phone Number")
         self.fields['profile_picture'].label = s.get('form_profile_pic', "Profile Picture")
-        self.fields['profile_picture'].widget = _build_archive_file_widget(
+        self.fields['profile_picture'].widget = _build_file_widget(
             attrs={'accept': 'image/*'},
             field_label=self.fields['profile_picture'].label,
         )
@@ -828,7 +828,7 @@ class UserProfileEditForm(forms.ModelForm):
         self.helper.form_tag = False
         
         layout_blocks = [
-            build_archive_file_field("profile_picture"),
+            build_file_field("profile_picture"),
             Row(Field("username", css_class="form-control")),            
             HTML("<hr>"),
             Row(

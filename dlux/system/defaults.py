@@ -299,6 +299,7 @@ def default_sidebar_config():
         'entries': [],
         'enable_reorder': True,
         'show_toolbar': True,
+        'show_sections_manager': True,
         'show_icons': True,
         'show_notification_badges': True,
         'density': DEFAULT_SIDEBAR_DENSITY,

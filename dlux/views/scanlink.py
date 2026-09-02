@@ -206,5 +206,8 @@ def scanlink_release_upload(request):
 scanlink_release_upload.sidebar_exclude = True
 scanlink_download.sidebar_exclude = True
 scanlink_update_manifest.sidebar_exclude = True
-scanlink_releases_modal.sidebar_exclude = True
+# Not `sidebar_exclude = True`, which means every profile: this one is a dynamic
+# modal manager, so a ribbon button opening it is exactly what it is for. It stays
+# out of the navigation catalogs.
+scanlink_releases_modal.dlux_exclude = ('sidebar', 'navbar', 'navbar_root', 'search', 'landing')
 scanlink_toggle.sidebar_exclude = True

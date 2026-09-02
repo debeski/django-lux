@@ -28,6 +28,25 @@ The `dlux.forms`, `dlux.models`, `dlux.reports`, `dlux.discovery`, `dlux.backup`
 
 ## Scheduled for v1.9.0
 
+### `archive_file` names on the file widget
+
+The file-upload widget kept the names it had in `project-archive`'s document
+forms. As of v1.8.3 the framework name is `file_field`:
+
+| Old | New |
+| --- | --- |
+| `build_archive_file_field(...)` | `build_file_field(...)` |
+| `_build_archive_file_widget(...)` | `_build_file_widget(...)` |
+| `archive_file_*` translation keys | `file_field_*` |
+| `.archive-file-*` classes, `data-archive-file-*` attributes | `.dlux-file-*`, `data-dlux-file-*` |
+
+The two helper names stay importable from `dlux.forms`, a project's own
+`archive_file_*` string overrides are still read as a fallback, and
+`class="archive-file-input"` still opts a non-Dlux widget into the file card
+template. All three shims are removed in v1.9.0. Projects styling or scripting
+against `.archive-file-*` or `data-archive-file-*` must move now — those markup
+names are gone in v1.8.3, with no shim.
+
 ### `advanced_filter_helper`
 
 `dlux.utils.advanced_filter_helper` is superseded by the ribbon (`dlux.ribbon`),

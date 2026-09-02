@@ -72,6 +72,30 @@ test('normalizeEntry cross-fills id and url_name', () => {
   assert.equal(fromUrl.url_name, 'reports');
 });
 
+test('normalizeEntry carries per-language label overrides through, on items and groups', () => {
+  // The server sanitizer stores `labels`; dropping them here meant every reopen of
+  // the Sidebar step discarded the reader's overrides and saved them away again.
+  const item = M.normalizeEntry(
+    { id: 'reports', labels: { 'EN ': ' Reports ', ar: 'التقارير', bad: '' } },
+    NO_CATALOG,
+    NO_CATALOG,
+  );
+  assert.deepEqual(item.labels, { en: 'Reports', ar: 'التقارير' }, 'codes lower-cased, values trimmed, empties dropped');
+
+  const group = M.normalizeEntry(
+    { kind: 'group', id: 'grp', labels: { en: 'Operations' }, items: [{ id: 'reports' }] },
+    NO_CATALOG,
+    NO_CATALOG,
+  );
+  assert.deepEqual(group.labels, { en: 'Operations' });
+  assert.equal(group.items.length, 1);
+});
+
+test('normalizeEntry omits the labels key entirely when none survive', () => {
+  const item = M.normalizeEntry({ id: 'reports', labels: { bad: '   ' } }, NO_CATALOG, NO_CATALOG);
+  assert.ok(!('labels' in item), 'an empty override map must not be written back');
+});
+
 test('normalizeEntry defaults the icon rather than leaving it blank', () => {
   assert.equal(M.normalizeEntry({ id: 'x' }, NO_CATALOG, NO_CATALOG).icon, 'bi-link-45deg');
   assert.equal(M.normalizeEntry({ id: 'x', icon: 'bi-star' }, NO_CATALOG, NO_CATALOG).icon, 'bi-star');

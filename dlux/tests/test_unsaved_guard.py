@@ -258,3 +258,25 @@ class UnsavedPromptStackingTests(SimpleTestCase):
 
         self.assertIn("if (document.querySelector('.modal.show')) {", js)
         self.assertIn("document.body.classList.add('modal-open');", js)
+
+    def test_a_builder_scratch_field_does_not_arm_the_prompt(self):
+        """Inspecting an entry is not an edit.
+
+        A builder wires the shared icon picker by giving it a named form field to
+        write to — the picker reports a pick that way and no other. That field
+        carries the *selected* entry's icon, so merely selecting an entry rewrites
+        it, and the guard's snapshot read that as an unsaved change: opening the
+        Sidebar step and clicking one entry was enough to be prompted on close.
+        """
+        js = (_STATIC.parent / 'system' / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
+
+        self.assertIn("if (field.hasAttribute('data-dlux-unsaved-ignore')) {", js)
+
+        for template, field in (
+            ('dlux/setup/sidebar_builder.html', 'sidebar_builder_entry_icon'),
+            ('dlux/setup/ribbon_builder.html', 'ribbon_builder_entry_icon'),
+        ):
+            markup = (
+                Path(__file__).resolve().parents[1] / 'templates' / template
+            ).read_text(encoding='utf-8')
+            self.assertIn(f'name="{field}" data-dlux-unsaved-ignore', markup, template)

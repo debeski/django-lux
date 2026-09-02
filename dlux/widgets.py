@@ -13,7 +13,7 @@ class DluxFileInput(forms.ClearableFileInput):
         self.show_scan = show_scan
         widget_attrs = dict(attrs or {})
         existing_class = str(widget_attrs.get('class', '') or '').strip()
-        widget_attrs['class'] = f"{existing_class} archive-file-input".strip()
+        widget_attrs['class'] = f"{existing_class} dlux-file-input".strip()
         super().__init__(attrs=widget_attrs)
 
     def get_context(self, name, value, attrs):
@@ -30,14 +30,22 @@ class DluxFileInput(forms.ClearableFileInput):
         # the localhost probe.
         from .utils import scanlink_enabled
         data['show_scan'] = bool(self.show_scan and scanlink_enabled())
-        data['empty_title'] = strings.get('archive_file_empty_title', 'No file selected')
-        data['empty_meta'] = strings.get('archive_file_empty_meta', 'Drop a file here or use the actions.')
-        data['current_meta'] = strings.get('archive_file_current_meta', 'Current file on this record.')
-        data['selected_meta'] = strings.get('archive_file_selected_meta', 'Ready to save with this form.')
-        data['too_large_template'] = strings.get('archive_file_too_large', 'File exceeds the maximum allowed size ({limit} MB).')
-        data['open_action'] = strings.get('archive_file_open_action', 'Open file')
-        data['upload_action'] = strings.get('archive_file_upload_action', 'Upload file')
-        data['clear_action'] = strings.get('archive_file_clear_action', 'Clear file')
+        # `file_field_*` replaced `archive_file_*` in v1.8.3; host projects that
+        # still override the old keys keep their translations through v1.x.
+        def string(suffix, default):
+            value = strings.get(f'file_field_{suffix}')
+            if value is None:
+                value = strings.get(f'archive_file_{suffix}')
+            return default if value is None else value
+
+        data['empty_title'] = string('empty_title', 'No file selected')
+        data['empty_meta'] = string('empty_meta', 'Drop a file here or use the actions.')
+        data['current_meta'] = string('current_meta', 'Current file on this record.')
+        data['selected_meta'] = string('selected_meta', 'Ready to save with this form.')
+        data['too_large_template'] = string('too_large', 'File exceeds the maximum allowed size ({limit} MB).')
+        data['open_action'] = string('open_action', 'Open file')
+        data['upload_action'] = string('upload_action', 'Upload file')
+        data['clear_action'] = string('clear_action', 'Clear file')
         if value and hasattr(value, 'url'):
             data['file_url'] = value.url
             data['display_name'] = getattr(value, 'name', '').split('/')[-1] or str(value)
@@ -84,7 +92,15 @@ class _DluxSelectorMixin:
         value = str(option.get('value'))
         option['meta'] = self.option_meta.get(value, {})
         if value in self.disabled_values:
-            option['attrs'] = {**(option.get('attrs') or {}), 'disabled': True}
+            # `data-dlux-selector-locked` is what stops a dependent section from
+            # re-enabling the option when its master toggle comes back on: a plain
+            # Select kept its disabled <option> through that, a radio group would
+            # not.
+            option['attrs'] = {
+                **(option.get('attrs') or {}),
+                'disabled': True,
+                'data-dlux-selector-locked': 'true',
+            }
         return option
 
     def render(self, name, value, attrs=None, renderer=None):

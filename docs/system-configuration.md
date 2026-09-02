@@ -43,11 +43,15 @@ System Settings modal editors opened from Options use these same categories but 
 
 ## Email delivery
 
+The Email step is grouped as **Delivery Path** (delivery path, secret storage, provider preset), **SMTP Connection** (STARTTLS/SSL, host, port, timeout, credentials), and **Sender & Alerts** (default from address, failure recipients). Each choice is a Dlux selector rather than a dropdown, so every option and its consequence is visible before it is picked. When the internal SMTP relay is not listening, the relay option is locked with the reason attached — unless it is already the stored delivery path, which is never taken away.
+
 Save the Email step before using **Send test email**. The test intentionally uses the stored configuration, which is the only way to validate the separate SMTP relay when that delivery path is selected. A successful send verifies the exact connection fingerprint; changing transport, secret storage, host, port, TLS/SSL, credentials, or sender requires another test.
 
 Email 2FA, password reset, public registration, and notification-email controls are locked until delivery is enabled and verified. They retain their saved values while locked. Direct environment-managed SMTP and local debug backends remain supported; see [Deployment Configuration](deployment-configuration.md) for the runtime settings.
 
 ## Access and security
+
+The step reads toggles first, then selectors, then the fields each one reveals: the sign-in and session switches, record visibility, client-IP resolution, public registration, and privacy links. Client IP source and registration activation mode are Dlux selectors; the trusted-hops and custom-header fields still appear only for the mode that uses them.
 
 Configure client-IP resolution to match the proxy chain you control:
 

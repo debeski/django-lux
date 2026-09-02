@@ -1,11 +1,6 @@
 (function () {
     'use strict';
 
-    // Shared Bootstrap-Icons catalog, owned by helpers/icon_picker/js/main.js
-    // (loaded before this file) so the picker and the sidebar builder stay in sync.
-    const ICON_SUGGESTIONS = (window.DluxIconPicker && window.DluxIconPicker.suggestions) || [];
-
-
     function parseJson(text, fallback) {
         try {
             return JSON.parse(text || '');
@@ -302,6 +297,7 @@
         nextConfig.accent_edge = readBooleanField(form, '#id_sidebar_accent_edge', false);
         nextConfig.enable_reorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
         nextConfig.show_toolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
+        nextConfig.show_sections_manager = readBooleanField(form, '#id_sidebar_show_sections_manager', true);
         nextConfig.show_icons = readBooleanField(form, '#id_sidebar_show_icons', true);
         nextConfig.show_notification_badges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
         nextConfig.density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
@@ -388,12 +384,8 @@
             tree: builder.querySelector('[data-navbar-tree]'),
             routeList: builder.querySelector('[data-navbar-route-list]'),
             routeSearch: builder.querySelector('[data-navbar-route-search]'),
-            inspector: builder.querySelector('[data-navbar-inspector]'),
-            inspectorActions: builder.querySelector('[data-navbar-inspector-actions]'),
-            inspectorEmpty: builder.querySelector('[data-navbar-inspector-empty]'),
+            inspectorShell: builder.querySelector('[data-navbar-inspector-shell]'),
             systemToggle: builder.querySelector('[data-navbar-system-toggle]'),
-            labelInputs: builder.querySelector('[data-navbar-label-inputs]'),
-            urlInput: builder.querySelector('[data-navbar-node-url]'),
         };
 
         function findNode(nodes, id, parent, index) {
@@ -467,9 +459,15 @@
                 return String(route.label).trim();
             }
             // No current-language override and no catalog label (manual node named in
-            // only other languages): fall back to any configured label, then the id.
+            // only other languages): fall back to any configured label. A freshly
+            // added group has none, and its generated id is not a name — showing
+            // `manual-1788164320169-6798` in the tree and the inspector header is
+            // noise, so an unnamed node says so instead.
             const anyLabel = Object.values(labels).find((label) => String(label || '').trim());
-            return String(anyLabel || node.id || '').trim();
+            if (anyLabel && String(anyLabel).trim()) {
+                return String(anyLabel).trim();
+            }
+            return t('navbar_untitled_node', 'Untitled group');
         }
 
         function serialize() {
@@ -488,7 +486,8 @@
             const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
             const parent = selected ? selected.node.children : state.config.hierarchy.nodes;
             parent.push(node);
-            selectNode(node.id);
+            state.selectedId = node.id;
+            commitAndRender();
         }
 
         function createTreeNode(node) {
@@ -574,56 +573,54 @@
             }
         }
 
-        function languageRows(node) {
+        function languageRows() {
             const languageEntries = Object.entries(languages && typeof languages === 'object' ? languages : {});
             return languageEntries.length ? languageEntries : [['en', { name: 'en' }]];
         }
 
+        function selectedNodeLocation() {
+            return findNode(state.config.hierarchy.nodes, state.selectedId);
+        }
+
+        function updateNodeLabel(node, code, value) {
+            node.labels = node.labels || {};
+            const cleaned = String(value || '').trim();
+            if (cleaned) {
+                node.labels[code] = cleaned;
+            } else {
+                delete node.labels[code];
+            }
+            if (!Object.keys(node.labels).length) {
+                delete node.labels;
+            }
+            renderTree();
+        }
+
+        function updateNodeUrl(node, value) {
+            const cleaned = String(value || '').trim();
+            if (cleaned) {
+                node.url = cleaned;
+            } else {
+                delete node.url;
+            }
+        }
+
         function renderInspector() {
-            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
-            refs.inspector.classList.toggle('d-none', !selected);
-            if (refs.inspectorActions) {
-                refs.inspectorActions.classList.toggle('d-none', !selected);
+            if (navbarInspectorShell) {
+                navbarInspectorShell.render(selectedNodeLocation());
             }
-            refs.inspectorEmpty.classList.toggle('d-none', Boolean(selected));
-            if (!selected) {
-                return;
-            }
-            const node = selected.node;
-            refs.urlInput.value = node.url || '';
-            refs.labelInputs.innerHTML = '';
-            languageRows(node).forEach(([code, payload]) => {
-                const field = document.createElement('label');
-                field.className = 'form-label dlux-navbar-label-field';
-                field.innerHTML = `
-                    <span>${escapeHtml((payload && payload.name) || code)} <small>${escapeHtml(code)}</small></span>
-                    <input type="text" class="form-control glass-input" value="${escapeHtml((node.labels || {})[code] || '')}"
-                           placeholder="${escapeHtml(node.kind === 'route' ? t('navbar_route_label_fallback', '') : t('navbar_manual_label_placeholder', ''))}">
-                `;
-                field.querySelector('input').addEventListener('input', (event) => {
-                    node.labels = node.labels || {};
-                    const value = String(event.target.value || '').trim();
-                    if (value) {
-                        node.labels[code] = value;
-                    } else {
-                        delete node.labels[code];
-                    }
-                    if (!Object.keys(node.labels).length) {
-                        delete node.labels;
-                    }
-                    serialize();
-                    renderTree();
-                });
-                refs.labelInputs.appendChild(field);
-            });
         }
 
         function renderAll() {
             renderRootOptions();
-            serialize();
             renderTree();
             renderRoutes();
             renderInspector();
+        }
+
+        function commitAndRender() {
+            serialize();
+            renderAll();
         }
 
         function addManualNode() {
@@ -645,8 +642,132 @@
             }
             selected.parent.splice(selected.index, 1);
             selected.parent.splice(nextIndex, 0, selected.node);
-            renderAll();
+            commitAndRender();
         }
+
+        const navbarInspectorShell = window.DluxInspectorShell && refs.inspectorShell
+            ? window.DluxInspectorShell.create(refs.inspectorShell, {
+                adapter: {
+                    getActions: ({ selection }) => {
+                        const actions = [{
+                            id: 'add-group',
+                            label: t('navbar_add_manual_node', 'Add Group'),
+                            icon: 'bi bi-folder-plus',
+                            variant: 'outline-primary',
+                            onClick: addManualNode,
+                        }];
+                        if (!selection) {
+                            return actions;
+                        }
+                        actions.push(
+                            {
+                                id: 'move-up',
+                                label: t('move_up', 'Up'),
+                                icon: 'bi bi-arrow-up',
+                                disabled: selection.index <= 0,
+                                onClick: () => moveSelected(-1),
+                            },
+                            {
+                                id: 'move-down',
+                                label: t('move_down', 'Down'),
+                                icon: 'bi bi-arrow-down',
+                                disabled: selection.index >= selection.parent.length - 1,
+                                onClick: () => moveSelected(1),
+                            },
+                            {
+                                id: 'remove',
+                                label: t('sidebar_remove_entry', 'Remove'),
+                                icon: 'bi bi-trash3',
+                                variant: 'outline-danger',
+                                onClick: () => {
+                                    const current = selectedNodeLocation();
+                                    if (!current) return null;
+                                    current.parent.splice(current.index, 1);
+                                    state.selectedId = '';
+                                    commitAndRender();
+                                    return null;
+                                },
+                            },
+                            {
+                                id: 'move-root',
+                                label: t('sidebar_move_root', 'Move To Root'),
+                                icon: 'bi bi-distribute-horizontal',
+                                disabled: selection.parent === state.config.hierarchy.nodes,
+                                onClick: () => {
+                                    const current = selectedNodeLocation();
+                                    if (!current || current.parent === state.config.hierarchy.nodes) {
+                                        return null;
+                                    }
+                                    current.parent.splice(current.index, 1);
+                                    state.config.hierarchy.nodes.push(current.node);
+                                    commitAndRender();
+                                    return null;
+                                },
+                            }
+                        );
+                        return actions;
+                    },
+                    getFields: ({ selection }) => {
+                        if (!selection) return [];
+                        const node = selection.node;
+                        const labelFields = languageRows().map(([code, payload]) => {
+                            const langCode = String(code || '').toLowerCase();
+                            return {
+                                id: `label-${langCode}`,
+                                type: 'text',
+                                label: `${(payload && payload.name) || langCode} (${langCode})`,
+                                value: (node.labels && node.labels[langCode]) || '',
+                                placeholder: node.kind === 'route'
+                                    ? t('navbar_route_label_fallback', '')
+                                    : t('navbar_manual_label_placeholder', ''),
+                                commitOn: 'input',
+                                onInput: ({ value }) => {
+                                    updateNodeLabel(node, langCode, value);
+                                },
+                            };
+                        });
+                        return labelFields.concat([
+                            {
+                                id: 'url',
+                                type: 'url',
+                                label: t('navbar_node_url', 'Optional URL'),
+                                value: node.url || '',
+                                placeholder: '/dashboard/',
+                                help: t('navbar_node_url_help', ''),
+                                commitOn: 'input',
+                                onInput: ({ value }) => {
+                                    updateNodeUrl(node, value);
+                                },
+                            },
+                        ]);
+                    },
+                    getTitle: ({ selection }) => (selection ? nodeLabel(selection.node) : ''),
+                    getBadge: ({ selection }) => {
+                        if (!selection) return '';
+                        return selection.node.kind === 'route'
+                            ? selection.node.url_name
+                            : t('navbar_manual_node', '');
+                    },
+                    // The popover hangs off the selected row itself, so the node
+                    // being edited is never underneath it.
+                    getAnchor: () => refs.tree.querySelector('.dlux-navbar-node__surface.is-active'),
+                    clearSelection: () => {
+                        state.selectedId = '';
+                        renderTree();
+                    },
+                    commit: serialize,
+                },
+                strings: {
+                    clearSelection: t('navbar_clear_selection', 'Clear selection'),
+                    empty: t('navbar_node_inspector_empty', 'Select a node.'),
+                },
+                presentation: 'popover',
+                dismissOnOutsideClick: true,
+                // Clicking another node moves the selection; it must not be read as
+                // a dismiss, or the popover would close instead of re-anchoring.
+                dismissIgnoreSelector: '.dlux-navbar-node__surface',
+            })
+            : null;
 
         refs.routeSearch.addEventListener('input', () => {
             state.search = refs.routeSearch.value || '';
@@ -659,47 +780,12 @@
                 : { mode: value === 'home' ? 'home' : 'neutral', url_name: '' };
             serialize();
         });
-        refs.urlInput.addEventListener('input', () => {
-            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
-            if (!selected) {
-                return;
-            }
-            const value = String(refs.urlInput.value || '').trim();
-            if (value) {
-                selected.node.url = value;
-            } else {
-                delete selected.node.url;
-            }
-            serialize();
-        });
-        builder.querySelector('[data-navbar-add-manual]')?.addEventListener('click', addManualNode);
-        builder.querySelector('[data-navbar-clear-selection]')?.addEventListener('click', () => selectNode(''));
         if (refs.systemToggle) {
             refs.systemToggle.addEventListener('change', () => {
                 state.showSystemItems = Boolean(refs.systemToggle.checked);
                 renderRoutes();
             });
         }
-        builder.querySelector('[data-navbar-move-up]')?.addEventListener('click', () => moveSelected(-1));
-        builder.querySelector('[data-navbar-move-down]')?.addEventListener('click', () => moveSelected(1));
-        builder.querySelector('[data-navbar-move-root]')?.addEventListener('click', () => {
-            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
-            if (!selected || selected.parent === state.config.hierarchy.nodes) {
-                return;
-            }
-            selected.parent.splice(selected.index, 1);
-            state.config.hierarchy.nodes.push(selected.node);
-            renderAll();
-        });
-        builder.querySelector('[data-navbar-remove-node]')?.addEventListener('click', () => {
-            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
-            if (!selected) {
-                return;
-            }
-            selected.parent.splice(selected.index, 1);
-            state.selectedId = '';
-            renderAll();
-        });
         hiddenInput.addEventListener('change', () => {
             state.config = readNavbarBuilderConfig(parseJson(hiddenInput.value || '{}', {}));
             state.selectedId = '';
@@ -824,6 +910,7 @@
         const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
         const allowUserDensity = readBooleanField(form, '#id_sidebar_allow_user_density', true);
         const enableToolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
+        const showSectionsManager = readBooleanField(form, '#id_sidebar_show_sections_manager', true);
         const enableReorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
         const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
         const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
@@ -891,12 +978,16 @@
         const densityControl = sidebar.querySelector('.sidebar-density-control');
         const reorderToggle = document.getElementById('sidebarReorderToggle') || sidebar.querySelector('.reorder-toggle');
         const sectionsManagerLink = sidebar.querySelector('.sidebar-toolbar-link');
-        const toolbarVisible = sidebarEnabled && enableToolbar && Boolean(themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerLink);
+        const sectionsManagerVisible = showSectionsManager && Boolean(sectionsManagerLink);
+        const toolbarVisible = sidebarEnabled && enableToolbar && Boolean(
+            themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerVisible
+        );
 
         setPreviewVisibility(themeArrow, sidebarEnabled && themeToolVisible);
         setPreviewVisibility(themeIndicator, sidebarEnabled && themeToolVisible);
         setPreviewVisibility(densityControl, sidebarEnabled && densityToolVisible);
         setPreviewVisibility(reorderToggle, sidebarEnabled && reorderToolVisible);
+        setPreviewVisibility(sectionsManagerLink, sidebarEnabled && sectionsManagerVisible);
         setPreviewVisibility(toolbar, toolbarVisible);
 
         if (!themeToolVisible && themePopup) {
@@ -1006,7 +1097,6 @@
             dragging: null,
             showSystemItems: false,
             showFormPages: false,
-            iconSearch: '',
         };
 
         const refs = {
@@ -1015,14 +1105,13 @@
             search: builder.querySelector('[data-builder-search]'),
             systemToggle: builder.querySelector('[data-builder-system-toggle]'),
             formToggle: builder.querySelector('[data-builder-form-toggle]'),
-            inspector: builder.querySelector('[data-builder-inspector]'),
-            inspectorEmpty: builder.querySelector('[data-builder-empty-inspector]'),
-            labelInputs: builder.querySelector('[data-builder-label-inputs]'),
-            iconInput: builder.querySelector('[data-builder-icon-input]'),
-            iconPreview: builder.querySelector('[data-builder-icon-preview]'),
-            iconSuggestions: builder.querySelector('[data-builder-icon-suggestions]'),
-            iconSearch: builder.querySelector('[data-builder-icon-search]'),
+            inspectorShell: builder.querySelector('[data-builder-inspector-shell]'),
+            iconValue: builder.querySelector('[data-builder-icon-value]'),
+            iconPicker: builder.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_builder_entry_icon"]'),
+            iconPickerHolder: builder.querySelector('[data-builder-icon-picker-holder]'),
         };
+        refs.iconInput = refs.iconPicker ? refs.iconPicker.querySelector('[data-icon-input]') : null;
+        refs.iconPreview = refs.iconPicker ? refs.iconPicker.querySelector('[data-icon-preview]') : null;
 
         function clearDragFeedback() {
             builder.querySelectorAll('.dlux-builder-drop-target').forEach(el => el.classList.remove('dlux-builder-drop-target'));
@@ -1265,62 +1354,74 @@
             }
         }
 
-        function renderInspector() {
+        function setIconPickerValue(icon) {
+            const value = String(icon || '').trim() || 'bi-link-45deg';
+            if (refs.iconValue) {
+                refs.iconValue.value = value;
+            }
+            if (refs.iconInput) {
+                refs.iconInput.value = value;
+            }
+            if (refs.iconPreview) {
+                refs.iconPreview.className = `bi ${value}`;
+            }
+        }
+
+        function selectedLocation() {
             if (!state.selected || state.selected.pane !== 'selected') {
-                refs.inspector.classList.add('d-none');
-                refs.inspectorEmpty.classList.remove('d-none');
-                return;
+                return null;
             }
+            return findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
+        }
 
-            const location = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
-            if (!location) {
-                refs.inspector.classList.add('d-none');
-                refs.inspectorEmpty.classList.remove('d-none');
-                return;
+        // The icon picker is server-rendered once (it is a shared Dlux component with
+        // its own markup) and parked in a hidden holder. The inspector's custom field
+        // borrows the same node, and hands it back on the next render.
+        function mountIconPicker(entry) {
+            if (!refs.iconPicker) return null;
+            setIconPickerValue(entry.icon);
+            return {
+                node: refs.iconPicker,
+                cleanup: () => {
+                    if (refs.iconPickerHolder && refs.iconPicker.parentNode !== refs.iconPickerHolder) {
+                        refs.iconPickerHolder.appendChild(refs.iconPicker);
+                    }
+                },
+            };
+        }
+
+        function updateEntryLabel(code, value) {
+            const location = selectedLocation();
+            if (!location) return;
+            const cleaned = String(value || '').trim();
+            location.entry.labels = location.entry.labels || {};
+            if (cleaned) {
+                location.entry.labels[code] = cleaned;
+            } else {
+                delete location.entry.labels[code];
             }
-
-            refs.inspector.classList.remove('d-none');
-            refs.inspectorEmpty.classList.add('d-none');
-            renderLabelInputs(location.entry);
-            refs.iconInput.value = location.entry.icon || '';
-            refs.iconPreview.className = `bi ${location.entry.icon || 'bi-link-45deg'}`;
-            refs.iconSuggestions.innerHTML = '';
-
-            const iconFilter = (state.iconSearch || '').toLowerCase().replace(/\s+/g, '-');
-            const filtered = iconFilter
-                ? ICON_SUGGESTIONS.filter(icon => icon.includes(iconFilter))
-                : ICON_SUGGESTIONS;
-
-            if (refs.iconSearch && refs.iconSearch.value !== (state.iconSearch || '')) {
-                refs.iconSearch.value = state.iconSearch || '';
+            if (!Object.keys(location.entry.labels).length) {
+                delete location.entry.labels;
             }
+            renderSelected();
+            renderAvailable();
+        }
 
-            filtered.forEach(icon => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `btn btn-sm dlux-builder-icon-choice ${location.entry.icon === icon ? 'is-active' : ''}`;
-                button.setAttribute('title', icon);
-                button.setAttribute('aria-label', icon);
-                button.innerHTML = `<i class="bi ${icon}"></i>`;
-                button.addEventListener('click', () => {
-                    refs.iconInput.value = icon;
-                    location.entry.icon = icon;
-                    refs.iconPreview.className = `bi ${icon}`;
-                    renderAll();
-                });
-                refs.iconSuggestions.appendChild(button);
-            });
-
-            if (!filtered.length) {
-                refs.iconSuggestions.innerHTML = `<div class="text-muted small p-2">${t('sidebar_no_icons_found', 'No icons match your search.')}</div>`;
+        function renderInspector() {
+            if (sidebarInspectorShell) {
+                sidebarInspectorShell.render(state.selected || null);
             }
         }
 
         function renderAll() {
-            serialize();
             renderSelected();
             renderAvailable();
             renderInspector();
+        }
+
+        function commitAndRender() {
+            serialize();
+            renderAll();
         }
 
         function addSelectedAvailableItem() {
@@ -1336,7 +1437,7 @@
                 nextGroup.label = resolveBuilderGroupLabel(nextGroup, nextGroup.items, fallbackCatalogLookup);
                 state.config.entries.push(nextGroup);
                 state.selected = { pane: 'selected', id: nextGroup.id, kind: 'group' };
-                renderAll();
+                commitAndRender();
                 return;
             }
 
@@ -1347,7 +1448,7 @@
             state.config.entries.push(nextItem);
 
             state.selected = { pane: 'selected', id: nextItem.id, kind: 'item' };
-            renderAll();
+            commitAndRender();
         }
 
         function addAllAvailableItems() {
@@ -1366,7 +1467,7 @@
             state.config.entries = state.config.entries.concat(groups);
             state.selected = null;
             state.selectedTargetGroup = null;
-            renderAll();
+            commitAndRender();
         }
 
         function removeSelectedEntry() {
@@ -1375,14 +1476,14 @@
             if (!location) return;
             location.parent.splice(location.index, 1);
             state.selected = null;
-            renderAll();
+            commitAndRender();
         }
 
         function removeAllSelectedEntries() {
             state.config.entries = [];
             state.selected = null;
             state.selectedTargetGroup = null;
-            renderAll();
+            commitAndRender();
         }
 
         function moveSelectedToRoot() {
@@ -1391,7 +1492,7 @@
             if (!location || location.container !== 'group') return;
             const [entry] = location.parent.splice(location.index, 1);
             state.config.entries.push(entry);
-            renderAll();
+            commitAndRender();
         }
 
         function addGroup() {
@@ -1404,23 +1505,39 @@
             };
             state.config.entries.push(group);
             state.selected = { pane: 'selected', id: group.id, kind: 'group' };
-            renderAll();
+            commitAndRender();
         }
 
         function duplicateSelectedEntry() {
-            if (!state.selected || state.selected.pane !== 'selected' || state.selected.kind !== 'group') return;
-            const location = findEntryLocation(state.config.entries, state.selected.id, 'group');
+            if (!state.selected || state.selected.pane !== 'selected') return;
+            const location = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
             if (!location) return;
-            const duplicate = {
-                kind: 'group',
-                id: makeGroupId(location.entry.label),
-                label: `${location.entry.label} ${t('sidebar_copy_suffix', 'Copy')}`,
-                icon: location.entry.icon,
-                items: [],
-            };
+            const copySuffix = t('sidebar_copy_suffix', 'Copy');
+            let duplicate;
+            if (location.entry.kind === 'group') {
+                const groupLabel = location.entry.label || entryLabelForDisplay(location.entry) || t('sidebar_new_group', 'New Group');
+                duplicate = {
+                    kind: 'group',
+                    id: makeGroupId(groupLabel),
+                    label: `${groupLabel} ${copySuffix}`,
+                    icon: location.entry.icon,
+                    items: [],
+                };
+            } else {
+                const duplicateLabel = `${entryLabelForDisplay(location.entry)} ${copySuffix}`;
+                duplicate = {
+                    ...cloneEntry(location.entry),
+                    id: makeGroupId(location.entry.label || location.entry.url_name || location.entry.id || 'item'),
+                    label: duplicateLabel,
+                    labels: {
+                        ...((location.entry.labels && typeof location.entry.labels === 'object') ? location.entry.labels : {}),
+                        [currentLang]: duplicateLabel,
+                    },
+                };
+            }
             location.parent.splice(location.index + 1, 0, duplicate);
-            state.selected = { pane: 'selected', id: duplicate.id, kind: 'group' };
-            renderAll();
+            state.selected = { pane: 'selected', id: duplicate.id, kind: duplicate.kind };
+            commitAndRender();
         }
 
         function moveDraggedEntry(target) {
@@ -1443,7 +1560,7 @@
 
             state.selected = { pane: 'selected', id: entry.id, kind: entry.kind };
             state.dragging = null;
-            renderAll();
+            commitAndRender();
         }
 
         function addDraggedAvailableEntry(target) {
@@ -1474,7 +1591,7 @@
             }
 
             state.dragging = null;
-            renderAll();
+            commitAndRender();
         }
 
         function removeDraggedSelectedEntry() {
@@ -1486,20 +1603,13 @@
             state.selected = null;
             state.selectedTargetGroup = null;
             state.dragging = null;
-            renderAll();
+            commitAndRender();
         }
 
         refs.search.addEventListener('input', () => {
             state.search = refs.search.value || '';
             renderAvailable();
         });
-
-        if (refs.iconSearch) {
-            refs.iconSearch.addEventListener('input', () => {
-                state.iconSearch = refs.iconSearch.value || '';
-                renderInspector();
-            });
-        }
 
         if (refs.systemToggle) {
             refs.systemToggle.addEventListener('change', () => {
@@ -1514,6 +1624,7 @@
                     }
                 }
                 renderAvailable();
+                renderInspector();
             });
         }
 
@@ -1527,57 +1638,159 @@
                     }
                 }
                 renderAvailable();
+                renderInspector();
             });
         }
 
         // Per-language name overrides (mirrors the navbar builder): one field per
         // configured language, stored on entry.labels[code]. A blank language means
         // "use the auto-translated name" (resolved server-side per viewer language).
-        function renderLabelInputs(entry) {
-            if (!refs.labelInputs) return;
-            refs.labelInputs.innerHTML = '';
-            languageRows().forEach(([code, payload]) => {
-                const langCode = String(code || '').toLowerCase();
-                const name = (payload && payload.name) || langCode;
-                const field = document.createElement('label');
-                field.className = 'form-label dlux-builder-label-field w-100 mb-2';
-                const currentValue = (entry.labels && entry.labels[langCode]) || '';
-                field.innerHTML = `
-                    <span class="small text-muted d-block mb-1">${escapeHtml(name)} <small>${escapeHtml(langCode)}</small></span>
-                    <input type="text" class="form-control glass-input" value="${escapeHtml(currentValue)}">
-                `;
-                field.querySelector('input').addEventListener('input', (event) => {
-                    const loc = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
-                    if (!loc) return;
-                    const value = String(event.target.value || '').trim();
-                    loc.entry.labels = loc.entry.labels || {};
-                    if (value) {
-                        loc.entry.labels[langCode] = value;
-                    } else {
-                        delete loc.entry.labels[langCode];
-                    }
-                    if (!Object.keys(loc.entry.labels).length) {
-                        delete loc.entry.labels;
-                    }
-                    serialize();
-                    renderSelected();
-                    renderAvailable();
-                });
-                refs.labelInputs.appendChild(field);
-            });
-        }
+        const sidebarInspectorShell = window.DluxInspectorShell && refs.inspectorShell
+            ? window.DluxInspectorShell.create(refs.inspectorShell, {
+                adapter: {
+                    getActions: ({ selection }) => {
+                        const location = selectedLocation();
+                        const selectedAvailable = Boolean(selection && selection.pane === 'available');
+                        const selectedStored = Boolean(location);
+                        const inGroup = selectedStored
+                            && location.entry.kind === 'item'
+                            && location.container === 'group';
+                        const actions = [
+                            {
+                                id: 'add-group',
+                                label: t('sidebar_add_group', 'Add Group'),
+                                icon: 'bi bi-folder-plus',
+                                variant: 'outline-primary',
+                                onClick: addGroup,
+                            },
+                            {
+                                id: 'add-selected',
+                                label: t('sidebar_add_entry', 'Add'),
+                                icon: 'bi bi-arrow-left-square',
+                                variant: 'primary',
+                                disabled: !selectedAvailable,
+                                onClick: addSelectedAvailableItem,
+                            },
+                            {
+                                id: 'remove-selected',
+                                label: t('sidebar_remove_entry', 'Remove'),
+                                icon: 'bi bi-trash3',
+                                variant: 'outline-danger',
+                                disabled: !selectedStored,
+                                onClick: removeSelectedEntry,
+                            },
+                            {
+                                id: 'add-all',
+                                label: t('sidebar_add_all', 'Add All'),
+                                icon: 'bi bi-plus-square',
+                                variant: 'outline-primary',
+                                onClick: addAllAvailableItems,
+                            },
+                            {
+                                id: 'remove-all',
+                                label: t('sidebar_remove_all', 'Remove All'),
+                                icon: 'bi bi-x-square',
+                                variant: 'outline-danger',
+                                disabled: !state.config.entries.length,
+                                onClick: removeAllSelectedEntries,
+                            },
+                        ];
+                        if (!selection) {
+                            return actions;
+                        }
+                        actions.push(
+                            {
+                                id: 'move-root',
+                                label: t('sidebar_move_root', 'Move To Root'),
+                                icon: 'bi bi-distribute-horizontal',
+                                disabled: !inGroup,
+                                onClick: moveSelectedToRoot,
+                            },
+                            {
+                                id: 'duplicate-entry',
+                                label: t('sidebar_duplicate', 'Duplicate'),
+                                icon: 'bi bi-copy',
+                                disabled: !selectedStored,
+                                onClick: duplicateSelectedEntry,
+                            }
+                        );
+                        return actions;
+                    },
+                    // Only a stored entry has labels and an icon to edit; an Available
+                    // pane selection is a source to add, so it gets actions and no panel.
+                    getTitle: () => {
+                        const location = selectedLocation();
+                        return location ? entryLabelForDisplay(location.entry) : '';
+                    },
+                    getBadge: () => {
+                        const location = selectedLocation();
+                        if (!location) return '';
+                        return location.entry.kind === 'group'
+                            ? t('sidebar_group_badge', 'Group')
+                            : t('sidebar_item_badge', 'Entry');
+                    },
+                    getFields: () => {
+                        const location = selectedLocation();
+                        if (!location) return [];
+                        const entry = location.entry;
+                        const labelFields = languageRows().map(([code, payload]) => {
+                            const langCode = String(code || '').toLowerCase();
+                            return {
+                                id: `label-${langCode}`,
+                                type: 'text',
+                                label: `${(payload && payload.name) || langCode} (${langCode})`,
+                                value: (entry.labels && entry.labels[langCode]) || '',
+                                help: '',
+                                commitOn: 'input',
+                                onInput: ({ value }) => {
+                                    updateEntryLabel(langCode, value);
+                                },
+                            };
+                        });
+                        return labelFields.concat([
+                            {
+                                id: 'icon',
+                                type: 'custom',
+                                render: () => mountIconPicker(entry),
+                            },
+                        ]);
+                    },
+                    getAnchor: () => builder.querySelector(
+                        '.dlux-builder-node.is-active, .dlux-builder-item.is-active'
+                    ),
+                    clearSelection: () => {
+                        state.selected = null;
+                        state.selectedTargetGroup = null;
+                        renderSelected();
+                        renderAvailable();
+                    },
+                    commit: serialize,
+                },
+                strings: {
+                    clearSelection: t('navbar_clear_selection', 'Clear selection'),
+                    empty: t('sidebar_editor_empty', 'Select a sidebar entry to edit labels and icon.'),
+                },
+                presentation: 'popover',
+                dismissOnOutsideClick: true,
+                dismissIgnoreSelector: '.dlux-builder-node, .dlux-builder-item',
+            })
+            : null;
 
-        refs.iconInput.addEventListener('input', () => {
-            if (!state.selected || state.selected.pane !== 'selected') return;
-            const location = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
+        function syncSelectedIconFromPicker() {
+            const location = selectedLocation();
             if (!location) return;
-            location.entry.icon = refs.iconInput.value || 'bi-link-45deg';
-            refs.iconPreview.className = `bi ${location.entry.icon}`;
+            location.entry.icon = String(refs.iconValue && refs.iconValue.value || '').trim() || 'bi-link-45deg';
             serialize();
+            // Deliberately not re-rendering the inspector: it owns the picker node,
+            // and re-mounting it mid-choice would close the picker's own popover.
             renderSelected();
             renderAvailable();
-            renderInspector();
-        });
+        }
+
+        if (refs.iconValue) {
+            refs.iconValue.addEventListener('input', syncSelectedIconFromPicker);
+            refs.iconValue.addEventListener('change', syncSelectedIconFromPicker);
+        }
 
         refs.selectedTree.addEventListener('dragover', (event) => {
             if (!state.dragging) return;
@@ -1607,20 +1820,6 @@
             event.preventDefault();
             event.stopPropagation();
             removeDraggedSelectedEntry();
-        });
-
-        builder.querySelectorAll('[data-builder-action]').forEach(button => {
-            button.addEventListener('click', () => {
-                const action = button.getAttribute('data-builder-action');
-                if (action === 'add-selected') addSelectedAvailableItem();
-                if (action === 'add-all') addAllAvailableItems();
-                if (action === 'remove-selected') removeSelectedEntry();
-                if (action === 'remove-all') removeAllSelectedEntries();
-                if (action === 'move-root') moveSelectedToRoot();
-                if (action === 'add-group') addGroup();
-                if (action === 'duplicate-entry') duplicateSelectedEntry();
-                if (action === 'delete-entry') removeSelectedEntry();
-            });
         });
 
         function loadExternalConfig(rawConfig) {
@@ -2066,6 +2265,7 @@
             setCheckboxField(form, 'sidebar_accent_edge', sidebar.accent_edge === true);
             setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
             setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
+            setCheckboxField(form, 'sidebar_show_sections_manager', sidebar.show_sections_manager !== false);
             setCheckboxField(form, 'sidebar_show_icons', sidebar.show_icons !== false);
             setCheckboxField(form, 'sidebar_show_notification_badges', sidebar.show_notification_badges !== false);
             setCheckboxField(form, 'sidebar_allow_user_density', sidebar.allow_user_density !== false);
@@ -2215,6 +2415,7 @@
             'sidebar_accent_edge',
             'sidebar_enable_reorder',
             'sidebar_enable_toolbar',
+            'sidebar_show_sections_manager',
             'sidebar_show_icons',
             'sidebar_show_notification_badges',
             'sidebar_allow_user_density',
@@ -2265,6 +2466,7 @@
             const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
             const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
             const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
+            const sectionsManagerToggle = form.querySelector('#id_sidebar_show_sections_manager');
             const sectionsToolState = form.querySelector('[data-sidebar-tooling-state]');
             const themeAllowCheckboxes = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'));
             if (!toolbarToggle || !toolbarNote) {
@@ -2287,7 +2489,8 @@
                 const reorderEnabled = Boolean(reorderToggle && reorderToggle.checked);
                 const sectionsManagerEnabled = Boolean(
                     sectionsToolState &&
-                    sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+                    sectionsToolState.getAttribute('data-sections-manager-available') === 'true' &&
+                    (!sectionsManagerToggle || sectionsManagerToggle.checked)
                 );
                 return themePickerEnabled || densityPickerEnabled || reorderEnabled || sectionsManagerEnabled;
             }
@@ -2307,8 +2510,18 @@
                 syncSidebarToggleIconAvailability(form);
                 const hasToolbarTool = hasLiveToolbarTool();
                 const available = sidebarEnabled && hasToolbarTool;
+                const sectionsShortcutDisabled = Boolean(
+                    sidebarEnabled &&
+                    sectionsManagerToggle &&
+                    !sectionsManagerToggle.checked &&
+                    sectionsToolState &&
+                    sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+                );
                 toolbarToggle.disabled = !available;
-                toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
+                toolbarNote.classList.toggle(
+                    'd-none',
+                    !(sectionsShortcutDisabled || (available && !toolbarToggle.checked))
+                );
                 syncSidebarBehaviorConfig(form);
                 applyImmediateSystemSettingsPreview(form);
             }
@@ -2346,6 +2559,7 @@
                 accentEdgeToggle,
                 reorderToggle,
                 allowUserDensityToggle,
+                sectionsManagerToggle,
                 notificationBadgesToggle,
             ].forEach((field) => {
                 if (field) {
@@ -2459,6 +2673,7 @@
         const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
         const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
         const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
+        const sectionsManagerToggle = form.querySelector('#id_sidebar_show_sections_manager');
         const sectionsToolState = form.querySelector('[data-sidebar-tooling-state]');
         const hasToolbarTool = Boolean(
             (
@@ -2470,13 +2685,24 @@
             (reorderToggle && reorderToggle.checked) ||
             (
                 sectionsToolState &&
-                sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+                sectionsToolState.getAttribute('data-sections-manager-available') === 'true' &&
+                (!sectionsManagerToggle || sectionsManagerToggle.checked)
             )
         );
         const available = sidebarEnabled && hasToolbarTool;
+        const sectionsShortcutDisabled = Boolean(
+            sidebarEnabled &&
+            sectionsManagerToggle &&
+            !sectionsManagerToggle.checked &&
+            sectionsToolState &&
+            sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+        );
 
         toolbarToggle.disabled = !available;
-        toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
+        toolbarNote.classList.toggle(
+            'd-none',
+            !(sectionsShortcutDisabled || (available && !toolbarToggle.checked))
+        );
         applyImmediateSystemSettingsPreview(form);
     }
 
@@ -2761,7 +2987,7 @@
             return;
         }
         if (!target.matches(
-            '#id_sidebar_enable_toolbar, #id_sidebar_enabled, #id_sidebar_enable_reorder, #id_sidebar_allow_user_density, #id_allow_user_theme_override, [data-setup-theme-allowed], [data-setup-font-allowed]'
+            '#id_sidebar_enable_toolbar, #id_sidebar_enabled, #id_sidebar_enable_reorder, #id_sidebar_show_sections_manager, #id_sidebar_allow_user_density, #id_allow_user_theme_override, [data-setup-theme-allowed], [data-setup-font-allowed]'
         )) {
             return;
         }

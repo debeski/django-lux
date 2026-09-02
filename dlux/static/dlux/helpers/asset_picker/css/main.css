@@ -1,17 +1,17 @@
-.archive-file-tool-library {
+.dlux-file-tool-library {
     background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
     color: var(--primal_dark, #0d6efd);
 }
 
-.archive-file-field--asset {
+.dlux-file-field--asset {
     position: relative;
 }
 
-.archive-file-field--asset.is-library-open {
+.dlux-file-field--asset.is-library-open {
     z-index: 20;
 }
 
-.archive-file-library {
+.dlux-file-library {
     position: absolute;
     inset-block-start: calc(100% + 0.45rem);
     inset-inline: 0;
@@ -24,12 +24,12 @@
     box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
 }
 
-.archive-file-library__search {
+.dlux-file-library__search {
     position: relative;
     margin-bottom: 0.65rem;
 }
 
-.archive-file-library__search > i {
+.dlux-file-library__search > i {
     position: absolute;
     top: 50%;
     inset-inline-start: 0.8rem;
@@ -40,11 +40,11 @@
 /* `.glass-input` sets `padding: 0.4rem 0.8rem !important` globally, so the room
    for the icon has to be important too or the icon sits on top of the text — in
    both directions, since the icon is inline-start anchored. */
-.archive-file-library__search input {
+.dlux-file-library__search input {
     padding-inline-start: 2.25rem !important;
 }
 
-.archive-file-library__grid {
+.dlux-file-library__grid {
     display: grid;
     gap: 0.5rem;
     grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
@@ -52,7 +52,7 @@
     overflow: auto;
 }
 
-.archive-file-library__option {
+.dlux-file-library__option {
     align-items: center;
     background: var(--bs-body-bg);
     border: 1px solid var(--dlux-border, rgba(127, 127, 127, 0.25));
@@ -65,25 +65,25 @@
     padding: 0.45rem;
 }
 
-.archive-file-library__option:hover,
-.archive-file-library__option:focus-visible,
-.archive-file-library__option.is-selected {
+.dlux-file-library__option:hover,
+.dlux-file-library__option:focus-visible,
+.dlux-file-library__option.is-selected {
     border-color: var(--primal, #2363c3);
     box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--primal, #2363c3) 20%, transparent);
 }
 
-.archive-file-library__option img,
-.archive-file-library__option > i {
+.dlux-file-library__option img,
+.dlux-file-library__option > i {
     height: 3rem;
     object-fit: contain;
     width: 100%;
 }
 
-.archive-file-library__option > i {
+.dlux-file-library__option > i {
     font-size: 1.9rem;
 }
 
-.archive-file-library__option span {
+.dlux-file-library__option span {
     font-size: 0.78rem;
     overflow-wrap: anywhere;
 }

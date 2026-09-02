@@ -16,8 +16,8 @@ from ..translations import get_strings
 from ..widgets import DluxChoiceSelectorWidget
 from .builders import (
     _bind_choice_selector_widget,
-    _build_archive_file_widget,
-    build_archive_file_field,
+    _build_file_widget,
+    build_file_field,
     build_settings_toggle_field,
 )
 
@@ -60,7 +60,7 @@ class ScanLinkReleaseForm(forms.ModelForm):
             'class': 'form-control glass-input',
             'dir': 'auto',
         })
-        self.fields['installer'].widget = _build_archive_file_widget(
+        self.fields['installer'].widget = _build_file_widget(
             field_label=self.fields['installer'].label,
             attrs={'accept': '.exe'},
         )
@@ -83,7 +83,7 @@ class ScanLinkReleaseForm(forms.ModelForm):
                     css_class='col-12 col-lg-6 dlux-scanlink-release-form__details',
                 ),
                 Div(
-                    build_archive_file_field('installer'),
+                    build_file_field('installer'),
                     css_class='col-12 col-lg-6 dlux-scanlink-release-form__installer',
                 ),
                 css_class='g-3 mx-0 align-items-stretch dlux-scanlink-release-form__grid',

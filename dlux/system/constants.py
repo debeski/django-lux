@@ -75,6 +75,7 @@ DISCOVERY_PROFILE_NAVBAR = 'navbar'
 DISCOVERY_PROFILE_NAVBAR_ROOT = 'navbar_root'
 DISCOVERY_PROFILE_SEARCH = 'search'
 DISCOVERY_PROFILE_LANDING = 'landing'
+DISCOVERY_PROFILE_RIBBON_DESTINATION = 'ribbon_destination'
 
 DISCOVERY_PROFILES = {
     # Form pages are offered but flagged `is_form_page`, so the builder keeps them
@@ -98,6 +99,16 @@ DISCOVERY_PROFILES = {
     # A landing page must be reachable with no context, so form pages are out.
     DISCOVERY_PROFILE_LANDING: {
         'actions': (ROUTE_ACTION_PAGE,),
+        'require_url': True,
+    },
+    # A ribbon button's destination. Machinery is admitted only so modal managers
+    # survive the profile; `ribbon.catalog` then keeps the modal-shaped ones and
+    # drops the rest. Going through a profile at all is the point: it inherits the
+    # per-view exclusions and the hidden `dlux` group rule, which a raw route walk
+    # does not — that walk offered sign-up, session and global-search endpoints as
+    # if they were pages.
+    DISCOVERY_PROFILE_RIBBON_DESTINATION: {
+        'actions': (ROUTE_ACTION_PAGE, ROUTE_ACTION_FORM, ROUTE_ACTION_MACHINERY),
         'require_url': True,
     },
 }

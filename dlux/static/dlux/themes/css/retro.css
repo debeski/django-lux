@@ -1290,46 +1290,46 @@
 }
 
 /* Archive file upload widget */
-:root.theme-retro .archive-file-card {
+:root.theme-retro .dlux-file-card {
     border-color: rgba(212, 165, 116, 0.14) !important;
     background: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(15, 13, 12, 0.96)) !important;
     box-shadow: none !important;
 }
-:root.theme-retro .archive-file-field.is-dragover .archive-file-card,
-:root.theme-retro .archive-file-card:hover,
-:root.theme-retro .archive-file-card:focus-visible {
+:root.theme-retro .dlux-file-field.is-dragover .dlux-file-card,
+:root.theme-retro .dlux-file-card:hover,
+:root.theme-retro .dlux-file-card:focus-visible {
     border-color: rgba(212, 165, 116, 0.3) !important;
     box-shadow: none !important;
 }
-:root.theme-retro .archive-file-tag {
+:root.theme-retro .dlux-file-tag {
     background: rgba(212, 165, 116, 0.12) !important;
     color: var(--retro-amber) !important;
 }
-:root.theme-retro .archive-file-tool {
+:root.theme-retro .dlux-file-tool {
     background: rgba(255, 255, 255, 0.05) !important;
     color: var(--retro-amber) !important;
     box-shadow: none !important;
 }
-:root.theme-retro .archive-file-tool-upload {
+:root.theme-retro .dlux-file-tool-upload {
     background: rgba(212, 165, 116, 0.14) !important;
     color: var(--retro-amber) !important;
 }
-:root.theme-retro .archive-file-tool-scan {
+:root.theme-retro .dlux-file-tool-scan {
     background: rgba(201, 162, 39, 0.16) !important;
     color: #f0d060 !important;
 }
-:root.theme-retro .archive-file-tool-clear {
+:root.theme-retro .dlux-file-tool-clear {
     background: rgba(139, 58, 58, 0.16) !important;
     color: #ffcdd2 !important;
 }
-:root.theme-retro .archive-file-icon {
+:root.theme-retro .dlux-file-icon {
     background: rgba(212, 165, 116, 0.12) !important;
     color: var(--retro-amber) !important;
 }
-:root.theme-retro .archive-file-name {
+:root.theme-retro .dlux-file-name {
     color: var(--title) !important;
 }
-:root.theme-retro .archive-file-meta {
+:root.theme-retro .dlux-file-meta {
     color: #a09084 !important;
 }
 

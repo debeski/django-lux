@@ -54,8 +54,12 @@
         }
 
         inputs.forEach((input) => {
-            input.disabled = Boolean(isDisabled);
-            if (isDisabled) {
+            // A choice-selector option the server locked (an unreachable relay, a
+            // theme picker host that no longer exists) stays disabled when the
+            // group is switched back on.
+            const locked = input.dataset && input.dataset.dluxSelectorLocked === 'true';
+            input.disabled = locked || Boolean(isDisabled);
+            if (input.disabled) {
                 input.setAttribute('aria-disabled', 'true');
             } else {
                 input.removeAttribute('aria-disabled');

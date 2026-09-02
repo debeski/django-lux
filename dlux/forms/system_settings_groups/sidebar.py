@@ -146,6 +146,7 @@ class SidebarCleanMixin:
             'entries': entries,
             'enable_reorder': parsed.get('enable_reorder', True),
             'show_toolbar': parsed.get('show_toolbar', True),
+            'show_sections_manager': parsed.get('show_sections_manager', True),
             'show_icons': parsed.get('show_icons', True),
             'show_notification_badges': parsed.get('show_notification_badges', True),
             'density': parsed.get('density', DEFAULT_SIDEBAR_DENSITY),

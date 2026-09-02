@@ -34,6 +34,11 @@ page renders its header. An action can be `type='submit'` with `form` and
 elsewhere on the page; `{'html': ...}` passes rendered markup through for a
 composite control.
 
+Keep page-owned POST workflows out of the action rail when they need several
+fields. The Backup & Restore page renders its passphrase, scope, and create
+button as a row immediately under `{% dlux_ribbon %}`, leaving the ribbon actions
+for navigation, filters, and compact triggers.
+
 ## What is derived, and how
 
 | Rule | Result |
@@ -110,7 +115,7 @@ filter renamed out from under a view degrades to a missing control instead of a
 500 on the list page.
 
 For finer control, override `get_ribbon_actions()`, `get_ribbon_title()`,
-`get_ribbon_clear_url()`, or `get_ribbon()` itself.
+`get_ribbon_subtitle()`, `get_ribbon_clear_url()`, or `get_ribbon()` itself.
 
 ## Field normalisation and the Clear control
 
@@ -239,17 +244,21 @@ second is unreachable.
 
 ### Editing strips in Settings
 
-*Settings → Ribbon → Tab Strips* writes `SystemSettings.ribbon_config`, keyed
-`"app_label.ModelName"`, so a list page can gain extra tab strips without a
-developer and declared strips can be re-dressed or removed.
+*Settings → Ribbon → Tab Strips* writes `SystemSettings.ribbon_config`. Normal
+list views keep the existing `"app_label.ModelName"` storage key, while direct
+page ribbons can use route keys such as `"route.reports_overview"`. A ribbon
+host can gain extra tab strips and administrator-owned buttons without a
+developer, and declared strips can be re-dressed or removed.
 
-The builder lists a model only when some view actually renders a ribbon for it,
-walked from the URLconf — reading the model registry instead would offer every
-table in the project, sessions and permissions included, none of which have a
-page. Within a model it offers only fields that can populate a strip — a
-choices field, a relation, or a boolean, minus the audit relations every scoped
-model carries — so an extra strip cannot raise on render, and a malformed one is
-dropped when it is saved rather than when a page loads.
+The builder lists URL views that actually render a ribbon, including no-tab
+hosts and explicit function-based pages that set `view.dlux_ribbon_host = True`.
+Reading the model registry instead would offer every table in the project,
+sessions and permissions included, none of which have a page. Within a model it
+offers only fields that can populate a strip — a choices field, a relation, or a
+boolean, minus the audit relations every scoped model carries — so an extra
+strip cannot raise on render, and a malformed one is dropped when it is saved
+rather than when a page loads. Dlux system hosts are hidden in the builder until
+the administrator enables **Show system items**.
 
 ### Re-dressing a strip: the overlay
 
@@ -364,8 +373,8 @@ would configure away the distinction that keeps three rows readable.
 
 ### Saved config shape
 
-`ribbon_config` keeps declared-strip edits and admin-created strips in separate
-lists:
+`ribbon_config` keeps declared-strip edits, admin-created strips, and
+admin-created buttons separately:
 
 ```json
 {
@@ -382,7 +391,27 @@ lists:
           {"type": "field", "field": "condition"}
         ]
       }
-    ]
+    ],
+    "custom_actions": {
+      "asset_list": [
+        {
+          "id": "custom-inspection",
+          "labels": {"en": "Inspection"},
+          "icon": "bi bi-clipboard-check",
+          "destination": {
+            "kind": "modal",
+            "route_name": "inspection_modal",
+            "url": "/inspections/modal/",
+            "permissions": ["storage.add_inspection"]
+          },
+          "attrs": {
+            "data-dynamic-modal": "/inspections/modal/",
+            "data-modal-title": "Inspection"
+          },
+          "permissions": ["storage.add_inspection"]
+        }
+      ]
+    }
   }
 }
 ```
@@ -390,7 +419,67 @@ lists:
 `strips` entries are overlays/removals for what the view declared. Each entry
 must name the declared strip by `param` or `index`. `extra_strips` entries are
 complete strip configs created in Settings, and each one must carry usable
-`sources`.
+`sources`. `custom_actions` is grouped by ribbon host route, so two views over
+the same model can have different administrator-owned buttons. Developer-defined
+actions are listed as locked in the builder; administrators can add, edit, and
+remove only their own buttons. Button destinations come from context-free,
+permission-described URL views classified as page, form, or modal destinations.
+
+A ribbon button *is* its destination. Two buttons reaching the same endpoint are
+the same button however they were declared — a view's own, one dlux supplies, one
+an administrator added — and whichever attribute carries it: `data-dynamic-modal`,
+dlux's own `data-url`, a composite control's `data-start-url`, a submit button's
+`formaction`, or an href. The ribbon draws
+the first and drops the rest. That identity (`dest:<endpoint>`) is also what
+administrator edits to a code-declared button are keyed by, in
+`ribbon_config[<host>].actions`: `enabled: false` removes it, `labels` renames it
+per language, `icon` re-glyphs it, and dropping the entry restores it — the same
+overlay model the declared tab strips use. A button that is raw `html` has no
+destination, so it can be neither deduped nor edited.
+
+The builder gets a class-based host's buttons by asking it — `get_ribbon_actions()`
+is where a real view builds them, since which buttons it shows usually depends on
+the reader's permissions. That runs the view's own code, so it happens inside a
+rolled-back transaction: building a catalog must not change anything. A
+function-based host has no instance to ask and declares its buttons on the
+function instead:
+
+    reports_overview_view.dlux_ribbon_host = True
+    reports_overview_view.dlux_ribbon_actions = _reports_action_specs
+
+    system_backup_page.dlux_ribbon_host = True
+    system_backup_page.dlux_ribbon_actions = _backup_action_specs
+
+`dlux_ribbon_actions` is a list of action specs, or a callable taking the request
+when the buttons depend on it. Share one list with the view rather than restating
+it, so what an administrator renames is the button the page actually draws.
+
+A control that is rendered markup — a start button with its own progress bar and
+download link — cannot be described as a label and an icon. Declare a stand-in for
+it with `kind: 'html'` and an `attrs` entry naming its endpoint; the builder lists
+it for removal and offers no rename, and `_actions.html` renders `html` and nothing
+else so those attrs never reach the page. Keep the stand-in out of the list the
+view renders: sharing one list puts it ahead of the markup it stands for, and the
+duplicate check then drops the markup.
+
+`ribbon_destination_catalog()` walks the route catalog itself, so it applies the
+`ribbon_destination` discovery profile and the hidden `dlux` group rule by hand —
+the same rules the sidebar and navbar catalogs use, so a view excluded from those
+is excluded here too, the usual way (`dlux_exclude = True`, or naming profiles).
+Skipping that is what once offered sign-up and session pages, settings
+import/export endpoints, and `global_search` — which answers with JSON — as
+destinations. Two things do come out of the hidden group: the configurable system
+pages, and every dynamic-modal manager whoever registered it. Everything dlux owns
+is labelled `System · …` in the picker so it reads apart from a project's own pages.
+
+A function view that answers `{"html": ...}` is a modal endpoint no matter how it
+is named or routed, and only it can say so — declare `dlux_modal = True` on it.
+Without that it is catalogued as a page, and a button pointing at it navigates to
+raw JSON instead of opening a modal.
+
+A view that should stay out of the navigation catalogs but remain a destination
+names the profiles it opts out of (`dlux_exclude = ('sidebar', 'navbar', …)`)
+rather than using `sidebar_exclude = True`, which means every profile.
 
 The page builds visible strips in this order:
 
@@ -427,6 +516,25 @@ Use `ribbon_tabs_fixed` when the strip carries a rule — a permission-gated tab
 a split the rest of the view depends on — not merely when you would rather keep
 your version. Overriding `get_ribbon_tabs()` locks the model the same way, since
 a Settings-created strip drawn against it would be ignored.
+
+For a direct function-based page that builds a `Ribbon` without a model-backed
+`RibbonMixin`, mark the callable and pass the route storage key when rendering
+custom actions:
+
+```python
+def reports_overview_view(request):
+    ...
+
+reports_overview_view.dlux_ribbon_host = True
+
+ribbon = build_ribbon(
+    request=request,
+    title="Reports",
+    actions=[...],
+    custom_actions_key="route.reports_overview",
+    custom_actions_host="reports_overview",
+)
+```
 
 ### Off is a state, not an absence
 

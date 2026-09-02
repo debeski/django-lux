@@ -29,8 +29,16 @@ class UserActivityLogView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, 
     #: so the key has to survive a filter submit and a Clear.
     ribbon_preserve_keys = ('category',)
 
+    def _ribbon_strings(self):
+        from ..translations import get_current_language_code
+
+        return get_strings(get_current_language_code(self.request))
+
     def get_ribbon_title(self):
-        return get_strings().get('log_title', 'Activity Log')
+        return self._ribbon_strings().get('log_title', 'Activity Log')
+
+    def get_ribbon_subtitle(self):
+        return self._ribbon_strings().get('activity_log_desc', '')
 
     def get_paginate_by(self, queryset):
         # Let django-tables2 own pagination. FilterView/ListView pagination here
@@ -98,7 +106,7 @@ class UserActivityLogView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, 
         """
         from ..ribbon import build_ribbon_tabs
 
-        strings = get_strings()
+        strings = self._ribbon_strings()
         return build_ribbon_tabs(
             {
                 'param': 'category',

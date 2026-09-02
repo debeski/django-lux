@@ -545,28 +545,93 @@ class ConfiguredTabsTests(TestCase):
         with patch('dlux.models.SystemSettings.load', side_effect=RuntimeError('mid-migration')):
             self.assertIsNone(configured_tabs_for(ActivityLog))
 
+    def test_custom_actions_are_scoped_to_the_ribbon_host(self):
+        from dlux.ribbon import configured_custom_actions_for
+
+        self._store({'dlux.ActivityLog': {'custom_actions': {
+            '*': [{'id': 'global', 'label': 'Global', 'url': '/global/'}],
+            'logs:list': [{'id': 'logs', 'label': 'Logs', 'url': '/logs/'}],
+            'logs:other': [{'id': 'other', 'label': 'Other', 'url': '/other/'}],
+        }}})
+        actions = configured_custom_actions_for(ActivityLog, 'logs:list')
+        self.assertEqual([action['id'] for action in actions], ['global', 'logs'])
+
+    def test_custom_actions_render_after_developer_actions(self):
+        from types import SimpleNamespace
+
+        from dlux.ribbon import RibbonMixin, build_action
+
+        self._store({'dlux.ActivityLog': {'custom_actions': {
+            'logs:list': [{'id': 'custom', 'labels': {'en': 'Custom'}, 'url': '/custom/'}],
+        }}})
+
+        class View(RibbonMixin):
+            model = ActivityLog
+
+            def __init__(self):
+                self.request = _request()
+                self.request.resolver_match = SimpleNamespace(view_name='logs:list')
+
+            def get_ribbon_actions(self):
+                return [build_action({'label': 'Developer', 'url': '/developer/'}, request=self.request)]
+
+        ribbon = View().get_ribbon()
+        self.assertEqual([action.label for action in ribbon.actions], ['Developer', 'Custom'])
+
+    def test_custom_action_permission_is_enforced_on_render(self):
+        from types import SimpleNamespace
+
+        from dlux.ribbon import RibbonMixin
+
+        self._store({'dlux.ActivityLog': {'custom_actions': {
+            'logs:list': [{
+                'id': 'restricted',
+                'label': 'Restricted',
+                'url': '/restricted/',
+                'permission': 'dlux.view_activitylog',
+            }],
+        }}})
+
+        class View(RibbonMixin):
+            model = ActivityLog
+
+            def __init__(self):
+                self.request = _request()
+                self.request.resolver_match = SimpleNamespace(view_name='logs:list')
+                self.request.user = SimpleNamespace(has_perm=lambda perm: False)
+
+        self.assertEqual(View().get_ribbon().actions, [])
+
 
 class TabCatalogTests(TestCase):
-    """Two guards: the model must be behind a view that renders a ribbon, and
-    only fields that can actually become tabs are listed."""
+    """Two guards: a host must be a view that renders a ribbon, and only fields
+    that can actually become tabs are listed."""
 
     def _catalog(self):
         from dlux.ribbon.catalog import ribbon_tab_catalog
 
         return {entry['key']: entry for entry in ribbon_tab_catalog()}
 
-    def test_only_models_behind_a_ribbon_view_are_offered(self):
+    def _user_host(self):
+        return next(
+            entry for entry in self._catalog().values()
+            if entry['model_key'] == 'auth.User'
+        )
+
+    def test_only_views_that_host_a_ribbon_are_offered(self):
         """Reading the model registry instead offered every table in the
         project — sessions, permissions, log entries — none of which have a
-        page, let alone a strip."""
+        page, let alone a ribbon."""
         from django.apps import apps as django_apps
 
         catalog = self._catalog()
-        self.assertIn('auth.User', catalog)          # manage_users renders a ribbon
+        self.assertIn('manage_users', catalog)
+        self.assertEqual(catalog['manage_users']['model_key'], 'auth.User')
         self.assertLess(len(catalog), len(django_apps.get_models()))
+        model_keys = {entry['model_key'] for entry in catalog.values()}
         for absent in ('auth.Permission', 'sessions.Session', 'dlux.SystemSettings',
                        'contenttypes.ContentType', 'dlux.UserPresenceSession'):
-            self.assertNotIn(absent, catalog)
+            self.assertNotIn(absent, model_keys)
 
     def test_a_view_that_locks_its_tabs_is_listed_without_structural_actions(self):
         """It used to be dropped from the catalog entirely, which left the page
@@ -578,15 +643,29 @@ class TabCatalogTests(TestCase):
 
         views = ribbon_view_models()
         self.assertTrue(views['dlux.ActivityLog'][1], 'activity log locks its tabs')
-        entry = self._catalog().get('dlux.ActivityLog')
-        self.assertIsNotNone(entry, 'a locked model still belongs in the catalog')
+        entry = self._catalog().get('user_activity_log')
+        self.assertIsNotNone(entry, 'a locked ribbon host still belongs in the catalog')
         self.assertTrue(entry['locked'])
         self.assertIn('strips', entry)
+
+    def test_dynamically_built_fixed_strips_are_serialized(self):
+        """Activity Log builds its category strip from permissions and counts.
+        The builder still needs that final strip; treating it as raw config made
+        the fixed badge show without the strip itself.
+        """
+        from dlux.ribbon.catalog import ribbon_tab_catalog
+
+        request = _request()
+        request.user = User.objects.create_superuser('root', 'root@example.com', 'pw')
+        catalog = {entry['key']: entry for entry in ribbon_tab_catalog(request=request)}
+        entry = catalog['user_activity_log']
+        self.assertEqual([strip['param'] for strip in entry['strips']], ['category'])
+        self.assertTrue(entry['strips'][0]['tabs'])
 
     def test_audit_relations_are_not_offered_as_tabs(self):
         """dlux stamps these on every scoped model; each would draw one tab per
         user, and they are bookkeeping rather than a dimension anyone lists by."""
-        fields = {f['name'] for f in self._catalog()['auth.User']['fields']}
+        fields = {f['name'] for f in self._user_host()['fields']}
         for noise in ('created_by', 'updated_by', 'deleted_by', 'user_permissions'):
             self.assertNotIn(noise, fields)
 
@@ -606,17 +685,140 @@ class TabCatalogTests(TestCase):
         self.assertEqual(_source_kind(ActivityLog._meta.get_field('category')), 'field')
 
     def test_a_boolean_is_offered_as_a_flag_source(self):
-        fields = {f['name']: f['kind'] for f in self._catalog()['auth.User']['fields']}
+        fields = {f['name']: f['kind'] for f in self._user_host()['fields']}
         self.assertEqual(fields.get('is_superuser'), 'flag')
 
     def test_a_free_text_field_is_not_offered(self):
         """Offering it would let an operator draw a strip that raises on render."""
-        fields = {f['name'] for f in self._catalog()['auth.User']['fields']}
+        fields = {f['name'] for f in self._user_host()['fields']}
         self.assertNotIn('username', fields)
 
-    def test_a_model_with_nothing_tabbable_is_left_out(self):
-        for entry in self._catalog().values():
-            self.assertTrue(entry['fields'], f"{entry['key']} offers no tab sources")
+    def test_a_ribbon_host_without_declared_strips_is_kept(self):
+        entry = self._catalog()['manage_users']
+        self.assertEqual(entry['route_name'], 'manage_users')
+        self.assertEqual(entry['strips'], [])
+
+    def test_explicit_function_ribbon_hosts_are_kept(self):
+        catalog = self._catalog()
+        self.assertEqual(catalog['reports_overview']['model_key'], 'route.reports_overview')
+        self.assertEqual(catalog['system_backup_page']['model_key'], 'route.system_backup_page')
+        self.assertTrue(catalog['reports_overview']['locked'])
+        self.assertTrue(catalog['system_backup_page']['locked'])
+
+    def test_catalog_marks_developer_actions_as_locked(self):
+        entry = self._catalog()['manage_users']
+        self.assertTrue(entry['actions_locked'])
+        self.assertTrue(entry['actions_dynamic'])
+
+
+class RibbonDestinationCatalogTests(TestCase):
+    def _catalog(self):
+        from dlux.ribbon.catalog import ribbon_destination_catalog
+
+        return {entry['id']: entry for entry in ribbon_destination_catalog()}
+
+    def test_page_form_and_modal_destinations_are_catalogued(self):
+        catalog = self._catalog()
+        self.assertEqual(catalog['manage_users']['kind'], 'page')
+        self.assertTrue(catalog['manage_users']['is_system'])
+
+    def test_only_pages_an_admin_can_navigate_to_are_offered(self):
+        """The catalog walks the URLconf itself, so it must apply the discovery
+        profile by hand — a raw walk offers every named route.
+
+        Before this, the destination dropdown listed sign-up and session pages,
+        settings import/export endpoints, backup and restore starters, and
+        `global_search`, which answers with JSON. None of them are somewhere a
+        ribbon button can meaningfully send a reader.
+        """
+        catalog = self._catalog()
+
+        for route_name in (
+            'register',
+            'session_ended',
+            'global_search',
+            'system_settings_export',
+            'system_restore_start',
+            'reports_backup_start',
+        ):
+            self.assertNotIn(route_name, catalog, route_name)
+
+        # What dlux owns out of the hidden group: the configurable system pages the
+        # sidebar offers, every dynamic-modal manager, and the named managers worth
+        # opening from a button. All of it reads as System in the picker; a project's
+        # own destinations never do.
+        from dlux.discovery.meta import CONFIGURABLE_SYSTEM_ROUTE_NAMES
+
+        offered_system = {name for name, entry in catalog.items() if entry['is_system']}
+        self.assertTrue(
+            (set(CONFIGURABLE_SYSTEM_ROUTE_NAMES) & set(catalog)).issubset(offered_system))
+        self.assertTrue(all(':' not in name for name in offered_system))
+        self.assertIn('manage_users', catalog)
+        self.assertIn('reports_overview', catalog)
+
+    def test_a_json_answering_manager_is_a_modal_destination_not_a_page(self):
+        """Group, Scope and Asset management answer `{"html": ...}`; they are not
+        pages. Offered as pages, a button pointing at one navigated to raw JSON —
+        and they are modals, so they are destinations without being sidebar
+        material."""
+        catalog = self._catalog()
+        from dlux.discovery.meta import CONFIGURABLE_SYSTEM_ROUTE_NAMES
+
+        for route_name in ('manage_groups', 'manage_scopes', 'manage_assets'):
+            entry = catalog[route_name]
+            self.assertEqual(entry['kind'], 'modal', route_name)
+            # Opened as a dynamic modal, not navigated to.
+            self.assertIn('attrs', entry['action_spec'], route_name)
+            self.assertTrue(entry['is_system'], route_name)
+            self.assertNotIn(route_name, CONFIGURABLE_SYSTEM_ROUTE_NAMES, route_name)
+
+    def test_a_modal_manager_dlux_owns_is_labelled_system_like_its_pages(self):
+        """`modal_user` is dlux's, so it reads as System — it used to sit among the
+        project's own destinations while User Management hid behind the toggle."""
+        catalog = self._catalog()
+        self.assertTrue(catalog['modal_user']['is_system'])
+        # And it says what it is rather than a humanised route name.
+        self.assertNotEqual(catalog['modal_user']['label'], 'Modal User')
+
+    def test_a_view_may_opt_out_of_navigation_yet_stay_a_destination(self):
+        """`sidebar_exclude = True` means every profile, which took the ScanLink
+        releases modal out of the destination picker too. Naming the navigation
+        profiles keeps it out of those and available here."""
+        from dlux.views.scanlink import scanlink_releases_modal
+
+        excluded = set(scanlink_releases_modal.dlux_exclude)
+        self.assertIn('sidebar', excluded)
+        self.assertIn('navbar', excluded)
+        self.assertNotIn('ribbon_destination', excluded)
+
+    def test_dynamic_modal_managers_are_offered_whoever_registered_them(self):
+        """They land in the hidden `dlux` group by grouping accident, and a button
+        opening one is exactly the point — dlux's own included."""
+        catalog = self._catalog()
+        self.assertEqual(catalog['modal_user']['kind'], 'modal')
+        self.assertEqual(catalog['modal_user']['group_key'], 'dlux')
+
+    def test_context_bound_routes_are_left_out(self):
+        catalog = self._catalog()
+        self.assertNotIn('user_detail_modal', catalog)
+        self.assertNotIn('modal_user_edit', catalog)
+
+    def test_mutating_page_endpoints_are_left_out(self):
+        catalog = self._catalog()
+        self.assertNotIn('dlux_data_reset_execute', catalog)
+
+    def test_modal_destination_carries_a_renderable_action_spec(self):
+        # Exercised directly: dlux ships no namespaced modal of its own, and its own
+        # modals are no longer offered as destinations.
+        from dlux.ribbon.catalog import _destination_action_spec
+
+        spec = _destination_action_spec(
+            {'url_name': 'shop:order_manager', 'url': '/shop/orders/manage/',
+             'label': 'Orders', 'icon': 'bi-box', 'permissions': []},
+            'modal',
+        )
+        self.assertEqual(spec['attrs']['data-dynamic-modal'], '/shop/orders/manage/')
+        self.assertEqual(spec['destination']['kind'], 'modal')
 
 
 class RibbonStepTests(TestCase):
@@ -644,6 +846,7 @@ class RibbonStepTests(TestCase):
         html = self._form_html()
         self.assertIn('data-ribbon-builder', html)
         self.assertIn('name="ribbon_config"', html)
+        self.assertIn('data-destinations=', html)
 
     def test_the_config_is_normalised_on_the_way_in(self):
         """The failure belongs in the editor that caused it, not on a list page
@@ -1143,6 +1346,61 @@ class StripPrecedenceTests(TestCase):
         })
         self.assertEqual(cleaned['dlux.ActivityLog']['strips'][0]['labels'], {'a': 'A'})
         self.assertEqual(cleaned['dlux.ActivityLog']['extra_strips'][0]['param'], 'kind')
+
+    def test_custom_actions_are_kept_by_host(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+
+        cleaned = normalize_ribbon_config({
+            'dlux.ActivityLog': {'custom_actions': {
+                'logs:list': [{
+                    'id': 'print',
+                    'labels': {'en': 'Print', 'ar': 'طباعة'},
+                    'icon': 'bi bi-printer',
+                    'url': '/logs/print/',
+                    'permission': 'dlux.view_activitylog',
+                }],
+            }},
+        })
+        action = cleaned['dlux.ActivityLog']['custom_actions']['logs:list'][0]
+        self.assertEqual(action['labels']['en'], 'Print')
+        self.assertEqual(action['url'], '/logs/print/')
+
+    def test_custom_actions_reject_raw_html_and_external_urls(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+
+        cleaned = normalize_ribbon_config({
+            'dlux.ActivityLog': {'custom_actions': {
+                'logs:list': [
+                    {'id': 'html', 'label': 'Bad', 'html': '<script></script>', 'url': '/ok/'},
+                    {'id': 'external', 'label': 'Bad', 'url': 'https://example.com/'},
+                    {'id': 'ok', 'label': 'OK', 'attrs': {'data-dynamic-modal': '/modal/'}},
+                ],
+            }},
+        })
+        actions = cleaned['dlux.ActivityLog']['custom_actions']['logs:list']
+        self.assertEqual([action['id'] for action in actions], ['ok'])
+
+    def test_custom_action_destination_normalizes_to_a_modal_button(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+
+        cleaned = normalize_ribbon_config({
+            'dlux.ActivityLog': {'custom_actions': {
+                'logs:list': [{
+                    'id': 'users',
+                    'label': 'Users',
+                    'destination': {
+                        'kind': 'modal',
+                        'route_name': 'modal_user',
+                        'url': '/sys/modals/users/',
+                        'label': 'Users',
+                        'permissions': ['auth.add_user'],
+                    },
+                }],
+            }},
+        })
+        action = cleaned['dlux.ActivityLog']['custom_actions']['logs:list'][0]
+        self.assertEqual(action['attrs']['data-dynamic-modal'], '/sys/modals/users/')
+        self.assertEqual(action['permissions'], ['auth.add_user'])
 
     def test_extra_strip_relation_is_kept(self):
         from dlux.system.normalizers import normalize_ribbon_config

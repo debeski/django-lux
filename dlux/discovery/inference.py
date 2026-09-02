@@ -125,14 +125,14 @@ def _infer_group_key(url_name, model, callback):
     explicit = getattr(callback, 'sidebar_group', None)
     if explicit:
         return explicit
+    leaf = _route_leaf(url_name)
+    if leaf in SYSTEM_ROUTE_META:
+        return SYSTEM_ROUTE_META[leaf]['group_key']
     if model is not None:
         return model._meta.app_label
     callback_app = _infer_callback_app_label(callback)
     if callback_app:
         return callback_app
-    leaf = _route_leaf(url_name)
-    if leaf in SYSTEM_ROUTE_META:
-        return SYSTEM_ROUTE_META[leaf]['group_key']
     if ':' in url_name:
         return url_name.split(':')[0]
     return 'general'

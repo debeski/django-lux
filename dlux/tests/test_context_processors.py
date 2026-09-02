@@ -311,6 +311,34 @@ class ContextProcessorsTests(TestCase):
         self.assertTrue(context['sidebar_density_picker_enabled'])
         self.assertTrue(context['sidebar_toolbar_enabled'])
 
+    def test_dlux_context_hides_sections_manager_when_sidebar_shortcut_is_disabled(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.allow_user_theme_override = False
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'show_toolbar': True,
+            'show_sections_manager': False,
+            'enable_reorder': False,
+            'allow_user_density': False,
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+
+        with patch('dlux.context_processors.has_section_models', return_value=True), patch(
+            'dlux.context_processors.user_has_section_view_permission',
+            return_value=True,
+        ):
+            context = dlux_context(request)
+
+        self.assertFalse(context['sidebar_has_sections_manager'])
+        self.assertFalse(context['sidebar_toolbar_enabled'])
+
     def test_dlux_context_disables_sidebar_runtime_surfaces(self):
         from dlux.models import SystemSettings
 

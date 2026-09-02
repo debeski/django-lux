@@ -88,18 +88,15 @@ def reports_overview_view(request):
     return render(request, "dlux/reports/overview.html", context)
 
 
-def _reports_ribbon(request, strings, context):
-    """The page header, as a Ribbon.
+def _reports_action_specs(request=None):
+    """The page's own buttons, shared with the Settings ribbon builder.
 
-    No filterset: this page's controls belong to the report builder's own form,
-    which the export buttons submit through `form=`/`formaction=`. The Ribbon
-    carries the title, the description and those actions.
+    A function host has no instance for the builder to ask, so the specs live
+    here and the function points at them — one list, so what an administrator
+    renames or removes is the button the page actually draws.
     """
-    from django.template.loader import render_to_string
-
-    from ..ribbon import build_action, build_ribbon
-
-    actions = [
+    strings = get_strings()
+    specs = [
         {
             "label": strings.get("reports_print_report", "Print report"),
             "icon": "bi bi-printer",
@@ -126,12 +123,56 @@ def _reports_ribbon(request, strings, context):
             },
         },
     ]
+    return specs
+
+
+def _reports_catalog_actions(request=None):
+    """What the Settings ribbon builder lists for this page.
+
+    The page's two real specs, plus a stand-in for the backup control. That one is
+    rendered markup — a start button with its own progress bar and download link —
+    so it cannot be described as a label and an icon, and the builder offers it for
+    removal only. It is deliberately not in `_reports_action_specs`: that list is
+    what the page renders, and a stand-in in it would be drawn instead of the
+    markup it stands for.
+    """
+    specs = list(_reports_action_specs(request))
+    user = getattr(request, "user", None) if request is not None else None
+    if user is None or user_can_download_backup(user):
+        strings = get_strings()
+        specs.append({
+            "label": strings.get("reports_backup_create", "Create backup"),
+            "icon": "bi bi-file-earmark-zip",
+            "kind": "html",
+            "attrs": {"data-start-url": reverse("reports_backup_start")},
+        })
+    return specs
+
+
+def _reports_ribbon(request, strings, context):
+    """The page header, as a Ribbon.
+
+    No filterset: this page's controls belong to the report builder's own form,
+    which the export buttons submit through `form=`/`formaction=`. The Ribbon
+    carries the title, the description and those actions.
+    """
+    from django.template.loader import render_to_string
+
+    from ..ribbon import build_action, build_ribbon
+
+    actions = list(_reports_action_specs(request))
     if context["can_download_backup"]:
         # A composite control (button, progress, status, download link), so it
-        # comes through as rendered markup rather than a label and an icon.
-        actions.append({"html": render_to_string(
-            "dlux/reports/_backup_action.html", context, request=request,
-        )})
+        # comes through as rendered markup rather than a label and an icon. The
+        # attrs are identity only — `_actions.html` renders `html` and nothing
+        # else — so the builder can list it and an administrator can remove it,
+        # which renaming and re-iconing cannot meaningfully do to markup.
+        actions.append({
+            "html": render_to_string(
+                "dlux/reports/_backup_action.html", context, request=request,
+            ),
+            "attrs": {"data-start-url": reverse("reports_backup_start")},
+        })
     return build_ribbon(
         None,
         request=request,
@@ -139,7 +180,13 @@ def _reports_ribbon(request, strings, context):
         subtitle=strings.get("reports_subtitle", ""),
         title_icon="bi bi-bar-chart-fill",
         actions=[a for a in (build_action(spec, request=request) for spec in actions) if a],
+        custom_actions_key="route.reports_overview",
+        custom_actions_host="reports_overview",
     )
+
+
+reports_overview_view.dlux_ribbon_host = True
+reports_overview_view.dlux_ribbon_actions = _reports_catalog_actions
 
 
 @login_required

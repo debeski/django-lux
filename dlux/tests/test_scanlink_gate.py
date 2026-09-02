@@ -108,7 +108,7 @@ class WidgetTests(ScanLinkTestCase):
 
     def test_the_widget_template_only_draws_the_button_when_told_to(self):
         widget = DluxFileInput(field_label='File', show_scan=True)
-        self.assertNotIn('data-archive-file-scan', widget.render('f', None))
+        self.assertNotIn('data-dlux-file-scan', widget.render('f', None))
 
 
 class AssetScriptTests(ScanLinkTestCase):

@@ -149,6 +149,50 @@ class StaticCompatTests(SimpleTestCase):
 
 
 class ImportCompatTests(SimpleTestCase):
+    def test_legacy_archive_file_helper_names_still_resolve(self):
+        """Host projects import the project-archive names; removed in v1.9.0."""
+        from dlux import forms
+
+        self.assertIs(forms.build_archive_file_field, forms.build_file_field)
+        self.assertIs(forms._build_archive_file_widget, forms._build_file_widget)
+        self.assertIn('build_archive_file_field', forms.__all__)
+
+    def test_legacy_archive_file_translation_keys_still_apply(self):
+        """Projects overriding the old string keys must keep their copy."""
+        from unittest import mock
+
+        from dlux.widgets import DluxFileInput
+
+        with mock.patch(
+            'dlux.translations.get_strings',
+            return_value={'archive_file_empty_title': 'Legacy title'},
+        ):
+            context = DluxFileInput().get_context('f', None, {'id': 'id_f'})
+
+        self.assertEqual(context['widget']['empty_title'], 'Legacy title')
+        self.assertEqual(context['widget']['upload_action'], 'Upload file')
+
+    def test_legacy_archive_file_input_class_still_selects_the_file_template(self):
+        """project-dhub opts in by putting the old class on its own widget."""
+        from django import forms as django_forms
+        from django.template.loader import render_to_string
+
+        class LegacyForm(django_forms.Form):
+            doc = django_forms.FileField(
+                widget=django_forms.ClearableFileInput(
+                    attrs={'class': 'archive-file-input'},
+                ),
+            )
+
+        html = render_to_string(
+            'dlux/forms/crispy_file_field.html',
+            {'field': LegacyForm()['doc']},
+        )
+
+        # The fallback branch wraps the input in `form-control`; the file-card
+        # branch renders the widget as-is.
+        self.assertNotIn('form-control', html)
+
     def test_relocated_archive_helpers_are_still_importable_from_reports(self):
         """dlux.backup used to get these from dlux.reports; both paths must work."""
         import dlux.reports as reports

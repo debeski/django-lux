@@ -14,11 +14,13 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.html import conditional_escape
 from django.views import View
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 from django_tables2 import RequestConfig
 
+from ..forms.builders import build_settings_toggle_field
 from ..notifications import notify
 from ..utils import (
     is_scope_enabled,
@@ -33,6 +35,7 @@ from ..utils import (
     can_manage_target_user,
     get_user_scope,
     setup_filter_helper,
+    set_field_attrs,
     has_submit_button,
     user_has_model_permission,
     user_has_section_manage_permission,
@@ -44,6 +47,7 @@ from ..translations import get_strings
 
 User = get_user_model()
 logger = logging.getLogger('dlux')
+SECTION_FOOTER_BOOLEAN_NAMES = {'active', 'enabled', 'is_active', 'is_enabled'}
 
 
 def _section_permission_denied(*, json_response=False):
@@ -61,6 +65,128 @@ def _notify_section_error(request, key, action):
         category='sections',
         metadata={'message_key': key},
     )
+
+
+def _compact_section_form_fields(form):
+    """Ensure textarea fields in section forms have compact 2-row height."""
+    if not form or not hasattr(form, 'fields'):
+        return
+    for field in form.fields.values():
+        if isinstance(field.widget, forms.Textarea):
+            if field.widget.attrs.get('rows') in (None, 10, '10'):
+                field.widget.attrs['rows'] = 2
+
+
+def _manage_sections_url_from_params(params):
+    url = reverse('manage_sections')
+    if params:
+        return f"{url}?{params.urlencode()}"
+    return url
+
+
+def _section_form_add_url(request, model_param):
+    params = request.GET.copy()
+    if model_param:
+        params['model'] = model_param
+    for key in ('id', 'page'):
+        if key in params:
+            del params[key]
+    params['form'] = 'add'
+    return _manage_sections_url_from_params(params)
+
+
+def _section_form_cancel_url(request, model_param=None):
+    params = request.GET.copy()
+    if model_param:
+        params['model'] = model_param
+    for key in ('id', 'form', 'page'):
+        if key in params:
+            del params[key]
+    return _manage_sections_url_from_params(params)
+
+
+def _section_form_action_url(request, model_param):
+    params = request.GET.copy()
+    if model_param:
+        params['model'] = model_param
+    if 'page' in params:
+        del params['page']
+    return _manage_sections_url_from_params(params)
+
+
+def _section_form_mode_label(ui_strings, instance, verbose_name):
+    if instance and getattr(instance, 'pk', None):
+        return f"{ui_strings.get('edit_label', 'Edit')} {instance}"
+    return f"{ui_strings.get('add_label', 'Add')} {verbose_name}"
+
+
+def _section_field_opted_into_footer(field):
+    if any(bool(getattr(field, attr, False)) for attr in ('dlux_footer', 'footer', 'on_footer')):
+        return True
+    marker = field.widget.attrs.get('data-dlux-footer')
+    return str(marker).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _is_section_footer_boolean(field_name, field):
+    if not isinstance(field, forms.BooleanField):
+        return False
+    return field_name.lower() in SECTION_FOOTER_BOOLEAN_NAMES or _section_field_opted_into_footer(field)
+
+
+def _section_form_actions_html(save_label, cancel_label, cancel_href=None):
+    safe_save_label = conditional_escape(save_label)
+    safe_cancel_label = conditional_escape(cancel_label)
+    save_button = f"""
+        <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{safe_save_label}" title="{safe_save_label}">
+            <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+            <span class="visually-hidden">{safe_save_label}</span>
+        </button>
+    """
+
+    if cancel_href:
+        safe_cancel_href = conditional_escape(cancel_href)
+        cancel_button = f"""
+            <a href="{safe_cancel_href}" class="dlux-form-action dlux-form-action-neutral" aria-label="{safe_cancel_label}" title="{safe_cancel_label}" data-dlux-section-cancel>
+                <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
+                <span class="visually-hidden">{safe_cancel_label}</span>
+            </a>
+        """
+        return f'<div class="dlux-form-actions">{save_button}{cancel_button}</div>'
+
+    return f'<div class="dlux-form-actions">{save_button}</div>'
+
+
+def _declared_section_footer_fields(form):
+    names = []
+    for bound_field in getattr(form, 'dlux_footer_bound_fields', ()) or ():
+        name = getattr(bound_field, 'name', '')
+        if name in form.fields and name not in names:
+            names.append(name)
+    return names
+
+
+def _append_section_form_footer(form, footer_fields, cancel_url, save_label, cancel_label, *, include_actions=True):
+    if getattr(form, '_dlux_section_footer_attached', False):
+        return
+    from crispy_forms.layout import Div, HTML, Layout
+
+    if getattr(form.helper, 'layout', None) is None:
+        form.helper.layout = Layout()
+    footer_items = [
+        build_settings_toggle_field(
+            form, field_name,
+            css_class="dlux-section-form-footer-toggle",
+            fill_height=False,
+        )
+        for field_name in footer_fields
+    ]
+    if include_actions:
+        footer_items.append(HTML(_section_form_actions_html(save_label, cancel_label, cancel_url)))
+    if not footer_items:
+        return
+    form.helper.layout.fields.append(Div(*footer_items, css_class="dlux-section-form-footer"))
+    form._dlux_section_footer_attached = True
+    form._dlux_section_footer_has_actions = include_actions
 
 
 def _normalize_section_model_token(value):
@@ -216,6 +342,7 @@ def core_models_view(request):
     ui_strings = get_strings()
     save_label = ui_strings.get('save', 'Save')
     cancel_label = ui_strings.get('cancel', 'Cancel')
+    can_manage_sections = user_has_section_manage_permission(request.user)
     
     FormClass = selected_data['form_class']
     TableClass = selected_data['table_class']
@@ -236,18 +363,24 @@ def core_models_view(request):
         except selected_model.DoesNotExist:
             instance = None
 
-    # Build a cancel URL that preserves current filters/sort but drops the edit ID
-    cancel_url = None
-    if 'id' in request.GET:
-        params = request.GET.copy()
-        params.pop('id', None)
-        cancel_url = reverse('manage_sections')
-        if params:
-            cancel_url = f"{cancel_url}?{params.urlencode()}"
+    add_url = _section_form_add_url(request, model_param)
+    cancel_url = _section_form_cancel_url(request, model_param)
+    form_action_url = _section_form_action_url(request, model_param)
+    section_form_open = (
+        can_manage_sections
+        and (
+            request.method == 'POST'
+            or bool(instance_id)
+            or request.GET.get('form') == 'add'
+        )
+    )
     
     subsection_field_names = set()
 
     form = FormClass(request.POST or None, instance=instance)
+    set_field_attrs(form, request)
+    _compact_section_form_fields(form)
+    form_had_submit_button = has_submit_button(form)
     # Auto-create a crispy helper if the form doesn't define one (marks it for layout generation later)
     if not hasattr(form, "helper") or form.helper is None:
         form.helper = FormHelper()
@@ -255,7 +388,11 @@ def core_models_view(request):
         form._auto_helper = True
     else:
         form.helper.form_tag = False
-        if not getattr(form.helper, "inputs", None):
+        if (
+            not form_had_submit_button
+            and not _declared_section_footer_fields(form)
+            and not getattr(form.helper, "inputs", None)
+        ):
             form.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
     # Soft-deleted rows are handled by the scoped manager itself: it includes
@@ -289,6 +426,7 @@ def core_models_view(request):
         table = TableClass(queryset, translations=translations, request=request)
         if not hasattr(table, "model_name"):
             table.model_name = model_param
+    table.dlux_section_actions = True
     RequestConfig(request).configure(table)
 
     # Merge 'scope' into existing excludes without duplicates for non-superusers
@@ -369,6 +507,8 @@ def core_models_view(request):
         
         ChildForm = sub['form_class']
         child_form_instance = ChildForm()
+        set_field_attrs(child_form_instance, request)
+        _compact_section_form_fields(child_form_instance)
         
         # Override form action to generic add_subsection view
         target_url = reverse('add_subsection')
@@ -411,28 +551,9 @@ def core_models_view(request):
                         pass
             return redirect('manage_sections')
 
-    # For auto-generated helpers, build a custom 2-column layout with inline buttons
+    # For auto-generated helpers, build a custom 2-column layout.
     if getattr(form, "_auto_helper", False):
-        from crispy_forms.layout import Layout, Row, Column, Field, HTML, Div
-
-        def build_form_actions_html(cancel_href=None):
-            save_button = f"""
-                <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{save_label}" title="{save_label}">
-                    <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
-                    <span class="visually-hidden">{save_label}</span>
-                </button>
-            """
-
-            if cancel_href:
-                cancel_button = f"""
-                    <a href="{cancel_href}" class="dlux-form-action dlux-form-action-neutral" aria-label="{cancel_label}" title="{cancel_label}">
-                        <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
-                        <span class="visually-hidden">{cancel_label}</span>
-                    </a>
-                """
-                return f'<div class="dlux-form-actions">{save_button}{cancel_button}</div>'
-
-            return f'<div class="dlux-form-actions">{save_button}</div>'
+        from crispy_forms.layout import Layout, Row, Column, Field
         
         # Identify visible fields (excluding subsections which are handled separately)
         visible_fields = [
@@ -440,6 +561,11 @@ def core_models_view(request):
             if f not in subsection_field_names 
             and not isinstance(form.fields[f].widget, forms.HiddenInput)
         ]
+        footer_fields = [
+            f for f in visible_fields
+            if _is_section_footer_boolean(f, form.fields[f])
+        ]
+        grid_fields = [f for f in visible_fields if f not in footer_fields]
         
         layout_components = []
         
@@ -453,43 +579,31 @@ def core_models_view(request):
         def chunked(iterable, n):
             return [iterable[i:i + n] for i in range(0, len(iterable), n)]
             
-        field_chunks = chunked(visible_fields, 2)
-        total_chunks = len(field_chunks)
+        field_chunks = chunked(grid_fields, 2)
         
-        for i, chunk in enumerate(field_chunks):
-            is_last_chunk = (i == total_chunks - 1)
-            
-            if is_last_chunk:
-                row_content = []
-                for field_name in chunk:
-                    row_content.append(Column(Field(field_name), css_class="col"))
-                
-                buttons_html = build_form_actions_html(cancel_url)
-                
-                row_content.append(
-                    Column(
-                        HTML(buttons_html), 
-                        css_class="col-auto align-self-end mb-3"
-                    )
-                )
-                layout_components.append(Row(*row_content))
-            else:
-                row_content = [Column(Field(field_name), css_class="col-md-6") for field_name in chunk]
-                layout_components.append(Row(*row_content))
-                
-        # If no visible fields but we have actions (rare edge case), just show buttons
-        if not visible_fields:
-            buttons_html = build_form_actions_html(cancel_url)
-            layout_components.append(Row(Column(HTML(buttons_html), css_class="col-auto")))
+        for chunk in field_chunks:
+            row_content = [
+                Column(Field(field_name), css_class="col-12 col-lg-6 dlux-section-form-field")
+                for field_name in chunk
+            ]
+            layout_components.append(Row(*row_content, css_class="dlux-section-form-row"))
 
         form.helper.layout = Layout(*layout_components)
+        _append_section_form_footer(form, footer_fields, cancel_url, save_label, cancel_label)
+    else:
+        declared_footer_fields = _declared_section_footer_fields(form)
+        if declared_footer_fields:
+            _append_section_form_footer(
+                form, declared_footer_fields, cancel_url, save_label, cancel_label,
+                include_actions=not form_had_submit_button,
+            )
 
     # The header band, same as every other dlux list screen. Two things here are
     # unlike the others: the tabs *switch model* rather than narrow a queryset,
     # so they carry no lookup and `narrow()` correctly leaves the queryset alone;
     # and the active tab may come from the session rather than the query string,
     # which `default` expresses — an absent `?model=` falls back to it.
-    from ..ribbon import RibbonTab, build_ribbon, build_ribbon_tabs
+    from ..ribbon import RibbonAction, RibbonTab, build_ribbon, build_ribbon_tabs
 
     ribbon_tabs = build_ribbon_tabs(
         {
@@ -514,6 +628,19 @@ def core_models_view(request):
         title=ui_strings.get('manage_sections', 'Section Management'),
         title_icon='bi bi-diagram-3',
         tabs=ribbon_tabs,
+        actions=[
+            RibbonAction(
+                url=add_url,
+                label=ui_strings.get('add_label', 'Add'),
+                icon='bi bi-plus-lg',
+                css_class='btn btn-primary',
+                attrs={
+                    'data-dlux-section-add': 'true',
+                    'aria-controls': 'manageSectionFormPanel',
+                    'aria-expanded': 'true' if section_form_open and not instance_id else 'false',
+                },
+            )
+        ] if can_manage_sections else [],
     )
 
     context = {
@@ -528,11 +655,23 @@ def core_models_view(request):
             for sm in section_models
         ],
         'form': form,
+        'can_manage_sections': can_manage_sections,
+        'section_form_open': section_form_open,
+        'section_form_mode': 'edit' if instance else 'add',
+        'section_form_title': _section_form_mode_label(ui_strings, instance, selected_data['verbose_name']),
+        'section_form_add_url': add_url,
+        'section_form_action_url': form_action_url,
         'filter': filter_obj,
         'table': table,
         'id': instance_id,
-        'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
-        'show_cancel': 'id' in request.GET, # Kept for other uses if any
+        'hide_form_buttons': (
+            getattr(form, "_auto_helper", False)
+            or getattr(form, "_dlux_section_footer_has_actions", False)
+            or has_submit_button(form)
+        ),
+        # The form's action row always carries the dismiss, so the panel header
+        # does not need one of its own. This says which row already has it.
+        'form_actions_in_footer': getattr(form, '_dlux_section_footer_has_actions', False),
         'cancel_url': cancel_url,
         'verbose_name': selected_data['verbose_name'],
         'verbose_name_plural': selected_data['verbose_name_plural'],
@@ -636,6 +775,7 @@ def edit_subsection(request, pk):
     Edit a subsection (child model) by pk.
     Expects ?model=child_model_name&parent=parent_model_name
     """
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     if not user_has_section_manage_permission(request.user):
         return _section_permission_denied()
 
@@ -691,7 +831,8 @@ def delete_subsection(request, pk):
     """
     Delete a subsection (child model) by pk.
     Checks for related records before deletion.
-    """    
+    """
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     if not user_has_section_manage_permission(request.user):
         return _section_permission_denied()
 
@@ -709,12 +850,24 @@ def delete_subsection(request, pk):
     try:
         instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Subsection not found'}, status=404)
         _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     
     if request.method == 'POST':
-        if has_related_records(instance, ignore_relations=['affiliates', 'affiliatedepartment_set']):
+        related_objects = collect_related_objects(
+            instance,
+            ignore_relations=['affiliates', 'affiliatedepartment_set'],
+        )
+        if related_objects:
             s = get_strings()
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'error': s.get('err_cannot_delete_related'),
+                    'related': related_objects,
+                })
             notify.error(
                 s.get('err_cannot_delete_related'),
                 request=request,
@@ -730,6 +883,8 @@ def delete_subsection(request, pk):
             instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
             instance._dlux_notify_flash = False
             instance.delete()
+            if is_ajax:
+                return JsonResponse({'success': True})
             notify.success(f"تم حذف {model._meta.verbose_name}: {name}", request=request, action='subsection_delete', category='sections', persist=False)
     
     redirect_url = reverse('manage_sections')
@@ -873,6 +1028,16 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
     show_form = True   # Set False to render table-only (no form)
     template_name = None  # Optional: override the default combined template
 
+    # Stacked manager mode: one route, three surfaces (list -> form/detail),
+    # each drawn under its own Ribbon and each replacing the modal's contents
+    # rather than the page behind it. The route must not take a pk in its path:
+    # a record is addressed as `?id=<pk>`, and a new one as `?action=add`.
+    manager = False
+    manager_title = ''
+    manager_subtitle = ''
+    manager_icon = ''
+    manager_add_label = ''
+
     def _get_form_kwargs(self, form_class):
         """Introspect form __init__/__new__ and pass user/request if accepted."""
         import inspect
@@ -907,10 +1072,26 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         match = getattr(self.request, 'resolver_match', None)
         return getattr(match, 'url_name', None)
 
+    def _resolve_manager_surface(self):
+        """Which of the manager's three surfaces this request asks for."""
+        if not self.manager:
+            return ''
+        pk = self.kwargs.get('pk') or self.request.GET.get('id')
+        has_record = bool(pk and pk != 'new')
+        if has_record and self.request.GET.get('action') == 'view':
+            return 'detail'
+        if has_record or self.request.GET.get('action') == 'add':
+            return 'form'
+        return 'list'
+
     def _resolve_modal_surface(self, model):
         action = self.request.GET.get('action')
         show_table = self.show_table if action != 'view' else False
         show_form = self.show_form if action != 'view' else False
+
+        if self.manager:
+            surface = self._resolve_manager_surface()
+            return action, surface == 'list', surface == 'form'
 
         if self._is_system_settings_model(model):
             show_table = False
@@ -920,6 +1101,9 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
 
     def _should_refresh_parent_after_save(self, model, form):
         if self._should_add_more_after_save(form):
+            return False
+        # A manager modal is self-contained: a save returns to its own list.
+        if self.manager:
             return False
         explicit = getattr(form, 'refresh_parent', None)
         if explicit is not None:
@@ -981,7 +1165,68 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         if show_form:
             required_actions.add('change' if instance else 'add')
 
-        return all(user_has_model_permission(self.request.user, model, perm_action) for perm_action in required_actions)
+        return all(self._has_model_action_permission(model, perm_action) for perm_action in required_actions)
+
+    def _has_model_action_permission(self, model, action):
+        if getattr(model, 'is_section', False):
+            if action == 'view':
+                return user_has_section_view_permission(self.request.user)
+            if action in {'add', 'change', 'delete'}:
+                return user_has_section_manage_permission(self.request.user)
+        return user_has_model_permission(self.request.user, model, action)
+
+    def _build_manager_ribbon(self, model, surface, instance=None):
+        """The manager modal's own header: title, description and its actions.
+
+        The list carries Add; a record's form and detail carry Back, and detail
+        also carries Edit. Both navigate inside the modal — `data-dlux-modal-nav`
+        loads a surface without disturbing the list the modal came from, and
+        `dynamic-back-btn` returns to it.
+        """
+        from ..ribbon import build_action, build_ribbon
+
+        request = self.request
+        s = get_strings()
+        base_url = request.path
+        manager_title = self.manager_title or str(model._meta.verbose_name_plural)
+        add_label = self.manager_add_label or s.get('btn_add_new', 'Add')
+        specs = []
+
+        if surface == 'list':
+            title = manager_title
+            subtitle = self.manager_subtitle
+            if self._has_model_action_permission(model, 'add'):
+                specs.append({
+                    'label': add_label,
+                    'icon': 'bi bi-plus-lg',
+                    'css_class': 'btn btn-success rounded-pill',
+                    'attrs': {'data-dlux-modal-nav': '', 'data-url': f'{base_url}?action=add'},
+                })
+        else:
+            title = str(instance) if instance else add_label
+            subtitle = manager_title
+            if surface == 'detail' and instance and self._has_model_action_permission(model, 'change'):
+                specs.append({
+                    'label': s.get('btn_edit', 'Edit'),
+                    'icon': 'bi bi-pencil-square',
+                    'css_class': 'btn btn-primary rounded-pill',
+                    'attrs': {'data-dlux-modal-nav': '', 'data-url': f'{base_url}?id={instance.pk}'},
+                })
+            specs.append({
+                'label': s.get('back_to_list', 'Back to List'),
+                'icon': 'bi bi-arrow-left',
+                'css_class': 'btn btn-outline-secondary rounded-pill dlux-back-link dynamic-back-btn',
+            })
+
+        actions = [action for action in (build_action(spec, request=request) for spec in specs) if action]
+        return build_ribbon(
+            None,
+            request=request,
+            title=title,
+            subtitle=subtitle,
+            title_icon=self.manager_icon,
+            actions=actions,
+        )
 
     def _build_form(self, form_class, *args, **kwargs):
         """
@@ -991,10 +1236,12 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         extra_kwargs = self._get_form_kwargs(form_class)
         merged = {**kwargs, **extra_kwargs}
         try:
-            return form_class(*args, **merged)
+            form = form_class(*args, **merged)
         except TypeError:
             # Form doesn't accept the extra kwargs — retry without them
-            return form_class(*args, **kwargs)
+            form = form_class(*args, **kwargs)
+        _compact_section_form_fields(form)
+        return form
 
     def get_model(self):
         if self.model:
@@ -1059,11 +1306,20 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 setup_filter_helper(f, request)
                 queryset = f.qs
 
-            table = classes['table'](queryset, request=request)
+            # A modal has no room for the footer toolbar, and its paging links
+            # would navigate the page underneath, so the modal table renders
+            # unpaginated with no footer.
+            table = classes['table'](queryset, request=request, dlux_show_footer=False)
             # Marker for templates to know it's a modal context
             table.is_dynamic_modal = True
-            
-            RequestConfig(request).configure(table)
+            if self.manager:
+                # Rows address the manager's own surfaces, so opening one stays
+                # inside this modal instead of reaching for the record fallback.
+                table.dlux_modal_manager_url = request.path
+                if getattr(model, 'is_section', False):
+                    table.dlux_section_actions = True
+
+            RequestConfig(request, paginate=False).configure(table)
 
         form = None
         if show_form:
@@ -1094,7 +1350,16 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 context.update(extra)
         
         tpl = self.template_name
-        
+
+        if self.manager:
+            surface = self._resolve_manager_surface()
+            context['ribbon'] = self._build_manager_ribbon(model, surface, instance=instance)
+            if surface == 'detail':
+                from dlux.utils import _build_generic_detail_context
+                context['auto_detail_fields'] = _build_generic_detail_context(instance, request)
+            if not tpl:
+                tpl = 'dlux/helpers/modal_manager.html'
+
         # 6. Fallback to AutoDetail View if form/table are disabled and no template is provided
         if not show_form and not show_table and not tpl:
             from dlux.utils import _build_generic_detail_context
@@ -1169,7 +1434,11 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 request.GET.get('step'),
                 form.errors.get_json_data(),
             )
-        html = render_to_string('dlux/helpers/dynamic_modal_combined.html', context, request=request)
+        tpl = 'dlux/helpers/dynamic_modal_combined.html'
+        if self.manager:
+            context['ribbon'] = self._build_manager_ribbon(model, 'form', instance=instance)
+            tpl = 'dlux/helpers/modal_manager.html'
+        html = render_to_string(tpl, context, request=request)
         return JsonResponse({'success': False, 'html': html})
 
 
@@ -1210,7 +1479,11 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
             )
         ):
             return JsonResponse({'error': 'Permission denied'}, status=403)
-        if not user_has_model_permission(request.user, model_class, 'delete'):
+        if getattr(model_class, 'is_section', False):
+            can_delete = user_has_section_manage_permission(request.user)
+        else:
+            can_delete = user_has_model_permission(request.user, model_class, 'delete')
+        if not can_delete:
             return JsonResponse({'error': 'Permission denied'}, status=403)
             
         instance = get_object_or_404(_scope_filtered_modal_queryset(model_class, request.user), pk=pk)
@@ -1220,7 +1493,8 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
         if related:
             return JsonResponse({
                 'success': False, 
-                'error': get_strings().get('delete_error_related', 'لا يمكن الحذف لارتباطه بسجلات أخرى.')
+                'error': get_strings().get('delete_error_related', 'لا يمكن الحذف لارتباطه بسجلات أخرى.'),
+                'related': related,
             })
             
         name = str(instance)

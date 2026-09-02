@@ -1,5 +1,5 @@
 (function () {
-    function archiveFileIcon(name) {
+    function fileFieldIcon(name) {
         const lower = (name || "").toLowerCase();
         if (lower.endsWith(".pdf")) return "bi bi-file-earmark-pdf-fill";
         if (/\.(png|jpe?g|gif|webp|svg)$/i.test(lower)) return "bi bi-file-earmark-image-fill";
@@ -8,12 +8,12 @@
         return "bi bi-file-earmark-fill";
     }
 
-    function archiveFileState(widget) {
-        const input = widget.querySelector('[data-archive-file-input="true"]');
-        const clearCheckbox = widget.querySelector(".archive-file-clear-checkbox");
+    function fileFieldState(widget) {
+        const input = widget.querySelector('[data-dlux-file-input="true"]');
+        const clearCheckbox = widget.querySelector(".dlux-file-clear-checkbox");
         const initialName = widget.dataset.initialName || "";
         const initialUrl = widget.dataset.initialUrl || "";
-        const initialIcon = widget.dataset.initialIcon || archiveFileIcon(initialName);
+        const initialIcon = widget.dataset.initialIcon || fileFieldIcon(initialName);
 
         if (input && input.files && input.files.length) {
             const file = input.files[0];
@@ -21,7 +21,7 @@
                 mode: "selected",
                 name: file.name,
                 meta: widget.dataset.selectedMeta || "Ready to save with this form.",
-                icon: archiveFileIcon(file.name),
+                icon: fileFieldIcon(file.name),
                 url: "",
                 showClear: true,
             };
@@ -46,13 +46,13 @@
         };
     }
 
-    function syncArchiveFileWidget(widget) {
-        const state = archiveFileState(widget);
-        const icon = widget.querySelector("[data-archive-file-icon] i");
-        const name = widget.querySelector("[data-archive-file-name]");
-        const meta = widget.querySelector("[data-archive-file-meta]");
-        const link = widget.querySelector("[data-archive-file-link]");
-        const clearButton = widget.querySelector("[data-archive-file-clear]");
+    function syncFileFieldWidget(widget) {
+        const state = fileFieldState(widget);
+        const icon = widget.querySelector("[data-dlux-file-icon] i");
+        const name = widget.querySelector("[data-dlux-file-name]");
+        const meta = widget.querySelector("[data-dlux-file-meta]");
+        const link = widget.querySelector("[data-dlux-file-link]");
+        const clearButton = widget.querySelector("[data-dlux-file-clear]");
 
         if (icon) icon.className = state.icon;
         if (name) name.textContent = state.name;
@@ -70,10 +70,10 @@
         widget.classList.toggle("has-file", state.mode !== "empty");
     }
 
-    function syncArchiveFileValidation(widget) {
-        const input = widget.querySelector('[data-archive-file-input="true"]');
-        const feedback = widget.querySelector("[data-archive-file-client-error]");
-        const card = widget.querySelector("[data-archive-file-drop]");
+    function syncFileFieldValidation(widget) {
+        const input = widget.querySelector('[data-dlux-file-input="true"]');
+        const feedback = widget.querySelector("[data-dlux-file-client-error]");
+        const card = widget.querySelector("[data-dlux-file-drop]");
         if (!input) return true;
 
         const maxBytes = Number(input.dataset.maxFileBytes || 0);
@@ -112,20 +112,20 @@
         }
     }
 
-    function initArchiveFileWidget(widget) {
-        if (!widget || widget.dataset.archiveFileReady === "true") return;
+    function initFileFieldWidget(widget) {
+        if (!widget || widget.dataset.dluxFileReady === "true") return;
 
-        const input = widget.querySelector('[data-archive-file-input="true"]');
-        const drop = widget.querySelector("[data-archive-file-drop]");
-        const uploadButton = widget.querySelector("[data-archive-file-upload]");
-        const libraryButton = widget.querySelector("[data-archive-file-library]");
-        const scanButton = widget.querySelector("[data-archive-file-scan]");
-        const clearButton = widget.querySelector("[data-archive-file-clear]");
-        const clearCheckbox = widget.querySelector(".archive-file-clear-checkbox");
+        const input = widget.querySelector('[data-dlux-file-input="true"]');
+        const drop = widget.querySelector("[data-dlux-file-drop]");
+        const uploadButton = widget.querySelector("[data-dlux-file-upload]");
+        const libraryButton = widget.querySelector("[data-dlux-file-library]");
+        const scanButton = widget.querySelector("[data-dlux-file-scan]");
+        const clearButton = widget.querySelector("[data-dlux-file-clear]");
+        const clearCheckbox = widget.querySelector(".dlux-file-clear-checkbox");
 
         if (!input || !drop) return;
 
-        widget.dataset.archiveFileReady = "true";
+        widget.dataset.dluxFileReady = "true";
 
         if (uploadButton) {
             uploadButton.addEventListener("click", function () {
@@ -134,7 +134,7 @@
         }
 
         function runPrimaryAction() {
-            if (widget.dataset.archiveFilePrimary === "library" && libraryButton) {
+            if (widget.dataset.dluxFilePrimary === "library" && libraryButton) {
                 libraryButton.click();
                 return;
             }
@@ -154,12 +154,12 @@
         }
 
         drop.addEventListener("click", function (event) {
-            if (event.target.closest("[data-archive-file-upload]")) return;
-            if (event.target.closest("[data-archive-file-library]")) return;
+            if (event.target.closest("[data-dlux-file-upload]")) return;
+            if (event.target.closest("[data-dlux-file-library]")) return;
             if (event.target.closest("[data-asset-picker-library]")) return;
-            if (event.target.closest("[data-archive-file-scan]")) return;
-            if (event.target.closest("[data-archive-file-clear]")) return;
-            if (event.target.closest("[data-archive-file-link]")) return;
+            if (event.target.closest("[data-dlux-file-scan]")) return;
+            if (event.target.closest("[data-dlux-file-clear]")) return;
+            if (event.target.closest("[data-dlux-file-link]")) return;
             if (event.target.closest("a, button")) return;
             runPrimaryAction();
         });
@@ -193,8 +193,8 @@
             if (clearCheckbox && input.files && input.files.length) {
                 clearCheckbox.checked = false;
             }
-            syncArchiveFileWidget(widget);
-            syncArchiveFileValidation(widget);
+            syncFileFieldWidget(widget);
+            syncFileFieldValidation(widget);
         });
 
         if (clearButton) {
@@ -205,28 +205,28 @@
                 } else if (clearCheckbox) {
                     clearCheckbox.checked = true;
                 }
-                syncArchiveFileWidget(widget);
-                syncArchiveFileValidation(widget);
+                syncFileFieldWidget(widget);
+                syncFileFieldValidation(widget);
             });
         }
 
-        syncArchiveFileWidget(widget);
-        syncArchiveFileValidation(widget);
+        syncFileFieldWidget(widget);
+        syncFileFieldValidation(widget);
     }
 
-    window.initArchiveFileFields = function (scope) {
-        (scope || document).querySelectorAll("[data-archive-file-widget]").forEach(initArchiveFileWidget);
+    window.initFileFieldWidgets = function (scope) {
+        (scope || document).querySelectorAll("[data-dlux-file-widget]").forEach(initFileFieldWidget);
     };
 
     document.addEventListener("DOMContentLoaded", function () {
-        window.initArchiveFileFields(document);
+        window.initFileFieldWidgets(document);
         const observer = new MutationObserver(function (mutations) {
             mutations.forEach(function (mutation) {
                 mutation.addedNodes.forEach(function (node) {
                     if (!(node instanceof HTMLElement)) return;
-                    if (node.matches("[data-archive-file-widget]")) initArchiveFileWidget(node);
+                    if (node.matches("[data-dlux-file-widget]")) initFileFieldWidget(node);
                     if (node.querySelectorAll) {
-                        node.querySelectorAll("[data-archive-file-widget]").forEach(initArchiveFileWidget);
+                        node.querySelectorAll("[data-dlux-file-widget]").forEach(initFileFieldWidget);
                     }
                 });
             });

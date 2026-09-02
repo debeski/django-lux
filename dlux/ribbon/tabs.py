@@ -473,6 +473,13 @@ def _stored_ribbon_entry(model):
     """The normalized settings entry for one model."""
     if model is None:
         return {}
+    return _stored_ribbon_entry_key(f'{model._meta.app_label}.{model.__name__}')
+
+
+def _stored_ribbon_entry_key(key):
+    """The normalized settings entry for one model or synthetic route key."""
+    if not key:
+        return {}
 
     from django.apps import apps as django_apps
 
@@ -485,7 +492,7 @@ def _stored_ribbon_entry(model):
         # A list page must render even if settings are unreadable — mid-migration,
         # say. No strip is a worse page, not a broken one.
         return {}
-    return config.get(f'{model._meta.app_label}.{model.__name__}') or {}
+    return config.get(str(key)) or {}
 
 
 def configured_strips_for(model):
@@ -496,6 +503,33 @@ def configured_strips_for(model):
 def configured_extra_strips_for(model):
     """Stored strips created in System Settings."""
     return list(_stored_ribbon_entry(model).get('extra_strips') or ())
+
+
+def configured_custom_actions_for(model, host_key=None):
+    """Stored administrator-created actions for one ribbon host."""
+    if model is None:
+        return []
+    return configured_custom_actions_for_key(f'{model._meta.app_label}.{model.__name__}', host_key)
+
+
+def configured_custom_actions_for_key(key, host_key=None):
+    """Stored administrator-created actions for a model or route storage key."""
+    stored = _stored_ribbon_entry_key(key).get('custom_actions') or {}
+    if isinstance(stored, (list, tuple)):
+        return list(stored)
+    if not isinstance(stored, dict):
+        return []
+    actions = []
+    actions.extend(stored.get('*') or [])
+    if host_key:
+        actions.extend(stored.get(str(host_key)) or [])
+    return actions
+
+
+def configured_action_overlays_for_key(key):
+    """Stored administrator edits to the buttons a view declares in code."""
+    stored = _stored_ribbon_entry_key(key).get('actions') or {}
+    return stored if isinstance(stored, dict) else {}
 
 
 def configured_strip_for(model, param=None, index=0):

@@ -476,11 +476,40 @@ class BackupPageNavigationTests(TestCase):
         settings_row.save()
         self.client.force_login(self.admin)
 
+    def test_the_page_can_shrink_to_a_phone(self):
+        """`.dlux-backup-page` is a grid, and a grid item's default
+        `min-width: auto` is its min-content. A backup table is eight columns, so
+        the row could not shrink below ~683px and handed that width to the ribbon,
+        the notices and every card — the whole page rendered wider than the screen
+        and was clipped. The table already has its own horizontal scroller; the row
+        only had to be allowed to shrink so that scroller could do its job.
+        """
+        from pathlib import Path
+
+        css = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'backup' / 'css' / 'manage.css'
+        ).read_text(encoding='utf-8')
+
+        block = css[css.index('@media (max-width: 991.98px) {'):]
+        block = block[:block.index('\n}')]
+        self.assertIn('.dlux-backup-page > .row', block)
+        self.assertIn('min-width: 0;', block)
+        # The sticky-header behaviour above 992px is deliberately untouched.
+        self.assertNotIn('overflow-x', block)
+
     def test_the_page_links_back_to_options(self):
+        """As a ribbon action, while the create form stays in its own row."""
         response = self.client.get(reverse('system_backup_page'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse('options_view'))
-        self.assertContains(response, 'dlux-backup-back')
+        self.assertNotContains(response, 'dlux-backup-back')
+        html = response.content.decode()
+        ribbon_html = html[html.index('dlux-ribbon-header'):html.index('dlux-backup-create-row')]
+        create_block = html[html.index('dlux-backup-create-row'):html.index('dlux-backup-notice')]
+        self.assertIn(reverse('options_view'), ribbon_html)
+        self.assertNotIn('sysbackup-create-form', ribbon_html)
+        self.assertNotIn(reverse('options_view'), create_block)
 
     def test_the_label_is_translated_not_hardcoded(self):
         """Every other page label comes from DLUX_STRINGS; this one must too."""

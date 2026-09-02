@@ -112,17 +112,19 @@
                 return;
             }
 
-            const modeInput = form.querySelector('[data-client-ip-mode-input]');
+            // The mode control is a Dlux choice selector, so the marker attribute
+            // rides on every radio in the group rather than on a single <select>.
+            const modeInputs = Array.from(form.querySelectorAll('[data-client-ip-mode-input]'));
             const hopsField = form.querySelector('[data-client-ip-hops]');
             const customHeaderField = form.querySelector('[data-client-ip-custom-header]');
-            if (!modeInput || !hopsField || !customHeaderField) {
+            if (!modeInputs.length || !hopsField || !customHeaderField) {
                 return;
             }
 
             form.dataset.clientIpBound = 'true';
 
             function syncClientIpOptions() {
-                const mode = String(modeInput.value || '');
+                const mode = String(getNamedFieldValue(form, 'client_ip_mode') || '');
                 const showHops = mode === 'x_forwarded_for';
                 const showCustomHeader = mode === 'custom';
 
@@ -135,7 +137,7 @@
                 setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader);
             }
 
-            modeInput.addEventListener('change', syncClientIpOptions);
+            modeInputs.forEach((input) => input.addEventListener('change', syncClientIpOptions));
             syncClientIpOptions();
         });
     }

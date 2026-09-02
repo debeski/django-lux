@@ -60,6 +60,7 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/toggle/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/setup/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/inspector/css/main.css' %}">
     {% for theme in DLUX_THEMES %}
     <link rel="stylesheet" href="{% dlux_static theme.css_path %}">
     {% endfor %}
@@ -102,6 +103,7 @@
     <script src="{% dlux_static 'dlux/tables/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/selector/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/icon_picker/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/helpers/inspector/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/dom.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/builder_model.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/appearance.js' %}" nonce="{{ request.csp_nonce }}" defer></script>

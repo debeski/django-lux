@@ -553,61 +553,61 @@
 }
 
 /* File Cards - Cyberpunk Style */
-:root.theme-neon .archive-file-card {
+:root.theme-neon .dlux-file-card {
     border-color: rgba(0, 255, 255, 0.2) !important;
     background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96)) !important;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.08) !important;
 }
 
-:root.theme-neon .archive-file-field.is-dragover .archive-file-card,
-:root.theme-neon .archive-file-card:hover,
-:root.theme-neon .archive-file-card:focus-visible {
+:root.theme-neon .dlux-file-field.is-dragover .dlux-file-card,
+:root.theme-neon .dlux-file-card:hover,
+:root.theme-neon .dlux-file-card:focus-visible {
     border-color: var(--neon-cyan) !important;
     box-shadow: 0 0 25px rgba(0, 255, 255, 0.2) !important;
 }
 
-:root.theme-neon .archive-file-tag {
+:root.theme-neon .dlux-file-tag {
     background: rgba(0, 255, 255, 0.15) !important;
     color: var(--neon-cyan) !important;
     border: 1px solid rgba(0, 255, 255, 0.3) !important;
     box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
 }
 
-:root.theme-neon .archive-file-tool {
+:root.theme-neon .dlux-file-tool {
     background: rgba(0, 255, 255, 0.1) !important;
     color: var(--neon-cyan) !important;
     border: 1px solid rgba(0, 255, 255, 0.2) !important;
 }
 
-:root.theme-neon .archive-file-tool-upload {
+:root.theme-neon .dlux-file-tool-upload {
     background: rgba(0, 255, 255, 0.2) !important;
     color: var(--neon-cyan) !important;
     box-shadow: 0 0 10px rgba(0, 255, 255, 0.2) !important;
 }
 
-:root.theme-neon .archive-file-tool-scan {
+:root.theme-neon .dlux-file-tool-scan {
     background: rgba(255, 255, 0, 0.15) !important;
     color: var(--neon-yellow) !important;
     border: 1px solid rgba(255, 255, 0, 0.3) !important;
 }
 
-:root.theme-neon .archive-file-tool-clear {
+:root.theme-neon .dlux-file-tool-clear {
     background: rgba(255, 0, 255, 0.15) !important;
     color: var(--neon-pink) !important;
     border: 1px solid rgba(255, 0, 255, 0.3) !important;
 }
 
-:root.theme-neon .archive-file-icon {
+:root.theme-neon .dlux-file-icon {
     background: rgba(0, 255, 255, 0.15) !important;
     color: var(--neon-cyan) !important;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.15) !important;
 }
 
-:root.theme-neon .archive-file-name {
+:root.theme-neon .dlux-file-name {
     color: var(--title) !important;
 }
 
-:root.theme-neon .archive-file-meta {
+:root.theme-neon .dlux-file-meta {
     color: #8080a0 !important;
 }
 

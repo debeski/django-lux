@@ -1,0 +1,32 @@
+{% extends "dlux/list_base.html" %}
+{% load dlux_tags %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_head %}
+    {{ block.super }}
+    {% for stylesheet in extra_styles %}
+        <link rel="stylesheet" href="{% dlux_static stylesheet %}">
+    {% endfor %}
+{% endblock %}
+
+{% block content %}
+<div class="dlux-list-page"{% block list_page_attrs %}{% endblock %}>
+    {% dlux_ribbon %}
+
+    {% block list_before_table %}{% endblock %}
+
+    {% block list_body %}{% render_table table %}{% endblock %}
+
+    {% block list_after_table %}{% endblock %}
+</div>
+{% block list_modals %}{% endblock %}
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    {% for script in extra_scripts %}
+        <script src="{% dlux_static script %}" nonce="{{ request.csp_nonce }}" defer></script>
+    {% endfor %}
+{% endblock %}

@@ -27,13 +27,13 @@
 @media (min-width: 992px) {
     .dlux-scanlink-release-form__installer,
     .dlux-scanlink-release-form__installer > div,
-    .dlux-scanlink-release-form__installer [data-archive-file-widget] {
+    .dlux-scanlink-release-form__installer [data-dlux-file-widget] {
         display: flex;
         flex: 1 1 auto;
         flex-direction: column;
     }
 
-    .dlux-scanlink-release-form__installer .archive-file-card {
+    .dlux-scanlink-release-form__installer .dlux-file-card {
         flex: 1 1 auto;
     }
 }

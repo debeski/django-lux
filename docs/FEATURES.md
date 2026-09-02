@@ -1,6 +1,6 @@
 # DjangoLux Feature Inventory
 
-**Current source:** v1.8.2
+**Current source:** v1.8.3
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
 
@@ -28,7 +28,7 @@ See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed
 - `dlux_settings(globals())`, root `dlux.urls`, configuration normalization, and project-owned `extra_config['app']` namespaces.
 - `ScopedModel`, audit fields, soft-delete, actor/scope injection, discovery, and generated app scaffolds.
 - `DluxTable`, filter helpers, sections, dynamic modals, context-menu actions, fetch/export helpers, tutorials, and activity APIs.
-- Dlux-owned inputs, choice selectors, toggles, loading buttons, and the **Dlux icon picker** (`dlux/helpers/icon_picker.html`, initialized by `initIconPickers()`).
+- Dlux-owned inputs, choice selectors, toggles, loading buttons, the **Dlux icon picker** (`dlux/helpers/icon_picker.html`, initialized by `initIconPickers()`), and the adapter-driven **Dlux inspector shell** (`window.DluxInspectorShell.create(...)`).
 - Translation dictionaries, database-backed override entries, language catalogs, and RTL-aware template behavior.
 
 See [Developer Guide](developer-guide.md), [Project Configuration](project-configuration.md), [Translations](translation-guide.md), [UI Integration](ui-integration.md), and [Template Customization](template-customization.md).

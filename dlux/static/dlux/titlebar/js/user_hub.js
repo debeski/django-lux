@@ -41,27 +41,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // The first *navigable* match: a key can also land on a wrapper slot, which
+    // matches the selector and has no href of its own.
     function findFirstLink(selector) {
-        const link = document.querySelector(selector);
-        return link && link.href ? link : null;
+        return Array.from(document.querySelectorAll(selector)).find(node => node.href) || null;
     }
 
-    // Ctrl/Cmd-J opens Options and Ctrl/Cmd-H opens Home.
-    // Navigate via rendered links so gating/URLs stay server-driven.
+    // Ctrl/Cmd-J opens Options, Ctrl/Cmd-H opens Home, Ctrl/Cmd-U opens User
+    // Management. Navigate via rendered links so gating/URLs stay server-driven:
+    // a reader who may not manage users has no link, and the key does nothing.
+    const NAVIGATION_KEYS = {
+        j: '[data-dlux-options-link], [data-titlebar-action-key="settings"]',
+        h: '[data-titlebar-home]',
+        u: '[data-dlux-users-link], [data-titlebar-action-key="users"]',
+    };
+
     document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
-            const link = findFirstLink('[data-dlux-options-link], [data-titlebar-action-key="settings"]');
-            if (link) {
-                e.preventDefault();
-                window.location.href = link.href;
-            }
-        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
-            const link = findFirstLink('[data-titlebar-home]');
-            if (link) {
-                e.preventDefault();
-                window.location.href = link.href;
-            }
-        }
+        if (!e.ctrlKey && !e.metaKey) return;
+        const selector = NAVIGATION_KEYS[(e.key || '').toLowerCase()];
+        if (!selector) return;
+        const link = findFirstLink(selector);
+        if (!link) return;
+        e.preventDefault();
+        window.location.href = link.href;
     });
 
 });

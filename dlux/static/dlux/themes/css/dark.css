@@ -430,55 +430,55 @@
         linear-gradient(180deg, rgba(61, 47, 19, 0.98), rgba(39, 30, 14, 0.96)) !important;
 }
 
-:root.theme-dark .archive-file-card {
+:root.theme-dark .dlux-file-card {
     border-color: rgba(255, 255, 255, 0.1) !important;
     background: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(24, 24, 24, 0.96)) !important;
     box-shadow: none !important;
 }
 
-:root.theme-dark .archive-file-field.is-dragover .archive-file-card,
-:root.theme-dark .archive-file-card:hover,
-:root.theme-dark .archive-file-card:focus-visible {
+:root.theme-dark .dlux-file-field.is-dragover .dlux-file-card,
+:root.theme-dark .dlux-file-card:hover,
+:root.theme-dark .dlux-file-card:focus-visible {
     border-color: rgba(var(--primal-rgb), 0.26) !important;
     box-shadow: none !important;
 }
 
-:root.theme-dark .archive-file-tag {
+:root.theme-dark .dlux-file-tag {
     background: rgba(var(--primal-rgb), 0.14) !important;
     color: var(--title) !important;
 }
 
-:root.theme-dark .archive-file-tool {
+:root.theme-dark .dlux-file-tool {
     background: rgba(255, 255, 255, 0.07) !important;
     color: var(--title) !important;
     box-shadow: none !important;
 }
 
-:root.theme-dark .archive-file-tool-upload {
+:root.theme-dark .dlux-file-tool-upload {
     background: rgba(var(--primal-rgb), 0.16) !important;
     color: var(--title) !important;
 }
 
-:root.theme-dark .archive-file-tool-scan {
+:root.theme-dark .dlux-file-tool-scan {
     background: rgba(255, 193, 7, 0.18) !important;
     color: #fbd38d !important;
 }
 
-:root.theme-dark .archive-file-tool-clear {
+:root.theme-dark .dlux-file-tool-clear {
     background: rgba(220, 53, 69, 0.16) !important;
     color: #fecaca !important;
 }
 
-:root.theme-dark .archive-file-icon {
+:root.theme-dark .dlux-file-icon {
     background: rgba(var(--primal-rgb), 0.14) !important;
     color: var(--title) !important;
 }
 
-:root.theme-dark .archive-file-name {
+:root.theme-dark .dlux-file-name {
     color: var(--title) !important;
 }
 
-:root.theme-dark .archive-file-meta {
+:root.theme-dark .dlux-file-meta {
     color: #cbd5e1 !important;
 }
 /* Toggle cards (lang-option / dlux-choice-selector--toggle) */

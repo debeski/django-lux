@@ -221,6 +221,9 @@
             e.stopImmediatePropagation();
 
             const data = e.detail.data;
+            if (typeof window.dluxConfirmSectionFormNavigation === 'function' && !window.dluxConfirmSectionFormNavigation()) {
+                return;
+            }
             if (sectionData && sectionData.editUrlTemplate) {
                 const url = sectionData.editUrlTemplate.replace('{id}', data.id);
                 window.location.href = url;

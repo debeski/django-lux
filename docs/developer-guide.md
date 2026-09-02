@@ -198,6 +198,10 @@ sidebar/Navbar trees and imported/exported settings are sanitized by the same
 rule; when an old API hierarchy node contains valid page children, those children
 are kept.
 
+Known entries in `SYSTEM_ROUTE_META` use that metadata's `group_key` before model
+app-label inference, so `manage_users` remains in the dlux System group even
+though the page is backed by `auth.User`.
+
 #### Overriding discovery per view
 
 Set these on the view callback when the inferred classification is wrong:
@@ -228,11 +232,12 @@ This means staff users will only see sidebar items for models they have explicit
 
 Dlux-owned screens must reuse the framework primitive before falling back to a raw Django widget or generic Bootstrap structure:
 
-- `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy layouts, use `build_archive_file_field()` so the file card, validation output, drag/drop behavior, toolbar, and translations stay intact. Do not write a raw `<input type="file">` in a Dlux-owned template.
+- `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy layouts, use `build_file_field()` so the file card, validation output, drag/drop behavior, toolbar, and translations stay intact. Do not write a raw `<input type="file">` in a Dlux-owned template.
 - `DluxLookupField` from `dlux.forms` when a ForeignKey has more rows than a dropdown should hold, or when readers would otherwise create a second record for one that already exists. It renders a box you type into, reuses an exact name, refuses a near miss with what it resembles, and — given `create` — adds a record that genuinely is new. Do not hand-build a `<datalist>` and a hidden key beside a text input.
 - `AssetPickerField` from `dlux.forms.assets` when a field can select a reusable `ManagedAsset` or register a direct upload. Its file card opens the saved-file library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
 - `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
-- Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces. It is lazy-rendered, searchable, keyboard-closeable, and shares the same `ICON_SUGGESTIONS` catalog as the sidebar builder. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
+- Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces, including sidebar entry icons. It is lazy-rendered, searchable, keyboard-closeable, and owns the shared Bootstrap Icons catalog. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
+- Dlux inspector shell through `dlux/helpers/inspector/css/main.css` and `dlux/helpers/inspector/js/main.js` for builder-style editors. `window.DluxInspectorShell.create(container, { adapter })` owns the bordered inspector surface, action row, pinned Clear selection action, and responsive field grid; the adapter owns the selected object, supported actions, field specs, mutation, and commit behavior.
 - `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms` for settings switches; do not hand-build Bootstrap switch markup. For a server-locked toggle, set `field.disabled = True` and `field.dlux_lock_reason`: the builder applies the shared dimmed dependent state, `aria-disabled`, and a Dlux tooltip to the whole card.
 - `DluxTable` from `dlux.tables`, or the `dlux-table-shell` / `dlux-table-scroll` / `dlux-data-table` structure, for Dlux-owned data grids.
 - Compact auxiliary tables inside System Settings that do not need the full `DluxTable` shell must still own a surface. Use the setup theme tokens such as `--dlux-setup-item-bg` and `--dlux-setup-item-border`; do not leave the body transparent against the modal. A sticky auxiliary header must layer `--dlux-table-header-surface` over an opaque `--table-row` backdrop so scrolling content cannot bleed through translucent theme gradients.
@@ -330,6 +335,45 @@ must inspect `document.scrollingElement`, scroll `#mainContent` to its end, then
 wheel once more and confirm the document remains at zero and the sidebar stays
 under the titlebar. `tests-e2e/backup_page.test.mjs` is the reference guard.
 
+## The list page
+
+`dlux/list_page.html` is the framework's arrangement of a records screen: the
+Ribbon, then the table, inside a `.dlux-list-page` wrapper. It extends
+`dlux/list_base.html`, so the filter assets come with it.
+
+```python
+class InvoiceListView(SingleTableMixin, FilterView):
+    template_name = "dlux/list_page.html"
+    model = Invoice
+    table_class = InvoiceTable
+    filterset_class = InvoiceFilter
+```
+
+The context it reads:
+
+| Key | Purpose |
+| --- | --- |
+| `ribbon` | the header band; `RibbonMixin` puts it there |
+| `table` | rendered with `{% render_table %}` — no card wrapper, `DluxTable` owns its shell |
+| `page_title` | the `<title>` |
+| `extra_styles` | stylesheet paths, loaded through `dlux_static` |
+| `extra_scripts` | script paths, loaded deferred with the page's CSP nonce |
+
+Blocks, for a screen that needs more than the arrangement:
+
+- `list_before_table` — a tab strip, a summary band, an expanding editor
+- `list_body` — replaces `{% render_table table %}` outright
+- `list_after_table` — totals, per-page switches, anything under the grid
+- `list_modals` — page-owned modal markup, outside the wrapper
+- `list_page_attrs` — attributes on the wrapper, for a project's own data hooks
+
+This is a starting arrangement, not a constraint. The Ribbon and the table are
+components: a screen that wants two columns, or the table somewhere else
+entirely, sets its own `template_name` and places `{% dlux_ribbon %}` and
+`{% render_table table %}` itself. Two things stay with the Ribbon either way —
+the filter form renders inside it, and its own layout and buttons are what the
+Ribbon builder in System Settings edits.
+
 ## Sections vs Dynamic Modals
 
 Use sections when:
@@ -345,6 +389,59 @@ Use dynamic modals when:
 - the model should be managed from a custom trigger instead of the sections page
 
 In both cases, the discovery system is the same. What changes is the entry point and the surrounding UI.
+
+### The stacked manager modal
+
+`DynamicModalManagerView.as_view(model=Warehouse, manager=True)` turns one route
+into a self-contained manager: a list, a form and a detail view that replace each
+other *inside* the modal, each under its own Ribbon, and none of which touches the
+page behind it.
+
+```python
+path(
+    "balances/warehouses/manage/",
+    DynamicModalManagerView.as_view(
+        model=Warehouse,
+        manager=True,
+        manager_icon="bi bi-building",
+    ),
+    name="warehouse_manager",
+),
+```
+
+The route must not take a `pk` in its path — the three surfaces are addressed on
+the one URL:
+
+| URL | Surface | Ribbon |
+| --- | --- | --- |
+| `…/manage/` | the records list | title + Add |
+| `…/manage/?action=add` | a create form | title + Back |
+| `…/manage/?id=<pk>` | that record's form | record name + Back |
+| `…/manage/?id=<pk>&action=view` | that record's detail | record name + Edit + Back |
+
+`manager_title`, `manager_subtitle`, `manager_icon` and `manager_add_label`
+override the ribbon copy; the title otherwise comes from the model's translated
+`verbose_name_plural`. Ordinary models keep normal Django model permissions: the
+list needs `view`, a form needs `add` or `change`, and Add appears only for a
+user who may add. A model marked `is_section = True` uses section permissions in
+manager mode instead: `dlux.view_sections` for read surfaces and
+`dlux.manage_sections` for add/change/delete surfaces.
+
+Rows address the manager's own surfaces because the view sets
+`table.dlux_modal_manager_url`; the default row actions read it, and a table with
+its own `get_dlux_row_actions` can read it too rather than pointing at a
+record route that would navigate the page underneath. Delete actions also carry
+`data.delete_url` for `/sys/modals/delete/<app>/<model>/<pk>/`, which keeps
+modal-manager deletes independent from any CRUD listener on the page behind it.
+
+Back is the framework's Back control: `btn btn-outline-secondary rounded-pill
+dlux-back-link` with `bi bi-arrow-left`. Author a back arrow pointing left, as the
+page reads in LTR, and give the control `dlux-back-link` — `base/css` mirrors the
+icon under `[dir="rtl"]`, the same idiom as the table pagination chevrons.
+
+A save in manager mode never refreshes the parent page — it returns to the
+manager's list, which is also what a save does anywhere the modal has navigated
+deeper than the surface it was opened on.
 
 ### Pinning buttons to the modal footer
 
@@ -372,6 +469,7 @@ Notes:
 - The marked container takes priority over the built-in bars.
 - Its buttons are associated to the modal form via the `form=` attribute, so AJAX submit interception and multi-step wizard navigation still work after relocation.
 - The element is physically moved out of the modal body, so any custom JS for those buttons should use document-level event delegation rather than querying the modal body after load.
+- Nothing is pinned when the body also carries a records list (`data-dlux-modal-list`, which the combined form+table template sets and a custom modal template can set itself): in the footer the form's Save would read as the submit for the table above it, so the action bar stays under its own form.
 
 ## Users, Profiles, and Permissions
 
@@ -439,6 +537,8 @@ The current table contract is:
 - page-size precedence is `Table.Meta.dlux_per_page` -> request `per_page` -> `Profile.preferences["table_page_size"]` -> `20`
 - built-in per-page controls and the density switcher live in the framework-owned footer
 - tables with forced `dlux_density` intentionally hide the footer density switcher
+- `Meta.dlux_show_footer = False` (or the `dlux_show_footer=False` constructor kwarg) removes the footer entirely and renders every row, because the footer owns the paging controls
+- dynamic modal manager tables set that kwarg themselves: a modal has no room for the toolbar and its paging links would navigate the page underneath
 - default row actions are `dlux:record:view`, `dlux:record:edit`, and `dlux:record:delete`
 - disable default row actions with `Meta.dlux_actions = False`
 - customize the action list with `get_dlux_row_actions(self, record, base_actions)`

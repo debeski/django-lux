@@ -262,9 +262,9 @@ class ManagedAssetTests(TestCase):
     def test_settings_form_renders_central_asset_picker(self):
         html = str(SystemSettingsForm(instance=SystemSettings.load()))
         self.assertIn('data-asset-picker', html)
-        self.assertIn('data-archive-file-primary="library"', html)
-        self.assertIn('data-archive-file-library', html)
-        self.assertIn('class="archive-file-library" data-asset-picker-library hidden', html)
+        self.assertIn('data-dlux-file-primary="library"', html)
+        self.assertIn('data-dlux-file-library', html)
+        self.assertIn('class="dlux-file-library" data-asset-picker-library hidden', html)
         self.assertIn('aria-controls="id_logo_library"', html)
         self.assertNotIn('data-bs-toggle="dropdown"', html)
         self.assertNotIn('dropdown-menu', html)
@@ -331,7 +331,7 @@ class AssetPickerSearchFieldTests(SimpleTestCase):
     def test_search_icon_does_not_sit_on_the_text(self):
         # `.glass-input` sets `padding: ... !important` globally, so the room for
         # the icon must be important too or they overlap in both directions.
-        block = self._css[self._css.index('.archive-file-library__search input {'):]
+        block = self._css[self._css.index('.dlux-file-library__search input {'):]
         block = block[:block.index('}')]
 
         self.assertIn('padding-inline-start: 2.25rem !important;', block)

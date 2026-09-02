@@ -19,7 +19,9 @@ v1.9.0 (see docs/deprecation-countdown.md).
 """
 
 from .build import build_action, build_ribbon, split_range_suffix
-from .tabs import (RibbonTab, RibbonTabs, build_ribbon_tabs, configured_extra_strips_for,
+from .tabs import (RibbonTab, RibbonTabs, build_ribbon_tabs, configured_action_overlays_for_key,
+                   configured_custom_actions_for,
+                   configured_custom_actions_for_key, configured_extra_strips_for,
                    configured_strip_for, configured_strips_for, configured_tabs_for)
 from .mixin import RibbonMixin
 from .spec import KIND_FIELD, KIND_RANGE, KIND_SEARCH, Ribbon, RibbonAction, RibbonField
@@ -29,6 +31,9 @@ __all__ = [
     'RibbonTab',
     'RibbonTabs',
     'build_ribbon_tabs',
+    'configured_action_overlays_for_key',
+    'configured_custom_actions_for',
+    'configured_custom_actions_for_key',
     'configured_extra_strips_for',
     'configured_strip_for',
     'configured_strips_for',

@@ -1,0 +1,15 @@
+{% load dlux_tags %}
+
+<div class="dlux-modal-manager">
+    {% dlux_ribbon ribbon %}
+
+    {% if form %}
+        {% include 'dlux/helpers/dynamic_modal_form.html' %}
+    {% elif table %}
+        <div data-dlux-modal-list>
+            {% include 'dlux/helpers/dynamic_modal_list.html' %}
+        </div>
+    {% else %}
+        {% include 'dlux/helpers/dynamic_modal_detail.html' %}
+    {% endif %}
+</div>

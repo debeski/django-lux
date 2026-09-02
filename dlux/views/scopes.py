@@ -5,6 +5,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -14,7 +15,8 @@ from django.views.decorators.http import require_POST
 from django_tables2 import RequestConfig
 
 # Project imports
-from ..utils import is_scope_enabled
+from ..utils import collect_related_objects, is_scope_enabled
+from ..translations import get_strings
 
 User = get_user_model()
 
@@ -27,8 +29,10 @@ def _require_superuser(request):
 def _render_scope_manager(request):
     Scope = apps.get_model('dlux', 'Scope')
     ScopeTable = import_string('dlux.tables.ScopeTable')
-    table = ScopeTable(Scope.objects.all(), request=request)
-    RequestConfig(request).configure(table)
+    # Modal surface: no footer toolbar, and therefore no pagination (see
+    # DynamicModalManagerView — a modal's paging links navigate the page under it).
+    table = ScopeTable(Scope.objects.all(), request=request, dlux_show_footer=False)
+    RequestConfig(request, paginate=False).configure(table)
     return render_to_string(
         'dlux/scopes/_scope_manager.html',
         {'table': table, 'ribbon': _manager_ribbon(request)},
@@ -111,11 +115,30 @@ def save_scope(request, pk=None):
     
     return JsonResponse({'success': False, 'error': 'Invalid method'})
 
-# Scope Management — Scope deletion endpoint (currently disabled for safety)
 @login_required
+@require_POST
 def delete_scope(request, pk):
     _require_superuser(request)
-    return JsonResponse({'success': False, 'error': 'تم تعطيل حذف النطاقات لأسباب أمنية.'})
+    Scope = apps.get_model('dlux', 'Scope')
+    scope = get_object_or_404(Scope, pk=pk)
+
+    related = collect_related_objects(scope)
+    if related:
+        return JsonResponse({
+            'success': False,
+            'error': get_strings().get('delete_error_related', 'Cannot delete record because it is linked to other items.'),
+            'related': related,
+        })
+
+    try:
+        scope.delete()
+    except ProtectedError:
+        return JsonResponse({
+            'success': False,
+            'error': get_strings().get('delete_error_related', 'Cannot delete record because it is linked to other items.'),
+        })
+
+    return JsonResponse({'success': True, 'html': _render_scope_manager(request)})
 
 
 @login_required
@@ -247,3 +270,7 @@ def toggle_auto_scopes(request):
         settings.save()
         return JsonResponse({'success': True, 'auto_create_user_scope': settings.auto_create_user_scope})
     return JsonResponse({'success': False}, status=400)
+
+# Answers `{'html': ...}`, so it is a modal endpoint rather than a page —
+# what a ribbon button must open as a dynamic modal, not navigate to.
+manage_scopes.dlux_modal = True

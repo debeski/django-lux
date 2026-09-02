@@ -204,7 +204,7 @@ describe('scanlink ui', { concurrency: 1 }, () => {
       const shape = await page.evaluate(() => {
         const panel = document.querySelector('[data-scanlink-releases]');
         return {
-          dluxWidgets: panel.querySelectorAll('[data-archive-file-widget]').length,
+          dluxWidgets: panel.querySelectorAll('[data-dlux-file-widget]').length,
           fileInputs: panel.querySelectorAll('input[type="file"]').length,
           dluxSwitch: panel.querySelectorAll('.dlux-settings-toggle-field').length,
           back: !!panel.querySelector('[data-dynamic-modal*="step="]'),
@@ -240,7 +240,7 @@ describe('scanlink ui', { concurrency: 1 }, () => {
         return {
           details: box('.dlux-scanlink-release-form__details'),
           installer: box('.dlux-scanlink-release-form__installer'),
-          fileCard: box('.dlux-scanlink-release-form__installer .archive-file-card'),
+          fileCard: box('.dlux-scanlink-release-form__installer .dlux-file-card'),
           version: box('#div_id_version'),
           arch: box('#div_id_arch'),
           notes: box('#div_id_notes'),

@@ -417,11 +417,24 @@ class SystemBackupViewTests(TestCase):
         self.assertContains(response, 'data-autoclose="false"')
         self.assertContains(response, 'dlux-backup-page')
         self.assertContains(response, 'dlux-form dlux-backup-create-form')
+        self.assertContains(response, 'dlux-backup-create-row')
         self.assertContains(response, 'dlux-table-shell')
-        self.assertContains(response, 'data-archive-file-widget')
+        self.assertContains(response, 'data-dlux-file-widget')
         self.assertContains(response, 'data-max-file-bytes="536870912"')
         self.assertContains(response, 'name="backup_file"')
         self.assertNotContains(response, 'name="backup_file" accept=".dlb" class="form-control')
+        html = response.content.decode()
+        ribbon_start = html.index('dlux-ribbon-header')
+        create_start = html.index('dlux-backup-create-row')
+        notice_start = html.index('dlux-backup-notice')
+        self.assertLess(ribbon_start, create_start)
+        self.assertLess(create_start, notice_start)
+        ribbon_html = html[ribbon_start:create_start]
+        create_html = html[create_start:notice_start]
+        self.assertNotIn('sysbackup-create-form', ribbon_html)
+        self.assertIn(reverse('options_view'), ribbon_html)
+        self.assertIn('sysbackup-create-form', create_html)
+        self.assertIn('sysbackup-create-btn', create_html)
 
     def test_manual_backup_scope_choice_sets_media_included_flag(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')

@@ -81,10 +81,64 @@ class ResolveSectionFormTests(SimpleTestCase):
             [pointer.name for pointer in NotificationRuleForm.helper.layout.get_field_names()],
         )
         with patch('dlux.utils.discovery.is_scope_enabled', return_value=True), \
-             patch('dlux.utils.is_scope_enabled', return_value=True):
+             patch('dlux.utils.is_scope_enabled', return_value=True), \
+             patch('dlux.utils.common.is_scope_enabled', return_value=True):
             enabled_form = form_class()
         self.assertIn('scope', enabled_form.fields)
         self.assertIn(
             'scope',
             [pointer.name for pointer in enabled_form.helper.layout.get_field_names()],
         )
+
+    @isolate_apps("dlux")
+    def test_generic_form_for_model_with_textfield_sets_textarea_rows_to_2(self):
+        class NoteRecord(models.Model):
+            is_section = True
+            title = models.CharField(max_length=100)
+            notes = models.TextField()
+
+            class Meta:
+                app_label = "dlux"
+
+        with patch('dlux.utils.discovery.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.common.is_scope_enabled', return_value=False):
+            form_class = resolve_form_class_for_model(NoteRecord)
+            form = form_class()
+        self.assertIn('notes', form.fields)
+        self.assertIsInstance(form.fields['notes'].widget, forms.Textarea)
+        self.assertEqual(form.fields['notes'].widget.attrs.get('rows'), 2)
+
+    def test_custom_form_default_textarea_rows_are_compacted_to_2(self):
+        class CustomRuleForm(forms.ModelForm):
+            description = forms.CharField(widget=forms.Textarea)
+
+            class Meta:
+                model = DluxNotificationRule
+                fields = ['name', 'description']
+
+        with patch('dlux.utils.discovery._import_by_convention', return_value=CustomRuleForm), \
+             patch('dlux.utils.discovery.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.common.is_scope_enabled', return_value=False):
+            form_class = resolve_form_class_for_model(DluxNotificationRule)
+            form = form_class()
+
+        self.assertEqual(form.fields['description'].widget.attrs.get('rows'), 2)
+
+    def test_custom_form_explicit_textarea_rows_are_preserved(self):
+        class CustomExplicitRowsForm(forms.ModelForm):
+            description = forms.CharField(widget=forms.Textarea(attrs={'rows': 5}))
+
+            class Meta:
+                model = DluxNotificationRule
+                fields = ['name', 'description']
+
+        with patch('dlux.utils.discovery._import_by_convention', return_value=CustomExplicitRowsForm), \
+             patch('dlux.utils.discovery.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.is_scope_enabled', return_value=False), \
+             patch('dlux.utils.common.is_scope_enabled', return_value=False):
+            form_class = resolve_form_class_for_model(DluxNotificationRule)
+            form = form_class()
+
+        self.assertEqual(form.fields['description'].widget.attrs.get('rows'), 5)

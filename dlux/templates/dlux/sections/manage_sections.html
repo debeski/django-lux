@@ -21,19 +21,17 @@
     {% endif %}
 
     {# Form Card #}
-    {% if form %}
-    <div class="card border-0 shadow-sm mb-5 no-print">
-        <!-- <div class="card-header text-center">
-            <h4 class="me-5">
-                {% if form.instance.id %}
-                    {{ DLUX_STRINGS.edit_label }} {{ form.instance.name }}
-                {% else %}
-                    {{ DLUX_STRINGS.add_label }} {{ verbose_name }}
-                {% endif %}
-            </h4>
-        </div> -->
-        <div class="card-body mt-2">
-            <form method="post" novalidate class="dlux-form">
+    {% if form and can_manage_sections %}
+    <section id="manageSectionFormPanel" class="collapse{% if section_form_open %} show{% endif %} mb-4 no-print" data-dlux-section-form-panel>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header border-0 bg-transparent pb-0">
+                <h2 class="h5 mb-0 d-flex align-items-center gap-2">
+                    <i class="bi {% if section_form_mode == 'edit' %}bi-pencil{% else %}bi-plus-circle{% endif %}" aria-hidden="true"></i>
+                    <span>{{ section_form_title }}</span>
+                </h2>
+            </div>
+            <div class="card-body mt-2">
+            <form method="post" action="{{ section_form_action_url }}" novalidate class="dlux-form" data-dlux-section-form data-dlux-section-form-mode="{{ section_form_mode }}">
                 {% csrf_token %}
                 {% crispy form %}
                 {% if subsection_selects %}
@@ -42,13 +40,13 @@
                     {% endfor %}
                 {% endif %}
                 {% if not hide_form_buttons %}
-                    {% if show_cancel and cancel_url %}
+                    {% if cancel_url %}
                     <div class="dlux-form-actions mt-3">
                         <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ DLUX_STRINGS.save }}" title="{{ DLUX_STRINGS.save }}">
                             <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
                             <span class="visually-hidden">{{ DLUX_STRINGS.save }}</span>
                         </button>
-                        <a href="{{ cancel_url }}" class="dlux-form-action dlux-form-action-neutral" aria-label="{{ DLUX_STRINGS.cancel }}" title="{{ DLUX_STRINGS.cancel }}">
+                        <a href="{{ cancel_url }}" class="dlux-form-action dlux-form-action-neutral" aria-label="{{ DLUX_STRINGS.cancel }}" title="{{ DLUX_STRINGS.cancel }}" data-dlux-section-cancel>
                             <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
                             <span class="visually-hidden">{{ DLUX_STRINGS.cancel }}</span>
                         </a>
@@ -61,10 +59,18 @@
                         </button>
                     </div>
                     {% endif %}
+                {% elif cancel_url and not form_actions_in_footer %}
+                <div class="dlux-form-actions mt-3">
+                    <a href="{{ cancel_url }}" class="dlux-form-action dlux-form-action-neutral" aria-label="{{ DLUX_STRINGS.cancel }}" title="{{ DLUX_STRINGS.cancel }}" data-dlux-section-cancel>
+                        <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
+                        <span class="visually-hidden">{{ DLUX_STRINGS.cancel }}</span>
+                    </a>
+                </div>
                 {% endif %}
             </form>
+            </div>
         </div>
-    </div>
+    </section>
     {% endif %}
 
     <div class="row">
@@ -73,15 +79,10 @@
         </div>
     </div>
 
-    {# Table Card #}
+    {# Table #}
     {% if table %}
-    <div class="card border-0 shadow-sm pt-2">
-        <!-- <div class="card-header text-center">
-            <h4 class="me-5">{{ DLUX_STRINGS.list_label }} {{ verbose_name_plural }}</h4>
-        </div> -->
-        <div class="card-body mt-2">
-            {% render_table table %}
-        </div>
+    <div class="mt-2">
+        {% render_table table %}
     </div>
     {% elif not error %}
         <h3 class="mt-4">{{ DLUX_STRINGS.error_generic }}</h3>
@@ -143,6 +144,9 @@
         "deleteUrl": "{% url 'delete_section' %}",
         "detailsUrl": "{% url 'get_section_details' %}",
         "hasSubsections": {% if has_subsections %}true{% else %}false{% endif %},
+        "formMode": "{{ section_form_mode|default:"add" }}",
+        "formOpen": {% if section_form_open %}true{% else %}false{% endif %},
+        "unsavedMessage": "{{ DLUX_STRINGS.unsaved_changes_confirm|default:'Discard unsaved section changes?'|escapejs }}",
         "csrf": "{{ csrf_token }}"
     }
     </script>

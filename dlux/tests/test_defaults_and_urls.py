@@ -39,7 +39,7 @@ from dlux.system.constants import (
     SETUP_STEP_LAYOUT,
 )
 from dlux.context_processors import dlux_context
-from dlux.forms import SystemSettingsForm, _build_archive_file_widget
+from dlux.forms import SystemSettingsForm, _build_file_widget
 from dlux.models import SystemSettings
 from dlux.themes import get_theme_names
 from dlux.utils import (
@@ -132,10 +132,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         SystemSettings._default_manager.all().delete()
         super().setUp()
 
-    def test_archive_file_errors_are_visible_and_client_limit_is_rendered(self):
+    def test_file_field_errors_are_visible_and_client_limit_is_rendered(self):
         class UploadForm(forms.Form):
             archive = forms.FileField(
-                widget=_build_archive_file_widget(
+                widget=_build_file_widget(
                     field_label="Archive",
                     attrs={"data-max-file-bytes": str(25 * 1024 * 1024)},
                 )
@@ -156,9 +156,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
         self.assertIn('data-max-file-bytes="26214400"', html)
         self.assertIn('class="invalid-feedback d-block"', html)
-        self.assertIn('data-archive-file-server-error', html)
+        self.assertIn('data-dlux-file-server-error', html)
         self.assertIn("The selected archive is too large.", html)
-        self.assertIn('data-archive-file-client-error', html)
+        self.assertIn('data-dlux-file-client-error', html)
 
         file_field_js = (
             Path(__file__).resolve().parents[1]
@@ -166,7 +166,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("input.dataset.maxFileBytes", file_field_js)
         self.assertIn("input.setCustomValidity(message)", file_field_js)
-        self.assertIn("syncArchiveFileValidation(widget)", file_field_js)
+        self.assertIn("syncFileFieldValidation(widget)", file_field_js)
 
     @override_settings(DLUX_CONFIG={})
     def test_system_config_defaults_home_url_to_profile(self):
@@ -1128,6 +1128,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'entries': [],
             'enable_reorder': False,
             'show_toolbar': False,
+            'show_sections_manager': False,
             'show_notification_badges': False,
         },
     })
@@ -1144,6 +1145,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['default_table_density'], 'roomy')
         self.assertFalse(form.initial['sidebar_enable_reorder'])
         self.assertFalse(form.initial['sidebar_enable_toolbar'])
+        self.assertFalse(form.initial['sidebar_show_sections_manager'])
         self.assertFalse(form.initial['sidebar_show_notification_badges'])
 
     @override_settings(DLUX_CONFIG={
@@ -1369,9 +1371,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertEqual(html.count('data-archive-file-widget'), 5)
+        self.assertEqual(html.count('data-dlux-file-widget'), 5)
         self.assertEqual(html.count('data-asset-picker '), 4)
-        self.assertEqual(html.count('data-archive-file-primary="library"'), 4)
+        self.assertEqual(html.count('data-dlux-file-primary="library"'), 4)
         self.assertIn('data-settings-import-file="true"', html)
         self.assertIn('data-settings-import-finish', html)
         self.assertIn('Finish setup from imported config', html)
@@ -1719,6 +1721,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'entries': [],
                     'enable_reorder': True,
                     'show_toolbar': True,
+                    'show_sections_manager': False,
                     'show_icons': True,
                     'show_notification_badges': False,
                     'density': 'roomy',
@@ -1733,6 +1736,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
         self.assertTrue(form.cleaned_data['sidebar_config']['enable_reorder'])
         self.assertTrue(form.cleaned_data['sidebar_config']['show_toolbar'])
+        self.assertFalse(form.cleaned_data['sidebar_config']['show_sections_manager'])
         self.assertTrue(form.cleaned_data['sidebar_config']['show_icons'])
         self.assertFalse(form.cleaned_data['sidebar_config']['show_notification_badges'])
         self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'roomy')
@@ -1740,6 +1744,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['sidebar_config']['collapse_mode'], 'icons')
         self.assertTrue(form.cleaned_data['sidebar_enable_reorder'])
         self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
+        self.assertFalse(form.cleaned_data['sidebar_show_sections_manager'])
         self.assertTrue(form.cleaned_data['sidebar_show_icons'])
         self.assertFalse(form.cleaned_data['sidebar_show_notification_badges'])
         self.assertTrue(form.cleaned_data['sidebar_allow_user_density'])
@@ -1934,6 +1939,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-dlux-settings-toggle-field='public_root'", html)
         self.assertIn("data-dlux-settings-toggle-field='sidebar_enabled'", html)
         self.assertIn("data-dlux-settings-toggle-field='sidebar_enable_toolbar'", html)
+        self.assertIn("data-dlux-settings-toggle-field='sidebar_show_sections_manager'", html)
         self.assertIn("data-dlux-settings-toggle-field='allow_user_theme_override'", html)
         self.assertIn("data-dlux-settings-toggle-field='titlebar_show_title'", html)
         self.assertIn("data-dlux-settings-toggle-field='public_root_split_enabled'", html)
@@ -2305,7 +2311,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
         self.assertNotIn('is-disabled', html[dependent_class_start:dependent_class_end])
         self.assertIn('aria-disabled="false"', html[dependent_class_start:dependent_class_end])
-        self.assertIn('class="col-lg-6 dlux-public-registration-dependent dlux-dependent-settings"', html)
+        self.assertIn('class="col-12 col-lg-4 dlux-public-registration-dependent dlux-dependent-settings"', html)
+        self.assertIn('class="col-12 dlux-public-registration-dependent dlux-dependent-settings"', html)
 
     @override_settings(DLUX_CONFIG={})
     def test_setup_wizard_actions_align_to_direction_end_in_ltr(self):
@@ -2682,7 +2689,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('dlux-email-config-password-field', contents)
-        self.assertIn("secretStorageInput.value === 'encrypted_db'", contents)
+        self.assertIn("const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage');", contents)
+        self.assertIn("secretStorage === 'encrypted_db'", contents)
+        self.assertIn("input.dataset.dluxSelectorLocked === 'true'", contents)
+        self.assertIn('input.disabled = locked || Boolean(isDisabled);', contents)
         self.assertNotIn('previewSetupDefaultLanguage', contents)
         self.assertNotIn('__language_preview', contents)
         self.assertNotIn('window.setLanguage', contents)
@@ -2733,6 +2743,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('const hiddenInput = form.querySelector(\'input[name="sidebar_config"]\');', contents)
         self.assertIn('nextConfig.show_toolbar = readBooleanField(form, \'#id_sidebar_enable_toolbar\', true);', contents)
         self.assertIn(
+            "nextConfig.show_sections_manager = readBooleanField(form, '#id_sidebar_show_sections_manager', true);",
+            contents,
+        )
+        self.assertIn(
             'nextConfig.show_notification_badges = readBooleanField('
             "form, '#id_sidebar_show_notification_badges', true);",
             contents,
@@ -2744,7 +2758,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("toolbarToggle.disabled = !available;", contents)
         # The dependent-field list moved into the shared DEPENDENT_FIELDS table;
         # it used to be duplicated per call site and drifted between the copies.
-        self.assertIn("'sidebar_enable_toolbar',\n            'sidebar_show_icons',", contents)
+        self.assertIn("'sidebar_enable_toolbar',\n            'sidebar_show_sections_manager',", contents)
         self.assertIn('const DEPENDENT_FIELDS = {', contents)
         self.assertNotIn('toolbarToggle.checked = false;', contents)
         self.assertIn('data-public-registration-dependent', contents)
@@ -2876,11 +2890,32 @@ class DluxDefaultRouteTests(SimpleTestCase):
         contents = script.read_text(encoding='utf-8')
 
         self.assertIn('function findFirstLink(selector)', contents)
-        self.assertIn("e.key === 'j' || e.key === 'J'", contents)
-        self.assertIn("e.key === 'h' || e.key === 'H'", contents)
-        self.assertIn("'[data-dlux-options-link], [data-titlebar-action-key=\"settings\"]'", contents)
-        self.assertIn("'[data-titlebar-home]'", contents)
+        self.assertIn("j: '[data-dlux-options-link], [data-titlebar-action-key=\"settings\"]'", contents)
+        self.assertIn("h: '[data-titlebar-home]'", contents)
+        self.assertIn("u: '[data-dlux-users-link], [data-titlebar-action-key=\"users\"]'", contents)
         self.assertIn('window.location.href = link.href;', contents)
+
+    def test_the_users_shortcut_marker_follows_the_directory_permission(self):
+        """Ctrl/Cmd-U navigates by the rendered link, so the gate is the link's."""
+        from django.contrib.auth import get_user_model
+        from django.template.loader import render_to_string
+        from django.urls import reverse
+
+        viewer = get_user_model()(username='hubviewer', email='hubviewer@example.com')
+        permitted = render_to_string('dlux/users/user_hub.html', {
+            'user': viewer,
+            'can_view_user_directory': True,
+            'DLUX_STRINGS': {},
+        })
+        self.assertIn('data-dlux-users-link', permitted)
+        self.assertIn(reverse('manage_users'), permitted)
+
+        denied = render_to_string('dlux/users/user_hub.html', {
+            'user': viewer,
+            'can_view_user_directory': False,
+            'DLUX_STRINGS': {},
+        })
+        self.assertNotIn('data-dlux-users-link', denied)
 
     def test_tutorial_uses_modal_user_trigger_on_manage_users(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'tutorial' / 'js' / 'main.js'
@@ -3228,6 +3263,29 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-dlux-icon-picker', template)
         self.assertIn('function initIconPickers(root)', script)
 
+    def test_dlux_first_component_catalog_includes_inspector_shell(self):
+        docs_root = Path(__file__).resolve().parents[2] / 'docs'
+        if not docs_root.exists():
+            self.skipTest('upstream docs are not mounted in this runtime')
+        guide = (docs_root / 'developer-guide.md').read_text(encoding='utf-8')
+        features = (docs_root / 'FEATURES.md').read_text(encoding='utf-8')
+        integration = (docs_root / 'ui-integration.md').read_text(encoding='utf-8')
+        script = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'helpers' / 'inspector' / 'js' / 'main.js'
+        ).read_text(encoding='utf-8')
+        stylesheet = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'helpers' / 'inspector' / 'css' / 'main.css'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('Dlux inspector shell', guide)
+        self.assertIn('Dlux inspector shell', features)
+        self.assertIn('window.DluxInspectorShell.create', integration)
+        self.assertIn('`render()` may be called after selecting an item', integration)
+        self.assertIn('root.DluxInspectorShell', script)
+        self.assertIn('.dlux-inspector-shell__actions', stylesheet)
+
     def test_base_template_versions_shared_main_stylesheet(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
         contents = template_path.read_text(encoding='utf-8')
@@ -3359,12 +3417,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         for theme_name in ('dark', 'retro', 'gothic', 'prism', 'aether', 'neon'):
             contents = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
-            self.assertIn(f':root.theme-{theme_name} .archive-file-card {{', contents)
-            self.assertIn(f':root.theme-{theme_name} .archive-file-field.is-dragover .archive-file-card,', contents)
-            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-upload {{', contents)
-            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-scan {{', contents)
-            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-clear {{', contents)
-            self.assertIn(f':root.theme-{theme_name} .archive-file-meta {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-card {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-field.is-dragover .dlux-file-card,', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-tool-upload {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-tool-scan {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-tool-clear {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .dlux-file-meta {{', contents)
 
     def test_prism_and_aether_theme_owned_logo_overrides(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
@@ -3527,7 +3585,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('submitForm(form, e.submitter);', script)
         self.assertIn('const submitBtn = submitter ||', script)
         self.assertIn("formData.append(submitter.name, submitter.value || '');", script)
-        self.assertLess(script.index('if (data.add_more)'), script.index('if (data.refresh_parent)'))
+        self.assertLess(
+            script.index('if (data.add_more)'),
+            script.index('if (data.refresh_parent && currentLoadedUrl === currentBaseUrl)'),
+        )
 
     def test_dynamic_modal_wizard_controls_can_live_in_the_shared_footer(self):
         script_path = (
@@ -3641,9 +3702,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # layout fields, then the four notification dropdowns. A dlux choice
         # selector emits one radio per option where a plain Select emitted a
         # single control, so converting a field raises this by (options - 1).
-        # Already one over before the step reorder — the accent-edge toggles
-        # added earlier pushed it past the last raise, not this change.
-        self.assertLess(len(re.findall(r'\sname=', html)), 268)
+        # Raised again when the Email and Access & Security steps traded their
+        # five remaining dropdowns for selectors, then by one for the Ribbon
+        # builder's icon scratch field — the shared picker reports a pick by
+        # writing to the form field its `field_name` names, so that field must
+        # exist for the pick to reach the builder at all.
+        self.assertLess(len(re.findall(r'\sname=', html)), 280)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

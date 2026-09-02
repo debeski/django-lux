@@ -283,10 +283,10 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 },
                 {
                     "kind": "item",
-                    "id": "user_profile",
-                    "url_name": "user_profile",
-                    "label": "Profile",
-                    "icon": "bi-person-badge",
+                    "id": "system_settings_export",
+                    "url_name": "system_settings_export",
+                    "label": "Export settings",
+                    "icon": "bi-download",
                     "group_key": "dlux",
                 },
             ],
@@ -304,6 +304,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
             "entries": [],
             "enable_reorder": False,
             "show_toolbar": False,
+            "show_sections_manager": False,
             "show_icons": False,
             "density": "roomy",
             "allow_user_density": False,
@@ -315,6 +316,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertFalse(sanitized["enabled"])
         self.assertFalse(sanitized["enable_reorder"])
         self.assertFalse(sanitized["show_toolbar"])
+        self.assertFalse(sanitized["show_sections_manager"])
         self.assertFalse(sanitized["show_icons"])
         self.assertEqual(sanitized["density"], "roomy")
         self.assertFalse(sanitized["allow_user_density"])
@@ -353,10 +355,17 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         self.assertNotIn("manage_sections", default_ids)
         self.assertTrue(
-            {"manage_sections", "user_activity_log", "options_view"}.issubset(system_ids)
+            {"manage_sections", "manage_users", "user_activity_log", "options_view"}.issubset(system_ids)
         )
-        self.assertNotIn("user_profile", system_ids)
+        # Every configurable system page is offered; the rest of the hidden `dlux`
+        # group stays machinery.
+        self.assertTrue({"user_profile", "reports_overview", "control_panel"}.issubset(system_ids))
+        self.assertNotIn("system_settings_export", system_ids)
+        self.assertNotIn("session_ended", system_ids)
         self.assertEqual(options_entry["permissions"], ["__dlux_authenticated__"])
+        self.assertEqual(users_entry["group_key"], "dlux")
+        self.assertEqual(users_entry["group_label"], options_entry["group_label"])
+        self.assertEqual(users_entry["group_icon"], options_entry["group_icon"])
         self.assertEqual(users_entry["notification_model_key"], "auth.user")
 
     def test_sidebar_notification_counts_annotate_items_and_unique_group_totals(self):
@@ -1008,10 +1017,93 @@ class DiscoveryBuilderAssetTests(SimpleTestCase):
         # The flag has to survive catalog normalization or the filter is inert.
         self.assertIn('is_form_page: Boolean(entry.is_form_page),', contents)
 
+    def test_sidebar_builder_uses_icon_picker_field_events(self):
+        contents = self._setup_js
+
+        self.assertIn("iconValue: builder.querySelector('[data-builder-icon-value]')", contents)
+        self.assertIn('function syncSelectedIconFromPicker()', contents)
+        self.assertIn('function commitAndRender()', contents)
+        self.assertIn('function renderAll() {\n            renderSelected();', contents)
+        self.assertNotIn('function renderAll() {\n            serialize();', contents)
+        self.assertNotIn('ICON_SUGGESTIONS.filter(icon => icon.includes(iconFilter))', contents)
+        self.assertNotIn("iconSearch: builder.querySelector('[data-builder-icon-search]')", contents)
+
     def test_navbar_root_picker_rejects_routes_that_need_context(self):
         contents = self._setup_js
 
         self.assertIn('if (entry.requires_args || entry.is_form_page) {', contents)
+
+    def test_navbar_builder_uses_inspector_shell_action_row_and_aligned_editor(self):
+        strings = {
+            'navbar_hierarchy_title': 'Navbar Hierarchy',
+            'navbar_hierarchy_desc': 'Arrange route crumbs.',
+            'navbar_root_selector': 'Navigation Root',
+            'navbar_root_selector_help': 'Choose root.',
+            'navbar_root_default_option': 'Default Root',
+            'navbar_root_home_option': 'Configured Homepage',
+            'navbar_add_manual_node': 'Add Group',
+            'move_up': 'Up',
+            'move_down': 'Down',
+            'sidebar_remove_entry': 'Remove',
+            'sidebar_move_root': 'Move To Root',
+            'navbar_node_inspector_empty': 'Select a node.',
+            'navbar_node_url': 'Optional URL',
+            'navbar_node_url_help': 'Leave blank.',
+            'navbar_selected_tree': 'Hierarchy Tree',
+            'navbar_selected_tree_desc': 'Select a node.',
+            'navbar_available_routes': 'Available Routes',
+            'sidebar_show_system_items': 'Show system items',
+            'label_keyword': 'Search',
+            'navbar_route_search': 'Search Route Labels',
+        }
+        contents = render_to_string('dlux/setup/navbar_builder.html', {
+            'mode': 'setup',
+            'navbar_catalog_json': '[]',
+            'navbar_config_json': '{}',
+            'languages_json': '{}',
+            'DLUX_STRINGS': strings,
+        })
+
+        self.assertIn('data-navbar-inspector-shell', contents)
+        self.assertNotIn('data-navbar-add-manual', contents)
+        self.assertNotIn('data-navbar-inspector-actions', contents)
+        self.assertNotIn('data-navbar-clear-selection', contents)
+        self.assertNotIn('data-navbar-label-inputs', contents)
+        self.assertNotIn('data-navbar-node-url', contents)
+
+        css = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css').read_text(encoding='utf-8')
+        self.assertNotIn('.dlux-navbar-builder__clear-action', css)
+        self.assertNotIn('.dlux-navbar-builder__editor-grid', css)
+        self.assertNotIn('.dlux-navbar-builder__label-fields', css)
+        self.assertIn('.dlux-navbar-builder__pane {\n  display: flex;', css)
+        self.assertIn('height: 560px;', css)
+        self.assertIn('max-height: 70vh;', css)
+        self.assertIn('.dlux-navbar-tree,\n.dlux-navbar-route-list {\n  flex: 1 1 auto;', css)
+        self.assertNotIn('.dlux-navbar-tree,\n.dlux-navbar-route-list {\n  min-height: 16rem;', css)
+
+        js = self._setup_js
+        self.assertIn("inspectorShell: builder.querySelector('[data-navbar-inspector-shell]')", js)
+        self.assertIn('window.DluxInspectorShell.create(refs.inspectorShell', js)
+        self.assertLess(js.index("id: 'add-group'"), js.index("id: 'move-up'"))
+        self.assertLess(js.index("id: 'move-up'"), js.index("id: 'move-down'"))
+        self.assertLess(js.index("id: 'move-down'"), js.index("id: 'remove'"))
+        self.assertLess(js.index("id: 'remove'"), js.index("id: 'move-root'"))
+        self.assertIn('const labelFields = languageRows().map', js)
+        self.assertIn("id: `label-${langCode}`", js)
+        self.assertIn("type: 'url'", js)
+        self.assertLess(js.index('const labelFields = languageRows().map'), js.index("id: 'url'"))
+        self.assertIn("presentation: 'popover'", js)
+        self.assertIn("getAnchor: () => refs.tree.querySelector('.dlux-navbar-node__surface.is-active')", js)
+        self.assertIn('dismissOnOutsideClick: true', js)
+        self.assertIn("dismissIgnoreSelector: '.dlux-navbar-node__surface'", js)
+        # The popover names the node it is editing, so the selection is legible
+        # even while the panel floats over the tree.
+        self.assertIn('getTitle: ({ selection }) => (selection ? nodeLabel(selection.node) : \'\')', js)
+        self.assertIn('function commitAndRender()', js)
+        render_block = js[js.index('function renderAll()'):js.index('function commitAndRender()')]
+        self.assertNotIn('serialize();', render_block)
+        self.assertNotIn("querySelector('[data-navbar-clear-selection]')", js)
+        self.assertNotIn("querySelector('[data-navbar-label-inputs]')", js)
 
     def test_sidebar_builder_template_renders_the_form_pages_toggle(self):
         contents = render_to_string('dlux/setup/sidebar_builder.html', {
@@ -1025,6 +1117,145 @@ class DiscoveryBuilderAssetTests(SimpleTestCase):
 
         self.assertIn('data-builder-form-toggle', contents)
         self.assertIn('Show form pages', contents)
+
+    def test_sidebar_builder_drives_its_actions_and_editor_through_the_shell(self):
+        js = self._setup_js
+
+        self.assertIn("inspectorShell: builder.querySelector('[data-builder-inspector-shell]')", js)
+        self.assertIn('window.DluxInspectorShell.create(refs.inspectorShell', js)
+
+        adapter = js[js.index('const sidebarInspectorShell'):js.index('function syncSelectedIconFromPicker()')]
+        # Action row order, previously fixed by the template's markup.
+        for earlier, later in (
+            ("id: 'add-group'", "id: 'add-selected'"),
+            ("id: 'add-selected'", "id: 'remove-selected'"),
+            ("id: 'remove-selected'", "id: 'add-all'"),
+            ("id: 'add-all'", "id: 'remove-all'"),
+            ("id: 'remove-all'", "id: 'move-root'"),
+            ("id: 'move-root'", "id: 'duplicate-entry'"),
+        ):
+            self.assertLess(adapter.index(earlier), adapter.index(later), f'{earlier} must precede {later}')
+        # Move To Root and Duplicate are selection-only; the rest are always offered.
+        self.assertIn('if (!selection) {\n                            return actions;\n                        }', adapter)
+
+        # One peer text field per language plus the icon, so all three share a row.
+        self.assertIn('const labelFields = languageRows().map', adapter)
+        self.assertIn("id: `label-${langCode}`", adapter)
+        self.assertIn("id: 'icon'", adapter)
+        self.assertIn("type: 'custom'", adapter)
+        self.assertLess(adapter.index('const labelFields'), adapter.index("id: 'icon'"))
+
+        self.assertIn("presentation: 'popover'", adapter)
+        self.assertIn('dismissOnOutsideClick: true', adapter)
+        self.assertIn("dismissIgnoreSelector: '.dlux-builder-node, .dlux-builder-item'", adapter)
+        self.assertIn(".dlux-builder-node.is-active, .dlux-builder-item.is-active", adapter)
+
+        # The old template-driven editor is gone from the builder entirely.
+        self.assertNotIn('function renderEditor()', js)
+        self.assertNotIn('function renderLabelInputs(', js)
+        self.assertNotIn('function setActionAvailability()', js)
+        self.assertNotIn("querySelectorAll('[data-builder-action]')", js)
+        self.assertNotIn("querySelector('[data-builder-label-inputs]')", js)
+
+        # Selecting an entry must not serialize; only a real edit commits.
+        render_block = js[js.index('function renderAll() {\n            renderSelected();'):]
+        render_block = render_block[:render_block.index('function commitAndRender()')]
+        self.assertNotIn('serialize();', render_block)
+
+    def test_sidebar_builder_keeps_per_language_label_overrides_on_load(self):
+        """A stored override must survive normalization, or reopening the step drops it.
+
+        The server sanitizer preserves `labels`; the browser model used to discard
+        them, so every reopen of the Sidebar step silently saved the overrides away.
+        """
+        js = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'setup' / 'js' / 'builder_model.js'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('function normalizeBuilderLabels(rawLabels) {', js)
+        normalize = js[js.index('function normalizeEntry('):js.index('function normalizeSidebarConfig(')]
+        self.assertIn('const labels = normalizeBuilderLabels(entry.labels);', normalize)
+        # Both branches of normalizeEntry carry them through.
+        self.assertEqual(normalize.count('if (Object.keys(labels).length) {'), 2)
+        self.assertIn('group.labels = labels;', normalize)
+        self.assertIn('item.labels = labels;', normalize)
+
+    def test_sidebar_builder_hosts_the_inspector_shell_and_parks_the_icon_picker(self):
+        contents = render_to_string('dlux/setup/sidebar_builder.html', {
+            'mode': 'setup',
+            'sidebar_catalog_json': '[]',
+            'sidebar_catalog_fallback_json': '[]',
+            'sidebar_config_json': '{}',
+            'languages_json': '{}',
+            'DLUX_STRINGS': {},
+        })
+
+        # The action row and the editor are the shell's now; the template supplies a
+        # single host and nothing else.
+        self.assertIn('data-builder-inspector-shell', contents)
+        self.assertNotIn('data-builder-action=', contents)
+        self.assertNotIn('data-builder-selection-actions', contents)
+        self.assertNotIn('data-builder-clear-action', contents)
+        self.assertNotIn('data-builder-editor', contents)
+        self.assertNotIn('data-builder-label-inputs', contents)
+        # A leftover class from the pre-shell Navbar inspector, styled by nothing.
+        self.assertNotIn('dlux-navbar-inspector-actions', contents)
+        # The shared picker reports a pick by writing to the form field its
+        # `field_name` names — with no such field the pick went nowhere, so the
+        # builder's scratch input carries that name.
+        self.assertIn(
+            'name="sidebar_builder_entry_icon" data-dlux-unsaved-ignore data-builder-icon-value',
+            contents,
+        )
+        self.assertEqual(contents.count('name="sidebar_builder_entry_icon"'), 1)
+        # The picker is server-rendered once and parked; the inspector borrows the node.
+        self.assertIn('data-builder-icon-picker-holder', contents)
+        self.assertIn('data-dlux-icon-picker', contents)
+        self.assertIn('data-icon-field="sidebar_builder_entry_icon"', contents)
+        self.assertIn('dlux-sidebar-builder__pane-card', contents)
+        self.assertNotIn('h-100 dlux-sidebar-builder__pane-card', contents)
+        self.assertNotIn('data-builder-empty-inspector', contents)
+        self.assertNotIn('data-builder-icon-search', contents)
+        self.assertNotIn('col-xl-2', contents)
+
+        css = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css').read_text(encoding='utf-8')
+        # The shell owns the pinned Clear action and the field grid, so the builder's
+        # own inspector rules are gone.
+        self.assertNotIn('.dlux-sidebar-builder__clear-action', css)
+        self.assertNotIn('[data-builder-label-inputs]', css)
+        self.assertNotIn('.dlux-builder-label-field', css)
+        self.assertIn('.dlux-sidebar-builder__pane-card', css)
+        sidebar_pane_card_rules = css[
+            css.index('.dlux-sidebar-builder__pane-card'):
+            css.index('.dlux-sidebar-builder__pane-body')
+        ]
+        self.assertIn('height: 560px;', sidebar_pane_card_rules)
+        self.assertIn('max-height: 70vh;', sidebar_pane_card_rules)
+        self.assertIn('min-height: 380px;', sidebar_pane_card_rules)
+        self.assertIn('.dlux-sidebar-builder__pane-body', css)
+        sidebar_pane_body_rules = css[
+            css.index('.dlux-sidebar-builder__pane-body'):
+            css.index('.dlux-setup-builder .card')
+        ]
+        self.assertNotIn('\n  height:', sidebar_pane_body_rules)
+        self.assertNotIn('max-height:', sidebar_pane_body_rules)
+        self.assertIn('min-height: 0;', sidebar_pane_body_rules)
+        self.assertIn('overflow: hidden;', sidebar_pane_body_rules)
+        sidebar_list_rules = css[
+            css.index('.dlux-sidebar-tree,'):
+            css.index('.dlux-builder-available-group + .dlux-builder-available-group')
+        ]
+        self.assertIn('min-height: 0;', sidebar_list_rules)
+        self.assertIn('overflow: auto;', sidebar_list_rules)
+
+        js = self._setup_js
+        # Duplicate is an inspector action now; it stays disabled without a stored
+        # entry to copy.
+        self.assertIn("id: 'duplicate-entry'", js)
+        self.assertIn('disabled: !selectedStored,', js)
+        self.assertIn('const duplicateLabel = `${entryLabelForDisplay(location.entry)} ${copySuffix}`;', js)
+        self.assertIn('state.selected = { pane: \'selected\', id: duplicate.id, kind: duplicate.kind };', js)
 
 
 @override_settings(ROOT_URLCONF='dlux.tests.urls_with_crud_app')

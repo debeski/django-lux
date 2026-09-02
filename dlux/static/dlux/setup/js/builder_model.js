@@ -405,28 +405,51 @@
             .trim();
     }
 
+    // Per-language name overrides, normalised the way the navbar nodes and the
+    // server-side sanitizer already do it: codes lower-cased, values trimmed,
+    // empties dropped.
+    function normalizeBuilderLabels(rawLabels) {
+        const labels = {};
+        Object.entries(rawLabels && typeof rawLabels === 'object' ? rawLabels : {}).forEach(([rawCode, rawLabel]) => {
+            const code = normalizeLanguageCode(rawCode);
+            const label = String(rawLabel || '').trim();
+            if (code && label) {
+                labels[code] = label;
+            }
+        });
+        return labels;
+    }
+
     function normalizeEntry(entry, catalogLookup, fallbackCatalogLookup) {
         if (!entry || typeof entry !== 'object') {
             return null;
         }
+        // `labels` is what the reader typed into the builder and what the server
+        // stores; dropping it here meant every reopen of the Sidebar step silently
+        // discarded the overrides and saved them away again.
+        const labels = normalizeBuilderLabels(entry.labels);
         if ((entry.kind || 'item') === 'group') {
             const items = Array.isArray(entry.items)
                 ? entry.items.map(item => normalizeEntry(item, catalogLookup, fallbackCatalogLookup)).filter(Boolean)
                 : [];
-            return {
+            const group = {
                 kind: 'group',
                 id: entry.id || `group-${Date.now()}`,
                 label: resolveBuilderGroupLabel(entry, items, fallbackCatalogLookup),
                 icon: entry.icon || 'bi-folder2-open',
                 items,
             };
+            if (Object.keys(labels).length) {
+                group.labels = labels;
+            }
+            return group;
         }
         if (!entry.id && !entry.url_name) {
             return null;
         }
         const currentDiscovered = findCatalogEntry(entry, catalogLookup);
         const fallbackDiscovered = findCatalogEntry(entry, fallbackCatalogLookup);
-        return {
+        const item = {
             kind: 'item',
             id: entry.id || entry.url_name,
             url_name: entry.url_name || entry.id,
@@ -436,6 +459,10 @@
             group_key: entry.group_key || (currentDiscovered && currentDiscovered.group_key) || '',
             group_label: entry.group_label || (currentDiscovered && currentDiscovered.group_label) || '',
         };
+        if (Object.keys(labels).length) {
+            item.labels = labels;
+        }
+        return item;
     }
 
     function normalizeSidebarConfig(config, catalogLookup, fallbackCatalogLookup) {
@@ -450,6 +477,7 @@
             entries: entries.map(entry => normalizeEntry(entry, catalogLookup, fallbackCatalogLookup)).filter(Boolean),
             enable_reorder: config.enable_reorder !== false,
             show_toolbar: config.show_toolbar !== false,
+            show_sections_manager: config.show_sections_manager !== false,
             show_icons: config.show_icons !== false,
             density: config.density || 'balanced',
             allow_user_density: config.allow_user_density !== false,

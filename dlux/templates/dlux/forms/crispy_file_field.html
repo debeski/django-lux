@@ -1,10 +1,10 @@
 {% load crispy_forms_field %}
 
-{% if field.field.widget.template_name == 'dlux/forms/file_input.html' or 'archive-file-input' in field.field.widget.attrs.class|default:'' %}
+{% if field.field.widget.template_name == 'dlux/forms/file_input.html' or 'dlux-file-input' in field.field.widget.attrs.class|default:'' or 'archive-file-input' in field.field.widget.attrs.class|default:'' %}
 <div{% if field.errors %} class="is-invalid"{% endif %}>
     {{ field.as_widget }}
     {% if field.errors %}
-    <div class="invalid-feedback d-block" role="alert" data-archive-file-server-error>
+    <div class="invalid-feedback d-block" role="alert" data-dlux-file-server-error>
         {% for error in field.errors %}<div>{{ error }}</div>{% endfor %}
     </div>
     {% if field.help_text %}<div id="hint_{{ field.auto_id }}" class="form-text">{{ field.help_text }}</div>{% endif %}

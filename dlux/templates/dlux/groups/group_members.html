@@ -2,8 +2,8 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="modal-title mb-0">{{ DLUX_STRINGS.group_members_label|default:"Members" }} — {{ group.name }}</h5>
-    <button type="button" class="btn btn-secondary rounded-pill js-group-nav" data-url="{% url 'manage_groups' %}">
-        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
+    <button type="button" class="btn btn-outline-secondary rounded-pill dlux-back-link js-group-nav" data-url="{% url 'manage_groups' %}">
+        <i class="bi bi-arrow-left me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
     </button>
 </div>
 
@@ -13,5 +13,7 @@
 </form>
 
 <hr>
-<h6 class="text-muted">{{ DLUX_STRINGS.group_membership_history|default:"Membership History" }}</h6>
-{% render_table table %}
+<div data-dlux-modal-list>
+    <h6 class="text-muted">{{ DLUX_STRINGS.group_membership_history|default:"Membership History" }}</h6>
+    {% render_table table %}
+</div>

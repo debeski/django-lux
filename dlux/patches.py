@@ -309,39 +309,76 @@ def _build_default_dlux_actions(table, record):
     if model is None or getattr(record, 'pk', None) is None:
         return []
 
+    app_label = model._meta.app_label
+    model_name = model._meta.model_name
     payload = {
-        'app': model._meta.app_label,
+        'app': app_label,
         'model': _get_dlux_model_name(table, model),
         'id': record.pk,
         'name': _get_dlux_record_name(record),
     }
-    return [
-        {
+    manager_url = getattr(table, 'dlux_modal_manager_url', '')
+    if manager_url:
+        from django.urls import reverse
+        payload['delete_url'] = reverse('modal_delete', args=[app_label, model._meta.object_name, record.pk])
+    section_action = bool(getattr(table, 'dlux_section_actions', False))
+
+    # A table drawn inside a stacked manager modal addresses its own surfaces, so
+    # a row opens the record in the modal it is already in rather than through the
+    # record-event fallback, which navigates the page behind it.
+    if manager_url:
+        view_action = {
+            'label': 'view_label',
+            'icon': 'bi bi-eye',
+            'type': 'event',
+            'event': 'dlux:dynamic_modal:open',
+            'data': {'url': f"{manager_url}?id={record.pk}&action=view", 'title': payload['name']},
+            'dblclick': True,
+        }
+        edit_action = {
+            'label': 'edit_label',
+            'icon': 'bi bi-pencil',
+            'type': 'event',
+            'event': 'dlux:dynamic_modal:open',
+            'data': {'url': f"{manager_url}?id={record.pk}", 'title': payload['name']},
+            'permissions': [f"{app_label}.change_{model_name}"],
+        }
+    else:
+        view_action = {
             'label': 'view_label',
             'icon': 'bi bi-eye',
             'type': 'event',
             'event': 'dlux:record:view',
             'data': payload,
             'dblclick': True,
-        },
-        {'type': 'divider'},
-        {
+        }
+        edit_action = {
             'label': 'edit_label',
             'icon': 'bi bi-pencil',
             'type': 'event',
             'event': 'dlux:record:edit',
             'data': payload,
-            'permissions': [f"{model._meta.app_label}.change_{model._meta.model_name}"],
-        },
-        {
-            'label': 'delete_label',
-            'icon': 'bi bi-trash',
-            'type': 'event',
-            'event': 'dlux:record:delete',
-            'data': payload,
-            'textClass': 'text-danger',
-            'permissions': [f"{model._meta.app_label}.delete_{model._meta.model_name}"],
-        },
+            'permissions': [f"{app_label}.change_{model_name}"],
+        }
+    if section_action:
+        edit_action['section_action'] = True
+    delete_action = {
+        'label': 'delete_label',
+        'icon': 'bi bi-trash',
+        'type': 'event',
+        'event': 'dlux:record:delete',
+        'data': payload,
+        'textClass': 'text-danger',
+        'permissions': [f"{app_label}.delete_{model_name}"],
+    }
+    if section_action:
+        delete_action['section_action'] = True
+
+    return [
+        view_action,
+        {'type': 'divider'},
+        edit_action,
+        delete_action,
     ]
 
 
@@ -628,6 +665,7 @@ def _patch_table_init():
         _dlux_translations = kwargs.pop('translations', None)
         request = kwargs.pop('request', None)
         model_name = kwargs.pop('model_name', None)
+        show_footer = kwargs.pop('dlux_show_footer', None)
 
         # Determine model BEFORE calling original (need to modify kwargs)
         table_cls = type(self)
@@ -739,6 +777,11 @@ def _patch_table_init():
         self.dlux_per_page = _resolve_table_page_size(request, self, table_cls)
         self.dlux_resizable_columns = _table_meta_value(table_cls, 'dlux_resizable_columns', True) is not False
         self.dlux_column_resize_key = _resolve_table_column_resize_key(self, table_cls)
+        if show_footer is None:
+            show_footer = _table_meta_value(table_cls, 'dlux_show_footer', True)
+        # The footer owns every paging control, so a table without one must not
+        # paginate: its later pages would have nothing left to reach them.
+        self.dlux_show_footer = show_footer is not False
 
         if self.dlux_table_enabled:
             try:
@@ -846,7 +889,7 @@ def _patch_table_init():
 
         if request is not None and self.dlux_table_enabled and not getattr(self, '_dlux_request_configured', False):
             try:
-                tables.RequestConfig(request).configure(self)
+                tables.RequestConfig(request, paginate=self.dlux_show_footer).configure(self)
             except Exception:
                 pass
 
@@ -871,9 +914,13 @@ def _patch_requestconfig_configure():
         table.dlux_per_page_field = getattr(table, 'dlux_per_page_field', None) or _resolve_table_per_page_field(table)
 
         original_paginate = getattr(self, 'paginate', None)
-        if original_paginate is False:
+        if original_paginate is False or getattr(table, 'dlux_show_footer', True) is False:
             table._dlux_request_configured = True
-            return _original_configure(self, table)
+            self.paginate = False
+            try:
+                return _original_configure(self, table)
+            finally:
+                self.paginate = original_paginate
 
         if original_paginate in (None, True):
             paginate = {}

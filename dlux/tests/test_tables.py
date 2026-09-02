@@ -11,6 +11,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.template import Context, Template
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 
 from dlux.system.constants import DEFAULT_TABLE_PAGE_SIZE
 from dlux.tables import DluxTable, UserTable
@@ -66,6 +67,13 @@ class ActionlessTable(DluxTable):
         model = User
         fields = ('username',)
         dlux_actions = False
+
+
+class FooterlessTable(DluxTable):
+    class Meta(DluxTable.Meta):
+        model = User
+        fields = ('username',)
+        dlux_show_footer = False
 
 
 class NonResizableTable(DluxTable):
@@ -279,6 +287,77 @@ class TableRenderingTests(TestCase):
         self.assertIn('data-dlux-table-density="dense"', html)
         self.assertIn('data-dlux-table-density-locked="true"', html)
         self.assertNotIn('data-dlux-table-density-inline', html)
+
+    def test_manager_tables_point_their_rows_at_the_managers_own_surfaces(self):
+        from dlux.patches import _build_default_dlux_actions
+
+        table = AutoCapturedHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
+        table.dlux_modal_manager_url = '/sys/modals/people/'
+        actions = _build_default_dlux_actions(table, self.user)
+
+        by_label = {action.get('label'): action for action in actions if action.get('label')}
+        self.assertEqual(by_label['view_label']['event'], 'dlux:dynamic_modal:open')
+        self.assertEqual(
+            by_label['view_label']['data']['url'],
+            f'/sys/modals/people/?id={self.user.pk}&action=view',
+        )
+        self.assertEqual(by_label['edit_label']['event'], 'dlux:dynamic_modal:open')
+        self.assertEqual(by_label['edit_label']['data']['url'], f'/sys/modals/people/?id={self.user.pk}')
+        self.assertEqual(by_label['delete_label']['event'], 'dlux:record:delete')
+        self.assertEqual(
+            by_label['delete_label']['data']['delete_url'],
+            reverse('modal_delete', args=['auth', 'User', self.user.pk]),
+        )
+
+    def test_section_manager_base_actions_opt_into_section_permissions(self):
+        table = FixedPageSizeTable(User.objects.filter(pk=self.user.pk), request=self._request())
+        table.dlux_modal_manager_url = '/sys/modals/people/'
+        table.dlux_section_actions = True
+
+        actions = table.get_dlux_base_actions(self.user)
+        by_label = {action.get('label'): action for action in actions if action.get('label')}
+
+        self.assertTrue(by_label['edit_label']['section_action'])
+        self.assertTrue(by_label['delete_label']['section_action'])
+        self.assertEqual(
+            by_label['delete_label']['data']['delete_url'],
+            reverse('modal_delete', args=['auth', 'User', self.user.pk]),
+        )
+
+    def test_rows_outside_a_manager_keep_the_record_events(self):
+        from dlux.patches import _build_default_dlux_actions
+
+        table = AutoCapturedHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
+        events = {action.get('event') for action in _build_default_dlux_actions(table, self.user)}
+
+        self.assertEqual(events, {'dlux:record:view', 'dlux:record:edit', 'dlux:record:delete', None})
+
+    def test_meta_opt_out_drops_the_footer_and_paginates_nothing(self):
+        request = self._request()
+        table = FooterlessTable(User.objects.order_by('username'), request=request)
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': request}))
+
+        self.assertFalse(table.dlux_show_footer)
+        self.assertNotIn('dlux-table-footer', html)
+        self.assertNotIn('dlux-table-page-size', html)
+        self.assertEqual(len(table.paginated_rows), User.objects.count())
+
+    def test_footer_opt_out_kwarg_survives_a_later_paginating_configure(self):
+        import django_tables2 as tables2
+
+        request = self._request()
+        table = AutoCapturedHostTable(
+            User.objects.order_by('username'),
+            request=request,
+            dlux_show_footer=False,
+        )
+        tables2.RequestConfig(request).configure(table)
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': request}))
+
+        self.assertNotIn('dlux-table-footer', html)
+        self.assertEqual(len(table.paginated_rows), User.objects.count())
 
     def test_request_per_page_overrides_saved_preference_and_persists(self):
         request = self._request('per_page=100')

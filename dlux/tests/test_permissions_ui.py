@@ -86,6 +86,17 @@ class PermissionsUiTests(TestCase):
         staff.user_permissions.add(manage_sections)
         self.assertEqual(labels_for(staff), {'view'})
 
+        section_actions = actions + [{
+            'label': 'section-delete',
+            'permissions': ['inventory.delete_widget'],
+            'section_action': True,
+        }]
+        fresh = User.objects.get(pk=staff.pk)
+        self.assertEqual(
+            {a['label'] for a in filter_context_actions(fresh, section_actions)},
+            {'view', 'section-delete'},
+        )
+
         # Explicit delete grant reveals the Delete entry.
         staff.user_permissions.add(delete_widget)
         self.assertEqual(labels_for(staff), {'view', 'delete'})

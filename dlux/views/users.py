@@ -275,6 +275,9 @@ class UserListView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, FilterV
     def get_ribbon_title(self):
         return self._ribbon_strings().get('manage_users', 'User Management')
 
+    def get_ribbon_subtitle(self):
+        return self._ribbon_strings().get('manage_users_desc', '')
+
     def get_ribbon_actions(self):
         s = self._ribbon_strings()
         specs = [{

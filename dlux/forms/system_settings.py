@@ -75,7 +75,9 @@ from ..system.constants import (
     DEFAULT_ROW_ACTIONS_STYLE,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
+    REGISTRATION_ACTIVATION_AUTO_LOGIN,
     REGISTRATION_ACTIVATION_CHOICES,
+    REGISTRATION_ACTIVATION_PENDING_APPROVAL,
     REGISTRATION_ACTIVATION_VALUES,
     NAVBAR_MODE_CHOICES,
     NAVBAR_MODE_VALUES,
@@ -164,7 +166,7 @@ from ..assets import adopt_stored_asset, create_managed_asset
 from ..fonts import get_font_choices
 
 from ._shared import FONT_CHOICES, THEME_CHOICES, _LEGACY_HOME_URL, _json_dump, logger
-from .builders import DluxRelayAwareSelect, EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_archive_file_widget, _get_ui_direction, build_archive_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
+from .builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 def _system_settings_sidebar_tools_available(cleaned_data):
@@ -172,7 +174,10 @@ def _system_settings_sidebar_tools_available(cleaned_data):
     theme_picker_enabled = bool(cleaned_data.get('allow_user_theme_override', True)) and len(allowed_themes) > 1
     density_picker_enabled = bool(cleaned_data.get('sidebar_allow_user_density', True))
     reorder_enabled = bool(cleaned_data.get('sidebar_enable_reorder', True))
-    return bool(theme_picker_enabled or density_picker_enabled or reorder_enabled or has_section_models())
+    sections_manager_enabled = bool(
+        cleaned_data.get('sidebar_show_sections_manager', True) and has_section_models()
+    )
+    return bool(theme_picker_enabled or density_picker_enabled or reorder_enabled or sections_manager_enabled)
 
 
 
@@ -497,6 +502,10 @@ class SystemSettingsForm(
         initial=True,
     )
     sidebar_enable_toolbar = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    sidebar_show_sections_manager = forms.BooleanField(
         required=False,
         initial=True,
     )
@@ -1014,7 +1023,7 @@ class SystemSettingsForm(
             'help_sys_import_config',
             'Optional: choose a Dlux-exported JSON setup file to populate these settings.',
         )
-        self.fields['settings_import_file'].widget = _build_archive_file_widget(
+        self.fields['settings_import_file'].widget = _build_file_widget(
             attrs={
                 'accept': 'application/json,.json',
                 'data-settings-import-file': 'true',
@@ -1395,6 +1404,17 @@ class SystemSettingsForm(
         self.fields['sidebar_enable_toolbar'].help_text = s.get(
             'help_sys_sidebar_enable_toolbar',
             'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
+        )
+        self.fields['sidebar_show_sections_manager'].label = s.get(
+            'form_sys_sidebar_show_sections_manager',
+            'Show Sections manager shortcut',
+        )
+        self.fields['sidebar_show_sections_manager'].help_text = s.get(
+            'help_sys_sidebar_show_sections_manager',
+            'Show the Dynamic Sections Manager shortcut in the sidebar toolbar when '
+            'section models exist. The page itself stays reachable either way \u2014 '
+            'add it to the sidebar yourself, or link to it; permissions decide who '
+            'may open it.',
         )
         self.fields['sidebar_show_icons'].label = s.get('form_sys_sidebar_show_icons', 'Show sidebar icons')
         self.fields['sidebar_show_icons'].help_text = s.get(
@@ -1881,10 +1901,39 @@ class SystemSettingsForm(
             (CLIENT_IP_MODE_CLOUDFLARE, s.get('client_ip_mode_cloudflare')),
             (CLIENT_IP_MODE_CUSTOM, s.get('client_ip_mode_custom')),
         )
-        self.fields['client_ip_mode'].widget.attrs.update({
-            'class': 'form-select glass-input',
-            'data-client-ip-mode-input': 'true',
-        })
+        _bind_choice_selector_widget(
+            self.fields['client_ip_mode'],
+            DluxChoiceSelectorWidget(
+                attrs={'data-client-ip-mode-input': 'true'},
+                variant='toggle',
+                option_meta={
+                    CLIENT_IP_MODE_AUTO: {
+                        'icon': 'bi-magic',
+                        'description': s.get('client_ip_mode_auto_desc', 'Tries XFF, then X-Real-IP, then REMOTE_ADDR.'),
+                    },
+                    CLIENT_IP_MODE_X_FORWARDED_FOR: {
+                        'icon': 'bi-diagram-3',
+                        'description': s.get('client_ip_mode_x_forwarded_for_desc', 'The proxy chain, minus the trusted hops below.'),
+                    },
+                    CLIENT_IP_MODE_REMOTE_ADDR: {
+                        'icon': 'bi-ethernet',
+                        'description': s.get('client_ip_mode_remote_addr_desc', 'The socket address only — no proxy in front.'),
+                    },
+                    CLIENT_IP_MODE_X_REAL_IP: {
+                        'icon': 'bi-hdd-network',
+                        'description': s.get('client_ip_mode_x_real_ip_desc', 'The single-value header nginx sets.'),
+                    },
+                    CLIENT_IP_MODE_CLOUDFLARE: {
+                        'icon': 'bi-cloud',
+                        'description': s.get('client_ip_mode_cloudflare_desc', 'CF-Connecting-IP, set by Cloudflare.'),
+                    },
+                    CLIENT_IP_MODE_CUSTOM: {
+                        'icon': 'bi-input-cursor-text',
+                        'description': s.get('client_ip_mode_custom_desc', 'Only the header named below.'),
+                    },
+                },
+            ),
+        )
         self.fields['client_ip_trusted_proxy_hops'].label = s.get('form_sys_client_ip_hops')
         self.fields['client_ip_trusted_proxy_hops'].help_text = s.get('help_sys_client_ip_hops')
         self.fields['client_ip_trusted_proxy_hops'].widget.attrs.update({
@@ -1901,8 +1950,47 @@ class SystemSettingsForm(
         })
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
         self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
-        self._bind_transport_availability(s)
+        self.fields['email_config_transport'].choices = (
+            ('relay', s.get('email_transport_relay', 'Internal SMTP relay')),
+            ('direct', s.get('email_transport_direct', 'Direct SMTP from web service')),
+        )
+        _bind_choice_selector_widget(
+            self.fields['email_config_transport'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'relay': {
+                        'icon': 'bi-hdd-network',
+                        'description': s.get('email_transport_relay_desc', 'Web and Celery hand mail to smtp-relay:1025; the relay reaches the provider.'),
+                    },
+                    'direct': {
+                        'icon': 'bi-send',
+                        'description': s.get('email_transport_direct_desc', 'The web service opens the provider SMTP connection itself.'),
+                    },
+                },
+            ),
+        )
         self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
+        self.fields['email_config_secret_storage'].choices = (
+            ('encrypted_db', s.get('email_secret_storage_encrypted_db', 'Encrypted database secret')),
+            ('env', s.get('email_secret_storage_env', 'Environment / secrets')),
+        )
+        _bind_choice_selector_widget(
+            self.fields['email_config_secret_storage'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'encrypted_db': {
+                        'icon': 'bi-shield-lock',
+                        'description': s.get('email_secret_storage_encrypted_db_desc', 'Keep the SMTP password encrypted in the database and manage it here.'),
+                    },
+                    'env': {
+                        'icon': 'bi-file-earmark-lock',
+                        'description': s.get('email_secret_storage_env_desc', 'Read the SMTP password from environment variables or deployment secrets.'),
+                    },
+                },
+            ),
+        )
         self.fields['email_config_host'].label = s.get('form_sys_email_host', 'Provider SMTP host')
         self.fields['email_config_port'].label = s.get('form_sys_email_port', 'Provider SMTP port')
         self.fields['email_config_use_tls'].label = s.get('form_sys_email_use_tls', 'Provider STARTTLS')
@@ -1950,10 +2038,35 @@ class SystemSettingsForm(
         ):
             self.fields[field_name].widget.attrs.update({'class': 'form-control glass-input'})
         self.fields['email_config_port'].widget.attrs.update({'class': 'form-control glass-input'})
-        self.fields['email_config_provider_preset'].widget.attrs.update({
-            'class': 'form-select glass-input',
-            'data-email-provider-preset': '',
-        })
+        self.fields['email_config_provider_preset'].choices = (
+            ('custom', s.get('email_provider_preset_custom', 'Custom / manual')),
+            ('gmail', s.get('email_provider_preset_gmail', 'Gmail')),
+            ('outlook', s.get('email_provider_preset_outlook', 'Outlook / Office 365')),
+            ('ses', s.get('email_provider_preset_ses', 'Amazon SES')),
+            ('mailgun', s.get('email_provider_preset_mailgun', 'Mailgun')),
+            ('relay', s.get('email_provider_preset_relay', 'Internal relay')),
+        )
+        _bind_choice_selector_widget(
+            self.fields['email_config_provider_preset'],
+            DluxChoiceSelectorWidget(
+                attrs={'data-email-provider-preset': ''},
+                variant='toggle',
+                option_meta={
+                    'custom': {
+                        'icon': 'bi-sliders',
+                        'description': s.get('email_provider_preset_custom_desc', 'Enter the host, port and encryption yourself.'),
+                    },
+                    # The host and port each preset fills in. Kept to one short line:
+                    # the caption clamps at two, and STARTTLS is already visible as
+                    # the toggle the preset sets.
+                    'gmail': {'icon': 'bi-google', 'description': 'smtp.gmail.com:587'},
+                    'outlook': {'icon': 'bi-microsoft', 'description': 'smtp.office365.com:587'},
+                    'ses': {'icon': 'bi-amazon', 'description': 'email-smtp.us-east-1.amazonaws.com:587'},
+                    'mailgun': {'icon': 'bi-envelope-paper', 'description': 'smtp.mailgun.org:587'},
+                    'relay': {'icon': 'bi-hdd-network', 'description': 'smtp-relay:1025'},
+                },
+            ),
+        )
         self.fields['email_config_test_recipient'].widget.attrs.update({
             'data-email-test-recipient': '',
             'class': 'form-control glass-input',
@@ -1998,6 +2111,32 @@ class SystemSettingsForm(
         self.fields['registration_activation_mode'].help_text = s.get(
             'help_sys_registration_activation_mode',
             'Choose whether verified users become active immediately or wait for superuser approval.',
+        )
+        self.fields['registration_activation_mode'].choices = (
+            (
+                REGISTRATION_ACTIVATION_AUTO_LOGIN,
+                s.get('registration_activation_auto_login', 'Auto-login after verification'),
+            ),
+            (
+                REGISTRATION_ACTIVATION_PENDING_APPROVAL,
+                s.get('registration_activation_pending_approval', 'Verified pending approval'),
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['registration_activation_mode'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    REGISTRATION_ACTIVATION_AUTO_LOGIN: {
+                        'icon': 'bi-box-arrow-in-right',
+                        'description': s.get('registration_activation_auto_login_desc', 'A verified email signs the new user straight in.'),
+                    },
+                    REGISTRATION_ACTIVATION_PENDING_APPROVAL: {
+                        'icon': 'bi-person-check',
+                        'description': s.get('registration_activation_pending_approval_desc', 'A verified email waits for a superuser to approve the account.'),
+                    },
+                },
+            ),
         )
         self.fields['registration_throttle_enabled'].label = s.get('form_sys_registration_throttle', 'Enable Registration Throttles')
         self.fields['registration_throttle_enabled'].help_text = s.get(
@@ -2880,6 +3019,9 @@ class SystemSettingsForm(
         self.initial['email_config_transport'] = initial_email_config.get('transport', 'direct')
         self.initial['email_config_secret_storage'] = initial_email_config.get('secret_storage', 'env')
         self.initial['email_config_provider_preset'] = initial_email_config.get('provider_preset', 'custom')
+        # After the stored transport is known: the relay option is greyed out only
+        # when it is not the value already in force.
+        self._bind_transport_availability(s)
         self.initial['email_config_host'] = initial_email_config.get('host', '')
         self.initial['email_config_port'] = initial_email_config.get('port', 587)
         self.initial['email_config_use_tls'] = bool(initial_email_config.get('use_tls', True))
@@ -2921,6 +3063,9 @@ class SystemSettingsForm(
         self.initial['sidebar_accent_edge'] = bool(initial_sidebar_config.get('accent_edge', False))
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
         self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
+        self.initial['sidebar_show_sections_manager'] = bool(
+            initial_sidebar_config.get('show_sections_manager', True)
+        )
         self.initial['sidebar_show_icons'] = bool(initial_sidebar_config.get('show_icons', True))
         stored_picker_location = (
             config.get('theme_picker_location', DEFAULT_THEME_PICKER_LOCATION)
@@ -3265,12 +3410,16 @@ class SystemSettingsForm(
                 'DLUX_STRINGS': s,
             },
         )
-        from ..ribbon.catalog import ribbon_tab_catalog
+        from ..ribbon.catalog import ribbon_destination_catalog, ribbon_tab_catalog
 
         self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,
             'dlux/setup/ribbon_builder.html',
             {
                 'ribbon_catalog_json': _json_dump(ribbon_tab_catalog(request=self.request), ensure_ascii=False),
+                'ribbon_destination_catalog_json': _json_dump(
+                    ribbon_destination_catalog(request=self.request),
+                    ensure_ascii=False,
+                ),
                 'languages_json': _json_dump(current_languages, ensure_ascii=False),
                 'ribbon_config_json': _json_dump(self.initial.get('ribbon_config') or {}, ensure_ascii=False),
                 'ribbon_builder_strings_json': _json_dump({
@@ -3285,8 +3434,26 @@ class SystemSettingsForm(
                     'relation_axis': s.get('ribbon_relation_axis', 'Across'),
                     'restore_strip': s.get('ribbon_builder_restore_strip', 'Restore'),
                     'remove_strip': s.get('ribbon_builder_remove_strip', 'Remove'),
+                    'removed_strip': s.get('ribbon_builder_removed_strip', 'removed'),
+                    'removed_strip_hint': s.get('ribbon_builder_removed_strip_hint',
+                                                'Removed \u2014 select to restore it.'),
+                    # The inspector is built in JS now, so its labels ride in this
+                    # payload rather than being rendered into the template.
+                    'remove_button': s.get('ribbon_builder_remove_button', 'Remove button'),
+                    'enabled': s.get('ribbon_builder_enabled', 'Shown'),
+                    'clear_selection': s.get('ribbon_builder_clear_selection', 'Clear selection'),
+                    'inspector_empty': s.get('ribbon_builder_inspector_empty',
+                                             'Select a tab or button to edit it.'),
+                    'destination': s.get('ribbon_builder_destination', 'Destination'),
+                    'system_destination': s.get('ribbon_builder_system_destination', 'System'),
+                    'icon_field': s.get('sidebar_icon_field', 'Icon'),
+                    'icon_search': s.get('sidebar_icon_search', 'Search icons...'),
+                    'new_button': s.get('ribbon_builder_new_button', 'New button'),
+                    'action_locked': s.get('ribbon_builder_action_locked', 'Defined in code'),
                     'drawn_note': s.get('ribbon_builder_drawn_note',
                                         'Drawn here \u2014 open the page to see its tabs.'),
+                    'no_hosts': s.get('ribbon_builder_no_hosts',
+                                      'No ribbon pages match these settings.'),
                     'no_icons': s.get('sidebar_no_icons_found', 'No icons match your search.'),
                     'locked_hint': s.get('ribbon_builder_locked_hint',
                                          'This page needs these tabs, so they cannot be removed or extended. '
@@ -3400,7 +3567,7 @@ class SystemSettingsForm(
         self.helper.form_tag = False
 
 
-        email_password_field_class = 'col-md-4 dlux-email-config-password-field'
+        email_password_field_class = 'col-12 col-lg-6 dlux-email-config-password-field'
         if self.initial.get('email_config_secret_storage') != 'encrypted_db':
             email_password_field_class += ' d-none'
 
@@ -3409,7 +3576,7 @@ class SystemSettingsForm(
             self._step_badge(s, 'branding', 'Branding'),
         ]
         if self.mode == 'setup':
-            step_1_fields.append(build_archive_file_field('settings_import_file'))
+            step_1_fields.append(build_file_field('settings_import_file'))
             step_1_fields.append(Field('settings_import_processed'))
             step_1_fields.append(HTML(
                 "<div class='dlux-import-finish-cta d-none' data-settings-import-finish>"
@@ -3422,8 +3589,8 @@ class SystemSettingsForm(
             HTML(self.system_names_html),
             Field('system_names'),
             Row(
-                Div(build_archive_file_field('logo'), css_class='col-md-6'),
-                Div(build_archive_file_field('favicon'), css_class='col-md-6'),
+                Div(build_file_field('logo'), css_class='col-md-6'),
+                Div(build_file_field('favicon'), css_class='col-md-6'),
                 css_class='row'
             ),
         ])
@@ -3536,9 +3703,12 @@ class SystemSettingsForm(
         reason = strings.get(
             'help_sys_email_transport_relay_missing',
             'The internal SMTP relay is not running, so this deployment cannot use it.')
-        field.widget = DluxRelayAwareSelect(
-            choices=field.choices, unavailable={'relay'}, reason=reason)
-        field.widget.attrs.update({'class': 'form-select glass-input'})
+        # The stored value is never disabled: a relay that is merely down should
+        # not silently reset an operator's transport, and a disabled radio that is
+        # also the checked one posts nothing at all.
+        if self.initial.get('email_config_transport') != 'relay':
+            field.widget.disabled_values = {'relay'}
+        field.widget.option_meta.setdefault('relay', {})['description'] = reason
         field.help_text = reason
 
     def _apply_imported_settings(self, cleaned, imported):
@@ -3805,6 +3975,7 @@ class SystemSettingsForm(
             if sidebar['enabled']:
                 sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
                 sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
+                sidebar['show_sections_manager'] = bool(cleaned.get('sidebar_show_sections_manager', True))
                 sidebar['show_icons'] = bool(cleaned.get('sidebar_show_icons', True))
                 sidebar['show_notification_badges'] = bool(
                     cleaned.get('sidebar_show_notification_badges', True)
@@ -3822,6 +3993,7 @@ class SystemSettingsForm(
             cleaned['sidebar_accent_edge'] = bool(sidebar.get('accent_edge', False))
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
+            cleaned['sidebar_show_sections_manager'] = bool(sidebar.get('show_sections_manager', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
             cleaned['sidebar_show_notification_badges'] = bool(
                 sidebar.get('show_notification_badges', True)

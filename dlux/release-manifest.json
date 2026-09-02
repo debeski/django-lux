@@ -1,15 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.8.2",
+  "version": "1.8.3",
   "display": {
-    "summary": "Configurable multi-strip ribbons, name-based relation lookups, managed image/font workflows, and faster request-level rendering.",
+    "summary": "Inspector-backed builders, configurable ribbon actions, reusable list pages, modal managers, and section/form cleanup for system surfaces.",
     "highlights": [
-      "Ribbon lists support configurable primary, child, and axis strips with parent-scoped discovery and separate pre-defined/admin controls.",
-      "DluxLookupField provides scoped name search, optional create-on-save, typo confirmation, and Arabic spelling normalization.",
-      "Asset Manager separates Images and Fonts, supports immediate setup-safe uploads, inline image naming, and font inventory details.",
-      "Request-level settings, language, and scope caches reduce repeated list-page work; translated table fields render automatically."
+      "Nav Bar, Sidebar, and Ribbon builders share the Dlux inspector shell with anchored popover editing and icon-picker integration.",
+      "Ribbon configuration discovers declared page actions, filters destinations, de-duplicates endpoints, and supports custom/removable/restorable buttons.",
+      "Dynamic modal managers provide list/form/detail flows with guarded deletes, modal-owned navigation, and footerless table lists.",
+      "Section Management uses an expandable editor, stable form grids/footer toggles, one dismiss control, and a shortcut-only sidebar toggle.",
+      "File upload helpers and markup move from archive_file naming to file_field naming with v1.x compatibility shims."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.3"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -19,7 +20,7 @@
     }
   },
   "migrations": {
-    "effect": "additive",
+    "effect": "none",
     "rollback_compatible": true,
     "downtime": "none"
   },

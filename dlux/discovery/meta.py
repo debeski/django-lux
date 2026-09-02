@@ -51,15 +51,71 @@ SYSTEM_ROUTE_META = {
         'permissions': ['__dlux_reports__'],
         'group_key': 'dlux',
     },
+    'pending_registrations': {
+        'label_key': 'pending_registrations',
+        'icon': 'bi-person-plus',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
+    'control_panel': {
+        'label_key': 'control_link_title',
+        'icon': 'bi-hdd-network',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
+    # Described here, deliberately absent from CONFIGURABLE_SYSTEM_ROUTE_NAMES
+    # below: these are modal managers, not pages to sit in a sidebar, but a ribbon
+    # button can open them. Metadata and configurability are separate questions —
+    # `is_system` reads only the list below.
+    'manage_groups': {
+        'label_key': 'tut_users_groups_title',
+        'icon': 'bi-people-fill',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
+    'manage_assets': {
+        'label_key': 'asset_manager_title',
+        'icon': 'bi-images',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
+    'manage_scopes': {
+        'label_key': 'tut_users_scopes_title',
+        'icon': 'bi-diagram-2',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
+    # Modal managers. Described only so they read as themselves in a destination
+    # picker instead of a humanised route name ("Scanlink Releases Modal").
+    'modal_user': {
+        'label_key': 'manage_users',
+        'icon': 'bi-person-lines-fill',
+        'permissions': ['__dlux_user_directory__'],
+        'group_key': 'dlux',
+    },
+    'scanlink_releases_modal': {
+        'label_key': 'scanlink_releases_title',
+        'icon': 'bi-upc-scan',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
 }
 
 
+# The dlux-owned pages an admin may place in the sidebar, navbar or a ribbon
+# button. Everything else in the hidden `dlux` group is machinery. A name here
+# must also carry SYSTEM_ROUTE_META, or it arrives with no label, icon or
+# permission and reads as its raw route name.
 CONFIGURABLE_SYSTEM_ROUTE_NAMES = {
     'manage_sections',
     'manage_users',
     'user_activity_log',
     'options_view',
     'system_backup_page',
+    'user_profile',
+    'reports_overview',
+    'pending_registrations',
+    'control_panel',
 }
 
 

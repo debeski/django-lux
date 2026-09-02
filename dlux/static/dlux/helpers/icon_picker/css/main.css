@@ -74,6 +74,20 @@
   padding-inline-end: 0.15rem;
 }
 
+/* Opened upward when there is no room below it — near the bottom of a scrollable
+   modal the grid would otherwise open past the edge that clips it, where it can be
+   neither clicked nor scrolled to. */
+.dlux-builder-icon-picker--popover.dlux-builder-icon-picker--above {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + 0.45rem);
+}
+
+/* Nothing chosen: the trigger still shows a glyph, dimmed so it reads as a
+   placeholder rather than a selection. */
+.dlux-icon-picker-preview--empty {
+  opacity: 0.4;
+}
+
 .dlux-builder-icon-choice {
   display: inline-flex;
   align-items: center;

@@ -85,7 +85,7 @@
         </table>
     </div>
 
-    {% if table.page %}
+    {% if table.page and table.dlux_show_footer %}
     <div class="dlux-table-footer">
         <div class="dlux-table-footer-meta">
             <div class="dlux-table-page-size" role="group" aria-label="{{ DLUX_STRINGS.table_rows_per_page|default:'Rows per page' }}">

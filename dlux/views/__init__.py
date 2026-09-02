@@ -92,6 +92,7 @@ from .scopes import (
 
 # Permission Groups / Presets
 from .groups import (
+    delete_group,
     manage_groups,
     get_group_form,
     save_group,

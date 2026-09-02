@@ -81,6 +81,21 @@ class ActivityLogRibbonTests(TestCase):
         # The hand-rolled heading it replaces must not linger alongside it.
         self.assertNotIn('page-title', html)
 
+    def test_the_page_is_the_shared_list_arrangement(self):
+        """First screen on `dlux/list_page.html`: wrapper, no card, modal outside."""
+        html = self.client.get(self.url).content.decode()
+
+        self.assertIn('dlux-list-page', html)
+        self.assertIn('dlux-table-shell', html)
+        self.assertNotIn('dlux-table-card', html)
+        self.assertLess(html.index('dlux-ribbon-header'), html.index('dlux-table-shell'))
+        # The detail modal comes from `list_modals`, outside the list wrapper.
+        self.assertGreater(
+            html.index('id="activityLogDetailModal"'),
+            html.index('dlux-table-shell'),
+        )
+        self.assertIn('activitylog/js/main.js', html)
+
     def test_search_and_year_lead_the_row_and_the_dates_do_not(self):
         html = self.client.get(self.url).content.decode()
         primary = html[html.index('row g-2 align-items-start mb-0'):html.index('id="dlux-ribbon-advanced"')]

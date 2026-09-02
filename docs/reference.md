@@ -177,7 +177,9 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/backup/upload/` | Upload an encrypted `.dlb` for restore |
 | `/sys/backup/restore/` | Start a system restore from an uploaded or existing `.dlb` |
 | `/sys/scopes/manage/` | Scope management |
+| `/sys/scopes/delete/<int:pk>/` | POST-only scope delete; blocked with related-object details when records still reference it |
 | `/sys/groups/manage/` | Permission group / preset management (requires `dlux.manage_groups`) |
+| `/sys/groups/<int:pk>/delete/` | POST-only group preset delete; ignores the preset sidecar and permission M2M but blocks on assigned users/history |
 | `/sys/groups/<int:pk>/members/` | Preset membership modal + who/which/when history |
 | `/sys/sections/` | Section management |
 | `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated internal-process version health response used directly by the update worker |
@@ -661,6 +663,7 @@ Titlebar keyboard shortcuts:
 - `Ctrl/Cmd+K` focuses the global search box.
 - `Ctrl/Cmd+J` opens Options through the rendered Options link.
 - `Ctrl/Cmd+H` opens Home through the rendered titlebar Home link.
+- `Ctrl/Cmd+U` opens User Management through the rendered Users link (`[data-dlux-users-link]` in the hub, `[data-titlebar-action-key="users"]` in titlebar-actions mode), so a reader without the directory permission has no link and the key does nothing.
 
 ### Global search
 
@@ -1045,8 +1048,8 @@ public-registration flags are the deliberate exception: their fields are injecte
 into other steps, so they stay hidden when inapplicable.
 
 `toggle_icon` is the glyph on the titlebar's sidebar-toggle button, set from
-Setup Step 7 (Sidebar) with the same searchable icon grid the sidebar builder
-uses. Its picker is disabled while the sidebar is off, and while
+Setup Step 7 (Sidebar) with the same searchable icon picker used for sidebar
+entry icons. Its picker is disabled while the sidebar is off, and while
 `collapse_mode` is `locked_expanded` — that mode hides the toggle on desktop
 (it still renders below 1100px). The grid is a disclosure: clicking the current icon expands it, picking one
 collapses it again, and it is only built while open — a ~600-button grid rendered
@@ -1316,6 +1319,7 @@ Dlux now owns the default table chrome for standard `django_tables2` tables.
 - the per-user page-size preference lives in `Profile.preferences["table_page_size"]`
 - built-in pagination and page-size controls are rendered by `dlux/tables/table.html`
 - the recommended handwritten-table base class is `dlux.tables.DluxTable`
+- the framework list-screen arrangement is `dlux/list_page.html` (Ribbon over table, no card); blocks `list_before_table`, `list_body`, `list_after_table`, `list_modals`, `list_page_attrs`
 
 Supported table Meta overrides:
 
@@ -1324,6 +1328,7 @@ Supported table Meta overrides:
 - `dlux_per_page = 20` to force a fixed default page size for one table
 - `dlux_per_page_options = (10, 20, 50, 100)` to override the built-in page-size choices
 - `dlux_actions = False` to disable default Dlux row actions
+- `dlux_show_footer = False` to drop the footer toolbar (page-size, density switcher, record summary, pagination); such a table renders unpaginated, since nothing would be left to reach page two
 
 Supported table extension hook:
 
@@ -1396,7 +1401,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 
 | Helper | Purpose |
 | --- | --- |
-| `build_archive_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. Field validation errors render visibly below the archive card; set `field.widget.attrs['data-max-file-bytes']` for immediate client size validation while retaining server-side validation. |
+| `build_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. Field validation errors render visibly below the file card; set `field.widget.attrs['data-max-file-bytes']` for immediate client size validation while retaining server-side validation. |
 | `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
 | `DluxLookupField(queryset=..., create={...})` | Turn a ForeignKey into a search-and-add box: type a name, reuse an exact match, get warned about a near miss, add what is genuinely new. See below. |
 
@@ -1579,7 +1584,7 @@ rather than coincidental.
 | `set_group_members(group, users, actor, manageable_users=None)` | Group-centric inverse of the above: set one preset's members, syncing `group.user_set` and audit rows |
 | `get_manageable_users_queryset(actor)` | Users an actor may add to/remove from presets, honouring the same tiers as the user directory |
 | `apply_public_registration_defaults(user)` | Apply the marked public-registration default scope and matching global/scope Group presets to an activated public-registration user |
-| `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
+| `collect_related_objects(instance, ignore_relations=None)` | Inspect reverse and related objects for reporting or delete warnings; `ignore_relations` names internal accessors to skip |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
 | `advanced_filter_helper()` | **Deprecated (removed in v1.9.0 — use `dlux.ribbon`).** Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
@@ -1610,6 +1615,7 @@ rather than coincidental.
 - section-management routes require `dlux.view_sections` or `dlux.manage_sections`
 - `filter_context_actions()` now properly respects `manage_sections` permission for section-related context menu actions
 - Options diagnostics are privileged-only; personal preference controls remain available to authenticated users
+- `SYSTEM_ROUTE_META` supplies a system route's `group_key` before model app-label inference, so `manage_users` stays under dlux System even though it is backed by `auth.User`
 
 ### Sidebar Permission Inference
 

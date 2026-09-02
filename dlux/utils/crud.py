@@ -113,13 +113,14 @@ def filter_context_actions(user, actions, manage_sections_perm=None):
     return filtered
 
 # Generic Detail - Function gathers reverse and many-to-many related objects.
-def collect_related_objects(instance):
+def collect_related_objects(instance, ignore_relations=None):
     """
     Introspects a model instance to find all related objects (Reverse FK, M2M).
     Returns a dictionary: { 'Verbose Name Plural': ['Item 1', 'Item 2'] }
     Used for Smart Delete functionality and Smart View.
     """
     related_data = {}
+    ignored = set(ignore_relations or ())
     
     # Identify M2M through models to skip their reverse relationships
     through_models = set()
@@ -143,6 +144,8 @@ def collect_related_objects(instance):
             try:
                 accessor = field.get_accessor_name()
                 if not accessor: continue
+                if accessor in ignored:
+                    continue
                 
                 related_msg = getattr(instance, accessor, None)
                 if related_msg:
@@ -166,6 +169,8 @@ def collect_related_objects(instance):
         elif hasattr(field, 'many_to_many') and field.many_to_many:
             # Forward M2M
             try:
+                if field.name in ignored:
+                    continue
                 manager = getattr(instance, field.name, None)
                 if manager:
                     qs = manager.all()[:20]
@@ -585,6 +590,8 @@ def set_field_attrs(form, request=None, inline_labels=False):
         else:
             if 'form-control' not in existing_class:
                 field.widget.attrs['class'] = f"{existing_class} form-control".strip()
+            if isinstance(widget, forms.Textarea) and field.widget.attrs.get('rows') in (None, 10, '10'):
+                field.widget.attrs['rows'] = 2
             
         # 3. Inject the shared DjangoLux datepicker hook for real date/datetime inputs.
         # Keep legacy .flatpickr compatibility so host apps do not need an immediate markup sweep.

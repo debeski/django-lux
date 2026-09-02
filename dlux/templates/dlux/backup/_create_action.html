@@ -1,7 +1,4 @@
-    <div class="d-flex flex-column align-items-stretch gap-1">
-        <a href="{% url 'options_view' %}" class="btn btn-outline-secondary btn-sm rounded-pill dlux-back-link dlux-backup-back align-self-end">
-            <i class="bi bi-arrow-left me-1"></i>{{ DLUX_STRINGS.sysbackup_back_to_options|default:'Back to Options' }}
-        </a>
+    <div class="dlux-backup-create-block">
         <form id="sysbackup-create-form"
               class="dlux-form dlux-backup-create-form"
               data-create-url="{% url 'system_backup_create' %}"
@@ -32,5 +29,5 @@
                 <i class="bi bi-file-zip-fill me-1"></i>{{ DLUX_STRINGS.sysbackup_create }}
             </button>
         </form>
-        <small id="sysbackup-create-status" class="text-muted text-center"></small>
+        <small id="sysbackup-create-status" class="text-muted"></small>
     </div>

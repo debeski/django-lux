@@ -140,7 +140,7 @@ class AccentEdgesSettingTests(TestCase):
             end = step_source.index("css_class='g-3 mb-3'", start)
             return step_source[start:end]
 
-        self.assertIn("'sidebar_accent_edge'", row_from(sidebar_step, 'sidebar_show_notification_badges'))
+        self.assertIn("'sidebar_accent_edge'", row_from(sidebar_step, 'sidebar_show_icons'))
         self.assertIn("'titlebar_accent_edge'", row_from(titlebar_step, 'titlebar_show_language_switcher'))
         self.assertIn("'sticky_table_headers'", row_from(layout_step, 'table_accent_edges'))
         self.assertIn("'zebra_striping'", row_from(layout_step, 'resizable_table_columns'))

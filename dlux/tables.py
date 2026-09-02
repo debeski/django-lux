@@ -49,6 +49,7 @@ class DluxTable(tables.Table):
         dlux_per_page = DEFAULT_TABLE_PAGE_SIZE
         dlux_per_page_options = TABLE_PAGE_SIZE_OPTIONS
         dlux_resizable_columns = True
+        dlux_show_footer = True
 
     def __init__(self, *args, **kwargs):
         # Before super(), because BoundColumns.__init__ resolves each column's
@@ -106,13 +107,39 @@ class DluxTable(tables.Table):
         if model is None or getattr(record, 'pk', None) is None:
             return []
 
+        app_label = model._meta.app_label
+        model_name = model._meta.model_name
+        section_action = bool(getattr(self, 'dlux_section_actions', False))
         record_name = self.get_dlux_record_name(record)
         payload = {
-            'app': model._meta.app_label,
+            'app': app_label,
             'model': self.get_dlux_model_name(),
             'id': record.pk,
             'name': record_name,
         }
+        if getattr(self, 'dlux_modal_manager_url', ''):
+            payload['delete_url'] = reverse('modal_delete', args=[app_label, model._meta.object_name, record.pk])
+
+        edit_action = {
+            'label': 'edit_label',
+            'icon': 'bi bi-pencil',
+            'type': 'event',
+            'event': 'dlux:record:edit',
+            'data': payload,
+            'permissions': [f"{app_label}.change_{model_name}"],
+        }
+        delete_action = {
+            'label': 'delete_label',
+            'icon': 'bi bi-trash',
+            'type': 'event',
+            'event': 'dlux:record:delete',
+            'data': payload,
+            'textClass': 'text-danger',
+            'permissions': [f"{app_label}.delete_{model_name}"],
+        }
+        if section_action:
+            edit_action['section_action'] = True
+            delete_action['section_action'] = True
 
         return [
             {
@@ -124,23 +151,8 @@ class DluxTable(tables.Table):
                 'dblclick': True,
             },
             {'type': 'divider'},
-            {
-                'label': 'edit_label',
-                'icon': 'bi bi-pencil',
-                'type': 'event',
-                'event': 'dlux:record:edit',
-                'data': payload,
-                'permissions': [f"{model._meta.app_label}.change_{model._meta.model_name}"],
-            },
-            {
-                'label': 'delete_label',
-                'icon': 'bi bi-trash',
-                'type': 'event',
-                'event': 'dlux:record:delete',
-                'data': payload,
-                'textClass': 'text-danger',
-                'permissions': [f"{model._meta.app_label}.delete_{model._meta.model_name}"],
-            },
+            edit_action,
+            delete_action,
         ]
 
     def get_dlux_row_actions(self, record, base_actions):
@@ -493,6 +505,14 @@ def _build_group_preset_row_actions(record):
                 "event": "dlux:group:toggle-public-default",
                 "data": {"url": reverse('toggle_group_public_registration_default', args=[record.pk])},
             },
+            {
+                "label": s.get("delete_label", "Delete"),
+                "icon": "bi bi-trash",
+                "type": "event",
+                "event": "dlux:group:delete",
+                "textClass": "text-danger",
+                "data": {"url": reverse('delete_group', args=[record.pk])},
+            },
         ])
     else:
         actions.append({
@@ -539,7 +559,7 @@ def _build_scope_row_actions(record):
             "label": s.get("delete_label", "Delete"),
             "icon": "bi bi-trash",
             "type": "event",
-            "event": "dlux:scope:delete-disabled",
+            "event": "dlux:scope:delete",
             "textClass": "text-danger",
             "data": {"url": reverse('delete_scope', args=[record.pk])},
         },

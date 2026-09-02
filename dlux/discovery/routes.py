@@ -276,6 +276,17 @@ def discover_routes_for(profile, lang_code=None, include_system_items=False):
     ]
 
 
+def route_allowed_for(entry, profile):
+    """Whether one already-discovered route passes a feature profile.
+
+    The public form of the profile test, for a caller that walks the catalog
+    itself because it needs to keep something `discover_routes_for` drops — the
+    ribbon's destinations keep dynamic-modal managers, which live in the hidden
+    `dlux` group but are perfectly good things to point a button at.
+    """
+    return _profile_allows(entry, profile)
+
+
 def discover_sidebar_catalog(lang_code=None, include_system_items=False):
     """Sidebar projection of the global catalog. Kept as the released public name."""
     return discover_routes_for(

@@ -256,6 +256,20 @@ value is renamed and the meta key is not, that option silently loses its icon an
 description and renders its bare value as both label and caption. Assert the key
 set equals the choice set.
 
+### Step 7b3 — A selector is a radio group, not a `<select>`
+
+Two habits break the moment a dropdown becomes a `DluxChoiceSelectorWidget`:
+
+- **Reading the value in JS.** `form.querySelector('[name="x"]').value` returns the
+  *first* option, whatever is checked. Use `getNamedFieldValue(form, 'x')` from
+  `setup/js/dom.js`, and bind `change` on every input in the group, not on one.
+  Marker attributes passed through `attrs={...}` land on each radio too, so
+  `querySelectorAll` — never `querySelector` — is what finds the control.
+- **Disabling an individual option.** A disabled `<option>` survived its `<select>`
+  being re-enabled; a disabled radio does not. `disabled_values` therefore stamps
+  `data-dlux-selector-locked="true"`, and `setNamedFieldDisabled()` leaves those
+  inputs disabled when a dependent section switches back on.
+
 ### Step 7c — New static directories need collecting
 
 A new directory under `dlux/static/` is **not** picked up by a running stack

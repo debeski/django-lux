@@ -12,19 +12,45 @@
     margin-block-end: 0;
 }
 
+/* The create form is the page's primary POST workflow, so it sits under the
+   ribbon actions as its own compact row. */
+.dlux-backup-create-row {
+    min-width: 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--dlux-backup-border);
+    border-radius: 1rem;
+    background: var(--dlux-backup-surface);
+    box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.28);
+}
+
+.dlux-backup-create-block {
+    display: grid;
+    gap: 0.35rem;
+}
+
+
 .dlux-backup-create-form {
-    display: flex;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(10.5rem, 1fr)) auto;
+    align-items: end;
     gap: 0.65rem;
 }
 
 .dlux-backup-create-form > div {
-    min-width: 10.5rem;
+    min-width: 0;
 }
 
 .dlux-backup-create-form .form-control,
 .dlux-backup-create-form .form-select {
     min-height: 2.6rem;
+}
+
+.dlux-backup-create-form .btn {
+    min-height: 2.6rem;
+}
+
+#sysbackup-create-status {
+    text-align: start;
 }
 
 .dlux-backup-notice {
@@ -66,14 +92,28 @@
     opacity: 1;
 }
 
+/* One block, not two mismatched controls: the drop card is a tall square and the
+   submit is a small pill, so side by side they never lined up and read as two
+   separate things. The card spans the width and the submit sits under it with the
+   help text it belongs to. */
 .dlux-backup-upload-form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
     gap: 0.65rem;
 }
 
-.dlux-backup-upload-form .archive-file-field {
+.dlux-backup-upload-form__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.dlux-backup-upload-form__footer .form-text {
+    flex: 1 1 14rem;
+}
+
+.dlux-backup-upload-form .dlux-file-field {
     min-width: 0;
 }
 
@@ -102,11 +142,39 @@
 
 @media (max-width: 1199.98px) {
     .dlux-backup-create-form {
-        align-items: stretch;
-        flex-direction: column;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .dlux-backup-create-form > div {
+    .dlux-backup-create-form > button {
+        justify-self: start;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .dlux-backup-create-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dlux-backup-create-form > button {
+        width: 100%;
+    }
+}
+
+/* Below the sticky-header threshold the shell is free to scroll, and on a phone it
+   has to. A backup table is eight columns; no amount of wrapping fits them into
+   390px, so the table set a ~683px floor that the Bootstrap columns then handed to
+   the whole page — the ribbon, the notices and the cards were all dragged wider
+   than the screen and clipped. Letting the table scroll inside its own card keeps
+   that floor out of the page. */
+@media (max-width: 991.98px) {
+    /* `.dlux-backup-page` is a grid, and a grid item's default `min-width: auto`
+       is its min-content — so the row could not shrink below the widest table and
+       handed that width to everything: the ribbon, the notices and the cards were
+       all dragged wider than the screen and clipped. Letting it shrink lets the
+       table's own `.dlux-table-scroll` do its job — the sticky-header rules above
+       992px are untouched. */
+    .dlux-backup-page > .row,
+    .dlux-backup-page .row > [class*="col-"] {
         min-width: 0;
     }
 }
