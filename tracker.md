@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Dlux v1.8.2 is tagged/published; v1.8.3 is the current unreleased manifest for settings/ribbon updates.
+- Dlux v1.8.3 is tagged/published on PyPI and GitHub Release; workflow run 33624156322 succeeded from commit 6f5b9cd.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 
@@ -45,7 +45,7 @@
   - [x] Stacked dynamic-modal managers for `is_section` records use section permissions and self-contained modal delete URLs, so custom section tables can expose guarded Delete without model-level delete perms (2026-09-01).
 
 ### One-line info about last verified Tests:
-- 2026-09-02: v1.8.3 release checks pass: `release_check --base-tag v1.8.2`, JS builder tests 61 OK, translation coverage 4 OK, full `dlux.tests` 2257 OK/2 skips, `/tmp` build + `twine check` OK, `git diff --check` OK.
+- 2026-09-02: v1.8.3 release checks pass: `release_check --base-tag v1.8.2`, JS builder tests 61 OK, translation coverage 4 OK, full `dlux.tests` 2257 OK/2 skips, `/tmp` build + `twine check` OK, GitHub release workflow OK.
 - 2026-09-01: `list_page.html` consumed downstream — gov's 3 generic lists render through it with no semantic diff (only the wrapper class changed); `list_page_attrs` carries a host project's own data hooks, which is what kept its `scoped_list.html` from being retired outright.
 - 2026-09-01: Gov stack after the file-widget rename — `collectstatic` copied 13 files; Caddy now serves `dlux-file` CSS/JS (23/23, 0 legacy) and every JS `[data-dlux-file-*]` hook is present in the rendered widget (library/scan absent only in their unguarded-off branches).
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
