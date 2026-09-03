@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.3 is tagged/published. The tree is v1.8.4 (UNTAGGED): the managed-asset public API and the data-reset permanent mode — both improve existing features, so it is a patch, not 1.9.0.
+- v1.8.5 is tagged/published. The tree is v1.8.6 (UNTAGGED): role-aware runtime-volume guard (Celery reports, web reads) + the state-row reconcile the 1.8.0 tick dropped — both bug fixes, so a patch.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 
@@ -24,7 +24,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
-- Inline updates require a writable runtime volume; no fallback path is valid.
+- Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
 - 2026-08-31: `SystemBackupViewTests.test_restore_requires_password_and_confirmation` leaves restore status `pending` in the gov container; isolated from Backup page layout changes.
 
 ### Incomplete Tasks:
@@ -47,15 +47,15 @@
   - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-04: Guard + reconcile — full `dlux.tests` 2328 OK (7 new in `test_package_handoff`, 4 in `test_updater`), `makemigrations --check` clean, `release_check --base-tag v1.8.5` exit 0 on the 1.8.6 manifest.
 - 2026-09-02: v1.9.0 green — full `dlux.tests` 2294 run, 2292 OK (25 new in `test_asset_fields`); the only 2 errors are `test_manifest_schema_v2` shelling out to `git tag`, which the sandbox now denies (`.git/config: Operation not permitted`) — environmental, re-run outside it before release.
 - 2026-09-01: `list_page.html` consumed downstream — gov's 3 generic lists render through it with no semantic diff (only the wrapper class changed); `list_page_attrs` carries a host project's own data hooks, which is what kept its `scoped_list.html` from being retired outright.
 - 2026-09-01: Gov stack after the file-widget rename — `collectstatic` copied 13 files; Caddy now serves `dlux-file` CSS/JS (23/23, 0 legacy) and every JS `[data-dlux-file-*]` hook is present in the rendered widget (library/scan absent only in their unguarded-off branches).
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
-- 2026-09-01: Activity Log on the list page — new arrangement test plus `test_activitylog`/`test_views`/`test_tables`/`test_ribbon` 436 OK; live page renders wrapper+ribbon+20 rows, modal outside the wrapper; gov `check` and storage 142 OK.
 
 ### One-line info about last time edited Docs:
+- 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).
 - 2026-09-02: `docs/managed-assets.md` gained the project-facing asset-field API; `docs/developer-guide.md` names `ManagedAssetField` over `ImageField`; `docs/deprecation-countdown.md` caller lists corrected (both removals stay targeted at v1.9.0).
-- 2026-09-01: `docs/deprecation-countdown.md` gained the `archive_file` → `file_field` rename table and its v1.9.0 removal target; `docs/reference.md`/`README.md`/`developer-guide.md` now name `build_file_field`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

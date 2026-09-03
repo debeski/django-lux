@@ -7,7 +7,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from dlux import __version__
-from dlux.updater.service import UpdateService, queue_daily_check_if_due, updates_enabled
+from dlux.updater import UpdaterError
+from dlux.updater.service import (
+    UpdateService,
+    queue_daily_check_if_due,
+    record_worker_volume_report,
+    updates_enabled,
+)
 from dlux.updater.agent_bridge import (
     consume_agent_requests,
     publish_agent_results,
@@ -33,7 +39,15 @@ class Command(BaseCommand):
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
 
-        service = UpdateService()
+        try:
+            service = UpdateService()
+        except UpdaterError as exc:
+            # This process owns the write side, so its verdict is the one the
+            # panel and the queue guard read. Record it before dying, or the
+            # deployment shows nothing but a worker that keeps restarting.
+            record_worker_volume_report(str(exc))
+            raise
+        record_worker_volume_report()
         state = service.reconcile()
         if state.degraded:
             # Never wedge the site behind a maintenance screen on a degraded
@@ -90,6 +104,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("DjangoLux update worker is ready."))
 
             while not stopping:
+                record_worker_volume_report()
                 consume_agent_requests(service)
                 processed = service.process_next()
                 if service.restart_worker:

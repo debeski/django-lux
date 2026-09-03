@@ -21,7 +21,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from django.conf import settings
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from dlux.updater import package_request
 from dlux.updater.runtime import RuntimeStore
@@ -249,10 +249,10 @@ class UnusableRuntimeVolumeTests(SimpleTestCase):
         self.unwritable = str(self.locked / "runtime")
 
     def _problem(self, root):
-        from dlux.updater.service import runtime_volume_problem
+        from dlux.updater.service import local_runtime_volume_problem
 
         with override_settings(DLUX_UPDATE_RUNTIME_ROOT=root):
-            return runtime_volume_problem()
+            return local_runtime_volume_problem()
 
     def test_a_writable_path_reports_no_problem(self):
         self.assertEqual(self._problem(f"{self._tmp.name}/runtime"), "")
@@ -293,9 +293,112 @@ class UnusableRuntimeVolumeTests(SimpleTestCase):
         # The reason is computed only when updates are switched on, so a disabled
         # deployment never shows a volume complaint it cannot act on.
         self.assertIn(
-            "runtime_volume_problem() if updates_enabled() else",
+            "runtime_volume_problem(state) if updates_enabled() else",
             inspect.getsource(service.serialize_state),
         )
+
+
+class RuntimeVolumeAuthorityTests(TestCase):
+    """Whoever writes the runtime volume decides whether updates can run.
+
+    Celery owns the write loop since 1.8.0 and web mounts the same volume
+    read-only, so web probing its own mount answered a question nobody asked and
+    disabled the panel — and refused a manual check — on a healthy deployment.
+    Web reads the writer's recorded verdict instead.
+    """
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.locked = Path(self._tmp.name) / "locked"
+        self.locked.mkdir()
+        os.chmod(self.locked, 0o500)
+        self.addCleanup(os.chmod, self.locked, 0o700)
+        self.unwritable = str(self.locked / "runtime")
+        self.writable = f"{self._tmp.name}/runtime"
+
+    def _read_only_web(self):
+        return override_settings(
+            DLUX_INLINE_UPDATES_ENABLED=True, DLUX_UPDATE_RUNTIME_ROOT=self.unwritable
+        )
+
+    def test_the_workers_verdict_beats_this_process_mount(self):
+        from dlux.updater.service import get_ui_state, record_worker_volume_report
+
+        if os.geteuid() == 0:
+            self.skipTest("root can write anywhere; the probe cannot be exercised")
+        record_worker_volume_report()
+        with self._read_only_web():
+            state = get_ui_state()
+        self.assertEqual(state["unavailable_reason"], "")
+        self.assertTrue(state["enabled"])
+
+    def test_a_read_only_web_mount_no_longer_refuses_queueing(self):
+        from dlux.updater.service import queue_run, record_worker_volume_report
+
+        if os.geteuid() == 0:
+            self.skipTest("root can write anywhere; the probe cannot be exercised")
+        record_worker_volume_report()
+        with self._read_only_web():
+            run = queue_run("check", username="tester")
+        self.assertEqual(run.action, "check")
+        self.assertEqual(run.status, "queued")
+
+    def test_the_workers_problem_is_what_the_panel_reports(self):
+        from dlux.updater.service import get_ui_state, record_worker_volume_report
+
+        record_worker_volume_report("The runtime volume at /opt/dlux-runtime is not writable.")
+        with override_settings(DLUX_INLINE_UPDATES_ENABLED=True,
+                               DLUX_UPDATE_RUNTIME_ROOT=self.writable):
+            state = get_ui_state()
+        self.assertIn("not writable", state["unavailable_reason"])
+        self.assertFalse(state["enabled"])
+
+    def test_without_a_report_the_local_probe_still_stands_in(self):
+        """A laptop, a fresh install, a single-process deployment."""
+        from dlux.updater.service import runtime_volume_problem
+
+        if os.geteuid() == 0:
+            self.skipTest("root can write anywhere; the probe cannot be exercised")
+        with self._read_only_web():
+            self.assertIn("not writable", runtime_volume_problem())
+
+    def test_a_worker_that_went_quiet_refuses_the_queue(self):
+        """Nothing would drain the run — the original guard's real concern."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from dlux.models import DluxUpdateState
+        from dlux.updater import UpdaterError
+        from dlux.updater.service import get_ui_state, queue_run, record_worker_volume_report
+
+        record_worker_volume_report()
+        DluxUpdateState.objects.filter(pk=1).update(
+            worker_seen_at=timezone.now() - timedelta(hours=1)
+        )
+        with override_settings(DLUX_INLINE_UPDATES_ENABLED=True,
+                               DLUX_UPDATE_RUNTIME_ROOT=self.writable):
+            self.assertTrue(get_ui_state()["worker_stale"])
+            with self.assertRaises(UpdaterError) as caught:
+                queue_run("check")
+        self.assertIn("has not reported", str(caught.exception))
+
+    def test_the_report_is_not_rewritten_on_every_tick(self):
+        """The state tick fires every few seconds; this is one row."""
+        from dlux.updater.service import record_worker_volume_report
+
+        first = record_worker_volume_report()
+        stamp = first.worker_seen_at
+        second = record_worker_volume_report()
+        self.assertEqual(second.worker_seen_at, stamp)
+
+    def test_a_changed_verdict_is_written_immediately(self):
+        from dlux.updater.service import record_worker_volume_report, worker_volume_report
+
+        record_worker_volume_report()
+        record_worker_volume_report("volume gone")
+        self.assertEqual(worker_volume_report()["problem"], "volume gone")
 
 
 class ProgressTests(SimpleTestCase):

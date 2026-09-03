@@ -367,8 +367,17 @@ def _check_updater_runtime_volume(ctx):
 
     Without this the failure is invisible until someone clicks Update: the run
     queues and nothing can drain it.
+
+    "Writable" means writable *by the process that writes it* — Celery. Doctor
+    usually runs in web, whose mount is read-only by design, so it reports the
+    worker's recorded verdict rather than its own probe.
     """
-    from .updater.service import runtime_volume_problem, updates_enabled
+    from .updater.service import (
+        local_runtime_volume_problem,
+        runtime_volume_problem,
+        updates_enabled,
+        worker_volume_report,
+    )
 
     if not updates_enabled():
         return skip('Skipped: inline updates are disabled for this deployment.')
@@ -379,6 +388,19 @@ def _check_updater_runtime_volume(ctx):
             'Mount the dlux_runtime volume, or set DLUX_UPDATE_RUNTIME_ROOT to a writable path.',
         )
     root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
+    report = worker_volume_report()
+    if report is None:
+        return ok(f'Runtime volume at {root} is writable from this process; '
+                  'no update worker has reported yet.')
+    if report['stale']:
+        return warn(
+            f"The update worker last reported the runtime volume at {root} writable "
+            f"at {report['seen_at'].isoformat()}, and has not reported since.",
+            'Check that the celery worker and beat services are running.',
+        )
+    if local_runtime_volume_problem():
+        return ok(f'The update worker reports the runtime volume at {root} writable '
+                  '(this process holds it read-only, which is the expected web mount).')
     return ok(f'Runtime volume at {root} is writable.')
 
 

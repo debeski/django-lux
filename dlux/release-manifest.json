@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.5",
+  "version": "1.8.6",
   "display": {
-    "summary": "Logout honours a mounted URL prefix, projects can name their own logout destination, and a detail modal renders a model's own computed rows without forking the partial.",
+    "summary": "The runtime-volume guard belongs to whichever process writes the volume, so a read-only web mount no longer disables the update card or refuses a manual check.",
     "highlights": [
-      "Logout resolved through the URLconf: a project mounting dlux under /staff/ no longer lands on a 404.",
-      "New DLUX_LOGOUT_REDIRECT_URL lets a project set its own logout destination, which Django's own setting cannot do here.",
-      "Detail modals render extra_detail_fields from get_modal_context(), retiring the forked partial projects needed for computed rows."
+      "Celery records its runtime-volume verdict on the state row; web reads it instead of probing a mount it holds read-only.",
+      "Queueing is refused with a named reason when the update worker has not reported for ten minutes.",
+      "Deployment Doctor's updater.runtime_volume check reports the writer's verdict, not the local process's mount."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.5"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.6"
   },
   "requires": {
     "updater_schema": ">=1",

@@ -37,6 +37,13 @@ class DluxUpdateState(models.Model):
     # until the admin un-skips it. A list of canonical version strings. Nullable so
     # the AddField stays inline-safe (readers coalesce None -> []).
     skipped_versions = models.JSONField(default=list, blank=True, null=True, verbose_name="Skipped Versions")
+    # The runtime-volume writer's own verdict. Celery owns the write side, so
+    # only it can say whether the volume updates run against is usable; web
+    # mounts that volume read-only and reads this instead of probing it.
+    worker_seen_at = models.DateTimeField(blank=True, null=True, verbose_name="Update Worker Seen At")
+    worker_volume_problem = models.TextField(
+        blank=True, default="", db_default="", verbose_name="Update Worker Volume Problem",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     class Meta:

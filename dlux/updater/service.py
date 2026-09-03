@@ -33,6 +33,10 @@ from .runtime import RuntimeStore
 logger = logging.getLogger("dlux.updater")
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "rolled_back"})
+# The state tick runs every few seconds; the writer's report is only rewritten
+# once a minute, and counts as gone after ten.
+WORKER_REPORT_MIN_INTERVAL = 60
+WORKER_REPORT_STALE_AFTER = 600
 _SECRET_KEY_PATTERN = r"[A-Za-z0-9_.-]*(?:password|secret|token|authorization)[A-Za-z0-9_.-]*"
 _SECRET_VALUE_PATTERN = r'''(?:(?:bearer|basic)\s+\S+|"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s,;]+)'''
 SECRET_RE = re.compile(
@@ -60,13 +64,16 @@ def composer_executes_updates():
     return mode != "inline"
 
 
-def runtime_volume_problem():
-    """Why the runtime volume is unusable, or "" when it is fine.
+def local_runtime_volume_problem():
+    """Why *this process* cannot write the runtime volume, or "" when it can.
 
-    A pure stat probe — no mkdir — so the panel can call it per request. Without
-    it an operator on a deployment with no writable volume gets the worst
-    outcome available: the update button is offered, the click succeeds, and the
-    run sits at "queued" forever because nothing can drain it.
+    A pure stat probe — no mkdir — so the panel can call it per request.
+
+    It answers for the calling process only. Since 1.8.0 the web container
+    mounts the runtime volume read-only and Celery owns every write, so a
+    failure here is the normal healthy arrangement in web and says nothing about
+    whether updates can run. ``runtime_volume_problem()`` is the deployment-wide
+    verdict; call this one only when you mean the current process.
 
     Deliberately NOT a fallback to some other writable directory. The supervisor
     and Composer both resolve releases through the path in
@@ -86,6 +93,88 @@ def runtime_volume_problem():
             "DLUX_INLINE_UPDATES_ENABLED off outside a Compose deployment."
         )
     return ""
+
+
+def worker_volume_report(state=None):
+    """What the runtime-volume writer last reported, or None if it never has.
+
+    ``{"seen_at": datetime, "problem": str, "stale": bool}``. The writer is the
+    only process whose probe is worth anything, so this is what every reader
+    consults. Pass an already-loaded state row to avoid a second query.
+    """
+    if state is None:
+        try:
+            state = (
+                _state_model().objects
+                .filter(pk=1)
+                .only("worker_seen_at", "worker_volume_problem")
+                .first()
+            )
+        except Exception:
+            return None
+    seen_at = getattr(state, "worker_seen_at", None)
+    if not seen_at:
+        return None
+    return {
+        "seen_at": seen_at,
+        "problem": str(getattr(state, "worker_volume_problem", "") or ""),
+        "stale": timezone.now() - seen_at > timedelta(seconds=WORKER_REPORT_STALE_AFTER),
+    }
+
+
+def record_worker_volume_report(problem=""):
+    """Stamp the writer's own runtime-volume verdict on the state row.
+
+    Celery owns the write side of the runtime volume, so it is the only process
+    whose writability probe describes the mount updates actually run against.
+    Recording the verdict here is what lets web decide from a read-only mount:
+    it reads this instead of probing a volume it is deliberately not given write
+    access to. Rate-limited because the state tick fires every few seconds.
+    """
+    problem = _sanitize(problem, 1000)
+    try:
+        state = _state_model().load()
+    except Exception:
+        return None
+    now = timezone.now()
+    fields = ["worker_seen_at"]
+    if state.worker_volume_problem != problem:
+        state.worker_volume_problem = problem
+        fields.append("worker_volume_problem")
+    elif (
+        state.worker_seen_at
+        and now - state.worker_seen_at < timedelta(seconds=WORKER_REPORT_MIN_INTERVAL)
+    ):
+        return state
+    state.worker_seen_at = now
+    state.save(update_fields=fields + ["updated_at"])
+    return state
+
+
+def runtime_volume_problem(state=None):
+    """Why inline updates cannot proceed in this deployment, or "" when they can.
+
+    The authority is whichever process writes the runtime volume — Celery since
+    1.8.0 — because only its probe reflects the mount an update runs against.
+    Web mounts the same volume read-only by design, so its own probe answers a
+    different question and must never decide for the deployment; that leftover
+    is what disabled the panel and refused queueing on a perfectly healthy
+    read-only web mount.
+
+    Until a writer has reported — a fresh install whose worker has not ticked
+    yet, a single-process deployment, a management command on a laptop — the
+    local probe is the only evidence there is, so it still stands in.
+    """
+    report = worker_volume_report(state)
+    if report is not None:
+        return report["problem"]
+    return local_runtime_volume_problem()
+
+
+def worker_report_is_stale(state=None):
+    """The writer reported once and then went quiet: a queued run would sit."""
+    report = worker_volume_report(state)
+    return bool(report and report["stale"])
 
 
 def inline_updates_available():
@@ -129,10 +218,13 @@ def _sanitize(value, limit=4000):
 
 
 def serialize_state(state):
-    unavailable_reason = runtime_volume_problem() if updates_enabled() else ""
+    report = worker_volume_report(state)
+    unavailable_reason = runtime_volume_problem(state) if updates_enabled() else ""
     return {
         "enabled": updates_enabled() and not unavailable_reason,
         "unavailable_reason": unavailable_reason,
+        "worker_seen_at": report["seen_at"].isoformat() if report else None,
+        "worker_stale": bool(report and report["stale"]),
         "baked_version": state.baked_version,
         "active_version": state.active_version,
         "previous_version": state.previous_version,
@@ -193,6 +285,8 @@ def get_ui_state():
             "degraded_reason": "",
             "active_run_token": "",
             "skipped_versions": [],
+            "worker_seen_at": None,
+            "worker_stale": False,
         }
     return serialize_state(state)
 
@@ -267,7 +361,15 @@ def queue_run(action, username="", backup_mode=None):
     problem = runtime_volume_problem()
     if problem:
         # Refuse here rather than letting the run queue: nothing could drain it.
+        # The verdict is the writer's, not this process's — web queues intent
+        # from a read-only mount and is not entitled to an opinion on it.
         raise UpdaterError(problem)
+    if worker_report_is_stale():
+        raise UpdaterError(
+            "The DjangoLux update worker has not reported for over "
+            f"{WORKER_REPORT_STALE_AFTER // 60} minutes, so a queued run would not be "
+            "picked up. Check that the Celery worker and beat services are running."
+        )
     Run = _run_model()
     if action not in {Run.ACTION_CHECK, Run.ACTION_APPLY, Run.ACTION_ROLLBACK}:
         raise UpdaterError("The requested updater action is invalid.")
@@ -307,6 +409,56 @@ def queue_run(action, username="", backup_mode=None):
         state.active_run_token = run.token
         state.save(update_fields=["active_run_token", "updated_at"])
     return run
+
+
+_PROCESS_RECONCILED = False
+
+
+def reconcile_state_if_due(service):
+    """Refresh the state row against the runtime when it can have drifted.
+
+    ``UpdateService.reconcile()`` is what keeps ``baked_version``,
+    ``active_version`` and the rollback target true. Its only caller was
+    ``dlux_update_worker`` at startup, and when the Celery state tick replaced
+    that worker in 1.8.0 the call was not carried over — so an upgraded
+    deployment kept rendering the versions recorded before the upgrade and kept
+    offering a rollback to a release that is no longer installed anywhere. The
+    pre-start ``dlux_reconcile`` cannot stand in for it: that command runs before
+    migrations and deliberately never touches the database.
+
+    Runs once per worker process — the boot case, after ``migrator`` — and after
+    that only when the recorded baked version stops matching the package actually
+    installed, which is a project-image swap under a running worker. Reconcile
+    reads the volume and writes the state row; the tick fires every few seconds.
+    """
+    global _PROCESS_RECONCILED
+
+    if _PROCESS_RECONCILED:
+        try:
+            recorded = (
+                _state_model().objects
+                .filter(pk=1)
+                .values_list("baked_version", flat=True)
+                .first()
+            )
+        except Exception:
+            return None
+        if recorded is None or recorded == get_baked_version():
+            return None
+    try:
+        state = service.reconcile()
+    except Exception:
+        logger.warning(
+            "The DjangoLux state reconcile failed; the reported versions may be stale.",
+            exc_info=True,
+        )
+        return None
+    _PROCESS_RECONCILED = True
+    if service.restart_worker:
+        # Nothing to do here: reconcile bumped the generation, and the supervisor
+        # this worker runs under restarts it onto the selected release.
+        logger.info("The runtime release changed during reconcile; awaiting a supervisor restart.")
+    return state
 
 
 def queue_daily_check_if_due():

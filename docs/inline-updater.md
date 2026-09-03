@@ -23,6 +23,22 @@ They live on `celery` because the steps inherit its writable runtime mount. They
 
 Celery Beat writes DjangoLux's small state/intent tick. Composer performs all network and container operations. This separation means a failed candidate can be rolled back by a process that is not being replaced.
 
+### What refreshes the reported versions
+
+`dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.
+
+Between 1.8.0 and 1.8.5 nothing called it, because the `dlux-updater` startup that used to was retired without carrying the call over. On a stack upgraded in that window the Options card reports the versions recorded before the upgrade, and its rollback button offers a release that is no longer installed — do not press it. Upgrading to 1.8.6 corrects the row on the first tick after the worker starts.
+
+### Who decides the runtime volume is usable
+
+Only the process that writes the volume. `web` may mount `dlux_runtime` read-only — that is the intended arrangement — so a writability probe in `web` describes the web mount, not the mount an update runs against.
+
+Celery records its own verdict on the update state row each tick (`worker_seen_at`, `worker_volume_problem`). The update panel, the queue guard and `updater.runtime_volume` in Deployment Doctor all read that recorded verdict; `web` never probes for itself. Until a writer has reported at all — a fresh install, a single-process deployment, a management command on a laptop — the calling process's own probe still stands in, because it is the only evidence available.
+
+A writer that reported and then went quiet for more than ten minutes is treated as gone: queueing is refused with that reason rather than accepting a run nothing would drain, and the state exposes `worker_stale`.
+
+Before 1.8.6 the guard probed locally in every process, so a read-only `web` mount disabled the update card and refused manual checks on a healthy stack. Granting `web` write access worked around that; it is no longer needed.
+
 ## Update handoff
 
 After superuser approval, DjangoLux writes an update request on `dlux_runtime`. Composer publishes its acknowledgement and the latest installable release metadata. An absent availability document is **unknown**, never "up to date".

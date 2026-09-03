@@ -81,12 +81,28 @@ if shared_task is not None:
         if not cache.add('dlux.state_tick.lock', '1', 120):
             return
         try:
+            from .updater import UpdaterError
             from .updater.agent_bridge import (
                 consume_agent_requests, publish_agent_results, publish_agent_snapshot,
             )
-            from .updater.service import UpdateService
+            from .updater.service import (
+                UpdateService, reconcile_state_if_due, record_worker_volume_report,
+            )
 
-            service = UpdateService()
+            try:
+                service = UpdateService()
+            except UpdaterError as exc:
+                # Celery owns the runtime volume, so this is the only process
+                # whose writability verdict means anything. Record it and stop:
+                # web reads it from the state row instead of probing a mount it
+                # is deliberately given read-only.
+                record_worker_volume_report(str(exc))
+                return
+            record_worker_volume_report()
+            # Before any intent is processed: the versions the Options card shows
+            # (and the rollback target it offers) come from the state row, and
+            # nothing else refreshes it against the installed package.
+            reconcile_state_if_due(service)
             consume_agent_requests(service)
             service.process_next()
             service.tick_image_update()

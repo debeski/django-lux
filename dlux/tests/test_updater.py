@@ -513,6 +513,80 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.baked_version, "1.2.2")
             self.assertEqual(reconciled.active_version, "1.2.3")
 
+    def test_the_state_tick_reconciles_a_row_left_behind_by_an_upgrade(self):
+        """The 1.8.0 regression: nothing called reconcile() any more.
+
+        `dlux-updater` reconciled at startup; the Celery tick that replaced it
+        did not, so a row written before an image upgrade kept naming the old
+        versions — and kept offering a rollback to a release that is gone.
+        """
+        from dlux.updater import service as service_module
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.7.0").mkdir()
+            store.write_active("1.7.0", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.5.10"
+            state.active_version = "1.7.0"
+            state.previous_version = "1.6.1"
+            state.latest_version = "1.7.0"
+            state.latest_compatible = True
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch.object(service_module, "_PROCESS_RECONCILED", False), mock.patch(
+                "dlux.updater.service.get_baked_version", return_value="1.8.4"
+            ):
+                reconciled = service_module.reconcile_state_if_due(service)
+            self.assertEqual(reconciled.baked_version, "1.8.4")
+            self.assertEqual(reconciled.active_version, "1.8.4")
+            self.assertEqual(reconciled.previous_version, "")
+            self.assertEqual(reconciled.latest_version, "")
+            self.assertFalse(reconciled.latest_compatible)
+
+    def test_reconcile_does_not_run_on_every_tick(self):
+        """It reads the volume and writes the row; the tick fires every few seconds."""
+        from dlux.updater import service as service_module
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.4"
+            state.active_version = "1.8.4"
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch.object(service_module, "_PROCESS_RECONCILED", True), mock.patch(
+                "dlux.updater.service.get_baked_version", return_value="1.8.4"
+            ), mock.patch.object(service, "reconcile") as reconcile:
+                self.assertIsNone(service_module.reconcile_state_if_due(service))
+            reconcile.assert_not_called()
+
+    def test_a_swapped_image_reconciles_without_a_worker_restart(self):
+        from dlux.updater import service as service_module
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.4"
+            state.active_version = "1.8.4"
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch.object(service_module, "_PROCESS_RECONCILED", True), mock.patch(
+                "dlux.updater.service.get_baked_version", return_value="1.8.6"
+            ):
+                reconciled = service_module.reconcile_state_if_due(service)
+            self.assertEqual(reconciled.baked_version, "1.8.6")
+
+    def test_a_failing_reconcile_never_takes_the_tick_down(self):
+        from dlux.updater import service as service_module
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = UpdateService(store=RuntimeStore(temp_dir).ensure())
+            with mock.patch.object(service_module, "_PROCESS_RECONCILED", False), mock.patch.object(
+                service, "reconcile", side_effect=OSError("volume gone")
+            ):
+                self.assertIsNone(service_module.reconcile_state_if_due(service))
+
     def test_newer_rebuilt_image_supersedes_older_volume_pointer(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()

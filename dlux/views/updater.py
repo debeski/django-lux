@@ -111,9 +111,11 @@ def dlux_update_check_view(request):
         return JsonResponse({"ok": False, "error": "Inline DjangoLux updates are disabled."}, status=409)
     State = apps.get_model("dlux", "DluxUpdateState")
     state = State.load()
-    # Short anti-spam debounce: a manual check queues a real PyPI index fetch, so
-    # collapse rapid repeat clicks onto the most recent result. Kept brief (10s) so
-    # an operator who just published a release can re-check almost immediately.
+    # Short anti-spam debounce: a manual check queues a run for the worker to
+    # drain — re-reading Composer's availability document, or a real PyPI index
+    # fetch under the legacy inline executor — so collapse rapid repeat clicks
+    # onto the most recent result. Kept brief (10s) so an operator who just
+    # published a release can re-check almost immediately.
     if (
         not state.active_run_token
         and state.last_checked_at
