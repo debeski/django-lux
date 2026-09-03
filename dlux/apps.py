@@ -41,7 +41,12 @@ class DluxConfig(AppConfig):
             if not getattr(settings, 'LOGIN_REDIRECT_URL', None):
                 settings.LOGIN_REDIRECT_URL = DEFAULT_HOME_URL
             if not getattr(settings, 'LOGOUT_REDIRECT_URL', None):
-                settings.LOGOUT_REDIRECT_URL = '/accounts/login/'
+                # Lazy: URLs are not loaded at app-ready, and the path depends on
+                # where the host project mounts `dlux.urls` — '/staff/' as often
+                # as the root.
+                from django.urls import reverse_lazy
+
+                settings.LOGOUT_REDIRECT_URL = reverse_lazy('login')
         except Exception:
             pass
         

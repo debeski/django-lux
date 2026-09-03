@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.5
+
+- **Logout Honours The Mount Prefix**: `LOGOUT_REDIRECT_URL` was hardcoded to `/accounts/login/` in `_sync_auth_redirects` and in the app-ready default. A project mounting `dlux.urls` under a prefix — `/staff/` in both sales-crm editions — was sent to a URL that does not exist and 404s. Both now resolve through the URLconf (`reverse`, `reverse_lazy` at app-ready), so the prefix comes along.
+- **`DLUX_LOGOUT_REDIRECT_URL`**: A project can now name its own logout destination. Django's `LOGOUT_REDIRECT_URL` cannot serve for this — the middleware rewrites it on every request, so a project's value is replaced before it is ever used. Unset, dlux keeps deciding: the public page when public root access is on, the login page otherwise.
+- **Detail Modals Render A Model's Own Rows**: `dlux/helpers/dynamic_modal_detail.html` now renders `extra_detail_fields` from `get_modal_context()` after the generated rows, and suppresses the "no details" placeholder when a model supplies only derived ones. `auto_detail_fields` is built from stored fields *after* that context is merged, so a computed value — a price converted at today's rate — had nowhere to go and every project needing one had to fork this partial.
+
 ## v1.8.4
 
 - **Managed Assets Are A Public API**: `ManagedAssetField(kind='image')` declares an asset-backed file field in one line — a `ManagedAsset` foreign key with `null`/`blank`/`PROTECT` already right, plus the kind and namespace a picker needs. `resolve_asset_selection()`, `apply_asset_pickers()`, `apply_asset_selections()`, `build_asset_picker()`, `build_asset_field()` and `ManagedAssetFormMixin` are exported from `dlux.forms`, and `AssetPickerField`/`AssetSelection` are exported alongside them instead of only reachable at `dlux.forms.assets`. The resolve rule — upload wins, then a chosen asset, then clear, then keep, then adopt a legacy file — was a private method on the System Settings form until now; that form calls the public function like any other caller.

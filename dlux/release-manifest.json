@@ -1,16 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.4",
+  "version": "1.8.5",
   "display": {
-    "summary": "Managed assets become a public API any project can declare, with namespaced pools and permission-checked instant upload; plus a permanent mode for data reset.",
+    "summary": "Logout honours a mounted URL prefix, projects can name their own logout destination, and a detail modal renders a model's own computed rows without forking the partial.",
     "highlights": [
-      "New ManagedAssetField(kind, namespace, reads) declares an asset-backed file field in one line, with the picker, upload and save-time resolution supplied.",
-      "Assets carry a namespace, so a picker lists one pool instead of the whole library and de-duplication cannot reach across pools.",
-      "Instant upload works on any project form: the endpoint reads the field's own declaration for namespace, kind and permission instead of demanding a superuser.",
-      "resolve_asset_selection, apply_asset_pickers, build_asset_field and ManagedAssetFormMixin are public; System Settings now consumes them.",
-      "Data reset gained a permanent mode behind a typed confirmation, stopped offering line models, and signals projects to rebuild derived figures."
+      "Logout resolved through the URLconf: a project mounting dlux under /staff/ no longer lands on a 404.",
+      "New DLUX_LOGOUT_REDIRECT_URL lets a project set its own logout destination, which Django's own setting cannot do here.",
+      "Detail modals render extra_detail_fields from get_modal_context(), retiring the forked partial projects needed for computed rows."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.5"
   },
   "requires": {
     "updater_schema": ">=1",

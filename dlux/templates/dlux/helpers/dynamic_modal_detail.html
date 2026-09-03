@@ -16,9 +16,35 @@
             </div>
         </div>
     {% empty %}
+        {% if not extra_detail_fields %}
         <div class="col-12 text-center text-muted py-4">
             <i class="bi bi-inbox fs-1 d-block mb-2"></i>
             {{ DLUX_STRINGS.no_details|default:"No details recorded." }}
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    {% comment %}
+    Rows a model computes for itself, from `get_modal_context()`.
+
+    `auto_detail_fields` is built from stored fields, and it is built *after*
+    that context is merged, so a model cannot append to it — a derived value
+    (a price converted at today's rate, a total that is a property) has nowhere
+    else to go. Returning `extra_detail_fields` is how a model adds one, and
+    they render after the generated rows.
+    {% endcomment %}
+    {% for field in extra_detail_fields %}
+        <div class="col-md-6 col-lg-4">
+            <div class="mb-3">
+                <div class="info-label text-muted small fw-bold text-uppercase tracking-wider mb-1">{{ field.label }}</div>
+                <div class="info-value text-dark fw-semibold">
+                    {% if field.is_html %}
+                        {{ field.value|safe }}
+                    {% else %}
+                        {{ field.value }}
+                    {% endif %}
+                </div>
+            </div>
         </div>
     {% endfor %}
 </div>

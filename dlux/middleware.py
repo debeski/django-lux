@@ -381,6 +381,22 @@ class DluxMiddleware:
         except Exception:
             pass
 
+    @staticmethod
+    def _login_url():
+        """The login page's real path, wherever `dlux.urls` is mounted.
+
+        A hardcoded '/accounts/login/' is only correct for a project that mounts
+        dlux at the root. Both sales-crm editions mount it under `/staff/`, so
+        logging out sent them to a URL that 404s. `reverse()` reads the
+        URLconf, so the prefix comes along.
+        """
+        from django.urls import NoReverseMatch, reverse
+
+        try:
+            return reverse('login')
+        except NoReverseMatch:
+            return '/accounts/login/'
+
     def _sync_auth_redirects(self):
         """
         Dynamically update LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL
@@ -400,10 +416,17 @@ class DluxMiddleware:
             targets = self._resolve_root_targets(config)
             settings.LOGIN_REDIRECT_URL = targets['home_url']
 
-            if config.get('public_root', False):
+            # `LOGOUT_REDIRECT_URL` is rewritten here on every request, so a
+            # project cannot express a preference through it — its value would be
+            # ours by the second request. `DLUX_LOGOUT_REDIRECT_URL` is the
+            # project's to set and dlux only ever reads it.
+            override = getattr(settings, 'DLUX_LOGOUT_REDIRECT_URL', None)
+            if override is not None:
+                settings.LOGOUT_REDIRECT_URL = override
+            elif config.get('public_root', False):
                 settings.LOGOUT_REDIRECT_URL = targets['anonymous_public_target']
             else:
-                settings.LOGOUT_REDIRECT_URL = '/accounts/login/'
+                settings.LOGOUT_REDIRECT_URL = self._login_url()
         except Exception:
             pass
 

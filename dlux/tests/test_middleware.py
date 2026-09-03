@@ -367,3 +367,53 @@ class DluxMiddlewareTests(TestCase):
         with override_settings(DLUX_CONFIG={'is_configured': True}):
             response = self.middleware(request)
             self.assertEqual(response.status_code, 200)
+
+
+class LogoutRedirectTests(TestCase):
+    """Where logging out lands when `dlux.urls` is not mounted at the root.
+
+    Both sales-crm editions mount it under `/staff/`, and a hardcoded
+    `/accounts/login/` sent them to a URL that 404s.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.middleware = DluxMiddleware(lambda request: HttpResponse('ok'))
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_the_login_target_comes_from_the_urlconf(self):
+        # Whatever prefix the project mounted, this is the real login page.
+        self.assertEqual(self.middleware._login_url(), reverse('login'))
+
+    def test_no_public_root_logs_out_to_the_resolved_login_page(self):
+        with patch('dlux.utils.get_system_config', return_value={
+            'is_configured': True, 'public_root': False, 'homepage_config': {},
+        }):
+            self.middleware._sync_auth_redirects()
+
+        self.assertEqual(settings.LOGOUT_REDIRECT_URL, reverse('login'))
+
+    @override_settings(DLUX_LOGOUT_REDIRECT_URL='/somewhere/else/')
+    def test_a_project_override_wins_over_the_public_page(self):
+        """`LOGOUT_REDIRECT_URL` is rewritten per request, so a project cannot
+        use it to express a preference — `DLUX_LOGOUT_REDIRECT_URL` is the key
+        dlux reads and never writes."""
+        with patch('dlux.utils.get_system_config', return_value={
+            'is_configured': True, 'public_root': True,
+            'homepage_config': {'public': {'enabled': True, 'separate_url': True, 'url': '/'}},
+        }):
+            self.middleware._sync_auth_redirects()
+
+        self.assertEqual(settings.LOGOUT_REDIRECT_URL, '/somewhere/else/')
+
+    def test_a_public_root_still_logs_out_to_the_public_page(self):
+        with patch('dlux.utils.get_system_config', return_value={
+            'is_configured': True,
+            'public_root': True,
+            'homepage_config': {'public': {'enabled': True, 'separate_url': True, 'url': '/'}},
+        }):
+            self.middleware._sync_auth_redirects()
+
+        self.assertEqual(settings.LOGOUT_REDIRECT_URL, '/')
