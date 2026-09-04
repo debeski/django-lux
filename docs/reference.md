@@ -654,9 +654,12 @@ DEBUG-only internal test trigger:
 System Settings store titlebar layout in `titlebar_config`:
 
 - `user_hub_style`: `dropdown` (default) or `titlebar_actions`
+- `actions_layout`: `scattered` (default) or `grouped`
 - `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
 
 `dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
+
+`actions_layout` is independent of `user_hub_style`. `scattered` leaves every action on the bar. `grouped` moves the optional ones into `#dlux-titlebar-rail` under the titlebar, behind the caret in `.titlebar__constants`; Home, that caret and the user hub trigger never move. Viewports under 576px group regardless of the setting. The rail's buttons keep `dlux-titlebar-btn` styling because the shared rules are scoped to `:is(.titlebar, .dlux-titlebar-rail)`, and the rail mirrors `data-titlebar-buttons-shape`, `data-titlebar-home-shape`, `data-titlebar-show-home` and `data-titlebar-show-language-switcher` from the titlebar. Action nodes are moved rather than cloned, so any panel nested inside a toggle keeps working; a project adding its own titlebar action gets the same treatment without registering anything.
 
 Titlebar keyboard shortcuts:
 

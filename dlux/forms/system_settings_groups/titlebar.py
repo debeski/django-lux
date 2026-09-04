@@ -77,6 +77,10 @@ from ...system.constants import (
     TITLEBAR_GLOBAL_SEARCH_VALUES,
     TITLEBAR_ACTIONS_ORDER,
     TITLEBAR_USER_HUB_STYLE_ACTIONS,
+    TITLEBAR_ACTIONS_LAYOUT_CHOICES,
+    TITLEBAR_ACTIONS_LAYOUT_GROUPED,
+    TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
+    TITLEBAR_ACTIONS_LAYOUT_VALUES,
     TITLEBAR_USER_HUB_STYLE_CHOICES,
     TITLEBAR_USER_HUB_STYLE_DROPDOWN,
     TITLEBAR_USER_HUB_STYLE_VALUES,
@@ -149,6 +153,12 @@ class TitlebarCleanMixin:
         value = self.cleaned_data.get('titlebar_user_hub_style') or TITLEBAR_USER_HUB_STYLE_DROPDOWN
         if value not in TITLEBAR_USER_HUB_STYLE_VALUES:
             raise ValidationError("Invalid titlebar and user hub style.")
+        return value
+
+    def clean_titlebar_actions_layout(self):
+        value = self.cleaned_data.get('titlebar_actions_layout') or TITLEBAR_ACTIONS_LAYOUT_SCATTERED
+        if value not in TITLEBAR_ACTIONS_LAYOUT_VALUES:
+            raise ValidationError("Invalid titlebar action layout.")
         return value
 
     def clean_titlebar_global_search_mode(self):

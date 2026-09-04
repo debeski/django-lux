@@ -1,20 +1,21 @@
 {
   "schema_version": 2,
-  "version": "1.8.7",
+  "version": "1.8.8",
   "display": {
-    "summary": "A dynamic modal now announces the content it injects, so builders that arrive inside one initialise on every load instead of only when they win a race with the dialog opening.",
+    "summary": "The titlebar can now group its optional actions behind one caret beside the user hub, so the title keeps its room instead of being squeezed out by buttons that never shrink.",
     "highlights": [
-      "The Ribbon builder no longer opens empty, or fills and then blanks a second later, on a slow link or a large settings modal.",
-      "Its “Show system items” toggle works again — that listener is bound during initialisation, which is what was being skipped.",
-      "Ribbon catalog discovery logs what it swallows instead of degrading to an empty builder in silence."
+      "New titlebar setting: Scattered (unchanged, the default) or Grouped, which folds every optional action into a rail under the bar.",
+      "Narrow screens group regardless — the actions no longer overlap each other past the width where they stop fitting.",
+      "Titlebar action order can be dragged by its grip; the up/down buttons remain the keyboard path.",
+      "Inline installation of this release needs Composer 1.3.10, the first version that can activate a schema-2 release."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.7"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.8"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
     "services": {
-      "composer": ">=1.3.8"
+      "composer": ">=1.3.10"
     }
   },
   "migrations": {

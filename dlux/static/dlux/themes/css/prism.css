@@ -1178,16 +1178,16 @@
         inset 0 -2px 0 rgba(255, 255, 255, 0.2) !important;
 }
 
-:root.theme-prism .titlebar .dlux-titlebar-btn {
+:root.theme-prism :is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn {
     color: var(--prism-accent) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid var(--prism-line) !important;
     box-shadow: inset 0 1px 0 var(--prism-line-soft) !important;
 }
 
-:root.theme-prism .titlebar .dlux-titlebar-btn:hover,
-:root.theme-prism .titlebar .dlux-titlebar-btn:focus,
-:root.theme-prism .titlebar .dlux-titlebar-btn:focus-visible {
+:root.theme-prism :is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:hover,
+:root.theme-prism :is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus,
+:root.theme-prism :is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus-visible {
     color: var(--prism-pearl) !important;
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.16) !important;

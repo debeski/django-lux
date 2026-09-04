@@ -74,6 +74,7 @@ from .constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_GLOBAL_SEARCH_VALUES,
     TITLEBAR_SURFACE_VALUES,
+    TITLEBAR_ACTIONS_LAYOUT_VALUES,
     TITLEBAR_USER_HUB_STYLE_VALUES,
 )
 from .defaults import (
@@ -724,6 +725,10 @@ def normalize_titlebar_config(titlebar_config):
     user_hub_style = config.get('user_hub_style')
     if user_hub_style in TITLEBAR_USER_HUB_STYLE_VALUES:
         normalized['user_hub_style'] = user_hub_style
+
+    actions_layout = config.get('actions_layout')
+    if actions_layout in TITLEBAR_ACTIONS_LAYOUT_VALUES:
+        normalized['actions_layout'] = actions_layout
 
     normalized['show_language_switcher'] = bool(
         config.get('show_language_switcher', normalized['show_language_switcher'])

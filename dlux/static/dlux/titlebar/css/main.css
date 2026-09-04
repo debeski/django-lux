@@ -206,11 +206,11 @@
     display: none !important;
 }
 
-.titlebar[data-titlebar-show-home="false"] .dlux-titlebar-home {
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-show-home="false"] .dlux-titlebar-home {
     display: none;
 }
 
-.titlebar[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle {
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle {
     display: none;
 }
 
@@ -267,7 +267,7 @@
     border-color: rgba(var(--primal-rgb), 0.2) !important;
 }
 
-.titlebar .dlux-titlebar-btn {
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn {
     width: 34px;
     height: 34px;
     min-width: 34px;
@@ -286,7 +286,7 @@
     padding: 0;
 }
 
-.titlebar button.dlux-titlebar-btn {
+:is(.titlebar, .dlux-titlebar-rail) button.dlux-titlebar-btn {
     appearance: none;
     cursor: pointer;
 }
@@ -301,7 +301,7 @@
 
 /* The swatch reads as the current theme, the way the language action reads as
    the current language code. */
-.titlebar .dlux-titlebar-theme-cycle__dot {
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-theme-cycle__dot {
     display: block;
     width: 0.85rem;
     height: 0.85rem;
@@ -310,7 +310,7 @@
     background: var(--primal, #2363c3);
 }
 
-.titlebar .dlux-titlebar-lang-cycle__code {
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-lang-cycle__code {
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.03em;
@@ -318,29 +318,29 @@
     text-transform: uppercase;
 }
 
-.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-action,
-.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-home,
-.titlebar[data-titlebar-buttons-shape="square"] .dlux-notifications__trigger,
-.titlebar[data-titlebar-buttons-shape="square"] .dlux-login-round,
-.titlebar[data-titlebar-home-shape="square"] .dlux-titlebar-home,
-.titlebar[data-titlebar-home-shape="square"] .dlux-notifications__trigger,
-.titlebar[data-titlebar-home-shape="square"] .dlux-login-round {
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="square"] .dlux-titlebar-action,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="square"] .dlux-titlebar-home,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="square"] .dlux-notifications__trigger,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="square"] .dlux-login-round,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="square"] .dlux-titlebar-home,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="square"] .dlux-notifications__trigger,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="square"] .dlux-login-round {
     border-radius: 10px;
 }
 
-.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-action,
-.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-home,
-.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-notifications__trigger,
-.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-login-round,
-.titlebar[data-titlebar-home-shape="squircle"] .dlux-titlebar-home,
-.titlebar[data-titlebar-home-shape="squircle"] .dlux-notifications__trigger,
-.titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-action,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-home,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="squircle"] .dlux-notifications__trigger,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-buttons-shape="squircle"] .dlux-login-round,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="squircle"] .dlux-titlebar-home,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="squircle"] .dlux-notifications__trigger,
+:is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="squircle"] .dlux-login-round {
     border-radius: 14px;
 }
 
-.titlebar .dlux-titlebar-btn:hover,
-.titlebar .dlux-titlebar-btn:focus,
-.titlebar .dlux-titlebar-btn:focus-visible {
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:hover,
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus,
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus-visible {
     color: var(--primal_dark);
     background: rgba(255, 255, 255, 0.9);
     border-color: rgba(var(--primal-rgb), 0.22);
@@ -349,9 +349,9 @@
     outline: none;
 }
 
-.titlebar .dlux-titlebar-home i,
-.titlebar .dlux-titlebar-action i,
-.titlebar .dlux-login-round i {
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-home i,
+:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-action i,
+:is(.titlebar, .dlux-titlebar-rail) .dlux-login-round i {
     font-size: 1rem;
     line-height: 1;
 }
@@ -428,6 +428,189 @@
     border-radius: 14px;
 }
 
+/* ── Grouped actions ────────────────────────────────────────────────────────
+   The end side carries two groups that do not share a flex context, and nothing
+   inside either shrinks, so past a certain width they overlap instead of
+   compressing — and the brand is squeezed out well before that. Grouping moves
+   every optional action into one rail under the bar (dlux/titlebar/js/action_rail.js),
+   leaving Home, the rail's own caret, and the user hub behind. */
+
+.titlebar__constants {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+}
+
+/* The user hub trigger used to sit inside the dropdown action group, which the
+   Titlebar Actions layout hides wholesale. It stands on its own now, so that
+   layout has to hide it by name. */
+.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .dlux-user-trigger {
+    display: none;
+}
+
+.dlux-titlebar-rail-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--title);
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.titlebar[data-titlebar-actions-grouped="true"] .dlux-titlebar-rail-toggle {
+    display: inline-flex;
+}
+
+.dlux-titlebar-rail-toggle:hover,
+.dlux-titlebar-rail-toggle:focus-visible {
+    background: rgba(var(--primal-rgb), 0.1);
+    color: var(--primal_dark);
+    outline: none;
+}
+
+.dlux-titlebar-rail-toggle i {
+    transition: transform 0.25s ease;
+}
+
+.dlux-titlebar-rail-toggle[aria-expanded="true"] i {
+    transform: rotate(180deg);
+}
+
+/* Grouped, the bell's badge is out of sight until the rail opens, so the caret
+   that now stands in for it carries the unread state. */
+.dlux-titlebar-rail-toggle[data-dlux-rail-alert="true"]::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 3px;
+    inset-inline-end: 0;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--hbody, #fff);
+    border-radius: 50%;
+    background: #dc2626;
+}
+
+/* The rail lives outside .titlebar on purpose: the bar is a z-index stacking
+   context and its Glass surface sets a backdrop-filter, either of which would box
+   in the notification panel and search field the rail now hosts. */
+.dlux-titlebar-rail {
+    --dlux-titlebar-rail-gap: 15px;
+    position: fixed;
+    top: calc(var(--header-height) + 10px);
+    inset-inline-end: var(--dlux-titlebar-rail-gap);
+    inset-inline-start: auto;
+    width: min(400px, calc(100vw - (var(--dlux-titlebar-rail-gap) * 2)));
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    border-radius: 18px;
+    background: var(--table-row, #fff);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.dlux-titlebar-rail.is-grouped {
+    display: flex;
+}
+
+.dlux-titlebar-rail.is-grouped.show {
+    opacity: 1;
+}
+
+/* Inside the rail the actions space themselves evenly, so drop the margins they
+   use to separate themselves along the bar. */
+.dlux-titlebar-rail .dlux-titlebar-theme-cycle,
+.dlux-titlebar-rail .dlux-titlebar-lang-cycle,
+.dlux-titlebar-rail .dlux-notifications,
+.dlux-titlebar-rail .titlebar__action-form {
+    margin: 0;
+}
+
+/* Each toggle keeps its own panel, and the panel opens downward from the rail
+   rather than from the top of the viewport — so it never covers the rail or the
+   caret that opened it. Static wrappers hand the anchoring to the rail itself,
+   which keeps a panel from running off the edge when its toggle sits near one. */
+.dlux-titlebar-rail .dlux-notifications,
+.dlux-titlebar-rail .dlux-global-search {
+    position: static;
+}
+
+.dlux-titlebar-rail .dlux-notifications__panel,
+.dlux-titlebar-rail .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
+    position: absolute;
+    inset-block-start: calc(100% + 0.5rem);
+    inset-inline: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+}
+
+.dlux-titlebar-rail .dlux-global-search[data-global-search-mode] .dlux-global-search__results {
+    position: absolute;
+    inset-block-start: calc(100% + 3.15rem);
+    inset-inline: 0;
+    width: auto;
+    max-width: none;
+}
+
+/* The Titlebar Actions layout hands the rail every configured button, which stops
+   fitting on a narrow phone, so the rail scrolls rather than spilling them out of
+   reach. Spreading them evenly only makes sense while they fit — once it scrolls,
+   space-evenly would park the leading action off the scrollable start. */
+.dlux-titlebar-rail.is-scrollable {
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+}
+
+.dlux-titlebar-rail.is-scrollable::-webkit-scrollbar {
+    height: 4px;
+}
+
+.dlux-titlebar-rail.is-scrollable::-webkit-scrollbar-thumb {
+    background: rgba(var(--primal-rgb), 0.25);
+    border-radius: 999px;
+}
+
+/* A scroll container clips on both axes, so the panels can no longer hang off the
+   rail — they anchor to the viewport instead, under the rail's measured bottom
+   (dlux/titlebar/js/action_rail.js keeps that custom property in step). */
+.dlux-titlebar-rail.is-scrollable .dlux-notifications__panel,
+.dlux-titlebar-rail.is-scrollable .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
+    position: fixed;
+    inset-block-start: var(--dlux-titlebar-rail-panel-top, calc(var(--header-height) + 4rem));
+    inset-inline: var(--dlux-titlebar-rail-gap);
+    width: auto;
+    min-width: 0;
+    max-width: none;
+}
+
+.dlux-titlebar-rail.is-scrollable .dlux-global-search[data-global-search-mode] .dlux-global-search__results {
+    position: fixed;
+    inset-block-start: calc(var(--dlux-titlebar-rail-panel-top, calc(var(--header-height) + 4rem)) + 2.65rem);
+    inset-inline: var(--dlux-titlebar-rail-gap);
+    width: auto;
+    max-width: none;
+}
+
 @media (max-width: 991.98px) {
     .titlebar .sidebar-toggle {
         display: inline-flex !important;
@@ -448,5 +631,30 @@
 
     .titlebar__actions--titlebar {
         justify-content: flex-start;
+    }
+}
+
+/* Narrow screens enforce what the settings only prefer: actions group behind the
+   caret (decided in dlux/titlebar/js/action_rail.js, which the media query cannot
+   do because it moves DOM), and the brand runs at the small size with a tighter
+   logo whatever the configured title size says — the row still has to carry Home,
+   the caret and the user hub. */
+@media (max-width: 575.98px) {
+    .titlebar[data-title-size] .titlebar__title {
+        font-size: clamp(0.95rem, 3.4vw, 1.15rem);
+    }
+
+    .titlebar__logo {
+        height: 32px;
+        padding: 2px;
+        margin-inline-end: 6px;
+    }
+
+    .dlux-titlebar-rail {
+        --dlux-titlebar-rail-gap: 10px;
+        top: calc(var(--header-height) + 8px);
+        inset-inline: var(--dlux-titlebar-rail-gap);
+        width: auto;
+        border-radius: 14px;
     }
 }

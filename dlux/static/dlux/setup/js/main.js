@@ -833,6 +833,7 @@
         const logoTreatmentShape = getNamedFieldValue(form, 'titlebar_logo_treatment_shape') || 'soft';
         const buttonsShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
         const userHubStyle = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
+        const actionsLayout = getNamedFieldValue(form, 'titlebar_actions_layout') === 'grouped' ? 'grouped' : 'scattered';
         const actionOrder = readTitlebarActionsOrder(form);
         const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
         const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
@@ -856,6 +857,7 @@
         titlebar.dataset.titlebarButtonsShape = buttonsShape;
         titlebar.dataset.titlebarHomeShape = buttonsShape;
         titlebar.dataset.titlebarUserHubStyle = userHubStyle === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown';
+        titlebar.dataset.titlebarActionsLayout = actionsLayout;
         titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
         titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
         titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
@@ -2758,6 +2760,79 @@
             if (item) {
                 list.appendChild(item);
             }
+        });
+
+        // Drag to reorder, same handle-driven idiom as the sidebar tree: the handle is
+        // the drag source, the item under the pointer shows which edge the drop lands
+        // on. The up/down buttons stay as the keyboard-reachable equivalent.
+        let dragged = null;
+
+        function clearDropMarkers() {
+            list.querySelectorAll('[data-titlebar-action-order-item]').forEach((item) => {
+                item.classList.remove('is-drop-before', 'is-drop-after');
+            });
+        }
+
+        list.addEventListener('dragstart', (event) => {
+            const handle = event.target.closest('[data-titlebar-action-order-handle]');
+            if (!handle) {
+                event.preventDefault();
+                return;
+            }
+            dragged = handle.closest('[data-titlebar-action-order-item]');
+            if (!dragged) {
+                return;
+            }
+            dragged.classList.add('is-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', dragged.getAttribute('data-action-key') || '');
+        });
+
+        list.addEventListener('dragover', (event) => {
+            if (!dragged) {
+                return;
+            }
+            const item = event.target.closest('[data-titlebar-action-order-item]');
+            if (!item || item === dragged) {
+                return;
+            }
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const rect = item.getBoundingClientRect();
+            const before = event.clientY < rect.top + rect.height / 2;
+            clearDropMarkers();
+            item.classList.toggle('is-drop-before', before);
+            item.classList.toggle('is-drop-after', !before);
+        });
+
+        list.addEventListener('dragleave', (event) => {
+            const item = event.target.closest('[data-titlebar-action-order-item]');
+            if (item) {
+                item.classList.remove('is-drop-before', 'is-drop-after');
+            }
+        });
+
+        list.addEventListener('drop', (event) => {
+            const item = event.target.closest('[data-titlebar-action-order-item]');
+            if (!dragged || !item || item === dragged) {
+                return;
+            }
+            event.preventDefault();
+            const rect = item.getBoundingClientRect();
+            const before = event.clientY < rect.top + rect.height / 2;
+            list.insertBefore(dragged, before ? item : item.nextSibling);
+            clearDropMarkers();
+            renderTitlebarActionsOrderBuilder(builder, form);
+            applyImmediateSystemSettingsPreview(form);
+            persistSetupFormState(form);
+        });
+
+        list.addEventListener('dragend', () => {
+            if (dragged) {
+                dragged.classList.remove('is-dragging');
+            }
+            dragged = null;
+            clearDropMarkers();
         });
 
         builder.addEventListener('click', (event) => {

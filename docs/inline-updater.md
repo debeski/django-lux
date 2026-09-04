@@ -7,8 +7,10 @@ Generated DjangoLux Compose projects use Composer for inline package updates. Dj
 This architecture applies only to generated Compose stacks. It requires:
 
 - Docker Compose 5.3.0+ for `pre_start` init containers;
-- a running Composer service topology (`composer-agent`, `composer-executor`, and `docker-socket-proxy`); and
+- a running Composer service topology (`composer-agent`, `composer-executor`, and `docker-socket-proxy`), at Composer 1.3.10 or newer; and
 - a writable `dlux_runtime` volume for the state owner.
+
+Composer 1.3.10 is the first version that can activate a schema-2 release: earlier ones read `inline_safe` straight off the wheel's manifest, which schema 2 derives and never publishes, so the install failed after the release had been fetched, verified and staged. It is also the version in which the agent stages the wheel and the executor swaps it — the executor sits on an internal network and can never fetch one itself. Release manifests from v1.8.8 declare that floor, so an older Composer reports the requirement instead of attempting an install that cannot finish. Update it with `./start.sh update-self`, then `./start.sh agent-update`.
 
 Ordinary Django installations and non-Compose deployments run without this update path. They remain fully usable; they simply do not receive Composer-driven inline updates. For an existing generated stack, run `./start.sh check` and then review `./start.sh check --fix` if Composer reports missing infrastructure.
 

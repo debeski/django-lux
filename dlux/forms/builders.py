@@ -268,7 +268,9 @@ def build_titlebar_actions_order_builder(order, strings, *, visible=True):
         items_html.append(
             "<div class='dlux-titlebar-action-order-item' "
             f"data-titlebar-action-order-item data-action-key='{key}'>"
-            "<span class='dlux-titlebar-action-order-handle'><i class='bi bi-grip-vertical' aria-hidden='true'></i></span>"
+            "<span class='dlux-titlebar-action-order-handle' data-titlebar-action-order-handle "
+            "draggable='true' role='button' tabindex='-1' aria-label='Reorder'>"
+            "<i class='bi bi-grip-vertical' aria-hidden='true'></i></span>"
             f"<span class='dlux-titlebar-action-order-icon'><i class='bi {conditional_escape(icon)}' aria-hidden='true'></i></span>"
             f"<span class='dlux-titlebar-action-order-label'>{label}</span>"
             "<span class='dlux-titlebar-action-order-controls'>"

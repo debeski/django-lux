@@ -108,6 +108,10 @@ from ..system.constants import (
     TITLEBAR_GLOBAL_SEARCH_VALUES,
     TITLEBAR_ACTIONS_ORDER,
     TITLEBAR_USER_HUB_STYLE_ACTIONS,
+    TITLEBAR_ACTIONS_LAYOUT_CHOICES,
+    TITLEBAR_ACTIONS_LAYOUT_GROUPED,
+    TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
+    TITLEBAR_ACTIONS_LAYOUT_VALUES,
     TITLEBAR_USER_HUB_STYLE_CHOICES,
     TITLEBAR_USER_HUB_STYLE_DROPDOWN,
     TITLEBAR_USER_HUB_STYLE_VALUES,
@@ -580,6 +584,11 @@ class SystemSettingsForm(
         required=False,
         choices=TITLEBAR_USER_HUB_STYLE_CHOICES,
         initial=TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+    )
+    titlebar_actions_layout = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_ACTIONS_LAYOUT_CHOICES,
+        initial=TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
     )
     titlebar_show_language_switcher = forms.BooleanField(
         required=False,
@@ -1514,6 +1523,7 @@ class SystemSettingsForm(
         self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
         self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Titlebar buttons shape')
         self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
+        self.fields['titlebar_actions_layout'].label = s.get('form_sys_titlebar_actions_layout', 'Titlebar action layout')
         self.fields['titlebar_show_language_switcher'].label = s.get(
             'form_sys_titlebar_show_language_switcher', 'Show titlebar language switcher')
         language_override_allowed = bool(config.get('allow_user_language_override', True))
@@ -1592,6 +1602,11 @@ class SystemSettingsForm(
             'help_sys_titlebar_user_hub_style',
             'Choose whether user shortcuts stay in the user hub dropdown or move into orderable titlebar action buttons.',
         )
+        self.fields['titlebar_actions_layout'].help_text = s.get(
+            'help_sys_titlebar_actions_layout',
+            'Choose whether the optional titlebar actions sit along the titlebar or behind one caret next to the user hub. '
+            'Home always stays on the titlebar, and narrow screens always group.',
+        )
         self.fields['titlebar_home_shape'].choices = (
             ('circle', s.get('titlebar_home_shape_circle', 'Circle')),
             ('square', s.get('titlebar_home_shape_square', 'Square')),
@@ -1600,6 +1615,10 @@ class SystemSettingsForm(
         self.fields['titlebar_user_hub_style'].choices = (
             (TITLEBAR_USER_HUB_STYLE_DROPDOWN, s.get('titlebar_user_hub_style_dropdown', 'Dropdown')),
             (TITLEBAR_USER_HUB_STYLE_ACTIONS, s.get('titlebar_user_hub_style_actions', 'Titlebar Actions')),
+        )
+        self.fields['titlebar_actions_layout'].choices = (
+            (TITLEBAR_ACTIONS_LAYOUT_SCATTERED, s.get('titlebar_actions_layout_scattered', 'Scattered')),
+            (TITLEBAR_ACTIONS_LAYOUT_GROUPED, s.get('titlebar_actions_layout_grouped', 'Grouped')),
         )
         self.fields['titlebar_title_align'].choices = (
             ('start', s.get('titlebar_align_start', 'Start')),
@@ -2524,6 +2543,28 @@ class SystemSettingsForm(
             ),
         )
         _bind_choice_selector_widget(
+            self.fields['titlebar_actions_layout'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    TITLEBAR_ACTIONS_LAYOUT_SCATTERED: {
+                        'icon': 'bi-distribute-horizontal',
+                        'description': s.get(
+                            'titlebar_actions_layout_scattered_desc',
+                            'Keep every action visible along the titlebar.',
+                        ),
+                    },
+                    TITLEBAR_ACTIONS_LAYOUT_GROUPED: {
+                        'icon': 'bi-chevron-bar-contract',
+                        'description': s.get(
+                            'titlebar_actions_layout_grouped_desc',
+                            'Collect the actions behind one caret beside the user hub, leaving the title more room.',
+                        ),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
             self.fields['titlebar_title_align'],
             DluxChoiceSelectorWidget(
                 variant='toggle',
@@ -3127,6 +3168,10 @@ class SystemSettingsForm(
         self.initial['titlebar_user_hub_style'] = initial_titlebar_config.get(
             'user_hub_style',
             TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+        )
+        self.initial['titlebar_actions_layout'] = initial_titlebar_config.get(
+            'actions_layout',
+            TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
         )
         self.initial['titlebar_show_language_switcher'] = bool(
             initial_titlebar_config.get('show_language_switcher', False))
@@ -3874,6 +3919,7 @@ class SystemSettingsForm(
                 )
             cleaned['titlebar_home_shape'] = titlebar.get('buttons_shape', titlebar.get('home_shape', 'circle'))
             cleaned['titlebar_user_hub_style'] = titlebar.get('user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN)
+            cleaned['titlebar_actions_layout'] = titlebar.get('actions_layout', TITLEBAR_ACTIONS_LAYOUT_SCATTERED)
             cleaned['titlebar_show_language_switcher'] = bool(titlebar.get('show_language_switcher', False))
             cleaned['titlebar_actions_order'] = normalize_titlebar_actions_order(titlebar.get('actions_order'))
             cleaned['titlebar_title_align'] = titlebar.get('title_align', 'start')
@@ -4166,6 +4212,7 @@ class SystemSettingsForm(
             'buttons_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'user_hub_style': cleaned.get('titlebar_user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN),
+            'actions_layout': cleaned.get('titlebar_actions_layout', TITLEBAR_ACTIONS_LAYOUT_SCATTERED),
             'show_language_switcher': bool(cleaned.get('titlebar_show_language_switcher', False)),
             'actions_order': cleaned.get('titlebar_actions_order') or list(TITLEBAR_ACTIONS_ORDER),
             'title_align': cleaned.get('titlebar_title_align', 'start'),

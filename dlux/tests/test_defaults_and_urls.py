@@ -3005,13 +3005,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
         titlebar_css = (static_root / 'titlebar' / 'css' / 'main.css').read_text(encoding='utf-8')
 
         # All titlebar buttons (home/action/login/notification trigger) share the
-        # `dlux-titlebar-btn` class, so base appearance + hover are styled once.
-        self.assertIn('.titlebar .dlux-titlebar-btn {', titlebar_css)
-        self.assertIn('.titlebar .dlux-titlebar-btn:hover,', titlebar_css)
-        self.assertIn('.titlebar .dlux-titlebar-btn:focus-visible {', titlebar_css)
+        # `dlux-titlebar-btn` class, so base appearance + hover are styled once. The
+        # scope covers the folded-actions rail too: those buttons leave the titlebar
+        # element when they fold under the user hub and must keep their appearance.
+        self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn {', titlebar_css)
+        self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:hover,', titlebar_css)
+        self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus-visible {', titlebar_css)
         # Shape variants stay per-class (home-shape applies to home/trigger/login, not actions).
-        self.assertIn('.titlebar[data-titlebar-home-shape="square"] .dlux-login-round {', titlebar_css)
-        self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {', titlebar_css)
+        self.assertIn(':is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="square"] .dlux-login-round {', titlebar_css)
+        self.assertIn(':is(.titlebar, .dlux-titlebar-rail)[data-titlebar-home-shape="squircle"] .dlux-login-round {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {', titlebar_css)
@@ -3045,9 +3047,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('dlux-titlebar-btn dlux-login-round', titlebar_markup)
         for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism', 'aether'):
             theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
-            self.assertIn('.titlebar .dlux-titlebar-btn {', theme_css)
-            self.assertIn('.titlebar .dlux-titlebar-btn:hover,', theme_css)
-            self.assertIn('.titlebar .dlux-titlebar-btn:focus-visible {', theme_css)
+            self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn {', theme_css)
+            self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:hover,', theme_css)
+            self.assertIn(':is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn:focus-visible {', theme_css)
             self.assertNotIn('.titlebar .dlux-login-round {', theme_css)
             self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', theme_css)
 
@@ -3706,8 +3708,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # five remaining dropdowns for selectors, then by one for the Ribbon
         # builder's icon scratch field — the shared picker reports a pick by
         # writing to the form field its `field_name` names, so that field must
-        # exist for the pick to reach the builder at all.
-        self.assertLess(len(re.findall(r'\sname=', html)), 280)
+        # exist for the pick to reach the builder at all. Raised by two for the
+        # titlebar action-layout selector's pair of radios.
+        self.assertLess(len(re.findall(r'\sname=', html)), 282)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

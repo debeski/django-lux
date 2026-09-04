@@ -25,6 +25,7 @@ from .constants import (
     DEFAULT_CARD_EDGES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
     TITLEBAR_ACTIONS_ORDER,
+    TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
     TITLEBAR_USER_HUB_STYLE_DROPDOWN,
 )
 
@@ -270,6 +271,9 @@ def default_titlebar_config():
         'logo_treatment': 'none',
         'logo_treatment_shape': 'soft',
         'user_hub_style': TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+        # 'scattered' keeps every action on the titlebar; 'grouped' collects them
+        # behind a caret next to the user hub. Narrow screens group regardless.
+        'actions_layout': TITLEBAR_ACTIONS_LAYOUT_SCATTERED,
         # Optional single-button language switcher that cycles through the
         # available languages. Only surfaces at runtime when language switching is
         # actually possible (override allowed and more than one language).

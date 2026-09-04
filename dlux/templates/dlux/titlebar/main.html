@@ -11,6 +11,8 @@
     data-titlebar-buttons-shape="{{ titlebar_buttons_shape }}"
     data-titlebar-home-shape="{{ titlebar_buttons_shape }}"
     data-titlebar-user-hub-style="{{ titlebar.user_hub_style|default:'dropdown' }}"
+    data-titlebar-actions-layout="{{ titlebar.actions_layout|default:'scattered' }}"
+    data-titlebar-actions-grouped="{% if titlebar.actions_layout == 'grouped' %}true{% else %}false{% endif %}"
     data-titlebar-show-title="{% if titlebar.show_title %}true{% else %}false{% endif %}"
     data-titlebar-show-logo="{% if titlebar.show_logo %}true{% else %}false{% endif %}"
     data-titlebar-show-home="{% if titlebar.show_home_button %}true{% else %}false{% endif %}"
@@ -98,16 +100,6 @@
                 >
                     <i class="bi bi-house-fill"></i>
                 </a>
-                <div id="dlux-user-dropdown-trigger" class="dlux-user-trigger no-print">
-                    {% if user.profile.profile_pic %}
-                        <img src="{{ user.profile.profile_pic.url }}" class="dlux-trigger-avatar" alt="{{ user.username }}">
-                    {% else %}
-                        <div class="dlux-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
-                            <i class="bi bi-person-fill"></i>
-                        </div>
-                    {% endif %}
-                    <span class="dlux-trigger-name">{{ user.username }}</span>
-                </div>
             </div>
             <div class="titlebar__actions titlebar__actions--titlebar" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% for action in titlebar_actions %}
@@ -153,6 +145,29 @@
                     {% endif %}
                 {% endfor %}
             </div>
+            <div class="titlebar__constants">
+                <button type="button"
+                        id="dlux-titlebar-rail-toggle"
+                        class="dlux-titlebar-rail-toggle no-print"
+                        data-dlux-titlebar-rail-toggle
+                        aria-controls="dlux-titlebar-rail"
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        data-dlux-tooltip="{{ DLUX_STRINGS.titlebar_action_rail|default:'Titlebar actions' }}"
+                        aria-label="{{ DLUX_STRINGS.titlebar_action_rail|default:'Titlebar actions' }}">
+                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                </button>
+                <div id="dlux-user-dropdown-trigger" class="dlux-user-trigger no-print">
+                    {% if user.profile.profile_pic %}
+                        <img src="{{ user.profile.profile_pic.url }}" class="dlux-trigger-avatar" alt="{{ user.username }}">
+                    {% else %}
+                        <div class="dlux-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    {% endif %}
+                    <span class="dlux-trigger-name">{{ user.username }}</span>
+                </div>
+            </div>
         {% else %}
             <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
                 {% if request.resolver_match.url_name != 'login' %}
@@ -177,4 +192,11 @@
         {% endif %}
     </div>
 </div>
+{% if user.is_authenticated %}
+<div id="dlux-titlebar-rail"
+     class="dlux-titlebar-rail no-print"
+     data-dlux-titlebar-rail
+     role="group"
+     aria-label="{{ DLUX_STRINGS.titlebar_action_rail|default:'Titlebar actions' }}"></div>
+{% endif %}
 {% endwith %}

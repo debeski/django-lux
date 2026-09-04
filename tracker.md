@@ -2,9 +2,10 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.6 is tagged/published. The tree is v1.8.7 (UNTAGGED): dynamic modals now announce injected content (`dlux:modal-content-loaded`), fixing builders that initialised only when they won a race with the dialog opening. Titlebar action-layout work is also in the tree, unreleased; the system-lock attempt was fully rolled back.
+- v1.8.7 is tagged/published. The tree is v1.8.8 (UNTAGGED): titlebar `actions_layout` (`scattered` default | `grouped`) with the folded action rail, a draggable action-order grip, and a manifest declaring `composer >=1.3.10`.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
+- Inline installs need Composer 1.3.10+: earlier versions read `inline_safe` off the wheel (schema 2 derives it) and refused at activation. Publish Composer 1.3.10 BEFORE tagging v1.8.8.
 
 ### Current Project Adopted Standards:
 - Integrate settings with `from dlux.utils import dlux_settings; dlux_settings(globals())`; mount `dlux.urls` at root.
@@ -48,7 +49,8 @@
   - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
-- 2026-09-04: v1.8.7 — full `dlux.tests` 2367 OK (7 new in `test_modal_content_init`, 4 in `test_ribbon`); `release_check --base-tag v1.8.6` exit 0, effect `none`; race reproduced and fixed in a real browser (no announcement → 0 models, announced → renders).
+- 2026-09-04: v1.8.8 — full `dlux.tests` 2367 run; `release_check --base-tag v1.8.7` exit 0 (inline_safe true, effect `none`, image_baseline 1.2.7, `composer >=1.3.10`).
+- 2026-09-04: v1.8.7 — full `dlux.tests` 2367 OK (7 new in `test_modal_content_init`, 4 in `test_ribbon`); `release_check --base-tag v1.8.6` exit 0, effect `none`.
 - 2026-09-04 incident recovery — gov, decrees, and sales-crm containers report v1.8.6, original configured settings rows, and no applied lock migration; fresh requests no longer log unavailable `SystemSettings`.
 - 2026-09-04: Guard + reconcile — full `dlux.tests` 2328 OK (7 new in `test_package_handoff`, 4 in `test_updater`), `makemigrations --check` clean, `release_check --base-tag v1.8.5` exit 0 on the 1.8.6 manifest.
 - 2026-09-02: v1.9.0 green — full `dlux.tests` 2294 run, 2292 OK (25 new in `test_asset_fields`); the only 2 errors are `test_manifest_schema_v2` shelling out to `git tag`, which the sandbox now denies (`.git/config: Operation not permitted`) — environmental, re-run outside it before release.
@@ -57,7 +59,7 @@
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
 
 ### One-line info about last time edited Docs:
-- 2026-09-04: `docs/developer-guide.md` gained "Initialising JavaScript inside a dynamic modal" — bind `dlux:modal-content-loaded`, not `shown.bs.modal`, and keep init idempotent.
+- 2026-09-04: `docs/reference.md` documents `titlebar_config.actions_layout` and the rail; `docs/inline-updater.md` states the Composer 1.3.10 floor and why.
 - 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).
 - 2026-09-02: `docs/managed-assets.md` gained the project-facing asset-field API; `docs/developer-guide.md` names `ManagedAssetField` over `ImageField`; `docs/deprecation-countdown.md` caller lists corrected (both removals stay targeted at v1.9.0).
 

@@ -487,6 +487,10 @@ class LayoutMixin:
                             Div(Field('titlebar_height'), css_class='col-lg-6'),
                         ),
                         Row(
+                            Div(Field('titlebar_actions_layout'), css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
                             Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
                             css_class='g-3 mb-3',
                         ),

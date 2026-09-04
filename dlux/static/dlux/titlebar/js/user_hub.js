@@ -4,16 +4,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const card = document.getElementById('dlux-user-dropdown-card');
 
     if (trigger && card) {
+        // The titlebar action rail hangs off the same corner and listens for this,
+        // so the two never stand open over each other.
+        function setOpen(open) {
+            card.classList.toggle('show', open);
+            trigger.classList.toggle('active', open);
+            document.dispatchEvent(new CustomEvent('dlux:user-hub-toggled', { detail: { open: open } }));
+        }
+
         trigger.addEventListener('click', function(e) {
             e.stopPropagation();
-            card.classList.toggle('show');
-            
-            // Log interaction if needed
-            if (card.classList.contains('show')) {
-                trigger.classList.add('active');
-            } else {
-                trigger.classList.remove('active');
-            }
+            setOpen(!card.classList.contains('show'));
         });
 
         // Close on outside click
@@ -27,16 +28,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 !e.target.closest('#sidebarThemePopup') && 
                 !e.target.closest('#sidebarThemeIndicator')
             ) {
-                card.classList.remove('show');
-                trigger.classList.remove('active');
+                setOpen(false);
             }
         });
 
         // Close on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && card.classList.contains('show')) {
-                card.classList.remove('show');
-                trigger.classList.remove('active');
+                setOpen(false);
             }
         });
     }

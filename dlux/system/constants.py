@@ -414,6 +414,16 @@ TITLEBAR_USER_HUB_STYLE_CHOICES = (
     (TITLEBAR_USER_HUB_STYLE_ACTIONS, 'Titlebar Actions'),
 )
 TITLEBAR_USER_HUB_STYLE_VALUES = {value for value, _label in TITLEBAR_USER_HUB_STYLE_CHOICES}
+# Where the optional titlebar actions live: spread along the titlebar, or collected
+# behind one caret next to the user hub. Home is never collected — it is the one
+# constant action — and neither is the user hub trigger itself.
+TITLEBAR_ACTIONS_LAYOUT_SCATTERED = 'scattered'
+TITLEBAR_ACTIONS_LAYOUT_GROUPED = 'grouped'
+TITLEBAR_ACTIONS_LAYOUT_CHOICES = (
+    (TITLEBAR_ACTIONS_LAYOUT_SCATTERED, 'Scattered'),
+    (TITLEBAR_ACTIONS_LAYOUT_GROUPED, 'Grouped'),
+)
+TITLEBAR_ACTIONS_LAYOUT_VALUES = {value for value, _label in TITLEBAR_ACTIONS_LAYOUT_CHOICES}
 TITLEBAR_ACTIONS_ORDER = (
     'notifications',
     'home',

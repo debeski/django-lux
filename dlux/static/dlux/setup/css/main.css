@@ -190,6 +190,24 @@
 .dlux-titlebar-action-order-handle {
   color: var(--dlux-setup-muted);
   line-height: 1;
+  cursor: grab;
+}
+
+.dlux-titlebar-action-order-handle:active {
+  cursor: grabbing;
+}
+
+.dlux-titlebar-action-order-item.is-dragging {
+  opacity: 0.5;
+}
+
+/* Where the drop would land, drawn on the neighbour being pushed aside. */
+.dlux-titlebar-action-order-item.is-drop-before {
+  box-shadow: inset 0 3px 0 0 var(--primal);
+}
+
+.dlux-titlebar-action-order-item.is-drop-after {
+  box-shadow: inset 0 -3px 0 0 var(--primal);
 }
 
 .dlux-titlebar-action-order-icon {

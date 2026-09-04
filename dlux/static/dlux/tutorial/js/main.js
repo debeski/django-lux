@@ -381,11 +381,26 @@ document.addEventListener('DOMContentLoaded', function () {
     startTourButtons.forEach((startTourBtn) => {
         startTourBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            
+
+            // Grouped titlebar actions live in a rail that is closed by default, so
+            // their steps would resolve to nothing. Open it for the tour and put it
+            // back the way it was on the way out.
+            const actionRail = window.__dluxTitlebarRail;
+            const reopenRail = !!(actionRail && actionRail.isGrouped() && !actionRail.isOpen());
+            if (reopenRail) {
+                actionRail.open();
+            }
+            const releaseRail = () => {
+                if (reopenRail && actionRail) {
+                    actionRail.close();
+                }
+            };
+
             const steps = getTutorialSteps();
-            
+
             if (steps.length === 0) {
                 console.warn('No tutorial steps found for this page.');
+                releaseRail();
                 return;
             }
 
@@ -434,10 +449,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 onDestroyStarted: () => {
                     controls.style.display = 'none';
+                    releaseRail();
                     driverObj.destroy();
                 },
                 onCloseClick: () => {
                     controls.style.display = 'none';
+                    releaseRail();
                     driverObj.destroy();
                 }
             });
@@ -445,6 +462,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tut-next').onclick = () => {
                 if (currentIndex === steps.length - 1) {
                     controls.style.display = 'none';
+                    releaseRail();
                     driverObj.destroy();
                 } else {
                     driverObj.moveNext();
@@ -453,6 +471,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tut-prev').onclick = () => driverObj.movePrevious();
             document.getElementById('tut-skip').onclick = () => {
                 controls.style.display = 'none';
+                releaseRail();
                 driverObj.destroy();
             };
 
