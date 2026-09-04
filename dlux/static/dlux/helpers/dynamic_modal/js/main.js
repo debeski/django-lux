@@ -21,6 +21,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return Array.from(modalBody.children).find(child => child.classList.contains(className)) || null;
     }
 
+    // Bootstrap fires `shown.bs.modal` when the dialog finishes opening, and
+    // `show()` is called before the fetch that fills it even goes out. So on a slow
+    // link — or with a large payload — the modal counts as "shown" long before the
+    // content lands, and anything that scanned on that event finds an empty body and
+    // never runs again. A refused form submit re-injects the body with no `shown`
+    // event at all. Announce the content instead of the dialog.
+    function notifyContentLoaded() {
+        modalBody.dispatchEvent(new CustomEvent('dlux:modal-content-loaded', { bubbles: true }));
+    }
+
     // Custom/legacy AJAX fragments may still return their own Bootstrap modal
     // header, body, and footer. Fold that chrome into the universal shell so the
     // viewer sees one title, one scrolling body, and one persistent action footer.
@@ -366,6 +376,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 });
+
+                notifyContentLoaded();
             } else if (data.error) {
                 showError(data.error);
             }
@@ -545,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBody.innerHTML = data.html;
                 normalizeModalChrome();
                 attachListeners();
+                notifyContentLoaded();
             } else {
                 releaseSubmit();
                 showError(data.error || 'Failed to save record.');

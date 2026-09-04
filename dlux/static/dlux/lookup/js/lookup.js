@@ -235,4 +235,7 @@
         scan(document);
     }
     document.addEventListener('shown.bs.modal', function (event) { scan(event.target); });
+    // The dialog opening and its content arriving are two different moments;
+    // the fetch that fills a dynamic modal usually lands after the first.
+    document.addEventListener('dlux:modal-content-loaded', function (event) { scan(event.target); });
 })();

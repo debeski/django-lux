@@ -15,11 +15,16 @@
     // helper's field component: an inspector's picker is always open and is not
     // bound to a form field, which is exactly what the sidebar builder does.
 
-    function parse(value, fallback) {
+    // Falling back keeps the builder usable when one payload is malformed, but a
+    // silent fallback made an unparseable catalog look exactly like a project with
+    // no ribbon hosts — nothing in the console, nothing in the server log. Say which
+    // payload failed instead.
+    function parse(value, fallback, name) {
         try {
             const parsed = JSON.parse(value || '');
             return parsed && typeof parsed === 'object' ? parsed : fallback;
         } catch (error) {
+            console.warn(`[dlux] ribbon builder could not parse its ${name} payload; falling back to an empty one.`, error);
             return fallback;
         }
     }
@@ -47,11 +52,11 @@
         if (root.dataset.ribbonBuilderReady === '1') return;
         root.dataset.ribbonBuilderReady = '1';
 
-        const catalog = parse(root.dataset.catalog, []);
-        const destinations = parse(root.dataset.destinations, []);
-        const strings = parse(root.dataset.strings, {});
-        const languages = parse(root.dataset.languages, {});
-        const stored = parse(root.dataset.config, {});
+        const catalog = parse(root.dataset.catalog, [], 'catalog');
+        const destinations = parse(root.dataset.destinations, [], 'destinations');
+        const strings = parse(root.dataset.strings, {}, 'strings');
+        const languages = parse(root.dataset.languages, {}, 'languages');
+        const stored = parse(root.dataset.config, {}, 'config');
         const byKey = Object.fromEntries(catalog.map(m => [m.key, m]));
         const destinationsById = Object.fromEntries(destinations.map(d => [d.id, d]));
         const languageCodes = Object.keys(languages).length ? Object.keys(languages) : ['en'];
@@ -1413,6 +1418,9 @@
     }
 
     document.addEventListener('shown.bs.modal', function (event) { boot(event.target); });
+    // The dialog opening and its content arriving are two different moments;
+    // the fetch that fills a dynamic modal usually lands after the first.
+    document.addEventListener('dlux:modal-content-loaded', function (event) { boot(event.target); });
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { boot(document); });
     } else {

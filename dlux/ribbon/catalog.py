@@ -1,5 +1,7 @@
 """Discover ribbon-hosting views and model fields available to the builder."""
 
+import logging
+
 from django.urls import NoReverseMatch, get_resolver, reverse
 
 from dlux.system.constants import (
@@ -10,6 +12,14 @@ from dlux.system.constants import (
 
 from .mixin import RibbonMixin
 from .tabs import SOURCE_FIELD, SOURCE_FLAG, RibbonTabs, build_ribbon_tabs
+
+
+# Every discovery step below degrades instead of raising: the builder showing a
+# short list is better than the settings page refusing to open. That made the
+# whole path silent, though — an empty builder in production looked identical to
+# a project with no ribbon hosts, with nothing in the logs and nothing in the
+# browser console to tell them apart. Each fallback now says what it swallowed.
+logger = logging.getLogger('dlux')
 
 
 CATALOG_SKIP_FIELDS = (
@@ -87,6 +97,11 @@ def _route_metadata(request=None):
             if entry.get('url_name')
         }
     except Exception:
+        logger.warning(
+            "Ribbon catalog could not read route metadata; hosts will fall back to "
+            "view-derived labels.",
+            exc_info=True,
+        )
         return {}
 
 
@@ -105,6 +120,10 @@ def _route_callbacks(urlconf=None):
             for pattern, route_name in _iter_named_patterns(patterns)
         }
     except Exception:
+        logger.warning(
+            "Ribbon catalog could not walk the URLconf for route callbacks.",
+            exc_info=True,
+        )
         return {}
 
 
@@ -156,6 +175,9 @@ def _view_built_strips(view, request):
             tabs = instance.get_ribbon_tabs()
             return [tabs] if tabs else []
     except Exception:
+        logger.debug(
+            "Ribbon catalog could not build strips for %r.", view, exc_info=True
+        )
         return None
     return None
 
@@ -247,6 +269,9 @@ def _view_built_actions(view, request):
             transaction.set_rollback(True)
         return actions
     except Exception:
+        logger.debug(
+            "Ribbon catalog could not build actions for %r.", view, exc_info=True
+        )
         return None
 
 
@@ -263,6 +288,11 @@ def _declared_function_actions(callback, request):
         try:
             specs = specs(request)
         except Exception:
+            logger.debug(
+                "Ribbon catalog could not resolve declared actions for %r.",
+                callback,
+                exc_info=True,
+            )
             return []
     if not specs:
         return []
@@ -299,11 +329,24 @@ def _ribbon_view_hosts(urlconf=None, request=None):
     try:
         patterns = get_resolver(urlconf).url_patterns
     except Exception:
+        logger.warning(
+            "Ribbon catalog could not resolve the root URLconf; the builder will list "
+            "no ribbon hosts.",
+            exc_info=True,
+        )
         return []
 
     try:
+        # Descending into every include imports each URLconf module, which nothing
+        # else in a request does — so a module that only fails to import under this
+        # deployment's settings surfaces here and nowhere else.
         candidates = list(_iter_named_patterns(patterns))
     except Exception:
+        logger.warning(
+            "Ribbon catalog could not enumerate named URL patterns; the builder will "
+            "list no ribbon hosts.",
+            exc_info=True,
+        )
         return []
 
     for pattern, route_name in candidates:
@@ -387,6 +430,12 @@ def _declared_strips(config, model, request):
             try:
                 tabs = build_ribbon_tabs(one, model=model, request=request, overlay={})
             except Exception:
+                logger.debug(
+                    "Ribbon catalog could not build declared strip %s for %r.",
+                    index,
+                    model,
+                    exc_info=True,
+                )
                 continue
         strips.append({
             'index': index,
@@ -548,6 +597,11 @@ def ribbon_destination_catalog(request=None, include_system_items=True):
 
         routes = discover_routes(lang_code=get_current_language_code(request))
     except Exception:
+        logger.warning(
+            "Ribbon destination catalog could not discover routes; the builder will "
+            "offer no destinations.",
+            exc_info=True,
+        )
         return []
 
     callbacks = _route_callbacks()

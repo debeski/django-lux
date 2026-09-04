@@ -444,6 +444,47 @@ A save in manager mode never refreshes the parent page — it returns to the
 manager's list, which is also what a save does anywhere the modal has navigated
 deeper than the surface it was opened on.
 
+### Initialising JavaScript inside a dynamic modal
+
+A dynamic modal shows the dialog first and fetches its content afterwards, so
+`shown.bs.modal` is **not** a reliable signal that the content exists — it fires when
+the dialog finishes opening, which usually beats the response on anything but a fast
+link and a small payload. The body is also re-injected without any `shown` event at
+all: by a form that failed validation, by in-modal navigation, and by the saved-state
+restore that runs on every page load.
+
+Bind to `dlux:modal-content-loaded` instead. It bubbles from the modal body after
+every injection, and its `target` is the element that received the content:
+
+```js
+function boot(scope) {
+    (scope || document).querySelectorAll('[data-my-widget]').forEach(init);
+}
+
+document.addEventListener('dlux:modal-content-loaded', (event) => boot(event.target));
+document.addEventListener('shown.bs.modal', (event) => boot(event.target));
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => boot(document));
+} else {
+    boot(document);
+}
+```
+
+Keep both listeners — a modal whose content is already in the DOM only fires `shown` —
+and make `init()` idempotent, because both can fire for one injection:
+
+```js
+function init(root) {
+    if (root.dataset.myWidgetReady === '1') return;
+    root.dataset.myWidgetReady = '1';
+    // ...
+}
+```
+
+Widgets that only listened for `shown.bs.modal` failed in a way that is easy to miss:
+nothing throws, the server payload is correct, and the widget renders on the loads
+that happen to win the race — so it looks intermittent rather than broken.
+
 ### Pinning buttons to the modal footer
 
 The dynamic modal owns its header, scrolling body, and persistent footer. AJAX partials should return body content only: do not add another `.modal-header`, `.modal-body`, or `.modal-footer`, and use the trigger's `data-modal-title` for the single shell title. Legacy fragments that still return Bootstrap modal chrome are normalized automatically; their embedded title is promoted to the shell, non-title header context stays in the body, and their footer actions are pinned.

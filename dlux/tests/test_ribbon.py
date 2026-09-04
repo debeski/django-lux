@@ -2215,3 +2215,50 @@ class BuilderCriteriaLabelTests(TestCase):
         source = self.BUILDER_JS.read_text()
         self.assertIn("t('split_none', 'Not split by a field')", source)
         self.assertIn("t('split_custom', 'Currently: ')", source)
+
+
+class RibbonCatalogFailuresAreVisibleTests(TestCase):
+    """An empty builder in production looked identical to a project with no ribbon
+    hosts: nothing in the server log, nothing in the browser console."""
+
+    def test_blanking_the_catalog_is_logged(self):
+        from unittest.mock import patch
+
+        from dlux.ribbon.catalog import _ribbon_view_hosts
+
+        with patch('dlux.ribbon.catalog.get_resolver', side_effect=RuntimeError('boom')):
+            with self.assertLogs('dlux', level='WARNING') as captured:
+                self.assertEqual(_ribbon_view_hosts(), [])
+        self.assertIn('no ribbon hosts', '\n'.join(captured.output))
+
+    def test_unwalkable_urlconf_is_logged(self):
+        from unittest.mock import patch
+
+        from dlux.ribbon.catalog import _ribbon_view_hosts
+
+        with patch('dlux.ribbon.catalog._iter_named_patterns', side_effect=ImportError('nope')):
+            with self.assertLogs('dlux', level='WARNING') as captured:
+                self.assertEqual(_ribbon_view_hosts(), [])
+        self.assertIn('named URL patterns', '\n'.join(captured.output))
+
+    def test_blanking_the_destination_catalog_is_logged(self):
+        from unittest.mock import patch
+
+        from dlux.ribbon.catalog import ribbon_destination_catalog
+
+        with patch('dlux.discovery.discover_routes', side_effect=RuntimeError('boom')):
+            with self.assertLogs('dlux', level='WARNING') as captured:
+                self.assertEqual(ribbon_destination_catalog(), [])
+        self.assertIn('no destinations', '\n'.join(captured.output))
+
+    def test_client_side_parse_failure_is_reported(self):
+        from pathlib import Path
+
+        js = (Path(__file__).resolve().parents[1]
+              / 'static' / 'dlux' / 'ribbon' / 'js' / 'ribbon_builder.js').read_text(encoding='utf-8')
+
+        self.assertIn('function parse(value, fallback, name)', js)
+        self.assertIn('could not parse its ${name} payload', js)
+        for attr in ('catalog', 'destinations', 'strings', 'languages', 'config'):
+            self.assertIn(f"parse(root.dataset.{attr}, ", js)
+            self.assertIn(f", '{attr}');", js)

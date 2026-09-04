@@ -43,8 +43,13 @@
     });
 
     // The settings form arrives in a dynamic modal, so it is not in the DOM at
-    // load; re-run whenever one is inserted.
+    // load; re-run whenever one is inserted. `shown.bs.modal` is the dialog
+    // opening, which usually beats the fetch that fills it — the content event is
+    // the one that means the form is actually there.
     document.addEventListener('shown.bs.modal', function (event) {
+        init(event.target);
+    });
+    document.addEventListener('dlux:modal-content-loaded', function (event) {
         init(event.target);
     });
 

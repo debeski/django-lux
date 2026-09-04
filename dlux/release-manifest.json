@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.6",
+  "version": "1.8.7",
   "display": {
-    "summary": "The runtime-volume guard belongs to whichever process writes the volume, so a read-only web mount no longer disables the update card or refuses a manual check.",
+    "summary": "A dynamic modal now announces the content it injects, so builders that arrive inside one initialise on every load instead of only when they win a race with the dialog opening.",
     "highlights": [
-      "Celery records its runtime-volume verdict on the state row; web reads it instead of probing a mount it holds read-only.",
-      "Queueing is refused with a named reason when the update worker has not reported for ten minutes.",
-      "Deployment Doctor's updater.runtime_volume check reports the writer's verdict, not the local process's mount."
+      "The Ribbon builder no longer opens empty, or fills and then blanks a second later, on a slow link or a large settings modal.",
+      "Its “Show system items” toggle works again — that listener is bound during initialisation, which is what was being skipped.",
+      "Ribbon catalog discovery logs what it swallows instead of degrading to an empty builder in silence."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.6"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.7"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -18,7 +18,7 @@
     }
   },
   "migrations": {
-    "effect": "additive",
+    "effect": "none",
     "rollback_compatible": true,
     "downtime": "none"
   },
