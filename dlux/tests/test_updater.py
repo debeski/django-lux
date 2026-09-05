@@ -513,6 +513,121 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.baked_version, "1.2.2")
             self.assertEqual(reconciled.active_version, "1.2.3")
 
+    def test_an_installed_release_stops_being_an_offer(self):
+        """The card kept offering the version it had just installed.
+
+        `latest_*` is recomputed only by a check run, so after an update applied
+        through the panel — or through `composer dlux-update apply` on the host,
+        which never touches this row — the Options card went on advertising the
+        release that was already active until somebody checked again.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.8.9").mkdir()
+            store.write_active("1.8.9", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.6"
+            state.latest_version = "1.8.9"
+            state.latest_compatible = True
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.active_version, "1.8.9")
+            self.assertFalse(reconciled.latest_compatible)
+            self.assertEqual(reconciled.latest_reason, "DjangoLux is up to date.")
+            self.assertEqual(reconciled.latest_version, "1.8.9", "the known latest is still reported")
+
+    def test_the_rollback_target_is_derived_from_the_volume(self):
+        """The Rollback button never appeared on a Composer-executed stack.
+
+        `previous_version` gates both the button and `queue_run`, and only the
+        retired in-container swap ever wrote it — so every deployment since
+        1.8.0 had a staged previous release it could not be offered.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            for version in ("1.8.9", "1.8.10"):
+                store.release_path(version).mkdir(parents=True)
+            store.write_active("1.8.10", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.10"
+            state.previous_version = ""
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.previous_version, "1.8.9",
+                             "by version: 1.8.10 rolls back to 1.8.9, not the other way round")
+
+    def test_the_rollback_target_falls_back_to_the_baked_image(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.8.9").mkdir(parents=True)
+            store.write_active("1.8.9", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.9"
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.previous_version, "1.8.6")
+
+    def test_no_rollback_is_offered_on_the_baked_image(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.write_active("1.8.6", source="image", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.6"
+            state.previous_version = "1.8.5"
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.previous_version, "")
+
+    def test_a_target_under_the_baked_floor_is_not_offered(self):
+        """Reconcile resets anything below the image; offering it would undo itself."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            for version in ("1.7.0", "1.9.0"):
+                store.release_path(version).mkdir(parents=True)
+            store.write_active("1.9.0", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.9.0"
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.previous_version, "")
+
+    def test_a_genuinely_newer_release_stays_on_offer(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.8.9").mkdir()
+            store.write_active("1.8.9", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.9"
+            state.latest_version = "1.9.0"
+            state.latest_compatible = True
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = service.reconcile()
+
+            self.assertTrue(reconciled.latest_compatible)
+
     def test_the_state_tick_reconciles_a_row_left_behind_by_an_upgrade(self):
         """The 1.8.0 regression: nothing called reconcile() any more.
 

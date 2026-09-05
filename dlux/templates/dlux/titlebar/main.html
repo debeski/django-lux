@@ -12,7 +12,7 @@
     data-titlebar-home-shape="{{ titlebar_buttons_shape }}"
     data-titlebar-user-hub-style="{{ titlebar.user_hub_style|default:'dropdown' }}"
     data-titlebar-actions-layout="{{ titlebar.actions_layout|default:'scattered' }}"
-    data-titlebar-actions-grouped="{% if titlebar.actions_layout == 'grouped' %}true{% else %}false{% endif %}"
+    data-titlebar-actions-grouped="{% if titlebar.user_hub_style == 'titlebar_actions' and titlebar.actions_layout == 'grouped' %}true{% else %}false{% endif %}"
     data-titlebar-show-title="{% if titlebar.show_title %}true{% else %}false{% endif %}"
     data-titlebar-show-logo="{% if titlebar.show_logo %}true{% else %}false{% endif %}"
     data-titlebar-show-home="{% if titlebar.show_home_button %}true{% else %}false{% endif %}"
@@ -40,75 +40,63 @@
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
         {% if user.is_authenticated %}
-            {% if search.enabled %}
-            <div class="dlux-global-search no-print"
-                 data-global-search
-                 data-global-search-mode="{{ search.display_mode|default:'icon' }}"
-                 data-global-search-url="{% url 'global_search' %}"
-                 data-global-search-include-data="{% if search.include_data %}1{% else %}0{% endif %}">
-                <button type="button" class="dlux-global-search__toggle" data-global-search-toggle
-                        data-dlux-tooltip="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
-                        aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}">
-                    <i class="bi bi-search"></i>
-                </button>
-                <div class="dlux-global-search__box">
-                    <i class="bi bi-search dlux-global-search__icon" aria-hidden="true"></i>
-                    <input type="search" class="dlux-global-search__input" data-global-search-input
-                           placeholder="{{ DLUX_STRINGS.global_search_placeholder|default:'Search…' }}"
-                           aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
-                           role="combobox" aria-expanded="false" aria-autocomplete="list"
-                           aria-controls="dlux-global-search-results" dir="auto"
-                           autocomplete="off"
-                           data-1p-ignore data-lpignore="true" data-form-type="other">
-                    <span class="dlux-global-search__hint" aria-hidden="true">Ctrl K</span>
-                </div>
-                <div class="dlux-global-search__results" id="dlux-global-search-results"
-                     data-global-search-results role="listbox" hidden></div>
-            </div>
-            {% endif %}
-            {% if titlebar_theme_picker_enabled %}
-            <button type="button"
-                    class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-theme-cycle no-print"
-                    data-dlux-theme-cycle
-                    data-theme-codes="{{ DLUX_THEME_NAMES|join:',' }}"
-                    data-dlux-tooltip="{{ DLUX_STRINGS.theme_change }}"
-                    aria-label="{{ DLUX_STRINGS.theme_change }}">
-                <span class="dlux-titlebar-theme-cycle__dot" data-dlux-theme-cycle-dot aria-hidden="true"></span>
-                {% for theme in DLUX_THEMES %}
-                <span hidden aria-hidden="true" data-theme-swatch data-theme="{{ theme.slug }}" data-theme-color="{{ theme.color }}" data-theme-label="{{ theme.label }}"></span>
-                {% endfor %}
-            </button>
-            {% endif %}
-            {% if language_picker_enabled %}
-            <button type="button"
-                    class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-lang-cycle no-print"
-                    data-dlux-lang-cycle
-                    data-lang-codes="{% for code, meta in languages.items %}{{ code }}{% if not forloop.last %},{% endif %}{% endfor %}"
-                    data-dlux-tooltip="{{ DLUX_STRINGS.titlebar_language_switch|default:'Switch language' }}"
-                    aria-label="{{ DLUX_STRINGS.titlebar_language_switch|default:'Switch language' }}">
-                <span class="dlux-titlebar-lang-cycle__code" data-dlux-lang-cycle-label>{{ CURRENT_LANG|upper }}</span>
-            </button>
-            {% endif %}
-            <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
-                {% include 'dlux/notifications/main.html' %}
-                <a
-                    href="{{ APP_CONFIG.homepage_config.default_url }}"
-                    class="dlux-titlebar-btn dlux-titlebar-home"
-                    data-dlux-tooltip="{{ DLUX_STRINGS.btn_home }}"
-                    aria-label="{{ DLUX_STRINGS.btn_home }}"
-                    data-titlebar-home
-                >
-                    <i class="bi bi-house-fill"></i>
-                </a>
-            </div>
-            <div class="titlebar__actions titlebar__actions--titlebar" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
+            <div class="titlebar__actions" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% for action in titlebar_actions %}
-                    {% if action.kind == 'notifications' %}
-                        <div class="titlebar__action-slot" data-titlebar-action-key="{{ action.key }}">
+                    {% if action.kind == 'search' %}
+                        <div class="dlux-global-search no-print"
+                             data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
+                             data-global-search
+                             data-global-search-mode="{{ search.display_mode|default:'icon' }}"
+                             data-global-search-url="{% url 'global_search' %}"
+                             data-global-search-include-data="{% if search.include_data %}1{% else %}0{% endif %}">
+                            <button type="button" class="dlux-titlebar-btn dlux-titlebar-action dlux-global-search__toggle" data-global-search-toggle
+                                    data-dlux-tooltip="{{ action.label }}"
+                                    aria-label="{{ action.label }}">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <div class="dlux-global-search__box">
+                                <i class="bi bi-search dlux-global-search__icon" aria-hidden="true"></i>
+                                <input type="search" class="dlux-global-search__input" data-global-search-input
+                                       placeholder="{{ DLUX_STRINGS.global_search_placeholder|default:'Search…' }}"
+                                       aria-label="{{ action.label }}"
+                                       role="combobox" aria-expanded="false" aria-autocomplete="list"
+                                       aria-controls="dlux-global-search-results" dir="auto"
+                                       autocomplete="off"
+                                       data-1p-ignore data-lpignore="true" data-form-type="other">
+                                <span class="dlux-global-search__hint" aria-hidden="true">Ctrl K</span>
+                            </div>
+                            <div class="dlux-global-search__results" id="dlux-global-search-results"
+                                 data-global-search-results role="listbox" hidden></div>
+                        </div>
+                    {% elif action.kind == 'theme' %}
+                        <button type="button"
+                                class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-theme-cycle no-print"
+                                data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
+                                data-dlux-theme-cycle
+                                data-theme-codes="{{ DLUX_THEME_NAMES|join:',' }}"
+                                data-dlux-tooltip="{{ action.label }}"
+                                aria-label="{{ action.label }}">
+                            <span class="dlux-titlebar-theme-cycle__dot" data-dlux-theme-cycle-dot aria-hidden="true"></span>
+                            {% for theme in DLUX_THEMES %}
+                            <span hidden aria-hidden="true" data-theme-swatch data-theme="{{ theme.slug }}" data-theme-color="{{ theme.color }}" data-theme-label="{{ theme.label }}"></span>
+                            {% endfor %}
+                        </button>
+                    {% elif action.kind == 'language' %}
+                        <button type="button"
+                                class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-lang-cycle no-print"
+                                data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
+                                data-dlux-lang-cycle
+                                data-lang-codes="{% for code, meta in languages.items %}{{ code }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                                data-dlux-tooltip="{{ action.label }}"
+                                aria-label="{{ action.label }}">
+                            <span class="dlux-titlebar-lang-cycle__code" data-dlux-lang-cycle-label>{{ CURRENT_LANG|upper }}</span>
+                        </button>
+                    {% elif action.kind == 'notifications' %}
+                        <div class="titlebar__action-slot" data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}">
                             {% include 'dlux/notifications/main.html' %}
                         </div>
                     {% elif action.kind == 'logout' %}
-                        <form method="POST" action="{{ action.url }}" class="titlebar__action-form" data-titlebar-action-key="{{ action.key }}">
+                        <form method="POST" action="{{ action.url }}" class="titlebar__action-form" data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}">
                             {% csrf_token %}
                             <button
                                 type="submit"
@@ -125,7 +113,7 @@
                             type="button"
                             class="dlux-titlebar-btn dlux-titlebar-action"
                             aria-label="{{ action.label }}"
-                            data-titlebar-action-key="{{ action.key }}"
+                            data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
                             data-dlux-start-tour
                             data-dlux-tooltip="{{ action.label }}"
                         >
@@ -136,7 +124,7 @@
                             href="{{ action.url }}"
                             class="dlux-titlebar-btn {% if action.key == 'home' %}dlux-titlebar-home{% else %}dlux-titlebar-action{% endif %}"
                             aria-label="{{ action.label }}"
-                            data-titlebar-action-key="{{ action.key }}"
+                            data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
                             data-dlux-tooltip="{{ action.label }}"
                             {% if action.key == 'home' %}data-titlebar-home{% endif %}
                         >
@@ -148,7 +136,7 @@
             <div class="titlebar__constants">
                 <button type="button"
                         id="dlux-titlebar-rail-toggle"
-                        class="dlux-titlebar-rail-toggle no-print"
+                        class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-rail-toggle no-print"
                         data-dlux-titlebar-rail-toggle
                         aria-controls="dlux-titlebar-rail"
                         aria-expanded="false"
@@ -169,20 +157,18 @@
                 </div>
             </div>
         {% else %}
-            <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
+            <div class="titlebar__actions" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% if request.resolver_match.url_name != 'login' %}
                 <a href="{% url 'login' %}" class="dlux-titlebar-btn dlux-login-round" data-dlux-tooltip="{{ DLUX_STRINGS.login }}" aria-label="{{ DLUX_STRINGS.login }}">
                     <i class="bi bi-person-lock" aria-hidden="true"></i>
                 </a>
                 {% endif %}
-            </div>
-            <div class="titlebar__actions titlebar__actions--titlebar" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% for action in titlebar_actions %}
                     <a
                         href="{{ action.url }}"
                         class="dlux-titlebar-btn dlux-login-round"
                         aria-label="{{ action.label }}"
-                        data-titlebar-action-key="{{ action.key }}"
+                        data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}"
                         data-dlux-tooltip="{{ action.label }}"
                     >
                         <i class="bi {{ action.icon }}" aria-hidden="true"></i>

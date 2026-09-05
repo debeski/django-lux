@@ -425,6 +425,9 @@ TITLEBAR_ACTIONS_LAYOUT_CHOICES = (
 )
 TITLEBAR_ACTIONS_LAYOUT_VALUES = {value for value, _label in TITLEBAR_ACTIONS_LAYOUT_CHOICES}
 TITLEBAR_ACTIONS_ORDER = (
+    'search',
+    'theme',
+    'language',
     'notifications',
     'home',
     'profile',
@@ -436,6 +439,15 @@ TITLEBAR_ACTIONS_ORDER = (
     'auth',
 )
 TITLEBAR_ACTIONS_ORDER_VALUES = set(TITLEBAR_ACTIONS_ORDER)
+# The Dropdown layout keeps user shortcuts inside the hub card, so only these
+# reach the titlebar there. Titlebar Actions offers the whole list.
+TITLEBAR_DROPDOWN_ACTION_KEYS = frozenset({
+    'search',
+    'theme',
+    'language',
+    'notifications',
+    'home',
+})
 
 REGISTRATION_ACTIVATION_AUTO_LOGIN = 'auto_login_after_verify'
 REGISTRATION_ACTIVATION_PENDING_APPROVAL = 'verified_pending_approval'

@@ -9,7 +9,14 @@
         }
     }
 
+    // Mirrors TITLEBAR_ACTIONS_ORDER in dlux/system/constants.py. A key missing
+    // here is not merely unordered: normalizeTitlebarActionsOrder drops it, and
+    // writeTitlebarActionsOrder then saves the stripped list — which is how the
+    // theme cycle disappeared from the titlebar entirely after a reorder.
     const TITLEBAR_ACTIONS_DEFAULT_ORDER = [
+        'search',
+        'theme',
+        'language',
         'notifications',
         'home',
         'profile',
@@ -2836,6 +2843,20 @@
         });
 
         builder.addEventListener('click', (event) => {
+            if (event.target.closest('[data-titlebar-actions-order-reset]')) {
+                TITLEBAR_ACTIONS_DEFAULT_ORDER.forEach((key) => {
+                    const item = list.querySelector(
+                        `[data-titlebar-action-order-item][data-action-key="${key}"]`
+                    );
+                    if (item) {
+                        list.appendChild(item);
+                    }
+                });
+                renderTitlebarActionsOrderBuilder(builder, form);
+                applyImmediateSystemSettingsPreview(form);
+                persistSetupFormState(form);
+                return;
+            }
             const button = event.target.closest('[data-titlebar-action-move]');
             if (!button) {
                 return;
@@ -2899,6 +2920,19 @@
                 });
                 setNamedFieldReadonly(form, 'titlebar_home_shape', !showHomeButtonToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_actions_order', titlebarUserHubStyle !== 'titlebar_actions');
+                // Grouping the actions behind a caret is a Titlebar Actions choice.
+                // The Dropdown layout keeps its shortcuts in the hub card and has
+                // only the shared few on the bar, so there is nothing to group —
+                // narrow screens group those regardless, without asking.
+                const titlebarActions = titlebarUserHubStyle === 'titlebar_actions';
+                form.querySelectorAll('.dlux-titlebar-actions-layout-dependent').forEach((node) => {
+                    setDependentFieldEnabled(
+                        node,
+                        titlebarActions,
+                        t('help_sys_titlebar_actions_layout_requires_titlebar_actions',
+                          'Available when the titlebar and user hub style is Titlebar Actions.')
+                    );
+                });
                 syncTitlebarActionsBuilderVisibility(form);
                 applyImmediateSystemSettingsPreview(form);
             }

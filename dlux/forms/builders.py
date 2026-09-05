@@ -241,6 +241,9 @@ def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
 
 
 _TITLEBAR_ACTION_META = {
+    'search': ('bi-search', 'global_search_placeholder', 'Search'),
+    'theme': ('bi-circle-half', 'theme_change', 'Theme'),
+    'language': ('bi-translate', 'titlebar_language_switch', 'Language'),
     'notifications': ('bi-bell-fill', 'notifications', 'Notifications'),
     'home': ('bi-house-fill', 'btn_home', 'Home'),
     'profile': ('bi-person-bounding-box', 'profile', 'Profile'),
@@ -254,6 +257,9 @@ _TITLEBAR_ACTION_META = {
 
 
 def build_titlebar_actions_order_builder(order, strings, *, visible=True):
+    # `visible` is kept for callers built against the old signature; the builder
+    # now renders in both layouts and hides the entries a layout does not offer.
+    del visible
     if isinstance(order, str):
         try:
             order = json.loads(order)
@@ -284,12 +290,16 @@ def build_titlebar_actions_order_builder(order, strings, *, visible=True):
             "</div>"
         )
 
-    hidden_class = '' if visible else ' d-none'
+    hidden_class = ''
     title = conditional_escape(strings.get('titlebar_actions_order_title', 'Titlebar action order'))
+    reset_label = conditional_escape(
+        strings.get('titlebar_actions_order_reset', 'Reset to the default order')
+    )
     help_text = conditional_escape(
         strings.get(
             'titlebar_actions_order_help',
-            'Choose the right-side titlebar button order for the Titlebar Actions layout.',
+            'Choose the order of the right-side titlebar buttons. Entries the current '
+            'layout does not offer are hidden.',
         )
     )
     return mark_safe(
@@ -297,6 +307,10 @@ def build_titlebar_actions_order_builder(order, strings, *, visible=True):
         "data-titlebar-actions-order-builder>"
         "<div class='d-flex align-items-start justify-content-between gap-3 mb-2'>"
         f"<div><div class='fw-semibold'>{title}</div><div class='small text-muted'>{help_text}</div></div>"
+        "<button type='button' class='btn btn-sm btn-light flex-shrink-0' "
+        f"data-titlebar-actions-order-reset title='{reset_label}' aria-label='{reset_label}'>"
+        "<i class='bi bi-arrow-counterclockwise' aria-hidden='true'></i>"
+        "</button>"
         "</div>"
         "<div class='dlux-titlebar-actions-order-list' data-titlebar-actions-order-list>"
         f"{''.join(items_html)}"

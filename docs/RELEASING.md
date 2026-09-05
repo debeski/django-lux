@@ -64,7 +64,10 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 git push && git push --tags
 
 # or just use a one line command like this:
-git add -A && git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin --follow-tags
+# Stage the release explicitly. `git add -A` sweeps whatever else is in the
+# tree — an unfinished branch, another session's work — into the tag.
+git add <the paths this release actually changes>
+git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin --follow-tags
 ```
 
 Pushing the tag triggers the pipeline:

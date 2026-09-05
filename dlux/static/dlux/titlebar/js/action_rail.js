@@ -33,26 +33,20 @@
     // rail is not inside it — mirror the ones that decide how a grouped action looks
     // and whether it shows at all, so a hidden Home stays hidden once grouped.
     const MIRRORED_ATTRIBUTES = [
+        'data-titlebar-user-hub-style',
         'data-titlebar-buttons-shape',
         'data-titlebar-home-shape',
         'data-titlebar-show-home',
         'data-titlebar-show-language-switcher',
     ];
 
-    // Both action groups are always rendered and CSS hides the one the user-hub
-    // style does not use — including a second notification bell. Grouping lifts
-    // children out of their group, which would take that hidden copy with them and
-    // show it, so only the active group's children are ever collected.
-    function groupable(end, activeGroup) {
+    function groupable(end) {
         const found = [];
         Array.prototype.forEach.call(end.children, function (child) {
             if (child.matches(CONSTANTS)) {
                 return;
             }
             if (child.classList.contains('titlebar__actions')) {
-                if (child.dataset.titlebarActionsGroup !== activeGroup) {
-                    return;
-                }
                 Array.prototype.forEach.call(child.children, function (action) {
                     if (!action.matches(CONSTANTS)) {
                         found.push(action);
@@ -76,10 +70,7 @@
 
     function create(titlebar, rail) {
         const end = titlebar.querySelector('.titlebar__side--end');
-        const activeGroup = titlebar.dataset.titlebarUserHubStyle === 'titlebar_actions'
-            ? 'titlebar_actions'
-            : 'dropdown';
-        const items = end ? groupable(end, activeGroup) : [];
+        const items = end ? groupable(end) : [];
         if (!items.length) {
             return null;
         }
@@ -152,27 +143,19 @@
             return available >= MIN_TITLE_WIDTH;
         }
 
-        // Grouped when the setting asks for it, when the screen is too narrow to do
-        // anything else, or when the scattered row can no longer leave the title a
-        // readable minimum.
+        // Narrow screens always group whatever the settings say — Home and the user
+        // hub trigger stay behind, and there is no room for the rest. Above that, the
+        // layout setting only applies where it is offered: the Dropdown style keeps
+        // its shortcuts in the hub card, so its handful of bar actions never group by
+        // choice. The last clause is the safety net for a scattered row that still
+        // cannot leave the title a readable minimum.
         function shouldGroup() {
-            return titlebar.dataset.titlebarActionsLayout === 'grouped'
-                || mobile.matches
-                || !scatteredFits();
-        }
-
-        // The rail is laid out (opacity 0) even while closed, so it can be measured
-        // either way. Scrolling is only right once the actions stop fitting: while
-        // they fit they are spread evenly, and space-evenly in a scroll container
-        // parks the leading action before the scrollable start, out of reach.
-        function measure() {
-            rail.classList.toggle('is-scrollable', rail.scrollWidth > rail.clientWidth + 1);
-            // A scroll container clips the panels, so they anchor to the viewport
-            // under the rail instead of hanging off it.
-            rail.style.setProperty(
-                '--dlux-titlebar-rail-panel-top',
-                Math.round(rail.getBoundingClientRect().bottom + 8) + 'px'
-            );
+            if (mobile.matches) {
+                return true;
+            }
+            const byChoice = titlebar.dataset.titlebarUserHubStyle === 'titlebar_actions'
+                && titlebar.dataset.titlebarActionsLayout === 'grouped';
+            return byChoice || !scatteredFits();
         }
 
         function setOpen(next) {
@@ -180,9 +163,6 @@
             rail.classList.toggle('show', open);
             if (toggle) {
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            }
-            if (open) {
-                measure();
             }
         }
 
@@ -231,12 +211,7 @@
             isGrouped: function () { return grouped; },
             isOpen: function () { return open; },
             setOpen: setOpen,
-            sync: function () {
-                applyGrouping(shouldGroup());
-                if (grouped) {
-                    measure();
-                }
-            },
+            sync: function () { applyGrouping(shouldGroup()); },
         };
     }
 
@@ -329,7 +304,7 @@
         // the live titlebar.
         new MutationObserver(schedule).observe(titlebar, {
             attributes: true,
-            attributeFilter: ['data-titlebar-actions-layout'],
+            attributeFilter: ['data-titlebar-actions-layout', 'data-titlebar-user-hub-style'],
         });
         window.addEventListener('resize', schedule);
         window.addEventListener('load', schedule);

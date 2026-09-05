@@ -487,11 +487,22 @@ class LayoutMixin:
                             Div(Field('titlebar_height'), css_class='col-lg-6'),
                         ),
                         Row(
-                            Div(Field('titlebar_actions_layout'), css_class='col-lg-12'),
+                            Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
+                            Div(
+                                Field('titlebar_actions_layout'),
+                                css_class=(
+                                    "col-lg-12 dlux-titlebar-actions-layout-dependent dlux-dependent-settings"
+                                    f"{'' if self.initial.get('titlebar_user_hub_style') == TITLEBAR_USER_HUB_STYLE_ACTIONS else ' is-disabled'}"
+                                ),
+                                aria_disabled=(
+                                    'false'
+                                    if self.initial.get('titlebar_user_hub_style') == TITLEBAR_USER_HUB_STYLE_ACTIONS
+                                    else 'true'
+                                ),
+                            ),
                             css_class='g-3 mb-3',
                         ),
                         HTML(self.titlebar_actions_order_html),

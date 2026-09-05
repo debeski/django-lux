@@ -36,39 +36,25 @@
 
 .titlebar__side--end {
     justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
     min-width: 0;
     max-width: min(64vw, 620px);
 }
 
+/* One ordered group in both layouts; the layout decides which actions are in it,
+   not which of two groups renders. The end side used to hold both — two flex
+   contexts that could not shrink into each other, which is what overlapped.
+   Deliberately not a scroll container: that clips the search field and the
+   notification panel. Overflow is what grouping is for, and the rail scrolls. */
 .titlebar__actions {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
     min-width: 0;
-}
-
-.titlebar__actions--titlebar {
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-inline: contain;
     padding-block: 0.2rem;
-    scrollbar-width: thin;
-}
-
-.titlebar__actions--titlebar::-webkit-scrollbar {
-    height: 4px;
-}
-
-.titlebar__actions--titlebar::-webkit-scrollbar-thumb {
-    background: rgba(var(--primal-rgb), 0.25);
-    border-radius: 999px;
-}
-
-.titlebar[data-titlebar-user-hub-style="dropdown"] .titlebar__actions--titlebar,
-.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown {
-    display: none;
 }
 
 .titlebar__action-slot,
@@ -83,19 +69,6 @@
     margin: 0 !important;
 }
 
-/* Style 2: the titlebar action rail is a horizontal scroll container
-   (overflow-x: auto / overflow-y: hidden), which clips the absolutely-positioned
-   notification dropdown so it opens but never shows. Pin the panel with
-   position: fixed (anchored to the titlebar's top-end corner) so it escapes the
-   rail. Mobile (<=575.98px) keeps its own full-width fixed rule in dlux/notifications/css/main.css. */
-@media (min-width: 576px) {
-    .titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--titlebar .dlux-notifications__panel {
-        position: fixed;
-        inset-block-start: calc(var(--header-height, 60px) + 0.5rem);
-        inset-inline-end: 0.5rem;
-        inset-inline-start: auto;
-    }
-}
 
 .titlebar__center {
     flex: 1 1 auto;
@@ -291,12 +264,21 @@
     cursor: pointer;
 }
 
-.titlebar .dlux-titlebar-lang-cycle {
-    margin-inline-end: 0.5rem;
+/* Search, theme and language used to sit outside the action group as loose
+   siblings with no gap between them, so each carried its own margin. Inside the
+   group those margins stack on top of the flex gap — a wider space between
+   exactly these three and nothing else. They are ordinary actions now. */
+.titlebar__actions .dlux-titlebar-lang-cycle,
+.titlebar__actions .dlux-titlebar-theme-cycle,
+.titlebar__actions .dlux-global-search {
+    margin-inline: 0;
 }
 
-.titlebar .dlux-titlebar-theme-cycle {
-    margin-inline-end: 0.5rem;
+/* The user hub style decides which actions it offers; both sets render so the
+   settings page can preview a style change without a round trip. */
+.titlebar[data-titlebar-user-hub-style="dropdown"] [data-titlebar-action-scope="titlebar_actions"],
+.dlux-titlebar-rail[data-titlebar-user-hub-style="dropdown"] [data-titlebar-action-scope="titlebar_actions"] {
+    display: none !important;
 }
 
 /* The swatch reads as the current theme, the way the language action reads as
@@ -449,34 +431,14 @@
     display: none;
 }
 
-.dlux-titlebar-rail-toggle {
+/* Hidden until the actions are actually grouped. Specificity has to clear
+   `:is(.titlebar, .dlux-titlebar-rail) .dlux-titlebar-btn`, which the caret now is. */
+.titlebar:not([data-titlebar-actions-grouped="true"]) .dlux-titlebar-rail-toggle {
     display: none;
-    align-items: center;
-    justify-content: center;
+}
+
+.dlux-titlebar-rail-toggle {
     position: relative;
-    flex: 0 0 auto;
-    width: 22px;
-    height: 34px;
-    padding: 0;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--title);
-    font-size: 0.85rem;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.titlebar[data-titlebar-actions-grouped="true"] .dlux-titlebar-rail-toggle {
-    display: inline-flex;
-}
-
-.dlux-titlebar-rail-toggle:hover,
-.dlux-titlebar-rail-toggle:focus-visible {
-    background: rgba(var(--primal-rgb), 0.1);
-    color: var(--primal_dark);
-    outline: none;
 }
 
 .dlux-titlebar-rail-toggle i {
@@ -492,10 +454,10 @@
 .dlux-titlebar-rail-toggle[data-dlux-rail-alert="true"]::after {
     content: "";
     position: absolute;
-    inset-block-start: 3px;
-    inset-inline-end: 0;
-    width: 8px;
-    height: 8px;
+    inset-block-start: -1px;
+    inset-inline-end: -1px;
+    width: 9px;
+    height: 9px;
     border: 2px solid var(--hbody, #fff);
     border-radius: 50%;
     background: #dc2626;
@@ -510,11 +472,16 @@
     top: calc(var(--header-height) + 10px);
     inset-inline-end: var(--dlux-titlebar-rail-gap);
     inset-inline-start: auto;
-    width: min(400px, calc(100vw - (var(--dlux-titlebar-rail-gap) * 2)));
+    /* Wide enough for every action it holds, and no wider. Where that does not
+       fit, it wraps onto another line rather than scrolling: an action parked off
+       the edge of a scroller is an action nobody finds. */
+    width: max-content;
+    max-width: calc(100vw - (var(--dlux-titlebar-rail-gap) * 2));
     z-index: 2000;
     display: none;
     align-items: center;
     justify-content: space-evenly;
+    flex-wrap: wrap;
     gap: 0.5rem;
     padding: 0.65rem 0.75rem;
     border: 1px solid rgba(var(--primal-rgb), 0.12);
@@ -569,68 +536,23 @@
     max-width: none;
 }
 
-/* The Titlebar Actions layout hands the rail every configured button, which stops
-   fitting on a narrow phone, so the rail scrolls rather than spilling them out of
-   reach. Spreading them evenly only makes sense while they fit — once it scrolls,
-   space-evenly would park the leading action off the scrollable start. */
-.dlux-titlebar-rail.is-scrollable {
-    justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
+/* Opening search must not resize the titlebar. In flow, the field's own width
+   pushed the brand aside as you typed; anchored to its toggle it overlays the row
+   instead and the title never moves. The toggle stays put underneath — collapsing
+   it left a hole where the button had been, and in the rail that hole sat among
+   the other actions. */
+.titlebar__actions .dlux-global-search[data-global-search-mode].dlux-global-search--open .dlux-global-search__toggle,
+.dlux-titlebar-rail .dlux-global-search[data-global-search-mode].dlux-global-search--open .dlux-global-search__toggle {
+    display: inline-flex;
 }
 
-.dlux-titlebar-rail.is-scrollable::-webkit-scrollbar {
-    height: 4px;
-}
-
-.dlux-titlebar-rail.is-scrollable::-webkit-scrollbar-thumb {
-    background: rgba(var(--primal-rgb), 0.25);
-    border-radius: 999px;
-}
-
-/* A scroll container clips on both axes, so the panels can no longer hang off the
-   rail — they anchor to the viewport instead, under the rail's measured bottom
-   (dlux/titlebar/js/action_rail.js keeps that custom property in step). */
-.dlux-titlebar-rail.is-scrollable .dlux-notifications__panel,
-.dlux-titlebar-rail.is-scrollable .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
-    position: fixed;
-    inset-block-start: var(--dlux-titlebar-rail-panel-top, calc(var(--header-height) + 4rem));
-    inset-inline: var(--dlux-titlebar-rail-gap);
-    width: auto;
-    min-width: 0;
-    max-width: none;
-}
-
-.dlux-titlebar-rail.is-scrollable .dlux-global-search[data-global-search-mode] .dlux-global-search__results {
-    position: fixed;
-    inset-block-start: calc(var(--dlux-titlebar-rail-panel-top, calc(var(--header-height) + 4rem)) + 2.65rem);
-    inset-inline: var(--dlux-titlebar-rail-gap);
-    width: auto;
-    max-width: none;
-}
-
-@media (max-width: 991.98px) {
-    .titlebar .sidebar-toggle {
-        display: inline-flex !important;
-    }
-
-    .titlebar .titlebar__brand {
-        justify-content: flex-start !important;
-    }
-
-    .titlebar .titlebar__heading {
-        align-items: flex-start !important;
-        text-align: start !important;
-    }
-
-    .titlebar__side--end {
-        max-width: 56vw;
-    }
-
-    .titlebar__actions--titlebar {
-        justify-content: flex-start;
+@media (min-width: 768px) {
+    .titlebar__actions .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-end: calc(100% + 0.4rem);
+        transform: translateY(-50%);
+        z-index: 2;
     }
 }
 
@@ -653,8 +575,6 @@
     .dlux-titlebar-rail {
         --dlux-titlebar-rail-gap: 10px;
         top: calc(var(--header-height) + 8px);
-        inset-inline: var(--dlux-titlebar-rail-gap);
-        width: auto;
         border-radius: 14px;
     }
 }

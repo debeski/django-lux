@@ -58,10 +58,14 @@
         function usesIconInteraction() {
             return mode === 'icon' || (mode === 'always' && mobileQuery.matches);
         }
-        function collapseIfEmpty() {
-            if (usesIconInteraction() && !input.value.trim()) {
+        // Dismissing search puts it back the way it was found: the query goes with
+        // it, so reopening never resumes someone else's half-typed search.
+        function closeBox() {
+            input.value = '';
+            lastQuery = '';
+            closeResults();
+            if (usesIconInteraction()) {
                 root.classList.remove('dlux-global-search--open');
-                closeResults();
             }
         }
         function closeResults() {
@@ -99,9 +103,7 @@
         }
 
         function clear() {
-            input.value = '';
-            closeResults();
-            collapseIfEmpty();
+            closeBox();
         }
 
         function setActive(next) {
@@ -222,12 +224,20 @@
             else if (e.key === 'Enter') {
                 if (activeIndex >= 0 && flatItems[activeIndex]) { e.preventDefault(); activate(flatItems[activeIndex]); }
             } else if (e.key === 'Escape') {
-                if (!results.hidden) { closeResults(); } else { input.blur(); collapseIfEmpty(); }
+                if (!results.hidden) { closeResults(); } else { input.blur(); closeBox(); }
             }
         });
 
         if (toggle) {
-            toggle.addEventListener('click', function () { openBox(); input.focus(); });
+            // One click opens it, the next closes it again.
+            toggle.addEventListener('click', function () {
+                if (root.classList.contains('dlux-global-search--open')) {
+                    closeBox();
+                    return;
+                }
+                openBox();
+                input.focus();
+            });
         }
 
         function syncResponsiveMode(event) {
@@ -243,7 +253,7 @@
         }
 
         document.addEventListener('click', function (e) {
-            if (!root.contains(e.target)) { closeResults(); collapseIfEmpty(); }
+            if (!root.contains(e.target)) { closeBox(); }
         });
 
         // Ctrl/Cmd-K focuses the search from anywhere.

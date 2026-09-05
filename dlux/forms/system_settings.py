@@ -1604,8 +1604,8 @@ class SystemSettingsForm(
         )
         self.fields['titlebar_actions_layout'].help_text = s.get(
             'help_sys_titlebar_actions_layout',
-            'Choose whether the optional titlebar actions sit along the titlebar or behind one caret next to the user hub. '
-            'Home always stays on the titlebar, and narrow screens always group.',
+            'For the Titlebar Actions style: keep its buttons along the titlebar, or collect them behind one '
+            'caret. Home always stays on the titlebar, and narrow screens group either style regardless.',
         )
         self.fields['titlebar_home_shape'].choices = (
             ('circle', s.get('titlebar_home_shape_circle', 'Circle')),

@@ -298,12 +298,25 @@
         });
     }
 
+    // Both layouts order their titlebar actions now; the Dropdown layout simply
+    // offers fewer of them, because its user shortcuts stay in the hub card.
+    const TITLEBAR_ACTIONS_ONLY_KEYS = [
+        'profile', 'help', 'users', 'activity', 'reports', 'settings', 'auth',
+    ];
+
     function syncTitlebarActionsBuilderVisibility(form) {
         const style = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
+        const titlebarActions = style === 'titlebar_actions';
         form.querySelectorAll('[data-titlebar-actions-order-builder]').forEach((builder) => {
-            const visible = style === 'titlebar_actions';
-            builder.classList.toggle('d-none', !visible);
-            builder.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            builder.classList.remove('d-none');
+            builder.setAttribute('aria-hidden', 'false');
+            builder.querySelectorAll('[data-titlebar-action-order-item]').forEach((item) => {
+                const key = item.getAttribute('data-action-key');
+                const offered = titlebarActions || TITLEBAR_ACTIONS_ONLY_KEYS.indexOf(key) === -1;
+                // Hidden, never removed: the stored order keeps every key so
+                // switching layouts back restores the arrangement untouched.
+                item.classList.toggle('d-none', !offered);
+            });
         });
     }
 

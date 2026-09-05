@@ -609,9 +609,57 @@ class UpdateService:
                 from .image_update import active_image_update
                 if active_image_update() is None:
                     self.store.set_maintenance(False)
+        # `previous_version` gates the panel's Rollback button and its admission
+        # check, and only the retired in-container swap ever wrote it. On a
+        # Composer-executed stack — the default since 1.8.0 — the button
+        # therefore never appeared, even with the previous release staged on the
+        # volume and Composer able to restore it. Derive it the way Composer
+        # chooses its target so the panel offers what would actually come back.
+        if composer_executes_updates():
+            target = self._volume_rollback_target(state, baked_version)
+            if state.previous_version != target:
+                state.previous_version = target
+                changed.append("previous_version")
+        # An installed release must stop being an offer. `latest_*` is recomputed
+        # only by a check run, so after any successful install the card kept
+        # advertising the version that had just become active — through a panel
+        # update, a `composer dlux-update apply` on the host, or a project image
+        # rebuild — until somebody happened to check again. Standing the offer
+        # down is the one conclusion reconcile can draw on its own: what is
+        # installed is not an update. Raising an offer stays with the check,
+        # which is where skip lists and inline-safety are decided.
+        effective = state.active_version or baked_version
+        if (
+            state.latest_compatible
+            and state.latest_version
+            and not self._version_is_newer(state.latest_version, effective)
+        ):
+            state.latest_compatible = False
+            state.latest_reason = "DjangoLux is up to date."
+            changed.extend(["latest_compatible", "latest_reason"])
         if changed:
             state.save(update_fields=list(dict.fromkeys(changed + ["updated_at"])))
         return state
+
+    def _volume_rollback_target(self, state, baked_version):
+        """What a rollback would actually activate, or "" when nothing would.
+
+        Composer's rule: the newest staged release below the active one, else the
+        release baked into the image. The one case this does not offer is a
+        target below the baked version — reconcile resets anything under that
+        floor on its next pass, so offering it would advertise a rollback that
+        gets undone. Better no button than a wrong one.
+        """
+        active = state.active_version or baked_version
+        try:
+            staged = self.store.staged_versions()
+        except Exception:
+            return state.previous_version
+        below = [version for version in staged if self._version_is_newer(active, version)]
+        if below:
+            target = below[-1]
+            return "" if self._version_is_newer(baked_version, target) else target
+        return baked_version if baked_version and baked_version != active else ""
 
     @staticmethod
     def _version_is_newer(candidate, current):

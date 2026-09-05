@@ -47,6 +47,22 @@ Before 1.8.9 none of this ran. The hand-off raised `AttributeError` before the
 request file was written, so an apply ended at "Started apply request." and
 Composer was never told anything.
 
+### What the card offers after an update
+
+Two fields describe what the panel may do next, and neither is written by the
+process that performs the swap — Composer is outside the container. `reconcile()`
+derives both from what is actually on the volume:
+
+- the update offer (`latest_compatible`) is stood down once the recorded latest
+  release is no longer newer than the active one, so an installed release stops
+  being advertised; raising an offer stays with a check run, where the skip list
+  and inline-safety are decided; and
+- `previous_version` — the Rollback button and its admission check — is the
+  newest staged release below the active one, else the release baked into the
+  image, which is exactly how Composer picks its rollback target. A target below
+  the baked version is not offered: reconcile resets anything under that floor,
+  so the rollback would be undone on the next pass.
+
 ### What refreshes the reported versions
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.

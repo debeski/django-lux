@@ -470,17 +470,33 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'actions_order': ['auth', 'settings', 'home'],
         })
 
+        def stored_order(order, *keys):
+            """What the admin arranged, with the keys they never saw removed."""
+            wanted = set(keys)
+            return [key for key in order if key in wanted]
+
         self.assertEqual(defaults['user_hub_style'], 'dropdown')
         self.assertEqual(defaults['actions_order'], list(TITLEBAR_ACTIONS_ORDER))
         self.assertEqual(invalid['user_hub_style'], 'dropdown')
-        self.assertEqual(invalid['actions_order'][:2], ['auth', 'home'])
+        self.assertEqual(stored_order(invalid['actions_order'], 'auth', 'home'), ['auth', 'home'])
         self.assertNotIn('unknown', invalid['actions_order'])
         self.assertEqual(custom['user_hub_style'], 'titlebar_actions')
-        self.assertEqual(custom['actions_order'][:3], ['auth', 'settings', 'home'])
         self.assertEqual(
-            normalize_titlebar_actions_order(['home', 'home', 'profile'])[:2],
+            stored_order(custom['actions_order'], 'auth', 'settings', 'home'),
+            ['auth', 'settings', 'home'],
+        )
+        self.assertEqual(
+            stored_order(normalize_titlebar_actions_order(['home', 'home', 'profile']), 'home', 'profile'),
             ['home', 'profile'],
         )
+        # search/theme/language became orderable after these orders were stored.
+        # Appending them would have shoved them behind every key an admin had ever
+        # arranged; they belong where they were designed to sit.
+        legacy = normalize_titlebar_actions_order(
+            ['notifications', 'home', 'profile', 'help', 'users', 'activity', 'reports', 'settings', 'auth']
+        )
+        self.assertEqual(legacy[:3], ['search', 'theme', 'language'])
+        self.assertEqual(legacy[3:5], ['notifications', 'home'])
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(
@@ -1214,10 +1230,16 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertEqual(form.initial['titlebar_user_hub_style'], 'titlebar_actions')
+        order = json.loads(form.initial['titlebar_actions_order'])
         self.assertEqual(
-            json.loads(form.initial['titlebar_actions_order'])[:3],
+            [key for key in order if key in {'auth', 'settings', 'home'}],
             ['auth', 'settings', 'home'],
         )
+        # Every layout orders its actions now, so the builder always renders; the
+        # entries a layout does not offer are hidden per-item in the setup JS.
+        self.assertNotIn('d-none', form.titlebar_actions_order_html.split('data-titlebar-actions-order-builder')[0])
+        for key in ('search', 'theme', 'language'):
+            self.assertIn(f"data-action-key='{key}'", form.titlebar_actions_order_html)
         self.assertIn('data-titlebar-actions-order-builder', form.titlebar_actions_order_html)
         self.assertIn("data-action-key='auth'", form.titlebar_actions_order_html)
         self.assertIn('id="id_titlebar_user_hub_style"', str(form['titlebar_user_hub_style']))
@@ -1287,8 +1309,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # Rendered like the other show_* toggles: always present when switching is
         # possible, visibility driven by a data attribute + CSS (so the setup
         # preview can flip it live), not by a conditional {% if %} on the button.
+        context_processors = Path('dlux/context_processors.py').read_text(encoding='utf-8')
         self.assertIn('data-titlebar-show-language-switcher=', titlebar)
-        self.assertIn('{% if language_picker_enabled %}', titlebar)
+        self.assertIn("{% elif action.kind == 'language' %}", titlebar)
+        self.assertIn("if context.get('language_picker_enabled'):", context_processors)
         self.assertIn('dlux-titlebar-action dlux-titlebar-lang-cycle', titlebar)
         self.assertIn('[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle', css)
         self.assertIn('titlebar.dataset.titlebarShowLanguageSwitcher', setup_js)
@@ -1462,7 +1486,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment'], 'halo')
         self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment_shape'], 'square')
         self.assertEqual(form.cleaned_data['titlebar_config']['user_hub_style'], 'titlebar_actions')
-        self.assertEqual(form.cleaned_data['titlebar_config']['actions_order'][:3], ['auth', 'settings', 'home'])
+        imported_order = form.cleaned_data['titlebar_config']['actions_order']
+        self.assertEqual(
+            [key for key in imported_order if key in {'auth', 'settings', 'home'}],
+            ['auth', 'settings', 'home'],
+        )
         self.assertNotIn('missing', form.cleaned_data['titlebar_config']['actions_order'])
 
     def test_setup_form_import_restores_email_config_and_sidebar_enabled_flag(self):
@@ -3028,9 +3056,13 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('method="POST" action="{{ action.url }}"', titlebar_markup)
         self.assertIn('{% csrf_token %}', titlebar_markup)
         self.assertIn('data-titlebar-action-key="{{ action.key }}"', titlebar_markup)
-        self.assertIn('.titlebar__actions--titlebar', titlebar_css)
-        self.assertIn('.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown', titlebar_css)
-        self.assertIn('.titlebar__actions--titlebar {', titlebar_css)
+        # One ordered group in both layouts: the layout decides which actions are in
+        # it, not which of two groups renders. Two groups on one flex row could not
+        # shrink into each other, which is what overlapped.
+        self.assertIn('.titlebar__actions {', titlebar_css)
+        self.assertNotIn('.titlebar__actions--titlebar', titlebar_css)
+        self.assertNotIn('.titlebar__actions--dropdown', titlebar_css)
+        self.assertNotIn('titlebar__actions--', titlebar_markup)
         titlebar_surfaces_css = (static_root / 'titlebar' / 'css' / 'surfaces.css').read_text(encoding='utf-8')
         self.assertIn(':root .titlebar[data-titlebar-surface="muted"] {', titlebar_surfaces_css)
         self.assertIn(':root .titlebar[data-titlebar-surface="glass"] {', titlebar_surfaces_css)

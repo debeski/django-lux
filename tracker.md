@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.8 is tagged/published. The tree is v1.8.9 (UNTAGGED): the Composer hand-off is fixed — it wrote no request at all (AttributeError on `control_operation_id`), had no `STATUS_APPLYING`, and nothing ever finished a handed-off run.
+- v1.8.9 is tagged/published. The tree is v1.8.10 (UNTAGGED): `reconcile()` now derives both post-update facts from the volume — the offer stands down once installed, and `previous_version` (the Rollback button) is Composer's own target rule. Pairs with Composer 1.3.11.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -32,6 +32,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
   - [ ] Before v1.9.0: migrate the remaining callers of the two deprecations — `advanced_filter_helper` in project-archive/dhub/trademarks, and the `archive_file` shims in project-decrees/archive/dhub.
   - [ ] v1.9.0 remaining: `dlux_prune_assets` (unreferenced, non-shared namespace, dry-run then `--apply`); an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Finish framework promotion from dlux-crm-gov's `common` app; only the generic list-page decision remains.
@@ -50,7 +51,9 @@
   - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
-- 2026-09-05: v1.8.9 — full `dlux.tests` 2378 (11 new in `test_package_handoff`); `release_check --base-tag v1.8.8` exit 0 (effect `state_only`); `sqlmigrate dlux 0020` prints `-- (no-op)`; `makemigrations --check` clean.
+- 2026-09-05: Titlebar Phase 2 — full `dlux.tests` 2384 OK; one `.titlebar__actions` in both layouts (12 ordered actions under Titlebar Actions, 5 under Dropdown, one bell not two), grouping verified in a browser: Home stays on the bar, the other 11 enter the rail in configured order and it scrolls.
+- 2026-09-05: v1.8.10 — `release_check --base-tag v1.8.9` exit 0, `makemigrations --check` clean, +6 reconcile tests (offer stand-down, rollback target from the volume, baked floor, image fallback).
+- 2026-09-05: v1.8.9 — full `dlux.tests` 2378 OK (11 new in `test_package_handoff`); `release_check --base-tag v1.8.8` exit 0 (effect `state_only`); `sqlmigrate dlux 0020` prints `-- (no-op)`.
 - 2026-09-04: v1.8.8 — full `dlux.tests` 2367 OK; `release_check --base-tag v1.8.7` exit 0 (inline_safe true, effect `none`, image_baseline 1.2.7, `composer >=1.3.10`).
 - 2026-09-04: v1.8.7 — full `dlux.tests` 2367 OK (7 new in `test_modal_content_init`, 4 in `test_ribbon`); `release_check --base-tag v1.8.6` exit 0, effect `none`.
 - 2026-09-04 incident recovery — gov, decrees, and sales-crm containers report v1.8.6, original configured settings rows, and no applied lock migration; fresh requests no longer log unavailable `SystemSettings`.
@@ -61,9 +64,9 @@
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
 
 ### One-line info about last time edited Docs:
-- 2026-09-05: `docs/inline-updater.md` gained "What finishes a handed-off run" (the ack, the terminal states, the 30-minute bound).
+- 2026-09-05: `system-settings-preview-plan.md` now includes Preview-button UX: popup previews for off-page targets and glass mode for visible behind-modal chrome.
+- 2026-09-05: `docs/inline-updater.md` gained "What finishes a handed-off run" and "What the card offers after an update" (offer stand-down, rollback target, the baked floor).
 - 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).
-- 2026-09-02: `docs/managed-assets.md` gained the project-facing asset-field API; `docs/developer-guide.md` names `ManagedAssetField` over `ImageField`; `docs/deprecation-countdown.md` caller lists corrected (both removals stay targeted at v1.9.0).
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

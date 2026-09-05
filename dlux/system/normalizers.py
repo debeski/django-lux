@@ -677,8 +677,20 @@ def normalize_titlebar_actions_order(value):
             normalized.append(action_key)
             seen.add(action_key)
     for action_key in TITLEBAR_ACTIONS_ORDER:
-        if action_key not in seen:
-            normalized.append(action_key)
+        if action_key in seen:
+            continue
+        # Insert at the default order's position relative to what is already
+        # placed, rather than appending: a key added by a later release belongs
+        # where it was designed to sit, not behind every key the admin has ever
+        # reordered.
+        default_index = TITLEBAR_ACTIONS_ORDER.index(action_key)
+        position = len(normalized)
+        for index, placed in enumerate(normalized):
+            if TITLEBAR_ACTIONS_ORDER.index(placed) > default_index:
+                position = index
+                break
+        normalized.insert(position, action_key)
+        seen.add(action_key)
     return normalized
 
 

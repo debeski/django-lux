@@ -14,6 +14,8 @@ from .system.constants import (
     SIDEBAR_TOGGLE_DIRECTIONAL_ICONS,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
+    TITLEBAR_DROPDOWN_ACTION_KEYS,
+    TITLEBAR_USER_HUB_STYLE_ACTIONS,
 )
 from .navbar import resolve_navbar_mode, strip_navbar_mode_preference
 from .utils import (
@@ -163,6 +165,30 @@ def _build_titlebar_actions(request, context, final_config, dlux_strings):
     available_actions = {}
 
     if user and getattr(user, 'is_authenticated', False):
+        # Search, theme and language used to be hardcoded ahead of the action
+        # group, which is why they could not be reordered and why the end side
+        # carried two flex contexts that overlapped instead of shrinking.
+        if (context.get('search') or {}).get('enabled'):
+            available_actions['search'] = {
+                'key': 'search',
+                'kind': 'search',
+                'label': dlux_strings.get('global_search_placeholder', 'Search'),
+                'icon': 'bi-search',
+            }
+        if context.get('titlebar_theme_picker_enabled'):
+            available_actions['theme'] = {
+                'key': 'theme',
+                'kind': 'theme',
+                'label': dlux_strings.get('theme_change', 'Change theme'),
+                'icon': 'bi-circle-half',
+            }
+        if context.get('language_picker_enabled'):
+            available_actions['language'] = {
+                'key': 'language',
+                'kind': 'language',
+                'label': dlux_strings.get('titlebar_language_switch', 'Switch language'),
+                'icon': 'bi-translate',
+            }
         if context.get('dlux_notifications_enabled'):
             available_actions['notifications'] = {
                 'key': 'notifications',
@@ -255,6 +281,15 @@ def _build_titlebar_actions(request, context, final_config, dlux_strings):
                 'icon': 'bi-person-lock',
                 'url': login_url,
             }
+
+    # Every action renders; `scope` says which styles offer it, and CSS hides the
+    # rest. Filtering here instead would mean the settings page could not preview a
+    # style change without a round trip — which read as the titlebar disagreeing
+    # with the form while you were still choosing.
+    for key, action in available_actions.items():
+        action['scope'] = (
+            'shared' if key in TITLEBAR_DROPDOWN_ACTION_KEYS else TITLEBAR_USER_HUB_STYLE_ACTIONS
+        )
 
     return [available_actions[key] for key in action_order if key in available_actions]
 

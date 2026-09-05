@@ -1,24 +1,25 @@
 {
   "schema_version": 2,
-  "version": "1.8.9",
+  "version": "1.8.10",
   "display": {
-    "summary": "The hand-off to Composer works: an inline update now actually reaches it, and the run it hands over is finished from Composer's acknowledgement instead of staying open for ever.",
+    "summary": "The Options card tells the truth after an update: it stops advertising the release it is already running, and the Rollback button appears again on a Composer-executed stack. The titlebar's actions also become one ordered list that both layouts share.",
     "highlights": [
-      "“Started apply request” no longer ends in “'DluxUpdateRun' object has no attribute 'control_operation_id'” — the request is written and Composer picks it up.",
-      "The Options card reports the result: applied, rolled back, or needing an operator, with the versions refreshed.",
-      "A handed-off run can no longer wedge the deployment: it ends, and the next update can be queued."
+      "Applying an update — from the panel or with `composer dlux-update apply` on the host — now clears the offer instead of leaving it on the card until the next check.",
+      "Rollback is offered again, naming the release Composer would actually bring back.",
+      "The reported latest version is unchanged; only the claim that it is installable goes away once it is installed.",
+      "Search, theme and language join the titlebar's orderable actions, and the order builder now works in the Dropdown layout too."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.9"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.10"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
     "services": {
-      "composer": ">=1.3.10"
+      "composer": ">=1.3.11"
     }
   },
   "migrations": {
-    "effect": "state_only",
+    "effect": "none",
     "rollback_compatible": true,
     "downtime": "none"
   },

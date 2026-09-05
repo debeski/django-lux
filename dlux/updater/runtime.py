@@ -50,6 +50,25 @@ class RuntimeStore:
     def release_path(self, version):
         return self.releases / self.normalize_version(version)
 
+    def staged_versions(self):
+        """Releases staged on the volume, oldest first, ordered by version.
+
+        Mirrors Composer's view of the same directory — it is the process that
+        activates them, and a rollback target read in string order would put
+        1.8.10 below 1.8.9.
+        """
+        if not self.releases.is_dir():
+            return []
+        found = []
+        for entry in self.releases.iterdir():
+            if not entry.is_dir():
+                continue
+            try:
+                found.append((Version(entry.name), entry.name))
+            except InvalidVersion:
+                continue
+        return [name for _version, name in sorted(found)]
+
     def stage_path(self, token):
         safe = re.sub(r"[^A-Za-z0-9._-]", "_", str(token or ""))[:80]
         if not safe:
