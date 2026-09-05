@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.11
+
+- **A Composer Update Delivers Its Static Files**: `_process_apply` returns at the hand-off, and the `collectstatic` step lives further down the inline path — so on a Composer-executed stack, the default since 1.8.0, nothing ever collected the release being installed. Every update since then landed the Python and left the previous release's CSS and JS in the shared volume, serving them against the new release's templates: unstyled controls, dead scripts, and no error in any log to explain it. `tick_package_update()` now collects them where it reads Composer's acknowledgement, with the active release on `PYTHONPATH` so the files can never come from the baked image instead. It runs after any acknowledgement, because an apply, a rollback and a rolled-back apply all change which release is active. A failed collect does not fail the run — Composer swapped and health-gated the release, so it genuinely is active — but it is named in the run log and recorded as `static_collected: false` rather than left to be discovered by looking at the page.
+
 ## v1.8.10
 
 - **The Rollback Button Comes Back**: `previous_version` gates both the button and `queue_run(ROLLBACK)`, and only the retired in-container swap ever wrote it — so on a Composer-executed stack (the default since 1.8.0) rollback was never offered, however many releases were staged on the volume. `reconcile()` now derives it the way Composer chooses its target: the newest staged release below the active one, else the release baked into the image. A target below the baked version is deliberately not offered — reconcile resets anything under that floor on its next pass, so advertising it would offer a rollback that undoes itself. Needs Composer 1.3.11, which fixes the ordering the target is chosen by: it sorted staged releases as strings, so this very version — the first two-digit patch — sorted below 1.8.9. The manifest declares that floor, so an older Composer refuses the update rather than rolling back to the wrong release.

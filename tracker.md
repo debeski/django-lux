@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.9 is tagged/published. The tree is v1.8.10 (UNTAGGED): `reconcile()` now derives both post-update facts from the volume — the offer stands down once installed, and `previous_version` (the Rollback button) is Composer's own target rule. Pairs with Composer 1.3.11.
+- v1.8.10 is tagged/published. The tree is v1.8.11 (UNTAGGED): a Composer-driven update now collects the now-active release's static files — nothing did, so every update since 1.8.0 served the previous release's CSS/JS against the new templates.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -51,6 +51,7 @@
   - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-05: static-after-handoff — full `dlux.tests` 2407 OK (6 new in `test_package_handoff`, driving `tick_package_update()` with a stub runner: applied/rollback/rolled-back all collect, the release path is on `PYTHONPATH`, a failed collect completes the run but is logged and reported).
 - 2026-09-05: Titlebar Phase 2 — full `dlux.tests` 2384 OK; one `.titlebar__actions` in both layouts (12 ordered actions under Titlebar Actions, 5 under Dropdown, one bell not two), grouping verified in a browser: Home stays on the bar, the other 11 enter the rail in configured order and it scrolls.
 - 2026-09-05: v1.8.10 — `release_check --base-tag v1.8.9` exit 0, `makemigrations --check` clean, +6 reconcile tests (offer stand-down, rollback target from the volume, baked floor, image fallback).
 - 2026-09-05: v1.8.9 — full `dlux.tests` 2378 OK (11 new in `test_package_handoff`); `release_check --base-tag v1.8.8` exit 0 (effect `state_only`); `sqlmigrate dlux 0020` prints `-- (no-op)`.
@@ -64,6 +65,7 @@
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
 
 ### One-line info about last time edited Docs:
+- 2026-09-05: `docs/inline-updater.md` — the hand-off's ack step also collects static, and what a failed collect does (run completes, `static_collected: false`).
 - 2026-09-05: `system-settings-preview-plan.md` now includes Preview-button UX: popup previews for off-page targets and glass mode for visible behind-modal chrome.
 - 2026-09-05: `docs/inline-updater.md` gained "What finishes a handed-off run" and "What the card offers after an update" (offer stand-down, rollback target, the baked floor).
 - 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).

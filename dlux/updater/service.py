@@ -1460,6 +1460,10 @@ class UpdateService:
         detail = package_request.composer_progress(self.store) or {}
         message = str(detail.get("message") or "").strip()
         report = {**(run.report or {}), "composer_exit_code": exit_code}
+        # Whatever Composer did — applied, rolled back, or applied and then rolled
+        # back after a failed health check — the active release is not the one whose
+        # static files are in the volume.
+        report["static_collected"] = self._collect_static_after_handoff(run)
 
         if exit_code == 0:
             run.append_log(message or "Composer applied the release.")
@@ -1488,6 +1492,49 @@ class UpdateService:
         run.save(update_fields=["report"])
         self._handle_failure(run, UpdaterError(message))
         return run
+
+    def _collect_static_after_handoff(self, run):
+        """Collect the now-active release's static files.
+
+        The inline path collects them as one of its own steps, but `_process_apply`
+        returns at the hand-off long before reaching it — so on a Composer-executed
+        stack, which is the default since 1.8.0, nothing did. The deployment kept
+        serving the previous release's CSS and JS against the new release's
+        templates until something else happened to run `collectstatic`, and the
+        symptom is an app that looks half-updated: unstyled controls, dead scripts,
+        and no error anywhere to explain it.
+
+        Composer restarts the containers, so this process is already running the
+        active release; the release path is put on `PYTHONPATH` anyway so the
+        collected files can never come from the baked image instead.
+        """
+        state = _state_model().load()
+        active = self.store.read_active(state.baked_version)
+        env = (
+            self.store.python_env_for(active["path"])
+            if active.get("source") == "volume" and active.get("path")
+            else self._image_env()
+        )
+        try:
+            self._run_manage(
+                ["collectstatic", "--noinput", "--clear"], env, run, timeout=600,
+            )
+        except Exception as exc:
+            # Composer swapped and health-checked the release, so it is genuinely
+            # active; failing the run would misreport that. But static that does
+            # not match the templates is precisely the failure that hides, so it
+            # is recorded and named rather than swallowed.
+            logger.warning(
+                "Could not collect static files after Composer's update.", exc_info=True
+            )
+            run.append_log(
+                f"The release is active, but its static files could not be collected: {exc} "
+                "Until `manage.py collectstatic --noinput --clear` is run on the "
+                "deployment it will serve the previous release's CSS and JS."
+            )
+            run.save(update_fields=["progress_log"])
+            return False
+        return True
 
     def _expire_stale_handoff(self, run):
         """Fail a hand-off Composer never acknowledged, but only well past the

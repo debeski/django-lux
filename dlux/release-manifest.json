@@ -1,15 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.10",
+  "version": "1.8.11",
   "display": {
-    "summary": "The Options card tells the truth after an update: it stops advertising the release it is already running, and the Rollback button appears again on a Composer-executed stack. The titlebar's actions also become one ordered list that both layouts share.",
+    "summary": "A Composer-driven update now delivers the release's static files, instead of leaving the previous release's CSS and JS in place against the new templates.",
     "highlights": [
-      "Applying an update — from the panel or with `composer dlux-update apply` on the host — now clears the offer instead of leaving it on the card until the next check.",
-      "Rollback is offered again, naming the release Composer would actually bring back.",
-      "The reported latest version is unchanged; only the claim that it is installable goes away once it is installed.",
-      "Search, theme and language join the titlebar's orderable actions, and the order builder now works in the Dropdown layout too."
+      "Updates stop looking half-applied: unstyled controls and dead scripts after an update were the previous release's assets still being served.",
+      "Collection runs after an apply, a rollback, or an apply Composer rolled back — all three change which release is active.",
+      "A collect that fails is named in the run log and recorded on the run, rather than leaving a mismatch to be found by looking at the page."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.10"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.11"
   },
   "requires": {
     "updater_schema": ">=1",

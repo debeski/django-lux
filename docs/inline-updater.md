@@ -37,6 +37,18 @@ versions the Options card reports, and finishes the run: completed, rolled back
 "needs an operator" message for Composer's exit 3, which means the rollback was
 not healthy either.
 
+Reading the ack is also where the now-active release's static files are collected
+(`collectstatic --noinput --clear`, with the release on `PYTHONPATH`). The inline
+path collects them as one of its own steps, but `_process_apply` returns at the
+hand-off long before reaching it, so on a Composer-executed stack nothing did:
+the deployment kept serving the previous release's CSS and JS against the new
+release's templates, which looks like an app that half-updated — unstyled
+controls and dead scripts, with no error anywhere. It runs after any
+acknowledgement, since an apply, a rollback and a rolled-back apply all change
+which release is active. A collect that fails does not fail the run — Composer
+swapped and health-gated the release, so it really is active — but it is named in
+the run log and recorded as `static_collected: false` in the run report.
+
 A hand-off Composer never acknowledges is failed after 30 minutes. Composer's own
 work is bounded — download, swap, restart, health wait — so past that nothing is
 coming, and a run left active would block every later update: `queue_run()`

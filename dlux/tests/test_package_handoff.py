@@ -213,7 +213,13 @@ class HandoffCompletionTests(TestCase):
 
     def setUp(self):
         self._tmp = TemporaryDirectory()
-        self.store = RuntimeStore(Path(self._tmp.name) / "runtime").ensure()
+        root = Path(self._tmp.name)
+        self.store = RuntimeStore(root / "runtime").ensure()
+        # Completing a hand-off collects the now-active release's static files,
+        # which shells out through the project's manage.py.
+        self.base_dir = root / "project"
+        self.base_dir.mkdir()
+        (self.base_dir / "manage.py").write_text("# generated\n", encoding="utf-8")
         self.addCleanup(self._tmp.cleanup)
 
     def _models(self):
@@ -224,7 +230,16 @@ class HandoffCompletionTests(TestCase):
     def _service(self):
         from dlux.updater.service import UpdateService
 
-        return UpdateService(store=self.store)
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return UpdateService(store=self.store, command_runner=lambda *a, **k: _Completed())
+
+    def _tick(self):
+        with override_settings(BASE_DIR=self.base_dir):
+            return self._service().tick_package_update()
 
     def _applying_run(self, *, started_at=None):
         Run, State = self._models()
@@ -255,7 +270,7 @@ class HandoffCompletionTests(TestCase):
         run = self._applying_run()
         self._ack(run.token, 0)
 
-        finished = self._service().tick_package_update()
+        finished = self._tick()
 
         finished.refresh_from_db()
         self.assertEqual(finished.status, Run.STATUS_COMPLETED)
@@ -266,7 +281,7 @@ class HandoffCompletionTests(TestCase):
         Run, _State = self._models()
         run = self._applying_run()
 
-        self.assertIsNone(self._service().tick_package_update())
+        self.assertIsNone(self._tick())
 
         run.refresh_from_db()
         self.assertEqual(run.status, Run.STATUS_APPLYING)
@@ -277,7 +292,7 @@ class HandoffCompletionTests(TestCase):
         run = self._applying_run()
         self._ack("some-older-token", 0)
 
-        self.assertIsNone(self._service().tick_package_update())
+        self.assertIsNone(self._tick())
         run.refresh_from_db()
         self.assertEqual(run.status, Run.STATUS_APPLYING)
 
@@ -290,7 +305,7 @@ class HandoffCompletionTests(TestCase):
             "message": "Health check failed. Rolled back to 1.8.6.",
         })
 
-        finished = self._service().tick_package_update()
+        finished = self._tick()
 
         finished.refresh_from_db()
         self.assertEqual(finished.status, Run.STATUS_ROLLED_BACK)
@@ -302,7 +317,7 @@ class HandoffCompletionTests(TestCase):
         run = self._applying_run()
         self._ack(run.token, 3)
 
-        finished = self._service().tick_package_update()
+        finished = self._tick()
 
         finished.refresh_from_db()
         self.assertEqual(finished.status, Run.STATUS_FAILED)
@@ -316,7 +331,7 @@ class HandoffCompletionTests(TestCase):
             started_at=timezone.now() - PACKAGE_HANDOFF_TIMEOUT - timedelta(minutes=1)
         )
 
-        finished = self._service().tick_package_update()
+        finished = self._tick()
 
         finished.refresh_from_db()
         self.assertEqual(finished.status, Run.STATUS_FAILED)
@@ -324,7 +339,7 @@ class HandoffCompletionTests(TestCase):
         self.assertEqual(State.load().active_run_token, "")
 
     def test_nothing_happens_without_an_active_run(self):
-        self.assertIsNone(self._service().tick_package_update())
+        self.assertIsNone(self._tick())
 
 
 class PendingTokenTests(SimpleTestCase):
@@ -655,3 +670,150 @@ class ProgressTests(SimpleTestCase):
         """Older Composer builds do not stamp a kind."""
         self._status({"status": "running"})
         self.assertEqual(package_request.composer_progress(self.store)["status"], "running")
+
+
+class HandoffCollectsStaticTests(TestCase):
+    """Nothing collected the new release's static files on a Composer stack.
+
+    The inline path collects them as one of its own steps; `_process_apply`
+    returns at the hand-off long before reaching it. So every Composer-executed
+    deployment — the default since 1.8.0 — kept serving the previous release's
+    CSS and JS against the new release's templates, with no error to explain it.
+    """
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        root = Path(self._tmp.name)
+        self.store = RuntimeStore(root / "runtime").ensure()
+        # `_run_manage` shells out through the project's manage.py.
+        self.base_dir = root / "project"
+        self.base_dir.mkdir()
+        (self.base_dir / "manage.py").write_text("# generated\n", encoding="utf-8")
+        self.commands = []
+        self.addCleanup(self._tmp.cleanup)
+
+    def _models(self):
+        from django.apps import apps
+
+        return apps.get_model("dlux", "DluxUpdateRun"), apps.get_model("dlux", "DluxUpdateState")
+
+    def _runner(self, returncode=0):
+        class _Completed:
+            def __init__(self):
+                self.returncode = returncode
+                self.stdout = "42 static files copied."
+                self.stderr = ""
+
+        def run(command, **kwargs):
+            self.commands.append((list(command), kwargs.get("env") or {}))
+            return _Completed()
+
+        return run
+
+    def _service(self, returncode=0):
+        from dlux.updater.service import UpdateService
+
+        return UpdateService(store=self.store, command_runner=self._runner(returncode))
+
+    def _applying_run(self):
+        Run, State = self._models()
+        run = Run.objects.create(
+            action=Run.ACTION_APPLY,
+            status=Run.STATUS_APPLYING,
+            is_active=True,
+            target_version="1.8.11",
+            started_at=timezone.now(),
+        )
+        state = State.load()
+        state.active_run_token = run.token
+        state.save(update_fields=["active_run_token"])
+        return run
+
+    def _ack(self, token, exit_code=0):
+        package_request.ack_path(self.store).write_text(
+            json.dumps({"token": token, "exit_code": exit_code}), encoding="utf-8"
+        )
+
+    def _collectstatic_calls(self):
+        return [
+            (command, env) for command, env in self.commands
+            if "collectstatic" in command
+        ]
+
+    def test_an_applied_release_has_its_static_collected(self):
+        run = self._applying_run()
+        self._ack(run.token, 0)
+
+        with override_settings(BASE_DIR=self.base_dir):
+            finished = self._service().tick_package_update()
+
+        calls = self._collectstatic_calls()
+        self.assertEqual(len(calls), 1, "the release Composer applied was never collected")
+        command, _env = calls[0]
+        self.assertIn("--noinput", command)
+        self.assertIn("--clear", command)
+        finished.refresh_from_db()
+        self.assertTrue(finished.report.get("static_collected"))
+
+    def test_the_collected_release_is_the_one_on_the_volume(self):
+        """Collecting from the baked image would write a *different* version's
+        CSS and JS into the shared volume than the templates being served."""
+        run = self._applying_run()
+        self._ack(run.token, 0)
+        release = Path(self.store.release_path("1.8.11"))
+        release.mkdir(parents=True, exist_ok=True)
+        self.store.write_active("1.8.11", source="volume", generation=self.store.read_generation() + 1)
+
+        with override_settings(BASE_DIR=self.base_dir):
+            self._service().tick_package_update()
+
+        _command, env = self._collectstatic_calls()[0]
+        self.assertIn(str(release), env.get("PYTHONPATH", ""))
+
+    def test_a_rollback_collects_the_release_it_returned_to(self):
+        Run, _State = self._models()
+        run = self._applying_run()
+        run.action = Run.ACTION_ROLLBACK
+        run.save(update_fields=["action"])
+        self._ack(run.token, 0)
+
+        with override_settings(BASE_DIR=self.base_dir):
+            self._service().tick_package_update()
+
+        self.assertEqual(len(self._collectstatic_calls()), 1)
+
+    def test_a_failed_apply_still_collects_what_composer_left_active(self):
+        """Composer rolls a bad release back itself; the volume then holds the
+        previous release's code and the new release's static."""
+        run = self._applying_run()
+        self._ack(run.token, 1)
+
+        with override_settings(BASE_DIR=self.base_dir):
+            self._service().tick_package_update()
+
+        self.assertEqual(len(self._collectstatic_calls()), 1)
+
+    def test_a_failed_collect_is_named_and_never_hidden(self):
+        run = self._applying_run()
+        self._ack(run.token, 0)
+
+        Run, _State = self._models()
+        with override_settings(BASE_DIR=self.base_dir):
+            with self.assertLogs("dlux", level="WARNING") as captured:
+                finished = self._service(returncode=1).tick_package_update()
+        self.assertIn("collect static files", "\n".join(captured.output))
+
+        finished.refresh_from_db()
+        # The release really is active — Composer swapped and health-checked it —
+        # so the run completes, but the mismatch is recorded rather than swallowed.
+        self.assertEqual(finished.status, Run.STATUS_COMPLETED)
+        self.assertFalse(finished.report.get("static_collected"))
+        self.assertIn("collectstatic", finished.progress_log)
+
+    def test_nothing_is_collected_without_an_acknowledgement(self):
+        self._applying_run()
+
+        with override_settings(BASE_DIR=self.base_dir):
+            self.assertIsNone(self._service().tick_package_update())
+
+        self.assertEqual(self._collectstatic_calls(), [])
