@@ -1507,15 +1507,21 @@ class UpdateService:
         Composer restarts the containers, so this process is already running the
         active release; the release path is put on `PYTHONPATH` anyway so the
         collected files can never come from the baked image instead.
+
+        Nothing in here may escape. Reading the runtime volume can fail on its own
+        — a read-only mount, a corrupt `active.json` — and an exception out of the
+        tick would leave the run active for ever, which makes `queue_run()` refuse
+        every later update. A deployment that cannot collect its static files must
+        still be able to take the update that fixes that.
         """
-        state = _state_model().load()
-        active = self.store.read_active(state.baked_version)
-        env = (
-            self.store.python_env_for(active["path"])
-            if active.get("source") == "volume" and active.get("path")
-            else self._image_env()
-        )
         try:
+            state = _state_model().load()
+            active = self.store.read_active(state.baked_version)
+            env = (
+                self.store.python_env_for(active["path"])
+                if active.get("source") == "volume" and active.get("path")
+                else self._image_env()
+            )
             self._run_manage(
                 ["collectstatic", "--noinput", "--clear"], env, run, timeout=600,
             )

@@ -810,6 +810,31 @@ class HandoffCollectsStaticTests(TestCase):
         self.assertFalse(finished.report.get("static_collected"))
         self.assertIn("collectstatic", finished.progress_log)
 
+    def test_an_unreadable_runtime_volume_cannot_wedge_the_run(self):
+        """An exception out of the tick would leave the run active for ever, and
+        `queue_run()` refuses to queue while one is active — so a deployment that
+        cannot collect its static files could never take the update fixing that."""
+        from unittest.mock import patch
+
+        Run, State = self._models()
+        run = self._applying_run()
+        self._ack(run.token, 0)
+
+        with override_settings(BASE_DIR=self.base_dir):
+            with patch.object(
+                type(self.store), "read_active", side_effect=OSError("read-only volume")
+            ):
+                with self.assertLogs("dlux", level="WARNING"):
+                    finished = self._service().tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_COMPLETED)
+        self.assertFalse(finished.is_active)
+        self.assertFalse(finished.report.get("static_collected"))
+        self.assertEqual(
+            State.load().active_run_token, "", "a later update must still be queueable"
+        )
+
     def test_nothing_is_collected_without_an_acknowledgement(self):
         self._applying_run()
 
