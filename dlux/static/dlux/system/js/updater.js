@@ -10,6 +10,9 @@
         staging: 32,
         preflight: 42,
         backing_up: 52,
+        // Composer's whole execution — stage, restart, health-gate — is one
+        // phase from here; its own progress is mirrored on the volume.
+        applying: 58,
         maintenance: 60,
         migrating: 68,
         collecting_static: 78,

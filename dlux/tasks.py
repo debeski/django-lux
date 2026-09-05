@@ -105,6 +105,9 @@ if shared_task is not None:
             reconcile_state_if_due(service)
             consume_agent_requests(service)
             service.process_next()
+            # Composer executes an inline package update; this reads back its ack
+            # and finishes the run. Without it a handed-off run never ends.
+            service.tick_package_update()
             service.tick_image_update()
             service.tick_control_link()
             publish_agent_results(service.store)

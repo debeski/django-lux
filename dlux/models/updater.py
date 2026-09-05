@@ -100,6 +100,10 @@ class DluxUpdateRun(models.Model):
     STATUS_CHECKING = 'checking'
     STATUS_DOWNLOADING = 'downloading'
     STATUS_VERIFYING = 'verifying'
+    # Handed to Composer: it stages, restarts and health-gates the release from
+    # outside the container being swapped, so this one status covers everything
+    # between the hand-off and its acknowledgement.
+    STATUS_APPLYING = 'applying'
     STATUS_STAGING = 'staging'
     STATUS_PREFLIGHT = 'preflight'
     STATUS_BACKING_UP = 'backing_up'
@@ -117,6 +121,7 @@ class DluxUpdateRun(models.Model):
         (STATUS_CHECKING, 'Checking'),
         (STATUS_DOWNLOADING, 'Downloading'),
         (STATUS_VERIFYING, 'Verifying'),
+        (STATUS_APPLYING, 'Applying'),
         (STATUS_STAGING, 'Staging'),
         (STATUS_PREFLIGHT, 'Preflight'),
         (STATUS_BACKING_UP, 'Backing Up'),

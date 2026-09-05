@@ -25,6 +25,28 @@ They live on `celery` because the steps inherit its writable runtime mount. They
 
 Celery Beat writes DjangoLux's small state/intent tick. Composer performs all network and container operations. This separation means a failed candidate can be rolled back by a process that is not being replaced.
 
+### What finishes a handed-off run
+
+`_handoff_to_composer` writes `package-update-request.json` and moves the run to
+`applying`. That is the end of DjangoLux's part: nothing in the web or worker
+process can observe what Composer does next. The Celery tick's
+`tick_package_update()` reads the answer back from
+`package-update-request.json.ack` — the token and the exit code — reconciles the
+versions the Options card reports, and finishes the run: completed, rolled back
+(taken from Composer's own result in `deploy-status.json`), or failed with a
+"needs an operator" message for Composer's exit 3, which means the rollback was
+not healthy either.
+
+A hand-off Composer never acknowledges is failed after 30 minutes. Composer's own
+work is bounded — download, swap, restart, health wait — so past that nothing is
+coming, and a run left active would block every later update: `queue_run()`
+refuses to queue one while another is active. The release may still be active in
+that case; the Options card reports what is actually installed.
+
+Before 1.8.9 none of this ran. The hand-off raised `AttributeError` before the
+request file was written, so an apply ended at "Started apply request." and
+Composer was never told anything.
+
 ### What refreshes the reported versions
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.

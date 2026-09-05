@@ -17,11 +17,13 @@ setup_test_environment()
 
 import json
 import os
+from datetime import timedelta
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 
 from dlux.updater import package_request
 from dlux.updater.runtime import RuntimeStore
@@ -94,6 +96,235 @@ class RequestFileTests(SimpleTestCase):
     def test_no_operation_id_key_for_a_local_request(self):
         package_request.write_request(self.store, mode="apply", token="t")
         self.assertNotIn("operation_id", self._payload())
+
+
+class HandoffTests(TestCase):
+    """The run itself, not just `write_request`.
+
+    Every field of the request file was pinned below, and the hand-off still
+    could not write one: it read `control_operation_id` off the run — a field
+    that lives on DluxImageUpdate — so an apply died with AttributeError after
+    "Started apply request." and before Composer was told anything. Drive the
+    real path, from a queued run to the file on the volume.
+    """
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.store = RuntimeStore(Path(self._tmp.name) / "runtime").ensure()
+        self.addCleanup(self._tmp.cleanup)
+
+    def _run_model(self):
+        from django.apps import apps
+
+        return apps.get_model("dlux", "DluxUpdateRun")
+
+    def _state(self):
+        from django.apps import apps
+
+        return apps.get_model("dlux", "DluxUpdateState").load()
+
+    def _queue(self, action, *, target_version="1.8.8", backup_mode="data"):
+        Run = self._run_model()
+        run = Run.objects.create(
+            action=action,
+            status=Run.STATUS_QUEUED,
+            is_active=True,
+            target_version=target_version,
+            backup_mode=backup_mode,
+        )
+        state = self._state()
+        state.active_run_token = run.token
+        state.save(update_fields=["active_run_token"])
+        return run
+
+    def _ack(self, token, exit_code=0):
+        package_request.ack_path(self.store).write_text(
+            json.dumps({"token": token, "exit_code": exit_code}), encoding="utf-8"
+        )
+
+    def _composer_status(self, payload):
+        from dlux.updater.image_update import status_path
+
+        status_path(self.store).write_text(json.dumps(payload), encoding="utf-8")
+
+    def _service(self):
+        from dlux.updater.service import UpdateService
+
+        return UpdateService(store=self.store)
+
+    def _payload(self):
+        return json.loads(package_request.trigger_path(self.store).read_text(encoding="utf-8"))
+
+    def test_an_apply_run_reaches_composer(self):
+        Run = self._run_model()
+        queued = self._queue(Run.ACTION_APPLY)
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.pk, queued.pk)
+        self.assertEqual(run.status, Run.STATUS_APPLYING, run.error)
+        payload = self._payload()
+        self.assertEqual(payload["token"], run.token)
+        self.assertEqual(payload["payload"]["mode"], package_request.APPLY)
+        self.assertEqual(payload["payload"]["target_version"], "1.8.8")
+        self.assertEqual(payload["payload"]["backup_mode"], "data")
+        self.assertNotIn("operation_id", payload, "a package run is local; it has no control operation")
+
+    def test_a_rollback_run_reaches_composer_without_a_version(self):
+        Run = self._run_model()
+        self._queue(Run.ACTION_ROLLBACK, target_version="1.8.7")
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_APPLYING, run.error)
+        self.assertEqual(self._payload()["payload"]["mode"], package_request.ROLLBACK)
+        self.assertEqual(self._payload()["payload"]["target_version"], "")
+
+    def test_composers_progress_is_not_overwritten_while_it_executes(self):
+        """That file is the only progress the modal has once web restarts."""
+        Run = self._run_model()
+        self._queue(Run.ACTION_APPLY)
+        self._composer_status({"status": "running", "kind": "package", "message": "staging"})
+
+        self._service().process_next()
+
+        self.assertEqual(package_request.composer_progress(self.store)["message"], "staging")
+
+    def test_the_run_fails_cleanly_while_composer_still_holds_one(self):
+        Run = self._run_model()
+        package_request.write_request(self.store, mode=package_request.APPLY, token="tok-held")
+        self._queue(Run.ACTION_APPLY)
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_FAILED)
+        self.assertIn("already performing", run.error)
+        self.assertEqual(self._payload()["token"], "tok-held", "the held request is untouched")
+
+
+class HandoffCompletionTests(TestCase):
+    """Somebody has to end the run Composer executed.
+
+    The hand-off ends at the request file; nothing in the web/worker process can
+    see what Composer did next. Until the ack was read back, a handed-off run
+    stayed `is_active` for ever — and `queue_run` refuses to queue anything while
+    one is active, so a single update wedged the deployment permanently.
+    """
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.store = RuntimeStore(Path(self._tmp.name) / "runtime").ensure()
+        self.addCleanup(self._tmp.cleanup)
+
+    def _models(self):
+        from django.apps import apps
+
+        return apps.get_model("dlux", "DluxUpdateRun"), apps.get_model("dlux", "DluxUpdateState")
+
+    def _service(self):
+        from dlux.updater.service import UpdateService
+
+        return UpdateService(store=self.store)
+
+    def _applying_run(self, *, started_at=None):
+        Run, State = self._models()
+        run = Run.objects.create(
+            action=Run.ACTION_APPLY,
+            status=Run.STATUS_APPLYING,
+            is_active=True,
+            target_version="1.8.8",
+            started_at=started_at or timezone.now(),
+        )
+        state = State.load()
+        state.active_run_token = run.token
+        state.save(update_fields=["active_run_token"])
+        return run
+
+    def _ack(self, token, exit_code=0):
+        package_request.ack_path(self.store).write_text(
+            json.dumps({"token": token, "exit_code": exit_code}), encoding="utf-8"
+        )
+
+    def _composer_status(self, payload):
+        from dlux.updater.image_update import status_path
+
+        status_path(self.store).write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_an_applied_release_completes_the_run(self):
+        Run, State = self._models()
+        run = self._applying_run()
+        self._ack(run.token, 0)
+
+        finished = self._service().tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_COMPLETED)
+        self.assertFalse(finished.is_active)
+        self.assertEqual(State.load().active_run_token, "", "the next update must be queueable")
+
+    def test_a_run_stays_open_until_composer_acknowledges_it(self):
+        Run, _State = self._models()
+        run = self._applying_run()
+
+        self.assertIsNone(self._service().tick_package_update())
+
+        run.refresh_from_db()
+        self.assertEqual(run.status, Run.STATUS_APPLYING)
+        self.assertTrue(run.is_active)
+
+    def test_an_ack_for_another_token_is_not_this_run(self):
+        Run, _State = self._models()
+        run = self._applying_run()
+        self._ack("some-older-token", 0)
+
+        self.assertIsNone(self._service().tick_package_update())
+        run.refresh_from_db()
+        self.assertEqual(run.status, Run.STATUS_APPLYING)
+
+    def test_a_rolled_back_update_is_reported_as_rolled_back(self):
+        Run, _State = self._models()
+        run = self._applying_run()
+        self._ack(run.token, 1)
+        self._composer_status({
+            "kind": "package", "ok": False, "rolled_back": True,
+            "message": "Health check failed. Rolled back to 1.8.6.",
+        })
+
+        finished = self._service().tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_ROLLED_BACK)
+        self.assertIn("Rolled back", finished.error)
+
+    def test_needs_a_human_is_carried_through(self):
+        """Composer's exit 3: the rollback was not healthy either."""
+        Run, _State = self._models()
+        run = self._applying_run()
+        self._ack(run.token, 3)
+
+        finished = self._service().tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_FAILED)
+        self.assertIn("needs an operator", finished.error)
+
+    def test_a_hand_off_composer_never_acknowledged_is_eventually_failed(self):
+        from dlux.updater.service import PACKAGE_HANDOFF_TIMEOUT
+
+        Run, State = self._models()
+        run = self._applying_run(
+            started_at=timezone.now() - PACKAGE_HANDOFF_TIMEOUT - timedelta(minutes=1)
+        )
+
+        finished = self._service().tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_FAILED)
+        self.assertIn("did not acknowledge", finished.error)
+        self.assertEqual(State.load().active_run_token, "")
+
+    def test_nothing_happens_without_an_active_run(self):
+        self.assertIsNone(self._service().tick_package_update())
 
 
 class PendingTokenTests(SimpleTestCase):

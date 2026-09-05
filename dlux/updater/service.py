@@ -32,6 +32,10 @@ from .runtime import RuntimeStore
 
 logger = logging.getLogger("dlux.updater")
 
+# How long a run handed to Composer may sit unacknowledged. Its work is bounded
+# (download, swap, restart, health wait); past this, nothing is coming.
+PACKAGE_HANDOFF_TIMEOUT = timedelta(minutes=30)
+
 TERMINAL_STATUSES = frozenset({"completed", "failed", "rolled_back"})
 # The state tick runs every few seconds; the writer's report is only rewritten
 # once a minute, and counts as gone after ten.
@@ -830,6 +834,11 @@ class UpdateService:
         Run = _run_model()
         if run.action not in (Run.ACTION_APPLY, Run.ACTION_ROLLBACK):
             return
+        if run.status == Run.STATUS_APPLYING:
+            # Composer is executing and publishes its own phases to this file.
+            # Mirroring "inline" over them would blank the modal's progress until
+            # its next write — and it is the only progress there is to show.
+            return
         try:
             from .image_update import write_deploy_log, write_deploy_status
 
@@ -845,11 +854,11 @@ class UpdateService:
         except Exception:
             logger.warning("Failed to mirror inline update progress to the shared volume.", exc_info=True)
 
-    def _complete(self, run, *, report=None, status=None):
+    def _complete(self, run, *, report=None, status=None, error=""):
         status = status or run.STATUS_COMPLETED
         with transaction.atomic():
             state = _state_model().objects.select_for_update().get(pk=1)
-            run.finish(status, report=report)
+            run.finish(status, report=report, error=error)
             run.save(update_fields=[
                 "status", "is_active", "completed_at", "error", "report", "progress_log",
             ])
@@ -1088,13 +1097,18 @@ class UpdateService:
             raise UpdaterError("Composer is already performing a DjangoLux update.")
         state = _state_model().load()
         target = "" if mode == package_request.ROLLBACK else (run.target_version or state.latest_version or "")
+        # No operation_id: `control_operation_id` belongs to DluxImageUpdate, the
+        # row the agent bridge creates for a control-plane `dlux.image_update`.
+        # A package run is always local — the bridge accepts no package action —
+        # and Composer correlates it by the run's own token. Reading that field
+        # off this model raised AttributeError before the request was ever
+        # written, so no hand-off could reach Composer at all.
         package_request.write_request(
             self.store,
             mode=mode,
             target_version=target,
             backup_mode=run.backup_mode,
             token=run.token,
-            operation_id=str(run.control_operation_id or ""),
         )
         self._transition(
             run,
@@ -1356,6 +1370,97 @@ class UpdateService:
                 pass
             self._fail_image_update(row, exc)
         return row
+
+    def tick_package_update(self):
+        """Finish a run Composer executed. No-op unless one is waiting.
+
+        The hand-off ends at `write_request`: nothing in this process can see
+        what Composer then did. Its ack on the shared volume — token plus exit
+        code — is the only completion signal there is, and without reading it a
+        handed-off run stayed active for ever, which made `queue_run` refuse
+        every later update on the deployment.
+        """
+        from . import package_request
+
+        Run = _run_model()
+        state = _state_model().load()
+        if not state.active_run_token:
+            return None
+        run = Run.objects.filter(
+            token=state.active_run_token,
+            is_active=True,
+            status=Run.STATUS_APPLYING,
+        ).first()
+        if run is None:
+            return None
+
+        ack = package_request.read_ack(self.store)
+        if str(ack.get("token") or "").strip() != run.token:
+            return self._expire_stale_handoff(run)
+        try:
+            exit_code = int(ack.get("exit_code", 0) or 0)
+        except (TypeError, ValueError):
+            exit_code = 1
+
+        # Composer changed the release on the volume; the versions this row
+        # reports are stale until they are read again.
+        try:
+            self.reconcile()
+        except Exception:
+            logger.warning("Could not reconcile state after Composer's update.", exc_info=True)
+
+        detail = package_request.composer_progress(self.store) or {}
+        message = str(detail.get("message") or "").strip()
+        report = {**(run.report or {}), "composer_exit_code": exit_code}
+
+        if exit_code == 0:
+            run.append_log(message or "Composer applied the release.")
+            run.save(update_fields=["progress_log"])
+            self._complete(run, report=report)
+            return run
+
+        if exit_code == 3:
+            # Composer's "needs a human": the rollback did not come back healthy
+            # either, so nothing automatic should touch this deployment again.
+            message = message or (
+                "Composer rolled the release back and the previous one did not become "
+                "healthy either. The deployment needs an operator."
+            )
+        elif not message:
+            message = f"Composer could not apply the release (exit {exit_code})."
+
+        if detail.get("rolled_back"):
+            run.append_log(message)
+            self._complete(
+                run, status=Run.STATUS_ROLLED_BACK, report=report, error=message,
+            )
+            return run
+
+        run.report = report
+        run.save(update_fields=["report"])
+        self._handle_failure(run, UpdaterError(message))
+        return run
+
+    def _expire_stale_handoff(self, run):
+        """Fail a hand-off Composer never acknowledged, but only well past the
+        point where it could still be working.
+
+        Composer's own operation is bounded — download, swap, restart, health
+        wait — so an ack this far out means its executor died or never saw the
+        request. Leaving the run active instead would be worse than a wrong
+        verdict: it blocks every future update, and the release it was applying
+        may well be active anyway.
+        """
+        started = run.started_at or run.created_at
+        if not started or timezone.now() - started <= PACKAGE_HANDOFF_TIMEOUT:
+            return None
+        minutes = int(PACKAGE_HANDOFF_TIMEOUT.total_seconds() // 60)
+        self._handle_failure(run, UpdaterError(
+            f"Composer did not acknowledge the update within {minutes} minutes. "
+            "Check the composer-executor logs — the release may or may not be active; "
+            "the Options card reports what is actually installed."
+        ))
+        return run
 
     def tick_control_link(self):
         """Apply queued Control Panel pairing actions onto the agent bridge.

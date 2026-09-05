@@ -1874,6 +1874,10 @@ class UpdaterApiTests(TestCase):
         run = DluxUpdateRun.objects.get(token=response.json()['run']['token'])
         self.assertEqual(run.backup_mode, DluxUpdateRun.BACKUP_SKIP)
 
+    # The in-container path, like its siblings: without this the run is handed to
+    # Composer and never reaches a preflight. It passed before only because the
+    # hand-off raised AttributeError, which looks exactly like a failed run.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_failed_preflight_never_switches_active_release(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run, state, store = self._apply_with_mocks(

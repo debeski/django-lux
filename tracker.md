@@ -2,10 +2,10 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.7 is tagged/published. The tree is v1.8.8 (UNTAGGED): titlebar `actions_layout` (`scattered` default | `grouped`) with the folded action rail, a draggable action-order grip, and a manifest declaring `composer >=1.3.10`.
+- v1.8.8 is tagged/published. The tree is v1.8.9 (UNTAGGED): the Composer hand-off is fixed — it wrote no request at all (AttributeError on `control_operation_id`), had no `STATUS_APPLYING`, and nothing ever finished a handed-off run.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
-- Inline installs need Composer 1.3.10+: earlier versions read `inline_safe` off the wheel (schema 2 derives it) and refused at activation. Publish Composer 1.3.10 BEFORE tagging v1.8.8.
+- Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
 
 ### Current Project Adopted Standards:
 - Integrate settings with `from dlux.utils import dlux_settings; dlux_settings(globals())`; mount `dlux.urls` at root.
@@ -26,6 +26,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
+- The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
 - Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
 - 2026-08-31: `SystemBackupViewTests.test_restore_requires_password_and_confirmation` leaves restore status `pending` in the gov container; isolated from Backup page layout changes.
 
@@ -49,7 +50,8 @@
   - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
-- 2026-09-04: v1.8.8 — full `dlux.tests` 2367 run; `release_check --base-tag v1.8.7` exit 0 (inline_safe true, effect `none`, image_baseline 1.2.7, `composer >=1.3.10`).
+- 2026-09-05: v1.8.9 — full `dlux.tests` 2378 (11 new in `test_package_handoff`); `release_check --base-tag v1.8.8` exit 0 (effect `state_only`); `sqlmigrate dlux 0020` prints `-- (no-op)`; `makemigrations --check` clean.
+- 2026-09-04: v1.8.8 — full `dlux.tests` 2367 OK; `release_check --base-tag v1.8.7` exit 0 (inline_safe true, effect `none`, image_baseline 1.2.7, `composer >=1.3.10`).
 - 2026-09-04: v1.8.7 — full `dlux.tests` 2367 OK (7 new in `test_modal_content_init`, 4 in `test_ribbon`); `release_check --base-tag v1.8.6` exit 0, effect `none`.
 - 2026-09-04 incident recovery — gov, decrees, and sales-crm containers report v1.8.6, original configured settings rows, and no applied lock migration; fresh requests no longer log unavailable `SystemSettings`.
 - 2026-09-04: Guard + reconcile — full `dlux.tests` 2328 OK (7 new in `test_package_handoff`, 4 in `test_updater`), `makemigrations --check` clean, `release_check --base-tag v1.8.5` exit 0 on the 1.8.6 manifest.
@@ -59,7 +61,7 @@
 - 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
 
 ### One-line info about last time edited Docs:
-- 2026-09-04: `docs/reference.md` documents `titlebar_config.actions_layout` and the rail; `docs/inline-updater.md` states the Composer 1.3.10 floor and why.
+- 2026-09-05: `docs/inline-updater.md` gained "What finishes a handed-off run" (the ack, the terminal states, the 30-minute bound).
 - 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).
 - 2026-09-02: `docs/managed-assets.md` gained the project-facing asset-field API; `docs/developer-guide.md` names `ManagedAssetField` over `ImageField`; `docs/deprecation-countdown.md` caller lists corrected (both removals stay targeted at v1.9.0).
 
