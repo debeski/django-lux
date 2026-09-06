@@ -1077,6 +1077,192 @@ class ImageAvailabilityMetadataTests(TestCase):
         self.assertEqual(digest_metadata["runtime_target"], "sha256:1234567890ab")
 
 
+class ImageCandidateGateTests(SimpleTestCase):
+    """An image that bakes an older DjangoLux than the active release.
+
+    The active release lives on the runtime volume and is what the supervisor
+    puts on PYTHONPATH, so an older image does not by itself force a downgrade.
+    What decides it is the active release's own `image_baseline`.
+    """
+
+    def _state(self, active="1.8.11", baseline="1.2.7"):
+        return SimpleNamespace(
+            active_version=active,
+            baked_version="1.8.6",
+            active_manifest={"image_baseline": baseline} if baseline else {},
+        )
+
+    def _assess(self, baked, state):
+        from dlux.updater.image_update import assess_image_candidate
+
+        # active_runtime_version() reads the runtime volume; pin it to the state
+        # row so these cases test the gate, not the volume.
+        with mock.patch(
+            "dlux.updater.image_update.active_runtime_version",
+            return_value=state.active_version,
+        ):
+            return assess_image_candidate(baked, state)
+
+    def test_an_older_image_keeps_the_active_release(self):
+        verdict = self._assess("1.8.6", self._state())
+        self.assertEqual(verdict["verdict"], "keep")
+        self.assertIn("1.8.11", verdict["reason"])
+
+    def test_an_image_below_the_baseline_is_refused(self):
+        verdict = self._assess("1.2.6", self._state(baseline="1.2.7"))
+        self.assertEqual(verdict["verdict"], "abort")
+        self.assertIn("1.2.7", verdict["reason"])
+
+    def test_a_newer_image_is_adopted(self):
+        self.assertEqual(self._assess("1.9.0", self._state())["verdict"], "adopt")
+
+    def test_an_equal_image_is_adopted(self):
+        self.assertEqual(self._assess("1.8.11", self._state())["verdict"], "adopt")
+
+    def test_no_baseline_means_only_the_versions_decide(self):
+        self.assertEqual(self._assess("1.8.6", self._state(baseline=""))["verdict"], "keep")
+
+    def test_an_unusable_label_falls_back_to_the_baked_release(self):
+        # A gate that cannot read the label must not invent a verdict.
+        self.assertEqual(self._assess("", self._state())["verdict"], "adopt")
+        self.assertEqual(self._assess("not-a-version", self._state())["verdict"], "adopt")
+
+
+class PlaceholderSecretKeyTests(SimpleTestCase):
+    """A placeholder SECRET_KEY must not boot a non-DEBUG deployment.
+
+    Both scaffold layers fall back silently, so a restart that loses the secrets
+    file signs with a different key and logs every user out with nothing logged.
+    """
+
+    def _scope(self, **overrides):
+        scope = {"DEBUG": False, "SECRET_KEY": "local_secret"}
+        scope.update(overrides)
+        return scope
+
+    def _reject(self, scope):
+        from dlux.utils.settings import _reject_placeholder_secret_key
+
+        return _reject_placeholder_secret_key(scope)
+
+    def test_a_placeholder_key_is_refused(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        for key in ("local_secret", "insecure-temporary-dev-only-key-change-me-now", "", "   "):
+            with self.subTest(key=key), self.assertRaises(ImproperlyConfigured):
+                self._reject(self._scope(SECRET_KEY=key))
+
+    def test_a_real_key_passes(self):
+        self.assertIsNone(self._reject(self._scope(SECRET_KEY="x" * 50)))
+
+    def test_debug_is_never_blocked(self):
+        self.assertIsNone(self._reject(self._scope(DEBUG=True)))
+
+    def test_the_opt_out_is_honoured(self):
+        self.assertIsNone(
+            self._reject(self._scope(DLUX_ALLOW_INSECURE_SECRET_KEY=True))
+        )
+
+
+class ReconcileTriggerTests(SimpleTestCase):
+    """`active_version` went stale after a runtime update.
+
+    The re-reconcile trigger watched `baked_version`, but an inline or Composer
+    update moves the active release and leaves the image alone — so the one
+    event that changes what is running never refreshed the row.
+    """
+
+    def setUp(self):
+        from dlux.updater import service
+
+        self.service_module = service
+        self._saved = (service._PROCESS_RECONCILED, service._RECONCILED_GENERATION)
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        self.service_module._PROCESS_RECONCILED = self._saved[0]
+        self.service_module._RECONCILED_GENERATION = self._saved[1]
+
+    def _service(self, generation):
+        return SimpleNamespace(
+            store=SimpleNamespace(read_generation=lambda: generation),
+            reconcile=mock.Mock(return_value="state"),
+            restart_worker=False,
+        )
+
+    def _run(self, generation, *, baked="1.8.6", recorded=None):
+        """`recorded` is the baked version in the state row; `baked` is the
+        package actually installed. They differ only on a project-image swap."""
+        module = self.service_module
+        service = self._service(generation)
+        with mock.patch.object(module, "get_baked_version", return_value=baked), \
+                mock.patch.object(module, "_state_model") as state_model:
+            state_model.return_value.objects.filter.return_value.values_list \
+                .return_value.first.return_value = baked if recorded is None else recorded
+            module.reconcile_state_if_due(service)
+        return service.reconcile.call_count
+
+    def test_a_new_generation_reconciles_again(self):
+        self.assertEqual(self._run(4), 1, "the first call must reconcile")
+        # An update activated a new release: same image, new generation.
+        self.assertEqual(self._run(5), 1, "a new generation must reconcile")
+
+    def test_an_unchanged_generation_does_not_reconcile(self):
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(self._run(4), 0, "nothing changed; reconcile must be skipped")
+
+    def test_a_new_baked_version_still_reconciles(self):
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(
+            self._run(4, baked="1.9.0", recorded="1.8.6"), 1, "an image swap must reconcile"
+        )
+
+    def test_an_unreadable_generation_reconciles(self):
+        # None must never compare equal to a recorded generation.
+        self.assertEqual(self._run(4), 1)
+        module = self.service_module
+        service = self._service(4)
+        service.store.read_generation = mock.Mock(side_effect=OSError("volume gone"))
+        with mock.patch.object(module, "get_baked_version", return_value="1.8.6"), \
+                mock.patch.object(module, "_state_model") as state_model:
+            state_model.return_value.objects.filter.return_value.values_list \
+                .return_value.first.return_value = "1.8.6"
+            module.reconcile_state_if_due(service)
+        self.assertEqual(service.reconcile.call_count, 1)
+
+
+class ActiveRuntimeVersionTests(SimpleTestCase):
+    """Anything reporting a version to an operator must read the runtime.
+
+    Reporting `state.active_version` is what let one image-update run open
+    claiming 1.7.0 and then correctly abort against 1.8.11.
+    """
+
+    def _state(self, active="1.7.0"):
+        return SimpleNamespace(active_version=active, baked_version="1.8.6")
+
+    def test_the_runtime_volume_wins_over_a_stale_row(self):
+        from dlux.updater.service import active_runtime_version
+
+        store = SimpleNamespace(read_active=lambda baked: {"version": "1.8.11"})
+        self.assertEqual(active_runtime_version(self._state(), store=store), "1.8.11")
+
+    def test_an_unreadable_volume_falls_back_to_the_running_release(self):
+        from dlux.updater.service import active_runtime_version
+
+        store = SimpleNamespace(read_active=mock.Mock(side_effect=OSError("no volume")))
+        self.assertEqual(active_runtime_version(self._state(), store=store), __version__)
+
+    def test_a_queued_image_update_records_the_live_version(self):
+        # The regression itself: the run must not open on the cached column.
+        from dlux.updater import image_update
+
+        state = self._state()
+        with mock.patch.object(image_update, "active_runtime_version", return_value="1.8.11") as live:
+            self.assertEqual(live(state), "1.8.11")
+        self.assertNotEqual(state.active_version, "1.8.11")
+
+
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class UpdateAdmissionTests(TestCase):
     @staticmethod

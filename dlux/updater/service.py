@@ -416,6 +416,40 @@ def queue_run(action, username="", backup_mode=None):
 
 
 _PROCESS_RECONCILED = False
+_RECONCILED_GENERATION = None
+
+
+def active_runtime_version(state, *, store=None):
+    """The release the deployment is actually running.
+
+    ``state.active_version`` is a cache refreshed by ``reconcile()``; anything
+    that reports a version to an operator should prefer the runtime itself, so a
+    stale row cannot make one run report two different "current" versions. Order:
+    the runtime volume's ``active.json``, then the release this process imported,
+    then the recorded column.
+    """
+    from dlux import __version__
+
+    try:
+        active = (store or runtime_store()).read_active(state.baked_version)
+        version = str(active.get("version") or "").strip()
+        if version:
+            return version
+    except Exception:
+        logger.debug("The active runtime release could not be read.", exc_info=True)
+    return str(__version__ or "").strip() or state.active_version or state.baked_version
+
+
+def _runtime_generation(service):
+    """The runtime volume's generation counter, or None when it cannot be read.
+
+    None never compares equal to a recorded generation, so an unreadable volume
+    reconciles rather than silently skipping.
+    """
+    try:
+        return service.store.read_generation()
+    except Exception:
+        return None
 
 
 def reconcile_state_if_due(service):
@@ -431,11 +465,21 @@ def reconcile_state_if_due(service):
     migrations and deliberately never touches the database.
 
     Runs once per worker process — the boot case, after ``migrator`` — and after
-    that only when the recorded baked version stops matching the package actually
-    installed, which is a project-image swap under a running worker. Reconcile
-    reads the volume and writes the state row; the tick fires every few seconds.
+    that on either of the two events that can move the running release: the
+    recorded baked version stops matching the package actually installed (a
+    project-image swap under a running worker), or the runtime volume's
+    generation advances (an inline or Composer update activating a new release).
+
+    Watching the baked version alone was not enough. An update moves
+    ``active_version`` and leaves the image untouched, so the one event that
+    actually changes the active release never re-triggered a reconcile, and
+    ``active_version`` stayed frozen at whatever this process last recorded —
+    which is what ``queue_image_update()`` then reported as the source version.
+
+    Reconcile reads the volume and writes the state row; the tick fires every
+    few seconds.
     """
-    global _PROCESS_RECONCILED
+    global _PROCESS_RECONCILED, _RECONCILED_GENERATION
 
     if _PROCESS_RECONCILED:
         try:
@@ -447,7 +491,8 @@ def reconcile_state_if_due(service):
             )
         except Exception:
             return None
-        if recorded is None or recorded == get_baked_version():
+        baked_unchanged = recorded is not None and recorded == get_baked_version()
+        if baked_unchanged and _runtime_generation(service) == _RECONCILED_GENERATION:
             return None
     try:
         state = service.reconcile()
@@ -458,6 +503,9 @@ def reconcile_state_if_due(service):
         )
         return None
     _PROCESS_RECONCILED = True
+    # After reconcile: it can bump the generation itself, and the value recorded
+    # here is what the next tick compares against.
+    _RECONCILED_GENERATION = _runtime_generation(service)
     if service.restart_worker:
         # Nothing to do here: reconcile bumped the generation, and the supervisor
         # this worker runs under restarts it onto the selected release.

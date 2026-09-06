@@ -1,14 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.8.11",
+  "version": "1.8.12",
   "display": {
-    "summary": "A Composer-driven update now delivers the release's static files, instead of leaving the previous release's CSS and JS in place against the new templates.",
+    "summary": "Context-menu view and edit reach the dynamic modal again, version reporting stops going stale after an update, and a placeholder SECRET_KEY no longer boots a deployment.",
     "highlights": [
-      "Updates stop looking half-applied: unstyled controls and dead scripts after an update were the previous release's assets still being served.",
-      "Collection runs after an apply, a rollback, or an apply Composer rolled back — all three change which release is active.",
-      "A collect that fails is named in the run log and recorded on the run, rather than leaving a mismatch to be found by looking at the page."
+      "A host project dispatching `dlux:dynamic_modal:open` on document.body was silently ignored from 1.8.0; the listener now catches every dispatch shape.",
+      "An update no longer leaves the reported active version frozen, and an image update reports what is actually running.",
+      "A non-DEBUG deployment refuses to boot on a placeholder SECRET_KEY, which silently logged every user out when a restart resolved a different key.",
+      "Three test modules that were never in the suite now run, with a guard that fails when a test file is left unregistered."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.11"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.12"
   },
   "requires": {
     "updater_schema": ">=1",

@@ -167,6 +167,14 @@
         }
 
         const targetRect = tooltipTarget.getBoundingClientRect();
+        // Measure the tooltip's own box, not the one the last placement left behind. It is
+        // position:fixed with an auto width, so its shrink-to-fit width is bounded by the
+        // space to the right of whatever `left` is still applied — a stale `left` (after a
+        // resize, or from a target further right) collapses the measurement and walks the
+        // tooltip a few pixels on every hover. Clearing the offsets here never paints: the
+        // final coordinates are committed before this frame ends.
+        tooltip.style.left = '0px';
+        tooltip.style.top = '0px';
         const tooltipRect = tooltip.getBoundingClientRect();
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight;

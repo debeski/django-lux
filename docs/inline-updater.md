@@ -99,6 +99,20 @@ Release eligibility remains strict. Composer honors the release manifest's schem
 
 Update admission serializes through the DjangoLux state row. An image update and an inline update cannot be admitted concurrently. When a pre-update backup is requested, DjangoLux must finish it before the update intent is written.
 
+## Moving to an image that bakes an older DjangoLux
+
+The active release lives on the runtime volume and is what the supervisor puts on `PYTHONPATH`, so an image baking an older DjangoLux does not by itself downgrade a deployment. Composer's preflight gate reads one image label and refuses anything older than the active release, which is safe but stricter than the deployment requires.
+
+`manage.py dlux_image_gate --baked-dlux-version <label>` answers it properly, and returns JSON:
+
+- `adopt` — the image is at or ahead of the active release; reconcile resets to the baked release as it always has. Also returned when the label is missing or unparseable, so an unreadable label can never invent a verdict.
+- `keep` — the image is older, but at or above the active release's `requires.baked_image` floor. The active release stays on the volume and keeps running on the new image.
+- `abort` — the image predates a DjangoLux release that required an image rebuild, so the active release cannot run on it. Update the project image past that floor first.
+
+Composer 1.3.13+ asks this automatically. Its preflight version gate used to refuse any target image whose baked DjangoLux was older than the active release; it now consults this command first and proceeds on `keep`, blocks on `abort` (quoting the reason), and — when the command is unavailable, the service is down, or the output is unreadable — blocks exactly as it did before. `COMPOSER_RUNTIME_GATE_SERVICE` selects the service it asks (default `web`); `--force` still overrides without asking. On an older Composer the gate keeps refusing, and `--force` is the only way through.
+
+The floor is the rule that already governs inline installs: a release is staged with `pip install --no-deps`, so only DjangoLux itself is on the volume and everything it imports comes from the image. `requires.baked_image` records the last release that needed a rebuild, which is exactly the bar an image must clear to carry a later release.
+
 ## Recovery and rollback
 
 Rollback selects the prior code/static release; it does not reverse migrations or restore database data. Reconcile falls back to the baked package when an active runtime release is missing, corrupt, or not newer than the image. Keep the runtime volume: it holds the active pointer, release installations, maintenance state, and Composer/DjangoLux handoff records.

@@ -104,6 +104,7 @@ namespace.
 | `DLUX_UPDATE_CHECK_INTERVAL` | Django setting or environment through `dlux_settings()` | integer seconds, `86400`, minimum `300` | Minimum time between persisted update checks. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | Django setting or environment | filesystem path, `/opt/dlux-runtime` | Durable runtime release, state, maintenance, and progress root. |
 | `DLUX_BAKED_VERSION` | Environment only | version string, package version fallback | Records the DjangoLux version baked into the application image. Generated runtime wrappers populate it. |
+| `DLUX_ALLOW_INSECURE_SECRET_KEY` | Django setting through `dlux_settings()` | boolean, `False` | Allows a non-DEBUG deployment to boot on an empty or placeholder `SECRET_KEY`. Off by default: both scaffold layers fall back silently (`local_secret` in compose, a dev key in `settings.py`), and a restart that resolves a different key invalidates every session cookie, signing all users out with nothing logged. Set it only for CI or throwaway stacks. |
 | `DLUX_ENVIRONMENT` | Environment only | string, `production` | Environment label included in Composer-agent status snapshots. It does not enable Django debug mode or change security policy. |
 
 Set `DLUX_UPDATE_RUNTIME_ROOT` in the environment for generated deployments.

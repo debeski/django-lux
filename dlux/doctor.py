@@ -21,6 +21,7 @@ from pathlib import Path
 from django.conf import settings
 
 from . import __version__
+from .utils.settings import PLACEHOLDER_SECRET_KEYS
 
 
 SCHEMA_VERSION = 1
@@ -491,7 +492,7 @@ def _check_secret_key(ctx):
     key = str(getattr(settings, 'SECRET_KEY', '') or '')
     if not key:
         return fail('SECRET_KEY is empty.', 'Set DJANGO_SECRET_KEY in .secrets/.env.')
-    if key in {'local_secret', 'changeme', 'secret'}:
+    if key in PLACEHOLDER_SECRET_KEYS:
         return fail(
             'SECRET_KEY is the scaffold placeholder, so sessions and password-reset tokens are forgeable.',
             'Generate one and set DJANGO_SECRET_KEY in .secrets/.env.',

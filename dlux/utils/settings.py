@@ -18,6 +18,7 @@ from django import forms
 from django.apps import apps
 from django.conf import settings
 from django.contrib.messages import constants as messages
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models as dj_models
 from django.db.models import ManyToManyRel, Q
 from django.db.models.fields.files import FieldFile
@@ -125,6 +126,49 @@ def scanlink_enabled():
         return False
     return bool(scanlink.get("enabled", False))
 
+#: Keys that mean "nobody set one". Signing sessions and password-reset tokens
+#: with any of these makes them forgeable, and swapping between two of them logs
+#: every user out — which is how an unset key usually announces itself.
+PLACEHOLDER_SECRET_KEYS = frozenset({
+    "local_secret",
+    "changeme",
+    "secret",
+    "insecure-temporary-dev-only-key-change-me-now",
+})
+
+
+def _reject_placeholder_secret_key(scope):
+    """Refuse to boot a non-DEBUG deployment on a placeholder ``SECRET_KEY``.
+
+    Both scaffold layers fall back silently — compose to ``local_secret``,
+    settings to its own dev key — so a restart that loses the secrets file comes
+    up signing with a different key than the one that signed the live session
+    cookies. Every user is logged out, and nothing is logged to say why.
+
+    Only a settings module that actually defines ``SECRET_KEY`` is judged. A
+    scope without one is a programmatic caller, not a deployment, and Django
+    raises its own error the moment the setting is read.
+
+    Set ``DLUX_ALLOW_INSECURE_SECRET_KEY = True`` to opt out (CI, throwaway
+    stacks); DEBUG deployments are never affected.
+    """
+    if "SECRET_KEY" not in scope:
+        return
+    if scope.get("DEBUG", False) or scope.get("DLUX_ALLOW_INSECURE_SECRET_KEY", False):
+        return
+    key = str(scope.get("SECRET_KEY") or "").strip()
+    if key and key not in PLACEHOLDER_SECRET_KEYS:
+        return
+    detail = "is empty" if not key else "is a placeholder"
+    raise ImproperlyConfigured(
+        f"SECRET_KEY {detail}, so every session cookie and password-reset token "
+        "signed by this deployment is forgeable, and the next restart that "
+        "resolves a different key will sign every user out. Set "
+        "DJANGO_SECRET_KEY in .secrets/.env (50+ random characters). Set "
+        "DLUX_ALLOW_INSECURE_SECRET_KEY = True to allow it anyway."
+    )
+
+
 def dlux_settings(scope):
     """
     Apply the default DjangoLux settings requirements to a Django settings module.
@@ -136,6 +180,8 @@ def dlux_settings(scope):
     """
     if not isinstance(scope, dict):
         raise TypeError("dlux_settings() expects the result of globals() from settings.py")
+
+    _reject_placeholder_secret_key(scope)
 
     installed_apps = _coerce_list_setting(scope, "INSTALLED_APPS")
     middleware = _coerce_list_setting(scope, "MIDDLEWARE")

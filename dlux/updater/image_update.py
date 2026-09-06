@@ -21,8 +21,10 @@ from django.utils import timezone
 
 from django.conf import settings
 
+from packaging.version import InvalidVersion, Version
+
 from . import UpdaterError
-from .service import _state_model, updates_enabled
+from .service import _state_model, active_runtime_version, updates_enabled
 
 # How long to wait for composer to finish after hand-off before giving up and
 # clearing maintenance. Generous: a full pull + recreate + migrate can be slow.
@@ -287,6 +289,100 @@ def serialize_image_update(row, *, store=None, include_log=False):
     return result
 
 
+
+def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
+    """Decide what happens to the running release if we recreate onto an image.
+
+    Composer's preflight gate reads one image label — the DjangoLux version
+    baked into the candidate image — and refuses anything older than the active
+    runtime release. That is the safe default, but it is stricter than the
+    deployment actually requires: a volume release is what the supervisor puts
+    on ``PYTHONPATH``, so recreating onto an older image normally leaves the
+    newer active release running untouched.
+
+    What makes that safe or unsafe is already expressed in the active release's
+    own manifest. A release is staged with ``pip install --no-deps``, so only
+    DjangoLux itself lives on the volume and everything it imports comes from
+    the image. ``requires.baked_image`` records the last DjangoLux version that
+    needed an image rebuild, which is exactly the floor an image must meet to
+    carry a later release. So:
+
+      * baked >= active            -> "adopt": the image is at or ahead of the
+        volume, and reconcile resets to the baked release as it always has.
+      * baked <  active >= floor   -> "keep": the active release stays on the
+        volume and keeps running on the new image.
+      * baked <  floor             -> "abort": the image predates a release that
+        required a rebuild, so the active release cannot run on it.
+
+    Returns a dict; it never raises, because a gate that errors must not be able
+    to wedge a deployment's update path.
+    """
+    from dlux import __version__
+
+    def _version(value):
+        try:
+            return Version(str(value).strip())
+        except (InvalidVersion, TypeError, AttributeError):
+            return None
+
+    if state is None:
+        try:
+            state = _state_model().load()
+        except Exception:
+            state = None
+
+    active_text = (
+        active_runtime_version(state, store=store) if state is not None
+        else str(__version__ or "")
+    )
+    baked = _version(baked_dlux_version)
+    active = _version(active_text)
+
+    result = {
+        "verdict": "adopt",
+        "active_version": active_text,
+        "baked_dlux_version": str(baked_dlux_version or "").strip(),
+        "image_baseline": "",
+        "reason": "",
+    }
+    if baked is None or active is None:
+        result["verdict"] = "adopt"
+        result["reason"] = (
+            "The candidate image does not publish a comparable DjangoLux version, "
+            "so the baked release is used."
+        )
+        return result
+    if baked >= active:
+        result["reason"] = (
+            f"The image bakes DjangoLux {baked}, at or ahead of the active {active}."
+        )
+        return result
+
+    manifest = (getattr(state, "active_manifest", None) or {}) if state is not None else {}
+    baseline_text = str(manifest.get("image_baseline") or "").strip()
+    result["image_baseline"] = baseline_text
+    baseline = _version(baseline_text) if baseline_text else None
+
+    if baseline is not None and baked < baseline:
+        result["verdict"] = "abort"
+        result["reason"] = (
+            f"DjangoLux {active} needs the v{baseline} project image or newer, but this "
+            f"image bakes {baked}. Update the project image past v{baseline} first."
+        )
+        return result
+
+    result["verdict"] = "keep"
+    floor = (
+        f"at or above the v{baseline} floor {active} declares"
+        if baseline is not None
+        else f"and {active} records no image floor to check against"
+    )
+    result["reason"] = (
+        f"The image bakes DjangoLux {baked}, older than the active {active} but {floor}; "
+        "the active release stays on the runtime volume and keeps running."
+    )
+    return result
+
 def queue_image_update(
     username="",
     backup_mode=None,
@@ -321,7 +417,7 @@ def queue_image_update(
         if Image.objects.filter(is_active=True).exists():
             raise UpdaterError("An image update is already in progress.")
         row = Image.objects.create(
-            source_version=state.active_version or state.baked_version,
+            source_version=active_runtime_version(state),
             target_version=metadata["runtime_target"],
             requested_by_username=str(username or "")[:150],
             backup_mode=backup_mode,

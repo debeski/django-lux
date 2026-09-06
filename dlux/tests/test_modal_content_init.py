@@ -79,3 +79,51 @@ class ContentDependentInitialisersListenTests(TestCase):
             if f"'{EVENT}'" not in source:
                 offenders.append(str(path.relative_to(STATIC)))
         self.assertEqual(offenders, [], f'scan injected content on {EVENT} too')
+
+
+class ModalOpenListenerReachesEveryCallerTests(TestCase):
+    """`dlux:dynamic_modal:open` must reach the modal however it was dispatched.
+
+    The listener moved from `document.body` to `document` in 1.8.0 on the reasoning
+    that it was strictly more permissive. It was not. A `new CustomEvent(name, {detail})`
+    does not bubble — `bubbles` defaults to false — so a host project dispatching on
+    `document.body`, which is the natural thing to write, was caught by the old
+    body-bound listener at target and reached nothing at all once it moved up to
+    `document`. The symptom is silent: no console error, no request, no modal, while
+    every action dlux dispatches itself (those pass `bubbles: true`) keeps working.
+
+    Capture phase runs window -> document -> target on every dispatch regardless of
+    `bubbles`, so it catches all three shapes exactly once.
+    """
+
+    def setUp(self):
+        self.js = _read(STATIC, 'helpers', 'dynamic_modal', 'js', 'main.js')
+
+    def _closer_after_registration(self):
+        """The line that closes the modal-open listener: '});' or '}, true);'.
+
+        Matched on the closer rather than the whole block, which contains blank
+        lines and would need brace balancing to delimit.
+        """
+        marker = "document.addEventListener('dlux:dynamic_modal:open'"
+        start = self.js.find(marker)
+        self.assertNotEqual(start, -1, 'the modal-open listener is no longer registered on document')
+        bubble = self.js.find('\n    });', start)
+        capture = self.js.find('\n    }, true);', start)
+        if capture == -1:
+            return '});'
+        if bubble == -1 or capture < bubble:
+            return '}, true);'
+        return '});'
+
+    def test_the_open_listener_is_registered_in_the_capture_phase(self):
+        self.assertEqual(
+            self._closer_after_registration(), '}, true);',
+            'the modal-open listener must be bound in the capture phase, or a caller '
+            'that dispatches a non-bubbling event on document.body is silently ignored',
+        )
+
+    def test_dlux_dispatches_this_event_with_bubbles(self):
+        # dlux's own context-menu actions must keep working through either phase.
+        menu = _read(STATIC, 'helpers', 'context_menu', 'js', 'main.js')
+        self.assertIn('bubbles: true', menu)

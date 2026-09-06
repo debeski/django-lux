@@ -697,6 +697,18 @@ class HandoffCollectsStaticTests(TestCase):
 
         return apps.get_model("dlux", "DluxUpdateRun"), apps.get_model("dlux", "DluxUpdateState")
 
+    def _target_version(self):
+        """A release newer than the baked one.
+
+        `reconcile()` resets any volume release below the baked floor, so a
+        version pinned here would stop being staged the moment the package is
+        bumped past it.
+        """
+        from dlux.updater import get_baked_version
+
+        major, minor, patch = (get_baked_version().split(".") + ["0", "0"])[:3]
+        return f"{major}.{minor}.{int(patch) + 1}"
+
     def _runner(self, returncode=0):
         class _Completed:
             def __init__(self):
@@ -721,7 +733,7 @@ class HandoffCollectsStaticTests(TestCase):
             action=Run.ACTION_APPLY,
             status=Run.STATUS_APPLYING,
             is_active=True,
-            target_version="1.8.11",
+            target_version=self._target_version(),
             started_at=timezone.now(),
         )
         state = State.load()
@@ -760,9 +772,10 @@ class HandoffCollectsStaticTests(TestCase):
         CSS and JS into the shared volume than the templates being served."""
         run = self._applying_run()
         self._ack(run.token, 0)
-        release = Path(self.store.release_path("1.8.11"))
+        version = self._target_version()
+        release = Path(self.store.release_path(version))
         release.mkdir(parents=True, exist_ok=True)
-        self.store.write_active("1.8.11", source="volume", generation=self.store.read_generation() + 1)
+        self.store.write_active(version, source="volume", generation=self.store.read_generation() + 1)
 
         with override_settings(BASE_DIR=self.base_dir):
             self._service().tick_package_update()

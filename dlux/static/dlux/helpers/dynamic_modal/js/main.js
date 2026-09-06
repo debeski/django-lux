@@ -248,10 +248,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }, true);
 
     // Programmatic trigger (Context Menu / global search / external integrations).
-    // Bound to `document`, not `document.body`: an event dispatched directly on
-    // `document` never reaches body (bubbling only travels child → parent), so a
-    // body-bound listener silently ignored those callers. Element-dispatched
-    // bubbling events still arrive here, so this is strictly more permissive.
+    // Bound to `document` in the CAPTURE phase. Bubble-phase on `document` looked
+    // strictly more permissive than the older body-bound listener, and is not: a
+    // caller that dispatches a CustomEvent without `bubbles: true` on
+    // `document.body` — the default, and what a host project naturally writes —
+    // used to be caught at target and afterwards reached nothing at all. No error,
+    // no request, no modal. Capture runs window → document → target on every
+    // dispatch regardless of `bubbles`, so it catches element-dispatched bubbling
+    // events, non-bubbling body dispatches, and `document` itself, once each.
     document.addEventListener('dlux:dynamic_modal:open', function(e) {
         const url = e.detail.data?.url || e.detail.action?.url;
         const title = e.detail.data?.title || e.detail.action?.title || 'تفاصيل';
@@ -264,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         openModalAndLoad(url, e.detail.trigger || null);
-    });
+    }, true);
 
     // In-modal navigation: a container of links marked [data-dlux-modal-nav], or a
     // single link/button carrying the marker itself with an href or data-url.
