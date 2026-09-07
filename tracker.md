@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.12 is tagged/published. The tree is v1.8.13 (UNTAGGED): the Record Visibility switches were anchored to the wrong settings step after being moved, so audit columns could be turned on and never off; and a plain modal Save was read as "save and add more" because presence of `save_add_more` was tested instead of its value.
+- Dlux v1.8.13 is tagged, published and pushed at b6e56b4 (verified 2026-09-07); Record Visibility toggles and plain modal Save fixes are released. Channel implementation has not started.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -64,26 +64,10 @@
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
 - 2026-09-05: tooltip drift — full `dlux.tests` 2349 OK and `node --test 'tests-js/*.test.mjs'` 63 OK (2 new in `tests-js/tooltip_position.test.mjs`; the stale-offset one fails on pre-fix code, 841px vs 762px). Browser-verified in a real repro: pre-fix walked 8px/hover after a resize, post-fix lands correct on the first hover.
 - 2026-09-05: `test_package_handoff.HandoffCollectsStaticTests` no longer pins `1.8.11` — it derives a version above the baked floor, since `reconcile()` resets any volume release below `get_baked_version()` and the bump to 1.8.12 broke it.
-- 2026-09-05: static-after-handoff — full `dlux.tests` 2407 OK (6 new in `test_package_handoff`, driving `tick_package_update()` with a stub runner: applied/rollback/rolled-back all collect, the release path is on `PYTHONPATH`, a failed collect completes the run but is logged and reported).
-- 2026-09-05: Titlebar Phase 2 — full `dlux.tests` 2384 OK; one `.titlebar__actions` in both layouts (12 ordered actions under Titlebar Actions, 5 under Dropdown, one bell not two), grouping verified in a browser: Home stays on the bar, the other 11 enter the rail in configured order and it scrolls.
-- 2026-09-05: v1.8.10 — `release_check --base-tag v1.8.9` exit 0, `makemigrations --check` clean, +6 reconcile tests (offer stand-down, rollback target from the volume, baked floor, image fallback).
-- 2026-09-05: v1.8.9 — full `dlux.tests` 2378 OK (11 new in `test_package_handoff`); `release_check --base-tag v1.8.8` exit 0 (effect `state_only`); `sqlmigrate dlux 0020` prints `-- (no-op)`.
-- 2026-09-04: v1.8.8 — full `dlux.tests` 2367 OK; `release_check --base-tag v1.8.7` exit 0 (inline_safe true, effect `none`, image_baseline 1.2.7, `composer >=1.3.10`).
-- 2026-09-04: v1.8.7 — full `dlux.tests` 2367 OK (7 new in `test_modal_content_init`, 4 in `test_ribbon`); `release_check --base-tag v1.8.6` exit 0, effect `none`.
-- 2026-09-04 incident recovery — gov, decrees, and sales-crm containers report v1.8.6, original configured settings rows, and no applied lock migration; fresh requests no longer log unavailable `SystemSettings`.
-- 2026-09-04: Guard + reconcile — full `dlux.tests` 2328 OK (7 new in `test_package_handoff`, 4 in `test_updater`), `makemigrations --check` clean, `release_check --base-tag v1.8.5` exit 0 on the 1.8.6 manifest.
-- 2026-09-02: v1.9.0 green — full `dlux.tests` 2294 run, 2292 OK (25 new in `test_asset_fields`); the only 2 errors are `test_manifest_schema_v2` shelling out to `git tag`, which the sandbox now denies (`.git/config: Operation not permitted`) — environmental, re-run outside it before release.
-- 2026-09-01: `list_page.html` consumed downstream — gov's 3 generic lists render through it with no semantic diff (only the wrapper class changed); `list_page_attrs` carries a host project's own data hooks, which is what kept its `scoped_list.html` from being retired outright.
-- 2026-09-01: Gov stack after the file-widget rename — `collectstatic` copied 13 files; Caddy now serves `dlux-file` CSS/JS (23/23, 0 legacy) and every JS `[data-dlux-file-*]` hook is present in the rendered widget (library/scan absent only in their unguarded-off branches).
-- 2026-09-01: File-widget rename — 3 new compat tests (shim removed → the template one fails, restored → passes); full `dlux.tests` 2264 run, 1 pre-existing unrelated failure; `node --check` x3 OK.
 
 ### One-line info about last time edited Docs:
 - 2026-09-06: `release_channels_plan.md` records both projects' mandatory beta-first milestones, implementation paths, channel semantics, staging gates and retirement checklist; gitignored planning artifact.
 - 2026-09-06: `docs/inline-updater.md` gained "Moving to an image that bakes an older DjangoLux" (adopt/keep/abort); `docs/deployment-configuration.md` documents `DLUX_ALLOW_INSECURE_SECRET_KEY`.
-- 2026-09-05: `docs/inline-updater.md` — the hand-off's ack step also collects static, and what a failed collect does (run completes, `static_collected: false`).
-- 2026-09-05: `system-settings-preview-plan.md` now includes Preview-button UX: popup previews for off-page targets and glass mode for visible behind-modal chrome.
-- 2026-09-05: `docs/inline-updater.md` gained "What finishes a handed-off run" and "What the card offers after an update" (offer stand-down, rollback target, the baked floor).
-- 2026-09-04: `docs/inline-updater.md` gained "What refreshes the reported versions" and "Who decides the runtime volume is usable" (1.8.0-1.8.5 stale-version warning included).
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
