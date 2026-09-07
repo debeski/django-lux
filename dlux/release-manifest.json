@@ -1,15 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.12",
+  "version": "1.8.13",
   "display": {
-    "summary": "Context-menu view and edit reach the dynamic modal again, version reporting stops going stale after an update, and a placeholder SECRET_KEY no longer boots a deployment.",
+    "summary": "The audit/soft-delete switches can be turned off again, and a plain Save no longer behaves as \"save and add more\".",
     "highlights": [
-      "A host project dispatching `dlux:dynamic_modal:open` on document.body was silently ignored from 1.8.0; the listener now catches every dispatch shape.",
-      "An update no longer leaves the reported active version frozen, and an image update reports what is actually running.",
-      "A non-DEBUG deployment refuses to boot on a placeholder SECRET_KEY, which silently logged every user out when a restart resolved a different key.",
-      "Three test modules that were never in the suite now run, with a guard that fails when a test file is left unregistered."
+      "Record Visibility switches now save from the step they render in — they could be turned on and never off.",
+      "A plain modal Save no longer reopens the form: add-more is decided by the field's value, not its presence.",
+      "Both were reproduced against a live deployment before and after the fix."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.12"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.13"
   },
   "requires": {
     "updater_schema": ">=1",

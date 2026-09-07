@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- v1.8.11 is tagged/published. The tree is v1.8.12 (UNTAGGED): `dlux:dynamic_modal:open` is bound in the capture phase again (a host project's non-bubbling dispatch on `document.body` had reached nothing since 1.8.0), plus the updater/SECRET_KEY fixes and the tooltip drift fix.
+- v1.8.12 is tagged/published. The tree is v1.8.13 (UNTAGGED): the Record Visibility switches were anchored to the wrong settings step after being moved, so audit columns could be turned on and never off; and a plain modal Save was read as "save and add more" because presence of `save_add_more` was tested instead of its value.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -26,6 +26,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
+- A settings field moved between steps must have its `_clean_preserved_toggle`/`_clean_preserved_text` step anchor moved with it, or the page that shows it silently discards edits. No guard exists for this; audit + soft-delete hit it. Worth a test that every preserved field's anchor matches the step it renders in.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
 - 2026-09-06 PROD (decrees, 1.8.6 -> 1.8.11, Composer 1.3.12): boot-gate deadlock. `entrypoint.sh` makes BOTH `web` and `celery` wait on `migrate --check`, but only celery's `pre_start` applies — and Compose skips `pre_start` on a restart-policy restart, which is what Composer's "Restart Services" does. Pending migration 0020 (shipped 1.8.9, crossed by this multi-release jump) left both looping forever. Recovered by applying the migration by hand. `DLUX_BOOT_GATE=off` is set only on the pre_start steps, never on celery's own container, so the documented "net" cannot apply anything.
 - 2026-09-06: a release manifest's `migrations.effect` describes only the hop from its base tag, so a multi-release update (1.8.6 -> 1.8.11) reported `none` while actually crossing 0020. Nothing warned the update carried a migration.
@@ -47,6 +48,7 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:**
+  - [x] v1.8.13: Record Visibility switches anchored to `SETUP_STEP_SECURITY` (were `SETUP_STEP_LAYOUT` after the move) — the audit toggle could be turned on and never off; `_should_add_more_after_save()` now reads the value of `save_add_more`, not its presence, so a plain Save stops reopening the modal. Both reproduced on the live decrees dev stack before/after (2026-09-07).
   - [x] v1.8.12 context-menu regression: `dlux:dynamic_modal:open` bound in capture phase, so a host dispatching a non-bubbling CustomEvent on `document.body` (decrees view/edit) reaches the modal again. Latent since 1.8.0, masked by stale static; browser-verified across all three dispatch shapes (2026-09-06).
   - [x] v1.8.12 suite registration: `test_modal_content_init`, `test_titlebar_action_rail`, `test_inspector_shell` added to `TEST_LABELS` (2366 -> 2430) plus a guard that fails on any unregistered `test_*.py` (2026-09-06).
   - [x] v1.8.12 updater trio: reconcile also triggers on a runtime-generation change (a version update no longer leaves `active_version` frozen); `queue_image_update()` reports the live release via `active_runtime_version()`; `dlux_settings()` refuses a non-DEBUG boot on an empty/placeholder `SECRET_KEY` (opt out with `DLUX_ALLOW_INSECURE_SECRET_KEY`) (2026-09-06).
@@ -55,11 +57,9 @@
   - [x] v1.8.4 managed assets public API: `ManagedAssetField(kind, namespace, reads)` + registry, namespace column (0018, backfilled by kind), namespace-scoped dedup and storage paths, field-identity-authorized instant upload for every kind, public `resolve_asset_selection`/`apply_asset_pickers`/`apply_asset_selections`/`build_asset_field`/`ManagedAssetFormMixin`, `capture` support, System Settings switched onto the same public helper (2026-09-02).
   - [x] Data reset (shipping in v1.8.4): permanent mode (hard-deletes scoped rows + empties their recycle bin) behind a typed confirmation word, line models excluded via `cascade_parent()`, `trashed` counts in the catalog, and a `data_reset_finished` signal for projects to rebuild derived figures (2026-09-02).
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
-  - [x] `activity_log` is the first screen on `dlux/list_page.html` — 42 template lines to 27, detail modal moved into `list_modals`, table card dropped (2026-09-01).
-  - [x] `dlux/list_page.html` promoted from the reference project: Ribbon over table, no card, blocks `list_before_table` / `list_body` / `list_after_table` / `list_modals` / `list_page_attrs`, plus `extra_styles` / `extra_scripts` (2026-09-01).
-  - [x] Standalone `manage_sections` now uses a manage-only expandable form above the table: default collapsed, ribbon Add opens create, row Edit opens edit, Cancel returns to table state, invalid POST stays open (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-07: v1.8.13 — both fixes proven against the running decrees stack: audit toggle stored True->False from Access & Security; save response went `add_more:true` -> `add_more:false` with the modal staying closed. New tests fail on the pre-fix code.
 - 2026-09-06: full `dlux.tests` 2430 OK (was 2366 — 3 unregistered modules + the new guard + 2 modal-listener tests); the capture-phase test fails against the pre-fix listener; event phases verified in a real browser (non-bubbling body dispatch reaches capture only).
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
 - 2026-09-05: tooltip drift — full `dlux.tests` 2349 OK and `node --test 'tests-js/*.test.mjs'` 63 OK (2 new in `tests-js/tooltip_position.test.mjs`; the stale-offset one fails on pre-fix code, 841px vs 762px). Browser-verified in a real repro: pre-fix walked 8px/hover after a resize, post-fix lands correct on the first hover.

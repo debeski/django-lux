@@ -4,10 +4,11 @@ setup_test_environment()
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 
 from dlux import middleware
 from dlux.models import DluxNotification, SystemSettings
+from dlux.system.constants import SETUP_STEP_LAYOUT, SETUP_STEP_SECURITY
 from dlux.system.normalizers import normalize_layout_config
 from dlux.utils.authorization import audit_fields_visible, soft_deleted_visible, user_can_view_audit_fields
 from dlux.utils.crud import _build_generic_table_class
@@ -286,3 +287,168 @@ class LayoutConfigNormalizerTests(TestCase):
         empty = normalize_layout_config({})
         self.assertFalse(empty['show_audit_fields'])
         self.assertFalse(empty['show_soft_deleted'])
+
+
+class AuditToggleCanBeTurnedBackOffTests(TestCase):
+    """Turning the audit toggle off must actually store False.
+
+    Every other test in this module writes `layout_config` straight onto the
+    model, so they all prove the *render* path and none of them exercise the
+    *save* path. And they only ever assert the flag going on or surviving an
+    unrelated step's save — the one direction never covered is the one that was
+    reported from production: on once, then off, and the columns never went away.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(
+            username='audit-toggle-admin', email='a@example.com', password='x'
+        )
+
+    def _save_security_step(self, settings_obj, **overrides):
+        from dlux.forms import SystemSettingsForm
+
+        data = {
+            'system_names': '{"en":"System","ar":"System"}',
+            'home_url': '/accounts/profile/',
+            'default_language': 'en',
+            'default_theme': 'light',
+            'allowed_themes': ['light'],
+            'languages': '{}',
+            'translations_override': '{}',
+            'sidebar_config': '{"entries":[]}',
+            'default_table_density': 'balanced',
+            'table_edges': 'curved',
+            'card_edges': 'curved',
+            'default_form_density': 'balanced',
+            'default_modal_size': 'standard',
+            'row_actions_style': 'context',
+            'ribbon_layout': 'default',
+            'ribbon_style': 'accent',
+            'ribbon_advanced_trigger': 'button',
+        }
+        data.update(overrides)
+        request = RequestFactory().get(
+            f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={SETUP_STEP_SECURITY}'
+        )
+        request.user = self.admin
+        form = SystemSettingsForm(data=data, instance=settings_obj, request=request)
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        saved.save()
+        return saved
+
+    def test_the_audit_toggle_goes_off_again(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+
+        # On: the checkbox is present in the POST.
+        settings_obj = self._save_security_step(settings_obj, show_audit_fields='on')
+        self.assertIs(
+            settings_obj.layout_config.get('show_audit_fields'), True,
+            'turning the audit toggle on did not store True',
+        )
+
+        # Off: an unchecked checkbox is simply absent from the POST.
+        settings_obj = self._save_security_step(settings_obj)
+        self.assertIs(
+            settings_obj.layout_config.get('show_audit_fields'), False,
+            'the audit toggle could be turned on but never off — the stored value '
+            'won over the submitted one, so the columns stayed visible for good',
+        )
+        # The field is `legacy_flat`, so a mirrored column exists too. If the two
+        # disagree, whichever one the runtime reads decides, and the UI lies.
+        self.assertIs(
+            getattr(SystemSettings.load(), 'show_audit_fields'), False,
+            'layout_config went False but the mirrored flat column stayed True',
+        )
+        from dlux.utils.config import get_system_config
+        self.assertIs(
+            bool(get_system_config().get('show_audit_fields')), False,
+            'the stored value is False but the effective runtime config still reads True',
+        )
+
+    def test_the_soft_deleted_toggle_goes_off_again(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+
+        settings_obj = self._save_security_step(settings_obj, show_soft_deleted='on')
+        self.assertIs(settings_obj.layout_config.get('show_soft_deleted'), True)
+
+        settings_obj = self._save_security_step(settings_obj)
+        self.assertIs(settings_obj.layout_config.get('show_soft_deleted'), False)
+
+
+class RecordVisibilityTogglesSaveFromTheirOwnStepTests(TestCase):
+    """The audit/soft-delete toggles must save from the step that shows them.
+
+    They render under Access & Security ("Record Visibility"), but their clean
+    methods anchored them to the Components step. `_clean_preserved_toggle`
+    restores the stored value whenever the step being saved is not the anchored
+    one — so saving Access & Security, the only place these switches appear,
+    silently discarded the change. They could be turned on by a first-launch
+    config.json and then never turned off from the UI again.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(
+            username='visibility-admin', email='v@example.com', password='x'
+        )
+
+    def _save_step(self, settings_obj, step, **overrides):
+        from dlux.forms import SystemSettingsForm
+
+        data = {
+            'system_names': '{"en":"System","ar":"System"}',
+            'home_url': '/accounts/profile/',
+            'default_language': 'en', 'default_theme': 'light', 'allowed_themes': ['light'],
+            'languages': '{}', 'translations_override': '{}', 'sidebar_config': '{"entries":[]}',
+            'default_table_density': 'balanced', 'table_edges': 'curved', 'card_edges': 'curved',
+            'default_form_density': 'balanced', 'default_modal_size': 'standard',
+            'row_actions_style': 'context', 'ribbon_layout': 'default', 'ribbon_style': 'accent',
+            'ribbon_advanced_trigger': 'button',
+        }
+        data.update(overrides)
+        request = RequestFactory().get(
+            f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={step}'
+        )
+        request.user = self.admin
+        form = SystemSettingsForm(data=data, instance=settings_obj, request=request)
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        saved.save()
+        return saved
+
+    def _configured(self, **layout):
+        s = SystemSettings.load()
+        s.is_configured = True
+        s.layout_config = {**(s.layout_config or {}), **layout}
+        for key, value in layout.items():
+            setattr(s, key, value)
+        s.save()
+        return s
+
+    def test_audit_fields_can_be_turned_off_from_access_and_security(self):
+        s = self._configured(show_audit_fields=True)
+        # Unchecked switch = absent from the POST, saved from the step it renders in.
+        s = self._save_step(s, SETUP_STEP_SECURITY)
+        self.assertIs(
+            s.layout_config.get('show_audit_fields'), False,
+            'saving Access & Security discarded the change: the toggle renders there '
+            'but is anchored to the Components step, so it can never be turned off',
+        )
+
+    def test_soft_deleted_can_be_turned_off_from_access_and_security(self):
+        s = self._configured(show_soft_deleted=True)
+        s = self._save_step(s, SETUP_STEP_SECURITY)
+        self.assertIs(s.layout_config.get('show_soft_deleted'), False)
+
+    def test_saving_an_unrelated_step_still_preserves_them(self):
+        # The guard's real purpose must survive the fix.
+        s = self._configured(show_audit_fields=True, show_soft_deleted=True)
+        s = self._save_step(s, SETUP_STEP_LAYOUT)
+        self.assertIs(s.layout_config.get('show_audit_fields'), True)
+        self.assertIs(s.layout_config.get('show_soft_deleted'), True)

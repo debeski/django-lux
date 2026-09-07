@@ -1112,8 +1112,18 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         return not show_table
 
     def _should_add_more_after_save(self, form):
+        """Whether to reopen a fresh form after a successful save.
+
+        Read the VALUE of `save_add_more`, never merely its presence. The modal
+        submits with `new FormData(form)`, which never carries the clicked submit
+        button's name — and `syncModalFooter()` moves the action bar out of the
+        form anyway — so the only way this key reaches the server is a hidden
+        input that is present on every submit, including a plain Save. Testing
+        presence therefore made every save behave as "save and add more".
+        """
         posted = getattr(self.request, 'POST', {})
-        return bool(getattr(form, 'add_more', False) or 'save_add_more' in posted)
+        explicit = posted.get('save_add_more') if hasattr(posted, 'get') else None
+        return bool(getattr(form, 'add_more', False) or str(explicit or '').strip())
 
     def _is_user_model(self, model):
         return bool(

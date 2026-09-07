@@ -729,7 +729,8 @@ class GeneralViewsTests(TestCase):
         from dlux.views import DynamicModalManagerView
 
         view = DynamicModalManagerView()
-        view.request = SimpleNamespace(GET={}, POST={'save_add_more': ''})
+        # A real "save and add more" click sets the hidden input to a value.
+        view.request = SimpleNamespace(GET={}, POST={'save_add_more': '1'})
         view.show_table = False
         form = SimpleNamespace(refresh_parent=True)
 
@@ -741,10 +742,30 @@ class GeneralViewsTests(TestCase):
         self.assertTrue(view._should_add_more_after_save(form))
         self.assertFalse(view._should_refresh_parent_after_save(Scope, form))
 
+    def test_a_plain_save_is_not_save_add_more(self):
+        """The hidden `save_add_more` input is on every submit, including a plain
+        Save — the modal posts `new FormData(form)`, which never carries the
+        clicked button's name, and the action bar is moved out of the form anyway.
+        Reading presence instead of value made every save reopen the form."""
+        from dlux.views import DynamicModalManagerView
+
+        view = DynamicModalManagerView()
+        view.show_table = False
+        form = SimpleNamespace(refresh_parent=True)
+
+        for empty in ('', '   ', None):
+            with self.subTest(value=empty):
+                view.request = SimpleNamespace(GET={}, POST={'save_add_more': empty})
+                self.assertFalse(
+                    view._should_add_more_after_save(form),
+                    'a plain save was treated as "save and add more"',
+                )
+                self.assertTrue(view._should_refresh_parent_after_save(Scope, form))
+
     def test_generic_modal_response_preserves_save_add_more_action(self):
         response = self.client.post(
             reverse('modal_manager', args=['dlux', 'Scope', 'new']),
-            {'name': 'Successive Scope', 'save_add_more': ''},
+            {'name': 'Successive Scope', 'save_add_more': '1'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
