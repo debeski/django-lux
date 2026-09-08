@@ -1,13 +1,20 @@
 import argparse
 import ast
 import json
+import sys
 import os
 from pathlib import Path
 import subprocess
 
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from .manifest import validate_local_release_manifest
+
+
+#: Channels a tag may publish to. A tag classifies itself; there is no keyword,
+#: no branch convention and no workflow input that can override it.
+STABLE = "stable"
+BETA = "beta"
 
 
 # AlterModelOptions is metadata-only (permissions, ordering, verbose_name, ...) —
@@ -28,18 +35,54 @@ ALLOWED_MIGRATION_OPERATIONS = frozenset({"CreateModel", "AddField", "AddIndex",
 SEPARATE_STATE_OPERATION = "SeparateDatabaseAndState"
 
 
-def _previous_release_tag(current_tag):
+def _release_tags():
+    """Merged ``v*`` tags, newest first, ordered by PEP 440.
+
+    Not by ``--sort=-version:refname``: git's version sort has no concept of a
+    prerelease unless ``versionsort.suffix`` is configured, and a repository
+    where it is not will happily place ``v1.9.0b1`` *above* ``v1.9.0``. Every
+    baseline in this module is "the newest release that did X", so getting that
+    order wrong picks the wrong baseline silently.
+    """
     completed = subprocess.run(
-        ["git", "tag", "--merged", "HEAD", "--sort=-version:refname"],
-        check=True,
-        capture_output=True,
-        text=True,
+        ["git", "tag", "--merged", "HEAD"],
+        check=True, capture_output=True, text=True,
     )
-    tags = [line.strip() for line in completed.stdout.splitlines() if line.startswith("v")]
-    for tag in tags:
-        if tag != current_tag:
-            return tag
-    raise RuntimeError("An inline-safe release requires a previous v* tag for migration comparison.")
+    found = []
+    for line in completed.stdout.splitlines():
+        tag = line.strip()
+        if not tag.startswith("v"):
+            continue
+        try:
+            found.append((Version(tag[1:]), tag))
+        except InvalidVersion:
+            continue
+    return [tag for _version, tag in sorted(found, reverse=True)]
+
+
+def _previous_release_tag(current_tag, *, stable_only=True):
+    """The tag this release's migrations are validated against.
+
+    ``stable_only`` by default, and that is the whole point. Validating 1.9.0b2
+    against 1.9.0b1 would check only the migrations added between the two betas
+    and silently bless everything b1 introduced. A beta is a candidate for the
+    stable release that follows it, so the span that has to be inline-safe is the
+    one a stable deployment will actually traverse: from the last stable release
+    to here.
+    """
+    for tag in _release_tags():
+        if tag == current_tag:
+            continue
+        try:
+            version = Version(tag[1:])
+        except InvalidVersion:
+            continue
+        if stable_only and version.is_prerelease:
+            continue
+        return tag
+    raise RuntimeError(
+        "An inline-safe release requires a previous stable v* tag for migration comparison."
+    )
 
 
 def _changed_migrations(base_tag):
@@ -135,6 +178,86 @@ def _forbids_inline(manifest):
     return not manifest.get("inline_safe", False)
 
 
+def _carries_migrations(manifest):
+    """True when that release's own hop changed the database or model state."""
+    if manifest.get("schema_version") == 2:
+        effect = (manifest.get("migrations") or {}).get("effect")
+        return bool(effect) and effect != "none"
+    return bool(manifest.get("migration_effect")) and manifest.get("migration_effect") != "none"
+
+
+def expected_migration_baseline():
+    """The highest published version that introduced a migration.
+
+    A manifest's `migrations.effect` describes one hop — its own. A deployment
+    several releases behind reads only the target's manifest, so an update from
+    1.8.6 to 1.8.11 reported `none` while actually crossing migration 0020, which
+    shipped in 1.8.9. Nothing warned that the update carried a migration.
+
+    Declaring the floor makes the span knowable from the target alone: any active
+    version below it is crossing at least one migration. Same shape as
+    `expected_image_baseline()`, and derived rather than remembered.
+    """
+    for tag in _release_tags():
+        manifest = _manifest_at_tag(tag)
+        if manifest and _carries_migrations(manifest):
+            return tag[1:]
+    return None
+
+
+def validate_declared_migration_effect(manifest, base_tag):
+    """Refuse a manifest that claims no migrations while shipping one.
+
+    `migrations.effect` is the release's own statement about its own hop, and
+    every downstream decision trusts it: whether the update is inline-safe,
+    whether the operator is told to take a backup, and — through
+    `migration_baseline` — whether a deployment several versions behind learns
+    that its span crosses a migration at all.
+
+    Nothing checked it against the repository. The floor validator below only
+    compares declared-vs-computed *baselines*, and a release that adds a
+    migration while declaring `none` satisfies it trivially: it is not treated as
+    carrying migrations, so it is measured against the previous release's floor,
+    which it meets. This is the check that reads the actual migration files.
+    """
+    changed = [path for path in _changed_migrations(base_tag) if path.name != "__init__.py"]
+    if not changed:
+        return []
+    if _carries_migrations(manifest):
+        return []
+    names = ", ".join(sorted(path.name for path in changed))
+    return [
+        f"This release adds migrations ({names}) but the manifest declares "
+        "migrations.effect 'none'. Declare the real effect, or the update will "
+        "tell operators it changes nothing while it migrates their database."
+    ]
+
+
+def validate_migration_baseline(manifest):
+    """Refuse a manifest whose declared migration floor is below the computed one."""
+    expected = expected_migration_baseline()
+    requires = manifest.get("requires") or {}
+    declared = str(
+        requires.get("migration_baseline") or manifest.get("migration_baseline") or ""
+    ).lstrip(">=").strip()
+    if _carries_migrations(manifest):
+        # This release introduces one, so it is its own floor.
+        return []
+    if not expected:
+        return []
+    if not declared:
+        return [
+            f"v{expected} introduced a migration, so this manifest must declare "
+            f"requires.migration_baseline >={expected}"
+        ]
+    if Version(declared) < Version(expected):
+        return [
+            f"requires.migration_baseline is {declared} but v{expected} introduced a "
+            f"migration; the floor must not go backwards"
+        ]
+    return []
+
+
 def expected_image_baseline():
     """The floor this release should declare, computed from published history.
 
@@ -147,16 +270,10 @@ def expected_image_baseline():
     So derive it: the highest published version that forbade an inline install.
     Returns None when there is no outstanding image dependency.
     """
-    completed = subprocess.run(
-        ["git", "tag", "--merged", "HEAD", "--sort=-version:refname"],
-        check=True, capture_output=True, text=True,
-    )
-    for tag in (line.strip() for line in completed.stdout.splitlines()):
-        if not tag.startswith("v"):
-            continue
+    for tag in _release_tags():
         manifest = _manifest_at_tag(tag)
         if manifest and _forbids_inline(manifest):
-            return tag.lstrip("v")
+            return tag[1:]
     return None
 
 
@@ -178,6 +295,91 @@ def validate_image_baseline(manifest):
             f"rebuild; the floor must not go backwards"
         ]
     return []
+
+
+def classify_tag(tag, *, manifest_version=""):
+    """Turn a Git tag into a publication decision, or refuse it.
+
+    The tag is the only input. There is no commit-message keyword and no
+    workflow toggle, because a publication that can be steered by prose is one
+    that eventually gets steered by a typo.
+
+    Refused outright: anything ``packaging`` will not parse, development
+    releases, local versions, post-releases, and epochs. Each of those either
+    cannot be published to PyPI as intended or would land in the index ordered
+    somewhere no one expects.
+    """
+    raw = str(tag or "").strip()
+    if not raw.startswith("v"):
+        raise RuntimeError(f"Release tag {raw!r} must start with 'v'.")
+    text = raw[1:]
+    try:
+        version = Version(text)
+    except InvalidVersion as exc:
+        raise RuntimeError(f"Release tag {raw!r} is not a valid PEP 440 version.") from exc
+    if str(version) != text:
+        # `v1.9.0.b1`, `v1.9.0-beta1` and `V1.09` all parse but are not the
+        # canonical spelling. Accepting them means the tag, the wheel filename
+        # and the changelog heading stop being the same string.
+        raise RuntimeError(
+            f"Release tag {raw!r} is not canonical; tag v{version} instead."
+        )
+    if version.is_devrelease:
+        raise RuntimeError(f"Release tag {raw!r} is a development release and is never published.")
+    if version.local:
+        raise RuntimeError(f"Release tag {raw!r} carries a local version segment.")
+    if version.is_postrelease:
+        raise RuntimeError(
+            f"Release tag {raw!r} is a post-release. Publish a new patch version instead: "
+            "a post-release cannot carry code changes."
+        )
+    if version.epoch:
+        raise RuntimeError(f"Release tag {raw!r} declares an epoch, which this project does not use.")
+    if manifest_version:
+        try:
+            declared = Version(str(manifest_version))
+        except InvalidVersion as exc:
+            raise RuntimeError(
+                f"dlux/release-manifest.json declares an invalid version {manifest_version!r}."
+            ) from exc
+        if declared != version or str(declared) != text:
+            raise RuntimeError(
+                f"Release tag {raw!r} does not match dlux/release-manifest.json "
+                f"({manifest_version}). Bump the manifest before tagging."
+            )
+    prerelease = bool(version.is_prerelease)
+    return {
+        "tag": raw,
+        "version": text,
+        "channel": BETA if prerelease else STABLE,
+        "prerelease": prerelease,
+        # GitHub's "latest release" pointer. A prerelease must never claim it:
+        # that pointer is what an operator and every download link resolve to.
+        "make_latest": not prerelease,
+    }
+
+
+def changelog_section(version, path="CHANGELOG.md"):
+    """The body of this exact version's ``## vX.Y.Z`` section.
+
+    Matched on the whole heading, not a prefix. ``^## v1.8.14`` also matches
+    ``## v1.8.14b1``, so a stable release could have published its beta's notes —
+    the mistake is invisible because the output looks like release notes either
+    way.
+    """
+    wanted = f"## v{version}"
+    body = []
+    grabbing = False
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        stripped = line.rstrip()
+        if stripped.startswith("## "):
+            if grabbing:
+                break
+            grabbing = stripped == wanted
+            continue
+        if grabbing:
+            body.append(line)
+    return "\n".join(body).strip()
 
 
 def validate_inline_migrations(base_tag):
@@ -205,11 +407,59 @@ def validate_inline_migrations(base_tag):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-tag")
+    parser.add_argument(
+        "--classify", action="store_true",
+        help="Validate the tag and emit its publication decision as JSON.",
+    )
+    parser.add_argument(
+        "--github-output", action="store_true",
+        help="Also append the classification to $GITHUB_OUTPUT.",
+    )
     args = parser.parse_args(argv)
     manifest = validate_local_release_manifest()
     current_tag = os.getenv("GITHUB_REF_NAME") or f"v{manifest['version']}"
+    base_tag = args.base_tag or None
+
+    if args.classify:
+        try:
+            decision = classify_tag(current_tag, manifest_version=manifest["version"])
+        except RuntimeError as exc:
+            print(f"::error::{exc}", file=sys.stderr)
+            return 1
+        notes = changelog_section(decision["version"])
+        if not notes:
+            print(
+                f"::error::CHANGELOG.md has no '## v{decision['version']}' section. "
+                "Add it before tagging.",
+                file=sys.stderr,
+            )
+            return 1
+        print(json.dumps(decision, sort_keys=True))
+        output = os.getenv("GITHUB_OUTPUT")
+        if args.github_output and output:
+            with open(output, "a", encoding="utf-8") as handle:
+                for key, value in decision.items():
+                    handle.write(f"{key}={json.dumps(value) if isinstance(value, bool) else value}\n")
+        return 0
+
     if manifest["inline_safe"]:
-        validate_inline_migrations(args.base_tag or _previous_release_tag(current_tag))
+        base_tag = base_tag or _previous_release_tag(current_tag)
+        validate_inline_migrations(base_tag)
+
+    # Both floors are derived from published history rather than remembered on
+    # release day. `validate_image_baseline` existed but was never called from
+    # here, so the convention it replaced was still only a convention.
+    raw = json.loads(
+        (Path(__file__).resolve().parents[1] / "release-manifest.json").read_text(encoding="utf-8")
+    )
+    errors = validate_image_baseline(raw) + validate_migration_baseline(raw)
+    if base_tag:
+        errors += validate_declared_migration_effect(raw, base_tag)
+    if errors:
+        for error in errors:
+            print(f"::error::{error}", file=sys.stderr)
+        return 1
+
     print(json.dumps(manifest, sort_keys=True))
     return 0
 

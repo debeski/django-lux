@@ -4,11 +4,18 @@ name: Release
 #   git tag -a v2.4.1 -m "v2.4.1" && git push --tags
 #
 # Pipeline:
+#   classify       -> parse the tag; decide channel/prerelease once, for every job
 #   test           -> run the package Django test suite (publish gate)
 #   build-dist     -> verify tag == dlux/release-manifest.json version, build sdist + wheel
 #   publish-pypi   -> publish to PyPI via Trusted Publishing (OIDC, no token)
 #   build-viewer   -> cross-compile the dlb-viewer binaries (make all)
 #   github-release -> create the GitHub Release: CHANGELOG section + all artifacts
+#
+# The tag chooses the channel and nothing else does. `v1.9.0b1` publishes
+# django-lux==1.9.0b1 and marks the GitHub release a prerelease that is NOT
+# "latest"; `v1.9.0` publishes the final and takes the latest pointer. Both go to
+# the same PyPI project — pip's own prerelease rules keep a beta away from
+# anyone who did not ask for it, so a separate index would add risk, not safety.
 #
 # One-time setup is documented in docs/RELEASING.md (PyPI trusted publisher +
 # the "pypi" GitHub environment).
@@ -21,7 +28,30 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      channel: ${{ steps.tag.outputs.channel }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      make_latest: ${{ steps.tag.outputs.make_latest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Classify and validate the release tag
+        id: tag
+        run: |
+          python -m pip install --upgrade pip packaging
+          python -m dlux.updater.release_check --classify --github-output
+
   test:
+    needs: classify
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -44,7 +74,7 @@ jobs:
         run: python dlux/tests/test_all.py
 
   build-dist:
-    needs: test
+    needs: [classify, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,16 +84,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Verify tag matches release manifest version
-        run: |
-          file_ver="$(python -c "import json; print(json.load(open('dlux/release-manifest.json'))['version'])")"
-          tag_ver="${GITHUB_REF_NAME#v}"
-          echo "manifest version: '$file_ver'   tag: '$tag_ver'"
-          if [ "$file_ver" != "$tag_ver" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME != dlux/release-manifest.json ($file_ver). Bump the manifest version before tagging."
-            exit 1
-          fi
 
       - name: Build sdist + wheel
         run: |
@@ -96,6 +116,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   build-viewer:
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +132,10 @@ jobs:
           path: tools/dlb-viewer/build/*
 
   github-release:
-    needs: [build-dist, build-viewer]
+    # Depends on publish-pypi, not just on the build. A release page that
+    # appears after a failed upload tells every reader the version shipped,
+    # and the wheel it links to is not on PyPI.
+    needs: [classify, publish-pypi, build-viewer]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the GitHub Release
@@ -128,17 +152,24 @@ jobs:
           name: dist
           path: release-files
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Whole-heading match. The awk prefix regex this replaced matched
+      # `## v1.8.14b1` for version 1.8.14, so a stable release could ship its
+      # own beta's notes and look entirely normal doing it.
       - name: Extract this version's CHANGELOG section
         run: |
-          ver="${GITHUB_REF_NAME#v}"
-          awk -v ver="$ver" '
-            $0 ~ ("^## v" ver "([^0-9.]|$)") { grab=1; next }
-            grab && /^## v/ { exit }
-            grab { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "Release ${GITHUB_REF_NAME}." > RELEASE_NOTES.md
-          fi
+          python -m pip install --upgrade pip packaging
+          python - "${{ needs.classify.outputs.version }}" <<'PY' > RELEASE_NOTES.md
+          import sys
+          from dlux.updater.release_check import changelog_section
+          notes = changelog_section(sys.argv[1])
+          if not notes:
+              sys.exit(f"CHANGELOG.md has no '## v{sys.argv[1]}' section.")
+          sys.stdout.write(notes + "\n")
+          PY
           echo "---- release notes ----"; cat RELEASE_NOTES.md
 
       - name: Create GitHub Release
@@ -148,3 +179,5 @@ jobs:
           body_path: RELEASE_NOTES.md
           files: release-files/*
           fail_on_unmatched_files: false
+          prerelease: ${{ needs.classify.outputs.prerelease }}
+          make_latest: ${{ needs.classify.outputs.make_latest }}

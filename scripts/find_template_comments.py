@@ -16,7 +16,7 @@ DEFAULT_EXCLUDED_DIRS = {
     '.mypy_cache',
     '.pytest_cache',
     '.venv',
-    '.xpose',
+    '.xclude',
     '__pycache__',
     'build',
     'dist',

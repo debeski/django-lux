@@ -702,13 +702,27 @@ def _patch_table_init():
         try:
             from django.utils import timezone as _tz  # noqa: F401 (import guard)
             from dlux.utils.authorization import audit_fields_visible, soft_deleted_visible
+            from dlux.system.constants import audit_column_names, deletion_column_names
             gate_user = getattr(request, 'user', None)
-            wanted = []
-            if audit_fields_visible(gate_user):
-                wanted += ['created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_by']
-            if soft_deleted_visible(gate_user):
-                wanted.append('deleted_at')
-            if wanted and model is not None:
+            audit_ok = audit_fields_visible(gate_user)
+            deletion_ok = soft_deleted_visible(gate_user)
+            audit_cols = audit_column_names()
+            deletion_cols = deletion_column_names()
+            wanted = [
+                *(audit_cols if audit_ok else ()),
+                *(deletion_cols if deletion_ok else ()),
+            ]
+            # The rule has to cut both ways. This block only ever ADDED columns, so
+            # a table that declares an audit column itself — in Meta.fields or as a
+            # declared column — was skipped on the way in and never excluded on the
+            # way out: the column stayed visible whatever the setting said. Only
+            # auto-generated tables hid correctly, because crud.py had already put
+            # these in Meta.exclude for them.
+            unwanted = [
+                *(() if audit_ok else audit_cols),
+                *(() if deletion_ok else deletion_cols),
+            ]
+            if (wanted or unwanted) and model is not None:
                 declared = set(getattr(table_cls, 'base_columns', {}) or {})
                 declared |= set(_table_meta_value(table_cls, 'fields', ()) or ())
                 extra = list(kwargs.get('extra_columns', []))
@@ -731,9 +745,17 @@ def _patch_table_init():
                     else:
                         extra.append((_name, tables.Column(verbose_name=_label, default='—')))
                     have.add(_name)
-                if extra:
-                    kwargs['extra_columns'] = extra
-                    kwargs['exclude'] = exclude
+                # Hide the ones this viewer may not see, however they got there —
+                # a declared column, a Meta.fields entry, or an extra_column added
+                # earlier in this __init__. `exclude` removes a column whatever
+                # declared it, which is the only handle that works for all three.
+                for _name in unwanted:
+                    extra = [(n, c) for n, c in extra if n != _name]
+                    have.discard(_name)
+                    if _name not in exclude:
+                        exclude = exclude + (_name,)
+                kwargs['extra_columns'] = extra
+                kwargs['exclude'] = exclude
         except Exception:
             pass
 

@@ -706,8 +706,9 @@ class HandoffCollectsStaticTests(TestCase):
         """
         from dlux.updater import get_baked_version
 
-        major, minor, patch = (get_baked_version().split(".") + ["0", "0"])[:3]
-        return f"{major}.{minor}.{int(patch) + 1}"
+        from .version_helpers import newer_version
+
+        return newer_version(get_baked_version())
 
     def _runner(self, returncode=0):
         class _Completed:

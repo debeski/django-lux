@@ -1,9 +1,29 @@
-# composer-wrapper: 1
+# composer-wrapper: 3
 Set-StrictMode -Version Latest
-$composerSelfImage = if ($env:COMPOSER_SELF_IMAGE) { $env:COMPOSER_SELF_IMAGE } else { "debeski/composer:latest" }
 
-# `update-self` replaces the legacy one-argument `--update` route.
-if ($args.Count -eq 1 -and $args[0] -in @("update-self", "--update")) {
+# The wrapper resolves its own image before any composer code can run, so the
+# channel has to be readable from here. `.composer-channel` holds one word,
+# written by `composer check --beta` / `--stable`.
+#
+# COMPOSER_SELF_IMAGE still wins. An operator who pinned an exact image asked
+# for that image; a channel is a default, and a default must never quietly
+# discard an explicit pin.
+$composerScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$composerChannel = "stable"
+$composerChannelFile = Join-Path $composerScriptRoot ".composer-channel"
+if (Test-Path -LiteralPath $composerChannelFile) {
+    try {
+        $raw = (Get-Content -LiteralPath $composerChannelFile -TotalCount 1 -ErrorAction Stop)
+        if ($raw) { $composerChannel = $raw.Trim().ToLowerInvariant() }
+    } catch {
+        $composerChannel = "stable"
+    }
+}
+$composerChannelImage = if ($composerChannel -eq "beta") { "debeski/composer:beta" } else { "debeski/composer:latest" }
+$composerSelfImage = if ($env:COMPOSER_SELF_IMAGE) { $env:COMPOSER_SELF_IMAGE } else { $composerChannelImage }
+
+# Pull the deployer image before launching composer from that same image.
+if ($args.Count -eq 2 -and $args[0] -eq "self" -and $args[1] -eq "update") {
     # `docker image inspect` first: `docker run` on a missing image pulls it,
     # silently, since the progress goes to the stderr this used to discard.
     Write-Host "=== Current Composer Version ==="

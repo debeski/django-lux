@@ -751,4 +751,49 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'extra_config',
 )
 
+# ── Record-visibility column sets ─────────────────────────────────────────────
+# One definition each, because these lived in three places that disagreed:
+# authorization.py counted four, patches.py five (it folded `deleted_by` in with
+# audit) and crud.py six. They are two different things gated by two different
+# settings and permissions, so they are two named sets.
+
+#: Who created or last changed a row. Surfaced by `show_audit_fields` plus the
+#: `dlux.view_audit_fields` permission.
+DEFAULT_AUDIT_COLUMNS = ('created_by', 'created_at', 'updated_by', 'updated_at')
+
+#: That a row was deleted, and by whom. A deletion is not a change history:
+#: these answer to `show_soft_deleted` and are superuser-only.
+DEFAULT_DELETION_COLUMNS = ('deleted_at', 'deleted_by')
+
+
+def _extra_columns(setting_name):
+    from django.conf import settings as _settings
+
+    raw = getattr(_settings, setting_name, ()) or ()
+    if isinstance(raw, str):
+        raw = (raw,)
+    return tuple(str(name).strip() for name in raw if str(name).strip())
+
+
+def audit_column_names():
+    """The audit set, plus anything the project adds via `DLUX_AUDIT_COLUMNS`.
+
+    A host project that carries its own change-tracking columns can have them
+    gated exactly like the built-in four instead of leaving them always visible.
+    """
+    extra = _extra_columns('DLUX_AUDIT_COLUMNS')
+    return DEFAULT_AUDIT_COLUMNS + tuple(n for n in extra if n not in DEFAULT_AUDIT_COLUMNS)
+
+
+def deletion_column_names():
+    """The deletion set, plus anything added via `DLUX_DELETION_COLUMNS`."""
+    extra = _extra_columns('DLUX_DELETION_COLUMNS')
+    return DEFAULT_DELETION_COLUMNS + tuple(n for n in extra if n not in DEFAULT_DELETION_COLUMNS)
+
+
+def record_visibility_column_names():
+    """Both sets — every column hidden by default and revealed by a setting."""
+    return audit_column_names() + deletion_column_names()
+
+
 __all__ = [name for name in globals() if name.isupper()]

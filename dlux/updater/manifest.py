@@ -94,7 +94,18 @@ def fetch_simple_index(*, opener=urllib.request.urlopen):
     return result
 
 
-def select_latest_candidate(index, current_version, skip_versions=None):
+def select_latest_candidate(index, current_version, skip_versions=None, *, allow_prereleases=False):
+    """The newest eligible release above ``current_version``, or ``None``.
+
+    ``allow_prereleases`` is the beta channel and nothing else: it widens which
+    versions are *eligible*, and every other rule — yanked, skipped, digest,
+    pure-python wheel tag, strictly newer — applies identically. Development
+    releases are never eligible on either channel; they are not published.
+
+    A stable-channel deployment sitting on a prerelease is handled by the
+    ``version <= current`` rule alone: 1.9.0 sorts above 1.9.0b2, so opting out
+    of beta offers the final release when it exists and nothing before then. It
+    never walks the deployment backwards to an older stable."""
     try:
         current = Version(str(current_version))
     except InvalidVersion as exc:
@@ -120,7 +131,9 @@ def select_latest_candidate(index, current_version, skip_versions=None):
             continue
         if canonicalize_name(distribution) != "django-lux":
             continue
-        if version.is_prerelease or version.is_devrelease or version <= current:
+        if version.is_devrelease or version <= current:
+            continue
+        if version.is_prerelease and not allow_prereleases:
             continue
         if version in skip:
             continue
@@ -249,7 +262,7 @@ SAFE_INLINE_EFFECTS = frozenset({"none", "state_only", "additive"})
 #: dependency floors are deliberately absent: the wheel already declares them in
 #: `Requires-Python`/`Requires-Dist`, pip enforces them, and a second copy here
 #: could only ever disagree with the authority.
-KNOWN_REQUIREMENT_KEYS = frozenset({"baked_image", "updater_schema", "services"})
+KNOWN_REQUIREMENT_KEYS = frozenset({"baked_image", "migration_baseline", "updater_schema", "services"})
 
 
 def _v2_to_internal(manifest):
@@ -309,6 +322,14 @@ def _v2_to_internal(manifest):
     baked = requires.get("baked_image")
     if baked:
         internal["image_baseline"] = str(baked).lstrip(">=").strip()
+    # The highest release at or below this one that introduced a migration. A
+    # manifest's own `migrations.effect` covers one hop, so a deployment several
+    # versions behind cannot tell from it that the span crosses a migration.
+    migration_floor = requires.get("migration_baseline")
+    if migration_floor:
+        internal["migration_baseline"] = str(migration_floor).lstrip(">=").strip()
+    elif effect and effect != "none":
+        internal["migration_baseline"] = str(manifest.get("version") or "").strip()
     return internal
 
 
@@ -404,6 +425,17 @@ def validate_release_manifest(manifest, expected_version):
             except InvalidVersion as exc:
                 raise UpdaterError("The release manifest has an invalid image baseline.") from exc
             manifest["image_baseline"] = baseline_text
+    migration_baseline = manifest.get("migration_baseline")
+    if migration_baseline is not None:
+        floor_text = str(migration_baseline).strip()
+        if not floor_text:
+            manifest.pop("migration_baseline", None)
+        else:
+            try:
+                Version(floor_text)
+            except InvalidVersion as exc:
+                raise UpdaterError("The release manifest has an invalid migration baseline.") from exc
+            manifest["migration_baseline"] = floor_text
     return manifest
 
 
@@ -455,10 +487,26 @@ def _check_dependency_contract(metadata):
     return []
 
 
-def assess_wheel(candidate, wheel_path, baked_version=None):
+def assess_wheel(candidate, wheel_path, baked_version=None, active_version=None):
     manifest, metadata = inspect_wheel(wheel_path)
     manifest = validate_release_manifest(manifest, candidate.version)
     reasons = []
+    # A manifest's `migrations.effect` describes its own hop only. An update that
+    # spans several releases can therefore read "none" while crossing a migration
+    # an intermediate release introduced — which is how a 1.8.6 -> 1.8.11 update
+    # reported no migrations and then wedged on 0020. The declared floor makes the
+    # span knowable from the target alone.
+    migration_floor = manifest.get("migration_baseline")
+    if migration_floor and active_version:
+        try:
+            if Version(str(active_version).strip()) < Version(migration_floor):
+                manifest["migration_effect"] = "spans_migrations"
+                reasons.append(
+                    f"This update crosses database migrations introduced in v{migration_floor}. "
+                    "Take a backup before applying it."
+                )
+        except InvalidVersion:
+            pass
     if not manifest["inline_safe"]:
         reasons.append("This release requires a project image rebuild.")
     # Enforce the inline-update floor. Fails closed: when a release declares an

@@ -72,17 +72,76 @@ git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" && git push ori
 
 Pushing the tag triggers the pipeline:
 
-1. **build-dist** — checks `tag == dlux/release-manifest.json` version, validates the packaged release
-   manifest and inline-safe migration policy, builds the sdist + wheel, and
-   `twine check`s them.
-2. **publish-pypi** — uploads to PyPI via Trusted Publishing.
-3. **build-viewer** — runs `make all` in `tools/dlb-viewer/`, producing the 5
+1. **classify** — parses the tag, checks it against the manifest version and the
+   CHANGELOG, and decides the channel once for every job below.
+2. **build-dist** — validates the packaged release manifest and inline-safe
+   migration policy, builds the sdist + wheel, and `twine check`s them.
+3. **publish-pypi** — uploads to PyPI via Trusted Publishing.
+4. **build-viewer** — runs `make all` in `tools/dlb-viewer/`, producing the 5
    platform binaries.
-4. **github-release** — extracts the matching `## vX.Y.Z` section from `CHANGELOG.md` as
+5. **github-release** — extracts the matching `## vX.Y.Z` section from `CHANGELOG.md` as
    the release notes and publishes a GitHub Release with the wheel/sdist **and**
-   the viewer binaries attached.
+   the viewer binaries attached. It depends on **publish-pypi**: a release page
+   must not appear after a failed upload and imply the version shipped.
 
 Watch it under the repo's **Actions** tab.
+
+## Channels: stable and beta
+
+**The tag decides where a release is published.** There is no commit-message
+keyword, no workflow input and no branch convention — a publication that can be
+steered by prose eventually gets steered by a typo.
+
+| Tag | PyPI | GitHub release |
+| --- | --- | --- |
+| `v1.9.0b1` | `django-lux==1.9.0b1` on the same project | Prerelease, **not** "latest" |
+| `v1.9.0rc1` | `django-lux==1.9.0rc1` | Prerelease, **not** "latest" |
+| `v1.9.0` | `django-lux==1.9.0` | Stable, takes "latest" |
+
+Betas go to the **same PyPI project**. pip's own prerelease rules already keep
+them away from anyone who did not ask, so a second index would add moving parts
+without adding safety.
+
+`classify` refuses a tag it cannot publish honestly:
+
+- non-canonical spellings (`v1.9.0-beta1`, `v1.9.0.b1`, `V1.9.0`) — tag `v1.9.0b1`;
+- development releases (`v1.9.0.dev1`) and local versions (`v1.9.0+local`);
+- post-releases (`v1.9.0.post1`) — a post-release cannot carry code changes,
+  so publish a patch version instead;
+- a tag that disagrees with `dlux/release-manifest.json`;
+- a version with no `## vX.Y.Z` section in `CHANGELOG.md`.
+
+Check a tag before you push it:
+
+```sh
+GITHUB_REF_NAME=v1.9.0b1 python -m dlux.updater.release_check --classify
+```
+
+### What a beta means downstream
+
+A deployment opts in through **Options → Include beta releases** (or
+`composer dlux channel beta`). Stable is the default and excludes every
+prerelease. Beta widens *eligibility only* — digest, attestation, manifest,
+migration and image-floor checks are identical on both channels.
+
+Opting back out never downgrades anything. The update check only ever offers
+versions strictly *above* the installed one, so a deployment on `1.9.0b2` that
+leaves the beta channel simply waits for `1.9.0`. Going back to an older release
+is the explicit rollback path, with its own database and image-floor checks.
+
+### Two things that bite on a beta line
+
+**Declare the tested minimum, not the release it precedes.** `1.9.0b1` is *not*
+`1.9.0` — `>=1.9.0` is false for `1.9.0b1`, by PEP 440 and deliberately. So a
+beta manifest whose Composer requirement was only satisfied by a Composer beta
+must say so: `"composer": ">=1.4.0b1"`, not `">=1.4.0"`. Naming the final would
+refuse the exact Composer the pair was tested against, and that Composer may not
+exist yet.
+
+**Migrations are validated against the last *stable* tag.** Validating `1.9.0b2`
+against `1.9.0b1` would check only what changed between the two betas and
+silently bless everything b1 introduced. The span that has to be inline-safe is
+the one a stable deployment actually traverses.
 
 ### Inline-safe release declaration
 

@@ -40,7 +40,7 @@ TRANSLATIONS = ROOT / "dlux" / "translations.py"
 
 SCAN_EXTS = {".py", ".html", ".js", ".txt", ".md", ".json"}
 SKIP_DIRS = {
-    ".git", ".venv", "venv", "env", "node_modules", ".xpose", "__pycache__",
+    ".git", ".venv", "venv", "env", "node_modules", ".xclude", "__pycache__",
     "migrations", "staticfiles", "static_root", "dist", "build",
     "django_lux.egg-info", ".mypy_cache", ".pytest_cache",
 }

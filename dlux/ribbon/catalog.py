@@ -148,9 +148,26 @@ def _host_label(route_meta, view, model=None):
     return ''
 
 
+#: Overriding either of these means the view builds its own strips and never
+#: consults `_build_configured_strips()`, so a strip added in System Settings can
+#: never reach the page.
+RIBBON_STRIP_OVERRIDE_POINTS = ('get_ribbon_tabs', 'get_ribbon_strips')
+
+
 def _view_locked(view):
-    return bool(getattr(view, 'ribbon_tabs_fixed', None)) or (
-        view.get_ribbon_tabs is not RibbonMixin.get_ribbon_tabs
+    """Whether this view owns its strips, so the builder must not offer to add one.
+
+    Both override points count. Checking only `get_ribbon_tabs` left a view that
+    overrides `get_ribbon_strips` reading as freely configurable: the builder
+    offered its fields, accepted a new strip, saved it — and the page never
+    rendered it, because the override returns its own list and never merges the
+    configured ones. Silent, and indistinguishable from the builder being broken.
+    """
+    if getattr(view, 'ribbon_tabs_fixed', None):
+        return True
+    return any(
+        getattr(view, name, None) is not getattr(RibbonMixin, name)
+        for name in RIBBON_STRIP_OVERRIDE_POINTS
     )
 
 

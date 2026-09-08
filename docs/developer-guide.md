@@ -307,7 +307,7 @@ Use `--check` for a read-only CI-style run; it exits with status 1 when comments
 exist. Use `--remove` for an explicit non-interactive cleanup. Correctly closed
 `{# ... #}` and `{% comment %}...{% endcomment %}` comments are server-stripped
 and omitted by default; `--include-valid` adds them to the inventory/removal.
-Recursive scans skip dependency, generated-output, cache, and `.xpose`
+Recursive scans skip dependency, generated-output, cache, and `.xclude`
 directories by default; additional directory names can be excluded with
 repeatable `--exclude` flags.
 

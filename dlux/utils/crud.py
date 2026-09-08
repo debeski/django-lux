@@ -200,7 +200,8 @@ def _build_generic_detail_context(instance, request=None):
     # Audit fields are rendered as a dedicated grouped block by the
     # {% dlux_audit_trail %} tag (gated by the show_audit_fields setting +
     # view_audit_fields permission), so they stay out of the flat field loop.
-    exclude_fields = ['password', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by']
+    from ..system.constants import record_visibility_column_names
+    exclude_fields = ['password', *record_visibility_column_names()]
 
     if not is_scope_enabled():
         exclude_fields.append('scope')
@@ -339,7 +340,8 @@ def _build_generic_table_class(model):
     # permitted, the patched Table.__init__ ADDS them back via extra_columns —
     # that path works uniformly for auto-tables and for project tables that
     # declare an explicit Meta.fields (which never list audit columns).
-    audit_fields = ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by']
+    from ..system.constants import record_visibility_column_names
+    audit_fields = list(record_visibility_column_names())
     raw_exclude.extend([f for f in audit_fields if f not in raw_exclude])
 
     try:
@@ -473,8 +475,8 @@ def _build_generic_filter_class(model):
         )
 
     # Apply same default exclusions to filters to avoid clutter
-    audit_fields = ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by']
-    meta_attrs["exclude"] = audit_fields
+    from ..system.constants import record_visibility_column_names
+    meta_attrs["exclude"] = list(record_visibility_column_names())
 
     return type(f"{model.__name__}AutoFilter", (django_filters.FilterSet,), attrs)
 

@@ -24,6 +24,7 @@ from django.conf import settings
 from packaging.version import InvalidVersion, Version
 
 from . import UpdaterError
+from .runtime import state_dir
 from .service import _state_model, active_runtime_version, updates_enabled
 
 # How long to wait for composer to finish after hand-off before giving up and
@@ -50,14 +51,10 @@ def _run_model():
     return apps.get_model("dlux", "DluxUpdateRun")
 
 
-def _state_dir(store=None):
-    """Runtime state dir WITHOUT creating it. Readers run on the web container,
-    which mounts the runtime volume read-only — they must never mkdir/ensure.
-    Writers (the worker) pass their own ensured ``store``."""
-    if store is not None:
-        return store.state_dir
-    root = Path(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")).expanduser()
-    return root / "state"
+#: Kept as a module-local name: this is where every existing caller and test
+#: reaches for it, and the definition moved to ``runtime`` only so the channel
+#: policy could share it without importing the image-update protocol.
+_state_dir = state_dir
 
 
 def trigger_path(store=None):

@@ -146,7 +146,7 @@ class TemplateCommentFinderTests(TestCase):
         with TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             visible = root / 'templates' / 'visible.html'
-            archived = root / '.xpose' / 'archived.html'
+            archived = root / '.xclude' / 'archived.html'
             dependency = root / '.venv' / 'dependency.html'
             for path in (visible, archived, dependency):
                 path.parent.mkdir(parents=True, exist_ok=True)

@@ -37,6 +37,16 @@ class DluxUpdateState(models.Model):
     # until the admin un-skips it. A list of canonical version strings. Nullable so
     # the AddField stays inline-safe (readers coalesce None -> []).
     skipped_versions = models.JSONField(default=list, blank=True, null=True, verbose_name="Skipped Versions")
+    # Which releases this deployment is willing to install. Stable is the
+    # default and excludes every prerelease; beta is an explicit, persistent
+    # opt-in. Recorded here because the toggle is an administrator action with
+    # ordinary permissions, and mirrored onto the runtime volume by the worker
+    # so Composer — which never touches the database — resolves the same answer.
+    # `db_default` keeps the AddField inline-safe: rows created by the older
+    # release read "stable" without a data migration.
+    update_channel = models.CharField(
+        max_length=16, default="stable", db_default="stable", verbose_name="Update Channel",
+    )
     # The runtime-volume writer's own verdict. Celery owns the write side, so
     # only it can say whether the volume updates run against is usable; web
     # mounts that volume read-only and reads this instead of probing it.

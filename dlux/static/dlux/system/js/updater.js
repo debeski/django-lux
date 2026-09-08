@@ -80,6 +80,9 @@
         const modalRecheckButton = modalElement?.querySelector('[data-dlux-update-recheck]');
         const skippedWrap = root.querySelector('[data-dlux-skipped-wrap]');
         const skippedList = root.querySelector('[data-dlux-skipped-list]');
+        const channelWrap = root.querySelector('[data-dlux-channel-wrap]');
+        const channelToggle = root.querySelector('[data-dlux-channel-toggle]');
+        const channelNote = root.querySelector('[data-dlux-channel-note]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -393,6 +396,55 @@
             }
         }
 
+        // The channel is a persistent preference, not an action: flipping it
+        // installs nothing, it decides what the NEXT check may offer. Web mounts
+        // the runtime volume read-only, so the worker publishes the change; until
+        // it acknowledges, the switch shows the requested state and says it is
+        // pending rather than pretending it has already taken effect.
+        async function postChannel(wantBeta) {
+            if (!root.dataset.channelUrl) { return; }
+            const body = new FormData();
+            body.append('channel', wantBeta ? 'beta' : 'stable');
+            if (channelToggle) { channelToggle.disabled = true; }
+            try {
+                const data = await jsonRequest(root.dataset.channelUrl, { method: 'POST', body });
+                render(data && data.state);
+                await refreshState();
+            } catch (exc) {
+                // Put the switch back where it was: the request did not land.
+                if (channelToggle && state) { channelToggle.checked = state.update_channel === 'beta'; }
+                if (window.showToast) { window.showToast(exc.message || 'Request failed', 'error'); }
+            } finally {
+                if (channelToggle) { channelToggle.disabled = root.dataset.canManage !== 'true'; }
+            }
+        }
+
+        if (channelToggle) {
+            channelToggle.addEventListener('change', () => postChannel(channelToggle.checked));
+        }
+
+        function renderChannel() {
+            if (!channelWrap || !state) { return; }
+            channelWrap.hidden = false;
+            const pending = String(state.channel_pending || '');
+            const effective = pending || String(state.update_channel || 'stable');
+            if (channelToggle && document.activeElement !== channelToggle) {
+                channelToggle.checked = effective === 'beta';
+            }
+            if (!channelNote) { return; }
+            if (state.channel_error) {
+                channelNote.textContent = state.channel_error;
+            } else if (pending) {
+                channelNote.textContent = (root.dataset.labelChannelPending
+                    || 'Pending: the update worker applies this shortly.');
+            } else if (effective === 'beta') {
+                channelNote.textContent = (root.dataset.labelChannelBeta
+                    || 'Prereleases are eligible. Turning this off never downgrades an installed beta.');
+            } else {
+                channelNote.textContent = '';
+            }
+        }
+
         function renderSkipped(versions) {
             if (!skippedWrap || !skippedList) { return; }
             const list = Array.isArray(versions) ? versions.filter(Boolean) : [];
@@ -424,6 +476,7 @@
             state = nextState || state;
             if (!state) return;
             renderSkipped(state.skipped_versions);
+            renderChannel();
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
             checked.textContent = state.last_checked_at

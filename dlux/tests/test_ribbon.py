@@ -2262,3 +2262,155 @@ class RibbonCatalogFailuresAreVisibleTests(TestCase):
         for attr in ('catalog', 'destinations', 'strings', 'languages', 'config'):
             self.assertIn(f"parse(root.dataset.{attr}, ", js)
             self.assertIn(f", '{attr}');", js)
+
+
+class RibbonHostLockDetectionTests(TestCase):
+    """A view that builds its own strips must be reported locked.
+
+    `_build_configured_strips()` is what merges strips added in System Settings
+    into a page. A view that overrides either strip-producing method never calls
+    it, so a configured strip cannot reach that page — and the builder must not
+    invite one.
+
+    It checked only `get_ribbon_tabs`. A view overriding `get_ribbon_strips`
+    therefore read as freely configurable: the builder offered its fields,
+    accepted a new strip and saved it, and the page silently never rendered it.
+    That is indistinguishable from the builder being broken, which is how it was
+    reported.
+    """
+
+    def _view(self, **overrides):
+        from dlux.ribbon.mixin import RibbonMixin as _Mixin
+
+        return type('HostView', (_Mixin,), overrides)
+
+    def test_a_view_overriding_get_ribbon_strips_is_locked(self):
+        from dlux.ribbon.catalog import _view_locked
+
+        view = self._view(get_ribbon_strips=lambda self: [])
+        self.assertTrue(
+            _view_locked(view),
+            'a view that builds its own strips must not be offered for configuration',
+        )
+
+    def test_a_view_overriding_get_ribbon_tabs_is_locked(self):
+        from dlux.ribbon.catalog import _view_locked
+
+        self.assertTrue(_view_locked(self._view(get_ribbon_tabs=lambda self: None)))
+
+    def test_a_view_with_fixed_tabs_is_locked(self):
+        from dlux.ribbon.catalog import _view_locked
+
+        self.assertTrue(_view_locked(self._view(ribbon_tabs_fixed=[{'param': 'x'}])))
+
+    def test_a_plain_host_stays_configurable(self):
+        from dlux.ribbon.catalog import _view_locked
+
+        self.assertFalse(
+            _view_locked(self._view()),
+            'a view that overrides neither must still accept configured strips',
+        )
+
+    def test_both_override_points_are_covered(self):
+        # The list is the contract; a new strip-producing hook must be added here
+        # or it reopens exactly this hole.
+        from dlux.ribbon.catalog import RIBBON_STRIP_OVERRIDE_POINTS
+
+        self.assertEqual(
+            set(RIBBON_STRIP_OVERRIDE_POINTS), {'get_ribbon_tabs', 'get_ribbon_strips'}
+        )
+
+
+class ConfiguredSourceExpressivenessTests(TestCase):
+    """A configured source can carry a `lookup` and a `permission`.
+
+    Both were the reason a page had to build its strips in Python: the render
+    layer has always honoured a source `lookup`, but the normalizer dropped it,
+    and a per-viewer source could not be expressed at all. A view that resorts to
+    building strips itself stops merging configured strips, so the settings
+    builder silently ignored anything an administrator added to that page.
+    """
+
+    def _user(self, *, perms=(), superuser=False, authenticated=True):
+        return SimpleNamespace(
+            is_authenticated=authenticated,
+            is_superuser=superuser,
+            has_perm=lambda p, _perms=set(perms): p in _perms,
+        )
+
+    def _request(self, user):
+        # A real request: `build_ribbon_tabs` builds tab URLs from GET, which
+        # needs a QueryDict rather than a plain dict.
+        from django.test import RequestFactory
+
+        request = RequestFactory().get('/')
+        request.user = user
+        return request
+
+    def _strip(self, request):
+        from dlux.ribbon import build_ribbon_tabs
+
+        return build_ribbon_tabs(
+            {
+                'param': 'category_tab',
+                'sources': [
+                    {'type': 'all', 'label': 'All'},
+                    {
+                        'type': 'static', 'key': 'hidden', 'label': 'Hidden',
+                        'permission': 'documents.view_hidden_decree',
+                    },
+                ],
+            },
+            request=request,
+        )
+
+    def _keys(self, request):
+        return [tab.key for tab in (self._strip(request).items or [])]
+
+    def test_a_gated_source_is_hidden_without_the_permission(self):
+        keys = self._keys(self._request(self._user()))
+        self.assertNotIn('hidden', keys)
+        self.assertIn('', keys, 'ungated sources must be unaffected')
+
+    def test_a_gated_source_appears_with_the_permission(self):
+        keys = self._keys(self._request(self._user(perms=['documents.view_hidden_decree'])))
+        self.assertIn('hidden', keys)
+
+    def test_a_superuser_sees_a_gated_source(self):
+        self.assertIn('hidden', self._keys(self._request(self._user(superuser=True))))
+
+    def test_a_gated_source_is_omitted_when_there_is_nobody_to_check(self):
+        # Fail closed: no request, or an anonymous one, must not leak the tab.
+        self.assertNotIn('hidden', self._keys(None))
+        self.assertNotIn('hidden', self._keys(self._request(self._user(authenticated=False))))
+
+    def test_a_source_lookup_survives_normalization(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+
+        stored = normalize_ribbon_config({'documents.Decree': {'extra_strips': [{
+            'param': 'category_tab',
+            'sources': [{'type': 'all', 'label': 'All', 'lookup': {'is_hidden': False}}],
+        }]}})
+        source = stored['documents.Decree']['extra_strips'][0]['sources'][0]
+        self.assertEqual(source['lookup'], {'is_hidden': False})
+
+    def test_a_lookup_only_keeps_field_paths_and_scalars(self):
+        from dlux.system.normalizers import _normalize_ribbon_source_lookup
+
+        cleaned = _normalize_ribbon_source_lookup({
+            'is_hidden': False,
+            'zone__slug__in': ['a', 'b'],
+            'bad key!': 1,
+            'callable': lambda: 1,
+        })
+        self.assertEqual(cleaned, {'is_hidden': False, 'zone__slug__in': ['a', 'b']})
+
+    def test_a_config_without_either_is_unchanged(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+
+        stored = normalize_ribbon_config({'documents.Decree': {'extra_strips': [{
+            'param': 'x', 'sources': [{'type': 'field', 'field': 'category'}],
+        }]}})
+        source = stored['documents.Decree']['extra_strips'][0]['sources'][0]
+        self.assertNotIn('lookup', source)
+        self.assertNotIn('permission', source)

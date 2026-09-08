@@ -538,12 +538,18 @@ class SystemBackupViewTests(TestCase):
                     'current_password': 'bosspass123',
                 })
                 self.assertEqual(SystemRestore.objects.count(), 0)
-                # Proper request runs (inline, no celery in tests).
-                client.post(reverse('system_restore_start'), {
-                    'backup_token': backup.token,
-                    'current_password': 'bosspass123',
-                    'confirm_replace': 'yes',
-                })
+                # Proper request runs. The view runs the restore inline only when
+                # `dispatch_system_restore()` fails to queue it, so this asserted
+                # COMPLETED purely because the test environment had no broker — in a
+                # container that can reach Celery it queued instead and the status
+                # stayed `pending`. Pin the path rather than depend on what happens
+                # to be reachable.
+                with mock.patch('dlux.views.backup.dispatch_system_restore', return_value=False):
+                    client.post(reverse('system_restore_start'), {
+                        'backup_token': backup.token,
+                        'current_password': 'bosspass123',
+                        'confirm_replace': 'yes',
+                    })
                 self.assertEqual(SystemRestore.objects.count(), 1)
                 restore = SystemRestore.objects.first()
                 self.assertEqual(restore.status, SystemRestore.STATUS_COMPLETED, restore.error)

@@ -452,3 +452,82 @@ class RecordVisibilityTogglesSaveFromTheirOwnStepTests(TestCase):
         s = self._save_step(s, SETUP_STEP_LAYOUT)
         self.assertIs(s.layout_config.get('show_audit_fields'), True)
         self.assertIs(s.layout_config.get('show_soft_deleted'), True)
+
+
+class DeclaredAuditColumnsHideTooTests(TestCase):
+    """A table that declares audit columns itself must still hide them.
+
+    The gate only ever ADDED columns. A table listing an audit column in
+    Meta.fields (or declaring it outright) was skipped on the way in — it already
+    had it — and nothing excluded it on the way out, so it stayed visible whatever
+    the setting said. Only auto-generated tables hid correctly, because crud.py
+    had already put these in Meta.exclude for them.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_superuser(
+            username='declared-audit-admin', email='d@example.com', password='x'
+        )
+
+    def _build(self):
+        import django_tables2 as tables
+        from dlux.models import ActivityLog
+
+        class DeclaringTable(tables.Table):
+            class Meta:
+                model = ActivityLog
+                # The audit columns are named explicitly, which is what made them
+                # unhideable.
+                fields = ('action', 'created_at', 'created_by')
+
+        return DeclaringTable
+
+    def _rendered_columns(self):
+        Table = self._build()
+        request = RequestFactory().get('/')
+        request.user = self.admin
+        table = Table([], request=request)
+        return {c.name for c in table.columns}
+
+    def test_declared_audit_columns_are_hidden_when_the_setting_is_off(self):
+        _set_layout(show_audit_fields=False)
+        with _ThreadLocalUser(self.admin):
+            columns = self._rendered_columns()
+        self.assertNotIn('created_at', columns, 'a declared audit column never hid')
+        self.assertNotIn('created_by', columns)
+        self.assertIn('action', columns, 'a non-audit column must be untouched')
+
+    def test_declared_audit_columns_are_shown_when_the_setting_is_on(self):
+        _set_layout(show_audit_fields=True)
+        with _ThreadLocalUser(self.admin):
+            columns = self._rendered_columns()
+        self.assertIn('created_at', columns)
+        self.assertIn('created_by', columns)
+
+
+class CanonicalColumnSetsTests(TestCase):
+    """One definition of each set, and a project can extend either."""
+
+    def test_the_two_sets_are_distinct(self):
+        from dlux.system.constants import audit_column_names, deletion_column_names
+
+        audit, deletion = set(audit_column_names()), set(deletion_column_names())
+        self.assertEqual(audit & deletion, set(), 'the sets must not overlap')
+        self.assertIn('deleted_by', deletion, 'a deletion is not a change history')
+        self.assertNotIn('deleted_by', audit)
+
+    def test_a_project_can_extend_either_set(self):
+        from django.test import override_settings
+        from dlux.system.constants import audit_column_names, deletion_column_names
+
+        with override_settings(DLUX_AUDIT_COLUMNS=['approved_by'], DLUX_DELETION_COLUMNS=['purged_at']):
+            self.assertIn('approved_by', audit_column_names())
+            self.assertIn('purged_at', deletion_column_names())
+            self.assertIn('created_by', audit_column_names())
+
+    def test_the_legacy_alias_still_resolves(self):
+        from dlux.utils import AUDIT_FIELD_NAMES
+        from dlux.system.constants import DEFAULT_AUDIT_COLUMNS
+
+        self.assertEqual(tuple(AUDIT_FIELD_NAMES), tuple(DEFAULT_AUDIT_COLUMNS))

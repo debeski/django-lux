@@ -68,19 +68,19 @@ from dlux.updater.service import (
 )
 
 
+from .version_helpers import newer_version
+
+
 def _newer_version(base=__version__):
-    """Return a version string strictly greater than ``base`` (patch +1).
+    """Return a version string strictly greater than ``base``.
 
     Lets version-sensitive updater tests model a volume release that is newer
     than the baked ``__version__`` without hardcoding a literal that collides
-    with the package version on each release bump.
+    with the package version on each release bump. Delegated to the parser: the
+    string surgery this replaced produced `1.8.14b1.1` on a prerelease, which
+    `Version` refuses outright.
     """
-    parts = base.split(".")
-    try:
-        parts[-1] = str(int(parts[-1]) + 1)
-    except (ValueError, IndexError):
-        return f"{base}.1"
-    return ".".join(parts)
+    return newer_version(base)
 
 
 NEWER_VERSION = _newer_version()

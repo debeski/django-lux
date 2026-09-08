@@ -243,7 +243,10 @@
                                  data-state-url="{% url 'dlux_update_state' %}"
                                  data-check-url="{% url 'dlux_update_check' %}"
                                  data-skip-url="{% url 'dlux_update_skip' %}"
+                                 data-channel-url="{% url 'dlux_update_channel' %}"
                                  data-label-unskip="{{ DLUX_STRINGS.dlux_update_unskip|default:'Un-skip' }}"
+                                 data-label-channel-beta="{{ DLUX_STRINGS.dlux_update_channel_beta_note|default:'Prereleases are eligible. Turning this off never downgrades an installed beta.' }}"
+                                 data-label-channel-pending="{{ DLUX_STRINGS.dlux_update_channel_pending|default:'Pending: the update worker applies this shortly.' }}"
                                  data-apply-url="{% url 'dlux_update_apply' %}"
                                  data-rollback-url="{% url 'dlux_update_rollback' %}"
                                  data-can-manage="{% if can_manage_dlux_updates %}true{% else %}false{% endif %}"
@@ -320,6 +323,15 @@
                                         <span class="dlux-upd-checked">{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}: <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time> · {{ DLUX_STRINGS.dlux_update_image_label|default:'image' }} <time data-dlux-image-checked>—</time></span>
                                     </div>
                                     <div class="dlux-updater-run-status small mt-1" data-dlux-update-run-status hidden aria-live="polite"></div>
+                                    <div class="dlux-upd-channel mt-2" data-dlux-channel-wrap hidden>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" role="switch"
+                                                   id="dlux-update-beta-channel" data-dlux-channel-toggle
+                                                   {% if not can_manage_dlux_updates %}disabled{% endif %}>
+                                            <label class="form-check-label" for="dlux-update-beta-channel">{{ DLUX_STRINGS.dlux_update_channel_beta|default:'Include beta releases' }}</label>
+                                        </div>
+                                        <div class="dlux-upd-channel-note small text-muted" data-dlux-channel-note></div>
+                                    </div>
                                     <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
                                         <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>
                                         <span class="dlux-upd-skipped-list" data-dlux-skipped-list></span>

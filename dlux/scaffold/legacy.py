@@ -330,7 +330,7 @@ def _enable_updater_nginx(contents):
     return contents
 
 def _bootstrap_backup_root(project_root):
-    base = project_root / ".xpose" / "dlux-updater-bootstrap"
+    base = project_root / ".xclude" / "dlux-updater-bootstrap"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     destination = base / stamp
     suffix = 1

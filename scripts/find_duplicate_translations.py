@@ -10,7 +10,7 @@ a consolidation candidate, tiered by how safe the merge is:
 
 Report-only by design: unifying keys means updating every call site (templates,
 forms, dynamic lookups), which is not safe to automate — this regenerates a
-fresh, accurate version of ``.xpose/trans_audit.md`` for you to act on.
+fresh, accurate version of ``.xclude/trans_audit.md`` for you to act on.
 
 Keys looked up by computed name (``f"model_{name}"``, ``f"action_{v}"``, …) are
 detected from the code and flagged **[dynamic]** — never unify those by deleting;
@@ -20,7 +20,7 @@ Usage:
     python scripts/find_duplicate_translations.py            # text report
     python scripts/find_duplicate_translations.py --tier1     # only the safe merges
     python scripts/find_duplicate_translations.py --md        # markdown (refresh the audit)
-    python scripts/find_duplicate_translations.py --md > .xpose/trans_audit.md
+    python scripts/find_duplicate_translations.py --md > .xclude/trans_audit.md
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ TRANSLATIONS = ROOT / "dlux" / "translations.py"
 
 SCAN_EXTS = {".py"}
 SKIP_DIRS = {
-    ".git", ".venv", "venv", "node_modules", ".xpose", "__pycache__",
+    ".git", ".venv", "venv", "node_modules", ".xclude", "__pycache__",
     "migrations", "staticfiles", "dist", "build", "django_lux.egg-info",
 }
 _DYNAMIC_PATTERNS = [

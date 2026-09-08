@@ -18,6 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import UpdaterError, get_baked_version
+from . import channel
 from .manifest import (
     ReleaseCandidate,
     assess_wheel,
@@ -97,6 +98,127 @@ def local_runtime_volume_problem():
             "DLUX_INLINE_UPDATES_ENABLED off outside a Compose deployment."
         )
     return ""
+
+
+def selected_channel(state=None):
+    """The channel this deployment installs from, as recorded by the admin.
+
+    The database column is the record of the administrator's choice; the policy
+    file is its published mirror for Composer. They agree in the steady state,
+    and when they do not the column wins here — a file that failed to publish
+    must not silently change what the UI says the admin chose. The disagreement
+    is surfaced through ``channel_status``, not hidden.
+    """
+    if state is None:
+        try:
+            state = _state_model().objects.filter(pk=1).only("update_channel").first()
+        except Exception:
+            return channel.STABLE
+    value = str(getattr(state, "update_channel", "") or "").strip().lower()
+    return value if value in channel.CHANNELS else channel.STABLE
+
+
+def channel_status(state=None):
+    """Channel fields for the UI: chosen, awaiting the worker, and any error."""
+    chosen = selected_channel(state)
+    published, error = channel.read_policy()
+    pending = ""
+    try:
+        pending = channel.pending_request()
+    except Exception:
+        pending = ""
+    if not pending and published != chosen:
+        # The column moved but the mirror has not caught up. Composer is still
+        # resolving against the old channel until it does, so say so.
+        pending = chosen
+    return {
+        "update_channel": chosen,
+        "channel_pending": pending if pending != published else "",
+        "channel_error": error,
+    }
+
+
+def set_update_channel(new_channel, *, username="", store=None):
+    """Record the administrator's channel choice and publish it.
+
+    Callable from either side of the read-only mount. With a store (the worker)
+    the policy file is published immediately; without one (web) a request is
+    left for the worker, and the UI reports the change as pending until its ack.
+    Returns the refreshed UI state dict.
+    """
+    new_channel = channel.normalize_channel(new_channel)
+    state = _state_model().load()
+    if str(state.update_channel or "") != new_channel:
+        state.update_channel = new_channel
+        state.save(update_fields=["update_channel", "updated_at"])
+        # A queued offer was resolved under the previous channel and may name a
+        # release this one does not admit. Drop it rather than let an opt-out
+        # leave a prerelease sitting in the Apply button.
+        _invalidate_stale_offer(state, new_channel)
+    if store is not None:
+        channel.publish_policy(store, new_channel, source=f"admin:{username}" if username else "admin")
+        channel.clear_request(store)
+    else:
+        channel.write_request(new_channel, requested_by=username)
+    return get_ui_state()
+
+
+def _invalidate_stale_offer(state, new_channel):
+    """Clear a `latest_*` offer the new channel would not have produced."""
+    version = str(state.latest_version or "").strip()
+    if not version:
+        return
+    try:
+        offered = Version(version)
+    except InvalidVersion:
+        return
+    if offered.is_prerelease and not channel.prereleases_allowed(new_channel):
+        baseline = state.active_version or state.baked_version
+        state.latest_version = baseline
+        state.latest_wheel_url = ""
+        state.latest_wheel_sha256 = ""
+        state.latest_manifest = {}
+        state.latest_compatible = False
+        state.latest_reason = (
+            f"DjangoLux {version} is a prerelease and this deployment is on the "
+            "stable channel."
+        )
+        state.save(update_fields=[
+            "latest_version", "latest_wheel_url", "latest_wheel_sha256",
+            "latest_manifest", "latest_compatible", "latest_reason", "updated_at",
+        ])
+
+
+def reconcile_channel_policy(service):
+    """Worker side: apply a pending request, then keep the mirror in step.
+
+    The only writer of the policy file. Runs on the state tick, so a request
+    written by web or by Composer's host CLI is picked up within seconds, and a
+    policy file that was lost with the volume is republished without anyone
+    having to notice.
+    """
+    store = service.store
+    state = _state_model().load()
+    requested = channel.pending_request(store)
+    if requested:
+        request = channel.read_request(store)
+        token = str(request.get("token") or "")
+        try:
+            if str(state.update_channel or "") != requested:
+                state.update_channel = requested
+                state.save(update_fields=["update_channel", "updated_at"])
+                _invalidate_stale_offer(state, requested)
+            channel.publish_policy(store, requested, source="request", token=token)
+        except Exception as exc:
+            channel.write_ack(store, token=token, channel=requested, applied=False, error=str(exc))
+            return channel.read_policy(store)[0]
+        channel.write_ack(store, token=token, channel=requested, applied=True)
+        return requested
+    chosen = selected_channel(state)
+    published, error = channel.read_policy(store)
+    if error or published != chosen:
+        channel.publish_policy(store, chosen, source="reconcile")
+    return chosen
 
 
 def worker_volume_report(state=None):
@@ -243,6 +365,7 @@ def serialize_state(state):
         "degraded_reason": state.degraded_reason,
         "active_run_token": state.active_run_token,
         "skipped_versions": list(state.skipped_versions or []),
+        **channel_status(state),
     }
 
 
@@ -291,6 +414,9 @@ def get_ui_state():
             "skipped_versions": [],
             "worker_seen_at": None,
             "worker_stale": False,
+            "update_channel": channel.STABLE,
+            "channel_pending": "",
+            "channel_error": "",
         }
     return serialize_state(state)
 
@@ -1052,11 +1178,17 @@ class UpdateService:
         newer = bool(version) and self._version_is_newer(version, current)
         skipped = version in (state.skipped_versions or [])
         inline_safe = bool(report.get("inline_safe"))
+        # Composer resolves the candidate from the same policy file, so this
+        # normally agrees. It is checked again because the two sides can drift
+        # for a tick after an opt-out, and the safe drift is to offer less.
+        ineligible = self._prerelease_off_channel(version, state)
 
         state.latest_version = version or current
-        state.latest_compatible = bool(newer and inline_safe and not skipped)
+        state.latest_compatible = bool(newer and inline_safe and not skipped and not ineligible)
         if not newer:
             state.latest_reason = "DjangoLux is up to date."
+        elif ineligible:
+            state.latest_reason = ineligible
         elif skipped:
             state.latest_reason = f"DjangoLux {version} was skipped for this deployment."
         elif not inline_safe:
@@ -1076,13 +1208,36 @@ class UpdateService:
             "inline_safe": inline_safe,
         })
 
+    def _prerelease_off_channel(self, version, state):
+        """A reason string when ``version`` is a prerelease this channel bars."""
+        text = str(version or "").strip()
+        if not text:
+            return ""
+        try:
+            parsed = Version(text)
+        except InvalidVersion:
+            return ""
+        if not parsed.is_prerelease:
+            return ""
+        if channel.prereleases_allowed(selected_channel(state)):
+            return ""
+        return (
+            f"DjangoLux {text} is a prerelease. Turn on \u201cInclude beta releases\u201d "
+            "to install it."
+        )
+
     def _process_check(self, run):
         if composer_executes_updates():
             return self._process_check_via_composer(run)
         state = _state_model().load()
         current = state.active_version or state.baked_version
+        allow_prereleases = channel.prereleases_allowed(selected_channel(state))
         index = fetch_simple_index()
-        candidate = select_latest_candidate(index, current, skip_versions=state.skipped_versions)
+        candidate = select_latest_candidate(
+            index, current,
+            skip_versions=state.skipped_versions,
+            allow_prereleases=allow_prereleases,
+        )
         state.last_checked_at = timezone.now()
         state.last_check_error = ""
         if not candidate:
@@ -1094,7 +1249,10 @@ class UpdateService:
             state.latest_reason = "DjangoLux is up to date."
             state.save()
             run.target_version = current
-            run.append_log("No newer stable release is available.")
+            run.append_log(
+                "No newer release is available on the "
+                f"{selected_channel(state)} channel."
+            )
             run.save(update_fields=["target_version", "progress_log"])
             self._complete(run, report={"update_available": False})
             return
@@ -1107,7 +1265,7 @@ class UpdateService:
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         self._transition(run, run.STATUS_VERIFYING, "Verifying hash, publisher attestation, and compatibility.")
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version, active_version=state.active_version)
         run.manifest = assessment["manifest"]
         run.save(update_fields=["manifest"])
         state.latest_version = candidate.version
@@ -1128,7 +1286,12 @@ class UpdateService:
     def _verified_latest_candidate(self, state, run):
         index = fetch_simple_index()
         candidate = select_latest_candidate(
-            index, state.active_version or state.baked_version, skip_versions=state.skipped_versions
+            index, state.active_version or state.baked_version,
+            skip_versions=state.skipped_versions,
+            # Re-read the channel here rather than trusting the check: an
+            # opt-out between check and apply must not be able to install the
+            # prerelease the check found.
+            allow_prereleases=channel.prereleases_allowed(selected_channel(state)),
         )
         if not candidate:
             raise UpdaterError("No verified inline-safe DjangoLux update is available.")
@@ -1160,7 +1323,7 @@ class UpdateService:
         )
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version, active_version=state.active_version)
         state.latest_version = candidate.version
         state.latest_wheel_url = candidate.url
         state.latest_wheel_sha256 = candidate.sha256
@@ -1226,7 +1389,7 @@ class UpdateService:
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         self._transition(run, run.STATUS_VERIFYING, "Re-verifying the release before installation.")
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version, active_version=state.active_version)
         if not assessment["compatible"]:
             raise UpdaterError(assessment["reason"])
         if assessment["manifest"] != state.latest_manifest:

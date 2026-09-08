@@ -38,6 +38,6 @@ Run Composer through the generated wrapper:
 ./start.sh check --fix
 ```
 
-`check` reports missing Composer services, obsolete `dlux-updater` wiring, or runtime-volume drift. Review the proposed change before `--fix`; Composer preserves modified project files under `.xpose/` and validates the resulting Compose configuration. Compose 5.3.0 or newer is required because DjangoLux uses `pre_start` hooks.
+`check` reports missing Composer services, obsolete `dlux-updater` wiring, or runtime-volume drift. Review the proposed change before `--fix`; Composer preserves modified project files under `.xclude/` and validates the resulting Compose configuration. Compose 5.3.0 or newer is required because DjangoLux uses `pre_start` hooks.
 
 For update behavior and recovery, see [Verified Inline Updates](inline-updater.md).

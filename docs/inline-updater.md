@@ -75,6 +75,45 @@ derives both from what is actually on the volume:
   the baked version is not offered: reconcile resets anything under that floor,
   so the rollback would be undone on the next pass.
 
+### Which releases are eligible: stable and beta
+
+Stable is the default and admits no prerelease. Beta is a persistent, explicit
+opt-in — the **Include beta releases** switch on the Options card, or
+`composer dlux channel beta` — and it widens *eligibility only*: digest,
+attestation, manifest, migration and image-floor checks are identical on both.
+
+Turning it off never downgrades anything. A check only ever offers versions
+strictly above the installed one, so a deployment on `1.9.0b2` that leaves the
+beta channel waits for `1.9.0` rather than being walked back to `1.8.x`. Going
+backwards is the rollback path, which has its own checks.
+
+Three processes need the same answer and none of them can own it alone:
+
+| | reads | writes |
+| --- | --- | --- |
+| Options UI (`web`) | the database column | nothing — the runtime volume is read-only there |
+| Celery worker | both | the database column and `state/channel-policy.json` |
+| Composer | `state/channel-policy.json` | nothing |
+
+So the administrator's choice is recorded in `DluxUpdateState.update_channel`,
+and the worker mirrors it to the policy file that Composer reads. Anything that
+cannot write that file — `web`, and Composer's host CLI — leaves a
+token-carrying request beside it, which the worker applies and acknowledges on
+its next tick. That is the same handoff shape as package and image updates, and
+it is why the switch reports **pending** for a moment rather than claiming a
+change it has not yet made.
+
+Every failure reads as stable: a missing policy (a deployment that never opted
+in), an unreadable one, a malformed one, or one written by a newer DjangoLux
+whose schema this release does not understand. A malformed policy also *reports*
+the error, so corrupting a file can never be a way to turn beta on. The worker
+republishes a policy that disappeared with its volume.
+
+Both sides check the channel independently. Composer resolves the candidate from
+the policy, and DjangoLux checks again before it offers or applies one — the two
+can disagree for a tick after an opt-out, and the safe direction to disagree is
+to offer less.
+
 ### What refreshes the reported versions
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.

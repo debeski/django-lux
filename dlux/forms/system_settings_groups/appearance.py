@@ -256,7 +256,9 @@ class AppearanceCleanMixin:
         return self._clean_preserved_choice('ribbon_nesting', SETUP_STEP_RIBBON, RIBBON_NESTING_VALUES, DEFAULT_RIBBON_NESTING)
 
     def clean_ribbon_title(self):
-        return self._clean_preserved_toggle('ribbon_title', SETUP_STEP_LAYOUT, True)
+        # Renders in the Ribbon step, so it must be anchored there — anchored to
+        # Components it could be switched on and never off, like the audit toggle.
+        return self._clean_preserved_toggle('ribbon_title', SETUP_STEP_RIBBON, True)
 
     def clean_sticky_table_headers(self):
         return self._clean_preserved_toggle('sticky_table_headers', SETUP_STEP_LAYOUT, True)

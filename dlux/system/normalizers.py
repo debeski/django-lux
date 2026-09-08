@@ -1560,6 +1560,30 @@ def _normalize_declared_ribbon_strip(strip):
     return entry
 
 
+def _normalize_ribbon_source_lookup(value):
+    """A source's shared filter, as JSON-safe `field -> value` pairs.
+
+    Stored config reaches `queryset.filter(**lookup)`, so this stays deliberately
+    narrow: plain field paths mapped to scalars or a list of them. No `Q`, no
+    callables, nothing that could arrive from an imported settings file and run.
+    """
+    if not isinstance(value, dict):
+        return {}
+    cleaned = {}
+    for key, raw in value.items():
+        name = str(key or '').strip()
+        # A field path, optionally with lookups: `is_hidden`, `zone__slug__in`.
+        if not name or not all(part.isidentifier() for part in name.split('__') if part):
+            continue
+        if isinstance(raw, (list, tuple)):
+            items = [item for item in raw if isinstance(item, (str, int, float, bool))]
+            if items:
+                cleaned[name] = list(items)
+        elif isinstance(raw, (str, int, float, bool)) or raw is None:
+            cleaned[name] = raw
+    return cleaned
+
+
 def _normalize_extra_ribbon_strip(strip, RIBBON_TAB_SOURCE_TYPES):
     """One Settings-created strip: sources plus its own presentation overlay."""
     sources = []
@@ -1587,6 +1611,17 @@ def _normalize_extra_ribbon_strip(strip, RIBBON_TAB_SOURCE_TYPES):
             values = source.get(listed)
             if isinstance(values, (list, tuple)) and values:
                 entry[listed] = [str(v) for v in values]
+        # `lookup` and `permission` were dropped here even though the render layer
+        # has always honoured a lookup. A strip needing either had to be built in
+        # Python, and a view that does that overrides `get_ribbon_strips()` and
+        # stops merging configured strips at all — so the builder silently ignored
+        # anything an administrator added to that page.
+        lookup = _normalize_ribbon_source_lookup(source.get('lookup'))
+        if lookup:
+            entry['lookup'] = lookup
+        permission = str(source.get('permission') or '').strip()
+        if permission:
+            entry['permission'] = permission[:150]
         sources.append(entry)
 
     if not sources:

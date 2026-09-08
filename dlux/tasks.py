@@ -86,7 +86,8 @@ if shared_task is not None:
                 consume_agent_requests, publish_agent_results, publish_agent_snapshot,
             )
             from .updater.service import (
-                UpdateService, reconcile_state_if_due, record_worker_volume_report,
+                UpdateService, reconcile_channel_policy, reconcile_state_if_due,
+                record_worker_volume_report,
             )
 
             try:
@@ -103,6 +104,13 @@ if shared_task is not None:
             # (and the rollback target it offers) come from the state row, and
             # nothing else refreshes it against the installed package.
             reconcile_state_if_due(service)
+            # Celery is the only writer of the channel policy. Applying a
+            # pending request before any intent is processed means a check
+            # queued in the same tick already resolves against the new channel.
+            try:
+                reconcile_channel_policy(service)
+            except UpdaterError:
+                pass
             consume_agent_requests(service)
             service.process_next()
             # Composer executes an inline package update; this reads back its ack

@@ -181,6 +181,7 @@ urlpatterns = [
     path('sys/api/dlux-update/state/', views.dlux_update_state_view, name='dlux_update_state'),
     path('sys/api/dlux-update/check/', views.dlux_update_check_view, name='dlux_update_check'),
     path('sys/api/dlux-update/skip/', views.dlux_update_skip_view, name='dlux_update_skip'),
+    path('sys/api/dlux-update/channel/', views.dlux_update_channel_view, name='dlux_update_channel'),
     path('sys/api/dlux-update/apply/', views.dlux_update_apply_view, name='dlux_update_apply'),
     path('sys/api/dlux-update/image/', views.dlux_update_image_view, name='dlux_update_image'),
     path('sys/api/dlux-update/rollback/', views.dlux_update_rollback_view, name='dlux_update_rollback'),

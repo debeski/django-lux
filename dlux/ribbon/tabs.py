@@ -314,6 +314,25 @@ def _flag_tabs(model, source, strings):
     )]
 
 
+def _source_permitted(source, request):
+    """Whether this viewer may see the tabs a source produces.
+
+    An absent or empty `permission` means everyone, which keeps every existing
+    config working unchanged. A named permission is checked against the request
+    user; with no request there is nobody to check, so a gated source is omitted
+    rather than leaked.
+    """
+    required = str((source or {}).get('permission') or '').strip()
+    if not required:
+        return True
+    user = getattr(request, 'user', None)
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return bool(user.has_perm(required))
+
+
 def build_ribbon_tabs(config, *, model=None, request=None, strings=None, counts=None,
                       overlay=None, locked=False, scope_queryset=None):
     """Turn a tab config into a `RibbonTabs`.
@@ -341,6 +360,12 @@ def build_ribbon_tabs(config, *, model=None, request=None, strings=None, counts=
     items = []
 
     for source in (config.get('sources') or []):
+        # A source may name the permission its viewer needs. Without this a strip
+        # that shows some tabs only to some people had to be assembled in Python,
+        # which is why a view like that overrode `get_ribbon_strips()` and stopped
+        # merging configured strips entirely.
+        if not _source_permitted(source, request):
+            continue
         kind = source.get('type', SOURCE_FIELD)
         if kind == SOURCE_ALL:
             items.append(RibbonTab(

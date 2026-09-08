@@ -160,6 +160,42 @@ def dlux_update_skip_view(request):
     return JsonResponse({"ok": True, "state": state})
 
 
+@login_required
+@csrf_protect
+@require_POST
+def dlux_update_channel_view(request):
+    """Choose whether prereleases are eligible for this deployment.
+
+    Superuser-only and audited, like every other updater mutation. It installs
+    nothing: it records which releases the next check may offer. Web mounts the
+    runtime volume read-only, so the change is recorded in the database and left
+    as a request for the worker to publish; the response reports it as pending
+    until the worker acknowledges it, rather than claiming a mirror it cannot
+    write has already changed.
+    """
+    _require_superuser(request)
+    from ..updater import channel as update_channel
+    from ..updater.service import set_update_channel
+
+    requested = str(request.POST.get("channel") or "").strip().lower()
+    if not requested:
+        # The Options control is a checkbox; accept its shape too.
+        enabled = str(request.POST.get("beta") or "").strip().lower() in ("1", "true", "yes", "on")
+        requested = update_channel.BETA if enabled else update_channel.STABLE
+    try:
+        state = set_update_channel(requested, username=request.user.get_username())
+    except UpdaterError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    log_audit_event(
+        request,
+        "dlux_update_channel",
+        "DLUX_UPDATE_CHANNEL",
+        model_name="DjangoLux updater",
+        details={"channel": requested},
+    )
+    return JsonResponse({"ok": True, "state": state})
+
+
 def _password_guard(request):
     failure = require_current_password(request, field_name="current_password")
     return failure

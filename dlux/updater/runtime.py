@@ -5,12 +5,32 @@ import os
 import re
 from pathlib import Path
 
+from django.conf import settings
+
 from packaging.version import InvalidVersion, Version
 
 from . import UpdaterError
 
 
 _VERSION_DIR_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
+
+
+def state_dir(store=None):
+    """The runtime state directory, WITHOUT creating it.
+
+    Readers run on the web container, which mounts the runtime volume
+    read-only — they must never mkdir or ensure. Writers (the worker) pass their
+    own ensured ``store`` instead.
+
+    It lives here, beside the rest of the volume layout, because every file
+    protocol on that volume needs it: image updates, package updates and the
+    channel policy. Homing it in any one of them makes the other two import that
+    protocol to find a path.
+    """
+    if store is not None:
+        return store.state_dir
+    root = Path(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")).expanduser()
+    return root / "state"
 
 
 class RuntimeStore:

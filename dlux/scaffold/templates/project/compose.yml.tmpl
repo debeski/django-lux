@@ -270,6 +270,11 @@ services:
       - dlux_runtime:/opt/dlux-runtime:rw
     environment:
       <<: *de
+      # This is the service that applies migrations. pre_start remains the fast
+      # path; `apply` is what covers the restart-policy restart Compose skips it
+      # on, where web and celery would otherwise both wait for a migration
+      # nothing was left to run.
+      DLUX_BOOT_GATE: "apply"
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local_secret}

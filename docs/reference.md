@@ -14,7 +14,7 @@ see [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
-| `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xpose/` and the resulting Compose configuration is validated. |
+| `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
 | `python -m dlux enable-updater` | **Deprecated; removed in 1.9.0.** Legacy in-container update bootstrap compatibility path. New stacks use Composer; see [Verified Inline Updates](inline-updater.md). |
 
 Agent-capable ASGI projects may set `DLUX_MIDDLEWARE` to a compatible middleware wrapper and `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` to explicit machine API prefixes. The control panel uses these only for `/api/agent/v1/`; bearer authentication still applies at the endpoint.
@@ -542,6 +542,7 @@ global default.
 | `/sys/api/dlux-update/check/` | `POST` | Superuser-only CSRF-protected official PyPI check |
 | `/sys/api/dlux-update/apply/` | `POST` | Superuser + current-password verified apply request |
 | `/sys/api/dlux-update/rollback/` | `POST` | Superuser + current-password verified rollback request |
+| `/sys/api/dlux-update/channel/` | `POST` | Superuser-only CSRF-protected release channel (`stable`/`beta`) selection; installs nothing |
 | `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,

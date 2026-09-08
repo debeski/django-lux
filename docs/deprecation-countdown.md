@@ -1,8 +1,22 @@
 # Deprecation Countdown
 
-This page records live compatibility contracts and their concrete removal targets. Historical detail from the pre-v1.8 documentation reorganization is retained in `.xpose/docs/deprecation-countdown.md`.
+This page records live compatibility contracts and their concrete removal targets. Historical detail from the pre-v1.8 documentation reorganization is retained in `.xclude/docs/deprecation-countdown.md`.
 
 ## Active through v1.x
+
+### `AUDIT_FIELD_NAMES`
+
+`dlux.system.constants` is canonical: `audit_column_names()` for the columns gated by
+`show_audit_fields`, `deletion_column_names()` for the soft-delete pair, and
+`record_visibility_column_names()` for both. Each is extensible by a host project through
+`DLUX_AUDIT_COLUMNS` / `DLUX_DELETION_COLUMNS`.
+
+`dlux.utils.AUDIT_FIELD_NAMES` remains a published alias of `DEFAULT_AUDIT_COLUMNS` and is
+**removed in v1.10**. It is a plain tuple, so it never carries a project's additions — move to
+`audit_column_names()`. Note also that `deleted_by` is no longer treated as an audit column:
+a deletion is not a change history, so it answers to `show_soft_deleted` and the superuser
+gate along with `deleted_at`.
+
 
 ### Homepage settings aliases
 
@@ -62,10 +76,19 @@ forms. As of v1.8.3 the framework name is `file_field`:
 The two helper names stay importable from `dlux.forms`, a project's own
 `archive_file_*` string overrides are still read as a fallback, and
 `class="archive-file-input"` still opts a non-Dlux widget into the file card
-template. All three shims are removed in v1.9.0 — `project-decrees`,
-`project-archive` and `project-dhub` still reference them as of v1.8.4. Projects styling or scripting
-against `.archive-file-*` or `data-archive-file-*` must move now — those markup
-names are gone in v1.8.3, with no shim.
+template. All three shims are removed in v1.9.0.
+
+**No callers remain as of v1.8.14 (2026-09-08).** The only thing still using them
+was a set of `archive_file_*` string overrides in `project-decrees`,
+`project-archive` and `project-dhub`; those are now `file_field_*`, so nothing
+depends on the fallback and the shims can go on schedule. Note that
+`apply_archive_file_widgets` / `build_archive_file_fields_row` in archive and dhub
+are those projects' own helpers built on `DluxFileInput`, not these shims.
+
+Projects styling or scripting against `.archive-file-*` or
+`data-archive-file-*` must move now — those markup names are gone in v1.8.3,
+with no shim.
+## Scheduled for v1.10.0
 
 ### `advanced_filter_helper`
 
@@ -74,9 +97,16 @@ which derives a list page's filter band from the FilterSet instead of a
 per-view `advanced_config` dict, and whose layout is an administrator setting
 rather than fixed markup. See [Ribbon](ribbon.md).
 
-The helper is unchanged and keeps working through v1.8.x. Verified callers as
-of v1.8.4: `project-archive`, `project-dhub`, `project-trademarks`.
-`project-decrees` and both `project-sales-crm` editions have moved to the
-ribbon. It is removed in v1.9.0; migrate those three before then.
+**Moved from v1.9.0 to v1.10.0 (2026-09-08).** As of v1.8.14 the remaining
+callers are `project-archive` (6 sites), `project-dhub` (6) and
+`project-trademarks` (7) — and none of the three uses `RibbonMixin` at all, so
+this is adopting the ribbon rather than swapping a helper. Each call site
+carries per-field placeholders and column classes that the ribbon replaces with
+an administrator-chosen layout, which makes it a product decision per project
+and one that wants visual sign-off. Doing that during the release that also
+introduces the beta channel was too many moving parts at once.
 
-The in-container inline update executor, `DLUX_UPDATE_EXECUTOR="inline"`, and `python -m dlux enable-updater` are migration-only compatibility paths. Composer remains the required executor for generated inline updates. See [Verified Inline Updates](inline-updater.md).
+`project-decrees` and both `project-sales-crm` editions have already moved to
+the ribbon. The helper is unchanged and keeps working through v1.9.x. Migrate
+those three before v1.10.0; pilot one filter against a running deployment before
+converting the rest.

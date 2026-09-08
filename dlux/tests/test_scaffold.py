@@ -325,7 +325,18 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("debeski/composer:latest", start_sh_contents)
             self.assertIn('--env-file "${secret_path}"', start_sh_contents)
             self.assertIn("COMPOSER_INHERITED_SECRET_KEYS", start_sh_contents)
-            self.assertIn("$args.Count -eq 1", start_ps1_contents)
+            # Both wrappers resolve their own Composer image before any Composer
+            # code runs, so the release channel has to be readable from the
+            # script itself — and an explicit COMPOSER_SELF_IMAGE pin still wins.
+            for name, contents in (
+                ("start.sh", start_sh_contents), ("start.ps1", start_ps1_contents),
+            ):
+                with self.subTest(wrapper=name):
+                    self.assertIn(".composer-channel", contents)
+                    self.assertIn("debeski/composer:beta", contents)
+                    self.assertIn("COMPOSER_SELF_IMAGE", contents)
+            # `self update`, the two-word form; `update-self` was the v1 route.
+            self.assertIn("$args.Count -eq 2", start_ps1_contents)
             self.assertIn('"--env-file", $secretPath', start_ps1_contents)
             self.assertIn("COMPOSER_INHERITED_SECRET_KEYS", start_ps1_contents)
             self.assertIn("$projectRoot = (Resolve-Path $projectRoot).Path", start_ps1_contents)
@@ -347,7 +358,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 1
+        expected = 3
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):
@@ -368,7 +379,7 @@ class ScaffoldTests(unittest.TestCase):
                 "applied": True,
                 "files": ["compose.yml"],
                 "command": "docker compose up -d --force-recreate docker-socket-proxy composer-agent",
-                "backup_root": ".xpose/dlux-agent-bootstrap/example",
+                "backup_root": ".xclude/dlux-agent-bootstrap/example",
                 "warnings": [],
             }
             runner = mock.Mock(
