@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Dlux v1.8.14b1 is on PyPI and verified (`pip install django-lux` -> 1.8.13; `--pre` -> 1.8.14b1). Its GitHub release page has 0 of 7 assets; the fix is on main and the tag is being RE-CUT onto it — the version stays b1, PyPI is skipped not replaced. Composer v1.3.14b1 is published (`:v1.3.14b1` + `:beta`, `:latest` unmoved at 1.3.13); composer tree is 1.3.14b2 untagged with its `:beta` alias-read fix.
+- Dlux v1.8.14b1 is on PyPI and verified (`pip install django-lux` -> 1.8.13; `--pre` -> 1.8.14b1). Its GitHub release page has 0 of 7 assets. Tag deletion is blocked by a ruleset, so the repair is **v1.8.14b2**, not a re-cut of b1: same package, working release job. Composer v1.3.14b1 is published (`:v1.3.14b1` + `:beta`, `:latest` unmoved at 1.3.13); composer tree is 1.3.14b2 untagged with its `:beta` alias-read fix.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -26,14 +26,14 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
-- Re-cutting a tag after a late job fails is the normal repair, not a version bump: delete the GitHub release, delete + re-push the tag onto the fix. `publish-pypi` has `skip-existing` so the untouched wheel is skipped rather than rejected. Only bump a version when a PUBLISHED ARTIFACT would otherwise change.
+- Tags cannot be deleted or moved on this remote (ruleset). A late-job failure is therefore repaired by a NEW version, not by re-cutting the tag — do not plan around deleting one.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
 - The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
 - Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Re-cut `v1.8.14b1`: delete the GitHub release (UI/gh — needs a token this agent does not have), then delete + re-push the tag onto a35d639 so the 7 assets attach. Then exercise the flow on a real deployment: opt in, receive the beta, opt out, confirm no downgrade.
+  - [ ] Exercise the flow on a real deployment once v1.8.14b2 publishes: opt in, receive the beta, opt out, confirm no downgrade.
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
   - [ ] Before v1.10.0 (removal moved there 2026-09-08, so it no longer gates 1.9.0): project-archive/dhub/trademarks must adopt the ribbon — 19 `advanced_filter_helper` call sites, and none of the three uses `RibbonMixin` yet. Each site carries per-field placeholders/col_class the ribbon replaces with an administrator-chosen layout, so it is a product decision per project. Pilot one filter against a running stack before converting the rest; none of the three is currently deployed locally. If that cannot land in time, move the removal to v1.10 instead of shipping 1.9.0 that breaks their list pages.
