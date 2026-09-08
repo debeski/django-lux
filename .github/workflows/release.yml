@@ -112,8 +112,16 @@ jobs:
         with:
           name: dist
           path: dist
+      # skip-existing lets a tag be re-pushed after a LATER job failed, without
+      # the upload 400-ing on a version PyPI already has. It cannot mask a
+      # forgotten version bump: `classify` refuses a tag that disagrees with
+      # dlux/release-manifest.json, so the only way to reach this step with an
+      # existing version is a deliberate re-push of the same tag. The artifact
+      # on PyPI is never replaced — PyPI does not allow that — it is left alone.
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   build-viewer:
     needs: classify

@@ -7,14 +7,6 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## v1.8.14b2
-
-Same package as b1. This exists because b1's release page published with zero
-files attached, and a published immutable release cannot be given them
-afterwards.
-
-- **Release Assets Never Reached An Immutable Release**: this repository has immutable releases enabled, and `softprops/action-gh-release` creates and publishes the release *before* uploading assets — so every upload failed with "Cannot upload asset ... to an immutable release" and v1.8.14b1 landed with correct notes, a correct prerelease flag, and none of its seven files. The wheel and sdist were on PyPI throughout, which is what the updater actually reads, so nothing was broken for a deployment; the release page was simply empty. The job now creates the release as a draft, uploads into the draft, then publishes it with an explicit PATCH — GitHub's own prescribed order — and asserts the published release has assets rather than reporting success on an empty one. `prerelease`/`make_latest` are restated at publication, because that is the moment GitHub decides the "latest" pointer and a beta must not take it.
-
 ## v1.8.14b1
 
 The first release published through the beta channel, and a rehearsal of that
@@ -31,6 +23,7 @@ builder through the same machinery.
 - **Prerelease Ordering Is Computed, Not Guessed**: baseline scans no longer trust `git tag --sort=version:refname`, which places `v1.9.0b1` above `v1.9.0` unless `versionsort.suffix` is configured. `_release_tags()` sorts by PEP 440, and `_previous_release_tag()` now diffs migrations against the last **stable** tag — validating 1.9.0b2 against 1.9.0b1 would have checked only the migrations added between the two betas and silently blessed everything b1 introduced.
 - **Composer Understands This Release At All**: `requires.migration_baseline`, added in the 1.8.14 work, was not in Composer's known-requirement allow-list, and that list fails closed — so every published Composer would have refused this manifest outright with "unsupported requirements". Fixed in Composer 1.3.14b1, which is why `requires.services.composer` is `>=1.3.14b1` and not `>=1.3.14`: a beta is not the release it is a beta of, and the floor names the version actually tested.
 - **A Release Can No Longer Claim It Migrates Nothing While It Does**: `migrations.effect` is the statement every downstream decision trusts — inline safety, the backup prompt, and through `migration_baseline` whether a deployment several versions behind learns its span crosses a migration at all — and nothing compared it against the repository. The baseline validator could not: a release declaring `none` is not treated as carrying migrations, so it is measured against the *previous* release's floor, which it trivially meets. `validate_declared_migration_effect()` reads the actual migration files changed since the base tag. It caught this release's own manifest, which declared `none` while adding `0021`.
+- **Release Assets Reach An Immutable Release**: this repository has immutable releases enabled, and `softprops/action-gh-release` creates and publishes the release *before* uploading assets — so a published release refuses them and the page lands with correct notes and no files. The job now creates a draft, uploads into the draft, then publishes it with an explicit PATCH, and asserts the published release actually has assets rather than reporting success on an empty one. `prerelease`/`make_latest` are restated at publication, because that is the moment GitHub decides the "latest" pointer. `publish-pypi` gains `skip-existing`, so a tag can be re-pushed after a later job fails without the upload rejecting a version PyPI already holds; `classify` already refuses a tag that disagrees with the manifest, so this cannot mask a forgotten bump.
 - **Wrappers Re-Synced**: the scaffolded `start.sh`/`start.ps1` were still at `composer-wrapper: 1` while Composer shipped 2. They are now 3, which also teaches both wrappers to read `.composer-channel` before any Composer code runs. An explicit `COMPOSER_SELF_IMAGE` pin still wins over the channel.
 
 ## v1.8.13
