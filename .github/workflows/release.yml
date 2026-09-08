@@ -172,12 +172,43 @@ jobs:
           PY
           echo "---- release notes ----"; cat RELEASE_NOTES.md
 
-      - name: Create GitHub Release
+      # Created as a DRAFT, then published in the next step. This repository has
+      # immutable releases enabled, and a published immutable release refuses new
+      # assets — the action publishes first and uploads after, so every asset
+      # upload failed with "Cannot upload asset ... to an immutable release" and
+      # v1.8.14b1 landed with a correct release page and zero files attached.
+      # Uploading while it is still a draft is GitHub's own prescribed order.
+      - name: Create GitHub Release (draft)
+        id: release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: release-files/*
           fail_on_unmatched_files: false
+          draft: true
           prerelease: ${{ needs.classify.outputs.prerelease }}
           make_latest: ${{ needs.classify.outputs.make_latest }}
+
+      # prerelease/make_latest are restated rather than assumed: publishing is
+      # the point at which GitHub decides the "latest" pointer, and a beta must
+      # not take it. Downstream automation should watch release.published — a
+      # draft prerelease emits that, not release.prereleased.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsSL --retry 3 -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.release.outputs.id }}" \
+            -d '{"draft":false,"prerelease":${{ needs.classify.outputs.prerelease }},"make_latest":"${{ needs.classify.outputs.make_latest }}"}' \
+            -o published.json
+          python - <<'PY'
+          import json
+          d = json.load(open("published.json"))
+          print(f"published {d['tag_name']}: draft={d['draft']} prerelease={d['prerelease']} assets={len(d['assets'])}")
+          assert not d["draft"], "release is still a draft"
+          assert d["assets"], "release published with no assets attached"
+          PY

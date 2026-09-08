@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.14b2
+
+Same package as b1. This exists because b1's release page published with zero
+files attached, and a published immutable release cannot be given them
+afterwards.
+
+- **Release Assets Never Reached An Immutable Release**: this repository has immutable releases enabled, and `softprops/action-gh-release` creates and publishes the release *before* uploading assets — so every upload failed with "Cannot upload asset ... to an immutable release" and v1.8.14b1 landed with correct notes, a correct prerelease flag, and none of its seven files. The wheel and sdist were on PyPI throughout, which is what the updater actually reads, so nothing was broken for a deployment; the release page was simply empty. The job now creates the release as a draft, uploads into the draft, then publishes it with an explicit PATCH — GitHub's own prescribed order — and asserts the published release has assets rather than reporting success on an empty one. `prerelease`/`make_latest` are restated at publication, because that is the moment GitHub decides the "latest" pointer and a beta must not take it.
+
 ## v1.8.14b1
 
 The first release published through the beta channel, and a rehearsal of that

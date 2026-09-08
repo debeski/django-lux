@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Dlux v1.8.13 is tagged/published; the tree is **v1.8.14b1 (UNTAGGED)** — the beta-channel rehearsal, paired with Composer 1.3.14b1. Carries the 1.8.14 work (boot-gate `apply`, cumulative migration baseline, one canonical audit/deletion column set, step-anchor guard) plus the channel implementation itself.
+- Dlux **v1.8.14b1 is tagged and published** (2026-09-08): on PyPI, GitHub release marked prerelease, `pip install django-lux` still resolves 1.8.13 and only `--pre` gets the beta. Its release page has ZERO assets — see below. Tree is v1.8.14b2 (UNTAGGED) — carrying the immutable-release fix. Composer 1.3.14b1 is published (`:v1.3.14b1` + `:beta`, `:latest` unmoved); composer is at 1.3.14b2 untagged with its own `:beta` alias fix.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -26,6 +26,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
+- v1.8.14b1's GitHub release published with 0 of its 7 assets: immutable releases are enabled and `action-gh-release` publishes before uploading. Fixed for b2 (draft -> upload -> PATCH publish). b1 cannot be retrofitted — a published immutable release refuses assets. PyPI was unaffected throughout, so no deployment was harmed.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
 - The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
 - Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
@@ -59,6 +60,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-08: 1.8.14b1 verified against REAL published artifacts — `pip install django-lux` -> 1.8.13, `--pre` -> 1.8.14b1; GitHub release prerelease=True, "latest" still v1.8.13; the published wheel's manifest is accepted by Composer 1.3.14b1 and REFUSED by shipped Composer 1.3.13 with exactly the predicted `migration_baseline` error. Full suite 2502 OK at b2.
 - 2026-09-08: channels — full `dlux.tests` 2502 OK (33 new in `test_channels`), `node --test tests-js` 63 OK, composer 599 OK (43 new in `tests/test_channels.py`); key tests confirmed failing against pre-fix code (the `migration_baseline` refusal, `channel=` selection, the prerelease-satisfies-floor bug); `release_check` exit 0 for `v1.8.14b1` after the new effect check forced the manifest to declare `additive`.
 - 2026-09-07: v1.8.14 — the new step-anchor guard found a second live instance of the audit-toggle bug (`ribbon_title` rendered in Ribbon, anchored to Components) and it is fixed; `expected_migration_baseline()` derives 1.8.9 from published history, which is the release decrees crossed.
 - 2026-09-07: v1.8.13 — both fixes proven against the running decrees stack: audit toggle stored True->False from Access & Security; save response went `add_more:true` -> `add_more:false` with the modal staying closed. New tests fail on the pre-fix code.
