@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.8.14b2",
+  "version": "1.8.14b3",
   "display": {
     "summary": "The beta-channel rehearsal, re-cut so the release page carries its artifacts. Same package as b1, which published correctly to PyPI but attached no files.",
     "highlights": [
@@ -8,7 +8,7 @@
       "A Git tag decides its own publication: v1.9.0b1 is a prerelease that never claims the 'latest' pointer, v1.9.0 is stable.",
       "Prerelease ordering is computed by PEP 440 rather than by pattern-matching, so 1.9.0b2 < 1.9.0b10 < 1.9.0rc1 < 1.9.0 holds everywhere."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.14b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.14b3"
   },
   "requires": {
     "updater_schema": ">=1",

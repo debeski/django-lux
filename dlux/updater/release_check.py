@@ -5,6 +5,7 @@ import sys
 import os
 from pathlib import Path
 import subprocess
+import urllib.request
 
 from packaging.version import InvalidVersion, Version
 
@@ -382,6 +383,100 @@ def changelog_section(version, path="CHANGELOG.md"):
     return "\n".join(body).strip()
 
 
+PYPI_JSON_URL = "https://pypi.org/pypi/django-lux/json"
+
+
+def requires_beta_first(version):
+    """True for a stable release that opens a new line: X.Y.0.
+
+    A patch may still ship stable directly — a hotfix held back for a beta cycle
+    is usually worse than the risk it avoids. What must never happen is a new
+    minor or major reaching the stable channel before anyone ran it as a beta.
+    """
+    parsed = Version(str(version))
+    if parsed.is_prerelease:
+        return False
+    return (tuple(parsed.release) + (0, 0, 0))[2] == 0
+
+
+def prerelease_tags_for(version, tags):
+    """The ``vX.Y.ZbN``/``rcN`` tags that are prereleases of exactly ``version``."""
+    base = Version(Version(str(version)).base_version)
+    found = []
+    for tag in tags:
+        tag = str(tag).strip()
+        if not tag.startswith("v"):
+            continue
+        try:
+            parsed = Version(tag[1:])
+        except InvalidVersion:
+            continue
+        if parsed.is_prerelease and not parsed.is_devrelease and Version(parsed.base_version) == base:
+            found.append(tag)
+    return found
+
+
+def published_prereleases_on_pypi(version, *, opener=urllib.request.urlopen):
+    """Prereleases of ``version`` that PyPI serves with at least one non-yanked file."""
+    base = Version(Version(str(version)).base_version)
+    request = urllib.request.Request(
+        PYPI_JSON_URL,
+        headers={"Accept": "application/json", "User-Agent": "django-lux-release-check/1"},
+    )
+    with opener(request, timeout=20) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    published = set()
+    for raw, files in (data.get("releases") or {}).items():
+        try:
+            parsed = Version(raw)
+        except InvalidVersion:
+            continue
+        if not parsed.is_prerelease or Version(parsed.base_version) != base:
+            continue
+        if any(isinstance(item, dict) and not item.get("yanked") for item in files or []):
+            published.add(parsed)
+    return published
+
+
+def validate_beta_first(version, *, tags=None, fetch_published=published_prereleases_on_pypi):
+    """Refuse a new minor or major stable release that no published beta preceded.
+
+    Enforces release_channels_plan.md §1 — 1.9.0 must not first appear as stable
+    — in CI rather than in someone's memory. Two conditions, both required: a
+    prerelease tag of this exact version is in the tagged commit's history, and
+    PyPI actually serves it. A tag whose release job died before upload was never
+    installable, so it was never tested either.
+
+    Deliberately narrower than the plan's final gate. It proves a beta was
+    published, not that it passed acceptance; recording acceptance evidence and
+    requiring it (plan §3.5/§3.8) is still ahead. PyPI being unreachable refuses
+    rather than waves the release through.
+    """
+    if not requires_beta_first(version):
+        return []
+    tags = _release_tags() if tags is None else list(tags)
+    betas = prerelease_tags_for(version, tags)
+    if not betas:
+        return [
+            f"v{version} opens a new release line and must be published as a beta first: "
+            f"no v{version}bN or v{version}rcN tag is in this commit's history."
+        ]
+    try:
+        live = set(fetch_published(version))
+    except Exception as exc:
+        return [
+            f"Could not confirm on PyPI that a beta of v{version} was published ({exc}). "
+            "Refusing to publish stable without that evidence; re-run once PyPI is reachable."
+        ]
+    if not {Version(tag[1:]) for tag in betas} & live:
+        names = ", ".join(sorted(betas, key=lambda tag: Version(tag[1:])))
+        return [
+            f"v{version} has beta tags ({names}) but PyPI serves none of them. "
+            "A beta that never reached PyPI was never installable, so it was never tested."
+        ]
+    return []
+
+
 def validate_inline_migrations(base_tag):
     errors = []
     for path in _changed_migrations(base_tag):
@@ -433,6 +528,11 @@ def main(argv=None):
                 "Add it before tagging.",
                 file=sys.stderr,
             )
+            return 1
+        errors = validate_beta_first(decision["version"])
+        if errors:
+            for error in errors:
+                print(f"::error::{error}", file=sys.stderr)
             return 1
         print(json.dumps(decision, sort_keys=True))
         output = os.getenv("GITHUB_OUTPUT")

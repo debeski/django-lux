@@ -13,12 +13,18 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from packaging.version import Version
 
 from dlux.models.settings import SystemSettings
 from dlux.models.updater import DluxUpdateState
 from dlux.updater import UpdaterError, channel
 from dlux.updater.manifest import select_latest_candidate
-from dlux.updater.release_check import changelog_section, classify_tag
+from dlux.updater.release_check import (
+    changelog_section,
+    classify_tag,
+    published_prereleases_on_pypi,
+    validate_beta_first,
+)
 from dlux.updater.runtime import RuntimeStore
 from dlux.updater.service import (
     channel_status,
@@ -362,3 +368,86 @@ class ReleaseTagTests(SimpleTestCase):
             self.assertEqual(changelog_section("1.8.14", path), "final notes")
             self.assertEqual(changelog_section("1.8.14b1", path), "beta notes")
             self.assertEqual(changelog_section("9.9.9", path), "")
+
+
+class BetaFirstGateTests(SimpleTestCase):
+    """A new minor or major must never first appear as stable (plan §1)."""
+
+    @staticmethod
+    def _published(*versions):
+        return lambda _version: {Version(v) for v in versions}
+
+    def test_a_new_minor_with_no_beta_tag_is_refused(self):
+        errors = validate_beta_first(
+            "1.9.0", tags=["v1.8.14", "v1.8.14b2"], fetch_published=self._published(),
+        )
+        self.assertEqual(len(errors), 1)
+        self.assertIn("must be published as a beta first", errors[0])
+
+    def test_a_published_beta_admits_the_stable_release(self):
+        self.assertEqual(validate_beta_first(
+            "1.9.0", tags=["v1.8.14", "v1.9.0b1", "v1.9.0b2"],
+            fetch_published=self._published("1.9.0b1", "1.9.0b2"),
+        ), [])
+
+    def test_a_release_candidate_counts_as_the_beta(self):
+        self.assertEqual(validate_beta_first(
+            "1.9.0", tags=["v1.9.0rc1"], fetch_published=self._published("1.9.0rc1"),
+        ), [])
+
+    def test_a_beta_that_never_reached_pypi_does_not_count(self):
+        # The tag exists because the release job started; nobody could install it.
+        errors = validate_beta_first("1.9.0", tags=["v1.9.0b1"], fetch_published=self._published())
+        self.assertIn("PyPI serves none of them", errors[0])
+
+    def test_a_beta_of_another_release_does_not_count(self):
+        errors = validate_beta_first(
+            "1.9.0", tags=["v1.8.14b2", "v1.10.0b1"],
+            fetch_published=self._published("1.8.14b2", "1.10.0b1"),
+        )
+        self.assertIn("must be published as a beta first", errors[0])
+
+    def test_an_unreachable_pypi_refuses_rather_than_waving_it_through(self):
+        def unreachable(_version):
+            raise OSError("timed out")
+
+        errors = validate_beta_first("1.9.0", tags=["v1.9.0b1"], fetch_published=unreachable)
+        self.assertIn("Could not confirm", errors[0])
+
+    def test_a_major_release_is_gated_too(self):
+        self.assertTrue(validate_beta_first("2.0.0", tags=[], fetch_published=self._published()))
+
+    def test_patches_and_prereleases_consult_nothing(self):
+        # tags=None would shell out to git and the fetcher raises: a pass here
+        # proves neither was touched for releases the gate does not cover.
+        def must_not_be_called(_version):
+            raise AssertionError("the gate consulted PyPI for a release it does not cover")
+
+        for version in ("1.9.1", "1.8.15", "1.9.0b1", "1.9.0rc2"):
+            with self.subTest(version=version):
+                self.assertEqual(
+                    validate_beta_first(version, tags=None, fetch_published=must_not_be_called), [],
+                )
+
+    def test_pypi_reading_ignores_yanked_files_and_other_releases(self):
+        payload = {"releases": {
+            "1.9.0b1": [{"yanked": True}],
+            "1.9.0b2": [{"yanked": False}],
+            "1.9.0rc1": [],
+            "1.9.0": [{"yanked": False}],
+            "1.8.14b2": [{"yanked": False}],
+            "not-a-version": [{"yanked": False}],
+        }}
+
+        class _Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+            def read(self):
+                return json.dumps(payload).encode("utf-8")
+
+        published = published_prereleases_on_pypi("1.9.0", opener=lambda *_a, **_k: _Response())
+        self.assertEqual(published, {Version("1.9.0b2")})

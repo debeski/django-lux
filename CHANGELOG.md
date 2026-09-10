@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.14b3
+
+- **A New Minor Or Major Cannot First Appear As Stable**: `release_check --classify` now runs `validate_beta_first()`, which refuses a stable `vX.Y.0` tag unless a prerelease of that exact version (`bN` or `rcN`) is both reachable from the tagged commit and served by PyPI with a non-yanked file. A tag whose release job died before upload does not count — nobody could install it, so nobody tested it. PyPI being unreachable refuses rather than waves the release through. Patch releases are not gated, so a hotfix can still ship stable directly. This enforces `release_channels_plan.md` §1 in CI instead of by memory; it proves a beta was published, not that it passed acceptance, which is the stronger gate still ahead.
+
 ## v1.8.14b2
 
 Identical package to b1. b1 published correctly to PyPI but its GitHub release

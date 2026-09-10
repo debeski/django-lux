@@ -129,6 +129,19 @@ versions strictly *above* the installed one, so a deployment on `1.9.0b2` that
 leaves the beta channel simply waits for `1.9.0`. Going back to an older release
 is the explicit rollback path, with its own database and image-floor checks.
 
+### A new minor or major must be a beta first
+
+`classify` refuses a stable `vX.Y.0` tag unless a beta or release candidate of
+that exact version is both in the tagged commit's history **and** on PyPI with a
+file that is not yanked. `v1.9.0` cannot publish until `v1.9.0b1` (or `rc1`)
+has, and a beta tag whose release job failed before upload does not count.
+
+Patch releases (`v1.9.1`) are not gated — a hotfix should not wait for a beta
+cycle. If PyPI cannot be reached, the tag is refused; re-run the job once it is.
+
+This proves a beta was *published*. It does not prove the beta passed
+acceptance; that stronger gate is still to come.
+
 ### Two things that bite on a beta line
 
 **Declare the tested minimum, not the release it precedes.** `1.9.0b1` is *not*
