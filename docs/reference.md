@@ -807,6 +807,13 @@ System Settings form rewrites its own hidden JSON carriers during init and live
 preview, dispatching synthetic events that would otherwise mark it dirty
 immediately.
 
+System Settings page mutations are owned by `window.DluxSetupPreview` from
+`dlux/static/dlux/setup/js/previews.js`. Handlers must tolerate absent targets:
+the first-launch wizard has no sidebar, while an Options modal does. Legacy
+preview exports remain on `window.DluxSetup` for compatibility. Notification,
+email, security, login, profile, search, logging, backup, and feature-policy
+settings do not mutate unrelated live page chrome.
+
 The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
 user preference; while set, a dirty close discards without prompting. This is
 intentionally not a standalone Options toggle: use the Options footer's

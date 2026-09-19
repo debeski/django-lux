@@ -1,158 +1,400 @@
-/* Setup wizard: live previews of the surrounding chrome.
+/* System Settings live previews.
  *
- * Editing a setting updates the real footer, titlebar and body flags
- * immediately, without a save — which is also why breaking one is silent: the
- * preview simply stops responding and the operator configures blind.
- *
- * `applySidebarPreview` deliberately stayed in main.js. The wizard renders no
- * sidebar (`#sidebar` and `.sidebar` are both absent from the page), so its 112
- * lines have nothing to act on and cannot be verified across a move.
- *
- * Depends on setup/js/dom.js.
+ * This module owns mutations of rendered page chrome made from unsaved System
+ * Settings values. Every handler is safe when its target is absent because the
+ * setup wizard and the Options modal expose different page surfaces.
  */
 (function (root) {
     'use strict';
 
-    const {
-        getNamedFieldValue
-    } = root.DluxSetupDom;
+    const { getNamedFieldValue } = root.DluxSetupDom;
+    const { getSetupAllowedThemeCount, getSetupLanguageCount } = root.DluxSetup;
 
-    function applyBrandingFilePreviews(form) {
-        const logoInput = form.querySelector('#id_logo');
-        const faviconInput = form.querySelector('#id_favicon');
+    // Mirrors TITLEBAR_ACTIONS_ORDER in dlux/system/constants.py. Keep this
+    // complete: normalization also feeds the titlebar order builder.
+    const TITLEBAR_ACTIONS_DEFAULT_ORDER = [
+        'search',
+        'theme',
+        'language',
+        'notifications',
+        'home',
+        'profile',
+        'help',
+        'users',
+        'activity',
+        'reports',
+        'settings',
+        'auth',
+    ];
+    const TITLEBAR_ACTIONS_KNOWN = new Set(TITLEBAR_ACTIONS_DEFAULT_ORDER);
 
-        if (logoInput && logoInput.files && logoInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.querySelectorAll('.titlebar__logo, .dlux-setup-page-logo').forEach((image) => {
-                    image.setAttribute('src', reader.result);
-                });
-            };
-            reader.readAsDataURL(logoInput.files[0]);
-        }
-
-        if (faviconInput && faviconInput.files && faviconInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.querySelectorAll('link[rel="icon"]').forEach((favicon) => {
-                    favicon.setAttribute('href', reader.result);
-                });
-            };
-            reader.readAsDataURL(faviconInput.files[0]);
-        }
-    }
-
-    function applyFooterPreview(form) {
-        // Best-effort: the footer element only exists in the DOM when enabled, so
-        // we can hide a shown footer and update its text/link live; enabling a
-        // currently-absent footer only takes effect after save.
-        if (!form.querySelector('[name="footer_enabled"]')) {
-            return;
-        }
-        const enabled = readBooleanField(form, '#id_footer_enabled', true);
-        const footer = document.querySelector('footer.dlux-footer');
-        if (footer) {
-            footer.style.display = enabled ? '' : 'none';
-            const textEl = footer.querySelector('.dlux-footer__text');
-            const text = getNamedFieldValue(form, 'footer_text');
-            if (textEl && text) {
-                textEl.textContent = text;
-            }
-        }
-    }
-
-    function applyLayoutBodyPreview(form) {
-        // Live-preview only the GLOBAL layout settings on the <body> behind the
-        // modal: sticky headers, column resizing, and zebra striping (admin-only,
-        // no per-user override). `default_form_density` and `default_modal_size` are the admin
-        // DEFAULTS for those per-user preferences — previewing them here would
-        // overwrite the editing admin's OWN resolved `data-dlux-form-density` /
-        // `data-dlux-modal-size` (which reflect their personal Options choice),
-        // making every modal snap to the global default. So they are NOT previewed.
-        if (form.querySelector('[name="sticky_table_headers"]')) {
-            document.body.dataset.dluxStickyHeader = readBooleanField(form, '#id_sticky_table_headers', true) ? 'on' : 'off';
-        }
-        if (form.querySelector('[name="resizable_table_columns"]')) {
-            document.body.dataset.dluxTableResize = readBooleanField(form, '#id_resizable_table_columns', true) ? 'on' : 'off';
-        }
-        if (form.querySelector('[name="zebra_striping"]')) {
-            document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
-        }
-        if (form.querySelector('[name="table_accent_edges"]')) {
-            document.body.dataset.dluxTableAccent = readBooleanField(form, '#id_table_accent_edges', false) ? 'on' : 'off';
-        }
-    }
-
-    function applyNotificationPreview(form) {
-        const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
-        const flashEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_flash_enabled', true);
-        const flashPosition = getNamedFieldValue(form, 'notification_flash_position') || 'top_center';
-        const flashSize = getNamedFieldValue(form, 'notification_flash_size') || 'balanced';
-        const flashTextSize = getNamedFieldValue(form, 'notification_flash_text_size') || 'md';
-        const flashTimeout = readTrimmedValue(form, '#id_notification_flash_timeout_ms', '3200') || '3200';
-        const flashMaxVisible = readTrimmedValue(form, '#id_notification_flash_max_visible', '3') || '3';
-        document.querySelectorAll('.dlux-flash-container, .dlux-page-alert-container').forEach((container) => {
-            container.dataset.dluxFlashPosition = flashPosition;
-            container.dataset.dluxFlashSize = flashSize;
-            container.dataset.dluxFlashTextSize = flashTextSize;
-            container.dataset.dluxFlashTimeout = flashTimeout;
-            container.dataset.dluxFlashMaxVisible = flashMaxVisible;
-            setPreviewVisibility(container, flashEnabled);
-        });
-
-        const drawerEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_drawer_enabled', true);
-        const badgeEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_badge_enabled', true);
-        const notificationRoots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
-        notificationRoots.forEach((notifications) => {
-            notifications.dataset.dluxNotificationsEnabled = drawerEnabled ? 'true' : 'false';
-            notifications.dataset.badgeEnabled = badgeEnabled ? 'true' : 'false';
-            setPreviewVisibility(notifications, drawerEnabled);
-            notifications.querySelectorAll('[data-dlux-notifications-badge]').forEach((badge) => {
-                const hasCount = String(badge.textContent || '').trim().length > 0;
-                badge.classList.toggle('d-none', !badgeEnabled || !hasCount);
-            });
-        });
-    }
-
-    function applyTableDensityPreview(form) {
-        const density = getNamedFieldValue(form, 'default_table_density') || 'balanced';
-        if (typeof window.applyDluxTableDensityPreview === 'function') {
-            window.applyDluxTableDensityPreview(density);
+    function parseJson(text, fallback) {
+        try {
+            return JSON.parse(text || '');
+        } catch (error) {
+            return fallback;
         }
     }
 
     function readBooleanField(form, selector, fallback) {
         const field = form.querySelector(selector);
-        if (!field) {
-            return Boolean(fallback);
-        }
-        return Boolean(field.checked);
+        return field ? Boolean(field.checked) : Boolean(fallback);
     }
 
     function readTrimmedValue(form, selector, fallback) {
         const field = form.querySelector(selector);
-        if (!field) {
-            return fallback || '';
-        }
-        return String(field.value || fallback || '').trim();
+        return field ? String(field.value || fallback || '').trim() : fallback || '';
     }
 
     function setPreviewVisibility(element, isVisible) {
-        if (!element) {
-            return;
-        }
+        if (!element) return;
         element.classList.toggle('d-none', !isVisible);
         element.style.display = isVisible ? '' : 'none';
     }
 
-    root.DluxSetup = Object.assign(root.DluxSetup || {}, {
-        applyBrandingFilePreviews,
+    function normalizeTitlebarActionsOrder(value) {
+        let rawValue = value;
+        if (typeof rawValue === 'string') rawValue = parseJson(rawValue, []);
+        if (!Array.isArray(rawValue)) rawValue = [];
+        const seen = new Set();
+        const normalized = [];
+        rawValue.forEach((item) => {
+            const key = String(item || '').trim();
+            if (TITLEBAR_ACTIONS_KNOWN.has(key) && !seen.has(key)) {
+                normalized.push(key);
+                seen.add(key);
+            }
+        });
+        TITLEBAR_ACTIONS_DEFAULT_ORDER.forEach((key) => {
+            if (!seen.has(key)) normalized.push(key);
+        });
+        return normalized;
+    }
+
+    function readTitlebarActionsOrder(form) {
+        return normalizeTitlebarActionsOrder(getNamedFieldValue(form, 'titlebar_actions_order'));
+    }
+
+    function applyTitlebarActionOrderPreview(titlebar, order) {
+        const normalizedOrder = normalizeTitlebarActionsOrder(order);
+        titlebar.querySelectorAll('[data-titlebar-actions]').forEach((container) => {
+            const nodesByKey = new Map();
+            Array.from(container.children).forEach((node) => {
+                const key = node.getAttribute('data-titlebar-action-key')
+                    || node.querySelector('[data-titlebar-action-key]')?.getAttribute('data-titlebar-action-key');
+                if (key && !nodesByKey.has(key)) nodesByKey.set(key, node);
+            });
+            normalizedOrder.forEach((key) => {
+                const node = nodesByKey.get(key);
+                if (node) container.appendChild(node);
+            });
+        });
+    }
+
+    function applyTitlebarPreview(form) {
+        const titlebar = document.querySelector('.titlebar');
+        if (!titlebar) return;
+
+        const showTitle = readBooleanField(form, '#id_titlebar_show_title', true);
+        const accentEdge = readBooleanField(form, '#id_titlebar_accent_edge', false);
+        const showLogo = readBooleanField(form, '#id_titlebar_show_logo', true);
+        const showHome = readBooleanField(form, '#id_titlebar_show_home_button', true);
+        const showLanguageSwitcher = readBooleanField(form, '#id_titlebar_show_language_switcher', false);
+        const titleAlign = getNamedFieldValue(form, 'titlebar_title_align') || 'start';
+        const titleSize = getNamedFieldValue(form, 'titlebar_title_size') || 'md';
+        const height = getNamedFieldValue(form, 'titlebar_height') || 'balanced';
+        const surface = getNamedFieldValue(form, 'titlebar_surface') || 'default';
+        const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
+        const logoTreatmentShape = getNamedFieldValue(form, 'titlebar_logo_treatment_shape') || 'soft';
+        const buttonsShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
+        const userHubStyle = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
+        const actionsLayout = getNamedFieldValue(form, 'titlebar_actions_layout') === 'grouped' ? 'grouped' : 'scattered';
+        const homeUrl = readTrimmedValue(
+            form,
+            '#id_home_url',
+            titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/',
+        );
+        const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
+        const htmlLang = (
+            document.documentElement.getAttribute('lang')
+            || (root.USER_PREFS && root.USER_PREFS._lang)
+            || 'en'
+        ).split('-')[0];
+        let systemNames = {};
+        try {
+            systemNames = JSON.parse(getNamedFieldValue(form, 'system_names') || '{}') || {};
+        } catch (error) {
+            systemNames = {};
+        }
+        const defaultLanguage = getNamedFieldValue(form, 'default_language') || 'en';
+        const resolvedName = systemNames[htmlLang]
+            || systemNames[defaultLanguage]
+            || Object.values(systemNames).find(Boolean)
+            || 'DjangoLux';
+
+        titlebar.dataset.titleAlign = titleAlign;
+        titlebar.dataset.titleSize = titleSize;
+        titlebar.dataset.titlebarHeight = height;
+        titlebar.dataset.titlebarSurface = surface;
+        titlebar.dataset.titlebarLogoTreatment = logoTreatment;
+        titlebar.dataset.titlebarLogoTreatmentShape = logoTreatmentShape;
+        titlebar.dataset.titlebarButtonsShape = buttonsShape;
+        titlebar.dataset.titlebarHomeShape = buttonsShape;
+        titlebar.dataset.titlebarUserHubStyle = userHubStyle === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown';
+        titlebar.dataset.titlebarActionsLayout = actionsLayout;
+        titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
+        titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
+        titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
+        titlebar.dataset.titlebarShowLanguageSwitcher = showLanguageSwitcher ? 'true' : 'false';
+        document.body.dataset.dluxTitlebarAccent = accentEdge ? 'on' : 'off';
+        applyTitlebarActionOrderPreview(titlebar, readTitlebarActionsOrder(form));
+
+        titlebar.querySelectorAll('[data-titlebar-home]').forEach((homeButton) => {
+            if (homeUrl) homeButton.setAttribute('href', homeUrl);
+        });
+        document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {
+            const hideDropdown = userHubStyle === 'titlebar_actions';
+            card.classList.toggle('d-none', hideDropdown);
+            card.setAttribute('aria-hidden', hideDropdown ? 'true' : 'false');
+        });
+
+        const dropdownHelp = document.querySelector('#dlux-user-dropdown-card [data-dlux-start-tour]');
+        const titlebarHelp = titlebar.querySelector('.titlebar__actions--titlebar [data-dlux-start-tour]');
+        if (dropdownHelp && titlebarHelp) {
+            if (userHubStyle === 'titlebar_actions') {
+                dropdownHelp.removeAttribute('id');
+                titlebarHelp.setAttribute('id', 'start-tour');
+            } else {
+                titlebarHelp.removeAttribute('id');
+                dropdownHelp.setAttribute('id', 'start-tour');
+            }
+        }
+        const titleTarget = titlebar.querySelector('[data-titlebar-title-text]');
+        if (titleTarget) titleTarget.textContent = scopeName ? `${resolvedName} - ${scopeName}` : resolvedName;
+    }
+
+    function applySidebarPreview(form) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+
+        const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
+        const accentEdge = readBooleanField(form, '#id_sidebar_accent_edge', false);
+        const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
+        const showNotificationBadges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
+        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
+        const allowUserDensity = readBooleanField(form, '#id_sidebar_allow_user_density', true);
+        const enableToolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
+        const showSectionsManager = readBooleanField(form, '#id_sidebar_show_sections_manager', true);
+        const enableReorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
+        const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
+        const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
+        const themeToolVisible = allowThemeOverride && getSetupAllowedThemeCount(form) > 1;
+        const densityToolVisible = allowUserDensity;
+
+        setPreviewVisibility(sidebar, sidebarEnabled);
+        sidebar.dataset.sidebarEnabled = sidebarEnabled ? 'true' : 'false';
+        document.body.dataset.dluxSidebarAccent = accentEdge ? 'on' : 'off';
+        sidebar.dataset.sidebarShowIcons = showIcons ? 'true' : 'false';
+        sidebar.dataset.sidebarCollapseMode = collapseMode;
+        sidebar.dataset.sidebarDensity = density;
+        sidebar.dataset.sidebarDefaultDensity = density;
+        sidebar.dataset.sidebarAllowUserDensity = allowUserDensity ? 'true' : 'false';
+
+        const badgesEnabled = sidebarEnabled && showNotificationBadges;
+        const sidebarTree = sidebar.querySelector('#sidebarTreeRoot');
+        if (sidebarTree) sidebarTree.dataset.dluxSidebarNotificationBadgesEnabled = badgesEnabled ? 'true' : 'false';
+        sidebar.querySelectorAll('[data-dlux-sidebar-notification-badge]').forEach((badge) => {
+            badge.classList.toggle('d-none', !badgesEnabled || !String(badge.textContent || '').trim());
+        });
+
+        if (collapseMode === 'locked_expanded') sidebar.classList.remove('collapsed');
+        const titlebar = document.querySelector('.titlebar');
+        if (titlebar) {
+            titlebar.dataset.sidebarCollapseMode = collapseMode;
+            const startSide = titlebar.querySelector('.titlebar__side--start');
+            if (startSide) {
+                startSide.classList.toggle('titlebar__side--empty', !sidebarEnabled);
+                startSide.classList.toggle('titlebar__side--has-toggle', sidebarEnabled && collapseMode !== 'locked_expanded');
+                startSide.classList.toggle('titlebar__side--mobile-toggle', sidebarEnabled && collapseMode === 'locked_expanded');
+            }
+        }
+        const titlebarToggle = document.getElementById('sidebarToggle');
+        if (titlebarToggle) {
+            titlebarToggle.classList.toggle(
+                'sidebar-toggle--desktop-disabled',
+                sidebarEnabled && collapseMode === 'locked_expanded',
+            );
+        }
+        setPreviewVisibility(titlebarToggle, sidebarEnabled);
+
+        const toggleIconPicker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
+        const toggleGlyph = titlebarToggle ? titlebarToggle.querySelector('i') : null;
+        if (toggleIconPicker && toggleGlyph) {
+            const icon = getNamedFieldValue(form, 'sidebar_toggle_icon') || 'bi-list';
+            const directional = String(toggleIconPicker.getAttribute('data-icon-directional') || '')
+                .split(/\s+/)
+                .filter(Boolean);
+            toggleGlyph.className = `bi ${icon}${directional.includes(icon) ? ' dlux-icon-directional' : ''}`;
+        }
+
+        const toolbar = sidebar.querySelector('.sidebar-toolbar');
+        const themeArrow = document.getElementById('sidebarThemeArrow');
+        const themeIndicator = document.getElementById('sidebarThemeIndicator');
+        const themePopup = document.getElementById('sidebarThemePopup');
+        const densityControl = sidebar.querySelector('.sidebar-density-control');
+        const reorderToggle = document.getElementById('sidebarReorderToggle') || sidebar.querySelector('.reorder-toggle');
+        const sectionsManagerLink = sidebar.querySelector('.sidebar-toolbar-link');
+        const sectionsManagerVisible = showSectionsManager && Boolean(sectionsManagerLink);
+        const toolbarVisible = sidebarEnabled && enableToolbar && Boolean(
+            themeToolVisible || densityToolVisible || enableReorder || sectionsManagerVisible
+        );
+
+        setPreviewVisibility(themeArrow, sidebarEnabled && themeToolVisible);
+        setPreviewVisibility(themeIndicator, sidebarEnabled && themeToolVisible);
+        setPreviewVisibility(densityControl, sidebarEnabled && densityToolVisible);
+        setPreviewVisibility(reorderToggle, sidebarEnabled && enableReorder);
+        setPreviewVisibility(sectionsManagerLink, sidebarEnabled && sectionsManagerVisible);
+        setPreviewVisibility(toolbar, toolbarVisible);
+        if (!themeToolVisible && themePopup) themePopup.classList.remove('show');
+        if (!densityToolVisible) document.getElementById('sidebarDensityPopup')?.classList.remove('show');
+        sidebar.querySelectorAll('[data-sidebar-density-choice]').forEach((option) => {
+            option.classList.toggle('is-active', option.getAttribute('data-sidebar-density-choice') === density);
+        });
+
+        setPreviewVisibility(document.querySelector('[data-options-card="theme"]'), themeToolVisible);
+        setPreviewVisibility(
+            document.querySelector('[data-options-card="language"]'),
+            allowUserLanguage && getSetupLanguageCount(form) > 1,
+        );
+        setPreviewVisibility(
+            document.querySelector('[data-options-card="sidebar-density"]'),
+            sidebarEnabled && allowUserDensity,
+        );
+    }
+
+    function applyBrandingPreview(form) {
+        function previewAsset(fieldSelector, targets, attribute) {
+            const valueInput = form.querySelector(fieldSelector);
+            const picker = valueInput?.closest('[data-asset-picker]');
+            const uploadInput = picker?.querySelector('[data-asset-picker-upload]');
+            const selectedUrl = String(picker?.dataset.initialUrl || '').trim();
+            const applyUrl = (url) => {
+                if (!url) return;
+                document.querySelectorAll(targets).forEach((element) => element.setAttribute(attribute, url));
+            };
+            if (uploadInput?.files?.[0]) {
+                const reader = new FileReader();
+                reader.onload = () => applyUrl(reader.result);
+                reader.readAsDataURL(uploadInput.files[0]);
+                return;
+            }
+            applyUrl(selectedUrl);
+        }
+
+        previewAsset('#id_logo', '.titlebar__logo, .dlux-setup-page-logo', 'src');
+        previewAsset('#id_favicon', 'link[rel="icon"]', 'href');
+    }
+
+    function applyFooterPreview(form) {
+        if (!form.querySelector('[name="footer_enabled"]')) return;
+        const footer = document.querySelector('footer.dlux-footer');
+        if (!footer) return;
+        footer.style.display = readBooleanField(form, '#id_footer_enabled', true) ? '' : 'none';
+        const text = getNamedFieldValue(form, 'footer_text');
+        const textElement = footer.querySelector('.dlux-footer__text');
+        if (textElement && text) textElement.textContent = text;
+        const linkElement = footer.querySelector('.dlux-footer__link');
+        if (linkElement) {
+            const linkText = getNamedFieldValue(form, 'footer_link_text');
+            const linkUrl = getNamedFieldValue(form, 'footer_link_url');
+            if (linkUrl) linkElement.setAttribute('href', linkUrl);
+            if (linkText || linkUrl) linkElement.textContent = linkText || linkUrl;
+            setPreviewVisibility(linkElement, Boolean(linkUrl));
+        }
+    }
+
+    function applyLayoutPreview(form) {
+        const mappings = [
+            ['sticky_table_headers', '#id_sticky_table_headers', 'dluxStickyHeader', true],
+            ['resizable_table_columns', '#id_resizable_table_columns', 'dluxTableResize', true],
+            ['zebra_striping', '#id_zebra_striping', 'dluxZebra', true],
+            ['table_accent_edges', '#id_table_accent_edges', 'dluxTableAccent', false],
+        ];
+        mappings.forEach(([name, selector, dataKey, fallback]) => {
+            if (form.querySelector(`[name="${name}"]`)) {
+                document.body.dataset[dataKey] = readBooleanField(form, selector, fallback) ? 'on' : 'off';
+            }
+        });
+        const tableEdges = getNamedFieldValue(form, 'table_edges');
+        const cardEdges = getNamedFieldValue(form, 'card_edges');
+        if (tableEdges) document.body.dataset.dluxTableEdges = tableEdges;
+        if (cardEdges) document.body.dataset.dluxCardEdges = cardEdges;
+    }
+
+    function applyTableDensityPreview(form) {
+        const density = getNamedFieldValue(form, 'default_table_density') || 'balanced';
+        if (typeof root.applyDluxTableDensityPreview === 'function') {
+            root.applyDluxTableDensityPreview(density);
+        }
+    }
+
+    function applyThemePreview(theme, cssUrl) {
+        if (typeof root.setTheme !== 'function') return;
+        root.setTheme(theme, { preview: true, cssUrl: cssUrl || '' });
+    }
+
+    function applySystemSettingsPreview(form) {
+        if (!form || !form.classList.contains('dlux-system-setup-form')) return;
+        applyTitlebarPreview(form);
+        applyBrandingPreview(form);
+        applySidebarPreview(form);
+        applyTableDensityPreview(form);
+        applyLayoutPreview(form);
+        applyFooterPreview(form);
+        root.dispatchEvent(new Event('resize'));
+    }
+
+    function initSystemSettingsPreview(scope) {
+        scope.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            if (form.dataset.systemSettingsPreviewBound === 'true') {
+                applySystemSettingsPreview(form);
+                return;
+            }
+            form.dataset.systemSettingsPreviewBound = 'true';
+            form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
+                const eventName = field.type === 'text' || field.tagName === 'TEXTAREA' ? 'input' : 'change';
+                field.addEventListener(eventName, () => applySystemSettingsPreview(form));
+                if (eventName !== 'change') {
+                    field.addEventListener('change', () => applySystemSettingsPreview(form));
+                }
+            });
+            applySystemSettingsPreview(form);
+        });
+    }
+
+    const previewApi = {
+        TITLEBAR_ACTIONS_DEFAULT_ORDER,
+        applyBrandingPreview,
         applyFooterPreview,
-        applyLayoutBodyPreview,
-        applyNotificationPreview,
+        applyLayoutPreview,
+        applySidebarPreview,
+        applySystemSettingsPreview,
         applyTableDensityPreview,
+        applyThemePreview,
+        applyTitlebarPreview,
+        initSystemSettingsPreview,
+        normalizeTitlebarActionsOrder,
         readBooleanField,
+        readTitlebarActionsOrder,
         readTrimmedValue,
-        setPreviewVisibility
+        setPreviewVisibility,
+    };
+    root.DluxSetupPreview = Object.assign(root.DluxSetupPreview || {}, previewApi);
+    root.DluxSetup = Object.assign(root.DluxSetup || {}, previewApi, {
+        applyBrandingFilePreviews: applyBrandingPreview,
+        applyImmediateSystemSettingsPreview: applySystemSettingsPreview,
+        applyLayoutBodyPreview: applyLayoutPreview,
+        initImmediateSystemSettingsPreview: initSystemSettingsPreview,
     });
 })(typeof window !== 'undefined' ? window : globalThis);

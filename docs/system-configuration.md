@@ -32,27 +32,53 @@ The first three determine system policy. Personal theme, language, sidebar state
 
 `/sys/setup/` is the initial configuration workflow. It first asks for the setup language; that choice affects only the wizard UI. The persisted default language is selected later in **Localization**.
 
-The current wizard has seventeen steps:
+The current wizard has eighteen steps:
 
-1. **Identity** — localized names, logo, favicon, footer, and configuration import.
-2. **Localization** — language catalog, default language, user overrides, and translation overrides.
-3. **Homepage** — authenticated homepage, per-user override, and anonymous public homepage.
-4. **Email** — delivery path, provider preset, secrets, test send, and failure alerts.
-5. **Access and security** — authentication, sessions, registration, consent, and client-IP policy.
-6. **Login page** — layout, logo treatment, color, and localized hero message.
+1. **Branding** — localized names, logo, favicon, footer, and configuration import.
+2. **Languages** — language catalog, default language, user overrides, and translation overrides.
+3. **Email** — delivery path, provider preset, secrets, test send, and failure alerts.
+4. **Access and Security** — authentication, sessions, registration, consent, and client-IP policy.
+5. **Themes and Fonts** — theme and font defaults, allowlists, overrides, and edge styles.
+6. **Titlebar** — home/logo, actions, language switcher, geometry, and surface.
 7. **Sidebar** — navigation tree, visibility, toolbar, and personal reordering policy.
 8. **Navbar** — hierarchy/history mode, navigation root, and user override policy.
-9. **Titlebar** — home/logo, actions, language switcher, geometry, and surface.
-10. **Global Search** — titlebar search display and optional record search.
-11. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
-12. **Themes and typography** — theme and font defaults, allowlists, and overrides.
-13. **Layout** — tables, forms, modals, Options layout, audit fields, and soft-delete review.
-14. **Logging** — activity and audit policy plus retention.
-15. **Profile page** — user modules, onboarding, devices, and activity feed.
-16. **Backups** — schedule, storage, retention, and retry policy.
-17. **Extra Features** — opt-in integrations such as ScanLink.
+9. **Ribbon** — list-page ribbon behavior and tab configuration.
+10. **Components** — tables, forms, modals, Options layout, audit fields, and soft-delete review.
+11. **Home and Public Pages** — authenticated homepage, per-user override, and anonymous public homepage.
+12. **Login Page** — layout, logo treatment, color, and localized hero message.
+13. **Profile Page** — user modules, onboarding, devices, and activity feed.
+14. **Global Search** — titlebar search display and optional record search.
+15. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
+16. **Logging** — activity and audit policy plus retention.
+17. **System Backup** — schedule, storage, retention, and retry policy.
+18. **Extra Features** — opt-in integrations such as ScanLink.
 
 System Settings modal editors opened from Options use these same categories but show only the selected category. Setup export/import is intended for reusable development and staging configuration: it exports settings JSON, not uploaded logo/favicon binaries or host-specific email verification state.
+
+### Unsaved previews
+
+A live preview is an unsaved form value visibly changing a page surface that is already rendered. These mutations are centralized in `setup/js/previews.js` and safely do nothing when the wizard or Options page does not contain the target. Builder previews remain inside their builders and do not represent saved runtime chrome.
+
+| Step | Unsaved preview behavior |
+| --- | --- |
+| Branding | Logo, favicon, system title, and an already-rendered footer update in place. Managed-library selections and new uploads use the same preview path. |
+| Languages | Visible titlebar language-switcher chrome can update; changing the runtime language remains save-only. |
+| Email | No page preview. Presets, dependency controls, Apply, and test-send are operational actions. |
+| Access and Security | No page preview. Authentication, registration, session, consent, and client-IP values take effect after save. |
+| Themes and Fonts | Theme and table/card edge choices can update visible chrome. Personal font preferences are not overwritten by a system-default preview. |
+| Titlebar | Visible titlebar layout, actions, title, logo, home link, and surface update in place. |
+| Sidebar | Visible Options-page sidebar state, density, toolbar, icons, and controls update in place; the setup wizard has no sidebar target and safely does nothing. |
+| Navbar | The builder synchronizes its own configuration. Runtime navbar preview remains pending a visible-target implementation. |
+| Ribbon | The ribbon builder owns its internal tab sample. It does not mutate an unrelated page ribbon. |
+| Components | Visible table density, edges, accent edges, sticky headers, resizing, zebra stripes, and card edges update in place. Personal form-density and modal-size preferences are preserved. |
+| Home and Public Pages | The visible titlebar Home link can update. Public-page presentation remains save-only until a contained preview exists. |
+| Login Page | Save-only until a contained login preview exists. |
+| Profile Page | Builder synchronization only; no live page mutation. |
+| Global Search | Dependency controls only; no live page mutation. |
+| Notifications | Dependency controls only; persistent notification settings do not hide or rewrite the active page's notification UI. |
+| Logging | Builder synchronization only; no live page mutation. |
+| System Backup | No page preview. |
+| Extra Features | No page preview for features that require a reload or another application surface. |
 
 `SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public page keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
 

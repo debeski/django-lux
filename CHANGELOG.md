@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **System Settings Preview Ownership Is Centralized**: `setup/js/previews.js` now owns titlebar, sidebar, branding, footer, theme, table, card, and layout page mutations behind `window.DluxSetupPreview`; the setup wizard safely skips missing surfaces while Options modals preview the real chrome. Managed asset selections and uploads now reach logo/favicon previews, footer links and edge styles update when rendered, and persistent Notification settings no longer rewrite the active page's notification UI before save. Browser coverage exercises wizard and Options contexts, with a documented per-step preview matrix for the remaining popup/glass work.
+
 ## v1.9.4
 
 The stable release of the 1.9.4 line, identical in scope to `1.9.4b1` below.

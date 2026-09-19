@@ -1,16 +1,11 @@
-// Functional tests for the wizard's live previews:
-// applyFooterPreview, applyLayoutBodyPreview, applySidebarPreview and friends.
-//
-// Written BEFORE they move to setup/js/previews.js.
+// Functional tests for the wizard's centralized live previews.
 //
 // These are what make the wizard feel live — edit a setting and the surrounding
 // chrome updates immediately, without a save. That also makes them the easiest
 // thing to break silently during a refactor: nothing errors, the preview simply
 // stops responding, and the operator is configuring blind.
 //
-// `applySidebarPreview` is NOT covered and did NOT move: the setup wizard
-// renders no sidebar at all (`#sidebar` and `.sidebar` are both absent), so its
-// 112 lines have nothing to act on there and cannot be verified across a move.
+// Sidebar behavior is covered from the Options context, where the target exists.
 //
 // `applyLayoutBodyPreview` deliberately does not preview `default_form_density`
 // or `default_modal_size` — they are admin defaults for per-user preferences,
