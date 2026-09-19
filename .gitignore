@@ -35,6 +35,7 @@ celerybeat-*
 .claude
 .codex
 /CLAUDE.md
+/AGENTS.md
 db.sqlite3
 *plan.md
 

@@ -18,6 +18,7 @@
 - Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work.
 - Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
 - Never delete files; move superseded material into `.xclude/` with its relative path.
+- New feature releases/workstreams start from verified `main` on separate one-feature branches; merge only after branch-local implementation, docs, and tests pass.
 
 ### Cross-Cutting Audits if any:
 - 2026-09-04 live-stack guard: adding an unapplied field to `SystemSettings` makes singleton reads fail and surfaces defaults across bind-mounted dev stacks; new runtime state must use an isolated model/table or migrate every live stack atomically.
@@ -40,6 +41,7 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_check --apply`.
 - **Priority 2:**
+  - [ ] Execute `system-settings-preview-plan.md` on its own feature branch; it may develop alongside channel acceptance, but release only after its own validation and the release gates pass.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
