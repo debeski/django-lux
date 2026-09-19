@@ -59,6 +59,7 @@
         homepage: 'popup',
         login_page: 'popup',
     };
+    const APP_PREVIEW_REGISTRY = new Map();
 
     function parseJson(text, fallback) {
         try {
@@ -83,6 +84,59 @@
         element.classList.toggle('d-none', !isVisible);
         element.style.display = isVisible ? '' : 'none';
     }
+
+    function setPreviewBodyData(name, value) {
+        if (!document.body || !name) return;
+        setPreviewData(document.body, name, value);
+    }
+
+    function setPreviewCssProperty(element, name, value) {
+        if (!element || !name) return;
+        if (value === null || value === undefined || value === '') element.style.removeProperty(name);
+        else element.style.setProperty(name, String(value));
+    }
+
+    function setPreviewData(element, name, value) {
+        if (!element || !name) return;
+        const attribute = `data-${String(name)}`;
+        if (value === null || value === undefined) element.removeAttribute(attribute);
+        else element.setAttribute(attribute, String(value));
+    }
+
+    function setPreviewClass(element, name, enabled) {
+        if (element && name) element.classList.toggle(String(name), Boolean(enabled));
+    }
+
+    function setPreviewText(element, value) {
+        if (element) element.textContent = value === null || value === undefined ? '' : String(value);
+    }
+
+    function setPreviewUrl(element, value) {
+        if (!element) return;
+        const attribute = element.tagName === 'A' ? 'href' : 'src';
+        if (value) element.setAttribute(attribute, String(value));
+        else element.removeAttribute(attribute);
+    }
+
+    function setPreviewIcon(element, iconClass) {
+        if (!element) return;
+        Array.from(element.classList).forEach((name) => {
+            if (name === 'bi' || name.startsWith('bi-')) element.classList.remove(name);
+        });
+        const names = String(iconClass || '').split(/\s+/).filter(Boolean);
+        if (names.length) element.classList.add('bi', ...names.filter((name) => name !== 'bi'));
+    }
+
+    const previewHelpers = Object.freeze({
+        setBodyData: setPreviewBodyData,
+        setCssProperty: setPreviewCssProperty,
+        setData: setPreviewData,
+        setClass: setPreviewClass,
+        setText: setPreviewText,
+        setUrl: setPreviewUrl,
+        setVisibility: setPreviewVisibility,
+        setIcon: setPreviewIcon,
+    });
 
     function normalizeTitlebarActionsOrder(value) {
         let rawValue = value;
@@ -490,11 +544,12 @@
         if (button?.isConnected) button.focus({ preventScroll: true });
     }
 
-    function enterGlassPreview(form, button) {
+    function enterGlassPreview(form, button, applyPreview) {
         const modal = form.closest('#universalDynamicModal');
         if (!modal) return;
         exitGlassPreview();
-        applySystemSettingsPreview(form);
+        if (typeof applyPreview === 'function') applyPreview();
+        else applySystemSettingsPreview(form);
         modal.dataset.dluxPreviewHint = root.DLUX_STRINGS?.preview_close_hint
             || 'Click anywhere, press Escape, or press Q to return.';
         const content = modal.querySelector('.modal-content');
@@ -647,7 +702,7 @@
         return shell;
     }
 
-    function openPopupPreview(form, step, button) {
+    function openContainedPreview(button, titleText, content) {
         document.querySelector('[data-dlux-system-preview-popup]')?.remove();
         const overlay = previewElement('div', 'dlux-system-preview-popup');
         overlay.dataset.dluxSystemPreviewPopup = '';
@@ -655,12 +710,16 @@
         overlay.setAttribute('aria-modal', 'true');
         const dialog = previewElement('div', 'dlux-system-preview-popup__dialog');
         const heading = previewElement('div', 'dlux-system-preview-popup__heading');
-        const title = previewElement('strong', '', `Preview · ${step.replace(/_/g, ' ')}`);
+        const title = previewElement('strong', '', titleText);
         const close = previewElement('button', 'btn-close');
         close.type = 'button';
         close.setAttribute('aria-label', root.DLUX_STRINGS?.btn_close || 'Close');
         heading.append(title, close);
-        dialog.append(heading, buildPopupShell(form, step));
+        if (content?.nodeType) {
+            dialog.append(heading, content);
+        } else {
+            dialog.append(heading, previewElement('div', 'dlux-system-preview-popup__content', content));
+        }
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         document.body.classList.add('dlux-system-preview-popup-active');
@@ -686,6 +745,146 @@
         });
         document.addEventListener('keydown', keyHandler, true);
         close.focus({ preventScroll: true });
+    }
+
+    function openPopupPreview(form, step, button) {
+        openContainedPreview(button, `Preview · ${step.replace(/_/g, ' ')}`, buildPopupShell(form, step));
+    }
+
+    function appPreviewForms(scope, registration) {
+        if (!scope?.querySelectorAll) return [];
+        const forms = [];
+        if (scope.matches?.(registration.formRoot)) forms.push(scope);
+        scope.querySelectorAll(registration.formRoot).forEach((form) => forms.push(form));
+        return forms.filter((form) => form.matches('form'));
+    }
+
+    function appPreviewButtonsFor(form) {
+        const buttons = Array.from(form.querySelectorAll('[data-dlux-app-settings-preview]'));
+        if (!form.id) return buttons;
+        const escapedId = root.CSS && typeof root.CSS.escape === 'function'
+            ? root.CSS.escape(form.id)
+            : form.id.replace(/["\\]/g, '\\$&');
+        document.querySelectorAll(`[data-dlux-app-settings-preview][form="${escapedId}"]`).forEach((button) => {
+            if (!buttons.includes(button)) buttons.push(button);
+        });
+        return buttons;
+    }
+
+    function appPreviewTarget(registration, form) {
+        if (!registration.target) return null;
+        if (typeof registration.target === 'function') return registration.target(form) || null;
+        if (typeof registration.target === 'string') return document.querySelector(registration.target);
+        return registration.target?.nodeType === 1 ? registration.target : null;
+    }
+
+    function appPreviewContext(registration, form) {
+        return {
+            form,
+            namespace: registration.namespace,
+            target: appPreviewTarget(registration, form),
+            helpers: previewHelpers,
+        };
+    }
+
+    function syncAppPreviewForm(form, registration) {
+        const available = registration.mode === 'popup' || Boolean(appPreviewTarget(registration, form));
+        appPreviewButtonsFor(form).forEach((button) => {
+            button.hidden = false;
+            button.disabled = !available;
+            button.dataset.previewMode = registration.mode;
+            button.dataset.previewNamespace = registration.namespace;
+            button.setAttribute('aria-disabled', available ? 'false' : 'true');
+            if (available) button.removeAttribute('title');
+        });
+    }
+
+    function initAppPreviewForm(form, registration) {
+        appPreviewButtonsFor(form).forEach((button) => {
+            if (button.dataset.dluxAppPreviewBound === registration.namespace) return;
+            button.dataset.dluxAppPreviewBound = registration.namespace;
+            button.addEventListener('click', () => {
+                const current = APP_PREVIEW_REGISTRY.get(registration.namespace);
+                if (!current) return;
+                const context = appPreviewContext(current, form);
+                if (current.mode === 'glass') {
+                    if (!context.target) return;
+                    enterGlassPreview(form, button, () => current.apply(context));
+                    return;
+                }
+                const content = current.render(context);
+                if (!content) return;
+                const title = current.title || `${button.textContent.trim() || 'Preview'} · ${current.namespace}`;
+                openContainedPreview(button, title, content);
+            });
+        });
+        syncAppPreviewForm(form, registration);
+    }
+
+    function initAppPreviewControls(scope) {
+        APP_PREVIEW_REGISTRY.forEach((registration) => {
+            appPreviewForms(scope || document, registration).forEach((form) => {
+                initAppPreviewForm(form, registration);
+            });
+        });
+    }
+
+    function registerAppPreview(namespace, options) {
+        const key = String(namespace || '').trim();
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(key)) {
+            throw new TypeError('Preview namespace must use letters, numbers, dots, underscores, or hyphens.');
+        }
+        if (!options || typeof options !== 'object') throw new TypeError('Preview options are required.');
+        const mode = options.mode || 'glass';
+        if (mode !== 'glass' && mode !== 'popup') throw new TypeError('Preview mode must be glass or popup.');
+        if (mode === 'glass' && typeof options.apply !== 'function') {
+            throw new TypeError('Glass previews require an apply(context) function.');
+        }
+        if (mode === 'popup' && typeof options.render !== 'function') {
+            throw new TypeError('Popup previews require a render(context) function.');
+        }
+        const escaped = root.CSS && typeof root.CSS.escape === 'function'
+            ? root.CSS.escape(key)
+            : key.replace(/["\\]/g, '\\$&');
+        const formRoot = options.formRoot || `form[data-dlux-app-settings-namespace="${escaped}"]`;
+        if (typeof formRoot !== 'string' || !formRoot.trim()) {
+            throw new TypeError('Preview formRoot must be a non-empty selector.');
+        }
+        if (typeof document !== 'undefined') {
+            try {
+                document.querySelector(formRoot);
+            } catch (error) {
+                throw new TypeError('Preview formRoot must be a valid selector.');
+            }
+        }
+        const registration = {
+            namespace: key,
+            mode,
+            target: options.target || null,
+            title: String(options.title || ''),
+            formRoot,
+            apply: options.apply || null,
+            render: options.render || null,
+        };
+        APP_PREVIEW_REGISTRY.set(key, registration);
+        if (typeof document !== 'undefined') initAppPreviewControls(document);
+        return () => unregisterAppPreview(key);
+    }
+
+    function unregisterAppPreview(namespace) {
+        const key = String(namespace || '').trim();
+        const registration = APP_PREVIEW_REGISTRY.get(key);
+        if (registration && typeof document !== 'undefined') {
+            appPreviewForms(document, registration).forEach((form) => {
+                appPreviewButtonsFor(form).forEach((button) => {
+                    button.hidden = true;
+                    button.disabled = true;
+                    delete button.dataset.previewMode;
+                    delete button.dataset.previewNamespace;
+                });
+            });
+        }
+        APP_PREVIEW_REGISTRY.delete(key);
     }
 
     function initPreviewControls(form) {
@@ -723,6 +922,7 @@
     }
 
     function initSystemSettingsPreview(scope) {
+        initAppPreviewControls(scope);
         scope.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.systemSettingsPreviewBound === 'true') {
                 applySystemSettingsPreview(form);
@@ -755,12 +955,16 @@
         applyTableDensityPreview,
         applyThemePreview,
         applyTitlebarPreview,
+        helpers: previewHelpers,
+        initAppPreviewControls,
         initSystemSettingsPreview,
         normalizeTitlebarActionsOrder,
         readBooleanField,
         readTitlebarActionsOrder,
         readTrimmedValue,
+        registerAppPreview,
         setPreviewVisibility,
+        unregisterAppPreview,
     };
     root.DluxSetupPreview = Object.assign(root.DluxSetupPreview || {}, previewApi);
     root.DluxSetup = Object.assign(root.DluxSetup || {}, previewApi, {

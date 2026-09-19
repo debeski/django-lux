@@ -43,6 +43,16 @@ class SystemSettingsPreviewModuleTests(SimpleTestCase):
         self.assertIn("event.key !== 'Escape'", self.preview_source)
         self.assertIn("toLowerCase() !== 'q'", self.preview_source)
 
+    def test_app_preview_extension_api_is_owned_by_preview_module(self):
+        for name in ('registerAppPreview', 'unregisterAppPreview', 'initAppPreviewControls'):
+            self.assertIn(f'function {name}(', self.preview_source)
+        for helper in (
+            'setBodyData', 'setCssProperty', 'setData', 'setClass',
+            'setText', 'setUrl', 'setVisibility', 'setIcon',
+        ):
+            self.assertIn(f'{helper}:', self.preview_source)
+        self.assertIn('APP_PREVIEW_REGISTRY', self.preview_source)
+
     def test_feature_modules_delegate_preview_mutations(self):
         self.assertNotIn('function applyTitlebarPreview(', self.main_source)
         self.assertNotIn('function applySidebarPreview(', self.main_source)

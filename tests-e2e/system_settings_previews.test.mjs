@@ -177,4 +177,59 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
+
+  test('app-owned previews register by namespace without core feature changes', async () => {
+    const { ctx, page, errors } = await loggedInPage(browser);
+    try {
+      await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
+      await page.evaluate(() => {
+        const target = document.createElement('div');
+        target.id = 'app-preview-target';
+        const form = document.createElement('form');
+        form.dataset.dluxAppSettingsNamespace = 'tests.preview';
+        form.innerHTML = '<input name="label" value="Unsaved app value"><button type="button" data-dlux-app-settings-preview hidden disabled>Preview</button>';
+        document.body.append(target, form);
+        window.__unregisterTestPreview = window.DluxSetupPreview.registerAppPreview('tests.preview', {
+          mode: 'popup',
+          target: '#app-preview-target',
+          render({ form: previewForm, target: previewTarget, helpers }) {
+            const value = previewForm.elements.label.value;
+            helpers.setText(previewTarget, value);
+            helpers.setData(previewTarget, 'previewed', 'yes');
+            const shell = document.createElement('div');
+            shell.className = 'test-app-preview-shell';
+            shell.textContent = value;
+            return shell;
+          },
+        });
+        const absentForm = document.createElement('form');
+        absentForm.dataset.dluxAppSettingsNamespace = 'tests.absent';
+        absentForm.innerHTML = '<button type="button" data-dlux-app-settings-preview hidden disabled>Preview</button>';
+        document.body.appendChild(absentForm);
+        window.DluxSetupPreview.registerAppPreview('tests.absent', {
+          mode: 'glass',
+          target: '#surface-that-is-not-rendered',
+          apply() {},
+        });
+      });
+
+      const button = 'form[data-dlux-app-settings-namespace="tests.preview"] [data-dlux-app-settings-preview]';
+      assert.equal(await page.$eval(button, (node) => node.hidden), false);
+      assert.equal(await page.$eval(button, (node) => node.disabled), false);
+      assert.equal(await page.$eval(
+        'form[data-dlux-app-settings-namespace="tests.absent"] [data-dlux-app-settings-preview]',
+        (node) => node.disabled,
+      ), true);
+      await page.click(button);
+      await page.waitForSelector('[data-dlux-system-preview-popup] .test-app-preview-shell');
+      assert.equal(await page.textContent('.test-app-preview-shell'), 'Unsaved app value');
+      assert.equal(await page.textContent('#app-preview-target'), 'Unsaved app value');
+      assert.equal(await page.getAttribute('#app-preview-target', 'data-previewed'), 'yes');
+      await page.keyboard.press('Escape');
+
+      await page.evaluate(() => window.__unregisterTestPreview());
+      assert.equal(await page.$eval(button, (node) => node.hidden), true);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
 });

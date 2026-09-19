@@ -409,6 +409,7 @@ for the pattern that would have caught the whitelist drop.
 ## 8. Related
 
 - `reference.md` — app-owned config namespace (`extra_config['app']`),
-  `register_app_settings()`, runtime config keys.
+  `register_app_settings()`, `DluxSetupPreview.registerAppPreview()`, runtime
+  config keys.
 - `developer-guide.md` — configuration layers, `ScopedModel`, startup patches.
 - `docs/RELEASING.md` — tag-driven release + migration-safety rules.

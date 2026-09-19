@@ -9,6 +9,7 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 - Database-backed `SystemSettings` layered over `DLUX_CONFIG`, with user-level preferences stored separately in `Profile.preferences`.
 - An eighteen-step initial setup wizard and focused System Settings editors with centralized, no-op-safe unsaved previews. Visual steps use real-chrome glass previews or contained popup shells; nonvisual steps expose a clearly disabled Preview action.
 - Canonical `homepage_config` and `search_config` stores, with v1.x compatibility mirrors for legacy integrations.
+- Namespaced JavaScript preview registration for app-owned System Settings, with glass/popup modes and shared safe DOM-mutation helpers.
 - Theme/font registries, custom project themes/fonts, RTL/LTR rendering, and system/user override policy.
 - Portable setup import/export and `config.json` bootstrap for unconfigured generated projects.
 

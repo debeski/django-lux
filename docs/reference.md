@@ -439,6 +439,47 @@ register_app_settings(
 )
 ```
 
+#### Previewing app-owned system settings
+
+`register_app_settings()` describes storage and server-rendered controls. Visual
+preview behavior stays in the owning app's JavaScript because only that app can
+identify its rendered target and translate unsaved form values into UI changes.
+The shared app-settings template includes a hidden Preview action. Registering
+the same namespace through `window.DluxSetupPreview.registerAppPreview()` makes
+that action available; no Dlux feature module needs to be patched.
+
+```javascript
+const unregister = window.DluxSetupPreview.registerAppPreview('myproject.catalog', {
+  mode: 'glass',
+  target: '[data-catalog-shell]',
+  apply({ form, target, helpers }) {
+    const mode = form.elements.default_view.value;
+    helpers.setData(target, 'catalog-view', mode);
+    helpers.setClass(target, 'is-compact', mode === 'table');
+  },
+});
+```
+
+Use `mode: 'glass'` with `target` and `apply(context)` when the real surface is
+visible behind the Options modal. If the target is absent, Preview remains
+disabled and registration is a safe no-op. Use `mode: 'popup'` with
+`render(context)` for an off-page target; return a DOM node or plain text and
+Dlux places it in the same contained, non-persistent preview dialog used by
+core settings.
+
+The default form scope is
+`form[data-dlux-app-settings-namespace="<namespace>"]`. Set `formRoot` to a
+narrower CSS selector when an app owns another form root. The callback context
+contains `{namespace, form, target, helpers}`. Helpers cover body data
+attributes, CSS custom properties, element data attributes, classes, text,
+URLs, visibility, and Bootstrap icon classes. The returned `unregister()`
+function removes the registration and hides its Preview action.
+
+Python preview metadata is intentionally not part of `register_app_settings()`:
+simple metadata cannot safely express app-owned DOM behavior, while executable
+callbacks belong in static JavaScript and remain subject to the app's normal
+content-security and review path.
+
 ### Adding an Options-page card
 
 Downstream apps add cards to `/sys/options/` through a small registry — the only

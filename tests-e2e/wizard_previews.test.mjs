@@ -127,6 +127,58 @@ describe('wizard live previews', { concurrency: 1 }, () => {
     } finally { await ctx.close(); }
   });
 
+  test('nonvisual settings do not mutate unrelated live page chrome', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      const chromeState = () => page.evaluate(() => {
+        const state = (element) => element ? {
+          className: element.className,
+          display: element.style.display,
+          data: { ...element.dataset },
+        } : null;
+        return {
+          body: { ...document.body.dataset },
+          titlebar: state(document.querySelector('.titlebar')),
+          sidebar: state(document.getElementById('sidebar')),
+          navbar: state(document.querySelector('[data-dlux-navbar]')),
+          footer: state(document.querySelector('footer.dlux-footer')),
+        };
+      });
+
+      for (const step of [2, 3, 12, 13, 14, 15, 16, 17]) {
+        await page.click(`[data-dlux-wizard-step-target="${step}"]`);
+        const preview = await page.$eval('[data-dlux-system-settings-preview]', (button) => ({
+          disabled: button.disabled,
+          mode: button.dataset.previewMode,
+        }));
+        assert.deepEqual(preview, { disabled: true, mode: '' }, `step ${step} exposed a visual preview`);
+        const before = await chromeState();
+        const changed = await page.evaluate(() => {
+          const stepRoot = document.querySelector('.wizard-step:not(.d-none)');
+          const field = stepRoot?.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])');
+          if (!field) return false;
+          if (field.type === 'checkbox' || field.type === 'radio') field.checked = !field.checked;
+          else if (field.tagName === 'SELECT' && field.options.length > 1) field.selectedIndex = field.selectedIndex ? 0 : 1;
+          else field.value = `${field.value || ''}x`;
+          window.DluxSetupPreview.applySystemSettingsPreview(field.form);
+          return true;
+        });
+        assert.equal(changed, true, `step ${step} had no editable field for the negative check`);
+        assert.deepEqual(await chromeState(), before, `step ${step} changed unrelated page chrome`);
+      }
+
+      await page.click('[data-dlux-wizard-step-target="11"]');
+      assert.equal(await page.$eval(
+        '[data-dlux-system-settings-preview]',
+        (button) => button.dataset.previewMode,
+      ), 'popup');
+      const beforeLoginEdit = await chromeState();
+      await setToggle(page, 'login_show_logo', false);
+      assert.deepEqual(await chromeState(), beforeLoginEdit, 'Login settings mutated the active page outside its popup');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
   test('the footer toggle shows and hides the real footer', async () => {
     // The preview drives the actual <footer> on the page, not a mock-up, so a
     // broken preview leaves the operator looking at the wrong chrome.

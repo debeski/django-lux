@@ -54,7 +54,7 @@
   - [x] 1.9.0b1 published + accepted live (2026-09-22): decrees stack b2 -> 1.9.0b1 inline in ~25s (web + celery on `releases/1.9.0b1`); Options switch HTTP 200 both ways, pending -> applied in one tick, 0 web errors; opt-out keeps 1.9.0b1, 1.8.13 not offered; served `dynamic_modal/js/main.js?v=1.9.0b1` is byte-identical to the tag. PyPI + GitHub prerelease (7 assets), latest still v1.8.13.
   - [x] Live beta-channel acceptance (2026-09-22) on a decrees stack, dlux 1.8.14b1 + Composer 1.3.14b2: stable not offered 1.8.13, opt-in offers/installs b2 (web + celery restart onto it), opt-out keeps b2, `composer dlux channel` applies in one tick. Found + fixed: Options switch 500 (`set_update_channel` wrote to web's read-only mount).
   - [x] Modal footer fields (`is_active`) now `form=`-associated after relocation, and the unsaved guard reads `form.elements`; branch `fix/modal-footer-fields`, unmerged (2026-09-22).
-  - [x] System Settings preview phases 1-5 (2026-09-19): centralized page mutations under `window.DluxSetupPreview`; removed misleading persistent previews; added font/Navbar/Ribbon targets plus Preview controls with glass mode, unsaved popup shells, disabled nonvisual states, repeat-cycle restoration, and blocked click-through.
+  - [x] System Settings preview plan complete (2026-09-19): centralized page mutations; removed misleading persistent previews; added font/Navbar/Ribbon targets, glass and unsaved popup modes, disabled nonvisual states, blocked click-through, the negative step matrix, and `registerAppPreview()` for app-owned settings.
   - [x] Beta-first gate (2026-09-10): `validate_beta_first()` in `release_check --classify` refuses a stable `vX.Y.0` without a published `bN`/`rcN` of that version in history (PyPI, non-yanked). Patches ungated. Tree bumped to 1.8.14b3 (untagged).
   - [x] Channels implemented across both repos (2026-09-08). Dlux: `updater/channel.py` policy + token handoff, `DluxUpdateState.update_channel` (migration 0021), `allow_prereleases` selection, Options switch + `POST /sys/api/dlux-update/channel/`, tag classification in `release_check --classify`, PEP 440 tag ordering with migrations diffed against the last **stable** tag, `validate_declared_migration_effect` (caught this release's own manifest declaring `none` while adding 0021). Composer: `versions.py`/`dlux_channel.py`/`channel_config.py`/`release_tag.py`, `dlux channel`, `check --beta|--stable`, wrappers at marker 3.
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
@@ -87,8 +87,8 @@
 
 ## Part 2: Global
 ### Validation & Docs Log:
-- Validation: 644 relevant Django tests and 11 wizard/Options browser tests pass; touched JavaScript passes `node --check`.
-- Docs: `docs/system-configuration.md`, `docs/FEATURES.md`, and `docs/reference.md` describe centralized live, glass, popup, and disabled preview behavior.
+- Validation: 645 relevant Django tests and 13 wizard/Options browser tests pass; touched JavaScript passes `node --check`.
+- Docs: `docs/system-configuration.md`, `docs/FEATURES.md`, `docs/reference.md`, and `docs/adding-system-settings.md` cover core and app-owned preview contracts.
 
 ### Global Standard Helpers, Shortcuts, Info, etc.:
 - Gov stack serves `/static/*` from the `static` volume via Caddy, so changed dlux assets need `collectstatic` in `project-sales-crm/gov_edition` before they reach the browser — and Caddy sends `Cache-Control: immutable, max-age=31536000` on unhashed filenames, so a hard reload is required too.

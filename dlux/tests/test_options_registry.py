@@ -411,6 +411,9 @@ class AppSettingsModalTests(TestCase):
         self.assertIn('dlux-settings-toggle-field', body)
         self.assertIn('dlux-choice-selector', body)
         self.assertIn('Project switches', body)
+        self.assertIn('data-dlux-app-settings-namespace="proj.settings"', body)
+        self.assertIn('data-dlux-app-settings-preview', body)
+        self.assertIn('hidden', body)
 
     def test_modal_post_saves_namespace_and_preserves_unknown_keys(self):
         self._register_builtin()
