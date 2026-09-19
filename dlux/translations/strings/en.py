@@ -1488,6 +1488,9 @@ STRINGS = {
     'btn_update': 'Update',
     'btn_next': 'Next',
     'btn_prev': 'Previous',
+    'btn_preview': 'Preview',
+    'preview_unavailable': 'Preview is not available for this step.',
+    'preview_close_hint': 'Click anywhere, press Escape, or press Q to return.',
     'btn_change_password': 'Change Password',
     
     # Permissions UI

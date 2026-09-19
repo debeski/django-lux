@@ -162,6 +162,16 @@ class LayoutMixin:
             classes.append('d-none')
         return ' '.join(classes)
 
+    def _preview_button(self, strings):
+        label = strings.get('btn_preview', 'Preview')
+        unavailable = strings.get('preview_unavailable', 'Preview is not available for this step.')
+        return (
+            "<button type='button' class='btn btn-outline-primary rounded-pill px-4 "
+            "dlux-btn-preview' data-dlux-system-settings-preview "
+            f"data-preview-unavailable-label=\"{unavailable}\" "
+            f"aria-label=\"{label}\"><i class='bi bi-eye me-1' aria-hidden='true'></i>{label}</button>"
+        )
+
     def _build_layout(self, *, s, step_1_fields, email_password_field_class, field_name):
         """The crispy Layout for the settings wizard.
 
@@ -951,6 +961,7 @@ class LayoutMixin:
                     FormActions(
                         HTML(
                             f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
+                            f"{self._preview_button(s)}"
                             f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"
                             f"{s.get('btn_save', 'Save')}</button>"
                             f"</div>"
@@ -960,6 +971,7 @@ class LayoutMixin:
                             f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
                             f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 dlux-btn-prev'>"
                             f"{s.get('btn_prev', 'Previous')}</button>"
+                            f"{self._preview_button(s)}"
                             f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 dlux-btn-next'>"
                             f"{s.get('btn_next', 'Next')}</button>"
                             f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"

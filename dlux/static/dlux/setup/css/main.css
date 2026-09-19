@@ -1504,3 +1504,251 @@
   flex: 1 1 6rem;
   margin-bottom: 0;
 }
+
+/* System Settings intentional preview modes. Glass mode keeps the modal's
+   outline as a return target while exposing the real page chrome beneath it. */
+body.dlux-system-preview-active .modal-backdrop.show {
+  opacity: 0.08;
+}
+
+#universalDynamicModal.dlux-system-preview-glass {
+  cursor: zoom-out;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content {
+  min-height: min(76vh, 46rem);
+  border: 2px dashed rgba(var(--primal-rgb), 0.7) !important;
+  background: rgba(var(--bs-body-bg-rgb), 0.035) !important;
+  box-shadow: 0 0 0 1px rgba(var(--bs-body-bg-rgb), 0.25), 0 1rem 3rem rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: none !important;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content::after {
+  content: attr(data-dlux-preview-hint);
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  max-width: min(32rem, 82%);
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(var(--primal-rgb), 0.35);
+  border-radius: 999px;
+  color: var(--bs-body-color);
+  background: rgba(var(--bs-body-bg-rgb), 0.86);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.14);
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.dlux-system-preview-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.75rem, 3vw, 2rem);
+  background: rgba(8, 15, 28, 0.68);
+  backdrop-filter: blur(6px);
+}
+
+.dlux-system-preview-popup__dialog {
+  width: min(70rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border: 1px solid rgba(var(--primal-rgb), 0.35);
+  border-radius: 1.25rem;
+  background: var(--bs-body-bg);
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.35);
+}
+
+.dlux-system-preview-popup__heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+}
+
+.dlux-system-preview-shell {
+  --preview-accent: var(--primal, #2363c3);
+  min-height: 34rem;
+  color: var(--bs-body-color);
+  background: var(--bs-tertiary-bg);
+}
+
+.dlux-system-preview-shell[data-preview-theme="dark"],
+.dlux-system-preview-shell[data-preview-theme="gothic"],
+.dlux-system-preview-shell[data-preview-theme="neon"] {
+  color: #eef2f7;
+  background: #111827;
+}
+
+.dlux-system-preview-shell__titlebar,
+.dlux-system-preview-shell__navbar,
+.dlux-system-preview-shell__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, var(--preview-accent) 9%, transparent);
+}
+
+.dlux-system-preview-shell__logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.dlux-system-preview-shell__actions {
+  margin-inline-start: auto;
+  letter-spacing: 0.35rem;
+}
+
+.dlux-system-preview-shell__navbar {
+  padding-block: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.dlux-system-preview-shell__workspace {
+  display: grid;
+  grid-template-columns: minmax(9rem, 13rem) 1fr;
+  min-height: 27rem;
+}
+
+.dlux-system-preview-shell__sidebar {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-inline-end: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.dlux-system-preview-shell__sidebar > div {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--preview-accent) 8%, transparent);
+}
+
+.dlux-system-preview-shell__content {
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.dlux-system-preview-shell__ribbon,
+.dlux-system-preview-shell__card,
+.dlux-system-preview-login__card {
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bs-body-bg) 88%, transparent);
+  box-shadow: 0 0.5rem 1.3rem rgba(0, 0, 0, 0.07);
+}
+
+.dlux-system-preview-shell[data-card-edges="normal"] :is(.dlux-system-preview-shell__ribbon, .dlux-system-preview-shell__card) {
+  border-radius: 0.35rem;
+}
+
+.dlux-system-preview-shell[data-card-edges="half_rounded"] :is(.dlux-system-preview-shell__ribbon, .dlux-system-preview-shell__card) {
+  border-radius: 0 0 1rem 1rem;
+}
+
+.dlux-system-preview-shell__ribbon {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-inline-start: 0.3rem solid var(--preview-accent);
+}
+
+.dlux-system-preview-shell__tabs,
+.dlux-system-preview-shell__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.dlux-system-preview-shell__tabs span {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.dlux-system-preview-shell__tabs .is-active,
+.dlux-system-preview-shell__button {
+  color: white;
+  background: var(--preview-accent);
+}
+
+.dlux-system-preview-shell__card {
+  flex: 1 1 12rem;
+  padding: 1rem;
+}
+
+.dlux-system-preview-shell__card p {
+  margin: 0.5rem 0 0;
+  opacity: 0.7;
+}
+
+.dlux-system-preview-shell__lead {
+  max-width: 42rem;
+  font-size: 1.1rem;
+  opacity: 0.72;
+}
+
+.dlux-system-preview-shell__footer {
+  justify-content: center;
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-bottom: 0;
+  font-size: 0.75rem;
+}
+
+.dlux-system-preview-login {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: clamp(1rem, 4vw, 4rem);
+  align-items: center;
+  min-height: 29rem;
+  padding: clamp(1.25rem, 5vw, 4rem);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--preview-accent) 28%, transparent), transparent 55%);
+}
+
+.dlux-system-preview-login__card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1.5rem;
+}
+
+.dlux-system-preview-shell__input,
+.dlux-system-preview-shell__button {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.6rem;
+}
+
+.dlux-system-preview-shell__button {
+  border: 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .dlux-system-preview-shell__workspace,
+  .dlux-system-preview-login {
+    grid-template-columns: 1fr;
+  }
+
+  .dlux-system-preview-shell__sidebar {
+    grid-template-columns: repeat(2, 1fr);
+    border-inline-end: 0;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  }
+}

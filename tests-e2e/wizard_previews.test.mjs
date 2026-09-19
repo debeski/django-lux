@@ -67,6 +67,66 @@ async function setField(page, name, value) {
 }
 
 describe('wizard live previews', { concurrency: 1 }, () => {
+  test('Preview follows wizard step capabilities and renders unsaved homepage state', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      const preview = '[data-dlux-system-settings-preview]';
+      assert.equal(await page.$eval(preview, (button) => button.dataset.previewStep), 'branding');
+      assert.equal(await page.$eval(preview, (button) => button.dataset.previewMode), 'popup');
+
+      await page.click('[data-dlux-wizard-step-target="2"]');
+      assert.equal(await page.$eval(preview, (button) => button.disabled), true);
+      assert.equal(await page.$eval(preview, (button) => button.dataset.previewStep), 'email');
+
+      await page.click('[data-dlux-wizard-step-target="10"]');
+      await setField(page, 'public_root_title', 'Unsaved homepage marker');
+      assert.equal(await page.$eval(preview, (button) => button.disabled), false);
+      assert.equal(await page.$eval(preview, (button) => button.dataset.previewMode), 'popup');
+      await page.click(preview);
+      await page.waitForSelector('[data-dlux-system-preview-popup]');
+      assert.match(
+        await page.textContent('[data-dlux-system-preview-popup]'),
+        /Unsaved homepage marker/,
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-dlux-system-preview-popup]', { state: 'detached' });
+      assert.equal(await page.inputValue('[name="public_root_title"]'), 'Unsaved homepage marker');
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
+  test('font, navbar, and ribbon previews use the available live or popup surface', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      await page.click('[data-dlux-wizard-step-target="4"]');
+      const fontResult = await page.evaluate(() => {
+        localStorage.removeItem('appFont');
+        if (window.USER_PREFS) window.USER_PREFS.font = '';
+        const [slug, family] = Object.entries(window.DLUX_FONT_FAMILIES || {})[0] || [];
+        if (!slug) return null;
+        const input = document.querySelector('.dlux-system-setup-form [name="default_fonts"]');
+        const language = String(document.documentElement.lang || 'en').split('-')[0];
+        input.value = JSON.stringify({ [language]: slug });
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        return { family, applied: document.documentElement.style.getPropertyValue('--dlux-main-font') };
+      });
+      assert.ok(fontResult, 'the test page did not expose any configured font family');
+      assert.match(fontResult.applied, new RegExp(fontResult.family.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+      for (const [step, selector] of [
+        [7, '.dlux-system-preview-shell__navbar'],
+        [8, '.dlux-system-preview-shell__ribbon'],
+      ]) {
+        await page.click(`[data-dlux-wizard-step-target="${step}"]`);
+        await page.click('[data-dlux-system-settings-preview]');
+        await page.waitForSelector(`[data-dlux-system-preview-popup] ${selector}`);
+        await page.keyboard.press('Escape');
+        await page.waitForSelector('[data-dlux-system-preview-popup]', { state: 'detached' });
+      }
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
   test('the footer toggle shows and hides the real footer', async () => {
     // The preview drives the actual <footer> on the page, not a mock-up, so a
     // broken preview leaves the operator looking at the wrong chrome.

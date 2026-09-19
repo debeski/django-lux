@@ -1485,6 +1485,9 @@ STRINGS = {
     'btn_update': 'تحديث',
     'btn_next': 'التالي',
     'btn_prev': 'السابق',
+    'btn_preview': 'معاينة',
+    'preview_unavailable': 'المعاينة غير متاحة لهذه الخطوة.',
+    'preview_close_hint': 'انقر في أي مكان أو اضغط Escape أو Q للعودة.',
     'btn_change_password': 'تغيير كلمة المرور',
     
     # Permissions UI

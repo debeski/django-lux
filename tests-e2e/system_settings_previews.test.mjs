@@ -24,6 +24,26 @@ async function optionsStep(step) {
 }
 
 describe('Options System Settings previews', { concurrency: 1 }, () => {
+  test('non-visual steps expose a clearly disabled Preview action', async () => {
+    const { ctx, page, errors } = await optionsStep(2);
+    try {
+      const state = await page.$eval(
+        '#universalDynamicModalFooter [data-dlux-system-settings-preview]',
+        (button) => ({
+          disabled: button.disabled,
+          mode: button.dataset.previewMode,
+          step: button.dataset.previewStep,
+          title: button.title,
+        }),
+      );
+      assert.equal(state.disabled, true);
+      assert.equal(state.mode, '');
+      assert.equal(state.step, 'email');
+      assert.match(state.title, /not available/i);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
   test('titlebar fields update the rendered titlebar through the preview namespace', async () => {
     const { ctx, page, errors } = await optionsStep(5);
     try {
@@ -85,6 +105,75 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
         return { before, after };
       });
       assert.deepEqual(result.after, result.before);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
+  test('glass preview restores repeatedly and consumes the exit click before save', async () => {
+    const { ctx, page, errors } = await optionsStep(5);
+    try {
+      const preview = '#universalDynamicModalFooter [data-dlux-system-settings-preview]';
+      const save = '#universalDynamicModalFooter button[type="submit"]';
+      const field = '#universalDynamicModal [name="titlebar_show_title"]';
+      const initial = await page.isChecked(field);
+      await page.locator(field).setChecked(!initial);
+
+      const mode = await page.$eval(preview, (button) => button.dataset.previewMode);
+      assert.equal(mode, 'glass');
+      await page.click(preview);
+      await page.waitForSelector('#universalDynamicModal.dlux-system-preview-glass');
+      const hiddenChrome = await page.$eval(
+        '#universalDynamicModal .modal-content > *',
+        (element) => getComputedStyle(element).opacity,
+      );
+      assert.equal(hiddenChrome, '0');
+
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('#universalDynamicModal.dlux-system-preview-glass', { state: 'detached' });
+      await page.locator(field).setChecked(initial);
+      await page.click(preview);
+      await page.waitForSelector('#universalDynamicModal.dlux-system-preview-glass');
+
+      await page.evaluate(() => {
+        const tile = document.querySelector('.dlux-system-settings-tile');
+        window.__dluxPreviewUnderlyingClicks = 0;
+        tile.addEventListener('click', () => { window.__dluxPreviewUnderlyingClicks += 1; });
+      });
+      const box = await page.locator('#universalDynamicModal .modal-content').boundingBox();
+      await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+      await page.waitForSelector('#universalDynamicModal.dlux-system-preview-glass', { state: 'detached' });
+      assert.equal(await page.evaluate(() => window.__dluxPreviewUnderlyingClicks), 0);
+
+      await page.click(save);
+      await page.waitForSelector('#universalDynamicModal.show', { state: 'detached' });
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
+  test('popup preview renders unsaved login values and preserves them across cycles', async () => {
+    const { ctx, page, errors } = await optionsStep(11);
+    try {
+      const preview = '#universalDynamicModalFooter [data-dlux-system-settings-preview]';
+      const field = '#universalDynamicModal.show [name^="login_hero_message_"]';
+      await page.evaluate(() => {
+        document.querySelectorAll('#universalDynamicModal.show [name^="login_hero_message_"]').forEach((input) => {
+          input.value = 'Unsaved preview marker';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      });
+      assert.equal(await page.$eval(preview, (button) => button.dataset.previewMode), 'popup');
+
+      for (const closeKey of ['Escape', 'q']) {
+        await page.click(preview);
+        await page.waitForSelector('[data-dlux-system-preview-popup]');
+        assert.match(
+          await page.textContent('[data-dlux-system-preview-popup]'),
+          /Unsaved preview marker/,
+        );
+        await page.keyboard.press(closeKey);
+        await page.waitForSelector('[data-dlux-system-preview-popup]', { state: 'detached' });
+        assert.equal(await page.$eval(field, (input) => input.value), 'Unsaved preview marker');
+      }
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });

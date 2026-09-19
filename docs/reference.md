@@ -811,8 +811,11 @@ System Settings page mutations are owned by `window.DluxSetupPreview` from
 `dlux/static/dlux/setup/js/previews.js`. Handlers must tolerate absent targets:
 the first-launch wizard has no sidebar, while an Options modal does. Legacy
 preview exports remain on `window.DluxSetup` for compatibility. Notification,
-email, security, login, profile, search, logging, backup, and feature-policy
-settings do not mutate unrelated live page chrome.
+email, security, profile, search, logging, backup, and feature-policy settings
+do not mutate unrelated live page chrome. Each step declares a preview
+capability: Options editors use glass mode when their real target is behind the
+modal, while the setup wizard and off-page home/login targets use a contained
+client-side popup built from unsaved values. Preview never submits the form.
 
 The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
 user preference; while set, a dirty close discards without prompting. This is

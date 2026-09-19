@@ -27,6 +27,38 @@
         'auth',
     ];
     const TITLEBAR_ACTIONS_KNOWN = new Set(TITLEBAR_ACTIONS_DEFAULT_ORDER);
+    const SYSTEM_SETTINGS_STEPS = [
+        'branding',
+        'languages',
+        'email',
+        'security',
+        'appearance',
+        'titlebar',
+        'sidebar',
+        'navbar',
+        'ribbon',
+        'layout',
+        'homepage',
+        'login_page',
+        'profile',
+        'search',
+        'notifications',
+        'logging',
+        'backups',
+        'extras',
+    ];
+    const PREVIEW_CAPABILITIES = {
+        branding: 'surface',
+        languages: 'surface',
+        appearance: 'surface',
+        titlebar: 'surface',
+        sidebar: 'surface',
+        navbar: 'surface',
+        ribbon: 'surface',
+        layout: 'surface',
+        homepage: 'popup',
+        login_page: 'popup',
+    };
 
     function parseJson(text, fallback) {
         try {
@@ -344,13 +376,348 @@
         root.setTheme(theme, { preview: true, cssUrl: cssUrl || '' });
     }
 
+    function applyFontPreview(form) {
+        let storedFont = '';
+        try {
+            storedFont = localStorage.getItem('appFont') || '';
+        } catch (error) {
+            storedFont = '';
+        }
+        const personalFont = String(root.USER_PREFS?.font || storedFont).trim();
+        if (personalFont) return;
+        const language = String(document.documentElement.lang || root.USER_PREFS?._lang || 'en').split('-')[0];
+        const defaults = parseJson(getNamedFieldValue(form, 'default_fonts'), {});
+        const fontSlug = defaults && typeof defaults === 'object' ? defaults[language] : '';
+        const family = fontSlug && root.DLUX_FONT_FAMILIES ? root.DLUX_FONT_FAMILIES[fontSlug] : '';
+        if (family) document.documentElement.style.setProperty('--dlux-main-font', `'${family}', sans-serif`);
+    }
+
+    function applyNavbarPreview(form) {
+        const navbar = document.querySelector('[data-dlux-navbar]');
+        if (!navbar || !form.querySelector('[name="navbar_enabled"]')) return;
+        const enabled = readBooleanField(form, '#id_navbar_enabled', false);
+        const mode = getNamedFieldValue(form, 'navbar_default_mode') === 'history' ? 'history' : 'hierarchy';
+        setPreviewVisibility(navbar, enabled);
+        navbar.dataset.navbarMode = mode;
+        if (enabled && typeof navbar.__dluxRenderMode === 'function') navbar.__dluxRenderMode(mode);
+    }
+
+    function applyRibbonPreview(form) {
+        const ribbon = document.querySelector('.dlux-ribbon-header');
+        if (!ribbon || !form.querySelector('[name="ribbon_layout"]')) return;
+        const layout = getNamedFieldValue(form, 'ribbon_layout') || 'default';
+        const style = getNamedFieldValue(form, 'ribbon_style') || 'accent';
+        const showTitle = readBooleanField(form, '#id_ribbon_title', true) && layout !== 'compact';
+        ['default', 'stacked', 'compact'].forEach((value) => {
+            ribbon.classList.toggle(`dlux-ribbon-layout-${value}`, layout === value);
+        });
+        ['accent', 'panel', 'flat'].forEach((value) => {
+            ribbon.classList.toggle(`dlux-ribbon-skin-${value}`, style === value);
+        });
+        setPreviewVisibility(ribbon.querySelector('.dlux-ribbon-heading'), showTitle);
+    }
+
+    function currentPreviewStep(form) {
+        const steps = Array.from(form.querySelectorAll('.wizard-step'));
+        const activeIndex = steps.findIndex((step) => !step.classList.contains('d-none') && step.style.display !== 'none');
+        if (activeIndex >= 0) return SYSTEM_SETTINGS_STEPS[activeIndex] || '';
+        const initialIndex = Number(form.dataset.dluxWizardInitialStep);
+        return Number.isInteger(initialIndex) ? SYSTEM_SETTINGS_STEPS[initialIndex] || '' : '';
+    }
+
+    function visiblePreviewTarget(step) {
+        const selectors = {
+            branding: '.titlebar, footer.dlux-footer',
+            languages: '.titlebar',
+            titlebar: '.titlebar',
+            sidebar: '#sidebar',
+            navbar: '[data-dlux-navbar]',
+            ribbon: '.dlux-ribbon-header',
+        };
+        if (step === 'appearance' || step === 'layout') return true;
+        return Boolean(selectors[step] && document.querySelector(selectors[step]));
+    }
+
+    function resolvePreviewMode(form) {
+        const step = currentPreviewStep(form);
+        const capability = PREVIEW_CAPABILITIES[step] || '';
+        if (!capability) return { mode: '', step };
+        if (capability === 'popup') return { mode: 'popup', step };
+        const modal = form.closest('#universalDynamicModal');
+        return { mode: modal && visiblePreviewTarget(step) ? 'glass' : 'popup', step };
+    }
+
+    function previewButtonsFor(form) {
+        const buttons = Array.from(form.querySelectorAll('[data-dlux-system-settings-preview]'));
+        if (form.id) {
+            const escapedId = root.CSS && typeof root.CSS.escape === 'function'
+                ? root.CSS.escape(form.id)
+                : form.id.replace(/["\\]/g, '\\$&');
+            document.querySelectorAll(`[data-dlux-system-settings-preview][form="${escapedId}"]`).forEach((button) => {
+                if (!buttons.includes(button)) buttons.push(button);
+            });
+        }
+        return buttons;
+    }
+
+    function syncPreviewButtons(form) {
+        const { mode, step } = resolvePreviewMode(form);
+        previewButtonsFor(form).forEach((button) => {
+            const unavailable = button.dataset.previewUnavailableLabel || 'Preview is not available for this step.';
+            button.disabled = !mode;
+            button.dataset.previewMode = mode;
+            button.dataset.previewStep = step;
+            button.setAttribute('aria-disabled', mode ? 'false' : 'true');
+            if (mode) button.removeAttribute('title');
+            else button.setAttribute('title', unavailable);
+        });
+    }
+
+    let glassPreviewState = null;
+
+    function exitGlassPreview() {
+        if (!glassPreviewState) return;
+        const { modal, button, clickHandler, keyHandler, hideHandler } = glassPreviewState;
+        modal.classList.remove('dlux-system-preview-glass');
+        delete modal.dataset.dluxPreviewHint;
+        const content = modal.querySelector('.modal-content');
+        if (content) delete content.dataset.dluxPreviewHint;
+        document.body.classList.remove('dlux-system-preview-active');
+        modal.removeEventListener('click', clickHandler, true);
+        document.removeEventListener('keydown', keyHandler, true);
+        modal.removeEventListener('hide.bs.modal', hideHandler);
+        glassPreviewState = null;
+        if (button?.isConnected) button.focus({ preventScroll: true });
+    }
+
+    function enterGlassPreview(form, button) {
+        const modal = form.closest('#universalDynamicModal');
+        if (!modal) return;
+        exitGlassPreview();
+        applySystemSettingsPreview(form);
+        modal.dataset.dluxPreviewHint = root.DLUX_STRINGS?.preview_close_hint
+            || 'Click anywhere, press Escape, or press Q to return.';
+        const content = modal.querySelector('.modal-content');
+        if (content) content.dataset.dluxPreviewHint = modal.dataset.dluxPreviewHint;
+        modal.classList.add('dlux-system-preview-glass');
+        document.body.classList.add('dlux-system-preview-active');
+
+        const clickHandler = (event) => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            exitGlassPreview();
+        };
+        const keyHandler = (event) => {
+            if (event.key !== 'Escape' && String(event.key || '').toLowerCase() !== 'q') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            exitGlassPreview();
+        };
+        const hideHandler = () => exitGlassPreview();
+        glassPreviewState = { modal, button, clickHandler, keyHandler, hideHandler };
+        root.setTimeout(() => {
+            if (!glassPreviewState || glassPreviewState.modal !== modal) return;
+            modal.addEventListener('click', clickHandler, true);
+            document.addEventListener('keydown', keyHandler, true);
+            modal.addEventListener('hide.bs.modal', hideHandler);
+        }, 0);
+    }
+
+    function previewElement(tag, className, text) {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        if (text !== undefined && text !== null) element.textContent = String(text);
+        return element;
+    }
+
+    function selectedAssetUrl(form, selector) {
+        const input = form.querySelector(selector);
+        return String(input?.closest('[data-asset-picker]')?.dataset.initialUrl || '').trim();
+    }
+
+    function previewSystemName(form) {
+        const language = String(document.documentElement.lang || 'en').split('-')[0];
+        const names = parseJson(getNamedFieldValue(form, 'system_names'), {});
+        return names[language] || Object.values(names).find(Boolean) || 'DjangoLux';
+    }
+
+    function buildPopupShell(form, step) {
+        const shell = previewElement('div', 'dlux-system-preview-shell');
+        const theme = getNamedFieldValue(form, 'default_theme') || 'light';
+        shell.dataset.previewTheme = theme;
+        shell.dataset.previewStep = step;
+        shell.dataset.cardEdges = getNamedFieldValue(form, 'card_edges') || 'curved';
+        shell.dataset.tableEdges = getNamedFieldValue(form, 'table_edges') || 'curved';
+
+        const titlebar = previewElement('header', 'dlux-system-preview-shell__titlebar');
+        const logoUrl = selectedAssetUrl(form, '#id_logo');
+        if (logoUrl) {
+            const logo = previewElement('img', 'dlux-system-preview-shell__logo');
+            logo.src = logoUrl;
+            logo.alt = '';
+            titlebar.appendChild(logo);
+        }
+        titlebar.appendChild(previewElement('strong', '', previewSystemName(form)));
+        titlebar.appendChild(previewElement('span', 'dlux-system-preview-shell__actions', '⌕  ◐  ●'));
+        shell.appendChild(titlebar);
+
+        if (step === 'login_page') {
+            const login = previewElement('main', 'dlux-system-preview-login');
+            const hero = previewElement('section', 'dlux-system-preview-login__hero');
+            const language = String(document.documentElement.lang || 'en').split('-')[0];
+            hero.appendChild(previewElement(
+                'h2',
+                '',
+                getNamedFieldValue(form, `login_hero_message_${language}`) || 'Welcome back',
+            ));
+            hero.appendChild(previewElement('p', '', 'Secure access to your workspace.'));
+            const card = previewElement('section', 'dlux-system-preview-login__card');
+            card.appendChild(previewElement('h3', '', 'Sign in'));
+            card.appendChild(previewElement('div', 'dlux-system-preview-shell__input', 'Email'));
+            card.appendChild(previewElement('div', 'dlux-system-preview-shell__input', 'Password'));
+            card.appendChild(previewElement('div', 'dlux-system-preview-shell__button', 'Continue'));
+            login.append(hero, card);
+            shell.appendChild(login);
+            return shell;
+        }
+
+        const navbarEnabled = readBooleanField(form, '#id_navbar_enabled', false);
+        if (navbarEnabled || step === 'navbar') {
+            const navbar = previewElement('nav', 'dlux-system-preview-shell__navbar');
+            navbar.append(
+                previewElement('span', '', 'Home'),
+                previewElement('span', '', '›'),
+                previewElement('span', '', getNamedFieldValue(form, 'navbar_default_mode') === 'history' ? 'Recent page' : 'Current section'),
+            );
+            shell.appendChild(navbar);
+        }
+
+        const workspace = previewElement('div', 'dlux-system-preview-shell__workspace');
+        const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
+        if (sidebarEnabled || step === 'sidebar') {
+            const sidebar = previewElement('aside', 'dlux-system-preview-shell__sidebar');
+            ['Dashboard', 'Records', 'Reports', 'Settings'].forEach((label) => {
+                sidebar.appendChild(previewElement('div', '', label));
+            });
+            workspace.appendChild(sidebar);
+        }
+
+        const content = previewElement('main', 'dlux-system-preview-shell__content');
+        if (step === 'homepage') {
+            content.appendChild(previewElement('h1', '', getNamedFieldValue(form, 'public_root_title') || 'Welcome'));
+            content.appendChild(previewElement(
+                'p',
+                'dlux-system-preview-shell__lead',
+                getNamedFieldValue(form, 'public_root_meta_description') || 'Your public homepage preview.',
+            ));
+        } else {
+            const ribbon = previewElement('section', 'dlux-system-preview-shell__ribbon');
+            ribbon.dataset.layout = getNamedFieldValue(form, 'ribbon_layout') || 'default';
+            ribbon.dataset.style = getNamedFieldValue(form, 'ribbon_style') || 'accent';
+            if (readBooleanField(form, '#id_ribbon_title', true)) {
+                ribbon.appendChild(previewElement('h2', '', 'Records'));
+            }
+            const tabs = previewElement('div', 'dlux-system-preview-shell__tabs');
+            ['All', 'Active', 'Archived'].forEach((label, index) => {
+                const tab = previewElement('span', index === 0 ? 'is-active' : '', label);
+                tabs.appendChild(tab);
+            });
+            ribbon.appendChild(tabs);
+            content.appendChild(ribbon);
+
+            const cards = previewElement('div', 'dlux-system-preview-shell__cards');
+            ['Overview', 'Recent activity', 'Quick actions'].forEach((label) => {
+                const card = previewElement('article', 'dlux-system-preview-shell__card');
+                card.appendChild(previewElement('strong', '', label));
+                card.appendChild(previewElement('p', '', 'Preview content uses unsaved settings without writing them.'));
+                cards.appendChild(card);
+            });
+            content.appendChild(cards);
+        }
+        workspace.appendChild(content);
+        shell.appendChild(workspace);
+
+        if (readBooleanField(form, '#id_footer_enabled', true)) {
+            shell.appendChild(previewElement(
+                'footer',
+                'dlux-system-preview-shell__footer',
+                getNamedFieldValue(form, 'footer_text') || `© ${previewSystemName(form)}`,
+            ));
+        }
+        return shell;
+    }
+
+    function openPopupPreview(form, step, button) {
+        document.querySelector('[data-dlux-system-preview-popup]')?.remove();
+        const overlay = previewElement('div', 'dlux-system-preview-popup');
+        overlay.dataset.dluxSystemPreviewPopup = '';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        const dialog = previewElement('div', 'dlux-system-preview-popup__dialog');
+        const heading = previewElement('div', 'dlux-system-preview-popup__heading');
+        const title = previewElement('strong', '', `Preview · ${step.replace(/_/g, ' ')}`);
+        const close = previewElement('button', 'btn-close');
+        close.type = 'button';
+        close.setAttribute('aria-label', root.DLUX_STRINGS?.btn_close || 'Close');
+        heading.append(title, close);
+        dialog.append(heading, buildPopupShell(form, step));
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        document.body.classList.add('dlux-system-preview-popup-active');
+
+        const closePopup = () => {
+            document.removeEventListener('keydown', keyHandler, true);
+            overlay.remove();
+            document.body.classList.remove('dlux-system-preview-popup-active');
+            if (button?.isConnected) button.focus({ preventScroll: true });
+        };
+        const keyHandler = (event) => {
+            if (event.key !== 'Escape' && String(event.key || '').toLowerCase() !== 'q') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            closePopup();
+        };
+        close.addEventListener('click', closePopup);
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                event.preventDefault();
+                closePopup();
+            }
+        });
+        document.addEventListener('keydown', keyHandler, true);
+        close.focus({ preventScroll: true });
+    }
+
+    function initPreviewControls(form) {
+        const buttons = previewButtonsFor(form);
+        buttons.forEach((button) => {
+            if (button.dataset.dluxSystemPreviewBound === 'true') return;
+            button.dataset.dluxSystemPreviewBound = 'true';
+            button.addEventListener('click', () => {
+                const { mode, step } = resolvePreviewMode(form);
+                if (!mode) return;
+                applySystemSettingsPreview(form);
+                if (mode === 'glass') enterGlassPreview(form, button);
+                else openPopupPreview(form, step, button);
+            });
+        });
+        if (form.dataset.dluxPreviewStepBound !== 'true') {
+            form.dataset.dluxPreviewStepBound = 'true';
+            form.addEventListener('dlux:wizard-step-change', () => syncPreviewButtons(form));
+        }
+        syncPreviewButtons(form);
+    }
+
     function applySystemSettingsPreview(form) {
         if (!form || !form.classList.contains('dlux-system-setup-form')) return;
         applyTitlebarPreview(form);
         applyBrandingPreview(form);
         applySidebarPreview(form);
+        applyNavbarPreview(form);
+        applyRibbonPreview(form);
         applyTableDensityPreview(form);
         applyLayoutPreview(form);
+        applyFontPreview(form);
         applyFooterPreview(form);
         root.dispatchEvent(new Event('resize'));
     }
@@ -359,6 +726,7 @@
         scope.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.systemSettingsPreviewBound === 'true') {
                 applySystemSettingsPreview(form);
+                initPreviewControls(form);
                 return;
             }
             form.dataset.systemSettingsPreviewBound = 'true';
@@ -370,14 +738,18 @@
                 }
             });
             applySystemSettingsPreview(form);
+            initPreviewControls(form);
         });
     }
 
     const previewApi = {
         TITLEBAR_ACTIONS_DEFAULT_ORDER,
         applyBrandingPreview,
+        applyFontPreview,
         applyFooterPreview,
         applyLayoutPreview,
+        applyNavbarPreview,
+        applyRibbonPreview,
         applySidebarPreview,
         applySystemSettingsPreview,
         applyTableDensityPreview,

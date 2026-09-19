@@ -19,8 +19,11 @@ class SystemSettingsPreviewModuleTests(SimpleTestCase):
         self.assertIn('root.DluxSetupPreview = Object.assign', self.preview_source)
         for name in (
             'applyBrandingPreview',
+            'applyFontPreview',
             'applyFooterPreview',
             'applyLayoutPreview',
+            'applyNavbarPreview',
+            'applyRibbonPreview',
             'applySidebarPreview',
             'applySystemSettingsPreview',
             'applyTableDensityPreview',
@@ -29,6 +32,16 @@ class SystemSettingsPreviewModuleTests(SimpleTestCase):
             'initSystemSettingsPreview',
         ):
             self.assertIn(f'function {name}(', self.preview_source)
+
+    def test_preview_controls_declare_visual_and_nonvisual_step_capabilities(self):
+        self.assertIn("homepage: 'popup'", self.preview_source)
+        self.assertIn("login_page: 'popup'", self.preview_source)
+        self.assertNotIn("email: 'surface'", self.preview_source)
+        self.assertNotIn("security: 'surface'", self.preview_source)
+        self.assertIn('function enterGlassPreview(', self.preview_source)
+        self.assertIn('function openPopupPreview(', self.preview_source)
+        self.assertIn("event.key !== 'Escape'", self.preview_source)
+        self.assertIn("toLowerCase() !== 'q'", self.preview_source)
 
     def test_feature_modules_delegate_preview_mutations(self):
         self.assertNotIn('function applyTitlebarPreview(', self.main_source)

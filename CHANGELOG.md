@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **System Settings Gain Intentional Preview Modes**: every setup step and focused Options editor now has a Preview action beside its existing navigation/save controls. Visual settings use either a glass mode that exposes real chrome behind the Options modal or a contained client-side popup for setup and off-page home/login targets; nonvisual steps show a disabled action with a clear reason. Both modes use unsaved form state without writing `SystemSettings`, retain the form across repeated cycles, restore on click/Escape/Q, and prevent an exit click from reaching page controls. Font defaults now preview without overriding personal preferences, and Navbar/Ribbon settings update real surfaces when present or fall back to the popup shell.
 - **System Settings Preview Ownership Is Centralized**: `setup/js/previews.js` now owns titlebar, sidebar, branding, footer, theme, table, card, and layout page mutations behind `window.DluxSetupPreview`; the setup wizard safely skips missing surfaces while Options modals preview the real chrome. Managed asset selections and uploads now reach logo/favicon previews, footer links and edge styles update when rendered, and persistent Notification settings no longer rewrite the active page's notification UI before save. Browser coverage exercises wizard and Options contexts, with a documented per-step preview matrix for the remaining popup/glass work.
 
 ## v1.9.4

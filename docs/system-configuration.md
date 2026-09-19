@@ -59,6 +59,13 @@ System Settings modal editors opened from Options use these same categories but 
 
 A live preview is an unsaved form value visibly changing a page surface that is already rendered. These mutations are centralized in `setup/js/previews.js` and safely do nothing when the wizard or Options page does not contain the target. Builder previews remain inside their builders and do not represent saved runtime chrome.
 
+Every setup step and focused Options editor includes a **Preview** action. It is disabled, with an explanatory tooltip, for steps whose values have no useful visual representation. Visual steps use one of two modes:
+
+- **Glass** hides the Options modal contents while retaining its outline, exposing real page chrome behind it. Click anywhere, press Escape, or press Q to return; the exit click is consumed so it cannot activate the page below.
+- **Popup** renders a contained shell from the current unsaved form state. Closing it returns focus and preserves the form, so settings can be adjusted and previewed repeatedly. This is used by the setup wizard and by off-page targets such as the public home and login pages.
+
+Neither mode saves `SystemSettings`; only the existing Save action persists changes.
+
 | Step | Unsaved preview behavior |
 | --- | --- |
 | Branding | Logo, favicon, system title, and an already-rendered footer update in place. Managed-library selections and new uploads use the same preview path. |
@@ -68,11 +75,11 @@ A live preview is an unsaved form value visibly changing a page surface that is 
 | Themes and Fonts | Theme and table/card edge choices can update visible chrome. Personal font preferences are not overwritten by a system-default preview. |
 | Titlebar | Visible titlebar layout, actions, title, logo, home link, and surface update in place. |
 | Sidebar | Visible Options-page sidebar state, density, toolbar, icons, and controls update in place; the setup wizard has no sidebar target and safely does nothing. |
-| Navbar | The builder synchronizes its own configuration. Runtime navbar preview remains pending a visible-target implementation. |
-| Ribbon | The ribbon builder owns its internal tab sample. It does not mutate an unrelated page ribbon. |
+| Navbar | A rendered runtime Navbar updates in place. When that surface is absent, Preview uses the contained shell. The builder continues to own its internal configuration sample. |
+| Ribbon | A real ribbon surface can preview its layout, skin, and heading visibility; otherwise Preview uses the contained shell. The ribbon builder keeps its separate internal tab sample. |
 | Components | Visible table density, edges, accent edges, sticky headers, resizing, zebra stripes, and card edges update in place. Personal form-density and modal-size preferences are preserved. |
-| Home and Public Pages | The visible titlebar Home link can update. Public-page presentation remains save-only until a contained preview exists. |
-| Login Page | Save-only until a contained login preview exists. |
+| Home and Public Pages | The visible titlebar Home link can update, and Preview renders the unsaved public title and description in a contained shell. |
+| Login Page | Preview renders the unsaved login presentation in a contained shell. |
 | Profile Page | Builder synchronization only; no live page mutation. |
 | Global Search | Dependency controls only; no live page mutation. |
 | Notifications | Dependency controls only; persistent notification settings do not hide or rewrite the active page's notification UI. |
