@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Advanced Filter Retirement Date**: `docs/ui-integration.md` and `docs/developer-guide.md` said `advanced_filter_helper()` was removed in v1.9.0; it stays through v1.9.x and goes in v1.10.0, the date `docs/deprecation-countdown.md` already gives. New scaffolded apps (`dlux/scaffold/templates/app/README.md.tmpl`) recommend `RibbonMixin` and `{% dlux_ribbon %}` instead of the helper. `docs/inline-updater.md` gets the same correction for the in-container update executor (v1.10.0, not v1.9.0).
+
 ## v1.9.4
 
 The stable release of the 1.9.4 line, identical in scope to `1.9.4b1` below.

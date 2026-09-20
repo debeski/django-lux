@@ -298,4 +298,4 @@ Use [Deployment Doctor](doctor.md) for diagnostics and [Composer Agent Integrati
 
 ## Compatibility window
 
-`DLUX_UPDATE_EXECUTOR="inline"` and `python -m dlux enable-updater` are deprecated migration aids, scheduled for removal in v1.9.0. They are not a supported way to avoid Composer. New deployments should use the Composer topology and no longer declare `dlux-updater`.
+`DLUX_UPDATE_EXECUTOR="inline"` and `python -m dlux enable-updater` are deprecated migration aids, scheduled for removal in v1.10.0 (see [Deprecation Countdown](deprecation-countdown.md)). They are not a supported way to avoid Composer. New deployments should use the Composer topology and no longer declare `dlux-updater`.

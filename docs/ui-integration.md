@@ -229,7 +229,7 @@ a scrollable modal there is usually screen below the modal and none inside it.
 
 Prefer `DluxTable` for handwritten tables. It supplies the standard responsive shell, density handling, pagination, empty state, and row-action contract. `Table.Meta` can opt out with `dlux_table = False`, force density with `dlux_density`, set `dlux_per_page`, disable actions with `dlux_actions = False`, or drop the footer toolbar with `dlux_show_footer = False` (which also stops pagination, so every row renders).
 
-New list pages should use the [Ribbon](ribbon.md) (`{% dlux_ribbon %}`), which derives the filter band from the FilterSet and is configurable by the administrator. The helpers below remain for pages not yet migrated; `advanced_filter_helper()` is removed in v1.9.0.
+New list pages should use the [Ribbon](ribbon.md) (`{% dlux_ribbon %}`), which derives the filter band from the FilterSet and is configurable by the administrator. The helpers below remain for pages not yet migrated; `advanced_filter_helper()` is removed in v1.10.0.
 
 Render filters with `{% crispy filter.form %}`, not `{{ filter.form|crispy }}`: the filter form helper owns the form tag, action controls, advanced-collapse markup, and autosubmit data attributes. Use `setup_filter_helper()` when there are no advanced fields; `advanced_filter_helper()` deliberately renders an advanced-toggle control.
 

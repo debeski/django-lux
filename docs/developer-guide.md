@@ -568,7 +568,7 @@ That cluster of subsystems is a big part of why DjangoLux should be treated like
 If you are wiring a normal list screen today, the supported path is:
 
 - extend `dlux/list_base.html`
-- add `RibbonMixin` to the view (see [Ribbon](ribbon.md)); on pages not yet migrated, call `setup_filter_helper()` or `advanced_filter_helper()`
+- add `RibbonMixin` to the view (see [Ribbon](ribbon.md)); legacy pages may keep `setup_filter_helper()` or the deprecated `advanced_filter_helper()` only until v1.10.0
 - render the table with `{% render_table table %}` and do not wrap it in another `.table-responsive`
 - prefer `dlux.tables.DluxTable` for handwritten tables
 
@@ -602,7 +602,7 @@ class InvoiceTable(DluxTable):
 
 Filter pages also have a clearer contract now:
 
-- `setup_filter_helper()` and `advanced_filter_helper()` default to inline placeholder labels for filter bars
+- `setup_filter_helper()` and the deprecated-until-v1.10 `advanced_filter_helper()` default to inline placeholder labels for legacy filter bars
 - if you want normal external labels instead, pass `inline_labels=False`
 - if a page cannot extend `dlux/list_base.html`, include `dlux/forms/filter_assets_head.html`
 

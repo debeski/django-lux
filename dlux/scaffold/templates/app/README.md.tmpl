@@ -38,4 +38,4 @@ The generated table context menu also uses the same direct modal-manager URL for
 - Use `dlux/form_base.html` for full-page forms.
 - Use `dlux/list_base.html` for list/filter pages.
 - Use `set_field_attrs()` in custom forms for the standard widget surface.
-- Use `setup_filter_helper()` or `advanced_filter_helper()` for DjangoLux-friendly filters.
+- Use `RibbonMixin` and `{% dlux_ribbon %}` for DjangoLux-friendly list filters and actions.
