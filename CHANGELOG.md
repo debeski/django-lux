@@ -7,6 +7,16 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.1b1
+
+Ships on the 1.9 line on purpose: **1.10.0 stays reserved for the removals it is
+scheduled to carry** (the in-container update executor and the `archive_file`
+widget shims, and `advanced_filter_helper` once archive/dhub/trademarks adopt
+the ribbon). Postponing them a second time to spend the minor on this card would
+make the deprecation schedule meaningless.
+
+- **Deployment Operations Card**: Options gains a superuser-only **Deployment operations** card that runs Composer's deployment check from the browser, so seeing what it reports no longer needs a shell on the host — the check that catches a resident pair started with a command Composer rejects, a missing restart label, or an obsolete service still in the compose file. DjangoLux gains no Docker authority: the card can request exactly the operations named in `dlux.updater.ops.OPERATIONS` (phase 1: `check`, read-only), and the request carries no command, path, service or flags, so the operation name is the entire input. `POST /sys/api/dlux-ops/run/` is superuser-only, CSRF-protected and audited; the row is recorded in the database because `web` mounts the runtime volume read-only, the worker writes `state/ops-request.json` with the run's token, Composer publishes its result under that same token, and `tick_ops_run()` finishes the run from it. A result whose token does not match is ignored, one operation runs at a time, and a Composer older than the operation's floor (1.5.0) fails the run after 120s naming the version it needs instead of hanging on "running". New `DluxOpsRun` (migration `0023`, a new table, additive and inline-safe), `dlux/static/dlux/system/js/ops.js`, English and Arabic strings. First phase of `operations_center_plan.md`; the operations that change a deployment are later phases and are deliberately absent.
+
 ## v1.9.0
 
 The stable release of the 1.9.0 line, identical in scope to `1.9.0b2` and its

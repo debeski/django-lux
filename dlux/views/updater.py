@@ -222,6 +222,43 @@ def dlux_update_interval_view(request):
     return JsonResponse({"ok": True, "state": state})
 
 
+@login_required
+@require_GET
+def dlux_ops_state_view(request):
+    """What the Operations card renders. Superuser-only, like every operation."""
+    _require_superuser(request)
+    from ..updater.service import get_ops_state
+
+    return JsonResponse({"ok": True, **get_ops_state()})
+
+
+@login_required
+@csrf_protect
+@require_POST
+def dlux_ops_run_view(request):
+    """Ask Composer to perform one named operation. Superuser-only and audited.
+
+    Dlux holds no Docker authority: this records the request, and the worker
+    hands it to the resident Composer, which performs it and writes back a
+    result. Only the operations in ``dlux.updater.ops.OPERATIONS`` exist.
+    """
+    _require_superuser(request)
+    from ..updater.service import queue_ops_run, serialize_ops_run
+
+    try:
+        run = queue_ops_run(request.POST.get("operation"), username=request.user.get_username())
+    except UpdaterError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=409)
+    log_audit_event(
+        request,
+        "dlux_ops_run",
+        "DLUX_OPS_RUN",
+        model_name="DjangoLux operations",
+        details={"operation": run.operation, "token": run.token},
+    )
+    return JsonResponse({"ok": True, "run": serialize_ops_run(run)})
+
+
 def _password_guard(request):
     failure = require_current_password(request, field_name="current_password")
     return failure

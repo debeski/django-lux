@@ -87,7 +87,7 @@ if shared_task is not None:
             )
             from .updater.service import (
                 UpdateService, reconcile_channel_policy, reconcile_check_policy,
-                reconcile_state_if_due, record_worker_volume_report,
+                reconcile_state_if_due, record_worker_volume_report, tick_ops_run,
             )
 
             try:
@@ -119,6 +119,8 @@ if shared_task is not None:
             service.process_next()
             # A manual check waits for Composer's fresh report; this finishes it.
             service.tick_check_request()
+            # Operations card: hand a queued operation to Composer, or finish one.
+            tick_ops_run(service)
             # Composer executes an inline package update; this reads back its ack
             # and finishes the run. Without it a handed-off run never ends.
             service.tick_package_update()

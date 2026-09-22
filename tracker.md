@@ -2,6 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- **v1.9.1b1 (in development)**: Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. Needs Composer 1.5.0b1; older Composers fail the run with a message.
 - **v1.9.0 (stable)** (2026-09-22): channels + configurable check interval + check-now + the modal footer fix; no stable 1.8.14 (that line was promoted). Requires Composer **>=1.4.1** (`v1.4.0` was tagged but never published). 1.9.0 removals postponed to 1.10.0. Live-accepted on the decrees stack against Composer 1.4.0b4: install, rollback, re-install with migrations 0021/0022, channel opt-in/out, interval, check-now.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
@@ -66,6 +67,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-23: Operations card phase 1 — full `dlux.tests` 2547 OK (20 new in `test_ops`), JS 63 OK, `release_check` classify v1.10.0b1 -> beta and `--base-tag v1.9.0` exit 0; Composer side 660 OK.
 - 2026-09-22: 1.9.0b2 pre-tag — full `dlux.tests` 2527 OK (15 new in `test_check_policy`), JS 63 OK, `release_check` classify beta + `--base-tag v1.8.13` exit 0 (migration effect additive).
 - 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
 - 2026-09-22: `fix/modal-footer-fields` — full `dlux.tests` 2511 (1 updater failure was the moved venv; 203 incl. it OK with the checkout on PYTHONPATH), modal e2e 4 new + 5 back OK, `tests-js` 63 OK.
@@ -76,14 +78,12 @@
 - 2026-09-07: v1.8.13 — both fixes proven against the running decrees stack: audit toggle stored True->False from Access & Security; save response went `add_more:true` -> `add_more:false` with the modal staying closed. New tests fail on the pre-fix code.
 - 2026-09-06: full `dlux.tests` 2430 OK (was 2366 — 3 unregistered modules + the new guard + 2 modal-listener tests); the capture-phase test fails against the pre-fix listener; event phases verified in a real browser (non-bubbling body dispatch reaches capture only).
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
-- 2026-09-05: tooltip drift — full `dlux.tests` 2349 OK and `node --test 'tests-js/*.test.mjs'` 63 OK (2 new in `tests-js/tooltip_position.test.mjs`; the stale-offset one fails on pre-fix code, 841px vs 762px). Browser-verified in a real repro: pre-fix walked 8px/hover after a resize, post-fix lands correct on the first hover.
-- 2026-09-05: `test_package_handoff.HandoffCollectsStaticTests` no longer pins `1.8.11` — it derives a version above the baked floor, since `reconcile()` resets any volume release below `get_baked_version()` and the bump to 1.8.12 broke it.
 
 ### One-line info about last time edited Docs:
+- 2026-09-23: `docs/inline-updater.md` gained "The Operations card" (handoff, token matching, the operation table, why the request carries no command surface); `docs/reference.md` lists both `/sys/api/dlux-ops/` endpoints.
 - 2026-09-22: `docs/deprecation-countdown.md` (executor + `archive_file` shims -> v1.10.0), removal notes in `reference.md`/`ribbon.md`/`updater-consolidation.md`/`deployment-configuration.md`; `docs/inline-updater.md` channel handoff (web writes no file).
 - 2026-09-08: `docs/RELEASING.md` "Channels: stable and beta" (tag table, refused tags, tested-minimum rule, stable-baseline migration rule); `docs/inline-updater.md` "Which releases are eligible" (ownership table, failure modes); `docs/reference.md` + `docs/FEATURES.md` entries; Composer `README.md` + `docs/RELEASING.md` mirrors, including the `:beta` alias advance rule.
 - 2026-09-06: `release_channels_plan.md` records both projects' mandatory beta-first milestones, implementation paths, channel semantics, staging gates and retirement checklist; gitignored planning artifact.
-- 2026-09-06: `docs/inline-updater.md` gained "Moving to an image that bakes an older DjangoLux" (adopt/keep/abort); `docs/deployment-configuration.md` documents `DLUX_ALLOW_INSECURE_SECRET_KEY`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
