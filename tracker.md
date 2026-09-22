@@ -34,7 +34,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Release path to 1.9.0: tag `v1.9.0b1`; re-run the decrees acceptance stack (`project-decrees/beta-channel-test`, port 8088, Composer `:beta`) from b2 -> 1.9.0b1 including the Options switch; release Composer 1.3.14 stable; then tag `v1.9.0` (beta-first gate needs b1 on PyPI).
+  - [ ] Release path to 1.9.0: release Composer 1.3.14 stable (b3 has the `resident-commands` check + `dlux check` wording, committed locally, unpushed; other b3 WIP still uncommitted), then tag `v1.9.0` (beta-first gate satisfied: 1.9.0b1 is on PyPI).
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
   - [ ] Before v1.10.0 (removal moved there 2026-09-08, so it no longer gates 1.9.0): project-archive/dhub/trademarks must adopt the ribbon — 19 `advanced_filter_helper` call sites, and none of the three uses `RibbonMixin` yet. Each site carries per-field placeholders/col_class the ribbon replaces with an administrator-chosen layout, so it is a product decision per project. Pilot one filter against a running stack before converting the rest; none of the three is currently deployed locally. If that cannot land in time, move the removal to v1.10 instead of shipping 1.9.0 that breaks their list pages.
@@ -46,6 +46,7 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:**
+  - [x] 1.9.0b1 published + accepted live (2026-09-22): decrees stack b2 -> 1.9.0b1 inline in ~25s (web + celery on `releases/1.9.0b1`); Options switch HTTP 200 both ways, pending -> applied in one tick, 0 web errors; opt-out keeps 1.9.0b1, 1.8.13 not offered; served `dynamic_modal/js/main.js?v=1.9.0b1` is byte-identical to the tag. PyPI + GitHub prerelease (7 assets), latest still v1.8.13.
   - [x] Live beta-channel acceptance (2026-09-22) on a decrees stack, dlux 1.8.14b1 + Composer 1.3.14b2: stable not offered 1.8.13, opt-in offers/installs b2 (web + celery restart onto it), opt-out keeps b2, `composer dlux channel` applies in one tick. Found + fixed: Options switch 500 (`set_update_channel` wrote to web's read-only mount).
   - [x] Modal footer fields (`is_active`) now `form=`-associated after relocation, and the unsaved guard reads `form.elements`; branch `fix/modal-footer-fields`, unmerged (2026-09-22).
   - [x] Beta-first gate (2026-09-10): `validate_beta_first()` in `release_check --classify` refuses a stable `vX.Y.0` without a published `bN`/`rcN` of that version in history (PyPI, non-yanked). Patches ungated. Tree bumped to 1.8.14b3 (untagged).
