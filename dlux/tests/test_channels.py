@@ -17,7 +17,7 @@ from packaging.version import Version
 
 from dlux.models.settings import SystemSettings
 from dlux.models.updater import DluxUpdateState
-from dlux.updater import UpdaterError, channel
+from dlux.updater import UpdaterError, channel, check_policy
 from dlux.updater.manifest import select_latest_candidate
 from dlux.updater.release_check import (
     changelog_section,
@@ -257,8 +257,11 @@ class ComposerReportedPrereleaseTests(TestCase):
             encoding="utf-8",
         )
         with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
-            queue_run(self.Run.ACTION_CHECK, self.user.username)
-            UpdateService(store=store).process_next()
+            run = queue_run(self.Run.ACTION_CHECK, self.user.username)
+            service = UpdateService(store=store)
+            service.process_next()
+            check_policy.ack_path(store).write_text(_json.dumps({"token": run.token}), encoding="utf-8")
+            service.tick_check_request()
         return DluxUpdateState.load()
 
     def test_a_reported_prerelease_is_not_offered_on_stable(self):

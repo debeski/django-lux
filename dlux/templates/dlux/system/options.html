@@ -244,6 +244,9 @@
                                  data-check-url="{% url 'dlux_update_check' %}"
                                  data-skip-url="{% url 'dlux_update_skip' %}"
                                  data-channel-url="{% url 'dlux_update_channel' %}"
+                                 data-interval-url="{% url 'dlux_update_interval' %}"
+                                 data-label-interval-minutes="{{ DLUX_STRINGS.dlux_update_interval_minutes|default:'{n} min' }}"
+                                 data-label-interval-hours="{{ DLUX_STRINGS.dlux_update_interval_hours|default:'{n} h' }}"
                                  data-label-unskip="{{ DLUX_STRINGS.dlux_update_unskip|default:'Un-skip' }}"
                                  data-label-channel-beta="{{ DLUX_STRINGS.dlux_update_channel_beta_note|default:'Prereleases are eligible. Turning this off never downgrades an installed beta.' }}"
                                  data-label-channel-pending="{{ DLUX_STRINGS.dlux_update_channel_pending|default:'Pending: the update worker applies this shortly.' }}"
@@ -331,6 +334,12 @@
                                             <label class="form-check-label" for="dlux-update-beta-channel">{{ DLUX_STRINGS.dlux_update_channel_beta|default:'Include beta releases' }}</label>
                                         </div>
                                         <div class="dlux-upd-channel-note small text-muted" data-dlux-channel-note></div>
+                                        <div class="dlux-upd-interval d-flex align-items-center gap-2 mt-2">
+                                            <label class="small mb-0" for="dlux-update-check-interval">{{ DLUX_STRINGS.dlux_update_check_interval|default:'Check for updates every' }}</label>
+                                            <select class="form-select form-select-sm w-auto" id="dlux-update-check-interval"
+                                                    data-dlux-interval-select
+                                                    {% if not can_manage_dlux_updates %}disabled{% endif %}></select>
+                                        </div>
                                     </div>
                                     <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
                                         <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>

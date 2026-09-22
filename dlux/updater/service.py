@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 import urllib.request
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from packaging.version import InvalidVersion, Version
@@ -18,7 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import UpdaterError, get_baked_version
-from . import channel
+from . import channel, check_policy
 from .manifest import (
     ReleaseCandidate,
     assess_wheel,
@@ -220,6 +220,32 @@ def reconcile_channel_policy(service):
     return chosen
 
 
+def set_check_interval(minutes, *, username=""):
+    """Record how often Composer checks for updates. Web side: column only.
+
+    The worker's ``reconcile_check_policy`` publishes it on its next tick.
+    Returns the refreshed UI state dict.
+    """
+    minutes = check_policy.normalize_interval(minutes)
+    state = _state_model().load()
+    if state.check_interval_minutes != minutes:
+        state.check_interval_minutes = minutes
+        state.save(update_fields=["check_interval_minutes", "updated_at"])
+    return get_ui_state()
+
+
+def reconcile_check_policy(service):
+    """Worker side: keep ``state/check-policy.json`` equal to the column."""
+    state = _state_model().load()
+    try:
+        chosen = check_policy.normalize_interval(state.check_interval_minutes)
+    except UpdaterError:
+        chosen = check_policy.DEFAULT_INTERVAL_MINUTES
+    if check_policy.read_policy(service.store) != chosen:
+        check_policy.publish_policy(service.store, chosen)
+    return chosen
+
+
 def worker_volume_report(state=None):
     """What the runtime-volume writer last reported, or None if it never has.
 
@@ -365,6 +391,8 @@ def serialize_state(state):
         "active_run_token": state.active_run_token,
         "skipped_versions": list(state.skipped_versions or []),
         **channel_status(state),
+        "check_interval_minutes": state.check_interval_minutes,
+        "check_interval_choices": list(check_policy.INTERVAL_CHOICES_MINUTES),
     }
 
 
@@ -416,6 +444,8 @@ def get_ui_state():
             "update_channel": channel.STABLE,
             "channel_pending": "",
             "channel_error": "",
+            "check_interval_minutes": check_policy.DEFAULT_INTERVAL_MINUTES,
+            "check_interval_choices": list(check_policy.INTERVAL_CHOICES_MINUTES),
         }
     return serialize_state(state)
 
@@ -1136,6 +1166,52 @@ class UpdateService:
             logger.warning("Failed to emit the app-updated admin notification.", exc_info=True)
 
     def _process_check_via_composer(self, run):
+        """Ask Composer for a fresh check; ``tick_check_request`` finishes the run.
+
+        Reading the report straight away would show whatever the agent found on
+        its last interval check, which is what "Check for updates" must not do.
+        """
+        try:
+            check_policy.write_request(self.store, run.token)
+        except Exception:
+            logger.warning("Could not request a Composer check; reading its last report.", exc_info=True)
+            return self._finish_check_from_report(run)
+        run.report = {"check_requested_at": timezone.now().isoformat()}
+        run.append_log("Asked Composer for a fresh check.")
+        run.save(update_fields=["report", "progress_log"])
+        return None
+
+    def tick_check_request(self):
+        """Finish a check run once Composer acknowledges it, or once it times out."""
+        Run = _run_model()
+        run = Run.objects.filter(
+            action=Run.ACTION_CHECK, status=Run.STATUS_CHECKING, is_active=True,
+        ).order_by("created_at").first()
+        if run is None:
+            return None
+        requested_at = str((run.report or {}).get("check_requested_at") or "")
+        if not requested_at:
+            return None
+        if not check_policy.acknowledged(self.store, run.token):
+            try:
+                started = datetime.fromisoformat(requested_at)
+            except ValueError:
+                started = None
+            waited = (timezone.now() - started).total_seconds() if started else None
+            if waited is not None and waited < check_policy.REQUEST_TIMEOUT_SECONDS:
+                return None
+            run.append_log(
+                "Composer did not answer the check request; showing its last report. "
+                "Composer 1.4.0 or later checks on request."
+            )
+            run.save(update_fields=["progress_log"])
+        try:
+            self._finish_check_from_report(run)
+        except Exception as exc:
+            self._handle_failure(run, exc)
+        return run
+
+    def _finish_check_from_report(self, run):
         """Read what Composer published instead of reaching PyPI.
 
         Composer resolves, downloads and verifies the wheel in

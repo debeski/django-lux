@@ -83,6 +83,7 @@
         const channelWrap = root.querySelector('[data-dlux-channel-wrap]');
         const channelToggle = root.querySelector('[data-dlux-channel-toggle]');
         const channelNote = root.querySelector('[data-dlux-channel-note]');
+        const intervalSelect = root.querySelector('[data-dlux-interval-select]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -423,6 +424,51 @@
             channelToggle.addEventListener('change', () => postChannel(channelToggle.checked));
         }
 
+        // How often Composer checks, published by the worker like the channel.
+        async function postInterval(minutes) {
+            if (!root.dataset.intervalUrl) { return; }
+            const body = new FormData();
+            body.append('minutes', String(minutes));
+            if (intervalSelect) { intervalSelect.disabled = true; }
+            try {
+                const data = await jsonRequest(root.dataset.intervalUrl, { method: 'POST', body });
+                render(data && data.state);
+            } catch (exc) {
+                if (intervalSelect && state) { intervalSelect.value = String(state.check_interval_minutes); }
+                if (window.showToast) { window.showToast(exc.message || 'Request failed', 'error'); }
+            } finally {
+                if (intervalSelect) { intervalSelect.disabled = root.dataset.canManage !== 'true'; }
+            }
+        }
+
+        if (intervalSelect) {
+            intervalSelect.addEventListener('change', () => postInterval(intervalSelect.value));
+        }
+
+        function intervalLabel(minutes) {
+            const hours = minutes / 60;
+            if (minutes >= 60 && Number.isInteger(hours)) {
+                return (root.dataset.labelIntervalHours || '{n} h').replace('{n}', String(hours));
+            }
+            return (root.dataset.labelIntervalMinutes || '{n} min').replace('{n}', String(minutes));
+        }
+
+        function renderInterval() {
+            if (!intervalSelect || !state || !Array.isArray(state.check_interval_choices)) { return; }
+            if (intervalSelect.options.length !== state.check_interval_choices.length) {
+                intervalSelect.innerHTML = '';
+                state.check_interval_choices.forEach((minutes) => {
+                    const option = document.createElement('option');
+                    option.value = String(minutes);
+                    option.textContent = intervalLabel(minutes);
+                    intervalSelect.appendChild(option);
+                });
+            }
+            if (document.activeElement !== intervalSelect) {
+                intervalSelect.value = String(state.check_interval_minutes);
+            }
+        }
+
         function renderChannel() {
             if (!channelWrap || !state) { return; }
             channelWrap.hidden = false;
@@ -477,6 +523,7 @@
             if (!state) return;
             renderSkipped(state.skipped_versions);
             renderChannel();
+            renderInterval();
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
             checked.textContent = state.last_checked_at

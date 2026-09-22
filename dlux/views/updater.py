@@ -168,10 +168,9 @@ def dlux_update_channel_view(request):
 
     Superuser-only and audited, like every other updater mutation. It installs
     nothing: it records which releases the next check may offer. Web mounts the
-    runtime volume read-only, so the change is recorded in the database and left
-    as a request for the worker to publish; the response reports it as pending
-    until the worker acknowledges it, rather than claiming a mirror it cannot
-    write has already changed.
+    runtime volume read-only, so the change is recorded in the database and the
+    worker publishes it; the response reports it as pending until the published
+    policy matches, rather than claiming a mirror it cannot write has changed.
     """
     _require_superuser(request)
     from ..updater import channel as update_channel
@@ -192,6 +191,33 @@ def dlux_update_channel_view(request):
         "DLUX_UPDATE_CHANNEL",
         model_name="DjangoLux updater",
         details={"channel": requested},
+    )
+    return JsonResponse({"ok": True, "state": state})
+
+
+@login_required
+@csrf_protect
+@require_POST
+def dlux_update_interval_view(request):
+    """Choose how often Composer checks for updates. Superuser-only, audited.
+
+    Recorded in the database; the worker publishes it to the runtime volume and
+    Composer's agent picks it up on its next loop tick.
+    """
+    _require_superuser(request)
+    from ..updater.service import set_check_interval
+
+    minutes = request.POST.get("minutes")
+    try:
+        state = set_check_interval(minutes, username=request.user.get_username())
+    except UpdaterError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    log_audit_event(
+        request,
+        "dlux_update_interval",
+        "DLUX_UPDATE_INTERVAL",
+        model_name="DjangoLux updater",
+        details={"minutes": state["check_interval_minutes"]},
     )
     return JsonResponse({"ok": True, "state": state})
 

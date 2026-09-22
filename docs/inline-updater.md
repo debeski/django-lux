@@ -114,6 +114,25 @@ the policy, and DjangoLux checks again before it offers or applies one — the t
 can disagree for a tick after an opt-out, and the safe direction to disagree is
 to offer less.
 
+### How often Composer checks, and checking now
+
+Composer's resident agent checks PyPI for DjangoLux releases and the registry for
+project images on an interval. **Check for updates every** on the Options card
+sets it (5 minutes to 24 hours, default 15 minutes), stored in
+`DluxUpdateState.check_interval_minutes` and published by the worker to
+`state/check-policy.json` as `{"schema_version": 1, "interval_seconds": N}`. The
+agent reads that file on every loop tick, so a change takes effect within
+seconds; a shorter interval pulls the next scheduled check forward. Without the
+file (DjangoLux before 1.9.0) the agent's `--check-interval` applies, which
+defaults to 900 seconds from Composer 1.4.0.
+
+**Check for updates** is a request, not a read. The worker writes
+`state/check-request.json` with the check run's token; the agent re-checks both
+images and packages immediately and acknowledges in `check-request.json.ack`,
+and the next worker tick finishes the run from the fresh report. A Composer
+before 1.4.0 never acknowledges: after 20 seconds the run falls back to its last
+report and says so in the run log.
+
 ### What refreshes the reported versions
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.

@@ -33,7 +33,7 @@ from dlux.models import (
     SystemSettings,
 )
 from dlux.scaffold import ScaffoldError, enable_updater
-from dlux.updater import UpdaterError
+from dlux.updater import UpdaterError, check_policy
 from dlux.updater.manifest import (
     ReleaseCandidate,
     _validated_https_url,
@@ -1909,7 +1909,11 @@ class UpdaterApiTests(TestCase):
             store = RuntimeStore(temp_dir).ensure()
             if payload is not None:
                 self._publish_availability(store, payload)
-            UpdateService(store=store).process_next()
+            service = UpdateService(store=store)
+            service.process_next()
+            # Composer's side: re-check, publish, acknowledge the request.
+            check_policy.ack_path(store).write_text(json.dumps({"token": run.token}), encoding="utf-8")
+            service.tick_check_request()
         run.refresh_from_db()
         return run, DluxUpdateState.load()
 

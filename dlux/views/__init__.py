@@ -159,6 +159,7 @@ from .updater import (
     dlux_update_apply_view,
     dlux_update_check_view,
     dlux_update_channel_view,
+    dlux_update_interval_view,
     dlux_update_skip_view,
     dlux_update_image_view,
     dlux_update_rollback_view,

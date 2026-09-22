@@ -47,6 +47,11 @@ class DluxUpdateState(models.Model):
     update_channel = models.CharField(
         max_length=16, default="stable", db_default="stable", verbose_name="Update Channel",
     )
+    # How often Composer looks for DjangoLux releases and project images.
+    # Mirrored to `state/check-policy.json` by the worker, like the channel.
+    check_interval_minutes = models.PositiveIntegerField(
+        default=15, db_default=15, verbose_name="Update Check Interval (minutes)",
+    )
     # The runtime-volume writer's own verdict. Celery owns the write side, so
     # only it can say whether the volume updates run against is usable; web
     # mounts that volume read-only and reads this instead of probing it.
