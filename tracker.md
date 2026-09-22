@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **v1.9.1b1 (in development)**: Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. Needs Composer 1.5.0b1; older Composers fail the run with a message.
+- **v1.9.1b1 published and live-accepted** (2026-09-23): Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. Needs Composer 1.5.0b1; an older resident fails the run in 120 s naming the version it needs.
 - **v1.9.0 (stable)** (2026-09-22): channels + configurable check interval + check-now + the modal footer fix; no stable 1.8.14 (that line was promoted). Requires Composer **>=1.4.1** (`v1.4.0` was tagged but never published). 1.9.0 removals postponed to 1.10.0. Live-accepted on the decrees stack against Composer 1.4.0b4: install, rollback, re-install with migrations 0021/0022, channel opt-in/out, interval, check-now.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
@@ -67,6 +67,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-23: Operations card live on the decrees stack (dlux 1.9.1b1 + Composer 1.5.0b1): 1.9.0 -> 1.9.1b1 installed in 35 s with migration 0023; panel check answered in ~9 s with the same 15 findings the CLI reports; a reintroduced flat command surfaced as a `fail` finding with its fix hint and the run still completed; unknown operation refused 409; on Composer 1.4.1 the run failed at 133 s with "needs Composer 1.5.0 or later".
 - 2026-09-23: Operations card phase 1 — full `dlux.tests` 2547 OK (20 new in `test_ops`), JS 63 OK, `release_check` classify v1.10.0b1 -> beta and `--base-tag v1.9.0` exit 0; Composer side 660 OK.
 - 2026-09-22: 1.9.0b2 pre-tag — full `dlux.tests` 2527 OK (15 new in `test_check_policy`), JS 63 OK, `release_check` classify beta + `--base-tag v1.8.13` exit 0 (migration effect additive).
 - 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
@@ -75,7 +76,6 @@
 - 2026-09-08: 1.8.14b2 release job fixed and PROVEN — release published with 7/7 assets, prerelease=True, "latest" unmoved. Earlier, 1.8.14b1 verified against REAL published artifacts — `pip install django-lux` -> 1.8.13, `--pre` -> 1.8.14b1; GitHub release prerelease=True, "latest" still v1.8.13; the published wheel's manifest is accepted by Composer 1.3.14b1 and REFUSED by shipped Composer 1.3.13 with exactly the predicted `migration_baseline` error. Full suite 2502 OK.
 - 2026-09-08: channels — full `dlux.tests` 2502 OK (33 new in `test_channels`), `node --test tests-js` 63 OK, composer 599 OK (43 new in `tests/test_channels.py`); key tests confirmed failing against pre-fix code (the `migration_baseline` refusal, `channel=` selection, the prerelease-satisfies-floor bug); `release_check` exit 0 for `v1.8.14b1` after the new effect check forced the manifest to declare `additive`.
 - 2026-09-07: v1.8.14 — the new step-anchor guard found a second live instance of the audit-toggle bug (`ribbon_title` rendered in Ribbon, anchored to Components) and it is fixed; `expected_migration_baseline()` derives 1.8.9 from published history, which is the release decrees crossed.
-- 2026-09-07: v1.8.13 — both fixes proven against the running decrees stack: audit toggle stored True->False from Access & Security; save response went `add_more:true` -> `add_more:false` with the modal staying closed. New tests fail on the pre-fix code.
 - 2026-09-06: full `dlux.tests` 2430 OK (was 2366 — 3 unregistered modules + the new guard + 2 modal-listener tests); the capture-phase test fails against the pre-fix listener; event phases verified in a real browser (non-bubbling body dispatch reaches capture only).
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
 
