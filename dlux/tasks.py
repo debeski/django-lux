@@ -86,8 +86,8 @@ if shared_task is not None:
                 consume_agent_requests, publish_agent_results, publish_agent_snapshot,
             )
             from .updater.service import (
-                UpdateService, reconcile_channel_policy, reconcile_state_if_due,
-                record_worker_volume_report,
+                UpdateService, reconcile_channel_policy, reconcile_check_policy,
+                reconcile_state_if_due, record_worker_volume_report,
             )
 
             try:
@@ -111,8 +111,14 @@ if shared_task is not None:
                 reconcile_channel_policy(service)
             except UpdaterError:
                 pass
+            try:
+                reconcile_check_policy(service)
+            except (UpdaterError, OSError):
+                pass
             consume_agent_requests(service)
             service.process_next()
+            # A manual check waits for Composer's fresh report; this finishes it.
+            service.tick_check_request()
             # Composer executes an inline package update; this reads back its ack
             # and finishes the run. Without it a handed-off run never ends.
             service.tick_package_update()
