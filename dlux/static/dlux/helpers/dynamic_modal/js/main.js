@@ -99,10 +99,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const MODAL_LIST_SELECTOR = '[data-dlux-modal-list]';
 
     // Relocate an action bar into the sticky modal footer so it stays on screen while
-    // the body scrolls. Buttons keep working: submit buttons are re-associated to the
-    // form via the `form=` attribute (which still fires the form's submit event the JS
-    // intercepts), and the cancel/back button keeps the click listener attached earlier
-    // in attachListeners() (moving a node preserves its listeners).
+    // the body scrolls. Every control in it is re-associated to the form via the
+    // `form=` attribute: submit buttons still fire the form's submit event the JS
+    // intercepts, and footer fields (the `is_active` toggle) stay in its FormData;
+    // left unassociated, a checked toggle was dropped and saved as False. The
+    // cancel/back button keeps the click listener attached earlier in
+    // attachListeners() (moving a node preserves its listeners).
     //
     // Resolution order:
     //  1. an explicit [data-dlux-modal-footer] container (dev opt-in), else
@@ -124,8 +126,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = actions.closest('form') || modalBody.querySelector('form');
         if (form) {
             if (!form.id) form.id = RELOCATED_FORM_ID;
-            actions.querySelectorAll('button').forEach(btn => {
-                if (!btn.hasAttribute('form')) btn.setAttribute('form', form.id);
+            actions.querySelectorAll('button, input, select, textarea').forEach(control => {
+                if (!control.hasAttribute('form')) control.setAttribute('form', form.id);
             });
         }
 

@@ -30,11 +30,16 @@
     }
 
     // Same shape as the setup wizard's own state serializer: one entry per named
-    // control, so a rewritten hidden JSON carrier counts as a change.
+    // control, so a rewritten hidden JSON carrier counts as a change. Read from
+    // `form.elements`, which includes the footer fields the dynamic modal pins
+    // outside the <form> and associates back via `form=`.
     function serializeForm(form) {
         const values = {};
         const byName = new Map();
-        form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
+        Array.from(form.elements).forEach((field) => {
+            if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(field.tagName)) {
+                return;
+            }
             if (!field.name || field.name === 'csrfmiddlewaretoken' || field.type === 'file') {
                 return;
             }
