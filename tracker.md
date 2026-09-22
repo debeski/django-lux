@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **1.8.14 is promoted to 1.9.0** (2026-09-22): no stable 1.8.14 will ship. `main` is `1.9.0b1` = 1.8.14b1-b2 + channel-switch fix + modal footer fix; scheduled 1.9.0 removals moved to 1.10.0. 1.8.14b1/b2 remain on PyPI as prereleases (`1.9.0b1` sorts above them). Composer `:v1.3.14b2` + `:beta` published, `:latest` still 1.3.13; stable Composer 1.3.13 refuses the 1.8.14+/1.9 manifest (`migration_baseline`), so Composer 1.3.14 stable must precede dlux 1.9.0 stable.
+- **1.9.0b2 in release** (2026-09-22): 1.9.0b1 (channels + switch fix + footer fix, published and accepted) + configurable update check interval (`check_interval_minutes`, migration 0022) + Check-now request/ack with Composer; requires Composer >=1.4.0b2 (first agent that checks the deployment's channel at all). No stable 1.8.14; scheduled 1.9.0 removals moved to 1.10.0.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -34,7 +34,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Release path to 1.9.0: release Composer 1.3.14 stable (b3 has the `resident-commands` check + `dlux check` wording, committed locally, unpushed; other b3 WIP still uncommitted), then tag `v1.9.0` (beta-first gate satisfied: 1.9.0b1 is on PyPI).
+  - [ ] Release path to 1.9.0: publish Composer 1.4.0b2 then dlux 1.9.0b2; retest the pair on decrees (interval select, Check-now ack, beta offer from the resident check with no manual CLI); then Composer 1.4.0 stable and dlux 1.9.0 stable (floor `>=1.4.0`).
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
   - [ ] Before v1.10.0 (removal moved there 2026-09-08, so it no longer gates 1.9.0): project-archive/dhub/trademarks must adopt the ribbon — 19 `advanced_filter_helper` call sites, and none of the three uses `RibbonMixin` yet. Each site carries per-field placeholders/col_class the ribbon replaces with an administrator-chosen layout, so it is a product decision per project. Pilot one filter against a running stack before converting the rest; none of the three is currently deployed locally. If that cannot land in time, move the removal to v1.10 instead of shipping 1.9.0 that breaks their list pages.
@@ -66,6 +66,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-22: 1.9.0b2 pre-tag — full `dlux.tests` 2527 OK (15 new in `test_check_policy`), JS 63 OK, `release_check` classify beta + `--base-tag v1.8.13` exit 0 (migration effect additive).
 - 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
 - 2026-09-22: `fix/modal-footer-fields` — full `dlux.tests` 2511 (1 updater failure was the moved venv; 203 incl. it OK with the checkout on PYTHONPATH), modal e2e 4 new + 5 back OK, `tests-js` 63 OK.
 - 2026-09-10: beta-first gate — 9 new tests; live check against real git + real PyPI: betas of 1.8.14 found and published, a hypothetical v1.9.0 today is refused.

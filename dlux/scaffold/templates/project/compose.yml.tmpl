@@ -396,7 +396,7 @@ services:
       - --availability-file
       - /opt/dlux-runtime/state/image-available.json
       - --check-interval
-      - "3600"
+      - "900"
     environment:
       DOCKER_HOST: "tcp://docker-socket-proxy:2375"
       WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"

@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.0b2
+
+- **Update Check Interval In Options**: new **Check for updates every** control on the Options update card (5, 15, 30, 60 minutes, 3, 6, 12 or 24 hours; default 15 minutes) replaces the fixed hourly cadence. Stored in `DluxUpdateState.check_interval_minutes` (migration `0022`, additive with `db_default`, inline-safe), set through a superuser-only, CSRF-protected, audited `POST /sys/api/dlux-update/interval/`, and published by the worker's `reconcile_check_policy` to `state/check-policy.json`, which Composer 1.4.0 reads on every loop tick. English and Arabic strings added. Newly scaffolded projects pass `--check-interval 900` to the agent as the fallback (was 3600).
+- **Check For Updates Asks Composer First**: the button used to re-read whatever Composer's last interval check had published, so it could not find a release published since. The check run now writes `state/check-request.json` with its token; Composer re-checks images and packages and acknowledges, and `tick_check_request()` on the next worker tick finishes the run from the fresh report. A Composer that never acknowledges (before 1.4.0) falls back to its last report after 20 seconds and says so in the run log.
+- **Composer 1.4.0b2 Is Required**: `requires.services.composer` rises from `>=1.3.14b1` to `>=1.4.0b2`, the first Composer whose resident agent resolves the deployment's release channel at all — earlier agents always checked stable, so a deployment that opted into beta from Options was offered nothing until someone ran `composer dlux check` by hand — and the first that honours the check interval and check requests above.
+
 ## v1.9.0b1
 
 The 1.8.14 line is promoted to 1.9.0 and never ships as a stable 1.8.14:

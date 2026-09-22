@@ -1,20 +1,20 @@
 {
   "schema_version": 2,
-  "version": "1.9.0b1",
+  "version": "1.9.0b2",
   "display": {
-    "summary": "Release channels: stable by default, beta as an explicit opt-in. Plus a fix for dynamic-modal footer fields (is_active) that were never submitted.",
+    "summary": "Release channels, a configurable update check interval, and a Check button that asks Composer for a fresh report. Plus the dynamic-modal footer field fix.",
     "highlights": [
       "Stable and beta are separate channels. Stable is the default and excludes every prerelease; beta is an explicit opt-in in Options.",
-      "Dynamic-modal footer fields such as is_active are submitted with the form again, so modal saves no longer store is_active=False.",
-      "The Options beta switch works on a read-only runtime mount instead of returning a server error."
+      "Choose how often updates are checked (5 minutes to 24 hours, default 15), and Check for updates now asks Composer for a fresh result.",
+      "Dynamic-modal footer fields such as is_active are submitted with the form again, so modal saves no longer store is_active=False."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.0b2"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
     "services": {
-      "composer": ">=1.3.14b1"
+      "composer": ">=1.4.0b2"
     },
     "migration_baseline": ">=1.8.14b1"
   },
