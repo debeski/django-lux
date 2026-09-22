@@ -149,6 +149,45 @@ A writer that reported and then went quiet for more than ten minutes is treated 
 
 Before 1.8.6 the guard probed locally in every process, so a read-only `web` mount disabled the update card and refused manual checks on a healthy stack. Granting `web` write access worked around that; it is no longer needed.
 
+## The Operations card
+
+Options carries a **Deployment operations** card beside the update one. It runs
+the things that otherwise need a shell on the host, starting with Composer's own
+deployment check — the doctor for the *outside* of the stack, which is what
+catches a resident pair started with a command this Composer rejects, a missing
+`org.dlux.restart` label, or an obsolete service still in the file.
+
+DjangoLux gains no Docker authority from it. The card can request exactly the
+operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
+
+| Operation | Changes the deployment | Needs |
+| --- | --- | --- |
+| `check` | no | Composer 1.5.0+ |
+
+The handoff is the update handoff's shape. A superuser POSTs
+`/sys/api/dlux-ops/run/` (audited); the row is recorded in the database because
+`web` mounts the runtime volume read-only; the worker writes
+`state/ops-request.json` carrying the run's token; the resident Composer performs
+the operation and publishes `state/ops-result.json` and `ops-request.json.ack`
+under that same token; the next worker tick finishes the run from the result. A
+result whose token does not match the run is ignored — the previous operation's
+document is still on the volume, and showing it would be a lie the card could not
+detect.
+
+The request names an operation and nothing else. It carries no command, no path,
+no service and no flags, so there is nothing for a compromised database or a
+tampered file to smuggle into what Composer runs. One operation runs at a time,
+and `check` is read-only: it never applies `--fix`.
+
+A Composer older than the operation's floor never acknowledges. After 120
+seconds the run fails with the version it needs, rather than sitting on
+"running" for ever.
+
+Findings are rendered as text — level, name, message and Composer's own fix
+hint — and Composer redacts and bounds them before publishing (200 findings,
+2000 characters each), because they are read in a browser.
+
+
 ## Update handoff
 
 After superuser approval, DjangoLux writes an update request on `dlux_runtime`. Composer publishes its acknowledgement and the latest installable release metadata. An absent availability document is **unknown**, never "up to date".

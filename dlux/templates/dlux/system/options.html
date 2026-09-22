@@ -354,6 +354,28 @@
                     </section>
                     {% endif %}
                     {% if user.is_superuser %}
+                    <section class="dlux-admin-tile dlux-admin-tile--ops">
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-clipboard2-pulse"></i> {{ DLUX_STRINGS.dlux_ops_title|default:'Deployment operations' }}</h5>
+                        <div class="dlux-ops"
+                             data-dlux-ops
+                             data-state-url="{% url 'dlux_ops_state' %}"
+                             data-run-url="{% url 'dlux_ops_run' %}"
+                             data-label-running="{{ DLUX_STRINGS.dlux_ops_running|default:'Running on the deployment…' }}"
+                             data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not run yet.' }}"
+                             data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found.' }}"
+                             data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}">
+                            <p class="small text-muted mb-2">{{ DLUX_STRINGS.dlux_ops_intro|default:'Runs Composer’s deployment check from here, so the host shell is not required to see what it reports.' }}</p>
+                            <div class="dlux-ops-actions d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="check">
+                                    {{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}
+                                </button>
+                                <span class="dlux-ops-status small text-muted" data-dlux-ops-status aria-live="polite"></span>
+                            </div>
+                            <ul class="dlux-ops-findings list-unstyled mt-2 mb-0" data-dlux-ops-findings></ul>
+                        </div>
+                    </section>
+                    {% endif %}
+                    {% if user.is_superuser %}
                     <section class="dlux-admin-tile dlux-admin-tile--backup">
                         <h5 class="dlux-admin-tile-title"><i class="bi bi-safe2-fill"></i> {{ DLUX_STRINGS.sysbackup_title }}</h5>
                 {% with summary=system_backup_summary %}
@@ -733,5 +755,6 @@
     <script src="{% dlux_static 'dlux/system/js/options.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/updater.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/system/js/ops.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     {% if user.is_superuser %}<script src="{% dlux_static 'dlux/system/js/data_reset.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 {% endblock %}

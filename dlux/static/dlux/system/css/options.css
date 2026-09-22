@@ -1481,3 +1481,35 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     max-width: 22rem;
     overflow-wrap: anywhere;
 }
+
+/* Deployment operations card: Composer's findings, one row each. The level
+   colours come from the theme's semantic variables so both themes hold. */
+.dlux-admin-tile--ops { flex: 1.6 1 300px; }
+
+.dlux-ops-findings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 18rem;
+    overflow-y: auto;
+}
+
+.dlux-ops-finding {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+.dlux-ops-finding > div {
+    display: flex;
+    flex-direction: column;
+    overflow-wrap: anywhere;
+}
+
+.dlux-ops-finding-name { font-weight: 600; }
+
+.dlux-ops-finding--ok > .bi { color: var(--bs-success, #198754); }
+.dlux-ops-finding--warn > .bi { color: var(--bs-warning, #ffc107); }
+.dlux-ops-finding--fail > .bi { color: var(--bs-danger, #dc3545); }

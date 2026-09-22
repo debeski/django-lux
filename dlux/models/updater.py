@@ -357,3 +357,68 @@ class DluxControlLinkRequest(models.Model):
 
     def __str__(self):
         return f"Dlux control link {self.action} ({self.operation_id})"
+
+
+class DluxOpsRun(models.Model):
+    """One named deployment operation handed to Composer and its result.
+
+    Separate from ``DluxUpdateRun`` for the same reason ``DluxImageUpdate`` is:
+    the inline update state machine is load-bearing and has nothing to do with
+    running a read-only check. The row is what the Operations card polls, and
+    the token is what matches Composer's acknowledgement and result document on
+    the runtime volume. See ``dlux.updater.ops``.
+    """
+
+    STATUS_QUEUED = 'queued'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_QUEUED, 'Queued'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+    TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_FAILED)
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_report_backup_token,
+        editable=False,
+        verbose_name="Token",
+    )
+    operation = models.CharField(max_length=32, db_index=True, verbose_name="Operation")
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_QUEUED,
+        db_index=True,
+        verbose_name="Status",
+    )
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Active")
+    requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
+    result = models.JSONField(default=dict, blank=True, verbose_name="Result")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    requested_at = models.DateTimeField(blank=True, null=True, verbose_name="Requested At")
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    class Meta:
+        verbose_name = "Dlux Operations Run"
+        verbose_name_plural = "Dlux Operations Runs"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'created_at'], name='dlux_ops_active_idx'),
+        ]
+
+    def finish(self, status, *, error='', result=None):
+        self.status = status
+        self.is_active = False
+        self.completed_at = timezone.now()
+        self.error = str(error or '')[:4000]
+        if result is not None:
+            self.result = result
+
+    def __str__(self):
+        return f"Dlux operation {self.operation} ({self.status})"

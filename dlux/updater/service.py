@@ -220,6 +220,128 @@ def reconcile_channel_policy(service):
     return chosen
 
 
+def queue_ops_run(operation, username=""):
+    """Queue a named deployment operation for Composer. Web side: the row only.
+
+    Guarded like ``queue_run``: a usable runtime volume and a live worker, since
+    nothing else can hand the request over. One operation at a time — the panel
+    is a remote hand on the deployment, and two of them is how an operator ends
+    up debugging Composer instead of their stack.
+    """
+    from . import ops
+
+    operation = ops.normalize_operation(operation)
+    problem = runtime_volume_problem()
+    if problem:
+        raise UpdaterError(problem)
+    if worker_report_is_stale():
+        raise UpdaterError(
+            "The DjangoLux update worker has not reported for over "
+            f"{WORKER_REPORT_STALE_AFTER // 60} minutes, so a queued operation would "
+            "not be picked up. Check that the Celery worker and beat services are running."
+        )
+    Ops = _ops_model()
+    with transaction.atomic():
+        if Ops.objects.select_for_update().filter(is_active=True).exists():
+            raise UpdaterError("Another deployment operation is already running.")
+        return Ops.objects.create(operation=operation, requested_by_username=username or "")
+
+
+def tick_ops_run(service):
+    """Worker side: hand a queued operation over, then finish it from the result.
+
+    Two ticks in the ordinary case — write the request, read the answer — so a
+    slow `composer check` never blocks the worker loop that also drains updates.
+    """
+    from . import ops
+
+    Ops = _ops_model()
+    run = Ops.objects.filter(is_active=True).order_by("created_at").first()
+    if run is None:
+        return None
+    store = service.store
+    if run.status == Ops.STATUS_QUEUED:
+        try:
+            ops.write_request(store, run.token, run.operation)
+        except (UpdaterError, OSError) as exc:
+            run.finish(Ops.STATUS_FAILED, error=f"Could not hand the operation to Composer: {exc}")
+            run.save(update_fields=["status", "is_active", "completed_at", "error"])
+            return run
+        run.status = Ops.STATUS_RUNNING
+        run.requested_at = timezone.now()
+        run.save(update_fields=["status", "requested_at"])
+        return run
+
+    ack = ops.read_ack(store, token=run.token)
+    if not ack:
+        waited = (timezone.now() - (run.requested_at or run.created_at)).total_seconds()
+        if waited < ops.REQUEST_TIMEOUT_SECONDS:
+            return run
+        minimum = ops.OPERATIONS[run.operation]["min_composer"]
+        run.finish(Ops.STATUS_FAILED, error=(
+            f"Composer did not answer within {ops.REQUEST_TIMEOUT_SECONDS}s. This "
+            f"operation needs Composer {minimum} or later running as a service in "
+            "this deployment."
+        ))
+        run.save(update_fields=["status", "is_active", "completed_at", "error"])
+        return run
+
+    result = ops.read_result(store, token=run.token)
+    error = str(ack.get("error") or result.get("error") or "")
+    try:
+        exit_code = int(ack.get("exit_code", 0) or 0)
+    except (TypeError, ValueError):
+        exit_code = 1
+    # A check that finds problems is a SUCCESSFUL check: its exit code reports
+    # the deployment's health, not whether the operation ran. Only a refusal or
+    # a crash — which carries an error — is a failed run.
+    if error:
+        run.finish(Ops.STATUS_FAILED, error=error, result=result)
+    else:
+        run.finish(Ops.STATUS_COMPLETED, result=result)
+    run.result = result
+    run.save(update_fields=["status", "is_active", "completed_at", "error", "result"])
+    return run
+
+
+def serialize_ops_run(run):
+    from . import ops
+
+    if run is None:
+        return None
+    result = run.result or {}
+    return {
+        "token": run.token,
+        "operation": run.operation,
+        "status": run.status,
+        "active": run.is_active,
+        "error": run.error,
+        "findings": [f for f in result.get("findings") or [] if isinstance(f, dict)],
+        "summary": ops.summarize(result),
+        "exit_code": result.get("exit_code"),
+        "composer_version": result.get("composer_version", ""),
+        "created_at": run.created_at.isoformat() if run.created_at else None,
+        "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+    }
+
+
+def get_ops_state():
+    """What the Operations card renders: the newest run, and what may be run."""
+    from . import ops
+
+    try:
+        run = _ops_model().objects.order_by("-created_at").first()
+    except Exception:
+        run = None
+    return {
+        "operations": [
+            {"name": name, "label": spec["label"], "changes_deployment": spec["changes_deployment"]}
+            for name, spec in ops.OPERATIONS.items()
+        ],
+        "run": serialize_ops_run(run),
+    }
+
+
 def set_check_interval(minutes, *, username=""):
     """Record how often Composer checks for updates. Web side: column only.
 
@@ -351,6 +473,10 @@ def runtime_store():
             "Inline updates need a writable runtime volume; set DLUX_UPDATE_RUNTIME_ROOT, "
             "or leave DLUX_INLINE_UPDATES_ENABLED off outside a Compose deployment."
         ) from exc
+
+
+def _ops_model():
+    return apps.get_model("dlux", "DluxOpsRun")
 
 
 def _state_model():

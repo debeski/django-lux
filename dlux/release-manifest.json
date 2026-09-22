@@ -1,14 +1,13 @@
 {
   "schema_version": 2,
-  "version": "1.9.0",
+  "version": "1.9.1b1",
   "display": {
-    "summary": "Release channels, a configurable update check interval, and a Check button that asks Composer for a fresh report. Plus the dynamic-modal footer field fix.",
+    "summary": "A Deployment operations card in Options: run Composer's deployment check from the browser instead of a shell on the host.",
     "highlights": [
-      "Stable and beta are separate channels. Stable is the default and excludes every prerelease; beta is an explicit opt-in in Options.",
-      "Choose how often updates are checked (5 minutes to 24 hours, default 15), and Check for updates now asks Composer for a fresh result.",
-      "Dynamic-modal footer fields such as is_active are submitted with the form again, so modal saves no longer store is_active=False."
+      "Options can run Composer's deployment check and shows its findings, without a shell on the deployment host.",
+      "DjangoLux requests named operations only — read-only in this release — and holds no Docker authority."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.1b1"
   },
   "requires": {
     "updater_schema": ">=1",

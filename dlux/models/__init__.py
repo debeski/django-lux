@@ -91,6 +91,7 @@ from .backup import (  # noqa: F401
 from .updater import (  # noqa: F401
     DluxControlLinkRequest,
     DluxImageUpdate,
+    DluxOpsRun,
     DluxUpdateRun,
     DluxUpdateState,
 )
@@ -108,6 +109,7 @@ __all__ = [
     'DluxNotificationRule',
     'DluxNotificationState',
     'DluxNotificationWatch',
+    'DluxOpsRun',
     'DluxUpdateRun',
     'DluxUpdateState',
     'GroupMembership',
