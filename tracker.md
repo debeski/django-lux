@@ -27,7 +27,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
-- Tags cannot be deleted or moved on this remote (ruleset). A late-job failure is therefore repaired by a NEW version, not by re-cutting the tag — do not plan around deleting one.
+- Tag rulesets on these remotes CAN be bypassed with the owner's admin rights (the same bypass that lets `main` take a direct push). So when a release job fails BEFORE anything is published — no PyPI upload, no image push, no release page — delete the tag (`git push origin :refs/tags/vX.Y.Z`), fix, and re-cut the SAME version. Burn a version only when artifacts were actually published (as 1.8.14b1 was). Ask the owner before choosing either path.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
 - The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
 - Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
