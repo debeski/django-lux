@@ -142,9 +142,10 @@ def set_update_channel(new_channel, *, username="", store=None):
     """Record the administrator's channel choice and publish it.
 
     Callable from either side of the read-only mount. With a store (the worker)
-    the policy file is published immediately; without one (web) a request is
-    left for the worker, and the UI reports the change as pending until its ack.
-    Returns the refreshed UI state dict.
+    the policy file is published immediately. Without one (web) the column is the
+    whole change: web's runtime mount is read-only, so it writes no file, and the
+    worker's reconcile publishes the column; the UI reports the change as pending
+    until the published policy matches. Returns the refreshed UI state dict.
     """
     new_channel = channel.normalize_channel(new_channel)
     state = _state_model().load()
@@ -158,8 +159,6 @@ def set_update_channel(new_channel, *, username="", store=None):
     if store is not None:
         channel.publish_policy(store, new_channel, source=f"admin:{username}" if username else "admin")
         channel.clear_request(store)
-    else:
-        channel.write_request(new_channel, requested_by=username)
     return get_ui_state()
 
 

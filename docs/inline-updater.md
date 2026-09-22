@@ -96,12 +96,12 @@ Three processes need the same answer and none of them can own it alone:
 | Composer | `state/channel-policy.json` | nothing |
 
 So the administrator's choice is recorded in `DluxUpdateState.update_channel`,
-and the worker mirrors it to the policy file that Composer reads. Anything that
-cannot write that file — `web`, and Composer's host CLI — leaves a
-token-carrying request beside it, which the worker applies and acknowledges on
-its next tick. That is the same handoff shape as package and image updates, and
-it is why the switch reports **pending** for a moment rather than claiming a
-change it has not yet made.
+and the worker mirrors it to the policy file that Composer reads. `web` changes
+only the column; the worker's next reconcile publishes it. Composer's host CLI
+has no database, so it leaves a token-carrying request beside the policy, which
+the worker applies and acknowledges on its next tick — the same handoff shape as
+package and image updates. Either way the switch reports **pending** until the
+published policy matches, rather than claiming a change it has not yet made.
 
 Every failure reads as stable: a missing policy (a deployment that never opted
 in), an unreadable one, a malformed one, or one written by a newer DjangoLux
