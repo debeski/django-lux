@@ -210,12 +210,13 @@ class WorkerReconciliationTests(TestCase):
         self.assertTrue(state.latest_compatible)
         self.assertEqual(state.latest_version, "1.8.14")
 
-    def test_web_leaves_a_request_instead_of_writing_the_policy(self):
+    def test_web_writes_nothing_and_the_worker_publishes_the_column(self):
         # Called without a store: the read-only side of the mount.
         with override_settings(DLUX_UPDATE_RUNTIME_ROOT=str(self.root)):
             state = set_update_channel(channel.BETA, username="admin")
             self.assertEqual(DluxUpdateState.load().update_channel, channel.BETA)
             self.assertEqual(channel.read_policy(self.store)[0], channel.STABLE)
+            self.assertFalse(channel.request_path(self.store).exists())
             self.assertEqual(state["channel_pending"], channel.BETA)
             self.assertEqual(self._reconcile(), channel.BETA)
             self.assertEqual(channel_status()["channel_pending"], "")
@@ -302,6 +303,18 @@ class ChannelViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"]["update_channel"], "beta")
         self.assertEqual(DluxUpdateState.load().update_channel, "beta")
+
+    def test_opting_in_and_out_succeeds_on_a_read_only_runtime_mount(self):
+        # Production mounts the runtime volume read-only into web; any write
+        # from this view raises EROFS and used to turn the switch into a 500.
+        client = Client()
+        client.force_login(self.superuser)
+        erofs = OSError(30, "Read-only file system")
+        with mock.patch("dlux.updater.channel._atomic_json", side_effect=erofs):
+            for requested in ("beta", "stable"):
+                response = client.post(self.url, {"channel": requested})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(DluxUpdateState.load().update_channel, requested)
 
     def test_the_checkbox_shape_is_accepted(self):
         client = Client()
