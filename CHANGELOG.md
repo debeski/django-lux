@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## v1.8.14b3
 
+- **Modal Footer Fields Are Submitted Again**: `syncModalFooter()` pins the form's action bar — including `dlux_footer_bound_fields` such as `is_active` — into `#universalDynamicModalFooter`, outside the `<form>`, but re-associated only its buttons via `form=`. The footer toggle dropped out of `FormData`, so every dynamic-modal create or edit saved `is_active=False`: records vanished from active-only lists and pickers while still tripping unique checks (seen live in dlux-crm-gov on 1.8.6). Every `button, input, select, textarea` in the relocated bar is now associated, and `unsaved_guard.js` `serializeForm()` reads `form.elements` so a footer-only change counts as dirty. New `tests-e2e/dynamic_modal_footer_fields.test.mjs` (4 tests, 3 fail on the previous code).
 - **A New Minor Or Major Cannot First Appear As Stable**: `release_check --classify` now runs `validate_beta_first()`, which refuses a stable `vX.Y.0` tag unless a prerelease of that exact version (`bN` or `rcN`) is both reachable from the tagged commit and served by PyPI with a non-yanked file. A tag whose release job died before upload does not count — nobody could install it, so nobody tested it. PyPI being unreachable refuses rather than waves the release through. Patch releases are not gated, so a hotfix can still ship stable directly. This enforces `release_channels_plan.md` §1 in CI instead of by memory; it proves a beta was published, not that it passed acceptance, which is the stronger gate still ahead.
 
 ## v1.8.14b2

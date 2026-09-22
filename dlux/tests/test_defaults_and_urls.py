@@ -3609,7 +3609,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("removeAttribute('data-dlux-wizard-bound')", script)
         self.assertIn("embeddedFooter.setAttribute('data-dlux-modal-footer'", script)
         self.assertIn("embeddedBody.replaceWith", script)
-        self.assertIn("actions.querySelectorAll('button')", script)
+        self.assertIn("actions.querySelectorAll('button, input, select, textarea')", script)
         self.assertNotIn("actions.querySelector('.dlux-btn-next, .dlux-btn-prev')", script)
 
     def test_dynamic_modal_posts_the_clicked_submit_action(self):
