@@ -15,7 +15,7 @@ and in the template:
     {% dlux_ribbon %}
 
 Replaces `dlux.utils.advanced_filter_helper`, which stays available until
-v1.9.0 (see docs/deprecation-countdown.md).
+v1.10.0 (see docs/deprecation-countdown.md).
 """
 
 from .build import build_action, build_ribbon, split_range_suffix

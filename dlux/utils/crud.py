@@ -692,7 +692,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     """
     DEPRECATED — superseded by `dlux.ribbon` (see docs/ribbon.md), which derives
     the same band from the FilterSet with no per-view config and lets the
-    administrator choose its layout. Removed in v1.9.0; this function is
+    administrator choose its layout. Removed in v1.10.0; this function is
     unchanged until then.
 
     Build an "advanced" filter helper with:

@@ -10,7 +10,7 @@ release before activating it, and health-gates the restart from outside the
 container being swapped. An in-container updater cannot roll back a release that
 prevented it from starting. See ``docs/updater-consolidation.md``.
 
-Removal schedule: DjangoLux 1.8.0 deprecates the in-container executor and 1.9.0
+Removal schedule: DjangoLux 1.8.0 deprecates the in-container executor and 1.10.0
 deletes it. Nothing here deletes anything a deployed ``compose.yml`` names — that
 file is project-owned, and its ``dlux-updater`` service is ``restart: always``
 and ``org.dlux.restart: protected``.

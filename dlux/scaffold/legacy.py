@@ -1,7 +1,7 @@
 """Guarded Compose migrations for projects generated before the current scaffold.
 
 ``enable_updater`` bootstraps the in-container updater and ``enable_agent``
-forwards to Composer; both are deprecated and **removed in 1.9.0**, at which
+forwards to Composer; both are deprecated and **removed in 1.10.0**, at which
 point this whole module goes with them. Kept in one file for exactly that
 reason — the deletion is one path, not a hunt through the scaffolder.
 

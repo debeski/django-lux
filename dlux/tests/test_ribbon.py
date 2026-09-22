@@ -1861,7 +1861,7 @@ class RibbonRenderingTests(TestCase):
 
 class AdvancedFilterHelperUnchangedTests(TestCase):
     """Five projects still call the old helper. It must behave exactly as it
-    did until it is removed in v1.9.0."""
+    did until it is removed in v1.10.0."""
 
     def test_helper_is_still_exported_and_builds_a_layout(self):
         from dlux.utils import advanced_filter_helper

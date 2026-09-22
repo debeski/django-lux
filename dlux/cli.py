@@ -55,7 +55,7 @@ def main(argv=None):
 
     updater_parser = subparsers.add_parser(
         "enable-updater",
-        help="DEPRECATED (removed in 1.9.0): bootstrap the in-container updater; "
+        help="DEPRECATED (removed in 1.10.0): bootstrap the in-container updater; "
              "use Composer-side inline updates instead",
     )
     updater_parser.add_argument(
@@ -105,7 +105,7 @@ def main(argv=None):
         elif args.command == "enable-updater":
             print(
                 "Deprecated: the in-container DjangoLux updater is replaced by "
-                "Composer-side inline updates in 1.8.0 and is REMOVED in 1.9.0.\n"
+                "Composer-side inline updates in 1.8.0 and is REMOVED in 1.10.0.\n"
                 "  Composer stages and verifies a release before activating it and "
                 "health-gates the restart from outside the container, so it can roll "
                 "back a release that failed to start.\n"

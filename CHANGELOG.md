@@ -7,8 +7,18 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## v1.8.14b3
+## v1.9.0b1
 
+The 1.8.14 line is promoted to 1.9.0 and never ships as a stable 1.8.14:
+release channels are a feature with a migration (`0021`), which is a minor
+release. 1.9.0 therefore carries everything in 1.8.14b1–b2 below plus the fixes
+here. `1.9.0b1` sorts above `1.8.14b2`, so a deployment already on the beta
+channel moves up normally; a stable deployment goes from 1.8.13 straight to
+1.9.0. The tables builder and the other planned 1.9 features move to a later
+minor.
+
+- **The Options Channel Switch No Longer Returns 500**: `set_update_channel()` had `web` write `state/channel-request.json`, but `web` mounts the runtime volume read-only, so every opt-in and opt-out from **Include beta releases** failed with `EROFS` after the column had already been saved — the channel changed on the worker's next reconcile while the administrator saw an error. `web` now changes only `DluxUpdateState.update_channel`; the worker's `reconcile_channel_policy` publishes it, and the switch reports pending until the published policy matches (only Composer's host CLI still leaves a token-carrying request). Found by driving 1.8.14b1 → b2 on a live decrees stack with Composer 1.3.14b2; the new view test fails with `EROFS` on the previous code. The rest of that run passed: a stable deployment on a beta is not offered 1.8.13, opting in offers and installs b2 (web and every Celery worker restart onto the new release), opting out keeps b2, and `composer dlux channel` applies within one worker tick.
+- **Scheduled Removals Move To 1.10.0**: the in-container update executor (`DLUX_UPDATE_EXECUTOR = "inline"`, `python -m dlux enable-updater`, `dlux.scaffold.legacy`) and the `archive_file` file-widget shims stay through v1.9.x. No project calls either in code; the move keeps 1.9.0 to channels and fixes. `docs/deprecation-countdown.md`, the CLI deprecation text and the docstrings say v1.10.0.
 - **Modal Footer Fields Are Submitted Again**: `syncModalFooter()` pins the form's action bar — including `dlux_footer_bound_fields` such as `is_active` — into `#universalDynamicModalFooter`, outside the `<form>`, but re-associated only its buttons via `form=`. The footer toggle dropped out of `FormData`, so every dynamic-modal create or edit saved `is_active=False`: records vanished from active-only lists and pickers while still tripping unique checks (seen live in dlux-crm-gov on 1.8.6). Every `button, input, select, textarea` in the relocated bar is now associated, and `unsaved_guard.js` `serializeForm()` reads `form.elements` so a footer-only change counts as dirty. New `tests-e2e/dynamic_modal_footer_fields.test.mjs` (4 tests, 3 fail on the previous code).
 - **A New Minor Or Major Cannot First Appear As Stable**: `release_check --classify` now runs `validate_beta_first()`, which refuses a stable `vX.Y.0` tag unless a prerelease of that exact version (`bN` or `rcN`) is both reachable from the tagged commit and served by PyPI with a non-yanked file. A tag whose release job died before upload does not count — nobody could install it, so nobody tested it. PyPI being unreachable refuses rather than waves the release through. Patch releases are not gated, so a hotfix can still ship stable directly. This enforces `release_channels_plan.md` §1 in CI instead of by memory; it proves a beta was published, not that it passed acceptance, which is the stronger gate still ahead.
 

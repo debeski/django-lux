@@ -10,4 +10,4 @@ The retired `dlux-updater` Compose service is no longer emitted by the scaffold:
 
 Existing generated projects use `./start.sh check` to inspect the migration and `./start.sh check --fix` to apply recognized repairs after review. Compose 5.3.0+ is required for the init-container hooks.
 
-The legacy in-container executor remains only through the v1.8 compatibility window and is removed in v1.9.0. See [Verified Inline Updates](inline-updater.md) for the supported runtime contract.
+The legacy in-container executor remains only through the v1.9 compatibility window and is removed in v1.10.0. See [Verified Inline Updates](inline-updater.md) for the supported runtime contract.

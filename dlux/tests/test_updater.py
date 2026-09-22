@@ -1866,7 +1866,7 @@ class UpdaterApiTests(TestCase):
         self.assertNotIn("setRootStatus(message, 5000)", contents)
         self.assertNotIn("modal.hide()", contents)
 
-    # Exercises the in-container PyPI check, kept until 1.9.0; the 1.8.0 default
+    # Exercises the in-container PyPI check, kept until 1.10.0; the 1.8.0 default
     # reads what Composer published instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     @mock.patch("dlux.updater.service.assess_wheel")
@@ -2067,7 +2067,7 @@ class UpdaterApiTests(TestCase):
         state.refresh_from_db()
         return run, state, store
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_safe_apply_switches_release_and_preserves_previous(self):
@@ -2079,7 +2079,7 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(store.read_active(__version__)["version"], NEWER_VERSION)
             self.assertFalse(store.maintenance_file.exists())
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_successful_apply_notifies_admins(self):
@@ -2106,7 +2106,7 @@ class UpdaterApiTests(TestCase):
         self.assertIn(admin2.id, notified)
         self.assertNotIn(regular.id, notified)
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_post_switch_health_failure_automatically_restores_previous(self):
@@ -2274,7 +2274,7 @@ class UpdaterApiTests(TestCase):
             self.assertTrue(store.degraded_file.exists())
             self.assertTrue(store.maintenance_file.exists())
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_swaps_active_and_previous_without_reversing_migrations(self):
@@ -2305,7 +2305,7 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(state.previous_version, NEWER_VERSION)
             self.assertEqual(store.read_active(__version__)["source"], "image")
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_recovery_failure_marks_runtime_degraded(self):
@@ -2343,7 +2343,7 @@ class UpdaterApiTests(TestCase):
             self.assertTrue(reconciled.degraded)
             self.assertTrue(store.degraded_file.exists())
 
-    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_target_failure_with_successful_recovery_is_not_degraded(self):

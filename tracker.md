@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **v1.8.14b2 and Composer v1.3.14b1 are published and verified end to end** (2026-09-08): `pip install django-lux` -> 1.8.13, `--pre` -> 1.8.14b2; GitHub release prerelease with all 7 assets, "latest" still v1.8.13; Composer `:v1.3.14b1` + `:beta` published with `:latest` unmoved; the published Composer accepts the published wheel's manifest. b1 remains on PyPI with an asset-less release page (immutable release + tag-deletion ruleset). Composer v1.3.14b1 is published (`:v1.3.14b1` + `:beta`, `:latest` unmoved at 1.3.13); composer tree is 1.3.14b2 untagged with its `:beta` alias-read fix.
+- **1.8.14 is promoted to 1.9.0** (2026-09-22): no stable 1.8.14 will ship. `main` is `1.9.0b1` = 1.8.14b1-b2 + channel-switch fix + modal footer fix; scheduled 1.9.0 removals moved to 1.10.0. 1.8.14b1/b2 remain on PyPI as prereleases (`1.9.0b1` sorts above them). Composer `:v1.3.14b2` + `:beta` published, `:latest` still 1.3.13; stable Composer 1.3.13 refuses the 1.8.14+/1.9 manifest (`migration_baseline`), so Composer 1.3.14 stable must precede dlux 1.9.0 stable.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
@@ -34,7 +34,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Exercise the flow on a real deployment once v1.8.14b2 publishes: opt in, receive the beta, opt out, confirm no downgrade.
+  - [ ] Release path to 1.9.0: tag `v1.9.0b1`; re-run the decrees acceptance stack (`project-decrees/beta-channel-test`, port 8088, Composer `:beta`) from b2 -> 1.9.0b1 including the Options switch; release Composer 1.3.14 stable; then tag `v1.9.0` (beta-first gate needs b1 on PyPI).
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
   - [ ] Before v1.10.0 (removal moved there 2026-09-08, so it no longer gates 1.9.0): project-archive/dhub/trademarks must adopt the ribbon — 19 `advanced_filter_helper` call sites, and none of the three uses `RibbonMixin` yet. Each site carries per-field placeholders/col_class the ribbon replaces with an administrator-chosen layout, so it is a product decision per project. Pilot one filter against a running stack before converting the rest; none of the three is currently deployed locally. If that cannot land in time, move the removal to v1.10 instead of shipping 1.9.0 that breaks their list pages.
@@ -46,6 +46,7 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:**
+  - [x] Live beta-channel acceptance (2026-09-22) on a decrees stack, dlux 1.8.14b1 + Composer 1.3.14b2: stable not offered 1.8.13, opt-in offers/installs b2 (web + celery restart onto it), opt-out keeps b2, `composer dlux channel` applies in one tick. Found + fixed: Options switch 500 (`set_update_channel` wrote to web's read-only mount).
   - [x] Modal footer fields (`is_active`) now `form=`-associated after relocation, and the unsaved guard reads `form.elements`; branch `fix/modal-footer-fields`, unmerged (2026-09-22).
   - [x] Beta-first gate (2026-09-10): `validate_beta_first()` in `release_check --classify` refuses a stable `vX.Y.0` without a published `bN`/`rcN` of that version in history (PyPI, non-yanked). Patches ungated. Tree bumped to 1.8.14b3 (untagged).
   - [x] Channels implemented across both repos (2026-09-08). Dlux: `updater/channel.py` policy + token handoff, `DluxUpdateState.update_channel` (migration 0021), `allow_prereleases` selection, Options switch + `POST /sys/api/dlux-update/channel/`, tag classification in `release_check --classify`, PEP 440 tag ordering with migrations diffed against the last **stable** tag, `validate_declared_migration_effect` (caught this release's own manifest declaring `none` while adding 0021). Composer: `versions.py`/`dlux_channel.py`/`channel_config.py`/`release_tag.py`, `dlux channel`, `check --beta|--stable`, wrappers at marker 3.
@@ -64,6 +65,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
 - 2026-09-22: `fix/modal-footer-fields` — full `dlux.tests` 2511 (1 updater failure was the moved venv; 203 incl. it OK with the checkout on PYTHONPATH), modal e2e 4 new + 5 back OK, `tests-js` 63 OK.
 - 2026-09-10: beta-first gate — 9 new tests; live check against real git + real PyPI: betas of 1.8.14 found and published, a hypothetical v1.9.0 today is refused.
 - 2026-09-08: 1.8.14b2 release job fixed and PROVEN — release published with 7/7 assets, prerelease=True, "latest" unmoved. Earlier, 1.8.14b1 verified against REAL published artifacts — `pip install django-lux` -> 1.8.13, `--pre` -> 1.8.14b1; GitHub release prerelease=True, "latest" still v1.8.13; the published wheel's manifest is accepted by Composer 1.3.14b1 and REFUSED by shipped Composer 1.3.13 with exactly the predicted `migration_baseline` error. Full suite 2502 OK.
@@ -76,6 +78,7 @@
 - 2026-09-05: `test_package_handoff.HandoffCollectsStaticTests` no longer pins `1.8.11` — it derives a version above the baked floor, since `reconcile()` resets any volume release below `get_baked_version()` and the bump to 1.8.12 broke it.
 
 ### One-line info about last time edited Docs:
+- 2026-09-22: `docs/deprecation-countdown.md` (executor + `archive_file` shims -> v1.10.0), removal notes in `reference.md`/`ribbon.md`/`updater-consolidation.md`/`deployment-configuration.md`; `docs/inline-updater.md` channel handoff (web writes no file).
 - 2026-09-08: `docs/RELEASING.md` "Channels: stable and beta" (tag table, refused tags, tested-minimum rule, stable-baseline migration rule); `docs/inline-updater.md` "Which releases are eligible" (ownership table, failure modes); `docs/reference.md` + `docs/FEATURES.md` entries; Composer `README.md` + `docs/RELEASING.md` mirrors, including the `:beta` alias advance rule.
 - 2026-09-06: `release_channels_plan.md` records both projects' mandatory beta-first milestones, implementation paths, channel semantics, staging gates and retirement checklist; gitignored planning artifact.
 - 2026-09-06: `docs/inline-updater.md` gained "Moving to an image that bakes an older DjangoLux" (adopt/keep/abort); `docs/deployment-configuration.md` documents `DLUX_ALLOW_INSECURE_SECRET_KEY`.

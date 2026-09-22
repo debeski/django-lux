@@ -9,7 +9,7 @@ The in-container executor is not removed here. A deployed `compose.yml` is
 project-owned and names `dlux_update_worker`, `dlux_reconcile` and the supervisor
 in a `restart: always`, `org.dlux.restart: protected` service; deleting any of
 them in the release a box upgrades *into* would produce a protected crash loop.
-Removal is 1.9.0 — see docs/updater-consolidation.md.
+Removal is 1.10.0 — see docs/updater-consolidation.md.
 """
 from dlux.tests.harness import setup_test_environment
 

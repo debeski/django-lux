@@ -7,7 +7,7 @@ It is page chrome, like the navbar and the titlebar: the administrator chooses
 how it looks in *System Settings → Ribbon*, and a view gets a correct one
 without configuring anything. It replaces `advanced_filter_helper`, which
 required a hand-written `advanced_config` dict per FilterSet and had a fixed
-layout no administrator could change (removed in v1.9.0 — see
+layout no administrator could change (removed in v1.10.0 — see
 [Deprecation Countdown](deprecation-countdown.md)).
 
 ## Using it

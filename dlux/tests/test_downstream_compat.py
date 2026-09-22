@@ -150,7 +150,7 @@ class StaticCompatTests(SimpleTestCase):
 
 class ImportCompatTests(SimpleTestCase):
     def test_legacy_archive_file_helper_names_still_resolve(self):
-        """Host projects import the project-archive names; removed in v1.9.0."""
+        """Host projects import the project-archive names; removed in v1.10.0."""
         from dlux import forms
 
         self.assertIs(forms.build_archive_file_field, forms.build_file_field)

@@ -58,8 +58,18 @@ wrong shape even before the permission question of a user editing their own row.
 - Cookie-based assisted-entry preference (`enable_prefill`) — use `sticky_forms_enabled()` and `sticky_form_initial()`.
 - The generated `dlux-updater` Compose service — reconciliation/migrations moved to `celery` `pre_start`; the state tick moved to Celery Beat. Existing generated stacks migrate through `./start.sh check --fix`.
 
-## Scheduled for v1.9.0
+## Scheduled for v1.10.0
 
+**Moved from v1.9.0 to v1.10.0 (2026-09-22):** the `archive_file` shims and the
+in-container update executor below. v1.9.0 ships release channels and fixes
+only; no project calls either in code, so the move changes timing, not scope.
+
+### In-container update executor
+
+`DLUX_UPDATE_EXECUTOR = "inline"`, the executor behind it, and the
+`python -m dlux enable-updater` / `enable_agent` Compose migrations in
+`dlux.scaffold.legacy`. Composer has performed inline updates since v1.8.0; see
+[Updater Consolidation](updater-consolidation.md).
 
 ### `archive_file` names on the file widget
 
@@ -76,9 +86,9 @@ forms. As of v1.8.3 the framework name is `file_field`:
 The two helper names stay importable from `dlux.forms`, a project's own
 `archive_file_*` string overrides are still read as a fallback, and
 `class="archive-file-input"` still opts a non-Dlux widget into the file card
-template. All three shims are removed in v1.9.0.
+template. All three shims are removed in v1.10.0.
 
-**No callers remain as of v1.8.14 (2026-09-08).** The only thing still using them
+**No callers remain (2026-09-08).** The only thing still using them
 was a set of `archive_file_*` string overrides in `project-decrees`,
 `project-archive` and `project-dhub`; those are now `file_field_*`, so nothing
 depends on the fallback and the shims can go on schedule. Note that
@@ -88,7 +98,6 @@ are those projects' own helpers built on `DluxFileInput`, not these shims.
 Projects styling or scripting against `.archive-file-*` or
 `data-archive-file-*` must move now — those markup names are gone in v1.8.3,
 with no shim.
-## Scheduled for v1.10.0
 
 ### `advanced_filter_helper`
 
@@ -97,7 +106,7 @@ which derives a list page's filter band from the FilterSet instead of a
 per-view `advanced_config` dict, and whose layout is an administrator setting
 rather than fixed markup. See [Ribbon](ribbon.md).
 
-**Moved from v1.9.0 to v1.10.0 (2026-09-08).** As of v1.8.14 the remaining
+**Moved from v1.9.0 to v1.10.0 (2026-09-08).** As of that date the remaining
 callers are `project-archive` (6 sites), `project-dhub` (6) and
 `project-trademarks` (7) — and none of the three uses `RibbonMixin` at all, so
 this is adopting the ribbon rather than swapping a helper. Each call site

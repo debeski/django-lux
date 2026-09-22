@@ -15,7 +15,7 @@ see [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
 | `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
-| `python -m dlux enable-updater` | **Deprecated; removed in 1.9.0.** Legacy in-container update bootstrap compatibility path. New stacks use Composer; see [Verified Inline Updates](inline-updater.md). |
+| `python -m dlux enable-updater` | **Deprecated; removed in 1.10.0.** Legacy in-container update bootstrap compatibility path. New stacks use Composer; see [Verified Inline Updates](inline-updater.md). |
 
 Agent-capable ASGI projects may set `DLUX_MIDDLEWARE` to a compatible middleware wrapper and `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` to explicit machine API prefixes. The control panel uses these only for `/api/agent/v1/`; bearer authentication still applies at the endpoint.
 
@@ -1591,7 +1591,7 @@ rather than coincidental.
 | `collect_related_objects(instance, ignore_relations=None)` | Inspect reverse and related objects for reporting or delete warnings; `ignore_relations` names internal accessors to skip |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
-| `advanced_filter_helper()` | **Deprecated (removed in v1.9.0 — use `dlux.ribbon`).** Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
+| `advanced_filter_helper()` | **Deprecated (removed in v1.10.0 — use `dlux.ribbon`).** Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
 | `arabic_search_q(term, fields)` | Variant-aware Arabic `icontains`: one OR'd `Q` over `fields` matching every common spelling of `term` (alef/hamza forms, ي/ى/ئ, ة/ه, ق/غ, و/ؤ, Farsi ی/ک, Arabic-Indic digits, ignoring diacritics/tatweel/hamza) via `__iregex` — stored values need no migration |
 | `arabic_search_pattern(term)` | The underlying regex builder (confusable letters become character classes); reusable for custom lookups |
 | `normalize_arabic(value)` | Fold a string to one canonical Arabic spelling (for Python-side comparison, dedup keys, or a stored shadow column); `ARABIC_EQUIVALENCE_GROUPS` is the overridable default fold table (`groups=` kwarg on all three) |

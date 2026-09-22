@@ -262,15 +262,15 @@ class ComposerReportedPrereleaseTests(TestCase):
         return DluxUpdateState.load()
 
     def test_a_reported_prerelease_is_not_offered_on_stable(self):
-        state = self._check_with_report("1.9.0b1")
+        state = self._check_with_report("99.0.0b1")
         self.assertFalse(state.latest_compatible)
         self.assertIn("prerelease", state.latest_reason)
 
     def test_the_same_report_is_offered_once_beta_is_on(self):
         DluxUpdateState.objects.filter(pk=1).update(update_channel=channel.BETA)
-        state = self._check_with_report("1.9.0b1")
+        state = self._check_with_report("99.0.0b1")
         self.assertTrue(state.latest_compatible)
-        self.assertEqual(state.latest_version, "1.9.0b1")
+        self.assertEqual(state.latest_version, "99.0.0b1")
 
     def test_a_reported_final_is_offered_on_either_channel(self):
         state = self._check_with_report("99.0.0")

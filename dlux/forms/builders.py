@@ -116,7 +116,7 @@ def build_asset_field(field_name, css_class=None):
 
 # Named for project-archive's document forms, where this widget started. Kept
 # importable through v1.x for the host projects still on the old name; removed
-# in v1.9.0.
+# in v1.10.0.
 _build_archive_file_widget = _build_file_widget
 build_archive_file_field = build_file_field
 

@@ -63,7 +63,7 @@ def composer_executes_updates():
 
     ``DLUX_UPDATE_EXECUTOR = "inline"`` restores the legacy in-container path for
     a deployment whose Composer predates the ``dlux.package_update`` action. That
-    escape hatch is removed in 1.9.0 along with the executor itself.
+    escape hatch is removed in 1.10.0 along with the executor itself.
     """
     mode = str(getattr(settings, "DLUX_UPDATE_EXECUTOR", "composer") or "composer").strip().lower()
     return mode != "inline"

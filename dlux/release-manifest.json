@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.8.14b3",
+  "version": "1.9.0b1",
   "display": {
-    "summary": "The beta-channel rehearsal, re-cut so the release page carries its artifacts. Same package as b1, which published correctly to PyPI but attached no files.",
+    "summary": "Release channels: stable by default, beta as an explicit opt-in. Plus a fix for dynamic-modal footer fields (is_active) that were never submitted.",
     "highlights": [
       "Stable and beta are separate channels. Stable is the default and excludes every prerelease; beta is an explicit opt-in in Options.",
-      "A Git tag decides its own publication: v1.9.0b1 is a prerelease that never claims the 'latest' pointer, v1.9.0 is stable.",
-      "Prerelease ordering is computed by PEP 440 rather than by pattern-matching, so 1.9.0b2 < 1.9.0b10 < 1.9.0rc1 < 1.9.0 holds everywhere."
+      "Dynamic-modal footer fields such as is_active are submitted with the form again, so modal saves no longer store is_active=False.",
+      "The Options beta switch works on a read-only runtime mount instead of returning a server error."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.14b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.0b1"
   },
   "requires": {
     "updater_schema": ">=1",

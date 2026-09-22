@@ -6,7 +6,7 @@ Facade over the scaffold package: every name importable from the old
 * :mod:`~dlux.scaffold.project` — ``startproject``
 * :mod:`~dlux.scaffold.app` — ``startapp`` and its project registration
 * :mod:`~dlux.scaffold.legacy` — the deprecated ``enable_updater`` /
-  ``enable_agent`` Compose migrations, removed wholesale in 1.9.0
+  ``enable_agent`` Compose migrations, removed wholesale in 1.10.0
 * :mod:`~dlux.scaffold._shared` — paths, prompts, template rendering
 """
 
