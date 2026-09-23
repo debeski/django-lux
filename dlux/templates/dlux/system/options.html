@@ -321,6 +321,58 @@
                                         </span>
                                         <code class="dlux-upd-digest" data-dlux-image-digest></code>
                                     </div>
+                                    <div class="dlux-ops"
+                                         data-dlux-ops
+                                         data-state-url="{% url 'dlux_ops_state' %}"
+                                         data-run-url="{% url 'dlux_ops_run' %}"
+                                         data-can-manage="{% if can_manage_dlux_updates %}true{% else %}false{% endif %}"
+                                         data-label-running="{{ DLUX_STRINGS.dlux_ops_running|default:'Running on the deployment…' }}"
+                                         data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not checked yet' }}"
+                                         data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found' }}"
+                                         data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
+                                         data-label-repairs-ready="{{ DLUX_STRINGS.dlux_ops_repairs_ready|default:'repairs available' }}"
+                                         data-label-latest="{{ DLUX_STRINGS.dlux_ops_latest|default:'up to date' }}"
+                                         data-label-unknown="{{ DLUX_STRINGS.dlux_ops_unknown|default:'could not check' }}"
+                                         data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
+                                         data-label-agent-update="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}">
+                                        <div class="dlux-upd-row">
+                                            <span class="dlux-upd-lead">
+                                                {% if can_manage_dlux_updates %}
+                                                <button type="button" class="dlux-upd-ic" data-dlux-ops-check="check"
+                                                        title="{{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}"><i class="bi bi-arrow-clockwise" data-dlux-ops-glyph="check"></i></button>
+                                                <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-ops-open="check-fix-apply" hidden
+                                                        title="{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Review the proposed repairs' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Review the proposed repairs' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
+                                                {% else %}
+                                                <i class="bi bi-clipboard2-pulse dlux-upd-ic dlux-upd-ic--static"></i>
+                                                {% endif %}
+                                                <span class="dlux-upd-name">{{ DLUX_STRINGS.dlux_ops_deployment|default:'Deployment' }}</span>
+                                                <span class="dlux-upd-ver" data-dlux-ops-summary></span>
+                                            </span>
+                                            <button type="button" class="dlux-upd-ic dlux-upd-ic--rollback" data-dlux-ops-results hidden
+                                                    title="{{ DLUX_STRINGS.dlux_ops_results|default:'Show the last check' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_ops_results|default:'Show the last check' }}"><i class="bi bi-list-check"></i></button>
+                                        </div>
+                                        <div class="dlux-upd-row">
+                                            <span class="dlux-upd-lead">
+                                                {% if can_manage_dlux_updates %}
+                                                <button type="button" class="dlux-upd-ic" data-dlux-ops-check="agent-check"
+                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the resident Composer' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the resident Composer' }}"><i class="bi bi-arrow-clockwise" data-dlux-ops-glyph="agent-check"></i></button>
+                                                <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-ops-open="agent-update" hidden
+                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
+                                                {% else %}
+                                                <i class="bi bi-hdd-stack dlux-upd-ic dlux-upd-ic--static"></i>
+                                                {% endif %}
+                                                <span class="dlux-upd-name">{{ DLUX_STRINGS.dlux_ops_composer|default:'Resident Composer' }}</span>
+                                                <span class="dlux-upd-ver" data-dlux-ops-composer-version></span>
+                                                <span class="dlux-upd-target" data-dlux-ops-composer-target hidden></span>
+                                            </span>
+                                        </div>
+                                        <div class="dlux-updater-run-status small" data-dlux-ops-status hidden aria-live="polite"></div>
+                                    </div>
                                     <div class="dlux-upd-ribbon">
                                         <span class="dlux-upd-reason" data-dlux-update-reason>{{ dlux_update_state.latest_reason }}</span>
                                         <span class="dlux-upd-checked">{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}: <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time> · {{ DLUX_STRINGS.dlux_update_image_label|default:'image' }} <time data-dlux-image-checked>—</time></span>
@@ -354,50 +406,6 @@
                                     {% if not dlux_update_state.enabled %}
                                     <div class="small text-muted mt-1">{% if dlux_update_state.unavailable_reason %}{{ dlux_update_state.unavailable_reason }}{% else %}{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}{% endif %}</div>
                                     {% endif %}
-                                </div>
-                            </div>
-                            <hr class="my-3">
-                            <h6 class="dlux-admin-tile-subtitle"><i class="bi bi-clipboard2-pulse"></i> {{ DLUX_STRINGS.dlux_ops_title|default:'Deployment operations' }}</h6>
-                            <div class="dlux-ops"
-                                 data-dlux-ops
-                                 data-state-url="{% url 'dlux_ops_state' %}"
-                                 data-run-url="{% url 'dlux_ops_run' %}"
-                                 data-can-manage="{% if can_manage_dlux_updates %}true{% else %}false{% endif %}"
-                                 data-label-running="{{ DLUX_STRINGS.dlux_ops_running|default:'Running on the deployment…' }}"
-                                 data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not run yet.' }}"
-                                 data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found.' }}"
-                                 data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
-                                 data-label-no-repairs="{{ DLUX_STRINGS.dlux_ops_no_repairs|default:'Nothing to repair.' }}"
-                                 data-label-composer="{{ DLUX_STRINGS.dlux_ops_composer|default:'Resident Composer' }}"
-                                 data-label-confirm="{{ DLUX_STRINGS.dlux_ops_confirm|default:'Confirm' }}">
-                                <p class="small text-muted mb-2">{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the resident Composer — and offers the repairs it finds.' }}</p>
-                                <div class="dlux-ops-actions d-flex align-items-center flex-wrap gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="check">
-                                        {{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="agent-update">
-                                        {{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-warning" data-dlux-ops-run="check-fix-apply" hidden>
-                                        {{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}
-                                    </button>
-                                    <span class="dlux-ops-status small text-muted" data-dlux-ops-status aria-live="polite"></span>
-                                </div>
-                                <div class="dlux-ops-confirm mt-2" data-dlux-ops-confirm hidden>
-                                    <label class="small d-block mb-1" for="dlux-ops-password">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <input type="password" class="form-control form-control-sm w-auto" id="dlux-ops-password"
-                                               autocomplete="current-password" data-dlux-ops-password>
-                                        <button type="button" class="btn btn-sm btn-warning" data-dlux-ops-submit></button>
-                                        <button type="button" class="btn btn-sm btn-link" data-dlux-ops-cancel>{{ DLUX_STRINGS.cancel|default:'Cancel' }}</button>
-                                    </div>
-                                    <div class="small text-muted mt-1" data-dlux-ops-confirm-note></div>
-                                </div>
-                                <ul class="dlux-ops-findings list-unstyled mt-2 mb-0" data-dlux-ops-findings></ul>
-                                <div class="dlux-ops-repairs mt-2" data-dlux-ops-repairs hidden>
-                                    <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
-                                    <div data-dlux-ops-diffs></div>
-                                    <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_ops_apply_note|default:'Applies exactly the changes above. Composer validates the result and keeps a backup under .xclude/.' }}</div>
                                 </div>
                             </div>
                     </section>
@@ -766,6 +774,39 @@
                             <button type="button" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>
                         </span>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_manage_dlux_updates %}
+    <div class="modal fade" id="dluxOpsResultModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-dlux-ops-modal-title>{{ DLUX_STRINGS.dlux_ops_results_title|default:'Deployment check' }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted" data-dlux-ops-modal-intro>{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the resident Composer — and offers the repairs it finds.' }}</p>
+                    <ul class="dlux-ops-findings list-unstyled mb-0" data-dlux-ops-findings></ul>
+                    <div class="dlux-ops-repairs mt-3" data-dlux-ops-repairs hidden>
+                        <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
+                        <div data-dlux-ops-diffs></div>
+                        <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_ops_apply_note|default:'Applies exactly the changes above. Composer validates the result and keeps a backup under .xclude/.' }}</div>
+                    </div>
+                    <div class="dlux-ops-confirm mt-3" data-dlux-ops-confirm hidden>
+                        <label class="form-label" for="dluxOpsPassword">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
+                        <input type="password" class="form-control" id="dluxOpsPassword" autocomplete="off"
+                               data-1p-ignore data-lpignore="true" data-dlux-ops-password>
+                        <div class="small text-muted mt-1" data-dlux-ops-confirm-note></div>
+                    </div>
+                    <div class="text-danger small mt-2" data-dlux-ops-error hidden></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ DLUX_STRINGS.btn_close|default:'Close' }}</button>
+                    <button type="button" class="btn btn-warning" data-dlux-ops-submit hidden></button>
                 </div>
             </div>
         </div>

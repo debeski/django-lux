@@ -102,6 +102,18 @@ class IntervalViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(DluxUpdateState.load().check_interval_minutes, 15)
 
+    def test_the_response_carries_everything_the_card_renders(self):
+        # The card renders from whatever response it last received. When this one
+        # answered with the bare updater state, moving the interval slider blanked
+        # the application version and digest until the next full poll.
+        client = Client()
+        client.force_login(self.superuser)
+        state = client.post(self.url, {"minutes": "30"}).json()["state"]
+        full = client.get(reverse("dlux_update_state")).json()["state"]
+        for key in ("image", "image_update_available", "image_update_target", "latest_version_failure"):
+            self.assertIn(key, state, f"{key} is missing, so the card would blank what it fills")
+        self.assertEqual(state["image"], full["image"])
+
     def test_a_non_superuser_cannot_change_it(self):
         client = Client()
         client.force_login(self.staff)

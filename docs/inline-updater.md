@@ -150,35 +150,59 @@ A writer that reported and then went quiet for more than ten minutes is treated 
 
 Before 1.8.6 the guard probed locally in every process, so a read-only `web` mount disabled the update card and refused manual checks on a healthy stack. Granting `web` write access worked around that; it is no longer needed.
 
-## The Operations card
+## Deployment operations
 
-Options carries a **Deployment operations** card beside the update one. It runs
-the things that otherwise need a shell on the host, starting with Composer's own
-deployment check — the doctor for the *outside* of the stack, which is what
-catches a resident pair started with a command this Composer rejects, a missing
+**Application updates** carries two more rows beside DjangoLux and the
+application image: **Deployment** and **Resident Composer**. They run the things
+that otherwise need a shell on the host, starting with Composer's own deployment
+check — the doctor for the *outside* of the stack, which is what catches a
+resident pair started with a command this Composer rejects, a missing
 `org.dlux.restart` label, or an obsolete service still in the file.
 
-DjangoLux gains no Docker authority from it. The card can request exactly the
+They are rows and not a panel of buttons because the card already answers this
+shape of question twice: one icon that checks, a second that appears only when
+there is something to install, and a tick when there is not. Findings open in a
+modal, so a check that reports fifteen of them does not resize the card.
+
+DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
 | `check` | no | Composer 1.5.2+ |
+| `agent-check` | no | Composer 1.5.2+ |
 | `check-fix-apply` | **yes** | Composer 1.5.2+, a check that found repairs, and the current password |
-| `agent-update` | **yes** | Composer 1.5.2+ and the current password |
+| `agent-update` | **yes** | Composer 1.5.2+, a check that found an update, and the current password |
 
-The card lives inside **Application updates**, under its own heading: one card
-for the deployment, not two beside each other. Each operation declares the
-Composer it needs, and DjangoLux knows the resident version from the agent's
-status file — an operation the deployment cannot perform is disabled with its
-reason rather than offered and failed on a timeout. An unknown version gates
-nothing, since the run's own timeout still names the floor.
+Each operation declares the Composer it needs, and DjangoLux knows the resident
+version from the agent's status file — an operation the deployment cannot
+perform is disabled with its reason rather than offered and failed on a timeout.
+An unknown version gates nothing, since the run's own timeout still names the
+floor.
+
+Each row keeps its own last answer: checking the Composer does not blank what
+the deployment check found, and vice versa.
+
+### The resident Composer row
+
+`agent-check` reads the version published on the project's Composer channel tag
+and reports it beside the resident version. The row then shows one of three
+things, and never guesses between them:
+
+* a tick — checked, and the pair runs what the channel publishes;
+* the update icon, with the published version beside it; or
+* nothing checked yet, or a registry that could not be read. **Unknown is not
+  "up to date"**, and it is not an update either.
 
 **Update resident Composer** replaces `composer-agent` and `composer-executor`
 with the channel's current image. It cannot report itself — the update recreates
 both — so the executor starts a detached helper that performs it and then writes
 the run's answer to the runtime volume. It gets 15 minutes rather than the usual
-two.
+two, and it is offered only after a check found an update: nobody is asked for a
+password to discover that there is nothing to install. Composer refuses it
+outright if the pair already runs the channel's version. Once the pair has been
+replaced, the row goes back to asking rather than claiming, because what it runs
+now is something only a fresh check can say.
 
 ### Previewing and applying repairs
 
@@ -187,9 +211,10 @@ missing restart label, a resident pair started with a command this Composer
 rejects. A repair rewrites the deployment's own Compose file, so it takes two
 steps, but only one button each:
 
-1. **Run deployment check** returns the findings *and* what `check --fix` would
-   change: a unified diff per file, writing nothing, plus a SHA-256 digest of the
-   files Composer read. **Apply repairs** appears only if that found something.
+1. The check returns the findings *and* what `check --fix` would change: a
+   unified diff per file, writing nothing, plus a SHA-256 digest of the files
+   Composer read. The repair icon appears on the row only if that found
+   something.
 2. **Apply repairs** re-verifies the administrator's current password, and the
    request carries that digest — taken from the check's own result, never from
    the browser. Composer refuses the apply when the files no longer hash to it,

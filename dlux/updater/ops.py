@@ -1,21 +1,21 @@
 """Named deployment operations Dlux asks Composer to perform.
 
-The Operations card lets an administrator run the things that otherwise need a
-shell on the host — starting with `composer check`, the doctor for the *outside*
-of the stack. Dlux gains no Docker authority by it: it writes a typed request
-naming one operation from ``OPERATIONS`` below, and the resident Composer
-performs it and writes back a result. An operation that is not in that table
-cannot be requested at all, which is the whole security model — see
-``operations_center_plan.md`` §2-§4.
+The deployment rows in the Updates card let an administrator run the things that
+otherwise need a shell on the host — `composer check`, the repair it proposes,
+and the replacement of the resident pair itself. Dlux gains no Docker authority
+by any of it: it writes a typed request naming one operation from ``OPERATIONS``
+below, and the resident Composer performs it and writes back a result. An
+operation that is not in that table cannot be requested at all, which is the
+whole security model — see ``docs/inline-updater.md``.
 
 The file shape mirrors the package-update and channel handoffs: one request at a
 time, carrying the run's token, acknowledged under the same token. Composer
 publishes the result beside it, so a stale result can never be read as this
 run's (the token has to match).
 
-Read-only operations live here first. Anything that changes the deployment
-(applying `check --fix`, restarting a service, updating Composer itself) is a
-later phase and is deliberately absent, not merely unimplemented.
+Each operation declares its blast radius rather than relying on its name:
+``changes_deployment`` is what the view reads to demand the current password,
+so a read-only question — "is there an update?" — never asks for one.
 """
 
 from __future__ import annotations
@@ -42,6 +42,15 @@ OPERATIONS = {
         "changes_deployment": False,
         "needs_preview": False,
         "label": "Run deployment check",
+    },
+    "agent-check": {
+        # Read-only: asks the registry whether the channel publishes a newer
+        # Composer than the resident pair runs. Nobody should have to type a
+        # password to find out that there is nothing to update.
+        "min_composer": "1.5.2",
+        "changes_deployment": False,
+        "needs_preview": False,
+        "label": "Check the resident Composer",
     },
     "agent-update": {
         "min_composer": "1.5.2",

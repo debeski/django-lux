@@ -44,11 +44,13 @@ class OperationTableTests(SimpleTestCase):
             ["agent-update", "check-fix-apply"],
         )
 
-    def test_the_check_is_the_only_read_only_operation(self):
+    def test_the_read_only_operations_are_the_two_checks(self):
         self.assertEqual(
             sorted(n for n, spec in ops.OPERATIONS.items() if not spec["changes_deployment"]),
-            ["check"],
-            "the check carries the repair preview; a separate preview operation is not offered",
+            ["agent-check", "check"],
+            "the deployment check carries the repair preview; a separate preview "
+            "operation is not offered, and asking whether the resident Composer "
+            "has an update must never need a password",
         )
 
     def test_only_the_apply_needs_a_preview(self):
@@ -397,6 +399,76 @@ class ComposerVersionGateTests(SimpleTestCase):
 
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class RowStateTests(TestCase):
+    """What the two rows in the Updates card read, and when they read nothing.
+
+    Each row keeps its own last answer: running the Composer check must not blank
+    what the deployment check found, and a resident pair that was just replaced
+    must not still claim to be "up to date" on the strength of a check taken
+    before the replacement.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        RuntimeStore(self._tmp.name).ensure()
+
+    def _completed(self, operation, result, *, minutes_ago=0):
+        run = DluxOpsRun.objects.create(operation=operation, status=DluxOpsRun.STATUS_COMPLETED,
+                                        is_active=False, result=result)
+        when = timezone.now() - timedelta(minutes=minutes_ago)
+        DluxOpsRun.objects.filter(pk=run.pk).update(created_at=when, completed_at=when)
+        return DluxOpsRun.objects.get(pk=run.pk)
+
+    def _state(self):
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            return get_ops_state()
+
+    def test_a_deployment_that_was_never_checked_reports_nothing(self):
+        state = self._state()
+        self.assertIsNone(state["check"])
+        self.assertFalse(state["resident"]["checked"])
+        self.assertFalse(state["resident"]["update_available"])
+
+    def test_the_composer_check_reaches_the_row(self):
+        self._completed("agent-check", {"resident": {
+            "version": "1.5.2", "published_version": "1.6.0", "channel": "stable",
+            "checked": True, "update_available": True,
+        }})
+        resident = self._state()["resident"]
+        self.assertTrue(resident["update_available"])
+        self.assertEqual(resident["published_version"], "1.6.0")
+        self.assertTrue(resident["checked_at"])
+
+    def test_a_composer_check_does_not_blank_the_deployment_row(self):
+        self._completed("check", {"findings": [{"level": "ok", "name": "docker", "message": "up"}]},
+                        minutes_ago=5)
+        self._completed("agent-check", {"resident": {"checked": True, "version": "1.5.2"}})
+        state = self._state()
+        self.assertEqual(state["run"]["operation"], "agent-check", "the newest run is the Composer check")
+        self.assertEqual(state["check"]["operation"], "check")
+        self.assertEqual(state["check"]["summary"]["ok"], 1)
+
+    def test_an_update_since_the_check_makes_the_row_ask_again(self):
+        self._completed("agent-check", {"resident": {
+            "version": "1.5.2", "checked": True, "update_available": True,
+        }}, minutes_ago=5)
+        self._completed("agent-update", {"exit_code": 0})
+        resident = self._state()["resident"]
+        self.assertFalse(resident["checked"], "the pair was replaced; what it is now is unknown")
+        self.assertFalse(resident["update_available"])
+
+    def test_a_result_without_a_resident_block_is_not_a_check(self):
+        # A 1.5.2 agent answers `agent-check`; an older one would answer with a
+        # refusal, and the row must not read that as "up to date".
+        self._completed("agent-check", {"findings": []})
+        self.assertFalse(self._state()["resident"]["checked"])
+
+    def test_the_run_carries_the_resident_block_to_the_browser(self):
+        run = self._completed("agent-check", {"resident": {"checked": True, "update_available": False}})
+        self.assertEqual(serialize_ops_run(run)["resident"], {"checked": True, "update_available": False})
+
+
 class GatedQueueTests(TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

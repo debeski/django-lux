@@ -1482,16 +1482,19 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     overflow-wrap: anywhere;
 }
 
-/* Deployment operations card: Composer's findings, one row each. The level
-   colours come from the theme's semantic variables so both themes hold. */
+/* Deployment operations: two rows in the Updates card, and the modal its
+   checks report into. The level colours come from the theme's semantic
+   variables so both themes hold. */
 .dlux-admin-tile--ops { flex: 1.6 1 300px; }
+
+/* The rows belong to the card's row list, not to a box of their own: `contents`
+   lets them take the list's own spacing and alignment. */
+.dlux-ops { display: contents; }
 
 .dlux-ops-findings {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    max-height: 18rem;
-    overflow-y: auto;
 }
 
 .dlux-ops-finding {

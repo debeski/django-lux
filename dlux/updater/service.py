@@ -355,9 +355,48 @@ def serialize_ops_run(run):
         "summary": ops.summarize(result),
         "exit_code": result.get("exit_code"),
         "composer_version": result.get("composer_version", ""),
+        "resident": result.get("resident") if isinstance(result.get("resident"), dict) else None,
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
+
+
+def _latest_completed(*operations):
+    Ops = _ops_model()
+    return Ops.objects.filter(
+        operation__in=operations, status=Ops.STATUS_COMPLETED,
+    ).order_by("-created_at").first()
+
+
+def _resident_status(composer_version):
+    """What the Composer row shows: the resident version, and news about it.
+
+    ``checked`` is deliberately false until an ``agent-check`` has run, and
+    false again once an ``agent-update`` has replaced the pair: the row then
+    offers a check rather than claiming to know. Claiming "on latest" from a
+    check that predates the update would be a guess, and the row's whole job is
+    to be the thing an administrator can believe without opening a shell.
+    """
+    status = {"version": composer_version, "checked": False, "update_available": False,
+              "published_version": "", "channel": "", "checked_at": None}
+    checked = _latest_completed("agent-check")
+    if checked is None:
+        return status
+    updated = _latest_completed("agent-update")
+    if updated is not None and updated.created_at > checked.created_at:
+        return status
+    resident = (checked.result or {}).get("resident")
+    if not isinstance(resident, dict):
+        return status
+    status.update({
+        "version": composer_version or str(resident.get("version") or ""),
+        "checked": bool(resident.get("checked")),
+        "update_available": bool(resident.get("update_available")),
+        "published_version": str(resident.get("published_version") or ""),
+        "channel": str(resident.get("channel") or ""),
+        "checked_at": checked.completed_at.isoformat() if checked.completed_at else None,
+    })
+    return status
 
 
 def get_ops_state():
@@ -366,8 +405,12 @@ def get_ops_state():
 
     try:
         run = _ops_model().objects.order_by("-created_at").first()
+        # The rows keep their own last answer: a Composer check must not blank
+        # what the deployment check found, and vice versa.
+        check = _latest_completed("check", "check-fix-preview")
+        resident = _resident_status(ops.resident_composer_version())
     except Exception:
-        run = None
+        run, check, resident = None, None, _resident_status("")
     composer_version = ops.resident_composer_version()
     operations = []
     for name, spec in ops.OPERATIONS.items():
@@ -384,6 +427,8 @@ def get_ops_state():
     return {
         "operations": operations,
         "run": serialize_ops_run(run),
+        "check": serialize_ops_run(check),
+        "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
         "composer_version": composer_version,
     }

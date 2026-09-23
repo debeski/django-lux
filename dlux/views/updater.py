@@ -63,17 +63,20 @@ def dlux_update_runtime_health(request):
     return JsonResponse({"ok": True, "version": __version__})
 
 
-@login_required
-@require_GET
-def dlux_update_state_view(request):
-    _require_diagnostics_access(request)
+def card_state(request):
+    """The state every updater response returns, in one shape.
+
+    The card renders from whatever response it last received, so a reply that
+    omits these keys blanks what they populate: moving the check-interval slider
+    made the application version and digest disappear until the next full poll,
+    because only the state view filled them in. Build it once, return it
+    everywhere.
+    """
     state = get_ui_state()
     state["can_manage"] = bool(request.user.is_superuser and state["enabled"])
-    latest_run = _run_model().objects.order_by("-created_at").first()
-    # Image-level (full container) update availability + any in-flight run.
+    # Image-level (full container) update availability.
     # Registry-driven: composer publishes availability; we just read it.
     image_metadata = image_update_metadata()
-    active_image = active_image_update()
     state["image_update_available"] = image_metadata["available"]
     state["image_update_target"] = image_metadata["target"]
     state["image_update_reason"] = image_metadata["reason"]
@@ -84,6 +87,16 @@ def dlux_update_state_view(request):
     # Re-apply guard: if the latest available wheel version already failed a
     # previous apply, the review modal warns and requires an explicit ack.
     state["latest_version_failure"] = previous_apply_failure(state.get("latest_version"))
+    return state
+
+
+@login_required
+@require_GET
+def dlux_update_state_view(request):
+    _require_diagnostics_access(request)
+    state = card_state(request)
+    latest_run = _run_model().objects.order_by("-created_at").first()
+    active_image = active_image_update()
     return JsonResponse({
         "ok": True,
         "state": state,
@@ -149,7 +162,8 @@ def dlux_update_skip_view(request):
         return JsonResponse({"ok": False, "error": "No version specified."}, status=400)
     unskip = str(request.POST.get("unskip") or "").strip().lower() in ("1", "true", "yes", "on")
     from ..updater.service import set_version_skipped
-    state = set_version_skipped(version, skipped=not unskip)
+    set_version_skipped(version, skipped=not unskip)
+    state = card_state(request)
     log_audit_event(
         request,
         "dlux_update_unskip" if unskip else "dlux_update_skip",
@@ -182,7 +196,8 @@ def dlux_update_channel_view(request):
         enabled = str(request.POST.get("beta") or "").strip().lower() in ("1", "true", "yes", "on")
         requested = update_channel.BETA if enabled else update_channel.STABLE
     try:
-        state = set_update_channel(requested, username=request.user.get_username())
+        set_update_channel(requested, username=request.user.get_username())
+        state = card_state(request)
     except UpdaterError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
     log_audit_event(
@@ -209,7 +224,8 @@ def dlux_update_interval_view(request):
 
     minutes = request.POST.get("minutes")
     try:
-        state = set_check_interval(minutes, username=request.user.get_username())
+        set_check_interval(minutes, username=request.user.get_username())
+        state = card_state(request)
     except UpdaterError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
     log_audit_event(
