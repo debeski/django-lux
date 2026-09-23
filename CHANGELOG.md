@@ -7,6 +7,19 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.1
+
+The stable release, identical in scope to `1.9.1b1` below. Verified on a
+reference deployment against Composer 1.5.0b1 before this tag: installed in 35
+seconds with its migration applied, the Operations card returned the same 15
+findings Composer's CLI reports, a real problem surfaced as a `fail` finding
+with its fix hint, an unknown operation was refused, and a deployment on an
+older Composer failed the run naming the version it needs instead of hanging.
+
+The Operations card's `check` needs **Composer 1.5.0 or later** as a service in
+the deployment; every other part of this release works on 1.4.1, which is why
+`requires.services.composer` stays `>=1.4.1`.
+
 ## v1.9.1b1
 
 Ships on the 1.9 line on purpose: **1.10.0 stays reserved for the removals it is

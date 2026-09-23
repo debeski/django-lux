@@ -1,13 +1,13 @@
 {
   "schema_version": 2,
-  "version": "1.9.1b1",
+  "version": "1.9.1",
   "display": {
     "summary": "A Deployment operations card in Options: run Composer's deployment check from the browser instead of a shell on the host.",
     "highlights": [
       "Options can run Composer's deployment check and shows its findings, without a shell on the deployment host.",
       "DjangoLux requests named operations only — read-only in this release — and holds no Docker authority."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.1"
   },
   "requires": {
     "updater_schema": ">=1",

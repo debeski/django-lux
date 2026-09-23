@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **v1.9.1b1 published and live-accepted** (2026-09-23): Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. Needs Composer 1.5.0b1; an older resident fails the run in 120 s naming the version it needs.
+- **v1.9.1 (stable)** (2026-09-23): Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. The card's check needs Composer >=1.5.0; the rest of the release runs on 1.4.1.
 - **v1.9.0 (stable)** (2026-09-22): channels + configurable check interval + check-now + the modal footer fix; no stable 1.8.14 (that line was promoted). Requires Composer **>=1.4.1** (`v1.4.0` was tagged but never published). 1.9.0 removals postponed to 1.10.0. Live-accepted on the decrees stack against Composer 1.4.0b4: install, rollback, re-install with migrations 0021/0022, channel opt-in/out, interval, check-now.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
