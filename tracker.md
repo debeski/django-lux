@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **v1.9.2b1 (in development)**: Operations phase 2 — Preview repairs (Composer's `check --fix` diffs) and Apply repairs (password-confirmed, refused unless the preview's compose digest still matches). Needs Composer 1.6.0b1. Not released; needs the live pair test.
+- **v1.9.2 (stable)** (2026-09-23): Operations phase 2 — Preview repairs (Composer's `check --fix` diffs) and Apply repairs (password-confirmed, refused unless the preview's compose digest still matches). Needs Composer >=1.5.1, which applies the repair from a container that can write, since both residents mount the project read-only. Stays on the 1.9 line; 1.10.0 remains reserved for its removals.
 - **v1.9.1 (stable)** (2026-09-23): Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. The card's check needs Composer >=1.5.0; the rest of the release runs on 1.4.1.
 - **v1.9.0 (stable)** (2026-09-22): channels + configurable check interval + check-now + the modal footer fix; no stable 1.8.14 (that line was promoted). Requires Composer **>=1.4.1** (`v1.4.0` was tagged but never published). 1.9.0 removals postponed to 1.10.0. Live-accepted on the decrees stack against Composer 1.4.0b4: install, rollback, re-install with migrations 0021/0022, channel opt-in/out, interval, check-now.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
@@ -68,6 +68,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-23: Operations phase 2 live on decrees (dlux 1.9.2 + Composer 1.5.1): preview returned the exact diff and wrote nothing; apply refused with no password, with a wrong password, and after the files changed post-preview; the real apply repaired compose.yml byte-identically, archived a backup under `.xclude/`, and a follow-up check came back 15/15 OK with the stack healthy.
 - 2026-09-23: Operations card live on the decrees stack (dlux 1.9.1b1 + Composer 1.5.0b1): 1.9.0 -> 1.9.1b1 installed in 35 s with migration 0023; panel check answered in ~9 s with the same 15 findings the CLI reports; a reintroduced flat command surfaced as a `fail` finding with its fix hint and the run still completed; unknown operation refused 409; on Composer 1.4.1 the run failed at 133 s with "needs Composer 1.5.0 or later".
 - 2026-09-23: Operations card phase 1 — full `dlux.tests` 2547 OK (20 new in `test_ops`), JS 63 OK, `release_check` classify v1.10.0b1 -> beta and `--base-tag v1.9.0` exit 0; Composer side 660 OK.
 - 2026-09-22: 1.9.0b2 pre-tag — full `dlux.tests` 2527 OK (15 new in `test_check_policy`), JS 63 OK, `release_check` classify beta + `--base-tag v1.8.13` exit 0 (migration effect additive).

@@ -42,7 +42,7 @@ OPERATIONS = {
         "label": "Run deployment check",
     },
     "check-fix-preview": {
-        "min_composer": "1.6.0",
+        "min_composer": "1.5.1",
         "changes_deployment": False,
         "needs_preview": False,
         "label": "Preview repairs",
@@ -51,7 +51,7 @@ OPERATIONS = {
         # Writes to the deployment files. Superuser + current password in the
         # view, and it may only apply the repair a preview showed: the digest
         # comes from that preview's result, never from the request.
-        "min_composer": "1.6.0",
+        "min_composer": "1.5.1",
         "changes_deployment": True,
         "needs_preview": True,
         "label": "Apply repairs",

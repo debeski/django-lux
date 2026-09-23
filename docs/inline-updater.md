@@ -163,8 +163,8 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
 | `check` | no | Composer 1.5.0+ |
-| `check-fix-preview` | no | Composer 1.6.0+ |
-| `check-fix-apply` | **yes** | Composer 1.6.0+, a preview, and the current password |
+| `check-fix-preview` | no | Composer 1.5.1+ |
+| `check-fix-apply` | **yes** | Composer 1.5.1+, a preview, and the current password |
 
 ### Previewing and applying repairs
 
