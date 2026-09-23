@@ -68,6 +68,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-23: 1.9.3 live on decrees with Composer 1.5.2 (local build, staged wheel install): one check returned 15 findings + the repair diff; apply refused without a password and repaired compose.yml byte-identically; resident-Composer update completed in 24 s with both containers replaced; with the pair on 1.5.1 the card marked all three operations unavailable and the API refused them.
 - 2026-09-23: 1.9.3 — full `dlux.tests` 2568 OK (9 new in `test_ops`: version gate, the write operations, the check-is-the-preview rule), JS 63 OK, import-graph guard clean after reading the agent status file directly instead of through `control_link`.
 - 2026-09-23: Operations phase 2 live on decrees (dlux 1.9.2 + Composer 1.5.1): preview returned the exact diff and wrote nothing; apply refused with no password, with a wrong password, and after the files changed post-preview; the real apply repaired compose.yml byte-identically, archived a backup under `.xclude/`, and a follow-up check came back 15/15 OK with the stack healthy.
 - 2026-09-23: Operations card live on the decrees stack (dlux 1.9.1b1 + Composer 1.5.0b1): 1.9.0 -> 1.9.1b1 installed in 35 s with migration 0023; panel check answered in ~9 s with the same 15 findings the CLI reports; a reintroduced flat command surfaced as a `fail` finding with its fix hint and the run still completed; unknown operation refused 409; on Composer 1.4.1 the run failed at 133 s with "needs Composer 1.5.0 or later".
@@ -76,7 +77,6 @@
 - 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
 - 2026-09-22: `fix/modal-footer-fields` — full `dlux.tests` 2511 (1 updater failure was the moved venv; 203 incl. it OK with the checkout on PYTHONPATH), modal e2e 4 new + 5 back OK, `tests-js` 63 OK.
 - 2026-09-10: beta-first gate — 9 new tests; live check against real git + real PyPI: betas of 1.8.14 found and published, a hypothetical v1.9.0 today is refused.
-- 2026-09-06: full `dlux.tests` 2430 OK (was 2366 — 3 unregistered modules + the new guard + 2 modal-listener tests); the capture-phase test fails against the pre-fix listener; event phases verified in a real browser (non-bubbling body dispatch reaches capture only).
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
 
 ### One-line info about last time edited Docs:
