@@ -30,6 +30,11 @@
         const statusEl = root.querySelector('[data-dlux-ops-status]');
         const findingsEl = root.querySelector('[data-dlux-ops-findings]');
         const buttons = Array.from(root.querySelectorAll('[data-dlux-ops-run]'));
+        const repairsWrap = root.querySelector('[data-dlux-ops-repairs]');
+        const diffsEl = root.querySelector('[data-dlux-ops-diffs]');
+        const applyWrap = root.querySelector('[data-dlux-ops-apply-wrap]');
+        const applyButton = root.querySelector('[data-dlux-ops-apply]');
+        const passwordInput = root.querySelector('[data-dlux-ops-password]');
         let pollTimer = null;
 
         function setStatus(text) {
@@ -38,6 +43,53 @@
 
         function setBusy(busy) {
             buttons.forEach((button) => { button.disabled = busy; });
+            if (applyButton) { applyButton.disabled = busy; }
+        }
+
+        // A repair is shown as Composer's own unified diff, as text. The
+        // operator confirms THIS, and the apply refuses if the files moved.
+        function renderRepairs(run) {
+            if (!repairsWrap || !diffsEl) { return; }
+            const repairs = (run && run.repairs) || [];
+            const previewed = run && run.operation === 'check-fix-preview' && run.status === 'completed';
+            diffsEl.innerHTML = '';
+            if (!repairs.length) {
+                repairsWrap.hidden = !previewed;
+                if (previewed) {
+                    const none = document.createElement('div');
+                    none.className = 'small text-muted';
+                    none.textContent = root.dataset.labelNoRepairs || 'Nothing to repair.';
+                    diffsEl.appendChild(none);
+                }
+                if (applyWrap) { applyWrap.hidden = true; }
+                return;
+            }
+            repairs.forEach((repair) => {
+                const block = document.createElement('div');
+                block.className = 'dlux-ops-repair';
+                const title = document.createElement('div');
+                title.className = 'small fw-semibold';
+                title.textContent = [repair.name, (repair.files || []).join(', ')].filter(Boolean).join(' — ');
+                block.appendChild(title);
+                if (repair.diff) {
+                    const diff = document.createElement('pre');
+                    diff.className = 'dlux-ops-diff';
+                    diff.textContent = repair.diff;
+                    block.appendChild(diff);
+                }
+                if (repair.note) {
+                    const note = document.createElement('div');
+                    note.className = 'small text-muted';
+                    note.textContent = repair.note;
+                    block.appendChild(note);
+                }
+                diffsEl.appendChild(block);
+            });
+            repairsWrap.hidden = false;
+            if (applyWrap) {
+                // Only a preview offers the apply, and only while it is current.
+                applyWrap.hidden = !previewed || !repairs.some((repair) => repair.diff);
+            }
         }
 
         // Composer's findings are data, not markup: each one becomes text nodes
@@ -89,6 +141,7 @@
                 return;
             }
             renderFindings(run);
+            renderRepairs(run);
             if (!TERMINAL.has(run.status)) {
                 setStatus(root.dataset.labelRunning || 'Running on the deployment…');
                 setBusy(true);
@@ -113,6 +166,29 @@
         function schedulePoll() {
             window.clearTimeout(pollTimer);
             pollTimer = window.setTimeout(refresh, 2000);
+        }
+
+        async function runOperation(operation, extra) {
+            const body = new FormData();
+            body.append('operation', operation);
+            Object.entries(extra || {}).forEach(([key, value]) => body.append(key, value));
+            setBusy(true);
+            try {
+                const data = await jsonRequest(root.dataset.runUrl, { method: 'POST', body });
+                render(data.run);
+                schedulePoll();
+            } catch (exc) {
+                setBusy(false);
+                setStatus(exc.message || 'Request failed');
+            }
+        }
+
+        if (applyButton) {
+            applyButton.addEventListener('click', async () => {
+                const password = passwordInput ? passwordInput.value : '';
+                await runOperation('check-fix-apply', { current_password: password });
+                if (passwordInput) { passwordInput.value = ''; }
+            });
         }
 
         buttons.forEach((button) => {

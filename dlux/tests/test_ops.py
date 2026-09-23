@@ -38,8 +38,23 @@ class OperationTableTests(SimpleTestCase):
                 self.assertIn("changes_deployment", spec)
                 self.assertTrue(spec["label"])
 
-    def test_phase_one_ships_nothing_that_changes_the_deployment(self):
-        self.assertEqual([n for n, s in ops.OPERATIONS.items() if s["changes_deployment"]], [])
+    def test_only_the_apply_changes_the_deployment(self):
+        self.assertEqual(
+            [n for n, spec in ops.OPERATIONS.items() if spec["changes_deployment"]],
+            ["check-fix-apply"],
+        )
+
+    def test_only_the_apply_needs_a_preview(self):
+        self.assertEqual(
+            [n for n, spec in ops.OPERATIONS.items() if spec["needs_preview"]],
+            ["check-fix-apply"],
+        )
+
+    def test_a_digest_must_look_like_one(self):
+        self.assertEqual(ops.normalize_digest("A" * 64), "a" * 64)
+        for bad in ("", None, "z" * 64, "abc", "../etc/passwd", "a" * 63):
+            with self.subTest(bad=bad), self.assertRaises(UpdaterError):
+                ops.normalize_digest(bad)
 
     def test_a_result_is_only_this_runs_result(self):
         with tempfile.TemporaryDirectory() as root:
@@ -227,3 +242,115 @@ class OpsViewTests(TestCase):
                 mock.patch("dlux.views.updater.log_audit_event") as audit:
             self._client(self.superuser).post(self.run_url, {"operation": "check"})
         self.assertEqual(audit.call_args[0][2], "DLUX_OPS_RUN")
+
+
+@override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class FixApplyGuardTests(TestCase):
+    """An apply may only write the repair a preview showed, after a password."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.store = RuntimeStore(self._tmp.name).ensure()
+        self.service = mock.Mock(store=self.store)
+        state = DluxUpdateState.load()
+        state.worker_seen_at = timezone.now()
+        state.save()
+        self.digest = "a1" * 32
+
+    def _completed_preview(self, digest=None):
+        run = DluxOpsRun.objects.create(operation="check-fix-preview", requested_by_username="root")
+        run.finish(DluxOpsRun.STATUS_COMPLETED, result={
+            "repairs": [{"name": "resident-block", "diff": "--- a\n+++ b\n", "files": ["compose.yml"]}],
+            ops.DIGEST_FIELD: self.digest if digest is None else digest,
+        })
+        run.save()
+        return run
+
+    def _queue(self, operation):
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            return queue_ops_run(operation, username="root")
+
+    def test_an_apply_without_a_preview_is_refused_before_composer_hears_of_it(self):
+        with self.assertRaises(UpdaterError):
+            self._queue("check-fix-apply")
+        self.assertFalse(ops.request_path(self.store).exists())
+
+    def test_a_preview_with_an_unusable_digest_does_not_count(self):
+        self._completed_preview(digest="not-a-digest")
+        with self.assertRaises(UpdaterError):
+            self._queue("check-fix-apply")
+
+    def test_the_request_carries_the_previews_digest(self):
+        self._completed_preview()
+        run = self._queue("check-fix-apply")
+        tick_ops_run(self.service)
+        request = json.loads(ops.request_path(self.store).read_text(encoding="utf-8"))
+        self.assertEqual(request["operation"], "check-fix-apply")
+        self.assertEqual(request[ops.DIGEST_FIELD], self.digest)
+        self.assertEqual(request["token"], run.token)
+
+    def test_a_check_request_never_carries_a_digest(self):
+        self._completed_preview()
+        self._queue("check")
+        tick_ops_run(self.service)
+        request = json.loads(ops.request_path(self.store).read_text(encoding="utf-8"))
+        self.assertNotIn(ops.DIGEST_FIELD, request)
+
+    def test_the_card_reports_whether_a_preview_is_available(self):
+        self.assertFalse(get_ops_state()["has_preview"])
+        self._completed_preview()
+        self.assertTrue(get_ops_state()["has_preview"])
+
+    def test_a_previews_repairs_reach_the_card(self):
+        run = self._completed_preview()
+        serialized = serialize_ops_run(run)
+        self.assertEqual(serialized["repairs"][0]["name"], "resident-block")
+        self.assertIn("+++ b", serialized["repairs"][0]["diff"])
+
+
+@override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class FixApplyViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.password = "pw-root-1234"
+        self.superuser = User.objects.create_superuser(
+            username="root", email="root@example.com", password=self.password)
+        settings_row = SystemSettings.load()
+        settings_row.is_configured = True
+        settings_row.save()
+        state = DluxUpdateState.load()
+        state.worker_seen_at = timezone.now()
+        state.save()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        RuntimeStore(self._tmp.name).ensure()
+        self.url = reverse("dlux_ops_run")
+        preview = DluxOpsRun.objects.create(operation="check-fix-preview")
+        preview.finish(DluxOpsRun.STATUS_COMPLETED, result={ops.DIGEST_FIELD: "b2" * 32, "repairs": []})
+        preview.save()
+
+    def _post(self, data):
+        client = Client()
+        client.force_login(self.superuser)
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            return client.post(self.url, data)
+
+    def test_an_apply_without_the_password_is_refused(self):
+        response = self._post({"operation": "check-fix-apply"})
+        self.assertNotEqual(response.status_code, 200)
+        self.assertFalse(DluxOpsRun.objects.filter(operation="check-fix-apply").exists())
+
+    def test_an_apply_with_the_wrong_password_is_refused(self):
+        response = self._post({"operation": "check-fix-apply", "current_password": "not-it"})
+        self.assertNotEqual(response.status_code, 200)
+        self.assertFalse(DluxOpsRun.objects.filter(operation="check-fix-apply").exists())
+
+    def test_an_apply_with_the_password_is_queued(self):
+        response = self._post({"operation": "check-fix-apply", "current_password": self.password})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["run"]["operation"], "check-fix-apply")
+
+    def test_a_preview_needs_no_password(self):
+        response = self._post({"operation": "check-fix-preview"})
+        self.assertEqual(response.status_code, 200)

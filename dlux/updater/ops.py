@@ -38,9 +38,29 @@ OPERATIONS = {
     "check": {
         "min_composer": "1.5.0",
         "changes_deployment": False,
+        "needs_preview": False,
         "label": "Run deployment check",
     },
+    "check-fix-preview": {
+        "min_composer": "1.6.0",
+        "changes_deployment": False,
+        "needs_preview": False,
+        "label": "Preview repairs",
+    },
+    "check-fix-apply": {
+        # Writes to the deployment files. Superuser + current password in the
+        # view, and it may only apply the repair a preview showed: the digest
+        # comes from that preview's result, never from the request.
+        "min_composer": "1.6.0",
+        "changes_deployment": True,
+        "needs_preview": True,
+        "label": "Apply repairs",
+    },
 }
+
+#: The only value a request may carry besides the operation name, and it is
+#: read from the preview's own result — never from the browser.
+DIGEST_FIELD = "compose_digest"
 
 #: How long a request waits for its acknowledgement before the run gives up. The
 #: agent answers within one loop tick (2s) plus the check itself, which shells
@@ -68,17 +88,28 @@ def result_path(store=None):
     return state_dir(store) / RESULT_FILENAME
 
 
-def write_request(store, token, operation):
+def normalize_digest(value):
+    """A compose digest as Composer publishes it, or raise ``UpdaterError``."""
+    digest = str(value or "").strip().lower()
+    if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        raise UpdaterError("The repair preview is missing or unusable; preview it again.")
+    return digest
+
+
+def write_request(store, token, operation, *, compose_digest=""):
     """Ask Composer to perform ``operation``. Celery only — ``store`` required."""
     if store is None:
         raise UpdaterError("Requesting a deployment operation requires the runtime store.")
     operation = normalize_operation(operation)
-    _atomic_json(request_path(store), {
+    payload = {
         "schema_version": SCHEMA_VERSION,
         "token": str(token)[:64],
         "operation": operation,
         "requested_at": timezone.now().isoformat(),
-    })
+    }
+    if OPERATIONS[operation]["needs_preview"]:
+        payload[DIGEST_FIELD] = normalize_digest(compose_digest)
+    _atomic_json(request_path(store), payload)
 
 
 def read_ack(store=None, *, token=""):
@@ -99,6 +130,11 @@ def read_result(store=None, *, token=""):
     if token and str(result.get("token") or "") != str(token):
         return {}
     return result
+
+
+def repairs(result):
+    """The repairs a preview or apply reported, bounded for the card."""
+    return [r for r in (result or {}).get("repairs") or [] if isinstance(r, dict)]
 
 
 def summarize(result):

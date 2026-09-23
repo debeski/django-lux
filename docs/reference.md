@@ -545,7 +545,7 @@ global default.
 | `/sys/api/dlux-update/channel/` | `POST` | Superuser-only CSRF-protected release channel (`stable`/`beta`) selection; installs nothing |
 | `/sys/api/dlux-update/interval/` | `POST` | Superuser-only CSRF-protected, audited update check interval (`minutes`: 5, 15, 30, 60, 180, 360, 720 or 1440); published to Composer by the worker |
 | `/sys/api/dlux-ops/state/` | `GET` | Superuser-only Operations card state: the available operations and the newest run with its findings |
-| `/sys/api/dlux-ops/run/` | `POST` | Superuser-only CSRF-protected, audited request for one named deployment operation (`operation`: `check`); runs nothing locally and holds no Docker authority |
+| `/sys/api/dlux-ops/run/` | `POST` | Superuser-only CSRF-protected, audited request for one named deployment operation (`operation`: `check`, `check-fix-preview`, `check-fix-apply`); `check-fix-apply` also re-verifies `current_password` and may only apply what a preview showed |
 | `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,

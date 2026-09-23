@@ -241,10 +241,35 @@ def queue_ops_run(operation, username=""):
             "not be picked up. Check that the Celery worker and beat services are running."
         )
     Ops = _ops_model()
+    if ops.OPERATIONS[operation]["needs_preview"] and not _latest_preview_digest():
+        raise UpdaterError(
+            "Preview the repairs first: this applies the change that preview showed, "
+            "and there is no preview to apply."
+        )
     with transaction.atomic():
         if Ops.objects.select_for_update().filter(is_active=True).exists():
             raise UpdaterError("Another deployment operation is already running.")
         return Ops.objects.create(operation=operation, requested_by_username=username or "")
+
+
+def _latest_preview_digest():
+    """The digest from the most recent successful preview, or ``""``.
+
+    Read from the preview run's own result. The browser never supplies it, so an
+    apply cannot be pointed at a state nobody previewed.
+    """
+    from . import ops
+
+    Ops = _ops_model()
+    preview = Ops.objects.filter(
+        operation="check-fix-preview", status=Ops.STATUS_COMPLETED,
+    ).order_by("-created_at").first()
+    if preview is None:
+        return ""
+    try:
+        return ops.normalize_digest((preview.result or {}).get(ops.DIGEST_FIELD))
+    except UpdaterError:
+        return ""
 
 
 def tick_ops_run(service):
@@ -262,7 +287,10 @@ def tick_ops_run(service):
     store = service.store
     if run.status == Ops.STATUS_QUEUED:
         try:
-            ops.write_request(store, run.token, run.operation)
+            ops.write_request(
+                store, run.token, run.operation,
+                compose_digest=_latest_preview_digest(),
+            )
         except (UpdaterError, OSError) as exc:
             run.finish(Ops.STATUS_FAILED, error=f"Could not hand the operation to Composer: {exc}")
             run.save(update_fields=["status", "is_active", "completed_at", "error"])
@@ -317,6 +345,7 @@ def serialize_ops_run(run):
         "active": run.is_active,
         "error": run.error,
         "findings": [f for f in result.get("findings") or [] if isinstance(f, dict)],
+        "repairs": ops.repairs(result),
         "summary": ops.summarize(result),
         "exit_code": result.get("exit_code"),
         "composer_version": result.get("composer_version", ""),
@@ -335,10 +364,16 @@ def get_ops_state():
         run = None
     return {
         "operations": [
-            {"name": name, "label": spec["label"], "changes_deployment": spec["changes_deployment"]}
+            {
+                "name": name,
+                "label": spec["label"],
+                "changes_deployment": spec["changes_deployment"],
+                "needs_preview": spec["needs_preview"],
+            }
             for name, spec in ops.OPERATIONS.items()
         ],
         "run": serialize_ops_run(run),
+        "has_preview": bool(_latest_preview_digest()),
     }
 
 

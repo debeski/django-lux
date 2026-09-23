@@ -163,6 +163,29 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
 | `check` | no | Composer 1.5.0+ |
+| `check-fix-preview` | no | Composer 1.6.0+ |
+| `check-fix-apply` | **yes** | Composer 1.6.0+, a preview, and the current password |
+
+### Previewing and applying repairs
+
+`composer check --fix` repairs what the check finds — an obsolete service, a
+missing restart label, a resident pair started with a command this Composer
+rejects. The card runs it in two steps, because a repair rewrites the
+deployment's own Compose file:
+
+1. **Preview repairs** asks Composer what it *would* change. Composer runs each
+   guarded transform in its dry-run mode and returns a unified diff per file,
+   writing nothing, plus a SHA-256 digest of the deployment files it read.
+2. **Apply repairs** re-verifies the administrator's current password, and the
+   request carries that digest — taken from the preview's own result, never from
+   the browser. Composer refuses the apply when the files no longer hash to it,
+   so the change that lands is the change that was shown. Applying without a
+   preview is refused before Composer hears of it.
+
+Composer's own guards still apply on top: the candidate is validated with
+`docker compose config`, the originals are archived under `.xclude/`, and the
+write is atomic. A transform that refuses is reported as a note on that repair
+rather than failing the operation.
 
 The handoff is the update handoff's shape. A superuser POSTs
 `/sys/api/dlux-ops/run/` (audited); the row is recorded in the database because
