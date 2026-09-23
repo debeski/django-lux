@@ -243,8 +243,15 @@ def dlux_ops_run_view(request):
     result. Only the operations in ``dlux.updater.ops.OPERATIONS`` exist.
     """
     _require_superuser(request)
+    from ..updater import ops as update_ops
     from ..updater.service import queue_ops_run, serialize_ops_run
 
+    requested = str(request.POST.get("operation") or "").strip().lower()
+    # An operation that writes to the deployment is confirmed like an update is:
+    # the current password, in this request, from this administrator.
+    if update_ops.OPERATIONS.get(requested, {}).get("changes_deployment"):
+        if failure := _password_guard(request):
+            return failure
     try:
         run = queue_ops_run(request.POST.get("operation"), username=request.user.get_username())
     except UpdaterError as exc:

@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.2b1
+
+- **Preview And Apply Repairs From The Operations Card**: the card gains **Preview repairs**, which asks Composer what `check --fix` would change and renders its unified diffs, and **Apply repairs**, which writes them. An apply is guarded three ways: it re-verifies the administrator's **current password** in the same request, like an update does; it is refused outright when no preview exists; and the request carries the **digest of the files that preview read** — taken from the preview's own result, never from the browser — so Composer refuses if they changed since. The repair that lands is the repair that was shown. Composer's own guards still apply beneath: the candidate is validated with `docker compose config`, the originals are archived under `.xclude/`, and the write is atomic. Needs Composer 1.6.0+; an older resident fails the run naming the version it needs. New `check-fix-preview` and `check-fix-apply` operations, diff rendering in `ops.js`, English and Arabic strings.
+
 ## v1.9.1
 
 The stable release, identical in scope to `1.9.1b1` below. Verified on a
