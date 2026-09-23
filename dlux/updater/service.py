@@ -231,6 +231,9 @@ def queue_ops_run(operation, username=""):
     from . import ops
 
     operation = ops.normalize_operation(operation)
+    allowed, reason = ops.supports(operation, ops.resident_composer_version())
+    if not allowed:
+        raise UpdaterError(reason)
     problem = runtime_volume_problem()
     if problem:
         raise UpdaterError(problem)
@@ -261,8 +264,11 @@ def _latest_preview_digest():
     from . import ops
 
     Ops = _ops_model()
+    # The check carries the dry-run repairs and their digest, so it IS the
+    # preview. `check-fix-preview` is still read for a deployment updated from
+    # 1.9.2, whose card asked for it separately.
     preview = Ops.objects.filter(
-        operation="check-fix-preview", status=Ops.STATUS_COMPLETED,
+        operation__in=("check", "check-fix-preview"), status=Ops.STATUS_COMPLETED,
     ).order_by("-created_at").first()
     if preview is None:
         return ""
@@ -303,11 +309,11 @@ def tick_ops_run(service):
     ack = ops.read_ack(store, token=run.token)
     if not ack:
         waited = (timezone.now() - (run.requested_at or run.created_at)).total_seconds()
-        if waited < ops.REQUEST_TIMEOUT_SECONDS:
+        if waited < ops.timeout_for(run.operation):
             return run
         minimum = ops.OPERATIONS[run.operation]["min_composer"]
         run.finish(Ops.STATUS_FAILED, error=(
-            f"Composer did not answer within {ops.REQUEST_TIMEOUT_SECONDS}s. This "
+            f"Composer did not answer within {ops.timeout_for(run.operation)}s. This "
             f"operation needs Composer {minimum} or later running as a service in "
             "this deployment."
         ))
@@ -362,18 +368,24 @@ def get_ops_state():
         run = _ops_model().objects.order_by("-created_at").first()
     except Exception:
         run = None
+    composer_version = ops.resident_composer_version()
+    operations = []
+    for name, spec in ops.OPERATIONS.items():
+        allowed, reason = ops.supports(name, composer_version)
+        operations.append({
+            "name": name,
+            "label": spec["label"],
+            "changes_deployment": spec["changes_deployment"],
+            "needs_preview": spec["needs_preview"],
+            "min_composer": spec["min_composer"],
+            "available": allowed,
+            "unavailable_reason": reason,
+        })
     return {
-        "operations": [
-            {
-                "name": name,
-                "label": spec["label"],
-                "changes_deployment": spec["changes_deployment"],
-                "needs_preview": spec["needs_preview"],
-            }
-            for name, spec in ops.OPERATIONS.items()
-        ],
+        "operations": operations,
         "run": serialize_ops_run(run),
         "has_preview": bool(_latest_preview_digest()),
+        "composer_version": composer_version,
     }
 
 

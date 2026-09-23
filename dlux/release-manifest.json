@@ -1,13 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.9.2",
+  "version": "1.9.3",
   "display": {
-    "summary": "The Operations card can preview and apply Composer's deployment repairs, with the diff shown before anything is written.",
+    "summary": "Updates and deployment operations in one card: one deployment check that offers the repair it finds, a resident-Composer update, and a slider for the check interval.",
     "highlights": [
-      "Preview what `composer check --fix` would change, as a diff, and apply it from Options after confirming your password.",
-      "An apply is refused unless the deployment files still match the preview it was shown from."
+      "Application updates and Deployment operations are one card.",
+      "One deployment check; Apply repairs appears only when it finds something, with the diff above it.",
+      "Update the resident Composer from the card, and see which operations your Composer is too old to run."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.3"
   },
   "requires": {
     "updater_schema": ">=1",

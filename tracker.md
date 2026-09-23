@@ -2,6 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- **v1.9.3 (in development)**: Operations folded into the Application updates card; one deployment check that offers the repair it found; operations gated on the resident Composer version (needs 1.5.2); resident-Composer update from the card; interval dropdown is a slider. Not released.
 - **v1.9.2 (stable)** (2026-09-23): Operations phase 2 — Preview repairs (Composer's `check --fix` diffs) and Apply repairs (password-confirmed, refused unless the preview's compose digest still matches). Needs Composer >=1.5.1, which applies the repair from a container that can write, since both residents mount the project read-only. Stays on the 1.9 line; 1.10.0 remains reserved for its removals.
 - **v1.9.1 (stable)** (2026-09-23): Operations card phase 1 — Options runs Composer's `check` through a named-operation request/ack handoff (`dlux/updater/ops.py`, `DluxOpsRun` migration 0023, `ops.js`). On the 1.9 line deliberately: 1.10.0 stays reserved for its scheduled removals. The card's check needs Composer >=1.5.0; the rest of the release runs on 1.4.1.
 - **v1.9.0 (stable)** (2026-09-22): channels + configurable check interval + check-now + the modal footer fix; no stable 1.8.14 (that line was promoted). Requires Composer **>=1.4.1** (`v1.4.0` was tagged but never published). 1.9.0 removals postponed to 1.10.0. Live-accepted on the decrees stack against Composer 1.4.0b4: install, rollback, re-install with migrations 0021/0022, channel opt-in/out, interval, check-now.
@@ -23,7 +24,6 @@
 - New feature releases/workstreams start from verified `main` on separate one-feature branches; merge only after branch-local implementation, docs, and tests pass.
 
 ### Cross-Cutting Audits if any:
-- 2026-09-04 live-stack guard: adding an unapplied field to `SystemSettings` makes singleton reads fail and surfaces defaults across bind-mounted dev stacks; new runtime state must use an isolated model/table or migrate every live stack atomically.
 - Import-cycle and template/render-cost guards remain active; do not replace function-scope imports blindly.
 - Generated deployment docs must reflect Compose 5.3+ `pre_start`, Composer external execution, and the retired updater service.
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
@@ -68,6 +68,7 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-23: 1.9.3 — full `dlux.tests` 2568 OK (9 new in `test_ops`: version gate, the write operations, the check-is-the-preview rule), JS 63 OK, import-graph guard clean after reading the agent status file directly instead of through `control_link`.
 - 2026-09-23: Operations phase 2 live on decrees (dlux 1.9.2 + Composer 1.5.1): preview returned the exact diff and wrote nothing; apply refused with no password, with a wrong password, and after the files changed post-preview; the real apply repaired compose.yml byte-identically, archived a backup under `.xclude/`, and a follow-up check came back 15/15 OK with the stack healthy.
 - 2026-09-23: Operations card live on the decrees stack (dlux 1.9.1b1 + Composer 1.5.0b1): 1.9.0 -> 1.9.1b1 installed in 35 s with migration 0023; panel check answered in ~9 s with the same 15 findings the CLI reports; a reintroduced flat command surfaced as a `fail` finding with its fix hint and the run still completed; unknown operation refused 409; on Composer 1.4.1 the run failed at 133 s with "needs Composer 1.5.0 or later".
 - 2026-09-23: Operations card phase 1 — full `dlux.tests` 2547 OK (20 new in `test_ops`), JS 63 OK, `release_check` classify v1.10.0b1 -> beta and `--base-tag v1.9.0` exit 0; Composer side 660 OK.
@@ -75,8 +76,6 @@
 - 2026-09-22: `main` at 1.9.0b1 — full `dlux.tests` 2512 OK (skipped 2), `node --test tests-js` 63 OK, `release_check --classify` v1.9.0b1 -> beta/prerelease, `--base-tag v1.8.13` exit 0. New EROFS view test fails on pre-fix code.
 - 2026-09-22: `fix/modal-footer-fields` — full `dlux.tests` 2511 (1 updater failure was the moved venv; 203 incl. it OK with the checkout on PYTHONPATH), modal e2e 4 new + 5 back OK, `tests-js` 63 OK.
 - 2026-09-10: beta-first gate — 9 new tests; live check against real git + real PyPI: betas of 1.8.14 found and published, a hypothetical v1.9.0 today is refused.
-- 2026-09-08: 1.8.14b2 release job fixed and PROVEN — release published with 7/7 assets, prerelease=True, "latest" unmoved. Earlier, 1.8.14b1 verified against REAL published artifacts — `pip install django-lux` -> 1.8.13, `--pre` -> 1.8.14b1; GitHub release prerelease=True, "latest" still v1.8.13; the published wheel's manifest is accepted by Composer 1.3.14b1 and REFUSED by shipped Composer 1.3.13 with exactly the predicted `migration_baseline` error. Full suite 2502 OK.
-- 2026-09-08: channels — full `dlux.tests` 2502 OK (33 new in `test_channels`), `node --test tests-js` 63 OK, composer 599 OK (43 new in `tests/test_channels.py`); key tests confirmed failing against pre-fix code (the `migration_baseline` refusal, `channel=` selection, the prerelease-satisfies-floor bug); `release_check` exit 0 for `v1.8.14b1` after the new effect check forced the manifest to declare `additive`.
 - 2026-09-06: full `dlux.tests` 2430 OK (was 2366 — 3 unregistered modules + the new guard + 2 modal-listener tests); the capture-phase test fails against the pre-fix listener; event phases verified in a real browser (non-bubbling body dispatch reaches capture only).
 - 2026-09-06: v1.8.12 updater work — full `dlux.tests` 2366 OK (17 new across `ReconcileTriggerTests`, `ActiveRuntimeVersionTests`, `ImageCandidateGateTests`, `PlaceholderSecretKeyTests`), `makemigrations --check` clean, `release_check --base-tag v1.8.11` exit 0, `dlux_image_gate` driven for real (1.8.6 vs active -> keep).
 

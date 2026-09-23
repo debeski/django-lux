@@ -118,7 +118,8 @@ to offer less.
 
 Composer's resident agent checks PyPI for DjangoLux releases and the registry for
 project images on an interval. **Check for updates every** on the Options card
-sets it (5 minutes to 24 hours, default 15 minutes), stored in
+sets it with a slider (5 minutes to 24 hours, default 15 minutes; dragging
+updates the label, releasing saves), stored in
 `DluxUpdateState.check_interval_minutes` and published by the worker to
 `state/check-policy.json` as `{"schema_version": 1, "interval_seconds": N}`. The
 agent reads that file on every loop tick, so a change takes effect within
@@ -162,25 +163,38 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
-| `check` | no | Composer 1.5.0+ |
-| `check-fix-preview` | no | Composer 1.5.1+ |
-| `check-fix-apply` | **yes** | Composer 1.5.1+, a preview, and the current password |
+| `check` | no | Composer 1.5.2+ |
+| `check-fix-apply` | **yes** | Composer 1.5.2+, a check that found repairs, and the current password |
+| `agent-update` | **yes** | Composer 1.5.2+ and the current password |
+
+The card lives inside **Application updates**, under its own heading: one card
+for the deployment, not two beside each other. Each operation declares the
+Composer it needs, and DjangoLux knows the resident version from the agent's
+status file — an operation the deployment cannot perform is disabled with its
+reason rather than offered and failed on a timeout. An unknown version gates
+nothing, since the run's own timeout still names the floor.
+
+**Update resident Composer** replaces `composer-agent` and `composer-executor`
+with the channel's current image. It cannot report itself — the update recreates
+both — so the executor starts a detached helper that performs it and then writes
+the run's answer to the runtime volume. It gets 15 minutes rather than the usual
+two.
 
 ### Previewing and applying repairs
 
 `composer check --fix` repairs what the check finds — an obsolete service, a
 missing restart label, a resident pair started with a command this Composer
-rejects. The card runs it in two steps, because a repair rewrites the
-deployment's own Compose file:
+rejects. A repair rewrites the deployment's own Compose file, so it takes two
+steps, but only one button each:
 
-1. **Preview repairs** asks Composer what it *would* change. Composer runs each
-   guarded transform in its dry-run mode and returns a unified diff per file,
-   writing nothing, plus a SHA-256 digest of the deployment files it read.
+1. **Run deployment check** returns the findings *and* what `check --fix` would
+   change: a unified diff per file, writing nothing, plus a SHA-256 digest of the
+   files Composer read. **Apply repairs** appears only if that found something.
 2. **Apply repairs** re-verifies the administrator's current password, and the
-   request carries that digest — taken from the preview's own result, never from
+   request carries that digest — taken from the check's own result, never from
    the browser. Composer refuses the apply when the files no longer hash to it,
    so the change that lands is the change that was shown. Applying without a
-   preview is refused before Composer hears of it.
+   check is refused before Composer hears of it.
 
 Composer's own guards still apply on top: the candidate is validated with
 `docker compose config`, the originals are archived under `.xclude/`, and the

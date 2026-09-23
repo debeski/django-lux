@@ -36,22 +36,24 @@ RESULT_FILENAME = "ops-result.json"
 #: says "your Composer is too old" instead of "it timed out".
 OPERATIONS = {
     "check": {
-        "min_composer": "1.5.0",
+        # Also returns what `check --fix` would change, so one run answers both
+        # "what is wrong" and "what would fix it"; the apply uses its digest.
+        "min_composer": "1.5.2",
         "changes_deployment": False,
         "needs_preview": False,
         "label": "Run deployment check",
     },
-    "check-fix-preview": {
-        "min_composer": "1.5.1",
-        "changes_deployment": False,
+    "agent-update": {
+        "min_composer": "1.5.2",
+        "changes_deployment": True,
         "needs_preview": False,
-        "label": "Preview repairs",
+        "label": "Update resident Composer",
     },
     "check-fix-apply": {
         # Writes to the deployment files. Superuser + current password in the
         # view, and it may only apply the repair a preview showed: the digest
         # comes from that preview's result, never from the request.
-        "min_composer": "1.5.1",
+        "min_composer": "1.5.2",
         "changes_deployment": True,
         "needs_preview": True,
         "label": "Apply repairs",
@@ -66,6 +68,52 @@ DIGEST_FIELD = "compose_digest"
 #: agent answers within one loop tick (2s) plus the check itself, which shells
 #: out to Docker and Compose a handful of times.
 REQUEST_TIMEOUT_SECONDS = 120
+
+#: Updating the resident pair pulls an image and recreates two containers, and
+#: the helper that answers it outlives them; it gets its own, longer budget.
+LONG_REQUEST_TIMEOUT_SECONDS = 900
+
+
+def timeout_for(operation):
+    return LONG_REQUEST_TIMEOUT_SECONDS if operation == "agent-update" else REQUEST_TIMEOUT_SECONDS
+
+
+def resident_composer_version(store=None):
+    """The version the resident composer-agent reports, or ``""``.
+
+    Published by the agent into the bridge status file; DjangoLux already shows
+    it on the diagnostics card. Here it decides which operations are offered at
+    all, so an administrator is told "your Composer is too old" before running
+    something that could only ever time out.
+    """
+    # Read straight off the volume rather than through `control_link` or
+    # `service`: both sit in deferred-import clusters this module must stay out
+    # of (see dlux.tests.test_import_graph), and this is one JSON file.
+    status = _read_json(state_dir(store) / "agent" / "agent-status.json")
+    return str(status.get("composer_version") or status.get("agent_version") or "").strip()
+
+
+def supports(operation, composer_version):
+    """(bool, reason) — may ``operation`` run against this resident Composer?
+
+    An unknown version is not a refusal: the agent may predate the status file,
+    and the run's own timeout still reports the floor it needs.
+    """
+    spec = OPERATIONS[normalize_operation(operation)]
+    minimum = spec["min_composer"]
+    if not composer_version:
+        return True, ""
+    try:
+        from packaging.version import InvalidVersion, Version
+
+        if Version(composer_version) < Version(minimum):
+            return False, (
+                f"This needs Composer {minimum} or later; the deployment runs "
+                f"{composer_version}. Update the resident Composer first."
+            )
+    except (InvalidVersion, TypeError):
+        return True, ""
+    return True, ""
 
 
 def normalize_operation(value):

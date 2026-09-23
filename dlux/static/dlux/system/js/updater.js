@@ -83,7 +83,11 @@
         const channelWrap = root.querySelector('[data-dlux-channel-wrap]');
         const channelToggle = root.querySelector('[data-dlux-channel-toggle]');
         const channelNote = root.querySelector('[data-dlux-channel-note]');
-        const intervalSelect = root.querySelector('[data-dlux-interval-select]');
+        // A slider, not a list: the choices are one ordered scale, and the
+        // labels are the only thing that makes 1440 read as "24 h".
+        const intervalRange = root.querySelector('[data-dlux-interval-range]');
+        const intervalValue = root.querySelector('[data-dlux-interval-value]');
+        const intervalTicks = root.querySelector('[data-dlux-interval-ticks]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -429,20 +433,40 @@
             if (!root.dataset.intervalUrl) { return; }
             const body = new FormData();
             body.append('minutes', String(minutes));
-            if (intervalSelect) { intervalSelect.disabled = true; }
+            if (intervalRange) { intervalRange.disabled = true; }
             try {
                 const data = await jsonRequest(root.dataset.intervalUrl, { method: 'POST', body });
                 render(data && data.state);
             } catch (exc) {
-                if (intervalSelect && state) { intervalSelect.value = String(state.check_interval_minutes); }
+                if (intervalRange && state) { setRangeTo(state.check_interval_minutes); }
                 if (window.showToast) { window.showToast(exc.message || 'Request failed', 'error'); }
             } finally {
-                if (intervalSelect) { intervalSelect.disabled = root.dataset.canManage !== 'true'; }
+                if (intervalRange) { intervalRange.disabled = root.dataset.canManage !== 'true'; }
             }
         }
 
-        if (intervalSelect) {
-            intervalSelect.addEventListener('change', () => postInterval(intervalSelect.value));
+        function intervalChoices() {
+            const choices = (state && state.check_interval_choices) || [];
+            return Array.isArray(choices) ? choices : [];
+        }
+
+        function setRangeTo(minutes) {
+            const index = intervalChoices().indexOf(Number(minutes));
+            if (intervalRange && index >= 0) { intervalRange.value = String(index); }
+            if (intervalValue) { intervalValue.textContent = intervalLabel(Number(minutes)); }
+        }
+
+        if (intervalRange) {
+            // Dragging updates the label live; only releasing it saves, so a
+            // drag across the scale is one request, not one per stop.
+            intervalRange.addEventListener('input', () => {
+                const minutes = intervalChoices()[Number(intervalRange.value)];
+                if (minutes && intervalValue) { intervalValue.textContent = intervalLabel(minutes); }
+            });
+            intervalRange.addEventListener('change', () => {
+                const minutes = intervalChoices()[Number(intervalRange.value)];
+                if (minutes) { postInterval(minutes); }
+            });
         }
 
         function intervalLabel(minutes) {
@@ -454,18 +478,22 @@
         }
 
         function renderInterval() {
-            if (!intervalSelect || !state || !Array.isArray(state.check_interval_choices)) { return; }
-            if (intervalSelect.options.length !== state.check_interval_choices.length) {
-                intervalSelect.innerHTML = '';
-                state.check_interval_choices.forEach((minutes) => {
-                    const option = document.createElement('option');
-                    option.value = String(minutes);
-                    option.textContent = intervalLabel(minutes);
-                    intervalSelect.appendChild(option);
-                });
+            const choices = intervalChoices();
+            if (!intervalRange || !state || !choices.length) { return; }
+            if (intervalRange.max !== String(choices.length - 1)) {
+                intervalRange.max = String(choices.length - 1);
+                if (intervalTicks) {
+                    intervalTicks.innerHTML = '';
+                    choices.forEach((minutes, index) => {
+                        const tick = document.createElement('option');
+                        tick.value = String(index);
+                        tick.label = intervalLabel(minutes);
+                        intervalTicks.appendChild(tick);
+                    });
+                }
             }
-            if (document.activeElement !== intervalSelect) {
-                intervalSelect.value = String(state.check_interval_minutes);
+            if (document.activeElement !== intervalRange) {
+                setRangeTo(state.check_interval_minutes);
             }
         }
 

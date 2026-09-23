@@ -1526,3 +1526,8 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     border-radius: var(--bs-border-radius, 0.375rem);
     background: var(--dlux-surface-2, rgba(127, 127, 127, 0.12));
 }
+
+/* The interval scale: the tick labels are what make the numbers readable. */
+.dlux-upd-interval-range { max-width: 22rem; }
+
+.dlux-upd-interval-value { margin-inline-start: 0.35rem; }

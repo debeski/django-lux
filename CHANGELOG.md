@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.3
+
+- **One Card For Updates And Deployment Operations**: the Operations card is folded into **Application updates**, under its own heading. An administrator managing a deployment now reads one card, not two next to each other saying different things about the same stack.
+- **One Check, Then The Repair It Found**: the card had a check button and a separate "Preview repairs" button, which read as two ways to run the same thing. There is now a single **Run deployment check**; Composer returns the repairs with the findings, and **Apply repairs** appears only when that check actually found something to fix — with its diff above it.
+- **Operations The Resident Composer Cannot Perform Are Not Offered**: DjangoLux already knows the resident version from the agent's status file, so each operation declares the Composer it needs (`1.5.2`), the card disables the ones the deployment cannot run and says why, and the request is refused before it is queued. An unknown version still gates nothing — the run's own timeout names the floor.
+- **Update The Resident Composer From The Card**: new **Update resident Composer** operation, password-confirmed like every other write. Composer's executor starts a detached helper that recreates the agent/executor pair and reports the result afterwards, so the answer survives both containers being replaced. It gets a 15-minute budget rather than the usual two.
+- **The Check Interval Is A Slider**: the dropdown becomes a labelled range from 5 minutes to 24 hours. Dragging updates the label live and only releasing it saves, so a drag across the scale is one request.
+
 ## v1.9.2
 
 The stable release of the Operations card's second phase, identical in scope to

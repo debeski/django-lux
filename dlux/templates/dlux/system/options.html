@@ -334,11 +334,16 @@
                                             <label class="form-check-label" for="dlux-update-beta-channel">{{ DLUX_STRINGS.dlux_update_channel_beta|default:'Include beta releases' }}</label>
                                         </div>
                                         <div class="dlux-upd-channel-note small text-muted" data-dlux-channel-note></div>
-                                        <div class="dlux-upd-interval d-flex align-items-center gap-2 mt-2">
-                                            <label class="small mb-0" for="dlux-update-check-interval">{{ DLUX_STRINGS.dlux_update_check_interval|default:'Check for updates every' }}</label>
-                                            <select class="form-select form-select-sm w-auto" id="dlux-update-check-interval"
-                                                    data-dlux-interval-select
-                                                    {% if not can_manage_dlux_updates %}disabled{% endif %}></select>
+                                        <div class="dlux-upd-interval mt-2">
+                                            <label class="small mb-1 d-block" for="dlux-update-check-interval">
+                                                {{ DLUX_STRINGS.dlux_update_check_interval|default:'Check for updates every' }}
+                                                <output class="dlux-upd-interval-value fw-semibold" for="dlux-update-check-interval" data-dlux-interval-value></output>
+                                            </label>
+                                            <input type="range" class="form-range dlux-upd-interval-range" id="dlux-update-check-interval"
+                                                   min="0" max="0" step="1" list="dlux-update-check-interval-ticks"
+                                                   data-dlux-interval-range
+                                                   {% if not can_manage_dlux_updates %}disabled{% endif %}>
+                                            <datalist id="dlux-update-check-interval-ticks" data-dlux-interval-ticks></datalist>
                                         </div>
                                     </div>
                                     <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
@@ -351,48 +356,50 @@
                                     {% endif %}
                                 </div>
                             </div>
-                    </section>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                    <section class="dlux-admin-tile dlux-admin-tile--ops">
-                        <h5 class="dlux-admin-tile-title"><i class="bi bi-clipboard2-pulse"></i> {{ DLUX_STRINGS.dlux_ops_title|default:'Deployment operations' }}</h5>
-                        <div class="dlux-ops"
-                             data-dlux-ops
-                             data-state-url="{% url 'dlux_ops_state' %}"
-                             data-run-url="{% url 'dlux_ops_run' %}"
-                             data-label-running="{{ DLUX_STRINGS.dlux_ops_running|default:'Running on the deployment…' }}"
-                             data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not run yet.' }}"
-                             data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found.' }}"
-                             data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
-                             data-label-no-repairs="{{ DLUX_STRINGS.dlux_ops_no_repairs|default:'Nothing to repair.' }}"
-                             data-label-applied="{{ DLUX_STRINGS.dlux_ops_applied|default:'Repairs applied.' }}">
-                            <p class="small text-muted mb-2">{{ DLUX_STRINGS.dlux_ops_intro|default:'Runs Composer’s deployment check from here, so the host shell is not required to see what it reports.' }}</p>
-                            <div class="dlux-ops-actions d-flex align-items-center flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="check">
-                                    {{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="check-fix-preview">
-                                    {{ DLUX_STRINGS.dlux_ops_preview|default:'Preview repairs' }}
-                                </button>
-                                <span class="dlux-ops-status small text-muted" data-dlux-ops-status aria-live="polite"></span>
-                            </div>
-                            <ul class="dlux-ops-findings list-unstyled mt-2 mb-0" data-dlux-ops-findings></ul>
-                            <div class="dlux-ops-repairs mt-2" data-dlux-ops-repairs hidden>
-                                <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
-                                <div data-dlux-ops-diffs></div>
-                                <div class="dlux-ops-apply mt-2" data-dlux-ops-apply-wrap hidden>
+                            <hr class="my-3">
+                            <h6 class="dlux-admin-tile-subtitle"><i class="bi bi-clipboard2-pulse"></i> {{ DLUX_STRINGS.dlux_ops_title|default:'Deployment operations' }}</h6>
+                            <div class="dlux-ops"
+                                 data-dlux-ops
+                                 data-state-url="{% url 'dlux_ops_state' %}"
+                                 data-run-url="{% url 'dlux_ops_run' %}"
+                                 data-can-manage="{% if can_manage_dlux_updates %}true{% else %}false{% endif %}"
+                                 data-label-running="{{ DLUX_STRINGS.dlux_ops_running|default:'Running on the deployment…' }}"
+                                 data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not run yet.' }}"
+                                 data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found.' }}"
+                                 data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
+                                 data-label-no-repairs="{{ DLUX_STRINGS.dlux_ops_no_repairs|default:'Nothing to repair.' }}"
+                                 data-label-composer="{{ DLUX_STRINGS.dlux_ops_composer|default:'Resident Composer' }}"
+                                 data-label-confirm="{{ DLUX_STRINGS.dlux_ops_confirm|default:'Confirm' }}">
+                                <p class="small text-muted mb-2">{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the resident Composer — and offers the repairs it finds.' }}</p>
+                                <div class="dlux-ops-actions d-flex align-items-center flex-wrap gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="check">
+                                        {{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-dlux-ops-run="agent-update">
+                                        {{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-warning" data-dlux-ops-run="check-fix-apply" hidden>
+                                        {{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}
+                                    </button>
+                                    <span class="dlux-ops-status small text-muted" data-dlux-ops-status aria-live="polite"></span>
+                                </div>
+                                <div class="dlux-ops-confirm mt-2" data-dlux-ops-confirm hidden>
                                     <label class="small d-block mb-1" for="dlux-ops-password">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
                                     <div class="d-flex align-items-center gap-2">
                                         <input type="password" class="form-control form-control-sm w-auto" id="dlux-ops-password"
                                                autocomplete="current-password" data-dlux-ops-password>
-                                        <button type="button" class="btn btn-sm btn-warning" data-dlux-ops-apply>
-                                            {{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}
-                                        </button>
+                                        <button type="button" class="btn btn-sm btn-warning" data-dlux-ops-submit></button>
+                                        <button type="button" class="btn btn-sm btn-link" data-dlux-ops-cancel>{{ DLUX_STRINGS.cancel|default:'Cancel' }}</button>
                                     </div>
+                                    <div class="small text-muted mt-1" data-dlux-ops-confirm-note></div>
+                                </div>
+                                <ul class="dlux-ops-findings list-unstyled mt-2 mb-0" data-dlux-ops-findings></ul>
+                                <div class="dlux-ops-repairs mt-2" data-dlux-ops-repairs hidden>
+                                    <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
+                                    <div data-dlux-ops-diffs></div>
                                     <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_ops_apply_note|default:'Applies exactly the changes above. Composer validates the result and keeps a backup under .xclude/.' }}</div>
                                 </div>
                             </div>
-                        </div>
                     </section>
                     {% endif %}
                     {% if user.is_superuser %}
