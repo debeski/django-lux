@@ -1,0 +1,50 @@
+/* Reveal toggle for password fields.
+ *
+ * The wrapper is the positioning context and nothing else: it must not change
+ * how the field sits in its form, which is why it inherits the input's display
+ * width rather than imposing one. `inset-inline-end` puts the button on the
+ * correct side in both LTR and RTL without a second rule.
+ */
+.dlux-reveal {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.dlux-reveal > input {
+    /* Room for the button, so a long password never runs underneath it. */
+    padding-inline-end: 2.25rem;
+}
+
+.dlux-reveal__toggle {
+    position: absolute;
+    inset-inline-end: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    padding: 0.15rem;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color, #6c757d);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.dlux-reveal__toggle:hover,
+.dlux-reveal__toggle:focus-visible {
+    color: var(--bs-body-color, #212529);
+}
+
+.dlux-reveal__toggle:focus-visible {
+    outline: 2px solid var(--bs-primary, #0d6efd);
+    outline-offset: 2px;
+    border-radius: 0.2rem;
+}
+
+/* A field inside an input-group keeps the group's own rounding: the wrapper
+   must not become a flex item with its own box there. */
+.input-group > .dlux-reveal {
+    flex: 1 1 auto;
+    width: 1%;
+}

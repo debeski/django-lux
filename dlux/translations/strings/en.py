@@ -2193,6 +2193,8 @@ STRINGS = {
     'login_lockout_expired': 'You can try signing in again now.',
     'login_cookie_insecure': 'Signing in cannot be completed: the session cookie is marked Secure, but this page was served over HTTP, so the browser discards it. Open the site over HTTPS, or set DEBUG_STATUS=True for local access.',
     'login_cookie_domain': 'Signing in cannot be completed: the session cookie is scoped to {domain}, but this page is served from {host}, so the browser discards it. Open the site at {domain}.',
+    'password_show': 'Show password',
+    'password_hide': 'Hide password',
     'password_reset_title': 'Reset your password',
     'password_reset_intro': 'Enter the email address for your account and we will send you a link to choose a new password.',
     'password_reset_submit': 'Send reset link',

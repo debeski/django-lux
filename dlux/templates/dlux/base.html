@@ -71,6 +71,7 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/tooltip/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/system/css/password_rules.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/loading_button/css/main.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/password_reveal/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/titlebar/css/user_hub.css' %}">
     {% if request.user.is_authenticated %}<link rel="stylesheet" href="{% dlux_static 'dlux/system/css/session_timeout.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/search/css/main.css' %}">{% endif %}
@@ -95,6 +96,7 @@
     <script src="{% dlux_static 'dlux/forms/js/prevent_double_submit.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/loading_button/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/tooltip/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/helpers/password_reveal/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/titlebar/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/titlebar/js/theme_cycle.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/notifications/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -135,7 +137,7 @@
     <script src="{% dlux_static 'dlux/system/js/unsaved_guard.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>
-<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-table-resize="{{ APP_CONFIG.appearance.resizable_table_columns|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-table-edges="{{ APP_CONFIG.appearance.table_edges|default:'curved' }}" data-dlux-card-edges="{{ APP_CONFIG.appearance.card_edges|default:'curved' }}" data-dlux-sidebar-accent="{{ APP_CONFIG.navigation.sidebar.accent_edge|yesno:'on,off' }}" data-dlux-titlebar-accent="{{ APP_CONFIG.appearance.titlebar.accent_edge|yesno:'on,off' }}" data-dlux-table-accent="{{ APP_CONFIG.appearance.table_accent_edges|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
+<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-table-resize="{{ APP_CONFIG.appearance.resizable_table_columns|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-table-edges="{{ APP_CONFIG.appearance.table_edges|default:'curved' }}" data-dlux-card-edges="{{ APP_CONFIG.appearance.card_edges|default:'curved' }}" data-dlux-sidebar-accent="{{ APP_CONFIG.navigation.sidebar.accent_edge|yesno:'on,off' }}" data-dlux-titlebar-accent="{{ APP_CONFIG.appearance.titlebar.accent_edge|yesno:'on,off' }}" data-dlux-table-accent="{{ APP_CONFIG.appearance.table_accent_edges|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}" data-dlux-reveal-show="{{ DLUX_STRINGS.password_show|default:'Show password' }}" data-dlux-reveal-hide="{{ DLUX_STRINGS.password_hide|default:'Hide password' }}">
 
     <!-- Title Bar -->
     {% block titlebar %}
