@@ -161,6 +161,30 @@ def _installed(module_name):
 
 # ── Settings wiring ────────────────────────────────────────────────────────
 
+@check('settings.session_cookie', 'settings', 'Session cookie can be stored by a browser')
+def _check_session_cookie(ctx):
+    """The pair of settings that turn a correct password into a silent loop.
+
+    Neither is wrong — both are right for a deployment reached over TLS at its
+    own hostname — but read together they say exactly where sign-in can work,
+    which is not obvious from a login form that simply reappears.
+    """
+    secure = bool(getattr(settings, 'SESSION_COOKIE_SECURE', False))
+    domain = (getattr(settings, 'SESSION_COOKIE_DOMAIN', '') or '').lstrip('.')
+    if not secure and not domain:
+        return ok('The session cookie is not restricted to HTTPS or to one domain.')
+    where = []
+    if secure:
+        where.append('over HTTPS')
+    if domain:
+        where.append(f'at {domain} (or a subdomain)')
+    return ok(
+        'Signing in works only ' + ' and '.join(where) + '. Reached any other way, '
+        'the browser discards the session cookie and the login form returns with '
+        'no error; the login page reports that when it happens.'
+    )
+
+
 @check('settings.installed_apps', 'settings', 'INSTALLED_APPS includes dlux')
 def _check_installed_apps(ctx):
     installed = list(getattr(settings, 'INSTALLED_APPS', []))

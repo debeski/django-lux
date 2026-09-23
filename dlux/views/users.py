@@ -168,6 +168,13 @@ class CustomLoginView(LoginView):
         context['public_registration_enabled'] = public_registration_config().get('enabled', False)
         from ..auth.password_reset import forgot_password_available
         context['forgot_password_enabled'] = forgot_password_available()
+        # A correct password here can still land back on this form: the browser
+        # silently drops a session cookie it cannot store for this page, and
+        # nothing in the login flow fails. Say so rather than loop in silence.
+        from ..auth.session_health import session_cookie_problem
+        context['session_cookie_problem'] = session_cookie_problem(
+            self.request, context['DLUX_STRINGS'],
+        )
 
         return context
 

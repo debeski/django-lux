@@ -24,6 +24,7 @@ TEST_LABELS = [
     'dlux.tests.test_channels',
     'dlux.tests.test_check_policy',
     'dlux.tests.test_ops',
+    'dlux.tests.test_session_health',
     'dlux.tests.test_context_processors',
     'dlux.tests.test_control_link',
     'dlux.tests.test_custom_fonts',
