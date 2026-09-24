@@ -119,12 +119,6 @@
                                 <span class="dlux-admin-stat-value font-monospace">{{ composer_version }}</span>
                             </div>
                             {% endif %}
-                            {% if composer_agent_version %}
-                            <div class="dlux-admin-stat">
-                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.composer_agent_version }}</span>
-                                <span class="dlux-admin-stat-value font-monospace">{{ composer_agent_version }}</span>
-                            </div>
-                            {% endif %}
                         </div>
                         <details class="dlux-admin-details">
                             <summary>{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</summary>
@@ -280,6 +274,7 @@
                                  data-image-maintenance-note="{{ DLUX_STRINGS.dlux_update_image_maintenance_notice|default:'This is a full image update: the application containers are pulled and recreated. The site enters maintenance and briefly becomes unavailable while the new version starts and migrations run.' }}"
                                  data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}"
                                  data-label-retry-failed="{{ DLUX_STRINGS.dlux_update_retry_failed_note|default:'Heads up: version {version} already failed to install{when}. Re-applying it will most likely fail again unless the underlying cause was fixed.' }}">
+                                <div class="dlux-updater-body">
                                 <div class="dlux-updater-rows">
                                     <div class="dlux-upd-row">
                                         <span class="dlux-upd-lead">
@@ -373,6 +368,23 @@
                                         </div>
                                         <div class="dlux-updater-run-status small" data-dlux-ops-status hidden aria-live="polite"></div>
                                     </div>
+                                    {% if user.is_superuser %}
+                                    {% with summary=system_backup_summary %}
+                                    <div class="dlux-upd-row">
+                                        <span class="dlux-upd-lead">
+                                            <a class="dlux-upd-ic" href="{% url 'system_backup_page' %}"
+                                               title="{{ DLUX_STRINGS.sysbackup_open }}"
+                                               aria-label="{{ DLUX_STRINGS.sysbackup_open }}"><i class="bi bi-safe2-fill"></i></a>
+                                            <span class="dlux-upd-name">{{ DLUX_STRINGS.sysbackup_title }}</span>
+                                            <span class="dlux-upd-ver">
+                                                {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}{{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}{% elif summary.latest_backup %}{{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}{% else %}{{ DLUX_STRINGS.sysbackup_never }}{% endif %}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    {% endwith %}
+                                    {% endif %}
+                                </div>
+                                <div class="dlux-updater-side">
                                     <div class="dlux-upd-ribbon">
                                         <span class="dlux-upd-reason" data-dlux-update-reason>{{ dlux_update_state.latest_reason }}</span>
                                         <span class="dlux-upd-checked">{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}: <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time> · {{ DLUX_STRINGS.dlux_update_image_label|default:'image' }} <time data-dlux-image-checked>—</time></span>
@@ -407,32 +419,8 @@
                                     <div class="small text-muted mt-1">{% if dlux_update_state.unavailable_reason %}{{ dlux_update_state.unavailable_reason }}{% else %}{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}{% endif %}</div>
                                     {% endif %}
                                 </div>
+                                </div>
                             </div>
-                    </section>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                    <section class="dlux-admin-tile dlux-admin-tile--backup">
-                        <h5 class="dlux-admin-tile-title"><i class="bi bi-safe2-fill"></i> {{ DLUX_STRINGS.sysbackup_title }}</h5>
-                {% with summary=system_backup_summary %}
-                <div class="dlux-system-backup-summary">
-                    <div class="dlux-system-backup-feature">
-                        <span class="dlux-system-backup-label">{{ DLUX_STRINGS.sysbackup_last_backup }}</span>
-                        <strong class="dlux-system-backup-value">
-                            {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}
-                                {{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}
-                            {% elif summary.latest_backup %}
-                                {{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}
-                            {% else %}
-                                {{ DLUX_STRINGS.sysbackup_never }}
-                            {% endif %}
-                        </strong>
-                    </div>
-                </div>
-                {% endwith %}
-                <a class="btn btn-primary dlux-system-backup-action"
-                   href="{% url 'system_backup_page' %}">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.sysbackup_open }}
-                </a>
                     </section>
                     {% endif %}
                 </div>

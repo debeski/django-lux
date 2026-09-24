@@ -40,12 +40,15 @@ def _run_model():
     return apps.get_model("dlux", "DluxUpdateRun")
 
 
-def _queue_response(run, *, cached=False):
+def _queue_response(request, run, *, cached=False):
     return JsonResponse({
         "ok": True,
         "cached": cached,
         "run": serialize_run(run) if run else None,
-        "state": get_ui_state(),
+        # The card renders from this, so it carries everything the card renders
+        # — see card_state(). A bare updater state here made a DjangoLux check
+        # blank the image row's pending update and show a tick in its place.
+        "state": card_state(request),
         "state_url": reverse("dlux_update_state"),
         "run_url": reverse("dlux_update_run", args=[run.token]) if run else "",
     })
@@ -134,7 +137,7 @@ def dlux_update_check_view(request):
         and state.last_checked_at
         and timezone.now() - state.last_checked_at < timedelta(seconds=10)
     ):
-        return _queue_response(None, cached=True)
+        return _queue_response(request, None, cached=True)
     try:
         run = queue_run(_run_model().ACTION_CHECK, request.user.get_username())
     except UpdaterError as exc:
@@ -146,7 +149,7 @@ def dlux_update_check_view(request):
         model_name="DjangoLux updater",
         details={"run_token": run.token},
     )
-    return _queue_response(run)
+    return _queue_response(request, run)
 
 
 @login_required
@@ -306,7 +309,7 @@ def dlux_update_apply_view(request):
         model_name="DjangoLux updater",
         details={"run_token": run.token, "target_version": run.target_version, "backup_mode": run.backup_mode},
     )
-    return _queue_response(run)
+    return _queue_response(request, run)
 
 
 @login_required
@@ -355,4 +358,4 @@ def dlux_update_rollback_view(request):
         model_name="DjangoLux updater",
         details={"run_token": run.token, "target_version": run.target_version},
     )
-    return _queue_response(run)
+    return _queue_response(request, run)

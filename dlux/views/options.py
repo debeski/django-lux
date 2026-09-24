@@ -704,22 +704,23 @@ def options_view(request):
         python_version = sys.version.split()[0]
         django_version = django.get_version()
         decrypter_version = os.getenv('DECRYPTER_VERSION', '').strip()
-        # Two distinct Composer versions: the deployer image ./start.sh runs
-        # (COMPOSER_VERSION env), and the resident composer-agent binary that
-        # reports its own composer_version into the agent bridge. The two images
-        # are pulled independently, so they can legitimately differ.
+        # The Composer that deployed this stack. `COMPOSER_VERSION` is injected
+        # into every service by the Composer run that created it, so it is gone
+        # from web the moment anything else recreates that container — which is
+        # why this row kept vanishing. The agent publishes the same value, and
+        # the agent IS recreated by a deploy, so its copy outlives web's.
+        #
+        # The agent's own version is a different fact and lives on the
+        # deployment rows in Updates and maintenance, not here.
         composer_version = os.getenv('COMPOSER_VERSION', '').strip()
-        composer_agent_version = ''
-        try:
-            from ..updater import control_link as _control_link
-            from ..updater.service import runtime_store as _runtime_store
-            _agent_status = _control_link.read_agent_status(_runtime_store()) or {}
-            composer_agent_version = (
-                _agent_status.get('composer_version')
-                or _agent_status.get('agent_version') or ''
-            ).strip()
-        except Exception:
-            composer_agent_version = ''
+        if not composer_version:
+            try:
+                from ..updater import control_link as _control_link
+                from ..updater.service import runtime_store as _runtime_store
+                _agent_status = _control_link.read_agent_status(_runtime_store()) or {}
+                composer_version = str(_agent_status.get('deployer_version') or '').strip()
+            except Exception:
+                composer_version = ''
 
         try:
             if psutil is None:
@@ -743,7 +744,6 @@ def options_view(request):
             'django_version': django_version,
             'decrypter_version': decrypter_version,
             'composer_version': composer_version,
-            'composer_agent_version': composer_agent_version,
             'drf_service': drf_service,
             'api_service': api_service,
             'db_service': db_service,

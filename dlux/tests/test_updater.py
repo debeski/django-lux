@@ -1793,6 +1793,21 @@ class UpdaterApiTests(TestCase):
         self.assertTrue(cached.json()["cached"])
         self.assertIsNone(cached.json()["run"])
 
+    def test_a_queued_run_answers_with_everything_the_card_renders(self):
+        # The card renders from this response. When it carried the bare updater
+        # state, starting a DjangoLux check blanked the image row's pending
+        # update and put a green tick in its place until the next poll — an
+        # "up to date" the deployment had not earned.
+        with mock.patch("dlux.views.updater.image_update_metadata", return_value={
+            "available": True, "target": "1.4.0", "reason": "newer image published", "manifest": {},
+        }):
+            queued = self.client.post(reverse("dlux_update_check")).json()["state"]
+            live = self.client.get(reverse("dlux_update_state")).json()["state"]
+        self.assertTrue(queued["image_update_available"], "a pending image update must survive a check")
+        self.assertEqual(queued["image_update_target"], "1.4.0")
+        self.assertIn("image", queued)
+        self.assertEqual(queued["image"], live["image"])
+
     def test_apply_and_rollback_require_current_password(self):
         state = DluxUpdateState.load()
         state.latest_version = "1.2.3"

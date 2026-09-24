@@ -248,7 +248,7 @@ class AgentComposerVersionTests(TestCase):
             state = self._state_for(temp_dir, {"schema_version": 1, "enrolled": True})
             self.assertEqual(state["composer_version"], "")
 
-    def test_diagnostics_card_shows_both_deployer_and_agent_versions(self):
+    def _options_page(self, status, environment):
         from unittest import mock
 
         admin = User.objects.create_superuser("v-admin", "v@example.com", "pw12345!x")
@@ -259,21 +259,42 @@ class AgentComposerVersionTests(TestCase):
         client.force_login(admin)
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(
             DLUX_UPDATE_RUNTIME_ROOT=temp_dir
-        ), mock.patch.dict(os.environ, {"COMPOSER_VERSION": "1.2.5-deployer"}):
+        ), mock.patch.dict(os.environ, environment, clear=False):
+            os.environ.pop("COMPOSER_VERSION", None)
+            os.environ.update(environment)
             store = RuntimeStore(temp_dir).ensure()
             agent_dir = store.state_dir / "agent"
             agent_dir.mkdir(parents=True, exist_ok=True)
-            (agent_dir / "agent-status.json").write_text(
-                json.dumps({"schema_version": 1, "enrolled": True, "composer_version": "1.2.5-agent"}),
-                encoding="utf-8",
-            )
-            response = client.get(reverse("options_view"))
+            (agent_dir / "agent-status.json").write_text(json.dumps(status), encoding="utf-8")
+            return client.get(reverse("options_view"))
 
+    def test_system_info_names_the_deployer_and_leaves_the_agent_to_its_row(self):
+        # The agent's own version belongs to the deployment rows in Updates and
+        # maintenance now; System info answers "what deployed this stack".
+        response = self._options_page(
+            {"schema_version": 1, "enrolled": True, "composer_version": "1.2.5-agent"},
+            {"COMPOSER_VERSION": "1.2.5-deployer"},
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Composer (deployer)")
+        self.assertContains(response, ">Composer (deployer)</span>")
         self.assertContains(response, "1.2.5-deployer")
-        self.assertContains(response, "Composer (agent)")
-        self.assertContains(response, "1.2.5-agent")
+        self.assertNotContains(response, ">Composer (agent)</span>")
+        self.assertNotContains(response, "1.2.5-agent")
+
+    def test_the_deployer_survives_a_container_recreated_without_that_variable(self):
+        # COMPOSER_VERSION exists only in containers a Composer run created, so
+        # a web container recreated by anything else loses it — which is how
+        # this row kept disappearing. The agent publishes the same value.
+        response = self._options_page(
+            {"schema_version": 1, "enrolled": True, "composer_version": "1.5.2",
+             "deployer_version": "1.5.1-deployer"},
+            {},
+        )
+        self.assertContains(response, "1.5.1-deployer")
+
+    def test_a_deployer_nobody_reported_is_not_invented(self):
+        response = self._options_page({"schema_version": 1, "enrolled": True}, {})
+        self.assertNotContains(response, ">Composer (deployer)</span>")
 
 
 class ControlLinkDisconnectTests(TestCase):

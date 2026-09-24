@@ -164,6 +164,11 @@ shape of question twice: one icon that checks, a second that appears only when
 there is something to install, and a tick when there is not. Findings open in a
 modal, so a check that reports fifteen of them does not resize the card.
 
+A fifth row links to Backup & restore with the date of the last backup, which is
+all its own card ever showed. The card reads in two columns: the rows on one
+side, and the settings that govern them — release channel, check interval, last
+check — on the other.
+
 DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 

@@ -323,7 +323,7 @@ class GeneralViewsTests(TestCase):
         self.assertNotContains(response, '?step=0')
         self.assertNotContains(response, 'dlux-admin-tile--backup')
 
-    def test_options_view_shows_system_backup_card_for_superuser_only(self):
+    def test_options_view_shows_the_backup_row_for_superuser_only(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
         SystemRestore = apps.get_model('dlux', 'SystemRestore')
         SystemBackup.objects.create(
@@ -342,7 +342,8 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dlux-admin-tile--backup')
+        # Backup is a row in Updates and maintenance, not a card of its own: one
+        # date and one button never needed a third of the page.
         self.assertContains(response, reverse('system_backup_page'))
         self.assertEqual(response.context['system_backup_summary']['completed_count'], 1)
         self.assertEqual(response.context['system_backup_summary']['protected_count'], 1)
@@ -358,7 +359,6 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'dlux-admin-tile--backup')
         self.assertNotContains(response, reverse('system_backup_page'))
 
     def test_options_view_hides_diagnostics_for_central_and_scoped_staff(self):

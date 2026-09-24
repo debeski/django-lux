@@ -1046,11 +1046,24 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     background: rgba(var(--primal-rgb), 0.045);
 }
 
-/* Settings tiles dominate the bottom; the status/update/backup tiles share the
-   top space, expanding/shrinking together and wrapping only when forced. */
+/* Settings tiles dominate the bottom; System info and Updates and maintenance
+   share the top space, expanding/shrinking together and wrapping only when
+   forced. Backup used to be a third tile here for one date and one button; it
+   is a row in the updates card now, and that card took the width. */
 .dlux-admin-tile--status { flex: 2 1 320px; }
-.dlux-admin-tile--update { flex: 1.6 1 300px; }
-.dlux-admin-tile--backup { flex: 1 1 248px; }
+.dlux-admin-tile--update { flex: 3 1 420px; }
+
+/* Rows on one side, the settings that govern them on the other. `auto-fit`
+   rather than a media query: this is a flex item whose width has nothing to do
+   with the viewport's, and one column is right as soon as it is narrow. */
+.dlux-updater-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.5rem 1.25rem;
+    align-items: start;
+}
+
+.dlux-updater-side { min-width: 0; }
 
 .dlux-admin-tile-title {
     display: flex;
@@ -1141,14 +1154,6 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 
 .dlux-admin-tile--update .dlux-updater-actions {
     margin-top: 0.25rem;
-}
-
-.dlux-admin-tile--backup .dlux-system-backup-summary {
-    margin-bottom: 0.85rem;
-}
-
-.dlux-admin-tile--backup .dlux-system-backup-action {
-    margin-top: auto;
 }
 
 .dlux-admin-panel-settings {
