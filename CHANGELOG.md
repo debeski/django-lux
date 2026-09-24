@@ -7,6 +7,18 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.3
+
+The stable release of the 1.9.3 line, identical in scope to `1.9.3b1` below.
+Accepted on a reference deployment before this tag: installed inline from 1.9.2
+on the beta channel, with the web process moving onto the volume release, and
+the card driven against a published Composer — five rows, one arrow, the notes
+control, all four operations available, the deployment check 15/15, and the
+Composer agent updated from its own row.
+
+Needs Composer **1.5.2** (its first beta satisfies the floor) for the deployment
+rows; the rest of the release runs on 1.4.1.
+
 ## v1.9.3b1
 
 - **The Deployment Joins The Update Rows**: the Operations card is gone as a card. The deployment and the Composer agent are now two rows in **Updates and maintenance** (renamed from Application updates, since it is no longer only about updates), beside DjangoLux and the application image and behaving exactly like them — one icon that checks, a second that appears only when there is something to install, and a tick when there is not. The card no longer carries a panel of buttons, and everything a check *found* opens in a modal instead of growing the card.
