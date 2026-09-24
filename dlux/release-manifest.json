@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.9.3",
+  "version": "1.9.3b1",
   "display": {
-    "summary": "Updates and deployment operations in one card: one deployment check that offers the repair it finds, a resident-Composer update, and a slider for the check interval.",
+    "summary": "The deployment and the Composer agent join the update rows: one check each, the repair or update they find offered only when there is one, and everything they report in a modal.",
     "highlights": [
-      "Application updates and Deployment operations are one card.",
-      "One deployment check; Apply repairs appears only when it finds something, with the diff above it.",
-      "Update the resident Composer from the card, and see which operations your Composer is too old to run."
+      "Deployment and Composer agent are rows in Updates and maintenance, beside DjangoLux and the application image.",
+      "The Composer agent is asked what its channel publishes before you are asked for a password to update it.",
+      "Every password field has a reveal toggle, and a login that cannot store its cookie now says so."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.3b1"
   },
   "requires": {
     "updater_schema": ">=1",

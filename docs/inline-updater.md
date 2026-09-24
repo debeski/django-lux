@@ -185,13 +185,15 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
-| `check` | no | Composer 1.5.2+ |
-| `agent-check` | no | Composer 1.5.2+ |
-| `check-fix-apply` | **yes** | Composer 1.5.2+, a check that found repairs, and the current password |
-| `agent-update` | **yes** | Composer 1.5.2+, a check that found an update, and the current password |
+| `check` | no | Composer 1.5.2b1+ |
+| `agent-check` | no | Composer 1.5.2b1+ |
+| `check-fix-apply` | **yes** | Composer 1.5.2b1+, a check that found repairs, and the current password |
+| `agent-update` | **yes** | Composer 1.5.2b1+, a check that found an update, and the current password |
 
-Each operation declares the Composer it needs, and DjangoLux knows the resident
-version from the agent's status file — an operation the deployment cannot
+Each floor names the release's first prerelease rather than the release: PEP 440
+puts `1.5.2b1` below `1.5.2`, so a floor of `1.5.2` refuses the very beta that
+introduced the operation. Each operation declares the Composer it needs, and
+DjangoLux knows the resident version from the agent's status file — an operation the deployment cannot
 perform is disabled with its reason rather than offered and failed on a timeout.
 An unknown version gates nothing, since the run's own timeout still names the
 floor.

@@ -374,6 +374,27 @@ class FixApplyViewTests(TestCase):
 class ComposerVersionGateTests(SimpleTestCase):
     """An operation the resident Composer cannot perform is not offered."""
 
+    def test_the_beta_that_introduced_an_operation_may_run_it(self):
+        # PEP 440 orders 1.5.2b1 below 1.5.2, so a floor written as the release
+        # refuses its own beta — which is what a rig running the published beta
+        # hit: every operation unavailable on the Composer that implements them.
+        for version in ("1.5.2b1", "1.5.2b2", "1.5.2", "1.6.0"):
+            for name in ops.OPERATIONS:
+                allowed, reason = ops.supports(name, version)
+                self.assertTrue(allowed, f"{name} refused on Composer {version}: {reason}")
+        self.assertFalse(ops.supports("check", "1.5.1")[0], "the release before it is still too old")
+
+    def test_an_old_agent_is_told_the_one_command_that_gets_it_current(self):
+        # The agent rows are where a deployment on an older Composer lands, and
+        # "update the Composer agent first" is what those rows do — so on them
+        # it is circular. Found by putting a rig back on 1.5.1.
+        for name in ("agent-check", "agent-update"):
+            allowed, reason = ops.supports(name, "1.5.1")
+            self.assertFalse(allowed)
+            self.assertIn("./start.sh agent update", reason)
+        _allowed, reason = ops.supports("check", "1.5.1")
+        self.assertNotIn("./start.sh", reason, "the deployment check is not the update path")
+
     def test_an_older_resident_blocks_the_operation(self):
         allowed, reason = ops.supports("check", "1.5.0")
         self.assertFalse(allowed)
@@ -392,7 +413,12 @@ class ComposerVersionGateTests(SimpleTestCase):
                 self.assertTrue(ops.supports("check", value)[0])
 
     def test_a_prerelease_resident_counts_as_its_own_version(self):
-        self.assertFalse(ops.supports("check", "1.5.2b1")[0])
+        # Ordered the way PEP 440 orders it, not by string: 1.5.2b1 is newer
+        # than 1.5.1 and older than 1.5.2, and it satisfies a floor written as
+        # the beta that introduced the operation.
+        self.assertTrue(ops.supports("check", "1.5.2b1")[0])
+        self.assertFalse(ops.supports("check", "1.5.2a1")[0], "an earlier prerelease is still too old")
+        self.assertFalse(ops.supports("check", "1.5.1")[0])
 
     def test_the_composer_update_gets_a_longer_budget(self):
         self.assertGreater(ops.timeout_for("agent-update"), ops.timeout_for("check"))

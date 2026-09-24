@@ -34,11 +34,16 @@ RESULT_FILENAME = "ops-result.json"
 #: What an administrator may ask Composer to do, and the Composer that can do it.
 #: ``min_composer`` is reported when an older resident never answers, so the UI
 #: says "your Composer is too old" instead of "it timed out".
+#:
+#: The floor names the release's FIRST prerelease, not the release: under PEP 440
+#: ``1.5.2b1 < 1.5.2``, so a floor of ``1.5.2`` refuses the very beta that
+#: introduced the operation. Found by putting a rig on the published beta and
+#: watching the card refuse to ask it anything.
 OPERATIONS = {
     "check": {
         # Also returns what `check --fix` would change, so one run answers both
         # "what is wrong" and "what would fix it"; the apply uses its digest.
-        "min_composer": "1.5.2",
+        "min_composer": "1.5.2b1",
         "changes_deployment": False,
         "needs_preview": False,
         "label": "Run deployment check",
@@ -47,13 +52,13 @@ OPERATIONS = {
         # Read-only: asks the registry whether the channel publishes a newer
         # Composer than the resident pair runs. Nobody should have to type a
         # password to find out that there is nothing to update.
-        "min_composer": "1.5.2",
+        "min_composer": "1.5.2b1",
         "changes_deployment": False,
         "needs_preview": False,
         "label": "Check the resident Composer",
     },
     "agent-update": {
-        "min_composer": "1.5.2",
+        "min_composer": "1.5.2b1",
         "changes_deployment": True,
         "needs_preview": False,
         "label": "Update resident Composer",
@@ -62,7 +67,7 @@ OPERATIONS = {
         # Writes to the deployment files. Superuser + current password in the
         # view, and it may only apply the repair a preview showed: the digest
         # comes from that preview's result, never from the request.
-        "min_composer": "1.5.2",
+        "min_composer": "1.5.2b1",
         "changes_deployment": True,
         "needs_preview": True,
         "label": "Apply repairs",
@@ -108,7 +113,8 @@ def supports(operation, composer_version):
     An unknown version is not a refusal: the agent may predate the status file,
     and the run's own timeout still reports the floor it needs.
     """
-    spec = OPERATIONS[normalize_operation(operation)]
+    operation = normalize_operation(operation)
+    spec = OPERATIONS[operation]
     minimum = spec["min_composer"]
     if not composer_version:
         return True, ""
@@ -116,10 +122,19 @@ def supports(operation, composer_version):
         from packaging.version import InvalidVersion, Version
 
         if Version(composer_version) < Version(minimum):
-            return False, (
+            reason = (
                 f"This needs Composer {minimum} or later; the deployment runs "
-                f"{composer_version}. Update the resident Composer first."
+                f"{composer_version}. "
             )
+            # "Update the resident Composer first" is circular advice on the
+            # row whose whole job is that update — and it is the row an old
+            # deployment lands on. Name the one command that gets it there.
+            if operation.startswith("agent-"):
+                return False, reason + (
+                    "Run './start.sh agent update' on the host once; the card can "
+                    "do it from then on."
+                )
+            return False, reason + "Update the Composer agent first."
     except (InvalidVersion, TypeError):
         return True, ""
     return True, ""
