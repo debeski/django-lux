@@ -102,6 +102,37 @@ class IntervalViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(DluxUpdateState.load().check_interval_minutes, 15)
 
+    def test_the_channel_and_interval_are_hidden_behind_the_panels_one_arrow(self):
+        # Both are set once and then left alone, and a slider beside the update
+        # rows is easy to nudge by accident. They start folded away — the
+        # stylesheet keeps a closed panel out of the tab order — and the panel's
+        # single unlabelled arrow, the only one on either card, opens them
+        # together with System info's details table.
+        client = Client()
+        client.force_login(self.superuser)
+        html = client.get(reverse("options_view")).content.decode()
+        panel = html.index("data-dlux-update-settings")
+        for control in ("data-dlux-channel-toggle", "data-dlux-interval-range", "data-dlux-skipped-wrap"):
+            self.assertGreater(html.index(control), panel, f"{control} is outside the hidden panel")
+        self.assertIn("data-dlux-update-settings data-dlux-more", html,
+                      "the settings must be in the half the arrow folds away")
+        self.assertEqual(html.count("data-dlux-expand"), 1, "one arrow for both cards, not one each")
+        self.assertEqual(html.count("data-dlux-more"), 2)
+        self.assertNotIn("dlux-upd-ribbon", html,
+                         "the shared last-check line answered for three components and so for none")
+
+    def test_the_response_carries_everything_the_card_renders(self):
+        # The card renders from whatever response it last received. When this one
+        # answered with the bare updater state, moving the interval slider blanked
+        # the application version and digest until the next full poll.
+        client = Client()
+        client.force_login(self.superuser)
+        state = client.post(self.url, {"minutes": "30"}).json()["state"]
+        full = client.get(reverse("dlux_update_state")).json()["state"]
+        for key in ("image", "image_update_available", "image_update_target", "latest_version_failure"):
+            self.assertIn(key, state, f"{key} is missing, so the card would blank what it fills")
+        self.assertEqual(state["image"], full["image"])
+
     def test_a_non_superuser_cannot_change_it(self):
         client = Client()
         client.force_login(self.staff)

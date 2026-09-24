@@ -48,8 +48,6 @@
     function initialize(root) {
         const active = root.querySelector('[data-dlux-update-active]');
         const latest = root.querySelector('[data-dlux-update-latest]');
-        const reason = root.querySelector('[data-dlux-update-reason]');
-        const checked = root.querySelector('[data-dlux-update-checked]');
         const checkButton = root.querySelector('[data-dlux-update-check]');
         const reviewButton = root.querySelector('[data-dlux-update-review]');
         const imageButton = root.querySelector('[data-dlux-update-image]');
@@ -59,9 +57,24 @@
         const imageNameEl = root.querySelector('[data-dlux-image-name]');
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
-        const imageCheckedEl = root.querySelector('[data-dlux-image-checked]');
         const checkGlyph = root.querySelector('[data-dlux-check-glyph]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
+        // What the installed release said about itself. Its own control, because
+        // the review modal is about the release you have NOT installed yet.
+        const notesButton = root.querySelector('[data-dlux-release-notes]');
+        const notesElement = document.getElementById('dluxReleaseNotesModal');
+        const notesModal = notesElement && window.bootstrap ? new window.bootstrap.Modal(notesElement) : null;
+        const notesTitle = notesElement?.querySelector('[data-dlux-notes-title]');
+        const notesSummary = notesElement?.querySelector('[data-dlux-notes-summary]');
+        const notesHighlights = notesElement?.querySelector('[data-dlux-notes-highlights]');
+        const notesLink = notesElement?.querySelector('[data-dlux-notes-link]');
+        // Remember each icon's own wording before a time is appended to it, or
+        // every render would append another one.
+        [checkButton, reviewButton, imageOkEl, imageButton].forEach((element) => {
+            if (element && element.dataset.titleBase === undefined) {
+                element.dataset.titleBase = element.title || '';
+            }
+        });
         const modalElement = document.getElementById('dluxUpdateReviewModal');
         const modal = modalElement && window.bootstrap ? new window.bootstrap.Modal(modalElement) : null;
         const error = modalElement?.querySelector('[data-dlux-update-error]');
@@ -78,12 +91,21 @@
         const failedText = modalElement?.querySelector('[data-dlux-update-failed-text]');
         const skipButton = modalElement?.querySelector('[data-dlux-update-skip]');
         const modalRecheckButton = modalElement?.querySelector('[data-dlux-update-recheck]');
-        const skippedWrap = root.querySelector('[data-dlux-skipped-wrap]');
-        const skippedList = root.querySelector('[data-dlux-skipped-list]');
-        const channelWrap = root.querySelector('[data-dlux-channel-wrap]');
-        const channelToggle = root.querySelector('[data-dlux-channel-toggle]');
-        const channelNote = root.querySelector('[data-dlux-channel-note]');
-        const intervalSelect = root.querySelector('[data-dlux-interval-select]');
+        // Release channel and check interval are set once and then left alone,
+        // and a slider next to the rows is easy to nudge by accident — they
+        // live in the panel's own disclosure, outside this card. Fall back to
+        // the card itself for a project template that still keeps them there.
+        const settings = document.querySelector('[data-dlux-update-settings]') || root;
+        const skippedWrap = settings.querySelector('[data-dlux-skipped-wrap]');
+        const skippedList = settings.querySelector('[data-dlux-skipped-list]');
+        const channelWrap = settings.querySelector('[data-dlux-channel-wrap]');
+        const channelToggle = settings.querySelector('[data-dlux-channel-toggle]');
+        const channelNote = settings.querySelector('[data-dlux-channel-note]');
+        // A slider, not a list: the choices are one ordered scale, and the
+        // labels are the only thing that makes 1440 read as "24 h".
+        const intervalRange = settings.querySelector('[data-dlux-interval-range]');
+        const intervalValue = settings.querySelector('[data-dlux-interval-value]');
+        const intervalTicks = settings.querySelector('[data-dlux-interval-ticks]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -165,6 +187,15 @@
                 if (phase) return `Updating — ${phase}`;
             }
             return base;
+        }
+
+        /** `base — Last check: <time>`, or `base` when nothing has checked yet. */
+        function withCheckTime(element, base, iso) {
+            if (!element) return;
+            const label = root.dataset.labelLastCheck || 'Last check';
+            const title = iso ? `${base} — ${label}: ${fmtTime(iso)}` : base;
+            element.title = title;
+            if (element.hasAttribute('aria-label')) element.setAttribute('aria-label', title);
         }
 
         function fmtTime(iso) {
@@ -429,20 +460,40 @@
             if (!root.dataset.intervalUrl) { return; }
             const body = new FormData();
             body.append('minutes', String(minutes));
-            if (intervalSelect) { intervalSelect.disabled = true; }
+            if (intervalRange) { intervalRange.disabled = true; }
             try {
                 const data = await jsonRequest(root.dataset.intervalUrl, { method: 'POST', body });
                 render(data && data.state);
             } catch (exc) {
-                if (intervalSelect && state) { intervalSelect.value = String(state.check_interval_minutes); }
+                if (intervalRange && state) { setRangeTo(state.check_interval_minutes); }
                 if (window.showToast) { window.showToast(exc.message || 'Request failed', 'error'); }
             } finally {
-                if (intervalSelect) { intervalSelect.disabled = root.dataset.canManage !== 'true'; }
+                if (intervalRange) { intervalRange.disabled = root.dataset.canManage !== 'true'; }
             }
         }
 
-        if (intervalSelect) {
-            intervalSelect.addEventListener('change', () => postInterval(intervalSelect.value));
+        function intervalChoices() {
+            const choices = (state && state.check_interval_choices) || [];
+            return Array.isArray(choices) ? choices : [];
+        }
+
+        function setRangeTo(minutes) {
+            const index = intervalChoices().indexOf(Number(minutes));
+            if (intervalRange && index >= 0) { intervalRange.value = String(index); }
+            if (intervalValue) { intervalValue.textContent = intervalLabel(Number(minutes)); }
+        }
+
+        if (intervalRange) {
+            // Dragging updates the label live; only releasing it saves, so a
+            // drag across the scale is one request, not one per stop.
+            intervalRange.addEventListener('input', () => {
+                const minutes = intervalChoices()[Number(intervalRange.value)];
+                if (minutes && intervalValue) { intervalValue.textContent = intervalLabel(minutes); }
+            });
+            intervalRange.addEventListener('change', () => {
+                const minutes = intervalChoices()[Number(intervalRange.value)];
+                if (minutes) { postInterval(minutes); }
+            });
         }
 
         function intervalLabel(minutes) {
@@ -454,18 +505,22 @@
         }
 
         function renderInterval() {
-            if (!intervalSelect || !state || !Array.isArray(state.check_interval_choices)) { return; }
-            if (intervalSelect.options.length !== state.check_interval_choices.length) {
-                intervalSelect.innerHTML = '';
-                state.check_interval_choices.forEach((minutes) => {
-                    const option = document.createElement('option');
-                    option.value = String(minutes);
-                    option.textContent = intervalLabel(minutes);
-                    intervalSelect.appendChild(option);
-                });
+            const choices = intervalChoices();
+            if (!intervalRange || !state || !choices.length) { return; }
+            if (intervalRange.max !== String(choices.length - 1)) {
+                intervalRange.max = String(choices.length - 1);
+                if (intervalTicks) {
+                    intervalTicks.innerHTML = '';
+                    choices.forEach((minutes, index) => {
+                        const tick = document.createElement('option');
+                        tick.value = String(index);
+                        tick.label = intervalLabel(minutes);
+                        intervalTicks.appendChild(tick);
+                    });
+                }
             }
-            if (document.activeElement !== intervalSelect) {
-                intervalSelect.value = String(state.check_interval_minutes);
+            if (document.activeElement !== intervalRange) {
+                setRangeTo(state.check_interval_minutes);
             }
         }
 
@@ -526,23 +581,11 @@
             renderInterval();
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
-            checked.textContent = state.last_checked_at
-                ? new Date(state.last_checked_at).toLocaleString()
-                : '—';
             const updateAvailable = hasWheelUpdate(state);
-            // Translated status line (replaces the old "in progress"/"completed"
-            // root status): a check error, else a clear update-ready / up-to-date
-            // message, else whatever reason the backend supplied.
-            if (reason) {
-                if (state.last_check_error) {
-                    reason.textContent = state.last_check_error;
-                } else if (updateAvailable) {
-                    reason.textContent = root.dataset.labelReady || state.latest_reason || '';
-                } else if (state.last_checked_at && (!state.latest_version || state.latest_version === state.active_version)) {
-                    reason.textContent = root.dataset.labelUptodate || state.latest_reason || '';
-                } else {
-                    reason.textContent = state.latest_reason || '';
-                }
+            // A check that FAILED still needs saying; "up to date" does not,
+            // now that the row's tick says it and its tooltip says when.
+            if (state.last_check_error && !run?.active) {
+                setRootStatus(state.last_check_error);
             }
             const imageAvailable = Boolean(state.image_update_available);
             const imgActive = imageActive(imageUpdate);
@@ -556,9 +599,14 @@
                 checkButton.hidden = updateAvailable;
                 checkButton.classList.toggle('is-ok', fwOk);
                 if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
+                withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
-            if (reviewButton) reviewButton.hidden = !updateAvailable;
+            if (reviewButton) {
+                reviewButton.hidden = !updateAvailable;
+                withCheckTime(reviewButton, reviewButton.dataset.titleBase, state.last_checked_at);
+            }
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
+            if (notesButton) notesButton.hidden = !installedNotes();
             // Application image row: version + short digest; green check when up
             // to date, down-arrow (start update) when a newer image is available.
             const img = state.image || {};
@@ -572,7 +620,8 @@
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
-            if (imageCheckedEl) imageCheckedEl.textContent = fmtTime(img.checked_at);
+            withCheckTime(imageOkEl, imageOkEl?.dataset.titleBase, img.checked_at);
+            withCheckTime(imageButton, imageButton?.dataset.titleBase, img.checked_at);
             // When an update is available, show what it would update to: the target
             // version composer published, or the short remote digest as a fallback.
             if (imageTargetEl) {
@@ -802,6 +851,48 @@
             list.appendChild(generic);
             container.appendChild(list);
         }
+
+        /** The installed release's own notes, or nothing to offer. */
+        function installedNotes() {
+            const manifest = state?.active_manifest;
+            if (!manifest || typeof manifest !== 'object') return null;
+            const hasNotes = Boolean(
+                String(manifest.summary || '').trim()
+                || (Array.isArray(manifest.highlights) && manifest.highlights.length)
+                || String(manifest.release_url || '').trim(),
+            );
+            return hasNotes ? manifest : null;
+        }
+
+        function openNotes() {
+            const manifest = installedNotes();
+            if (!manifest || !notesModal) return;
+            if (notesTitle) {
+                if (notesTitle.dataset.titleBase === undefined) {
+                    notesTitle.dataset.titleBase = notesTitle.textContent.trim();
+                }
+                const version = manifest.version || state.active_version || '';
+                notesTitle.textContent = version
+                    ? `${notesTitle.dataset.titleBase} — v${String(version).replace(/^v/, '')}`
+                    : notesTitle.dataset.titleBase;
+            }
+            if (notesSummary) {
+                notesSummary.textContent = String(manifest.summary || '').trim();
+                notesSummary.hidden = !notesSummary.textContent;
+            }
+            renderReleaseNotes(notesHighlights, manifest);
+            if (notesLink) {
+                // Only an https link, and only to somewhere: a manifest is
+                // published data, and this one lands in an anchor.
+                const url = String(manifest.release_url || '').trim();
+                const safe = /^https:\/\//i.test(url);
+                notesLink.hidden = !safe;
+                if (safe) notesLink.href = url;
+            }
+            notesModal.show();
+        }
+
+        notesButton?.addEventListener('click', openNotes);
 
         function openReview(action) {
             if (!modal || !state) return;

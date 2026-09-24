@@ -231,6 +231,9 @@ def queue_ops_run(operation, username=""):
     from . import ops
 
     operation = ops.normalize_operation(operation)
+    allowed, reason = ops.supports(operation, ops.resident_composer_version())
+    if not allowed:
+        raise UpdaterError(reason)
     problem = runtime_volume_problem()
     if problem:
         raise UpdaterError(problem)
@@ -261,8 +264,11 @@ def _latest_preview_digest():
     from . import ops
 
     Ops = _ops_model()
+    # The check carries the dry-run repairs and their digest, so it IS the
+    # preview. `check-fix-preview` is still read for a deployment updated from
+    # 1.9.2, whose card asked for it separately.
     preview = Ops.objects.filter(
-        operation="check-fix-preview", status=Ops.STATUS_COMPLETED,
+        operation__in=("check", "check-fix-preview"), status=Ops.STATUS_COMPLETED,
     ).order_by("-created_at").first()
     if preview is None:
         return ""
@@ -303,11 +309,11 @@ def tick_ops_run(service):
     ack = ops.read_ack(store, token=run.token)
     if not ack:
         waited = (timezone.now() - (run.requested_at or run.created_at)).total_seconds()
-        if waited < ops.REQUEST_TIMEOUT_SECONDS:
+        if waited < ops.timeout_for(run.operation):
             return run
         minimum = ops.OPERATIONS[run.operation]["min_composer"]
         run.finish(Ops.STATUS_FAILED, error=(
-            f"Composer did not answer within {ops.REQUEST_TIMEOUT_SECONDS}s. This "
+            f"Composer did not answer within {ops.timeout_for(run.operation)}s. This "
             f"operation needs Composer {minimum} or later running as a service in "
             "this deployment."
         ))
@@ -349,9 +355,48 @@ def serialize_ops_run(run):
         "summary": ops.summarize(result),
         "exit_code": result.get("exit_code"),
         "composer_version": result.get("composer_version", ""),
+        "resident": result.get("resident") if isinstance(result.get("resident"), dict) else None,
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
+
+
+def _latest_completed(*operations):
+    Ops = _ops_model()
+    return Ops.objects.filter(
+        operation__in=operations, status=Ops.STATUS_COMPLETED,
+    ).order_by("-created_at").first()
+
+
+def _resident_status(composer_version):
+    """What the Composer row shows: the resident version, and news about it.
+
+    ``checked`` is deliberately false until an ``agent-check`` has run, and
+    false again once an ``agent-update`` has replaced the pair: the row then
+    offers a check rather than claiming to know. Claiming "on latest" from a
+    check that predates the update would be a guess, and the row's whole job is
+    to be the thing an administrator can believe without opening a shell.
+    """
+    status = {"version": composer_version, "checked": False, "update_available": False,
+              "published_version": "", "channel": "", "checked_at": None}
+    checked = _latest_completed("agent-check")
+    if checked is None:
+        return status
+    updated = _latest_completed("agent-update")
+    if updated is not None and updated.created_at > checked.created_at:
+        return status
+    resident = (checked.result or {}).get("resident")
+    if not isinstance(resident, dict):
+        return status
+    status.update({
+        "version": composer_version or str(resident.get("version") or ""),
+        "checked": bool(resident.get("checked")),
+        "update_available": bool(resident.get("update_available")),
+        "published_version": str(resident.get("published_version") or ""),
+        "channel": str(resident.get("channel") or ""),
+        "checked_at": checked.completed_at.isoformat() if checked.completed_at else None,
+    })
+    return status
 
 
 def get_ops_state():
@@ -360,20 +405,32 @@ def get_ops_state():
 
     try:
         run = _ops_model().objects.order_by("-created_at").first()
+        # The rows keep their own last answer: a Composer check must not blank
+        # what the deployment check found, and vice versa.
+        check = _latest_completed("check", "check-fix-preview")
+        resident = _resident_status(ops.resident_composer_version())
     except Exception:
-        run = None
+        run, check, resident = None, None, _resident_status("")
+    composer_version = ops.resident_composer_version()
+    operations = []
+    for name, spec in ops.OPERATIONS.items():
+        allowed, reason = ops.supports(name, composer_version)
+        operations.append({
+            "name": name,
+            "label": spec["label"],
+            "changes_deployment": spec["changes_deployment"],
+            "needs_preview": spec["needs_preview"],
+            "min_composer": spec["min_composer"],
+            "available": allowed,
+            "unavailable_reason": reason,
+        })
     return {
-        "operations": [
-            {
-                "name": name,
-                "label": spec["label"],
-                "changes_deployment": spec["changes_deployment"],
-                "needs_preview": spec["needs_preview"],
-            }
-            for name, spec in ops.OPERATIONS.items()
-        ],
+        "operations": operations,
         "run": serialize_ops_run(run),
+        "check": serialize_ops_run(check),
+        "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
+        "composer_version": composer_version,
     }
 
 
@@ -542,6 +599,11 @@ def serialize_state(state):
         "previous_version": state.previous_version,
         "latest_version": state.latest_version,
         "latest_manifest": state.latest_manifest or {},
+        # What the *installed* release said about itself, for the release-notes
+        # control on the DjangoLux row. Empty for a version that arrived baked
+        # into the image rather than through an inline update, and the row then
+        # offers nothing rather than an empty page.
+        "active_manifest": state.active_manifest or {},
         "latest_compatible": state.latest_compatible,
         "latest_reason": state.latest_reason,
         "last_checked_at": state.last_checked_at.isoformat() if state.last_checked_at else None,

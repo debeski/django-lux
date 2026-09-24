@@ -78,6 +78,13 @@
                     </div>
                 </div>
                 {% endif %}
+                {% if session_cookie_problem %}
+                <div class="dlux-login-cookie-problem mt-3">
+                    <div class="alert alert-danger d-flex align-items-start gap-2 m-0" role="alert" data-autoclose="false">
+                        <i class="bi bi-shield-exclamation"></i><span>{{ session_cookie_problem }}</span>
+                    </div>
+                </div>
+                {% endif %}
                 {% if forgot_password_enabled %}
                     <div class="dlux-login-forgot mt-3 text-center">
                         <a href="{% url 'password_reset' %}" class="dlux-login-forgot-link">{{ DLUX_STRINGS.forgot_password_link|default:"Forgot password?" }}</a>

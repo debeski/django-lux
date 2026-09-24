@@ -118,7 +118,8 @@ to offer less.
 
 Composer's resident agent checks PyPI for DjangoLux releases and the registry for
 project images on an interval. **Check for updates every** on the Options card
-sets it (5 minutes to 24 hours, default 15 minutes), stored in
+sets it with a slider (5 minutes to 24 hours, default 15 minutes; dragging
+updates the label, releasing saves), stored in
 `DluxUpdateState.check_interval_minutes` and published by the worker to
 `state/check-policy.json` as `{"schema_version": 1, "interval_seconds": N}`. The
 agent reads that file on every loop tick, so a change takes effect within
@@ -149,38 +150,92 @@ A writer that reported and then went quiet for more than ten minutes is treated 
 
 Before 1.8.6 the guard probed locally in every process, so a read-only `web` mount disabled the update card and refused manual checks on a healthy stack. Granting `web` write access worked around that; it is no longer needed.
 
-## The Operations card
+## Deployment operations
 
-Options carries a **Deployment operations** card beside the update one. It runs
-the things that otherwise need a shell on the host, starting with Composer's own
-deployment check — the doctor for the *outside* of the stack, which is what
-catches a resident pair started with a command this Composer rejects, a missing
+**Updates and maintenance** carries two more rows beside DjangoLux and the
+application image: **Deployment** and **Composer agent**. They run the things
+that otherwise need a shell on the host, starting with Composer's own deployment
+check — the doctor for the *outside* of the stack, which is what catches a
+resident pair started with a command this Composer rejects, a missing
 `org.dlux.restart` label, or an obsolete service still in the file.
 
-DjangoLux gains no Docker authority from it. The card can request exactly the
+They are rows and not a panel of buttons because the card already answers this
+shape of question twice: one icon that checks, a second that appears only when
+there is something to install, and a tick when there is not. Findings open in a
+modal, so a check that reports fifteen of them does not resize the card.
+
+A fifth row links to Backup & restore with the date of the last backup, which is
+all its own card ever showed. Everything a row *reports* — a version, a digest,
+that date, what an update would move to — sits at the row's end; the lead group
+holds the controls and the name. The DjangoLux row also offers the installed
+release's own notes, from the manifest the inline update recorded when it
+applied; a version baked into the image has none, and the icon stays away. Each row's icons carry that component's own last
+check in their tooltip; there is no shared "last check" line, because with four
+components on one card it answered for none of them.
+
+The release channel and the check interval are not among the rows. They are set
+once and then left alone, and a slider beside the rows is easy to nudge by
+accident, so they start hidden. One chevron at the end of the card's last line
+reveals them — and System info's details table with them, since the two cards
+stretch to a common height and opening one alone would only add empty space to
+the other.
+
+DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 
 | Operation | Changes the deployment | Needs |
 | --- | --- | --- |
-| `check` | no | Composer 1.5.0+ |
-| `check-fix-preview` | no | Composer 1.5.1+ |
-| `check-fix-apply` | **yes** | Composer 1.5.1+, a preview, and the current password |
+| `check` | no | Composer 1.5.2+ |
+| `agent-check` | no | Composer 1.5.2+ |
+| `check-fix-apply` | **yes** | Composer 1.5.2+, a check that found repairs, and the current password |
+| `agent-update` | **yes** | Composer 1.5.2+, a check that found an update, and the current password |
+
+Each operation declares the Composer it needs, and DjangoLux knows the resident
+version from the agent's status file — an operation the deployment cannot
+perform is disabled with its reason rather than offered and failed on a timeout.
+An unknown version gates nothing, since the run's own timeout still names the
+floor.
+
+Each row keeps its own last answer: checking the Composer does not blank what
+the deployment check found, and vice versa.
+
+### The Composer agent row
+
+`agent-check` reads the version published on the project's Composer channel tag
+and reports it beside the resident version. The row then shows one of three
+things, and never guesses between them:
+
+* a tick — checked, and the pair runs what the channel publishes;
+* the update icon, with the published version beside it; or
+* nothing checked yet, or a registry that could not be read. **Unknown is not
+  "up to date"**, and it is not an update either.
+
+**Update the Composer agent** replaces `composer-agent` and `composer-executor`
+with the channel's current image. It cannot report itself — the update recreates
+both — so the executor starts a detached helper that performs it and then writes
+the run's answer to the runtime volume. It gets 15 minutes rather than the usual
+two, and it is offered only after a check found an update: nobody is asked for a
+password to discover that there is nothing to install. Composer refuses it
+outright if the pair already runs the channel's version. Once the pair has been
+replaced, the row goes back to asking rather than claiming, because what it runs
+now is something only a fresh check can say.
 
 ### Previewing and applying repairs
 
 `composer check --fix` repairs what the check finds — an obsolete service, a
 missing restart label, a resident pair started with a command this Composer
-rejects. The card runs it in two steps, because a repair rewrites the
-deployment's own Compose file:
+rejects. A repair rewrites the deployment's own Compose file, so it takes two
+steps, but only one button each:
 
-1. **Preview repairs** asks Composer what it *would* change. Composer runs each
-   guarded transform in its dry-run mode and returns a unified diff per file,
-   writing nothing, plus a SHA-256 digest of the deployment files it read.
+1. The check returns the findings *and* what `check --fix` would change: a
+   unified diff per file, writing nothing, plus a SHA-256 digest of the files
+   Composer read. The repair icon appears on the row only if that found
+   something.
 2. **Apply repairs** re-verifies the administrator's current password, and the
-   request carries that digest — taken from the preview's own result, never from
+   request carries that digest — taken from the check's own result, never from
    the browser. Composer refuses the apply when the files no longer hash to it,
    so the change that lands is the change that was shown. Applying without a
-   preview is refused before Composer hears of it.
+   check is refused before Composer hears of it.
 
 Composer's own guards still apply on top: the candidate is validated with
 `docker compose config`, the originals are archived under `.xclude/`, and the
@@ -190,7 +245,7 @@ rather than failing the operation.
 The handoff is the update handoff's shape. A superuser POSTs
 `/sys/api/dlux-ops/run/` (audited); the row is recorded in the database because
 `web` mounts the runtime volume read-only; the worker writes
-`state/ops-request.json` carrying the run's token; the resident Composer performs
+`state/ops-request.json` carrying the run's token; the agent performs
 the operation and publishes `state/ops-result.json` and `ops-request.json.ack`
 under that same token; the next worker tick finishes the run from the result. A
 result whose token does not match the run is ignored — the previous operation's

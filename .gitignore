@@ -42,7 +42,7 @@ db.sqlite3
 # Browser test harness: the code is versioned (see tests-e2e/), only the
 # machine-local artefacts are not. `prune tests-e2e` keeps all of it out of the
 # sdist and wheel; nothing here runs in the release pipeline.
-tests-e2e/node_modules/
+tests-e2e/node_modules
 tests-e2e/state/
 tests-e2e/shots/
 tests-e2e/noise.json

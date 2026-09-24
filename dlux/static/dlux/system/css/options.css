@@ -748,6 +748,21 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     opacity: 0.7;
 }
 .dlux-upd-skip-chip button:hover { opacity: 1; background: color-mix(in srgb, var(--title) 10%, transparent); }
+/* Everything a row reports about itself gathers at the row's end: the digest,
+   what an update would move to, the date of the last backup. Left inline after
+   the name they drifted to a different place in every row. */
+.dlux-upd-end {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.45rem;
+    margin-inline-start: auto;
+    min-width: 0;
+}
+
+.dlux-upd-end .dlux-upd-digest { margin-inline-start: 0; }
+
 .dlux-upd-digest {
     min-width: 0;
     max-width: 100%;
@@ -1038,7 +1053,8 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 .dlux-admin-tile {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    --dlux-tile-gap: 0.8rem;
+    gap: var(--dlux-tile-gap);
     min-width: 0;
     padding: 1rem 1.05rem;
     border: 1px solid rgba(var(--primal-rgb), 0.14);
@@ -1046,11 +1062,14 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     background: rgba(var(--primal-rgb), 0.045);
 }
 
-/* Settings tiles dominate the bottom; the status/update/backup tiles share the
-   top space, expanding/shrinking together and wrapping only when forced. */
+/* Settings tiles dominate the bottom; System info and Updates and maintenance
+   share the top space, expanding/shrinking together and wrapping only when
+   forced. Backup used to be a third tile here for one date and one button; it
+   is a row in the updates card now, and that card took the width. */
 .dlux-admin-tile--status { flex: 2 1 320px; }
-.dlux-admin-tile--update { flex: 1.6 1 300px; }
-.dlux-admin-tile--backup { flex: 1 1 248px; }
+.dlux-admin-tile--update { flex: 2 1 360px; }
+
+
 
 .dlux-admin-tile-title {
     display: flex;
@@ -1068,10 +1087,16 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     font-size: 1rem;
 }
 
+/* The stats take the height the card has rather than huddling at the top of
+   it: the card stands beside a five-row update card and used to end with a
+   third of itself empty. Wider columns mean more rows to spread, and
+   `space-between` is what spreads them. */
 .dlux-admin-stat-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.7rem 0.9rem;
+    flex: 1 1 auto;
+    align-content: space-between;
 }
 
 .dlux-admin-stat {
@@ -1105,30 +1130,80 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     min-width: 90px;
 }
 
-.dlux-admin-details {
+/* One arrow, at the foot of the update card, for both cards' hidden halves.
+   Unlabelled on purpose: two headings announcing "settings" and "more details"
+   said less than the content does once it is open. */
+.dlux-admin-expand {
+    display: flex;
+    align-items: center;
+    /* At the card's end, not its middle: flex-end follows the writing
+       direction, so it is on the right in English and the left in Arabic. */
+    justify-content: flex-end;
+    width: 100%;
     margin-top: auto;
-    padding-top: 0.35rem;
-}
-
-.dlux-admin-details > summary {
-    list-style: none;
+    padding: 0.3rem 0 0.1rem;
+    border: 0;
+    border-top: 1px solid rgba(var(--primal-rgb), 0.12);
+    background: none;
+    color: color-mix(in srgb, var(--primal) 75%, transparent);
     cursor: pointer;
-    padding: 0.2rem 0;
-    font-size: 0.8rem;
-    font-weight: 650;
-    color: var(--primal);
 }
 
-.dlux-admin-details > summary::-webkit-details-marker { display: none; }
+.dlux-admin-expand:hover { color: var(--primal); }
 
-.dlux-admin-details > summary::before { content: "\25B8\00A0"; }
+.dlux-admin-expand .bi { transition: transform 0.15s ease-in-out; }
 
-.dlux-admin-details[open] > summary::before { content: "\25BE\00A0"; }
+.dlux-admin-expand.is-open .bi { transform: rotate(180deg); }
 
-.dlux-admin-details[open] > summary { margin-bottom: 0.35rem; }
+/* The reveal animates its own height: a grid row from 0fr to 1fr interpolates
+   where `height: auto` cannot, so the card grows into its content instead of
+   jumping.
+   
+   It stays in the layout while closed rather than being `display: none`d. The
+   card is a flex column with a gap, and that gap survives a zero-height child:
+   removing the child at the end of the collapse took the gap with it, and the
+   card lost those pixels in one frame — the flicker at the end of the fold. The
+   negative margin cancels the gap exactly while closed and animates away with
+   the height, so the card's height only ever changes by interpolation.
+   `visibility` does what `hidden` did for focus order and screen readers, and
+   flips only once the fold has finished. */
+.dlux-admin-more {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: calc(-1 * var(--dlux-tile-gap, 0.8rem));
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        grid-template-rows 0.22s ease,
+        margin-top 0.22s ease,
+        opacity 0.18s ease,
+        visibility 0s linear 0.22s;
+}
 
-.dlux-admin-details .dlux-options-system-info-table th,
-.dlux-admin-details .dlux-options-system-info-table td {
+.dlux-admin-more > * { min-height: 0; overflow: hidden; }
+
+.dlux-admin-more.is-open {
+    grid-template-rows: 1fr;
+    margin-top: 0;
+    opacity: 1;
+    visibility: visible;
+    transition:
+        grid-template-rows 0.22s ease,
+        margin-top 0.22s ease,
+        opacity 0.18s ease,
+        visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-admin-more { transition: visibility 0s linear 0s; }
+    .dlux-admin-more.is-open { transition: none; }
+    .dlux-admin-expand .bi { transition: none; }
+}
+
+
+
+.dlux-admin-more .dlux-options-system-info-table th,
+.dlux-admin-more .dlux-options-system-info-table td {
     padding-top: 0.18rem;
     padding-bottom: 0.18rem;
     font-size: 0.82rem;
@@ -1141,14 +1216,6 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 
 .dlux-admin-tile--update .dlux-updater-actions {
     margin-top: 0.25rem;
-}
-
-.dlux-admin-tile--backup .dlux-system-backup-summary {
-    margin-bottom: 0.85rem;
-}
-
-.dlux-admin-tile--backup .dlux-system-backup-action {
-    margin-top: auto;
 }
 
 .dlux-admin-panel-settings {
@@ -1482,16 +1549,19 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     overflow-wrap: anywhere;
 }
 
-/* Deployment operations card: Composer's findings, one row each. The level
-   colours come from the theme's semantic variables so both themes hold. */
+/* Deployment operations: two rows in the Updates card, and the modal its
+   checks report into. The level colours come from the theme's semantic
+   variables so both themes hold. */
 .dlux-admin-tile--ops { flex: 1.6 1 300px; }
+
+/* The rows belong to the card's row list, not to a box of their own: `contents`
+   lets them take the list's own spacing and alignment. */
+.dlux-ops { display: contents; }
 
 .dlux-ops-findings {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    max-height: 18rem;
-    overflow-y: auto;
 }
 
 .dlux-ops-finding {
@@ -1526,3 +1596,18 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     border-radius: var(--bs-border-radius, 0.375rem);
     background: var(--dlux-surface-2, rgba(127, 127, 127, 0.12));
 }
+
+/* The interval scale: the tick labels are what make the numbers readable. */
+/* These lines are read, not scanned: a switch, the sentence explaining what it
+   does, then the interval. Stacked flush they run together. */
+.dlux-upd-channel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.dlux-upd-channel-note { line-height: 1.55; }
+
+.dlux-upd-interval-range { max-width: 22rem; }
+
+.dlux-upd-interval-value { margin-inline-start: 0.35rem; }

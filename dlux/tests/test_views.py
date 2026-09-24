@@ -323,7 +323,59 @@ class GeneralViewsTests(TestCase):
         self.assertNotContains(response, '?step=0')
         self.assertNotContains(response, 'dlux-admin-tile--backup')
 
-    def test_options_view_shows_system_backup_card_for_superuser_only(self):
+    def test_every_update_row_reports_itself_at_its_end(self):
+        """What a row *reports* sits at the row's end; the name group holds the
+        controls and the name.
+
+        A version, a digest, a date, "what this would update to" — each used to
+        trail the name inside the lead group, and each landed in a different
+        place from row to row. They are siblings of that group now, so the flex
+        row pins them all to the same edge.
+        """
+        from html.parser import HTMLParser
+
+        class Rows(HTMLParser):
+            """Direct children (by class) of every `.dlux-upd-row`."""
+
+            def __init__(self):
+                super().__init__()
+                self.rows = []
+                self._depth = None
+                self._current = None
+
+            def handle_starttag(self, tag, attrs):
+                classes = dict(attrs).get("class", "").split()
+                if self._depth is not None:
+                    self._depth += 1
+                    if self._depth == 1 and classes:
+                        self._current.append(classes[0])
+                elif "dlux-upd-row" in classes:
+                    self._depth = 0
+                    self._current = []
+
+            def handle_endtag(self, tag):
+                if self._depth is None:
+                    return
+                if self._depth == 0:
+                    self.rows.append(self._current)
+                    self._depth, self._current = None, None
+                else:
+                    self._depth -= 1
+
+        response = self.client.get(reverse('options_view'))
+        parser = Rows()
+        parser.feed(response.content.decode())
+        rows = [row for row in parser.rows if row and row[0] == "dlux-upd-lead"]
+        self.assertGreaterEqual(len(rows), 4, "the update card's rows should have been found")
+        for row in rows:
+            self.assertEqual(row[0], "dlux-upd-lead", "the name group comes first")
+            for sibling in row[1:]:
+                self.assertIn(sibling, {"dlux-upd-end", "dlux-upd-ver", "dlux-upd-target", "dlux-upd-ic", "dlux-upd-digest"},
+                              f"unexpected trailing element: {sibling}")
+        self.assertTrue(any("dlux-upd-ver" in row[1:] for row in rows),
+                        "the backup date is a trailing value, not part of the name group")
+
+    def test_options_view_shows_the_backup_row_for_superuser_only(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
         SystemRestore = apps.get_model('dlux', 'SystemRestore')
         SystemBackup.objects.create(
@@ -342,7 +394,8 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dlux-admin-tile--backup')
+        # Backup is a row in Updates and maintenance, not a card of its own: one
+        # date and one button never needed a third of the page.
         self.assertContains(response, reverse('system_backup_page'))
         self.assertEqual(response.context['system_backup_summary']['completed_count'], 1)
         self.assertEqual(response.context['system_backup_summary']['protected_count'], 1)
@@ -358,7 +411,6 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'dlux-admin-tile--backup')
         self.assertNotContains(response, reverse('system_backup_page'))
 
     def test_options_view_hides_diagnostics_for_central_and_scoped_staff(self):
