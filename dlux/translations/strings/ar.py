@@ -1177,6 +1177,8 @@ STRINGS = {
     'dlux_update_recheck': 'التحقق مجددًا من إصدار أحدث',
     'dlux_update_review': 'مراجعة وتحديث',
     'dlux_update_rollback': 'الرجوع إلى الإصدار السابق',
+    'dlux_update_notes': 'ملاحظات إصدار النسخة المثبّتة',
+    'dlux_update_notes_link': 'صفحة الإصدار كاملة',
     'dlux_update_review_title': 'مراجعة تحديث DjangoLux',
     'dlux_update_rollback_title': 'الرجوع بإصدار DjangoLux',
     'dlux_update_confirm': 'تطبيق التحديث',

@@ -165,7 +165,11 @@ there is something to install, and a tick when there is not. Findings open in a
 modal, so a check that reports fifteen of them does not resize the card.
 
 A fifth row links to Backup & restore with the date of the last backup, which is
-all its own card ever showed. Each row's icons carry that component's own last
+all its own card ever showed. Everything a row *reports* — a version, a digest,
+that date, what an update would move to — sits at the row's end; the lead group
+holds the controls and the name. The DjangoLux row also offers the installed
+release's own notes, from the manifest the inline update recorded when it
+applied; a version baked into the image has none, and the icon stays away. Each row's icons carry that component's own last
 check in their tooltip; there is no shared "last check" line, because with four
 components on one card it answered for none of them.
 

@@ -599,6 +599,11 @@ def serialize_state(state):
         "previous_version": state.previous_version,
         "latest_version": state.latest_version,
         "latest_manifest": state.latest_manifest or {},
+        # What the *installed* release said about itself, for the release-notes
+        # control on the DjangoLux row. Empty for a version that arrived baked
+        # into the image rather than through an inline update, and the row then
+        # offers nothing rather than an empty page.
+        "active_manifest": state.active_manifest or {},
         "latest_compatible": state.latest_compatible,
         "latest_reason": state.latest_reason,
         "last_checked_at": state.last_checked_at.isoformat() if state.last_checked_at else None,

@@ -1793,6 +1793,22 @@ class UpdaterApiTests(TestCase):
         self.assertTrue(cached.json()["cached"])
         self.assertIsNone(cached.json()["run"])
 
+    def test_the_card_can_read_the_installed_releases_own_notes(self):
+        # The review modal describes the release you have NOT installed. What
+        # the running version said about itself is a different question, and the
+        # DjangoLux row answers it — when there is an answer.
+        from dlux.updater.service import get_ui_state
+
+        state = DluxUpdateState.load()
+        self.assertEqual(get_ui_state()["active_manifest"], {},
+                         "a version baked into the image has no manifest, and the row offers nothing")
+        state.active_manifest = release_manifest(version="1.9.3", highlights=["Rows, not buttons"])
+        state.save()
+        manifest = get_ui_state()["active_manifest"]
+        self.assertEqual(manifest["version"], "1.9.3")
+        self.assertEqual(manifest["highlights"], ["Rows, not buttons"])
+        self.assertTrue(manifest["release_url"].startswith("https://"))
+
     def test_a_queued_run_answers_with_everything_the_card_renders(self):
         # The card renders from this response. When it carried the bare updater
         # state, starting a DjangoLux check blanked the image row's pending

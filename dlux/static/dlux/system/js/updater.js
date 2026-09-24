@@ -59,6 +59,15 @@
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
         const checkGlyph = root.querySelector('[data-dlux-check-glyph]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
+        // What the installed release said about itself. Its own control, because
+        // the review modal is about the release you have NOT installed yet.
+        const notesButton = root.querySelector('[data-dlux-release-notes]');
+        const notesElement = document.getElementById('dluxReleaseNotesModal');
+        const notesModal = notesElement && window.bootstrap ? new window.bootstrap.Modal(notesElement) : null;
+        const notesTitle = notesElement?.querySelector('[data-dlux-notes-title]');
+        const notesSummary = notesElement?.querySelector('[data-dlux-notes-summary]');
+        const notesHighlights = notesElement?.querySelector('[data-dlux-notes-highlights]');
+        const notesLink = notesElement?.querySelector('[data-dlux-notes-link]');
         // Remember each icon's own wording before a time is appended to it, or
         // every render would append another one.
         [checkButton, reviewButton, imageOkEl, imageButton].forEach((element) => {
@@ -597,6 +606,7 @@
                 withCheckTime(reviewButton, reviewButton.dataset.titleBase, state.last_checked_at);
             }
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
+            if (notesButton) notesButton.hidden = !installedNotes();
             // Application image row: version + short digest; green check when up
             // to date, down-arrow (start update) when a newer image is available.
             const img = state.image || {};
@@ -841,6 +851,48 @@
             list.appendChild(generic);
             container.appendChild(list);
         }
+
+        /** The installed release's own notes, or nothing to offer. */
+        function installedNotes() {
+            const manifest = state?.active_manifest;
+            if (!manifest || typeof manifest !== 'object') return null;
+            const hasNotes = Boolean(
+                String(manifest.summary || '').trim()
+                || (Array.isArray(manifest.highlights) && manifest.highlights.length)
+                || String(manifest.release_url || '').trim(),
+            );
+            return hasNotes ? manifest : null;
+        }
+
+        function openNotes() {
+            const manifest = installedNotes();
+            if (!manifest || !notesModal) return;
+            if (notesTitle) {
+                if (notesTitle.dataset.titleBase === undefined) {
+                    notesTitle.dataset.titleBase = notesTitle.textContent.trim();
+                }
+                const version = manifest.version || state.active_version || '';
+                notesTitle.textContent = version
+                    ? `${notesTitle.dataset.titleBase} — v${String(version).replace(/^v/, '')}`
+                    : notesTitle.dataset.titleBase;
+            }
+            if (notesSummary) {
+                notesSummary.textContent = String(manifest.summary || '').trim();
+                notesSummary.hidden = !notesSummary.textContent;
+            }
+            renderReleaseNotes(notesHighlights, manifest);
+            if (notesLink) {
+                // Only an https link, and only to somewhere: a manifest is
+                // published data, and this one lands in an anchor.
+                const url = String(manifest.release_url || '').trim();
+                const safe = /^https:\/\//i.test(url);
+                notesLink.hidden = !safe;
+                if (safe) notesLink.href = url;
+            }
+            notesModal.show();
+        }
+
+        notesButton?.addEventListener('click', openNotes);
 
         function openReview(action) {
             if (!modal || !state) return;

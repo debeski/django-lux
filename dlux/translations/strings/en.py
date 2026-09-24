@@ -1181,6 +1181,8 @@ STRINGS = {
     'dlux_update_recheck': 'Re-check for newer release',
     'dlux_update_review': 'Review and update',
     'dlux_update_rollback': 'Roll back to previous version',
+    'dlux_update_notes': 'Release notes for the installed version',
+    'dlux_update_notes_link': 'Full release page',
     'dlux_update_review_title': 'Review DjangoLux update',
     'dlux_update_rollback_title': 'Roll back DjangoLux',
     'dlux_update_confirm': 'Apply update',
