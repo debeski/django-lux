@@ -1108,38 +1108,39 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     min-width: 90px;
 }
 
-.dlux-admin-details {
-    margin-top: auto;
-    padding-top: 0.35rem;
-}
-
-/* Each card keeps its own disclosure, at its own foot: the settings that govern
-   the update rows belong to the update card, the way the details table has
-   always belonged to System info. One arrow, at the end of the card. */
-.dlux-admin-details > summary {
+/* One arrow, at the foot of the update card, for both cards' hidden halves.
+   Unlabelled on purpose: two headings announcing "settings" and "more details"
+   said less than the content does once it is open. */
+.dlux-admin-expand {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    list-style: none;
-    cursor: pointer;
-    padding: 0.35rem 0 0.2rem;
+    /* At the card's end, not its middle: flex-end follows the writing
+       direction, so it is on the right in English and the left in Arabic. */
+    justify-content: flex-end;
+    width: 100%;
+    margin-top: auto;
+    padding: 0.3rem 0 0.1rem;
+    border: 0;
     border-top: 1px solid rgba(var(--primal-rgb), 0.12);
-    font-size: 0.8rem;
-    font-weight: 650;
-    color: var(--primal);
+    background: none;
+    color: color-mix(in srgb, var(--primal) 75%, transparent);
+    cursor: pointer;
 }
 
-.dlux-admin-details > summary::-webkit-details-marker { display: none; }
+.dlux-admin-expand:hover { color: var(--primal); }
 
-.dlux-admin-details > summary .bi { transition: transform 0.15s ease-in-out; }
+.dlux-admin-expand .bi { transition: transform 0.15s ease-in-out; }
 
-.dlux-admin-details[open] > summary .bi { transform: rotate(180deg); }
+.dlux-admin-expand.is-open .bi { transform: rotate(180deg); }
 
-.dlux-admin-details[open] > summary { margin-bottom: 0.35rem; }
+.dlux-admin-more { margin-top: 0.35rem; }
 
-.dlux-admin-details .dlux-options-system-info-table th,
-.dlux-admin-details .dlux-options-system-info-table td {
+/* System info has no arrow of its own, so its half must not collapse to
+   nothing and leave the card shorter than the one holding the control. */
+.dlux-admin-tile--status .dlux-admin-more { margin-top: auto; }
+
+.dlux-admin-more .dlux-options-system-info-table th,
+.dlux-admin-more .dlux-options-system-info-table td {
     padding-top: 0.18rem;
     padding-bottom: 0.18rem;
     font-size: 0.82rem;

@@ -884,4 +884,26 @@
     // the hash — no navigation, no reload — so without this the first deep link
     // worked and every later one silently did nothing.
     window.addEventListener('hashchange', focusHashCard);
+
+    // One arrow at the foot of the admin panel opens what both of its cards keep
+    // out of the way: System info's details table and the update settings. Both
+    // at once, because the cards stretch to a common height — opening one alone
+    // would just add empty space to the other.
+    function initAdminMore() {
+        const trigger = document.querySelector('[data-dlux-expand]');
+        const panels = Array.from(document.querySelectorAll('[data-dlux-more]'));
+        if (!trigger || !panels.length) { return; }
+        trigger.addEventListener('click', function () {
+            const open = trigger.getAttribute('aria-expanded') !== 'true';
+            trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            trigger.classList.toggle('is-open', open);
+            panels.forEach(function (panel) { panel.hidden = !open; });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAdminMore);
+    } else {
+        initAdminMore();
+    }
 })();

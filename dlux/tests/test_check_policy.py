@@ -102,17 +102,20 @@ class IntervalViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(DluxUpdateState.load().check_interval_minutes, 15)
 
-    def test_the_channel_and_interval_live_behind_the_cards_own_disclosure(self):
+    def test_the_channel_and_interval_are_hidden_behind_the_panels_one_arrow(self):
         # Both are set once and then left alone, and a slider beside the update
-        # rows is easy to nudge by accident — so they sit behind a disclosure at
-        # the foot of the card they belong to, the way System info has always
-        # kept its details table.
+        # rows is easy to nudge by accident. They start hidden, and the panel's
+        # single unlabelled arrow — the only one on either card — opens them
+        # together with System info's details table.
         client = Client()
         client.force_login(self.superuser)
         html = client.get(reverse("options_view")).content.decode()
-        disclosure = html.index("data-dlux-update-settings")
+        panel = html.index("data-dlux-update-settings")
         for control in ("data-dlux-channel-toggle", "data-dlux-interval-range", "data-dlux-skipped-wrap"):
-            self.assertGreater(html.index(control), disclosure, f"{control} is outside the disclosure")
+            self.assertGreater(html.index(control), panel, f"{control} is outside the hidden panel")
+        self.assertIn("data-dlux-update-settings data-dlux-more hidden", html, "the settings must start hidden")
+        self.assertEqual(html.count("data-dlux-expand"), 1, "one arrow for both cards, not one each")
+        self.assertEqual(html.count("data-dlux-more"), 2)
         self.assertNotIn("dlux-upd-ribbon", html,
                          "the shared last-check line answered for three components and so for none")
 

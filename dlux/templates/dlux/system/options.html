@@ -120,11 +120,7 @@
                             </div>
                             {% endif %}
                         </div>
-                        <details class="dlux-admin-details">
-                            <summary class="dlux-admin-details-toggle">
-                                <span>{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</span>
-                                <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                            </summary>
+                        <div class="dlux-admin-more" id="dlux-admin-more-system" data-dlux-more hidden>
                             <div class="table-responsive dlux-options-system-info-table">
                                 <table class="table table-sm table-borderless mb-0">
                     <tr>
@@ -231,7 +227,7 @@
                     {% endif %}
                                 </table>
                             </div>
-                        </details>
+                        </div>
                     </section>
                     <section class="dlux-admin-tile dlux-admin-tile--update">
                         <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_update_title|default:'Updates and maintenance' }}</h5>
@@ -393,11 +389,7 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <details class="dlux-admin-details" data-dlux-update-settings>
-                                <summary class="dlux-admin-details-toggle">
-                                    <span>{{ DLUX_STRINGS.dlux_update_settings|default:'Update settings' }}</span>
-                                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                                </summary>
+                            <div class="dlux-admin-more" id="dlux-admin-more-updates" data-dlux-update-settings data-dlux-more hidden>
                                 <div class="dlux-upd-channel mt-2" data-dlux-channel-wrap hidden>
                                     <div class="form-check form-switch mb-0">
                                         <input class="form-check-input" type="checkbox" role="switch"
@@ -422,7 +414,12 @@
                                     <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>
                                     <span class="dlux-upd-skipped-list" data-dlux-skipped-list></span>
                                 </div>
-                            </details>
+                            </div>
+                            <button type="button" class="dlux-admin-expand" data-dlux-expand
+                                    aria-expanded="false" aria-controls="dlux-admin-more-system dlux-admin-more-updates"
+                                    aria-label="{{ DLUX_STRINGS.admin_panel_expand|default:'Show details and settings' }}">
+                                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            </button>
                     </section>
                     {% endif %}
                 </div>

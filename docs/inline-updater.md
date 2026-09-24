@@ -171,8 +171,10 @@ components on one card it answered for none of them.
 
 The release channel and the check interval are not among the rows. They are set
 once and then left alone, and a slider beside the rows is easy to nudge by
-accident, so they sit behind an **Update settings** disclosure at the foot of
-the card — the same control System info uses for its details table.
+accident, so they start hidden. One chevron at the end of the card's last line
+reveals them — and System info's details table with them, since the two cards
+stretch to a common height and opening one alone would only add empty space to
+the other.
 
 DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
