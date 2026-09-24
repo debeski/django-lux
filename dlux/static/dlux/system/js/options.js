@@ -893,11 +893,33 @@
         const trigger = document.querySelector('[data-dlux-expand]');
         const panels = Array.from(document.querySelectorAll('[data-dlux-more]'));
         if (!trigger || !panels.length) { return; }
+        // Matches the CSS. `hidden` cannot be dropped and animated in the same
+        // frame — the browser would render the open state directly — and it
+        // cannot come back before the collapse is over, or the panel would
+        // vanish mid-transition.
+        const DURATION = 240;
+        const timers = new Map();
+
+        function animate(panel, open) {
+            window.clearTimeout(timers.get(panel));
+            if (open) {
+                panel.hidden = false;
+                window.requestAnimationFrame(function () {
+                    panel.classList.add('is-open');
+                });
+                return;
+            }
+            panel.classList.remove('is-open');
+            timers.set(panel, window.setTimeout(function () {
+                panel.hidden = true;
+            }, DURATION));
+        }
+
         trigger.addEventListener('click', function () {
             const open = trigger.getAttribute('aria-expanded') !== 'true';
             trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
             trigger.classList.toggle('is-open', open);
-            panels.forEach(function (panel) { panel.hidden = !open; });
+            panels.forEach(function (panel) { animate(panel, open); });
         });
     }
 

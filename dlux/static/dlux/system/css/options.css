@@ -1133,7 +1133,32 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 
 .dlux-admin-expand.is-open .bi { transform: rotate(180deg); }
 
-.dlux-admin-more { margin-top: 0.35rem; }
+/* The reveal animates its own height: a grid row from 0fr to 1fr interpolates
+   where `height: auto` cannot, so the card grows into its content instead of
+   jumping. The attribute still does the hiding when it is closed, so nothing
+   inside is focusable or read out meanwhile — the script drops it a frame
+   before opening and restores it once the collapse has finished. */
+.dlux-admin-more {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0.35rem;
+    opacity: 0;
+    transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
+}
+
+.dlux-admin-more[hidden] { display: none; }
+
+.dlux-admin-more > * { min-height: 0; overflow: hidden; }
+
+.dlux-admin-more.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-admin-more { transition: none; }
+    .dlux-admin-expand .bi { transition: none; }
+}
 
 /* System info has no arrow of its own, so its half must not collapse to
    nothing and leave the card shorter than the one holding the control. */

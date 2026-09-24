@@ -49,13 +49,20 @@ let server;
 let browser;
 let page;
 
-// `is-open` is what turns the chevron over; the computed transform is read
-// mid-animation and would report a closing arrow as still rotated.
+// `is-open` is what turns the chevron over and what drives the reveal; the
+// computed transform is read mid-animation and would report a closing arrow as
+// still rotated, and `hidden` comes back only once the collapse has finished.
 const state = () => page.evaluate(() => ({
   expanded: document.querySelector('[data-dlux-expand]').getAttribute('aria-expanded'),
+  open: Array.from(document.querySelectorAll('[data-dlux-more]')).map((el) => el.classList.contains('is-open')),
   hidden: Array.from(document.querySelectorAll('[data-dlux-more]')).map((el) => el.hidden),
   rotated: document.querySelector('[data-dlux-expand]').classList.contains('is-open'),
 }));
+
+const settled = (hidden) => page.waitForFunction(
+  (want) => Array.from(document.querySelectorAll('[data-dlux-more]')).every((el) => el.hidden === want),
+  hidden,
+);
 
 before(async () => {
   server = http.createServer((req, res) => {
@@ -95,15 +102,41 @@ describe('the admin panel arrow', () => {
   });
 
   test('both halves start hidden', async () => {
-    assert.deepEqual(await state(), { expanded: 'false', hidden: [true, true], rotated: false });
+    assert.deepEqual(await state(),
+      { expanded: 'false', open: [false, false], hidden: [true, true], rotated: false });
   });
 
   test('one click opens both cards, a second closes both', async () => {
     await page.locator('[data-dlux-expand]').click();
-    assert.deepEqual(await state(), { expanded: 'true', hidden: [false, false], rotated: true });
+    await settled(false);
+    assert.deepEqual(await state(),
+      { expanded: 'true', open: [true, true], hidden: [false, false], rotated: true });
 
     await page.locator('[data-dlux-expand]').click();
-    assert.deepEqual(await state(), { expanded: 'false', hidden: [true, true], rotated: false });
+    await settled(true);
+    assert.deepEqual(await state(),
+      { expanded: 'false', open: [false, false], hidden: [true, true], rotated: false });
+  });
+
+  test('it grows and shrinks rather than appearing', async () => {
+    const heights = [];
+    const sample = () => page.evaluate(() => Math.round(
+      document.querySelector('[data-dlux-more]').getBoundingClientRect().height));
+
+    await page.locator('[data-dlux-expand]').click();
+    await page.waitForTimeout(60);
+    heights.push(await sample());
+    await settled(false);
+    await page.waitForTimeout(260);
+    const full = await sample();
+    assert.ok(heights[0] < full, `mid-open ${heights[0]}px should be short of ${full}px`);
+    assert.ok(heights[0] > 0, 'it should already be on its way, not waiting to appear');
+
+    await page.locator('[data-dlux-expand]').click();
+    await page.waitForTimeout(60);
+    const closing = await sample();
+    assert.ok(closing < full && closing > 0, `mid-close ${closing}px should be shrinking, not gone`);
+    await settled(true);
   });
 
   test('it sits at the card\'s end, on the side the language reads towards', async () => {
