@@ -19,6 +19,7 @@ from django.utils import timezone
 from datetime import timedelta
 from importlib import import_module
 import json
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -1023,6 +1024,25 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="setup_language"')
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.is_configured)
+
+    def test_system_setup_skip_config_keeps_wizard_available_on_repeated_gets(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = False
+        settings_obj.save()
+        with tempfile.TemporaryDirectory() as tmpdir, override_settings(BASE_DIR=Path(tmpdir)), patch.dict(
+            os.environ, {'DLUX_SKIP_CONFIG_IMPORT': '1'},
+        ):
+            config_path = Path(tmpdir) / 'config.json'
+            content = json.dumps({'system_names': {'en': 'Must not import'}})
+            config_path.write_text(content)
+            with patch('dlux.utils.import_export.load_system_settings_config_json') as loader:
+                for _ in range(2):
+                    response = self.client.get(reverse('system_setup'))
+                    self.assertContains(response, 'name="setup_language"')
+                loader.assert_not_called()
+            self.assertEqual(config_path.read_text(), content)
         settings_obj.refresh_from_db()
         self.assertFalse(settings_obj.is_configured)
 

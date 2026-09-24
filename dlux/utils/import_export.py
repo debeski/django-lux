@@ -89,6 +89,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = get_exportable_settings()
 SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED = 'applied'
 SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED = 'configured'
 SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING = 'missing'
+SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED = 'skipped'
 
 # System Import Export - Helper extracts portable names from file fields.
 def _field_file_name(value):
@@ -470,6 +471,9 @@ def bootstrap_system_settings_config_json(path=None):
         )
         if getattr(instance, 'is_configured', False):
             return SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED, config_path, instance
+
+        if os.environ.get('DLUX_SKIP_CONFIG_IMPORT', '').strip().lower() in {'1', 'true', 'yes', 'on'}:
+            return SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED, config_path, instance
 
         imported_settings = load_system_settings_config_json(config_path)
         if imported_settings is None:

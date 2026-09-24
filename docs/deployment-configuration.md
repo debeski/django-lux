@@ -25,6 +25,7 @@ uses `setdefault`, so explicitly declared Django settings win.
 | Setting | Source | Type / default | Purpose |
 |---|---|---|---|
 | `DLUX_CONFIG` | Django setting | `dict`, `{}` | Code-owned defaults layered beneath database System Settings. See [Project Configuration](project-configuration.md#dlux_config). |
+| `DLUX_SKIP_CONFIG_IMPORT` | Environment | boolean, unset/false | Skip automatic first-launch `config.json` import in migrator and setup-page requests. Accepts `1`, `true`, `yes`, or `on` (case-insensitive). Keeps manual setup/import available; does not reset configured systems. Composer 1.5.3+ injects it with `--skip-config`; requires DjangoLux 1.9.4+. |
 | `DLUX_CUSTOM_FONTS` | Django setting | `list` or `tuple`, empty | Registers project-owned WOFF2 families. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_CUSTOM_THEMES` | Django setting | `list` or `tuple`, empty | Registers project-owned scoped theme CSS. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_MIDDLEWARE` | Django setting | dotted path, `dlux.middleware.DluxMiddleware` | Selects the middleware inserted by `dlux_settings()`. A compatible replacement must preserve the setup guard and session/security behavior the project needs. |

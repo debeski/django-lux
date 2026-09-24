@@ -64,6 +64,7 @@ class Command(BaseCommand):
         from dlux.utils import (
             SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED,
             SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED,
+            SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED,
             bootstrap_system_settings_config_json,
             resolve_system_settings_config_json_path,
         )
@@ -85,6 +86,10 @@ class Command(BaseCommand):
             ))
         elif status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED:
             self.stdout.write("System Settings are already configured; first-launch import skipped.")
+        elif status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED:
+            self.stdout.write(
+                "Automatic config.json import disabled by DLUX_SKIP_CONFIG_IMPORT; manual setup remains available."
+            )
         else:
             self.stdout.write(
                 f"No first-launch config found at {display_path}; manual setup remains available."

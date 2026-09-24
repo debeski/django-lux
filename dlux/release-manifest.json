@@ -1,25 +1,24 @@
 {
   "schema_version": 2,
-  "version": "1.9.3",
+  "version": "1.9.4b1",
   "display": {
-    "summary": "The deployment and the Composer agent join the update rows: one check each, the repair or update they find offered only when there is one, and everything they report in a modal.",
+    "summary": "Choose manual first-launch setup without removing config.json from the deployment.",
     "highlights": [
-      "Deployment and Composer agent are rows in Updates and maintenance, beside DjangoLux and the application image.",
-      "The Composer agent is asked what its channel publishes before you are asked for a password to update it.",
-      "Every password field has a reveal toggle, and a login that cannot store its cookie now says so."
+      "DLUX_SKIP_CONFIG_IMPORT disables automatic config.json import in migrator and setup-page requests.",
+      "Composer 1.5.3 adds --skip-config; manual setup and explicit imports remain available."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.4b1"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
     "services": {
-      "composer": ">=1.4.1"
+      "composer": ">=1.5.3b1"
     },
-    "migration_baseline": ">=1.8.14b1"
+    "migration_baseline": ">=1.9.3"
   },
   "migrations": {
-    "effect": "additive",
+    "effect": "none",
     "rollback_compatible": true,
     "downtime": "none"
   },

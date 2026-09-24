@@ -4,6 +4,21 @@ Use this guide when configuring DjangoLux through `/sys/setup/` or `/sys/options
 
 ## Configuration layers
 
+### Starting with manual setup
+
+On DjangoLux 1.9.4+, set `DLUX_SKIP_CONFIG_IMPORT=True` in the web and migrator
+service environments to bypass automatic `config.json` import. Composer 1.5.3+
+injects this with `./start.sh --skip-config` (also supported with `-d` or
+`update`). Both migration bootstrap and setup-page requests honor the option;
+the file is neither read nor changed, and the setup wizard remains available.
+Explicit settings imports still work. Existing configuration/data is not reset.
+Repeat the flag on subsequent deployments until setup is complete, or declare
+the environment variable in Compose for a persistent policy. Restarting the
+same containers retains the flag; recreating them without it restores normal
+auto-import for an unconfigured database.
+
+### Resolution order
+
 DjangoLux resolves configuration in this order:
 
 1. package defaults;

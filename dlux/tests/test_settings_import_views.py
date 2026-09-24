@@ -6,6 +6,8 @@ permissions, that nothing is written until apply, that the snapshot is real,
 and that revert puts back what was there.
 """
 import json
+import os
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -72,6 +74,15 @@ class SettingsImportViewTests(TestCase):
             SystemSettings.load().home_url, '/current/',
             'preview must not touch the live settings',
         )
+
+    def test_skip_automatic_config_does_not_block_explicit_import(self):
+        self.client.force_login(self.admin)
+        with patch.dict(os.environ, {'DLUX_SKIP_CONFIG_IMPORT': 'True'}):
+            preview = self.client.post(self.preview_url, {'config_file': _upload({'home_url': '/chosen/'})})
+            self.assertEqual(preview.status_code, 200)
+            response = self.client.post(self.apply_url, {'apply': ['home_url']})
+            self.assertEqual(response.status_code, 200)
+        self.assertEqual(SystemSettings.load().home_url, '/chosen/')
 
     def test_preview_rejects_a_non_json_file(self):
         self.client.force_login(self.admin)

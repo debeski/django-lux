@@ -18,6 +18,7 @@ from dlux.utils import (
     SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED,
     SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED,
     SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING,
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED,
 )
 
 
@@ -65,6 +66,25 @@ class MigratorConfigBootstrapTests(TestCase):
         self.assertEqual(status, SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING)
         self.assertFalse(self.settings_obj.is_configured)
         self.assertIn('manual setup remains available', output)
+
+    def test_skip_config_never_reads_file_or_marks_configured(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / 'config.json'
+            config_path.write_text('{invalid', encoding='utf-8')
+            with mock.patch.dict(os.environ, {'DLUX_SKIP_CONFIG_IMPORT': 'True'}), mock.patch(
+                'dlux.utils.import_export.load_system_settings_config_json',
+                side_effect=AssertionError('must not read config.json'),
+            ):
+                status, output = self.run_bootstrap(tmpdir)
+            self.assertEqual(config_path.read_text(), '{invalid')
+        self.settings_obj.refresh_from_db()
+        self.assertEqual(status, SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_SKIPPED)
+        self.assertFalse(self.settings_obj.is_configured)
+        self.assertIn('Automatic config.json import disabled', output)
+
+    def test_false_skip_flag_preserves_default_import(self):
+        with mock.patch.dict(os.environ, {'DLUX_SKIP_CONFIG_IMPORT': 'False'}):
+            self.test_bootstrap_applies_config_before_web_setup()
 
     def test_bootstrap_reports_invalid_config_without_configuring(self):
         with tempfile.TemporaryDirectory() as tmpdir:

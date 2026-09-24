@@ -433,13 +433,26 @@ class BetaFirstGateTests(SimpleTestCase):
     def test_a_major_release_is_gated_too(self):
         self.assertTrue(validate_beta_first("2.0.0", tags=[], fetch_published=self._published()))
 
-    def test_patches_and_prereleases_consult_nothing(self):
-        # tags=None would shell out to git and the fetcher raises: a pass here
-        # proves neither was touched for releases the gate does not cover.
-        def must_not_be_called(_version):
-            raise AssertionError("the gate consulted PyPI for a release it does not cover")
+    def test_a_patch_is_gated_exactly_like_a_minor(self):
+        # The exemption is gone: beta first, every release. A patch beta is what
+        # caught 1.9.3's operation floor excluding its own prerelease.
+        errors = validate_beta_first(
+            "1.9.1", tags=["v1.9.0", "v1.9.0b1"], fetch_published=self._published("1.9.0b1"),
+        )
+        self.assertEqual(len(errors), 1)
+        self.assertIn("must be published as a beta first", errors[0])
+        self.assertEqual(validate_beta_first(
+            "1.9.1", tags=["v1.9.1b1"], fetch_published=self._published("1.9.1b1"),
+        ), [])
 
-        for version in ("1.9.1", "1.8.15", "1.9.0b1", "1.9.0rc2"):
+    def test_a_prerelease_consults_nothing(self):
+        # tags=None would shell out to git and the fetcher raises: a pass here
+        # proves neither was touched for the releases the gate does not cover —
+        # which is now only the prereleases themselves.
+        def must_not_be_called(_version):
+            raise AssertionError("the gate consulted PyPI for a prerelease")
+
+        for version in ("1.9.0b1", "1.9.0rc2", "1.9.1b3"):
             with self.subTest(version=version):
                 self.assertEqual(
                     validate_beta_first(version, tags=None, fetch_published=must_not_be_called), [],
