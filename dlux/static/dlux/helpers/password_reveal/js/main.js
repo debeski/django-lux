@@ -55,16 +55,63 @@
         wrapper.appendChild(button);
         setState(input, button, false);
 
+        // The input's margins are inside the wrapper, so the wrapper's middle is
+        // not the field's middle — on a field with more margin below than above,
+        // centring on the wrapper leaves the eye sitting low. Measure the input
+        // and publish its centre for the stylesheet.
+        function centre() {
+            wrapper.style.setProperty(
+                '--dlux-reveal-center',
+                `${input.offsetTop + (input.offsetHeight / 2)}px`,
+            );
+        }
+        centre();
+        if (typeof ResizeObserver === 'function') {
+            // The wrapper's own height changes with the input's size AND with
+            // its margins, so watching it catches a responsive field too.
+            new ResizeObserver(centre).observe(wrapper);
+        }
+
+        // Offered while the field is in use, and not before: an empty field has
+        // nothing to reveal, and a page of password fields should not be a page
+        // of eyes. A revealed field keeps its button after focus moves away, or
+        // there would be no way to put the password back.
+        function refresh() {
+            const wanted = Boolean(input.value) && (
+                document.activeElement === input
+                || document.activeElement === button
+                || input.type === 'text'
+            );
+            wrapper.classList.toggle('dlux-reveal--active', wanted);
+        }
+
+        ['focus', 'blur', 'input', 'change'].forEach(function (name) {
+            input.addEventListener(name, refresh);
+        });
+        // Keep the caret where it is: a mousedown on the button would otherwise
+        // blur the field, which both moves focus and hides the button mid-click.
+        button.addEventListener('mousedown', function (event) { event.preventDefault(); });
+        button.addEventListener('blur', refresh);
+        refresh();
+
         button.addEventListener('click', function (event) {
             event.preventDefault();
             const revealed = input.type === 'password';
-            // Restore the caret: changing `type` moves it to the end in some
-            // browsers, which is maddening mid-correction.
+            // Restore the caret: changing `type` moves it, which is maddening
+            // mid-correction.
             const start = input.selectionStart;
             const end = input.selectionEnd;
+            const restore = function () {
+                try { input.setSelectionRange(start, end); } catch (_error) { /* not all types allow it */ }
+            };
             setState(input, button, revealed);
             input.focus();
-            try { input.setSelectionRange(start, end); } catch (_error) { /* not all types allow it */ }
+            restore();
+            // Chrome rebuilds a *focused* field when its `type` changes and puts
+            // the caret back at 0 during the next frame, after this handler has
+            // already set it — so set it again on the far side of that frame.
+            if (typeof requestAnimationFrame === 'function') { requestAnimationFrame(restore); }
+            refresh();
         });
 
         // Never leave a password on screen once the field is done with: a form
@@ -72,6 +119,7 @@
         // stay visible behind the error.
         input.form?.addEventListener('submit', function () {
             if (input.type === 'text') { setState(input, button, false); }
+            refresh();
         });
     }
 

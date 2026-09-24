@@ -152,8 +152,8 @@ Before 1.8.6 the guard probed locally in every process, so a read-only `web` mou
 
 ## Deployment operations
 
-**Application updates** carries two more rows beside DjangoLux and the
-application image: **Deployment** and **Resident Composer**. They run the things
+**Updates and maintenance** carries two more rows beside DjangoLux and the
+application image: **Deployment** and **Composer agent**. They run the things
 that otherwise need a shell on the host, starting with Composer's own deployment
 check — the doctor for the *outside* of the stack, which is what catches a
 resident pair started with a command this Composer rejects, a missing
@@ -183,7 +183,7 @@ floor.
 Each row keeps its own last answer: checking the Composer does not blank what
 the deployment check found, and vice versa.
 
-### The resident Composer row
+### The Composer agent row
 
 `agent-check` reads the version published on the project's Composer channel tag
 and reports it beside the resident version. The row then shows one of three
@@ -194,7 +194,7 @@ things, and never guesses between them:
 * nothing checked yet, or a registry that could not be read. **Unknown is not
   "up to date"**, and it is not an update either.
 
-**Update resident Composer** replaces `composer-agent` and `composer-executor`
+**Update the Composer agent** replaces `composer-agent` and `composer-executor`
 with the channel's current image. It cannot report itself — the update recreates
 both — so the executor starts a detached helper that performs it and then writes
 the run's answer to the runtime volume. It gets 15 minutes rather than the usual
@@ -229,7 +229,7 @@ rather than failing the operation.
 The handoff is the update handoff's shape. A superuser POSTs
 `/sys/api/dlux-ops/run/` (audited); the row is recorded in the database because
 `web` mounts the runtime volume read-only; the worker writes
-`state/ops-request.json` carrying the run's token; the resident Composer performs
+`state/ops-request.json` carrying the run's token; the agent performs
 the operation and publishes `state/ops-result.json` and `ops-request.json.ack`
 under that same token; the next worker tick finishes the run from the result. A
 result whose token does not match the run is ignored — the previous operation's

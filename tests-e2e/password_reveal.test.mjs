@@ -22,8 +22,13 @@ const STATIC = path.join(HERE, '..', 'dlux', 'static');
 const PORT = 8741;
 const BASE = `http://localhost:${PORT}`;
 
+// `#password` carries the login page's own margins — more below than above —
+// because that asymmetry is what put the eye off centre there.
 const PAGE = `<!doctype html><html><head><meta charset="utf-8">
-<link rel="stylesheet" href="/dlux/helpers/password_reveal/css/main.css"></head>
+<link rel="stylesheet" href="/dlux/helpers/password_reveal/css/main.css">
+<style>#password { display: inline-block; height: 45px; margin: 5px 0 15px; }
+/* The fade is decoration, and a half-finished one reads as 0 opacity. */
+.dlux-reveal__toggle { transition: none !important; }</style></head>
 <body data-dlux-reveal-show="Show password" data-dlux-reveal-hide="Hide password">
 <form id="login">
   <input type="text" name="username" value="ahmed">
@@ -31,6 +36,7 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8">
   <button type="submit">Sign in</button>
 </form>
 <input type="password" id="opted-out" data-dlux-no-reveal value="hidden">
+<input type="password" id="empty">
 <div id="later"></div>
 <script src="/dlux/helpers/password_reveal/js/main.js"></script>
 </body></html>`;
@@ -38,6 +44,14 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8">
 let server;
 let browser;
 let page;
+
+/** Whether the toggle beside `selector` is actually shown (it fades, so opacity
+ *  decides — Playwright's own isVisible() counts an opacity-0 element as
+ *  visible). */
+const offered = (selector) => page.evaluate((css) => {
+  const button = document.querySelector(css).parentElement.querySelector('.dlux-reveal__toggle');
+  return Number(getComputedStyle(button).opacity) > 0;
+}, selector);
 
 before(async () => {
   server = http.createServer((req, res) => {
@@ -70,7 +84,7 @@ after(async () => {
 describe('password reveal', () => {
   test('a password field gains a toggle, and a text field does not', async () => {
     assert.equal(await page.locator('#password').evaluate((el) => el.parentElement.className), 'dlux-reveal');
-    assert.equal(await page.locator('.dlux-reveal__toggle').count(), 1);
+    assert.equal(await page.locator('.dlux-reveal__toggle').count(), 2, 'one per password field');
     assert.equal(
       await page.locator('input[name="username"]').evaluate((el) => el.parentElement.tagName),
       'FORM',
@@ -78,8 +92,52 @@ describe('password reveal', () => {
     );
   });
 
+  test('it is offered only while a field with something in it is in use', async () => {
+    const toggle = page.locator('#password ~ .dlux-reveal__toggle');
+    assert.equal(await offered('#password'), false, 'a form at rest is not a form of eyes');
+
+    await page.locator('#empty').focus();
+    assert.equal(await offered('#empty'), false, 'an empty field has nothing to reveal');
+    await page.locator('#empty').fill('typed');
+    assert.equal(await offered('#empty'), true);
+
+    await page.locator('#password').focus();
+    assert.equal(await offered('#password'), true);
+    await page.locator('#empty').fill('');
+    await page.locator('#password').blur();
+    assert.equal(await offered('#password'), false);
+  });
+
+  test('a revealed field keeps its button after focus leaves it', async () => {
+    // Otherwise the only way back to dots is to focus the field again.
+    const toggle = page.locator('#password ~ .dlux-reveal__toggle');
+    await page.locator('#password').focus();
+    await toggle.click();
+    await page.locator('input[name="username"]').focus();
+    assert.equal(await offered('#password'), true);
+    await toggle.click();
+    assert.equal(await page.locator('#password').getAttribute('type'), 'password');
+    await page.locator('input[name="username"]').focus();
+    assert.equal(await offered('#password'), false);
+  });
+
+  test('it sits on the field\'s centre, not the wrapper\'s', async () => {
+    // The input's margins are inside the wrapper, so centring on the wrapper
+    // dropped the eye by half the difference — 5px low on the login page.
+    await page.locator('#password').focus();
+    const offset = await page.evaluate(() => {
+      const input = document.getElementById('password');
+      const button = input.parentElement.querySelector('.dlux-reveal__toggle');
+      const a = input.getBoundingClientRect();
+      const b = button.getBoundingClientRect();
+      return Math.abs(((a.top + a.bottom) / 2) - ((b.top + b.bottom) / 2));
+    });
+    assert.ok(offset < 1, `the eye is ${offset}px off the field's centre`);
+  });
+
   test('clicking it shows the password and says so', async () => {
     const toggle = page.locator('#password ~ .dlux-reveal__toggle');
+    await page.locator('#password').focus();
     assert.equal(await page.locator('#password').getAttribute('type'), 'password');
     assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
     assert.equal(await toggle.getAttribute('aria-label'), 'Show password');
@@ -96,9 +154,13 @@ describe('password reveal', () => {
   });
 
   test('the value and the caret survive the switch', async () => {
+    await page.locator('#password').focus();
     await page.locator('#password').click();
     await page.locator('#password').evaluate((el) => el.setSelectionRange(2, 2));
     await page.locator('#password ~ .dlux-reveal__toggle').click();
+    // Chrome puts the caret back at 0 a frame after the type change; the helper
+    // re-applies it there, so read after that frame and not before.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const after = await page.locator('#password').evaluate((el) => ({
       value: el.value, start: el.selectionStart, focused: document.activeElement === el,
     }));
@@ -125,6 +187,7 @@ describe('password reveal', () => {
 
   test('submitting hides a revealed password again', async () => {
     const toggle = page.locator('#password ~ .dlux-reveal__toggle');
+    await page.locator('#password').focus();
     await toggle.click();
     assert.equal(await page.locator('#password').getAttribute('type'), 'text');
     await page.evaluate(() => {

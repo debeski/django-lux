@@ -237,7 +237,7 @@
                         </details>
                     </section>
                     <section class="dlux-admin-tile dlux-admin-tile--update">
-                        <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_update_title|default:'Application updates' }}</h5>
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_update_title|default:'Updates and maintenance' }}</h5>
                             <div class="dlux-updater"
                                  data-dlux-updater
                                  data-state-url="{% url 'dlux_update_state' %}"
@@ -334,7 +334,7 @@
                                          data-label-latest="{{ DLUX_STRINGS.dlux_ops_latest|default:'up to date' }}"
                                          data-label-unknown="{{ DLUX_STRINGS.dlux_ops_unknown|default:'could not check' }}"
                                          data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
-                                         data-label-agent-update="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}">
+                                         data-label-agent-update="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update the Composer agent' }}">
                                         <div class="dlux-upd-row">
                                             <span class="dlux-upd-lead">
                                                 {% if can_manage_dlux_updates %}
@@ -358,15 +358,15 @@
                                             <span class="dlux-upd-lead">
                                                 {% if can_manage_dlux_updates %}
                                                 <button type="button" class="dlux-upd-ic" data-dlux-ops-check="agent-check"
-                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the resident Composer' }}"
-                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the resident Composer' }}"><i class="bi bi-arrow-clockwise" data-dlux-ops-glyph="agent-check"></i></button>
+                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the Composer agent' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_check|default:'Check the Composer agent' }}"><i class="bi bi-arrow-clockwise" data-dlux-ops-glyph="agent-check"></i></button>
                                                 <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-ops-open="agent-update" hidden
-                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}"
-                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update resident Composer' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
+                                                        title="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update the Composer agent' }}"
+                                                        aria-label="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update the Composer agent' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
                                                 {% else %}
                                                 <i class="bi bi-hdd-stack dlux-upd-ic dlux-upd-ic--static"></i>
                                                 {% endif %}
-                                                <span class="dlux-upd-name">{{ DLUX_STRINGS.dlux_ops_composer|default:'Resident Composer' }}</span>
+                                                <span class="dlux-upd-name">{{ DLUX_STRINGS.dlux_ops_composer|default:'Composer agent' }}</span>
                                                 <span class="dlux-upd-ver" data-dlux-ops-composer-version></span>
                                                 <span class="dlux-upd-target" data-dlux-ops-composer-target hidden></span>
                                             </span>
@@ -789,7 +789,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small text-muted" data-dlux-ops-modal-intro>{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the resident Composer — and offers the repairs it finds.' }}</p>
+                    <p class="small text-muted" data-dlux-ops-modal-intro>{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the Composer agent — and offers the repairs it finds.' }}</p>
                     <ul class="dlux-ops-findings list-unstyled mb-0" data-dlux-ops-findings></ul>
                     <div class="dlux-ops-repairs mt-3" data-dlux-ops-repairs hidden>
                         <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>

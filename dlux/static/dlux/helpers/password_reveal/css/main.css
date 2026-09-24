@@ -19,7 +19,12 @@
 .dlux-reveal__toggle {
     position: absolute;
     inset-inline-end: 0.5rem;
-    top: 50%;
+    /* The input's own margins sit INSIDE this wrapper, so the wrapper's middle
+       is not the field's middle: on the login page, where the field carries
+       5px above and 15px below, centring on the wrapper dropped the eye 5px
+       low. The helper measures the input and publishes its centre here; 50% is
+       the fallback for the moment before it does. */
+    top: var(--dlux-reveal-center, 50%);
     transform: translateY(-50%);
     display: flex;
     align-items: center;
@@ -29,6 +34,16 @@
     color: var(--bs-secondary-color, #6c757d);
     line-height: 1;
     cursor: pointer;
+    /* Shown only while the field is being used — see the helper. A field with
+       nothing in it has nothing to reveal, and a form full of eyes is noise. */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease-in-out;
+}
+
+.dlux-reveal--active > .dlux-reveal__toggle {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .dlux-reveal__toggle:hover,
