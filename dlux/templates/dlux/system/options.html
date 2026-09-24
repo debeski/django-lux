@@ -120,6 +120,118 @@
                             </div>
                             {% endif %}
                         </div>
+                        <details class="dlux-admin-details">
+                            <summary class="dlux-admin-details-toggle">
+                                <span>{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</span>
+                                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            </summary>
+                            <div class="table-responsive dlux-options-system-info-table">
+                                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <th>{{ DLUX_STRINGS.os_info }}:</th>
+                        <td class="text-end">{{ os_info }}</td>
+                    </tr>
+                    {% if decrypter_version %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.decrypter_version }}:</th>
+                        <td class="text-end font-monospace">{{ decrypter_version }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if drf_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.drf_version }}:</th>
+                        <td class="text-end font-monospace">{{ drf_service.version }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if api_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.api_status }}:</th>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="badge {{ api_service.badge_class }}" title="{{ api_service.note|default:'' }}">{{ api_service.label }}</span>
+                            </div>
+                            {% if api_service.url %}
+                            <div class="small mt-1 text-break">
+                                <a href="{{ api_service.url }}" target="_blank" rel="noopener" class="font-monospace text-decoration-none">{{ api_service.url }}</a>
+                            </div>
+                            {% endif %}
+                            {% if api_service.note %}
+                            <div class="small text-muted mt-1">{{ api_service.note }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if db_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.database }}:</th>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="font-monospace">{{ db_service.detail }}</span>
+                                <span class="badge {{ db_service.badge_class }}" title="{{ db_service.note|default:'' }}">{{ db_service.label }}</span>
+                            </div>
+                            {% if db_service.note %}
+                            <div class="small text-muted mt-1">{{ db_service.note }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if cache_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.cache }}:</th>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="font-monospace">{{ cache_service.detail }}</span>
+                                <span class="badge {{ cache_service.badge_class }}" title="{{ cache_service.note|default:'' }}">{{ cache_service.label }}</span>
+                            </div>
+                            {% if cache_service.note %}
+                            <div class="small text-muted mt-1">{{ cache_service.note }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if email_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.email_label|default:"Email" }}:</th>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
+                                 data-dlux-email-health
+                                 data-check-url="{% url 'email_health_check' %}"
+                                 data-error-label="{{ DLUX_STRINGS.service_email_check_failed|default:'Check failed' }}">
+                                {% if email_service.detail %}
+                                <span class="font-monospace" data-email-detail>{{ email_service.detail }}</span>
+                                {% endif %}
+                                <span class="badge {{ email_service.badge_class }}" data-email-badge title="{{ email_service.note|default:'' }}">{{ email_service.label }}</span>
+                                <button type="button" class="dlux-upd-ic" data-email-recheck
+                                        title="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"
+                                        aria-label="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"><i class="bi bi-arrow-clockwise"></i></button>
+                            </div>
+                            <div class="small text-muted mt-1" data-email-note>{{ email_service.note }}</div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if celery_service %}
+                    <tr>
+                        <th>{{ DLUX_STRINGS.tasks }}:</th>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
+                                 data-dlux-celery-health
+                                 data-check-url="{% url 'celery_health_check' %}"
+                                 data-error-label="{{ DLUX_STRINGS.service_celery_check_failed|default:'Check failed' }}">
+                                {% if celery_service.detail %}
+                                <span class="font-monospace" data-celery-detail>{{ celery_service.detail }}</span>
+                                {% endif %}
+                                <span class="badge {{ celery_service.badge_class }}" data-celery-badge title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
+                                <button type="button" class="dlux-upd-ic" data-celery-recheck
+                                        title="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"
+                                        aria-label="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"><i class="bi bi-arrow-clockwise"></i></button>
+                            </div>
+                            <div class="small text-muted mt-1" data-celery-note>{{ celery_service.note }}</div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                                </table>
+                            </div>
+                        </details>
                     </section>
                     <section class="dlux-admin-tile dlux-admin-tile--update">
                         <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_update_title|default:'Updates and maintenance' }}</h5>
@@ -281,157 +393,39 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            <details class="dlux-admin-details" data-dlux-update-settings>
+                                <summary class="dlux-admin-details-toggle">
+                                    <span>{{ DLUX_STRINGS.dlux_update_settings|default:'Update settings' }}</span>
+                                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                                </summary>
+                                <div class="dlux-upd-channel mt-2" data-dlux-channel-wrap hidden>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="dlux-update-beta-channel" data-dlux-channel-toggle
+                                               {% if not can_manage_dlux_updates %}disabled{% endif %}>
+                                        <label class="form-check-label" for="dlux-update-beta-channel">{{ DLUX_STRINGS.dlux_update_channel_beta|default:'Include beta releases' }}</label>
+                                    </div>
+                                    <div class="dlux-upd-channel-note small text-muted" data-dlux-channel-note></div>
+                                    <div class="dlux-upd-interval mt-2">
+                                        <label class="small mb-1 d-block" for="dlux-update-check-interval">
+                                            {{ DLUX_STRINGS.dlux_update_check_interval|default:'Check for updates every' }}
+                                            <output class="dlux-upd-interval-value fw-semibold" for="dlux-update-check-interval" data-dlux-interval-value></output>
+                                        </label>
+                                        <input type="range" class="form-range dlux-upd-interval-range" id="dlux-update-check-interval"
+                                               min="0" max="0" step="1" list="dlux-update-check-interval-ticks"
+                                               data-dlux-interval-range
+                                               {% if not can_manage_dlux_updates %}disabled{% endif %}>
+                                        <datalist id="dlux-update-check-interval-ticks" data-dlux-interval-ticks></datalist>
+                                    </div>
+                                </div>
+                                <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
+                                    <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>
+                                    <span class="dlux-upd-skipped-list" data-dlux-skipped-list></span>
+                                </div>
+                            </details>
                     </section>
                     {% endif %}
                 </div>
-                {% if show_system_diagnostics %}
-                <details class="dlux-admin-advanced" data-dlux-update-settings>
-                    <summary class="dlux-admin-advanced-toggle">
-                        <span>{{ DLUX_STRINGS.admin_panel_advanced|default:'Details and settings' }}</span>
-                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                    </summary>
-                    <div class="dlux-admin-advanced-body">
-                        <div class="dlux-admin-advanced-col">
-                            <h6 class="dlux-admin-tile-subtitle">{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</h6>
-                            <div class="table-responsive dlux-options-system-info-table">
-                                <table class="table table-sm table-borderless mb-0">
-                    <tr>
-                        <th>{{ DLUX_STRINGS.os_info }}:</th>
-                        <td class="text-end">{{ os_info }}</td>
-                    </tr>
-                    {% if decrypter_version %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.decrypter_version }}:</th>
-                        <td class="text-end font-monospace">{{ decrypter_version }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if drf_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.drf_version }}:</th>
-                        <td class="text-end font-monospace">{{ drf_service.version }}</td>
-                    </tr>
-                    {% endif %}
-                    {% if api_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.api_status }}:</th>
-                        <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-                                <span class="badge {{ api_service.badge_class }}" title="{{ api_service.note|default:'' }}">{{ api_service.label }}</span>
-                            </div>
-                            {% if api_service.url %}
-                            <div class="small mt-1 text-break">
-                                <a href="{{ api_service.url }}" target="_blank" rel="noopener" class="font-monospace text-decoration-none">{{ api_service.url }}</a>
-                            </div>
-                            {% endif %}
-                            {% if api_service.note %}
-                            <div class="small text-muted mt-1">{{ api_service.note }}</div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% if db_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.database }}:</th>
-                        <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-                                <span class="font-monospace">{{ db_service.detail }}</span>
-                                <span class="badge {{ db_service.badge_class }}" title="{{ db_service.note|default:'' }}">{{ db_service.label }}</span>
-                            </div>
-                            {% if db_service.note %}
-                            <div class="small text-muted mt-1">{{ db_service.note }}</div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% if cache_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.cache }}:</th>
-                        <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-                                <span class="font-monospace">{{ cache_service.detail }}</span>
-                                <span class="badge {{ cache_service.badge_class }}" title="{{ cache_service.note|default:'' }}">{{ cache_service.label }}</span>
-                            </div>
-                            {% if cache_service.note %}
-                            <div class="small text-muted mt-1">{{ cache_service.note }}</div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% if email_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.email_label|default:"Email" }}:</th>
-                        <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
-                                 data-dlux-email-health
-                                 data-check-url="{% url 'email_health_check' %}"
-                                 data-error-label="{{ DLUX_STRINGS.service_email_check_failed|default:'Check failed' }}">
-                                {% if email_service.detail %}
-                                <span class="font-monospace" data-email-detail>{{ email_service.detail }}</span>
-                                {% endif %}
-                                <span class="badge {{ email_service.badge_class }}" data-email-badge title="{{ email_service.note|default:'' }}">{{ email_service.label }}</span>
-                                <button type="button" class="dlux-upd-ic" data-email-recheck
-                                        title="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"
-                                        aria-label="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"><i class="bi bi-arrow-clockwise"></i></button>
-                            </div>
-                            <div class="small text-muted mt-1" data-email-note>{{ email_service.note }}</div>
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% if celery_service %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.tasks }}:</th>
-                        <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
-                                 data-dlux-celery-health
-                                 data-check-url="{% url 'celery_health_check' %}"
-                                 data-error-label="{{ DLUX_STRINGS.service_celery_check_failed|default:'Check failed' }}">
-                                {% if celery_service.detail %}
-                                <span class="font-monospace" data-celery-detail>{{ celery_service.detail }}</span>
-                                {% endif %}
-                                <span class="badge {{ celery_service.badge_class }}" data-celery-badge title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
-                                <button type="button" class="dlux-upd-ic" data-celery-recheck
-                                        title="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"
-                                        aria-label="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"><i class="bi bi-arrow-clockwise"></i></button>
-                            </div>
-                            <div class="small text-muted mt-1" data-celery-note>{{ celery_service.note }}</div>
-                        </td>
-                    </tr>
-                    {% endif %}
-                                </table>
-                            </div>
-                        </div>
-                        {% if dlux_update_state %}
-                        <div class="dlux-admin-advanced-col">
-                            <h6 class="dlux-admin-tile-subtitle">{{ DLUX_STRINGS.dlux_update_settings|default:'Update settings' }}</h6>
-                            <div class="dlux-upd-channel mt-2" data-dlux-channel-wrap hidden>
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch"
-                                           id="dlux-update-beta-channel" data-dlux-channel-toggle
-                                           {% if not can_manage_dlux_updates %}disabled{% endif %}>
-                                    <label class="form-check-label" for="dlux-update-beta-channel">{{ DLUX_STRINGS.dlux_update_channel_beta|default:'Include beta releases' }}</label>
-                                </div>
-                                <div class="dlux-upd-channel-note small text-muted" data-dlux-channel-note></div>
-                                <div class="dlux-upd-interval mt-2">
-                                    <label class="small mb-1 d-block" for="dlux-update-check-interval">
-                                        {{ DLUX_STRINGS.dlux_update_check_interval|default:'Check for updates every' }}
-                                        <output class="dlux-upd-interval-value fw-semibold" for="dlux-update-check-interval" data-dlux-interval-value></output>
-                                    </label>
-                                    <input type="range" class="form-range dlux-upd-interval-range" id="dlux-update-check-interval"
-                                           min="0" max="0" step="1" list="dlux-update-check-interval-ticks"
-                                           data-dlux-interval-range
-                                           {% if not can_manage_dlux_updates %}disabled{% endif %}>
-                                    <datalist id="dlux-update-check-interval-ticks" data-dlux-interval-ticks></datalist>
-                                </div>
-                            </div>
-                            <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
-                                <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>
-                                <span class="dlux-upd-skipped-list" data-dlux-skipped-list></span>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </details>
-                {% endif %}
                 {% if user.is_superuser %}
                 <div class="dlux-admin-panel-settings">
                     <div class="dlux-admin-settings-head">

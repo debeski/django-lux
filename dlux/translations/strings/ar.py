@@ -1096,7 +1096,6 @@ STRINGS = {
     'data_reset_trashed': '{count} محذوفة حذفاً ناعماً',
     'data_reset_success_permanent': 'اكتملت إعادة التعيين: تم حذف {total} صف نهائياً.',
     'admin_panel_more_details': 'تفاصيل إضافية عن النظام',
-    'admin_panel_advanced': 'التفاصيل والإعدادات',
     'server_time': 'وقت الخادم (Backend)',
     'memory': 'الذاكرة (Memory)',
     'storage': 'التخزين (Storage)',

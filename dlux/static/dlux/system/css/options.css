@@ -1051,44 +1051,9 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
    forced. Backup used to be a third tile here for one date and one button; it
    is a row in the updates card now, and that card took the width. */
 .dlux-admin-tile--status { flex: 2 1 320px; }
-.dlux-admin-tile--update { flex: 2 1 340px; }
+.dlux-admin-tile--update { flex: 2 1 360px; }
 
-/* System details and the update settings share one disclosure under both
-   cards. Per-card would have been tidier to write, but the cards stretch to a
-   common height: expanding one would have left the other half empty. `auto-fit`
-   rather than a media query, because this is a panel whose width is the row's,
-   not the viewport's. */
-.dlux-admin-advanced {
-    margin-top: 0.75rem;
-    border-top: 1px solid rgba(var(--primal-rgb), 0.12);
-}
 
-.dlux-admin-advanced-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.5rem;
-    font-size: 0.78rem;
-    color: color-mix(in srgb, var(--title) 65%, transparent);
-    cursor: pointer;
-    list-style: none;
-}
-
-.dlux-admin-advanced-toggle::-webkit-details-marker { display: none; }
-.dlux-admin-advanced-toggle:hover { color: var(--title); }
-.dlux-admin-advanced-toggle .bi { transition: transform 0.15s ease-in-out; }
-.dlux-admin-advanced[open] .dlux-admin-advanced-toggle .bi { transform: rotate(180deg); }
-
-.dlux-admin-advanced-body {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-    gap: 0.75rem 1.5rem;
-    align-items: start;
-    padding: 0.25rem 0 0.75rem;
-}
-
-.dlux-admin-advanced-col { min-width: 0; }
 
 .dlux-admin-tile-title {
     display: flex;
@@ -1148,10 +1113,18 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     padding-top: 0.35rem;
 }
 
+/* Each card keeps its own disclosure, at its own foot: the settings that govern
+   the update rows belong to the update card, the way the details table has
+   always belonged to System info. One arrow, at the end of the card. */
 .dlux-admin-details > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
     list-style: none;
     cursor: pointer;
-    padding: 0.2rem 0;
+    padding: 0.35rem 0 0.2rem;
+    border-top: 1px solid rgba(var(--primal-rgb), 0.12);
     font-size: 0.8rem;
     font-weight: 650;
     color: var(--primal);
@@ -1159,9 +1132,9 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 
 .dlux-admin-details > summary::-webkit-details-marker { display: none; }
 
-.dlux-admin-details > summary::before { content: "\25B8\00A0"; }
+.dlux-admin-details > summary .bi { transition: transform 0.15s ease-in-out; }
 
-.dlux-admin-details[open] > summary::before { content: "\25BE\00A0"; }
+.dlux-admin-details[open] > summary .bi { transform: rotate(180deg); }
 
 .dlux-admin-details[open] > summary { margin-bottom: 0.35rem; }
 

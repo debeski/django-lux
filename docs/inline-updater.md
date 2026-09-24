@@ -169,10 +169,10 @@ all its own card ever showed. Each row's icons carry that component's own last
 check in their tooltip; there is no shared "last check" line, because with four
 components on one card it answered for none of them.
 
-The release channel and the check interval are not on the card at all. They live
-in the **Details and settings** disclosure under the whole admin panel, with the
-system details table — they are set once and then left alone, and a slider
-beside the rows is easy to nudge by accident.
+The release channel and the check interval are not among the rows. They are set
+once and then left alone, and a slider beside the rows is easy to nudge by
+accident, so they sit behind an **Update settings** disclosure at the foot of
+the card — the same control System info uses for its details table.
 
 DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:

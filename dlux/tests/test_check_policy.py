@@ -102,10 +102,11 @@ class IntervalViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(DluxUpdateState.load().check_interval_minutes, 15)
 
-    def test_the_channel_and_interval_live_behind_the_panel_disclosure(self):
+    def test_the_channel_and_interval_live_behind_the_cards_own_disclosure(self):
         # Both are set once and then left alone, and a slider beside the update
-        # rows is easy to nudge by accident. They belong in the panel's own
-        # "Details and settings" disclosure, with the system details table.
+        # rows is easy to nudge by accident — so they sit behind a disclosure at
+        # the foot of the card they belong to, the way System info has always
+        # kept its details table.
         client = Client()
         client.force_login(self.superuser)
         html = client.get(reverse("options_view")).content.decode()

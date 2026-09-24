@@ -1101,7 +1101,6 @@ STRINGS = {
     'data_reset_trashed': '{count} already soft-deleted',
     'data_reset_success_permanent': 'Data reset complete: {total} row(s) permanently deleted.',
     'admin_panel_more_details': 'More system details',
-    'admin_panel_advanced': 'Details and settings',
     'server_time': 'Server Time (Backend)',
     'memory': 'Memory',
     'storage': 'Storage',
