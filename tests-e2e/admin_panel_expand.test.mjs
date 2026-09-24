@@ -27,14 +27,14 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8">
 <div class="dlux-admin-panel-top">
   <section class="dlux-admin-tile dlux-admin-tile--status">
     <h5 class="dlux-admin-tile-title">System info</h5>
-    <div class="dlux-admin-more" id="dlux-admin-more-system" data-dlux-more hidden>
+    <div class="dlux-admin-more" id="dlux-admin-more-system" data-dlux-more>
       <table class="dlux-options-system-info-table"><tr><th>OS:</th><td>Linux</td></tr></table>
     </div>
   </section>
   <section class="dlux-admin-tile dlux-admin-tile--update">
     <h5 class="dlux-admin-tile-title">Updates and maintenance</h5>
     <div class="dlux-updater-rows"><div class="dlux-upd-row"><span class="dlux-upd-name">DjangoLux</span></div></div>
-    <div class="dlux-admin-more" id="dlux-admin-more-updates" data-dlux-update-settings data-dlux-more hidden>
+    <div class="dlux-admin-more" id="dlux-admin-more-updates" data-dlux-update-settings data-dlux-more>
       <input type="range" id="dlux-update-check-interval" data-dlux-interval-range>
     </div>
     <button type="button" class="dlux-admin-expand" data-dlux-expand
@@ -51,17 +51,20 @@ let page;
 
 // `is-open` is what turns the chevron over and what drives the reveal; the
 // computed transform is read mid-animation and would report a closing arrow as
-// still rotated, and `hidden` comes back only once the collapse has finished.
+// still rotated. `visibility` is what keeps a closed panel out of the tab order
+// and off a screen reader, and it flips only once the fold has finished.
 const state = () => page.evaluate(() => ({
   expanded: document.querySelector('[data-dlux-expand]').getAttribute('aria-expanded'),
   open: Array.from(document.querySelectorAll('[data-dlux-more]')).map((el) => el.classList.contains('is-open')),
-  hidden: Array.from(document.querySelectorAll('[data-dlux-more]')).map((el) => el.hidden),
+  visible: Array.from(document.querySelectorAll('[data-dlux-more]')).map(
+    (el) => getComputedStyle(el).visibility === 'visible'),
   rotated: document.querySelector('[data-dlux-expand]').classList.contains('is-open'),
 }));
 
-const settled = (hidden) => page.waitForFunction(
-  (want) => Array.from(document.querySelectorAll('[data-dlux-more]')).every((el) => el.hidden === want),
-  hidden,
+const settled = (visible) => page.waitForFunction(
+  (want) => Array.from(document.querySelectorAll('[data-dlux-more]')).every(
+    (el) => (getComputedStyle(el).visibility === 'visible') === want),
+  visible,
 );
 
 before(async () => {
@@ -103,19 +106,43 @@ describe('the admin panel arrow', () => {
 
   test('both halves start hidden', async () => {
     assert.deepEqual(await state(),
-      { expanded: 'false', open: [false, false], hidden: [true, true], rotated: false });
+      { expanded: 'false', open: [false, false], visible: [false, false], rotated: false });
   });
 
   test('one click opens both cards, a second closes both', async () => {
     await page.locator('[data-dlux-expand]').click();
-    await settled(false);
-    assert.deepEqual(await state(),
-      { expanded: 'true', open: [true, true], hidden: [false, false], rotated: true });
-
-    await page.locator('[data-dlux-expand]').click();
     await settled(true);
     assert.deepEqual(await state(),
-      { expanded: 'false', open: [false, false], hidden: [true, true], rotated: false });
+      { expanded: 'true', open: [true, true], visible: [true, true], rotated: true });
+
+    await page.locator('[data-dlux-expand]').click();
+    await settled(false);
+    assert.deepEqual(await state(),
+      { expanded: 'false', open: [false, false], visible: [false, false], rotated: false });
+  });
+
+  test('closing changes the card\'s height by interpolation alone', async () => {
+    // A flex gap survives a zero-height child, so taking the panel out of the
+    // layout at the end of the fold cost the card those pixels in one frame.
+    // That was the flicker; sampling the card itself is what would catch it.
+    const card = () => page.evaluate(() => Math.round(
+      document.querySelector('[data-dlux-expand]').closest('.dlux-admin-tile')
+        .getBoundingClientRect().height));
+
+    const closed = await card();
+    await page.locator('[data-dlux-expand]').click();
+    await settled(true);
+    await page.waitForTimeout(300);
+    const open = await card();
+    assert.ok(open > closed, 'opening should make the card taller');
+
+    await page.locator('[data-dlux-expand]').click();
+    await settled(false);
+    const landed = await card();
+    await page.waitForTimeout(150);
+    assert.equal(await card(), landed,
+      'the card must not lose height after the fold has finished');
+    assert.equal(landed, closed, 'and it must land exactly where it started');
   });
 
   test('it grows and shrinks rather than appearing', async () => {
@@ -126,7 +153,7 @@ describe('the admin panel arrow', () => {
     await page.locator('[data-dlux-expand]').click();
     await page.waitForTimeout(60);
     heights.push(await sample());
-    await settled(false);
+    await settled(true);
     await page.waitForTimeout(260);
     const full = await sample();
     assert.ok(heights[0] < full, `mid-open ${heights[0]}px should be short of ${full}px`);
@@ -136,7 +163,7 @@ describe('the admin panel arrow', () => {
     await page.waitForTimeout(60);
     const closing = await sample();
     assert.ok(closing < full && closing > 0, `mid-close ${closing}px should be shrinking, not gone`);
-    await settled(true);
+    await settled(false);
   });
 
   test('it sits at the card\'s end, on the side the language reads towards', async () => {
