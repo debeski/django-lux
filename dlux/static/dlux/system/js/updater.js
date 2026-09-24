@@ -48,8 +48,6 @@
     function initialize(root) {
         const active = root.querySelector('[data-dlux-update-active]');
         const latest = root.querySelector('[data-dlux-update-latest]');
-        const reason = root.querySelector('[data-dlux-update-reason]');
-        const checked = root.querySelector('[data-dlux-update-checked]');
         const checkButton = root.querySelector('[data-dlux-update-check]');
         const reviewButton = root.querySelector('[data-dlux-update-review]');
         const imageButton = root.querySelector('[data-dlux-update-image]');
@@ -59,9 +57,15 @@
         const imageNameEl = root.querySelector('[data-dlux-image-name]');
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
-        const imageCheckedEl = root.querySelector('[data-dlux-image-checked]');
         const checkGlyph = root.querySelector('[data-dlux-check-glyph]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
+        // Remember each icon's own wording before a time is appended to it, or
+        // every render would append another one.
+        [checkButton, reviewButton, imageOkEl, imageButton].forEach((element) => {
+            if (element && element.dataset.titleBase === undefined) {
+                element.dataset.titleBase = element.title || '';
+            }
+        });
         const modalElement = document.getElementById('dluxUpdateReviewModal');
         const modal = modalElement && window.bootstrap ? new window.bootstrap.Modal(modalElement) : null;
         const error = modalElement?.querySelector('[data-dlux-update-error]');
@@ -78,16 +82,21 @@
         const failedText = modalElement?.querySelector('[data-dlux-update-failed-text]');
         const skipButton = modalElement?.querySelector('[data-dlux-update-skip]');
         const modalRecheckButton = modalElement?.querySelector('[data-dlux-update-recheck]');
-        const skippedWrap = root.querySelector('[data-dlux-skipped-wrap]');
-        const skippedList = root.querySelector('[data-dlux-skipped-list]');
-        const channelWrap = root.querySelector('[data-dlux-channel-wrap]');
-        const channelToggle = root.querySelector('[data-dlux-channel-toggle]');
-        const channelNote = root.querySelector('[data-dlux-channel-note]');
+        // Release channel and check interval are set once and then left alone,
+        // and a slider next to the rows is easy to nudge by accident — they
+        // live in the panel's own disclosure, outside this card. Fall back to
+        // the card itself for a project template that still keeps them there.
+        const settings = document.querySelector('[data-dlux-update-settings]') || root;
+        const skippedWrap = settings.querySelector('[data-dlux-skipped-wrap]');
+        const skippedList = settings.querySelector('[data-dlux-skipped-list]');
+        const channelWrap = settings.querySelector('[data-dlux-channel-wrap]');
+        const channelToggle = settings.querySelector('[data-dlux-channel-toggle]');
+        const channelNote = settings.querySelector('[data-dlux-channel-note]');
         // A slider, not a list: the choices are one ordered scale, and the
         // labels are the only thing that makes 1440 read as "24 h".
-        const intervalRange = root.querySelector('[data-dlux-interval-range]');
-        const intervalValue = root.querySelector('[data-dlux-interval-value]');
-        const intervalTicks = root.querySelector('[data-dlux-interval-ticks]');
+        const intervalRange = settings.querySelector('[data-dlux-interval-range]');
+        const intervalValue = settings.querySelector('[data-dlux-interval-value]');
+        const intervalTicks = settings.querySelector('[data-dlux-interval-ticks]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -169,6 +178,15 @@
                 if (phase) return `Updating — ${phase}`;
             }
             return base;
+        }
+
+        /** `base — Last check: <time>`, or `base` when nothing has checked yet. */
+        function withCheckTime(element, base, iso) {
+            if (!element) return;
+            const label = root.dataset.labelLastCheck || 'Last check';
+            const title = iso ? `${base} — ${label}: ${fmtTime(iso)}` : base;
+            element.title = title;
+            if (element.hasAttribute('aria-label')) element.setAttribute('aria-label', title);
         }
 
         function fmtTime(iso) {
@@ -554,23 +572,11 @@
             renderInterval();
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
-            checked.textContent = state.last_checked_at
-                ? new Date(state.last_checked_at).toLocaleString()
-                : '—';
             const updateAvailable = hasWheelUpdate(state);
-            // Translated status line (replaces the old "in progress"/"completed"
-            // root status): a check error, else a clear update-ready / up-to-date
-            // message, else whatever reason the backend supplied.
-            if (reason) {
-                if (state.last_check_error) {
-                    reason.textContent = state.last_check_error;
-                } else if (updateAvailable) {
-                    reason.textContent = root.dataset.labelReady || state.latest_reason || '';
-                } else if (state.last_checked_at && (!state.latest_version || state.latest_version === state.active_version)) {
-                    reason.textContent = root.dataset.labelUptodate || state.latest_reason || '';
-                } else {
-                    reason.textContent = state.latest_reason || '';
-                }
+            // A check that FAILED still needs saying; "up to date" does not,
+            // now that the row's tick says it and its tooltip says when.
+            if (state.last_check_error && !run?.active) {
+                setRootStatus(state.last_check_error);
             }
             const imageAvailable = Boolean(state.image_update_available);
             const imgActive = imageActive(imageUpdate);
@@ -584,8 +590,12 @@
                 checkButton.hidden = updateAvailable;
                 checkButton.classList.toggle('is-ok', fwOk);
                 if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
+                withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
-            if (reviewButton) reviewButton.hidden = !updateAvailable;
+            if (reviewButton) {
+                reviewButton.hidden = !updateAvailable;
+                withCheckTime(reviewButton, reviewButton.dataset.titleBase, state.last_checked_at);
+            }
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
             // Application image row: version + short digest; green check when up
             // to date, down-arrow (start update) when a newer image is available.
@@ -600,7 +610,8 @@
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
-            if (imageCheckedEl) imageCheckedEl.textContent = fmtTime(img.checked_at);
+            withCheckTime(imageOkEl, imageOkEl?.dataset.titleBase, img.checked_at);
+            withCheckTime(imageButton, imageButton?.dataset.titleBase, img.checked_at);
             // When an update is available, show what it would update to: the target
             // version composer published, or the short remote digest as a fallback.
             if (imageTargetEl) {

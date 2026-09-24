@@ -117,6 +117,18 @@
             spinning = '';
         }
 
+        /** `base — Last check: <time>`, or `base` when nothing has checked yet. */
+        function withCheckTime(element, iso) {
+            if (!element) return;
+            if (element.dataset.titleBase === undefined) { element.dataset.titleBase = element.title || ''; }
+            const label = labels.labelLastCheck || 'Last check';
+            const title = iso
+                ? `${element.dataset.titleBase} — ${label}: ${new Date(iso).toLocaleString()}`
+                : element.dataset.titleBase;
+            element.title = title;
+            if (element.hasAttribute('aria-label')) { element.setAttribute('aria-label', title); }
+        }
+
         function setGlyph(row, ok) {
             const glyph = checkButtons.get(row)?.querySelector('[data-dlux-ops-glyph]');
             if (!glyph) { return; }
@@ -236,6 +248,8 @@
             }
             const button = actionButtons.get('agent');
             if (button) { button.hidden = !(available && canManage); }
+            withCheckTime(checkButtons.get('agent'), resident.checked_at);
+            withCheckTime(button, resident.checked_at);
             // A tick means "checked, and there is nothing to install". A version
             // nobody has checked yet gets the plain re-check arrow instead.
             setGlyph('agent', Boolean(resident.checked) && !available);
@@ -251,6 +265,10 @@
             const button = actionButtons.get('check');
             if (button) { button.hidden = !offered; }
             if (resultsButton) { resultsButton.hidden = !run; }
+            const checkedAt = run && run.completed_at;
+            withCheckTime(checkButtons.get('check'), checkedAt);
+            withCheckTime(button, checkedAt);
+            withCheckTime(resultsButton, checkedAt);
             const summary = (run && run.summary) || {};
             setGlyph('check', Boolean(summary.total) && !summary.fail && !summary.warn);
         }
@@ -262,7 +280,7 @@
                 const blocked = Boolean(operation && operation.available === false);
                 const busy = Boolean(state.run && state.run.active);
                 button.disabled = blocked || !canManage || (busy && spinning !== row);
-                button.title = blocked ? operation.unavailable_reason : (button.dataset.titleDefault || button.title);
+                if (blocked) { button.title = operation.unavailable_reason; }
             });
         }
 
@@ -316,7 +334,6 @@
         }
 
         checkButtons.forEach((button) => {
-            button.dataset.titleDefault = button.title;
             button.addEventListener('click', () => { run(button.dataset.dluxOpsCheck); });
         });
         actionButtons.forEach((button) => {

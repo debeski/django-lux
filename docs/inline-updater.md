@@ -165,9 +165,14 @@ there is something to install, and a tick when there is not. Findings open in a
 modal, so a check that reports fifteen of them does not resize the card.
 
 A fifth row links to Backup & restore with the date of the last backup, which is
-all its own card ever showed. The card reads in two columns: the rows on one
-side, and the settings that govern them — release channel, check interval, last
-check — on the other.
+all its own card ever showed. Each row's icons carry that component's own last
+check in their tooltip; there is no shared "last check" line, because with four
+components on one card it answered for none of them.
+
+The release channel and the check interval are not on the card at all. They live
+in the **Details and settings** disclosure under the whole admin panel, with the
+system details table — they are set once and then left alone, and a slider
+beside the rows is easy to nudge by accident.
 
 DjangoLux gains no Docker authority from it. The rows can request exactly the
 operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:

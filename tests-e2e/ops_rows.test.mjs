@@ -35,7 +35,8 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="csrf-
 <body>
 <div class="dlux-ops" data-dlux-ops data-state-url="/state.json" data-run-url="/run" data-can-manage="true"
      data-label-never="Not checked yet" data-label-clean="No problems found"
-     data-label-summary="{fail} problem(s), {warn} warning(s)" data-label-apply="Apply">
+     data-label-summary="{fail} problem(s), {warn} warning(s)" data-label-apply="Apply"
+     data-label-last-check="Last check">
   ${ROW('Deployment', 'check', 'check-fix-apply', '<span class="dlux-upd-ver" data-dlux-ops-summary></span>')}
   <button type="button" class="dlux-upd-ic" data-dlux-ops-results hidden><i class="bi bi-list-check"></i></button>
   ${ROW('Resident Composer', 'agent-check', 'agent-update',
@@ -216,6 +217,26 @@ describe('the resident Composer row', () => {
     await page.waitForFunction(() => window.__posted.length > 0);
     assert.deepEqual(await page.evaluate(() => window.__posted[0]),
       { operation: 'agent-update', current_password: 'pw-root-1234' });
+  });
+
+  test('each row carries its own last-check time in its tooltip', async () => {
+    // One shared "last check" line answered for three components and therefore
+    // for none of them; the time now belongs to the icon that fetched it.
+    const checked = { ...CLEAN_CHECK, completed_at: '2026-09-24T06:10:54Z' };
+    await load({ operations: OPERATIONS, run: checked, check: checked, has_preview: true, composer_version: '1.5.2',
+      resident: { version: '1.5.2', checked: true, update_available: false, checked_at: '2026-09-24T06:26:34Z' } });
+    const title = (selector) => page.locator(selector).getAttribute('title');
+    const deployment = await title('[data-dlux-ops-check="check"]');
+    const agent = await title('[data-dlux-ops-check="agent-check"]');
+    assert.match(deployment, /Last check/);
+    assert.notEqual(deployment, agent, 'two rows checked at different times say so');
+    assert.ok(deployment.startsWith('check Deployment'), `lost its own wording: ${deployment}`);
+  });
+
+  test('a row nobody has checked says only what it does', async () => {
+    await load({ operations: OPERATIONS, run: null, check: null, has_preview: false, composer_version: '1.5.2',
+      resident: { version: '1.5.2', checked: false, update_available: false } });
+    assert.equal(await page.locator('[data-dlux-ops-check="check"]').getAttribute('title'), 'check Deployment');
   });
 
   test('a running operation spins its own row and leaves the other alone', async () => {

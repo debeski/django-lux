@@ -1051,19 +1051,44 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
    forced. Backup used to be a third tile here for one date and one button; it
    is a row in the updates card now, and that card took the width. */
 .dlux-admin-tile--status { flex: 2 1 320px; }
-.dlux-admin-tile--update { flex: 3 1 420px; }
+.dlux-admin-tile--update { flex: 2 1 340px; }
 
-/* Rows on one side, the settings that govern them on the other. `auto-fit`
-   rather than a media query: this is a flex item whose width has nothing to do
-   with the viewport's, and one column is right as soon as it is narrow. */
-.dlux-updater-body {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 0.5rem 1.25rem;
-    align-items: start;
+/* System details and the update settings share one disclosure under both
+   cards. Per-card would have been tidier to write, but the cards stretch to a
+   common height: expanding one would have left the other half empty. `auto-fit`
+   rather than a media query, because this is a panel whose width is the row's,
+   not the viewport's. */
+.dlux-admin-advanced {
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(var(--primal-rgb), 0.12);
 }
 
-.dlux-updater-side { min-width: 0; }
+.dlux-admin-advanced-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--title) 65%, transparent);
+    cursor: pointer;
+    list-style: none;
+}
+
+.dlux-admin-advanced-toggle::-webkit-details-marker { display: none; }
+.dlux-admin-advanced-toggle:hover { color: var(--title); }
+.dlux-admin-advanced-toggle .bi { transition: transform 0.15s ease-in-out; }
+.dlux-admin-advanced[open] .dlux-admin-advanced-toggle .bi { transform: rotate(180deg); }
+
+.dlux-admin-advanced-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: 0.75rem 1.5rem;
+    align-items: start;
+    padding: 0.25rem 0 0.75rem;
+}
+
+.dlux-admin-advanced-col { min-width: 0; }
 
 .dlux-admin-tile-title {
     display: flex;
@@ -1536,6 +1561,16 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 }
 
 /* The interval scale: the tick labels are what make the numbers readable. */
+/* These lines are read, not scanned: a switch, the sentence explaining what it
+   does, then the interval. Stacked flush they run together. */
+.dlux-upd-channel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.dlux-upd-channel-note { line-height: 1.55; }
+
 .dlux-upd-interval-range { max-width: 22rem; }
 
 .dlux-upd-interval-value { margin-inline-start: 0.35rem; }

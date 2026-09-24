@@ -102,6 +102,19 @@ class IntervalViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(DluxUpdateState.load().check_interval_minutes, 15)
 
+    def test_the_channel_and_interval_live_behind_the_panel_disclosure(self):
+        # Both are set once and then left alone, and a slider beside the update
+        # rows is easy to nudge by accident. They belong in the panel's own
+        # "Details and settings" disclosure, with the system details table.
+        client = Client()
+        client.force_login(self.superuser)
+        html = client.get(reverse("options_view")).content.decode()
+        disclosure = html.index("data-dlux-update-settings")
+        for control in ("data-dlux-channel-toggle", "data-dlux-interval-range", "data-dlux-skipped-wrap"):
+            self.assertGreater(html.index(control), disclosure, f"{control} is outside the disclosure")
+        self.assertNotIn("dlux-upd-ribbon", html,
+                         "the shared last-check line answered for three components and so for none")
+
     def test_the_response_carries_everything_the_card_renders(self):
         # The card renders from whatever response it last received. When this one
         # answered with the bare updater state, moving the interval slider blanked
