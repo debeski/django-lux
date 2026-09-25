@@ -393,7 +393,7 @@ class TitlebarActionsOrderIsOneListTests(TestCase):
 
         from dlux.system.constants import TITLEBAR_ACTIONS_ORDER
 
-        js = _read(STATIC, 'setup', 'js', 'main.js')
+        js = _read(STATIC, 'setup', 'js', 'previews.js')
         block = js.split('const TITLEBAR_ACTIONS_DEFAULT_ORDER = [')[1].split(']')[0]
         js_order = re.findall(r"'([a-z_]+)'", block)
 
