@@ -7,6 +7,17 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.9.4
+
+The stable release of the 1.9.4 line, identical in scope to `1.9.4b1` below.
+Accepted on `testbed-dlux` before this tag: the unpublished wheel baked into the
+app image with a Composer 1.5.3b1 build (`--skip-config` reached web, celery and
+both residents with the system left unconfigured and `config.json` untouched; a
+plain deploy dropped the flag and imported), then the published beta installed
+inline from 1.9.3 on the beta channel — through the CLI and through the
+agent/executor handoff the Options card uses — with the site serving 1.9.4b1 and
+Composer's deployment check passing. Needs Composer 1.5.3b1 or later.
+
 ## v1.9.4b1
 
 - **Skip Automatic First-Launch Config**: `DLUX_SKIP_CONFIG_IMPORT=True` bypasses `config.json` loading in the shared bootstrap used by `migrator` and `/sys/setup/`, keeping the wizard available and the file intact. Composer 1.5.3 exposes this as `--skip-config`; manual imports and configured systems retain their existing behavior. The release requires Composer **1.5.3b1+**, since nothing older can set the variable: the floor names that release's first prerelease so the two betas can be tested against each other, which a floor of `1.5.3` would forbid.
