@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.9.5b1
 
 - **App-owned Settings Can Register Previews Without Patching Dlux**: `window.DluxSetupPreview.registerAppPreview(namespace, options)` activates the shared Preview action in a `register_app_settings()` modal, scoped by namespace and form selector. Apps can apply glass previews to an existing target or return DOM/text for a contained popup; missing forms and targets fail closed. The callback context includes shared helpers for body/element data, CSS properties, classes, text, URLs, visibility, and icons, and registration returns an unregister function. Preview behavior remains app-owned JavaScript rather than unsafe Python metadata, while values continue to persist only through the existing namespace-scoped Save path.
 - **System Settings Gain Intentional Preview Modes**: every setup step and focused Options editor now has a Preview action beside its existing navigation/save controls. Visual settings use either a glass mode that exposes real chrome behind the Options modal or a contained client-side popup for setup and off-page home/login targets; nonvisual steps show a disabled action with a clear reason. Both modes use unsaved form state without writing `SystemSettings`, retain the form across repeated cycles, restore on click/Escape/Q, and prevent an exit click from reaching page controls. Font defaults now preview without overriding personal preferences, and Navbar/Ribbon settings update real surfaces when present or fall back to the popup shell.

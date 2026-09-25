@@ -1,13 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.9.4",
+  "version": "1.9.5b1",
   "display": {
-    "summary": "Choose manual first-launch setup without removing config.json from the deployment.",
+    "summary": "System Settings gain an explicit Preview action: see unsaved changes on the real page chrome or in a contained popup before saving.",
     "highlights": [
-      "DLUX_SKIP_CONFIG_IMPORT disables automatic config.json import in migrator and setup-page requests.",
-      "Composer 1.5.3 adds --skip-config; manual setup and explicit imports remain available."
+      "Visual steps preview behind a transparent Options modal or in a popup; settings with nothing to show say so.",
+      "Previews use the unsaved form, never write settings, and restore on click, Escape or Q.",
+      "Apps register previews for their own settings with DluxSetupPreview.registerAppPreview()."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b1"
   },
   "requires": {
     "updater_schema": ">=1",
