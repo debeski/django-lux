@@ -15,8 +15,8 @@
 (function (root) {
     'use strict';
 
-    function initSetupThemePicker(root) {
-        root.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
+    function initSetupThemePicker(scope) {
+        scope.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
             if (picker.dataset.bound === 'true') return;
             picker.dataset.bound = 'true';
 
