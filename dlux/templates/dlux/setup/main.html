@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
 {% endblock %}
 
+{# The first-run setup pages have no global footer: nothing is configured yet. #}
+{% block footer %}{% endblock %}
+
 {% block layout %}
 <div class="dlux-setup-viewport">
     <div class="card border-0 shadow-sm dlux-setup-page">

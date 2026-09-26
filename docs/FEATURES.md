@@ -7,8 +7,9 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 ## Platform configuration
 
 - Database-backed `SystemSettings` layered over `DLUX_CONFIG`, with user-level preferences stored separately in `Profile.preferences`.
-- A seventeen-step initial setup wizard and focused System Settings editors for identity, localization, homepage, email, security, navigation, search, notifications, appearance, logging, profiles, backups, and optional features.
+- An eighteen-step initial setup wizard and focused System Settings editors whose previews are real pages rendered by the server with the unsaved form: the live page behind the Options modal follows every change (glass mode lifts the modal off it), and the login, home, profile and sample list/form/modal pages open in a popup in the draft's language. Nothing is saved until Save.
 - Canonical `homepage_config` and `search_config` stores, with v1.x compatibility mirrors for legacy integrations.
+- App-owned System Settings previews by page: `registerAppPreview(namespace, {path})` renders that page with the unsaved app form applied.
 - Theme/font registries, custom project themes/fonts, RTL/LTR rendering, and system/user override policy.
 - Portable setup import/export and `config.json` bootstrap for unconfigured generated projects.
 

@@ -3421,6 +3421,7 @@ class SystemSettingsForm(
                 'current_languages': current_languages,
                 'default_fonts': default_fonts_data,
                 'DLUX_FONTS': get_available_fonts(),
+                'allowed_fonts': set(self.initial.get('allowed_fonts') if isinstance(self.initial.get('allowed_fonts'), (list, tuple, set)) else []),
                 'DLUX_STRINGS': s,
             },
         )
@@ -3988,6 +3989,15 @@ class SystemSettingsForm(
         default_theme = cleaned.get('default_theme') or 'light'
         if allowed_themes and default_theme not in allowed_themes:
             self.add_error('default_theme', "Default theme must remain allowed.")
+        # A language's default font must be one the system allows; one that was
+        # just disallowed falls back to the first allowed font.
+        allowed_fonts = list(cleaned.get('allowed_fonts') or [])
+        default_fonts = cleaned.get('default_fonts')
+        if allowed_fonts and isinstance(default_fonts, dict):
+            cleaned['default_fonts'] = {
+                lang: slug if slug in allowed_fonts else allowed_fonts[0]
+                for lang, slug in default_fonts.items()
+            }
         languages = cleaned.get('languages') or normalize_language_catalog()
         default_language = cleaned.get('default_language') or 'en'
         if default_language not in languages:

@@ -24,7 +24,7 @@
                     <td>
                         <select class="form-select form-select-sm glass-input dlux-lang-font-select" data-lang="{{ lang_code }}">
                             {% for font in DLUX_FONTS %}
-                            <option value="{{ font.slug }}" {% if default_fonts|get_item:lang_code == font.slug %}selected{% endif %}>{{ font.label }}</option>
+                            <option value="{{ font.slug }}"{% if allowed_fonts and font.slug not in allowed_fonts %} hidden disabled{% endif %} {% if default_fonts|get_item:lang_code == font.slug %}selected{% endif %}>{{ font.label }}</option>
                             {% endfor %}
                         </select>
                     </td>

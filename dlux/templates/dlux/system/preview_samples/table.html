@@ -1,0 +1,9 @@
+{% extends "dlux/list_base.html" %}
+{% load dlux_tags django_tables2 %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+    {% dlux_ribbon %}
+    {% render_table table %}
+{% endblock %}

@@ -368,8 +368,10 @@ def get_current_language_code(request=None):
             pass
 
     if request:
+        # A settings preview renders in the draft's language, whoever is looking.
+        lang_code = getattr(request, 'dlux_preview_language', None) or None
         preview_lang = None
-        if hasattr(request, 'session'):
+        if not lang_code and hasattr(request, 'session'):
             preview_lang = request.session.get('lang')
             if request.session.get('dlux_force_language_preview') and preview_lang:
                 lang_code = preview_lang

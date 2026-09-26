@@ -152,6 +152,7 @@ def _dlux_client_urls():
         'sessionEnded': _reverse_or_empty('session_ended'),
         'lastEntry': _reverse_template_or_empty('api_get_last_entry', '__app__', '__model__'),
         'modelDetails': model_details,
+        'settingsPreviewDraft': _reverse_or_empty('system_settings_preview_draft'),
     }
     return {key: value for key, value in urls.items() if value}
 
@@ -438,8 +439,11 @@ def dlux_context(request):
     )
     
     current_lang = None
+    settings_preview_lang = getattr(request, 'dlux_preview_language', None)
+    if settings_preview_lang in languages:
+        current_lang = settings_preview_lang
     preview_lang = request.session.get('lang')
-    if request.session.get('dlux_force_language_preview') and preview_lang in languages:
+    if not current_lang and request.session.get('dlux_force_language_preview') and preview_lang in languages:
         current_lang = preview_lang
 
     setup_lang = request.session.get('dlux_initial_setup_language')

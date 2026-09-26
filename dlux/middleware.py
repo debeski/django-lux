@@ -57,6 +57,8 @@ class DluxMiddleware:
                 reverse('logout'),
                 reverse('session_ended'),
                 reverse('dlux_update_runtime_health'),
+                # The wizard previews its unsaved values before anything is configured.
+                reverse('system_settings_preview_draft'),
             })
             allowed_prefixes.extend([
                 reverse('system_setup'),
@@ -435,6 +437,20 @@ class DluxMiddleware:
         _thread_locals.request = request
         clear_font_cache()
 
+        from .system import preview as settings_preview
+
+        end_preview = settings_preview.begin(request)
+        if end_preview is not None:
+            _thread_locals.user = request.user
+            try:
+                return self._preview_response(request, settings_preview)
+            finally:
+                end_preview()
+                clear_font_cache()
+                for name in ('user', 'request'):
+                    if hasattr(_thread_locals, name):
+                        delattr(_thread_locals, name)
+
         try:
             self._activate_display_language(request)
             self._sync_auth_redirects()
@@ -488,6 +504,28 @@ class DluxMiddleware:
                 del _thread_locals.user
             if hasattr(_thread_locals, 'request'):
                 del _thread_locals.request
+
+    def _preview_response(self, request, settings_preview):
+        """Render a settings preview: the ordinary view, with nothing kept.
+
+        The steps that write — auth-redirect sync (process-global settings),
+        device tracking, presence cookies, the setup and password-change
+        redirects — are skipped, and the view runs in a transaction that is
+        always rolled back.
+        """
+        from django.db import transaction
+
+        self._activate_display_language(request)
+        with transaction.atomic():
+            try:
+                response = self.get_response(request)
+            finally:
+                transaction.set_rollback(True)
+        root_redirect = self._root_redirect(request, response)
+        if root_redirect is not None:
+            response = root_redirect
+        return settings_preview.finish(request, response)
+
 
 # Backward-compatibility alias so we don't break existing projects
 ActivityLogMiddleware = DluxMiddleware

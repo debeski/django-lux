@@ -556,7 +556,8 @@ class GeneralViewsTests(TestCase):
         self.assertNotIn('dlux-form-action-primary', payload['html'])
         self.assertNotIn('dlux-form-action-neutral', payload['html'])
         self.assertNotIn('dlux-btn-next', payload['html'])
-        self.assertNotIn('dlux-btn-prev', payload['html'])
+        # `dlux-btn-preview` (the Preview action) shares the prefix, so match the whole class.
+        self.assertNotRegex(payload['html'], r'dlux-btn-prev(?![\w-])')
         self.assertNotIn('dlux-system-settings-intro', payload['html'])
         self.assertNotIn('dlux-setup-step-badge', payload['html'])
 

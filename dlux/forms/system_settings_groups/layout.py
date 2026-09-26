@@ -162,6 +162,25 @@ class LayoutMixin:
             classes.append('d-none')
         return ' '.join(classes)
 
+    def _preview_eye(self, strings, target):
+        """A section's own preview: opens a real page rendered with the unsaved form."""
+        label = strings.get('preview_section_eye', 'Preview this section')
+        return (
+            "<button type='button' class='dlux-preview-eye' "
+            f"data-dlux-preview-target='{target}' aria-label=\"{label}\" title=\"{label}\">"
+            "<i class='bi bi-eye' aria-hidden='true'></i></button>"
+        )
+
+    def _preview_button(self, strings):
+        label = strings.get('btn_preview', 'Preview')
+        unavailable = strings.get('preview_unavailable', 'Preview is not available for this step.')
+        return (
+            "<button type='button' class='btn btn-outline-primary rounded-pill px-4 "
+            "dlux-btn-preview' data-dlux-system-settings-preview "
+            f"data-preview-unavailable-label=\"{unavailable}\" "
+            f"aria-label=\"{label}\"><i class='bi bi-eye me-1' aria-hidden='true'></i>{label}</button>"
+        )
+
     def _build_layout(self, *, s, step_1_fields, email_password_field_class, field_name):
         """The crispy Layout for the settings wizard.
 
@@ -456,7 +475,7 @@ class LayoutMixin:
                         build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                         HTML(self.language_fonts_editor_html),
                         Field('default_fonts'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('edges_settings_title', 'Surfaces & Edges')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('edges_settings_title', 'Surfaces & Edges')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
                         Row(
                             Div(Field('table_edges'), css_class='col-12 col-lg-6'),
                             Div(Field('card_edges'), css_class='col-12 col-lg-6'),
@@ -648,7 +667,7 @@ class LayoutMixin:
                     ),
                     Div(
                         self._step_badge(s, 'layout', 'Layout'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables and Cards')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('tables_settings_title', 'Tables and Cards')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'table_accent_edges', css_class='col-12 col-lg-6'),
                             build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
@@ -667,12 +686,12 @@ class LayoutMixin:
                             Div(Field('row_actions_style'), css_class='col'),
                             css_class='mb-3'
                         ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('forms_settings_title', 'Forms')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('forms_settings_title', 'Forms')}</span>{self._preview_eye(s, 'sample_form')}</h6>"),
                         Row(
                             Div(Field('default_form_density'), css_class='col'),
                             css_class='mb-3'
                         ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('modal_settings_title', 'Modals')}</span>{self._preview_eye(s, 'sample_modal')}</h6>"),
                         Row(
                             Div(Field('default_modal_size'), css_class='col'),
                             css_class='mb-3'
@@ -951,6 +970,7 @@ class LayoutMixin:
                     FormActions(
                         HTML(
                             f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
+                            f"{self._preview_button(s)}"
                             f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"
                             f"{s.get('btn_save', 'Save')}</button>"
                             f"</div>"
@@ -960,6 +980,7 @@ class LayoutMixin:
                             f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
                             f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 dlux-btn-prev'>"
                             f"{s.get('btn_prev', 'Previous')}</button>"
+                            f"{self._preview_button(s)}"
                             f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 dlux-btn-next'>"
                             f"{s.get('btn_next', 'Next')}</button>"
                             f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"

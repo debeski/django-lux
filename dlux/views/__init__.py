@@ -18,6 +18,11 @@ from .options import (
     system_setup_view,
 )
 from .search import global_search_view
+from .settings_preview import (  # noqa: F401
+    system_settings_preview_draft_view,
+    system_settings_preview_sample_modal_view,
+    system_settings_preview_sample_view,
+)
 from .scanlink import (
     scanlink_download,
     scanlink_release_upload,

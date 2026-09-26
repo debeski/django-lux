@@ -9,27 +9,6 @@
         }
     }
 
-    // Mirrors TITLEBAR_ACTIONS_ORDER in dlux/system/constants.py. A key missing
-    // here is not merely unordered: normalizeTitlebarActionsOrder drops it, and
-    // writeTitlebarActionsOrder then saves the stripped list — which is how the
-    // theme cycle disappeared from the titlebar entirely after a reorder.
-    const TITLEBAR_ACTIONS_DEFAULT_ORDER = [
-        'search',
-        'theme',
-        'language',
-        'notifications',
-        'home',
-        'profile',
-        'help',
-        'users',
-        'activity',
-        'reports',
-        'settings',
-        'auth',
-    ];
-
-    const TITLEBAR_ACTIONS_KNOWN = new Set(TITLEBAR_ACTIONS_DEFAULT_ORDER);
-
     // Pure builder/config transforms live in setup/js/builder_model.js so they
     // can be unit tested without a DOM. Destructured here so every call site in
     // this file reads exactly as it did when they were local declarations.
@@ -75,20 +54,12 @@
         initEmailDeliveryOptions,
         initLogBuilder,
         initProfileBuilder,
-        applyBrandingFilePreviews,
-        applyFooterPreview,
-        applyLayoutBodyPreview,
-        applyNotificationPreview,
         applySetupFormStateValues,
-        applyTableDensityPreview,
         getSetupStateKey,
         persistSetupFormState,
-        readBooleanField,
         readSetupWizardCurrentStep,
-        readTrimmedValue,
         rememberSetupWizardStep,
         resolveSetupStateSurface,
-        setPreviewVisibility,
         applyTranslationOverridesToMatrix,
         createLanguageRow,
         createSystemNameRow,
@@ -96,13 +67,11 @@
         ensureTranslationLanguageColumn,
         escapeHtml,
         findSystemNameRow,
-        getSetupLanguageCount,
         initLanguageFontsEditor,
         readSystemNames,
         removeTranslationLanguageColumn,
         syncTranslationOverrides,
         firstInvalidControlInStep,
-        getSetupAllowedThemeCount,
         initGlobalSearchOptions,
         initSetupHomeFields,
         initSystemSetupEnterBehavior,
@@ -112,6 +81,14 @@
         setNamedFieldReadonly,
         syncTitlebarActionsBuilderVisibility
     } = window.DluxSetup;
+    const {
+        TITLEBAR_ACTIONS_DEFAULT_ORDER,
+        applySystemSettingsPreview,
+        initSystemSettingsPreview,
+        normalizeTitlebarActionsOrder,
+        readBooleanField,
+        readTitlebarActionsOrder
+    } = window.DluxSetupPreview;
 
     // Shared field/dependent helpers and the security cluster now live in
     // setup/js/dom.js and setup/js/security.js. Destructured so every call site
@@ -148,35 +125,6 @@
         initAuthSecurityOptions,
         initLoginPageOptions
     } = window.DluxSetup;
-
-    function normalizeTitlebarActionsOrder(value) {
-        let rawValue = value;
-        if (typeof rawValue === 'string') {
-            rawValue = parseJson(rawValue, []);
-        }
-        if (!Array.isArray(rawValue)) {
-            rawValue = [];
-        }
-        const seen = new Set();
-        const normalized = [];
-        rawValue.forEach((item) => {
-            const key = String(item || '').trim();
-            if (TITLEBAR_ACTIONS_KNOWN.has(key) && !seen.has(key)) {
-                normalized.push(key);
-                seen.add(key);
-            }
-        });
-        TITLEBAR_ACTIONS_DEFAULT_ORDER.forEach((key) => {
-            if (!seen.has(key)) {
-                normalized.push(key);
-            }
-        });
-        return normalized;
-    }
-
-    function readTitlebarActionsOrder(form) {
-        return normalizeTitlebarActionsOrder(getNamedFieldValue(form, 'titlebar_actions_order'));
-    }
 
     function writeTitlebarActionsOrder(form, order) {
         const field = getNamedFieldInputs(form, 'titlebar_actions_order')[0];
@@ -241,7 +189,7 @@
                 rehydrateSetupLanguageEditors(form);
                 restoreImportedEmailPasswordNotice(form);
                 syncTranslationOverrides(form);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
                 sessionStorage.removeItem(getSetupStateKey(form));
                 delete form.__dluxPendingSetupState;
             });
@@ -801,276 +749,6 @@
 
         renderAll();
     }
-
-    function applyTitlebarActionOrderPreview(titlebar, order) {
-        const normalizedOrder = normalizeTitlebarActionsOrder(order);
-        titlebar.querySelectorAll('[data-titlebar-actions]').forEach((container) => {
-            const nodesByKey = new Map();
-            Array.from(container.children).forEach((node) => {
-                const key = node.getAttribute('data-titlebar-action-key') || node.querySelector('[data-titlebar-action-key]')?.getAttribute('data-titlebar-action-key');
-                if (key && !nodesByKey.has(key)) {
-                    nodesByKey.set(key, node);
-                }
-            });
-            normalizedOrder.forEach((key) => {
-                const node = nodesByKey.get(key);
-                if (node) {
-                    container.appendChild(node);
-                }
-            });
-        });
-    }
-
-    function applyTitlebarPreview(form) {
-        const titlebar = document.querySelector('.titlebar');
-        if (!titlebar) {
-            return;
-        }
-
-        const showTitle = readBooleanField(form, '#id_titlebar_show_title', true);
-        const accentEdge = readBooleanField(form, '#id_titlebar_accent_edge', false);
-        const showLogo = readBooleanField(form, '#id_titlebar_show_logo', true);
-        const showHome = readBooleanField(form, '#id_titlebar_show_home_button', true);
-        const showLanguageSwitcher = readBooleanField(form, '#id_titlebar_show_language_switcher', false);
-        const titleAlign = getNamedFieldValue(form, 'titlebar_title_align') || 'start';
-        const titleSize = getNamedFieldValue(form, 'titlebar_title_size') || 'md';
-        const height = getNamedFieldValue(form, 'titlebar_height') || 'balanced';
-        const surface = getNamedFieldValue(form, 'titlebar_surface') || 'default';
-        const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
-        const logoTreatmentShape = getNamedFieldValue(form, 'titlebar_logo_treatment_shape') || 'soft';
-        const buttonsShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
-        const userHubStyle = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
-        const actionsLayout = getNamedFieldValue(form, 'titlebar_actions_layout') === 'grouped' ? 'grouped' : 'scattered';
-        const actionOrder = readTitlebarActionsOrder(form);
-        const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
-        const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
-        const htmlLang = (document.documentElement.getAttribute('lang') || (window.USER_PREFS && window.USER_PREFS._lang) || 'en').split('-')[0];
-        let systemNames = {};
-        try {
-            systemNames = JSON.parse(getNamedFieldValue(form, 'system_names') || '{}') || {};
-        } catch (e) {
-            systemNames = {};
-        }
-        const defaultLanguage = getNamedFieldValue(form, 'default_language') || 'en';
-        const resolvedName = systemNames[htmlLang] || systemNames[defaultLanguage] || Object.values(systemNames).find(Boolean) || 'DjangoLux';
-        const resolvedTitle = scopeName ? `${resolvedName} - ${scopeName}` : resolvedName;
-
-        titlebar.dataset.titleAlign = titleAlign;
-        titlebar.dataset.titleSize = titleSize;
-        titlebar.dataset.titlebarHeight = height;
-        titlebar.dataset.titlebarSurface = surface;
-        titlebar.dataset.titlebarLogoTreatment = logoTreatment;
-        titlebar.dataset.titlebarLogoTreatmentShape = logoTreatmentShape;
-        titlebar.dataset.titlebarButtonsShape = buttonsShape;
-        titlebar.dataset.titlebarHomeShape = buttonsShape;
-        titlebar.dataset.titlebarUserHubStyle = userHubStyle === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown';
-        titlebar.dataset.titlebarActionsLayout = actionsLayout;
-        titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
-        titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
-        titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
-        titlebar.dataset.titlebarShowLanguageSwitcher = showLanguageSwitcher ? 'true' : 'false';
-        document.body.dataset.dluxTitlebarAccent = accentEdge ? 'on' : 'off';
-        applyTitlebarActionOrderPreview(titlebar, actionOrder);
-
-        titlebar.querySelectorAll('[data-titlebar-home]').forEach((homeButton) => {
-            if (homeUrl) {
-                homeButton.setAttribute('href', homeUrl);
-            }
-        });
-
-        document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {
-            const hideDropdown = userHubStyle === 'titlebar_actions';
-            card.classList.toggle('d-none', hideDropdown);
-            card.setAttribute('aria-hidden', hideDropdown ? 'true' : 'false');
-        });
-
-        const dropdownHelp = document.querySelector('#dlux-user-dropdown-card [data-dlux-start-tour]');
-        const titlebarHelp = titlebar.querySelector('.titlebar__actions--titlebar [data-dlux-start-tour]');
-        if (dropdownHelp && titlebarHelp) {
-            if (userHubStyle === 'titlebar_actions') {
-                dropdownHelp.removeAttribute('id');
-                titlebarHelp.setAttribute('id', 'start-tour');
-            } else {
-                titlebarHelp.removeAttribute('id');
-                dropdownHelp.setAttribute('id', 'start-tour');
-            }
-        }
-
-        const titleTarget = titlebar.querySelector('[data-titlebar-title-text]');
-        if (titleTarget) {
-            titleTarget.textContent = resolvedTitle;
-        }
-    }
-
-
-
-    function applySidebarPreview(form) {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar) {
-            return;
-        }
-
-        const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
-        const accentEdge = readBooleanField(form, '#id_sidebar_accent_edge', false);
-        const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
-        const showNotificationBadges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
-        const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
-        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
-        const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
-        const allowUserDensity = readBooleanField(form, '#id_sidebar_allow_user_density', true);
-        const enableToolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
-        const showSectionsManager = readBooleanField(form, '#id_sidebar_show_sections_manager', true);
-        const enableReorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
-        const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
-        const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
-        const allowedThemeCount = getSetupAllowedThemeCount(form);
-        const languageCount = getSetupLanguageCount(form);
-        const themeToolVisible = allowThemeOverride && allowedThemeCount > 1;
-        const densityToolVisible = allowUserDensity;
-        const reorderToolVisible = enableReorder;
-
-        setPreviewVisibility(sidebar, sidebarEnabled);
-        sidebar.dataset.sidebarEnabled = sidebarEnabled ? 'true' : 'false';
-        document.body.dataset.dluxSidebarAccent = accentEdge ? 'on' : 'off';
-        sidebar.dataset.sidebarShowIcons = showIcons ? 'true' : 'false';
-        sidebar.dataset.sidebarCollapseMode = collapseMode;
-        sidebar.dataset.sidebarDensity = density;
-        sidebar.dataset.sidebarDefaultDensity = density;
-        sidebar.dataset.sidebarAllowUserDensity = allowUserDensity ? 'true' : 'false';
-        const sidebarNotificationBadgesEnabled = sidebarEnabled && notificationsEnabled && showNotificationBadges;
-        const sidebarTree = sidebar.querySelector('#sidebarTreeRoot');
-        if (sidebarTree) {
-            sidebarTree.dataset.dluxSidebarNotificationBadgesEnabled = sidebarNotificationBadgesEnabled ? 'true' : 'false';
-        }
-        sidebar.querySelectorAll('[data-dlux-sidebar-notification-badge]').forEach((badge) => {
-            const hasCount = String(badge.textContent || '').trim().length > 0;
-            badge.classList.toggle('d-none', !sidebarNotificationBadgesEnabled || !hasCount);
-        });
-
-        if (collapseMode === 'locked_expanded') {
-            sidebar.classList.remove('collapsed');
-        }
-
-        const titlebar = document.querySelector('.titlebar');
-        if (titlebar) {
-            titlebar.dataset.sidebarCollapseMode = collapseMode;
-            const startSide = titlebar.querySelector('.titlebar__side--start');
-            if (startSide) {
-                startSide.classList.toggle('titlebar__side--empty', !sidebarEnabled);
-                startSide.classList.toggle('titlebar__side--has-toggle', sidebarEnabled && collapseMode !== 'locked_expanded');
-                startSide.classList.toggle('titlebar__side--mobile-toggle', sidebarEnabled && collapseMode === 'locked_expanded');
-            }
-        }
-        const titlebarToggle = document.getElementById('sidebarToggle');
-        if (titlebarToggle) {
-            titlebarToggle.classList.toggle('sidebar-toggle--desktop-disabled', sidebarEnabled && collapseMode === 'locked_expanded');
-        }
-        setPreviewVisibility(titlebarToggle, sidebarEnabled);
-
-        // The chosen glyph lands on the live toggle as it is picked. Guarded on the
-        // picker being rendered: without it the value cannot change, so the class
-        // the server already resolved is the correct one to leave alone.
-        const toggleIconPicker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
-        const toggleGlyph = titlebarToggle ? titlebarToggle.querySelector('i') : null;
-        if (toggleIconPicker && toggleGlyph) {
-            const icon = getNamedFieldValue(form, 'sidebar_toggle_icon') || 'bi-list';
-            const directional = String(toggleIconPicker.getAttribute('data-icon-directional') || '')
-                .split(/\s+/)
-                .filter(Boolean);
-            toggleGlyph.className = `bi ${icon}${directional.includes(icon) ? ' dlux-icon-directional' : ''}`;
-        }
-
-        const toolbar = sidebar.querySelector('.sidebar-toolbar');
-        const themeArrow = document.getElementById('sidebarThemeArrow');
-        const themeIndicator = document.getElementById('sidebarThemeIndicator');
-        const themePopup = document.getElementById('sidebarThemePopup');
-        const densityControl = sidebar.querySelector('.sidebar-density-control');
-        const reorderToggle = document.getElementById('sidebarReorderToggle') || sidebar.querySelector('.reorder-toggle');
-        const sectionsManagerLink = sidebar.querySelector('.sidebar-toolbar-link');
-        const sectionsManagerVisible = showSectionsManager && Boolean(sectionsManagerLink);
-        const toolbarVisible = sidebarEnabled && enableToolbar && Boolean(
-            themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerVisible
-        );
-
-        setPreviewVisibility(themeArrow, sidebarEnabled && themeToolVisible);
-        setPreviewVisibility(themeIndicator, sidebarEnabled && themeToolVisible);
-        setPreviewVisibility(densityControl, sidebarEnabled && densityToolVisible);
-        setPreviewVisibility(reorderToggle, sidebarEnabled && reorderToolVisible);
-        setPreviewVisibility(sectionsManagerLink, sidebarEnabled && sectionsManagerVisible);
-        setPreviewVisibility(toolbar, toolbarVisible);
-
-        if (!themeToolVisible && themePopup) {
-            themePopup.classList.remove('show');
-        }
-
-        if (!densityToolVisible) {
-            const densityPopup = document.getElementById('sidebarDensityPopup');
-            if (densityPopup) {
-                densityPopup.classList.remove('show');
-            }
-        }
-
-        sidebar.querySelectorAll('[data-sidebar-density-choice]').forEach((option) => {
-            option.classList.toggle('is-active', option.getAttribute('data-sidebar-density-choice') === density);
-        });
-
-        const themeCard = document.querySelector('[data-options-card="theme"]');
-        const languageCard = document.querySelector('[data-options-card="language"]');
-        const sidebarDensityCard = document.querySelector('[data-options-card="sidebar-density"]');
-
-        setPreviewVisibility(themeCard, themeToolVisible);
-        setPreviewVisibility(languageCard, allowUserLanguage && languageCount > 1);
-        setPreviewVisibility(sidebarDensityCard, sidebarEnabled && allowUserDensity);
-    }
-
-
-
-
-    function applyImmediateSystemSettingsPreview(form) {
-        if (!form || !form.classList.contains('dlux-system-setup-form')) {
-            return;
-        }
-        applyTitlebarPreview(form);
-        applyNotificationPreview(form);
-        applyBrandingFilePreviews(form);
-        applySidebarPreview(form);
-        applyTableDensityPreview(form);
-        applyLayoutBodyPreview(form);
-        applyFooterPreview(form);
-        window.dispatchEvent(new Event('resize'));
-    }
-
-    function initImmediateSystemSettingsPreview(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.immediatePreviewBound === 'true') {
-                applyImmediateSystemSettingsPreview(form);
-                return;
-            }
-
-            form.dataset.immediatePreviewBound = 'true';
-
-            form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
-                const eventName = field.type === 'text' || field.tagName === 'TEXTAREA' ? 'input' : 'change';
-                field.addEventListener(eventName, () => {
-                    applyImmediateSystemSettingsPreview(form);
-                });
-                if (eventName !== 'change') {
-                    field.addEventListener('change', () => {
-                        applyImmediateSystemSettingsPreview(form);
-                    });
-                }
-            });
-
-            applyImmediateSystemSettingsPreview(form);
-        });
-    }
-
-
-
-
-
-
-
 
     function initBuilder(builder) {
         if (!builder || builder.dataset.builderBound === 'true') {
@@ -1888,7 +1566,7 @@
             defaultField.value = fallbackLanguage;
         }
         syncTranslationOverrides(form);
-        applyImmediateSystemSettingsPreview(form);
+        applySystemSettingsPreview(form);
     }
 
 
@@ -1937,7 +1615,7 @@
         if (!form) return;
         const namesField = form.querySelector('[name="system_names"]');
         if (namesField) namesField.value = JSON.stringify(readSystemNames(form));
-        applyImmediateSystemSettingsPreview(form);
+        applySystemSettingsPreview(form);
     }
 
     function initSystemNamesEditor(root) {
@@ -2333,7 +2011,7 @@
 
         syncLanguageCatalog(form);
         syncTranslationOverrides(form);
-        applyImmediateSystemSettingsPreview(form);
+        applySystemSettingsPreview(form);
         persistSetupFormState(form);
         return true;
     }
@@ -2532,14 +2210,14 @@
                     !(sectionsShortcutDisabled || (available && !toolbarToggle.checked))
                 );
                 syncSidebarBehaviorConfig(form);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
             }
 
             function syncCollapseMode() {
                 if (!showIconsToggle) {
                     syncSidebarToggleIconAvailability(form);
                     syncSidebarBehaviorConfig(form);
-                    applyImmediateSystemSettingsPreview(form);
+                    applySystemSettingsPreview(form);
                     return;
                 }
                 if (!showIconsToggle.checked && getNamedFieldValue(form, 'sidebar_collapse_mode') === 'icons') {
@@ -2547,7 +2225,7 @@
                 }
                 syncSidebarToggleIconAvailability(form);
                 syncSidebarBehaviorConfig(form);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
             }
 
             toolbarToggle.addEventListener('change', syncToolbarAvailability);
@@ -2712,7 +2390,7 @@
             'd-none',
             !(sectionsShortcutDisabled || (available && !toolbarToggle.checked))
         );
-        applyImmediateSystemSettingsPreview(form);
+        applySystemSettingsPreview(form);
     }
 
 
@@ -2830,7 +2508,7 @@
             list.insertBefore(dragged, before ? item : item.nextSibling);
             clearDropMarkers();
             renderTitlebarActionsOrderBuilder(builder, form);
-            applyImmediateSystemSettingsPreview(form);
+            applySystemSettingsPreview(form);
             persistSetupFormState(form);
         });
 
@@ -2853,7 +2531,7 @@
                     }
                 });
                 renderTitlebarActionsOrderBuilder(builder, form);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
                 persistSetupFormState(form);
                 return;
             }
@@ -2872,7 +2550,7 @@
                 list.insertBefore(item.nextElementSibling, item);
             }
             renderTitlebarActionsOrderBuilder(builder, form);
-            applyImmediateSystemSettingsPreview(form);
+            applySystemSettingsPreview(form);
             persistSetupFormState(form);
         });
 
@@ -2934,7 +2612,7 @@
                     );
                 });
                 syncTitlebarActionsBuilderVisibility(form);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
             }
 
             showTitleToggle.addEventListener('change', syncTitlebarDependencies);
@@ -3002,7 +2680,7 @@
                     'notification_auto_delete',
                 ].forEach((name) => setNamedFieldReadonly(form, name, !autoCrudEnabled));
                 setNamedFieldDisabled(form, 'notification_email_default', !emailEnabled);
-                applyImmediateSystemSettingsPreview(form);
+                applySystemSettingsPreview(form);
             }
 
             form.addEventListener('change', (event) => {
@@ -3067,7 +2745,7 @@
         initLoginPageOptions(root);
         initTitlebarBehaviorOptions(root);
         initNotificationBehaviorOptions(root);
-        initImmediateSystemSettingsPreview(root);
+        initSystemSettingsPreview(root);
         finalizeSetupFormStateRestore(root);
     }
 

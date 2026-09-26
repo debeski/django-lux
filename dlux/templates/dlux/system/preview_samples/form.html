@@ -1,0 +1,12 @@
+{% extends "dlux/form_base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block form_content %}
+<div class="card border-0 shadow-sm dlux-preview-sample-card">
+    <div class="card-body">
+        <h5 class="card-title mb-3">{{ DLUX_STRINGS.preview_sample_form_title|default:"Record Details" }}</h5>
+        {% include "dlux/helpers/dynamic_modal_form.html" %}
+    </div>
+</div>
+{% endblock %}

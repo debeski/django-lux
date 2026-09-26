@@ -439,6 +439,35 @@ register_app_settings(
 )
 ```
 
+#### Previewing app-owned system settings
+
+An app's settings preview is a page of its own, rendered by the server with the
+unsaved app form — the same mechanism as core System Settings (see *Unsaved
+previews* in `system-configuration.md`). The shared app-settings template
+includes a hidden Preview action; registering the namespace makes it available
+and names the page to render:
+
+```javascript
+const unregister = window.DluxSetupPreview.registerAppPreview('myproject.catalog', {
+  path: '/catalog/',            // or (form) => '/catalog/?view=' + form.elements.default_view.value
+  audience: '',                 // 'anonymous' to render a public page as a visitor sees it
+});
+```
+
+Preview POSTs the app form to `system_settings_preview_draft` with
+`_dlux_preview_kind=app`; the server builds it with `build_app_settings_form()`
+and `get_app_settings_form_value()` exactly as a save would, places the value at
+`extra_config['app'][<namespace>]` of a draft that is never saved, and renders
+`path` with it in the popup. Anything the page reads through
+`get_app_system_config()` shows the unsaved value; nothing is written.
+
+`registerAppPreview()` throws without a `path`. The returned `unregister()`
+removes the registration and hides the Preview action again.
+
+*Changed in 1.9.5b2:* the 1.9.5b1 `mode`/`target`/`apply()`/`render()` callbacks
+and their DOM helpers are retired. A preview is a rendered page, so an app
+registers the page instead of patching the one on screen.
+
 ### Adding an Options-page card
 
 Downstream apps add cards to `/sys/options/` through a small registry — the only
@@ -806,6 +835,13 @@ Dirtiness is a value snapshot rather than an input listener on purpose: the
 System Settings form rewrites its own hidden JSON carriers during init and live
 preview, dispatching synthetic events that would otherwise mark it dirty
 immediately.
+
+System Settings previews are rendered by the server, not patched in the page:
+`window.DluxSetupPreview` (`dlux/static/dlux/setup/js/previews.js`) only posts the
+unsaved form to `system_settings_preview_draft` and frames the page it names.
+`applySystemSettingsPreview(form)` remains for callers that rewrite a hidden
+builder field — it schedules a re-render of the draft page. Preview never
+submits the form; see *Unsaved previews* in `system-configuration.md`.
 
 The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
 user preference; while set, a dirty close discards without prompting. This is

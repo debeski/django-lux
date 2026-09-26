@@ -15,8 +15,8 @@
 (function (root) {
     'use strict';
 
-    function initSetupThemePicker(root) {
-        root.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
+    function initSetupThemePicker(scope) {
+        scope.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
             if (picker.dataset.bound === 'true') return;
             picker.dataset.bound = 'true';
 
@@ -69,14 +69,11 @@
             }
 
             function previewTheme(theme) {
-                if (!window.setTheme) {
-                    return;
-                }
                 const option = options.find((candidate) => candidate.getAttribute('data-setup-theme-choice') === theme);
-                window.setTheme(theme, {
-                    preview: true,
-                    cssUrl: option ? option.getAttribute('data-setup-theme-preview-url') || '' : '',
-                });
+                root.DluxSetupPreview.applyThemePreview(
+                    theme,
+                    option ? option.getAttribute('data-setup-theme-preview-url') || '' : '',
+                );
             }
 
             function isThemeAllowControlTarget(target) {

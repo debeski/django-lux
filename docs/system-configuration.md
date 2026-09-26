@@ -32,27 +32,49 @@ The first three determine system policy. Personal theme, language, sidebar state
 
 `/sys/setup/` is the initial configuration workflow. It first asks for the setup language; that choice affects only the wizard UI. The persisted default language is selected later in **Localization**.
 
-The current wizard has seventeen steps:
+The current wizard has eighteen steps:
 
-1. **Identity** — localized names, logo, favicon, footer, and configuration import.
-2. **Localization** — language catalog, default language, user overrides, and translation overrides.
-3. **Homepage** — authenticated homepage, per-user override, and anonymous public homepage.
-4. **Email** — delivery path, provider preset, secrets, test send, and failure alerts.
-5. **Access and security** — authentication, sessions, registration, consent, and client-IP policy.
-6. **Login page** — layout, logo treatment, color, and localized hero message.
+1. **Branding** — localized names, logo, favicon, footer, and configuration import.
+2. **Languages** — language catalog, default language, user overrides, and translation overrides.
+3. **Email** — delivery path, provider preset, secrets, test send, and failure alerts.
+4. **Access and Security** — authentication, sessions, registration, consent, and client-IP policy.
+5. **Themes and Fonts** — theme and font defaults, allowlists, overrides, and edge styles.
+6. **Titlebar** — home/logo, actions, language switcher, geometry, and surface.
 7. **Sidebar** — navigation tree, visibility, toolbar, and personal reordering policy.
 8. **Navbar** — hierarchy/history mode, navigation root, and user override policy.
-9. **Titlebar** — home/logo, actions, language switcher, geometry, and surface.
-10. **Global Search** — titlebar search display and optional record search.
-11. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
-12. **Themes and typography** — theme and font defaults, allowlists, and overrides.
-13. **Layout** — tables, forms, modals, Options layout, audit fields, and soft-delete review.
-14. **Logging** — activity and audit policy plus retention.
-15. **Profile page** — user modules, onboarding, devices, and activity feed.
-16. **Backups** — schedule, storage, retention, and retry policy.
-17. **Extra Features** — opt-in integrations such as ScanLink.
+9. **Ribbon** — list-page ribbon behavior and tab configuration.
+10. **Components** — tables, forms, modals, Options layout, audit fields, and soft-delete review.
+11. **Home and Public Pages** — authenticated homepage, per-user override, and anonymous public homepage.
+12. **Login Page** — layout, logo treatment, color, and localized hero message.
+13. **Profile Page** — user modules, onboarding, devices, and activity feed.
+14. **Global Search** — titlebar search display and optional record search.
+15. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
+16. **Logging** — activity and audit policy plus retention.
+17. **System Backup** — schedule, storage, retention, and retry policy.
+18. **Extra Features** — opt-in integrations such as ScanLink.
 
 System Settings modal editors opened from Options use these same categories but show only the selected category. Setup export/import is intended for reusable development and staging configuration: it exports settings JSON, not uploaded logo/favicon binaries or host-specific email verification state.
+
+### Unsaved previews
+
+A preview is a real page rendered by the server with the unsaved form — never a page patched in the browser. **Preview** (and a section's eye) POSTs the form to `system_settings_preview_draft` (`/sys/settings/preview/draft/`), which validates it exactly as a save would (an Options step adds `?step=N`, as its own save does) and answers with a short-lived token instead of saving. A frame then loads an ordinary page with `?_dlux_preview=<token>`; for that one request `SystemSettings.load()` returns the draft (`dlux/system/preview.py`), so every template, context processor and project view renders what a save would produce — the project's own pages and branding included.
+
+A preview request:
+
+- renders in the draft's default language (`_dlux_preview_lang` picks another) and ignores the viewer's personal preferences, so the defaults being edited are what shows;
+- is superuser-only and GET-only, and its token only works for the superuser who drafted it;
+- runs in a transaction that is always rolled back, restores the session it found, and skips the auth-redirect sync, device tracking and setup redirects;
+- keeps its token through redirects, is sent `Cache-Control: no-store` and `X-Frame-Options: SAMEORIGIN`, has page animations disabled, and carries a static guard script (`dlux/system/js/preview_guard.js`) that swallows clicks and submits. Nothing inline is added, so previews keep the page CSP-compliant.
+
+Only the existing Save action persists anything.
+
+**Behind the Options modal.** On the steps whose subject is page chrome — Branding, Languages, Themes and Fonts, Titlebar, Sidebar, Navbar and Components — the page behind the modal follows the form: once a value differs from how the step opened, a frame of the current page rendered with the draft replaces it (at the same scroll position, still dimmed by the modal backdrop), and it re-renders on every change. Setting a value back returns to the real page. The step's **Preview** lifts the modal off that page (glass mode); click anywhere, Escape or Q returns, and the exit click never reaches the page. The modal itself also takes the draft's default font for the page's language, since fonts are chosen there.
+
+**The popup.** Steps whose subject is not on the Options page open the popup from **Preview**: Ribbon a sample list page, Home and Public Pages the configured home page (with a visitor/signed-in switch when a public page is enabled), Login Page the login page as a visitor sees it, Profile Page the profile page. The popup offers the draft's languages and desktop/tablet/mobile widths.
+
+**Section eyes.** Where even that cannot show the subject, the section heading carries an eye that opens the popup on a sample page built from the standard shells: *Surfaces & Edges* and *Tables* (a list page with a ribbon, nested tab strips and a `DluxTable`), *Forms* (a form in the shared form markup) and *Modals* (the real dynamic modal opened with a form). Sample pages live at `/sys/settings/preview/sample/<kind>/` and exist only inside a preview.
+
+**The first-run wizard** is a page of its own with nothing behind it, so its Preview always opens the popup, on the step's page. Email, Access and Security, Global Search, Notifications, Logging, System Backup and Extra Features have no page representation; their Preview is disabled with an explanatory tooltip.
 
 `SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public page keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
 

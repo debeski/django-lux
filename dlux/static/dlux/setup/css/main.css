@@ -1504,3 +1504,214 @@
   flex: 1 1 6rem;
   margin-bottom: 0;
 }
+
+/* System Settings previews. Every preview is a real page rendered by the server
+   with the unsaved form (see dlux/system/preview.py). Behind the Options modal a
+   frame of the current page follows the form as it changes; glass mode lifts the
+   modal off it. Sections whose subject is not on screen open the popup instead. */
+/* Same z-index as the sticky titlebar and the modal backdrop (1050); previews.js
+   places it between them in document order, so the draft page covers the real
+   one and the modal's own darkening still lies over the draft. */
+.dlux-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: var(--bs-body-bg);
+  pointer-events: none;
+}
+
+.dlux-preview-backdrop[hidden] {
+  display: none;
+}
+
+.dlux-preview-backdrop iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bs-body-bg);
+}
+
+.dlux-preview-backdrop iframe[data-dlux-preview-stale] {
+  visibility: hidden;
+}
+
+.dlux-preview-glass-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 1054;
+  cursor: zoom-out;
+}
+
+.dlux-settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* A bare glyph beside the section title, not a .btn: the global button chrome
+   (border, shadow, radius) turned it into a small bubble. */
+.dlux-preview-eye {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--bs-secondary-color);
+  font-size: 1em;
+  line-height: 1;
+  opacity: 0.75;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.dlux-preview-eye:hover,
+.dlux-preview-eye:focus-visible {
+  color: var(--primal, var(--bs-primary));
+  opacity: 1;
+}
+
+.dlux-preview-eye:focus-visible {
+  outline: 2px solid rgba(var(--primal-rgb, 71, 85, 105), 0.45);
+  outline-offset: 1px;
+}
+
+body.dlux-system-preview-active .modal-backdrop.show {
+  opacity: 0.08;
+}
+
+#universalDynamicModal.dlux-system-preview-glass {
+  cursor: zoom-out;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content {
+  min-height: min(76vh, 46rem);
+  border: 2px dashed rgba(var(--primal-rgb), 0.7) !important;
+  background: rgba(var(--bs-body-bg-rgb), 0.035) !important;
+  box-shadow: 0 0 0 1px rgba(var(--bs-body-bg-rgb), 0.25), 0 1rem 3rem rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: none !important;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#universalDynamicModal.dlux-system-preview-glass .modal-content::after {
+  content: attr(data-dlux-preview-hint);
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  max-width: min(32rem, 82%);
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(var(--primal-rgb), 0.35);
+  border-radius: 999px;
+  color: var(--bs-body-color);
+  background: rgba(var(--bs-body-bg-rgb), 0.86);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.14);
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.dlux-preview-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.5rem, 2.5vw, 1.75rem);
+  background: rgba(8, 15, 28, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.dlux-preview-popup__dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 90rem);
+  height: min(100%, 60rem);
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--bs-body-bg);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.3);
+}
+
+.dlux-preview-popup__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.dlux-preview-popup__title {
+  margin: 0;
+  margin-inline-end: auto;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dlux-preview-popup__bar .form-select {
+  width: auto;
+}
+
+.dlux-preview-popup__stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bs-tertiary-bg);
+}
+
+.dlux-preview-popup__stage iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bs-body-bg);
+  transition: width 0.2s ease;
+}
+
+.dlux-preview-popup__stage[data-viewport="tablet"] iframe {
+  width: min(100%, 820px);
+}
+
+.dlux-preview-popup__stage[data-viewport="mobile"] iframe {
+  width: min(100%, 390px);
+}
+
+.dlux-preview-popup__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--bs-body-bg);
+  text-align: center;
+}
+
+.dlux-preview-popup__status[hidden] {
+  display: none;
+}
+
+.dlux-preview-popup__errors {
+  max-width: 36rem;
+  text-align: start;
+}
+
+@media (max-width: 575.98px) {
+  .dlux-preview-popup {
+    padding: 0;
+  }
+
+  .dlux-preview-popup__dialog {
+    height: 100%;
+    border-radius: 0;
+  }
+}

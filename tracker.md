@@ -46,7 +46,7 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
-  - [ ] `codex/system-settings-preview` is published as 1.9.5b1: drive the Preview UX in a browser on `testbed-dlux`, then merge into `main` and promote.
+  - [ ] 1.9.5b2 (server-rendered draft previews, `dlux/system/preview.py`) merged into `main` 2026-09-27 (merge commit; b1/b2 tags in history) and published as a beta. Next: accept it on `testbed-dlux` via the beta channel, then promote 1.9.5.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
@@ -72,16 +72,16 @@
   - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
+- 2026-09-27 1.9.5b2: full `dlux.tests` 2619 OK; preview/wizard e2e 20/20 (opening a live step loads nothing, one change = one render at the reader's scroll, glass stacking, allowed fonts, modal font, no setup footer); `release_check` classify beta + `--base-tag v1.9.4` pass.
+- 2026-09-25: 1.9.4b1 + Composer 1.5.3b1 on `testbed-dlux` — `--skip-config` put the flag in web/celery/agent/executor with the system left unconfigured and `config.json` byte-identical; a plain deploy unset it and imported; after publication, beta channel installed 1.9.4b1 inline from 1.9.3 (site serves 1.9.4b1, `check` all pass). Found: unpinned `composer dlux update` ignores the beta channel (see Composer tracker).
 - 2026-09-25: releases on `testbed-dlux` — stable channel: 1.9.3 -> 1.9.4 inline with Composer 1.5.3 (site serves 1.9.4, check all pass); beta channel: 1.9.4 -> 1.9.5b1 (site and static on 1.9.5b1). Preview branch before tagging: 2601 unit OK, `release_check --classify` beta and `--base-tag v1.9.4` pass.
-- 2026-09-25: 1.9.4b1 + Composer 1.5.3b1 on `testbed-dlux` — `--skip-config` put the flag in web/celery/agent/executor with the system left unconfigured and `config.json` byte-identical; a plain deploy unset it and imported; after publication, beta channel installed 1.9.4b1 inline from 1.9.3 (site serves 1.9.4b1, `check` all pass). Found the unpinned `dlux update` channel bug, fixed in Composer 1.5.3b2.
 - 2026-09-24: `--skip-config` live on the rig, both halves of the seam — `COMPOSER_SELF_IMAGE=composer:test-1.5.3 ./start.sh --skip-config` put `DLUX_SKIP_CONFIG_IMPORT=True` into web/celery/composer-agent, dlux then returned `skipped` from the bootstrap with the system left unconfigured and `config.json` byte-identical; with the flag off the same call reached file resolution (`missing`), and a plain `./start.sh` left the variable unset. dlux 2595 OK, Composer 704 OK.
-- 2026-09-24: dlux 2586 OK, 24 browser tests OK (10 rows incl. per-row tooltips, 10 password reveal, 6 admin-panel arrow: one unlabelled control, both halves start hidden, one click toggles both, the reveal grows and shrinks rather than appearing, the card's height changes by interpolation alone, inline-end placement in both directions), Composer 701 OK. Live on decrees: the options page renders five rows (DjangoLux, Application, Deployment, Composer agent, Backup), no Backup tile, and System info shows `Composer (deployer) 1.5.2` read from the agent's published value on a web container whose `COMPOSER_VERSION` is unset.
 
 ### One-line info about last time edited Docs:
+- 2026-09-27: `system-configuration.md` *Unsaved previews* and `reference.md` app-preview section rewritten for server-rendered drafts (`registerAppPreview(namespace, {path})`); `FEATURES.md` updated.
 - 2026-09-26: `ui-integration.md`, `developer-guide.md`, `inline-updater.md` and the app scaffold README give v1.10.0 (not 1.9.0) for removing `advanced_filter_helper` and the in-container executor.
 - 2026-09-24: system/deployment configuration docs explain `DLUX_SKIP_CONFIG_IMPORT`, supported versions, and repeat-on-redeploy semantics; changelog/manifest opened at untagged 1.9.4 after verifying 1.9.3 was tagged.
 - 2026-09-23: `docs/inline-updater.md` gained "The Operations card" (handoff, token matching, the operation table, why the request carries no command surface); `docs/reference.md` lists both `/sys/api/dlux-ops/` endpoints.
-- 2026-09-22: `docs/deprecation-countdown.md` (executor + `archive_file` shims -> v1.10.0), removal notes in `reference.md`/`ribbon.md`/`updater-consolidation.md`/`deployment-configuration.md`; `docs/inline-updater.md` channel handoff (web writes no file).
 - 2026-09-20: aligned every `advanced_filter_helper` reference and scaffold recommendation with its v1.10.0 removal target.
 
 ## Part 2: Global

@@ -1315,8 +1315,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("if context.get('language_picker_enabled'):", context_processors)
         self.assertIn('dlux-titlebar-action dlux-titlebar-lang-cycle', titlebar)
         self.assertIn('[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle', css)
-        self.assertIn('titlebar.dataset.titlebarShowLanguageSwitcher', setup_js)
-        self.assertIn("form.querySelector('#id_titlebar_show_language_switcher')", setup_js)
+        # The switcher toggle is previewed by rendering the page with the draft:
+        # the titlebar step keeps the live page behind the Options modal.
+        glass_steps = re.search(r"const GLASS_STEPS = new Set\(\[([^\]]*)\]\)", setup_js)
+        self.assertIsNotNone(glass_steps)
+        self.assertIn("'titlebar'", glass_steps.group(1))
 
     @override_settings(DLUX_CONFIG={
         'titlebar': {
@@ -2750,10 +2753,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # nothing ever passed. Verified rendering zero nodes on the wizard and
         # the Options page, and absent from every sibling project.
         self.assertIn('syncTranslationOverrides(form);', contents)
-        self.assertIn('applyImmediateSystemSettingsPreview(form);', contents)
+        self.assertIn('applySystemSettingsPreview(form);', contents)
         self.assertIn('form.dataset.dluxAllowedThemeCount', contents)
         self.assertIn('form.dataset.dluxLanguageCount', contents)
-        self.assertIn('const languageCount = getSetupLanguageCount(form);', contents)
+        self.assertIn('getSetupLanguageCount(form)', contents)
         self.assertIn('delete form.__dluxPendingSetupState;', contents)
         self.assertIn('rehydrateSetupLanguageEditors(form)', contents)
         self.assertIn('restoreImportedEmailPasswordNotice(form);', contents)
@@ -2833,8 +2836,6 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("writeTitlebarActionsOrder(form, titlebar.actions_order || TITLEBAR_ACTIONS_DEFAULT_ORDER);", contents)
         self.assertIn('function normalizeTitlebarActionsOrder(value) {', contents)
         self.assertIn('function initTitlebarActionsOrderBuilder(form) {', contents)
-        self.assertIn('titlebar.dataset.titlebarUserHubStyle = userHubStyle ===', contents)
-        self.assertIn("document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
         self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);", contents)
@@ -3160,7 +3161,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('max-width: 1180px;', contents)
         self.assertNotIn('--dlux-setup-titlebar-offset', contents)
         self.assertNotIn('--dlux-setup-active-titlebar-height', contents)
-        self.assertNotIn('position: fixed;', contents)
+        setup_viewport_rule = contents.split('.dlux-setup-viewport {', 1)[1].split('}', 1)[0]
+        self.assertNotIn('position: fixed;', setup_viewport_rule)
         self.assertIn('.dlux-setup-step-nav {', contents)
         self.assertIn('grid-template-columns: repeat(7, minmax(6.2rem, 1fr));', contents)
         self.assertIn('.dlux-setup-step-nav__item.is-active {', contents)
@@ -3188,7 +3190,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('border-color: rgba(245, 158, 11, 0.72);', contents)
         self.assertIn('background: #f59e0b;', contents)
         self.assertNotIn('dlux-setup-language-switch-pending', contents)
-        self.assertNotIn('visibility: hidden;', contents)
+        glass_children_rule = contents.split(
+            '#universalDynamicModal.dlux-system-preview-glass .modal-content > * {', 1
+        )[1].split('}', 1)[0]
+        self.assertNotIn('visibility: hidden;', glass_children_rule)
 
     def test_shared_toggle_helper_uses_neutral_switch_wrapper(self):
         form = SystemSettingsForm(
@@ -4109,7 +4114,6 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;', contents)
         self.assertIn("if (checkbox.checked && getAllowedThemes().length === 1)", contents)
         self.assertIn("checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');", contents)
-        self.assertIn("preview: true,", contents)
         self.assertIn("candidate.getAttribute('data-setup-theme-choice') === theme", contents)
         self.assertIn("option ? option.getAttribute('data-setup-theme-preview-url') || '' : ''", contents)
         self.assertIn('const allowToggleContainers = Array.from(picker.querySelectorAll(\'[data-setup-theme-allow-toggle]\'));', contents)

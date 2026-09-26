@@ -2,6 +2,7 @@
 
 <form method="post"
       class="dlux-form dlux-app-settings-form"
+      data-dlux-app-settings-namespace="{{ app_setting.namespace }}"
       action="{% url 'dlux_app_settings_modal' app_setting.namespace %}">
     {% csrf_token %}
     {% if app_setting.description %}
@@ -14,6 +15,16 @@
     {% endif %}
     {% crispy form %}
     <div class="dlux-form-actions mt-3 pt-3 border-top" data-dlux-modal-footer>
+        <button type="button"
+                class="dlux-form-action dlux-form-action-neutral"
+                data-dlux-app-settings-preview
+                disabled
+                hidden
+                aria-label="{{ DLUX_STRINGS.btn_preview|default:'Preview' }}"
+                title="{{ DLUX_STRINGS.preview_unavailable|default:'Preview is not available for this form.' }}">
+            <span class="dlux-form-action-icon"><i class="bi bi-eye" aria-hidden="true"></i></span>
+            <span class="visually-hidden">{{ DLUX_STRINGS.btn_preview|default:'Preview' }}</span>
+        </button>
         <button type="submit"
                 class="dlux-form-action dlux-form-action-primary"
                 aria-label="{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}"
