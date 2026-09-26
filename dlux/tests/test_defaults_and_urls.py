@@ -1315,8 +1315,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("if context.get('language_picker_enabled'):", context_processors)
         self.assertIn('dlux-titlebar-action dlux-titlebar-lang-cycle', titlebar)
         self.assertIn('[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle', css)
-        self.assertIn('titlebar.dataset.titlebarShowLanguageSwitcher', setup_js)
-        self.assertIn("form.querySelector('#id_titlebar_show_language_switcher')", setup_js)
+        # The switcher toggle is previewed by rendering the page with the draft:
+        # the titlebar step keeps the live page behind the Options modal.
+        glass_steps = re.search(r"const GLASS_STEPS = new Set\(\[([^\]]*)\]\)", setup_js)
+        self.assertIsNotNone(glass_steps)
+        self.assertIn("'titlebar'", glass_steps.group(1))
 
     @override_settings(DLUX_CONFIG={
         'titlebar': {
@@ -2833,8 +2836,6 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("writeTitlebarActionsOrder(form, titlebar.actions_order || TITLEBAR_ACTIONS_DEFAULT_ORDER);", contents)
         self.assertIn('function normalizeTitlebarActionsOrder(value) {', contents)
         self.assertIn('function initTitlebarActionsOrderBuilder(form) {', contents)
-        self.assertIn('titlebar.dataset.titlebarUserHubStyle = userHubStyle ===', contents)
-        self.assertIn("document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
         self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);", contents)
@@ -4113,7 +4114,6 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;', contents)
         self.assertIn("if (checkbox.checked && getAllowedThemes().length === 1)", contents)
         self.assertIn("checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');", contents)
-        self.assertIn("preview: true,", contents)
         self.assertIn("candidate.getAttribute('data-setup-theme-choice') === theme", contents)
         self.assertIn("option ? option.getAttribute('data-setup-theme-preview-url') || '' : ''", contents)
         self.assertIn('const allowToggleContainers = Array.from(picker.querySelectorAll(\'[data-setup-theme-allow-toggle]\'));', contents)

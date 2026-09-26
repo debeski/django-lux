@@ -1,0 +1,19 @@
+{% extends "dlux/form_base.html" %}
+{% load dlux_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block form_content %}
+<div class="card border-0 shadow-sm dlux-preview-sample-card">
+    <div class="card-body text-body-secondary">
+        {{ DLUX_STRINGS.preview_sample_modal_hint|default:"The form below opens in the same dialog every record form uses." }}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    {{ modal_content_url|json_script:"dlux-preview-modal-url" }}
+    {{ modal_title|json_script:"dlux-preview-modal-title" }}
+    <script src="{% dlux_static 'dlux/system/js/preview_sample_modal.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+{% endblock %}

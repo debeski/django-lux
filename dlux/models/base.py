@@ -60,6 +60,12 @@ class SingletonModel(models.Model):
 
     @classmethod
     def load(cls):
+        if cls.__name__ == 'SystemSettings':
+            from ..system.preview_state import current_draft
+
+            draft = current_draft()
+            if draft is not None:
+                return draft
         try:
             obj = cache.get(cls.__name__)
         except Exception:

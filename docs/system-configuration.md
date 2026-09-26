@@ -57,35 +57,24 @@ System Settings modal editors opened from Options use these same categories but 
 
 ### Unsaved previews
 
-A live preview is an unsaved form value visibly changing a page surface that is already rendered. These mutations are centralized in `setup/js/previews.js` and safely do nothing when the wizard or Options page does not contain the target. Builder previews remain inside their builders and do not represent saved runtime chrome.
+A preview is a real page rendered by the server with the unsaved form — never a page patched in the browser. **Preview** (and a section's eye) POSTs the form to `system_settings_preview_draft` (`/sys/settings/preview/draft/`), which validates it exactly as a save would (an Options step adds `?step=N`, as its own save does) and answers with a short-lived token instead of saving. A frame then loads an ordinary page with `?_dlux_preview=<token>`; for that one request `SystemSettings.load()` returns the draft (`dlux/system/preview.py`), so every template, context processor and project view renders what a save would produce — the project's own pages and branding included.
 
-Every setup step and focused Options editor includes a **Preview** action. It is disabled, with an explanatory tooltip, for steps whose values have no useful visual representation. Visual steps use one of two modes:
+A preview request:
 
-- **Glass** hides the Options modal contents while retaining its outline, exposing real page chrome behind it. Click anywhere, press Escape, or press Q to return; the exit click is consumed so it cannot activate the page below.
-- **Popup** renders a contained shell from the current unsaved form state. Closing it returns focus and preserves the form, so settings can be adjusted and previewed repeatedly. This is used by the setup wizard and by off-page targets such as the public home and login pages.
+- renders in the draft's default language (`_dlux_preview_lang` picks another) and ignores the viewer's personal preferences, so the defaults being edited are what shows;
+- is superuser-only and GET-only, and its token only works for the superuser who drafted it;
+- runs in a transaction that is always rolled back, restores the session it found, and skips the auth-redirect sync, device tracking and setup redirects;
+- keeps its token through redirects, is sent `Cache-Control: no-store` and `X-Frame-Options: SAMEORIGIN`, has page animations disabled, and carries a static guard script (`dlux/system/js/preview_guard.js`) that swallows clicks and submits. Nothing inline is added, so previews keep the page CSP-compliant.
 
-Neither mode saves `SystemSettings`; only the existing Save action persists changes.
+Only the existing Save action persists anything.
 
-| Step | Unsaved preview behavior |
-| --- | --- |
-| Branding | Logo, favicon, system title, and an already-rendered footer update in place. Managed-library selections and new uploads use the same preview path. |
-| Languages | Visible titlebar language-switcher chrome can update; changing the runtime language remains save-only. |
-| Email | No page preview. Presets, dependency controls, Apply, and test-send are operational actions. |
-| Access and Security | No page preview. Authentication, registration, session, consent, and client-IP values take effect after save. |
-| Themes and Fonts | Theme and table/card edge choices can update visible chrome. Personal font preferences are not overwritten by a system-default preview. |
-| Titlebar | Visible titlebar layout, actions, title, logo, home link, and surface update in place. |
-| Sidebar | Visible Options-page sidebar state, density, toolbar, icons, and controls update in place; the setup wizard has no sidebar target and safely does nothing. |
-| Navbar | A rendered runtime Navbar updates in place. When that surface is absent, Preview uses the contained shell. The builder continues to own its internal configuration sample. |
-| Ribbon | A real ribbon surface can preview its layout, skin, and heading visibility; otherwise Preview uses the contained shell. The ribbon builder keeps its separate internal tab sample. |
-| Components | Visible table density, edges, accent edges, sticky headers, resizing, zebra stripes, and card edges update in place. Personal form-density and modal-size preferences are preserved. |
-| Home and Public Pages | The visible titlebar Home link can update, and Preview renders the unsaved public title and description in a contained shell. |
-| Login Page | Preview renders the unsaved login presentation in a contained shell. |
-| Profile Page | Builder synchronization only; no live page mutation. |
-| Global Search | Dependency controls only; no live page mutation. |
-| Notifications | Dependency controls only; persistent notification settings do not hide or rewrite the active page's notification UI. |
-| Logging | Builder synchronization only; no live page mutation. |
-| System Backup | No page preview. |
-| Extra Features | No page preview for features that require a reload or another application surface. |
+**Behind the Options modal.** On the steps whose subject is page chrome — Branding, Languages, Themes and Fonts, Titlebar, Sidebar, Navbar and Components — the page behind the modal follows the form: once a value differs from how the step opened, a frame of the current page rendered with the draft replaces it (at the same scroll position, still dimmed by the modal backdrop), and it re-renders on every change. Setting a value back returns to the real page. The step's **Preview** lifts the modal off that page (glass mode); click anywhere, Escape or Q returns, and the exit click never reaches the page. The modal itself also takes the draft's default font for the page's language, since fonts are chosen there.
+
+**The popup.** Steps whose subject is not on the Options page open the popup from **Preview**: Ribbon a sample list page, Home and Public Pages the configured home page (with a visitor/signed-in switch when a public page is enabled), Login Page the login page as a visitor sees it, Profile Page the profile page. The popup offers the draft's languages and desktop/tablet/mobile widths.
+
+**Section eyes.** Where even that cannot show the subject, the section heading carries an eye that opens the popup on a sample page built from the standard shells: *Surfaces & Edges* and *Tables* (a list page with a ribbon, nested tab strips and a `DluxTable`), *Forms* (a form in the shared form markup) and *Modals* (the real dynamic modal opened with a form). Sample pages live at `/sys/settings/preview/sample/<kind>/` and exist only inside a preview.
+
+**The first-run wizard** is a page of its own with nothing behind it, so its Preview always opens the popup, on the step's page. Email, Access and Security, Global Search, Notifications, Logging, System Backup and Extra Features have no page representation; their Preview is disabled with an explanatory tooltip.
 
 `SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public page keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
 

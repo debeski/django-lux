@@ -153,6 +153,34 @@
                 select.addEventListener('change', updateHiddenInput);
             });
 
+            // Only allowed fonts can be a language's default. The allowed-font
+            // checkboxes sit in the same step; follow them as they change.
+            const form = editor.closest('form');
+            const allowedBoxes = () => Array.from(form ? form.querySelectorAll('[data-setup-font-allowed]') : []);
+            function syncAllowedFonts() {
+                const boxes = allowedBoxes();
+                if (!boxes.length) return;
+                const allowed = new Set(boxes.filter((box) => box.checked).map((box) => box.getAttribute('data-setup-font-allowed')));
+                if (!allowed.size) return;
+                let changed = false;
+                editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
+                    Array.from(select.options).forEach((option) => {
+                        const isAllowed = allowed.has(option.value);
+                        option.hidden = !isAllowed;
+                        option.disabled = !isAllowed;
+                    });
+                    if (!allowed.has(select.value)) {
+                        const first = Array.from(select.options).find((option) => allowed.has(option.value));
+                        if (first) {
+                            select.value = first.value;
+                            changed = true;
+                        }
+                    }
+                });
+                if (changed) updateHiddenInput();
+            }
+            allowedBoxes().forEach((box) => box.addEventListener('change', syncAllowedFonts));
+
             // Sync hidden input to selects if it has value
             if (hiddenInput.value) {
                 try {
@@ -165,6 +193,7 @@
                     });
                 } catch (e) {}
             }
+            syncAllowedFonts();
         });
     }
 

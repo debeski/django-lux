@@ -491,8 +491,8 @@ class SidebarToggleInitialStateTests(TestCase):
 
 
 class IconPickerLivePreviewTests(TestCase):
-    """Picking an icon must show up on the real toggle immediately, like every
-    other Sidebar-step control."""
+    """Picking an icon must show up on the real toggle before it is saved: the
+    preview renders the page with the unsaved form."""
 
     @property
     def _setup_js(self):
@@ -505,14 +505,30 @@ class IconPickerLivePreviewTests(TestCase):
             path.read_text(encoding='utf-8') for path in sorted(js_dir.glob('*.js'))
         )
 
-    def test_sidebar_preview_applies_the_chosen_glyph(self):
-        js = self._setup_js
-        block = js[js.index('function applySidebarPreview(form)'):]
-        block = block[:block.index('\n    function ', 10)]
+    def test_a_draft_icon_reaches_the_real_toggle_before_it_is_saved(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
 
-        self.assertIn("getNamedFieldValue(form, 'sidebar_toggle_icon')", block)
-        self.assertIn('toggleGlyph.className = `bi ${icon}', block)
-        self.assertIn("directional.includes(icon) ? ' dlux-icon-directional' : ''", block)
+        from dlux.system import preview as settings_preview
+        from dlux.tests.test_accent_edges import _form_data
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        admin = get_user_model().objects.create_superuser('icon-admin', 'icon@example.com', 'pw')
+        self.client.force_login(admin)
+        from dlux.system.constants import SETUP_STEP_SIDEBAR as sidebar_step
+        draft = self.client.post(
+            reverse('system_settings_preview_draft') + f'?step={sidebar_step}',
+            _form_data(sidebar_enabled='on', sidebar_toggle_icon='bi-grid-3x3-gap'),
+        )
+        self.assertEqual(draft.status_code, 200, draft.content)
+        page = self.client.get(
+            reverse('system_settings_preview_sample', kwargs={'kind': 'components'}),
+            {settings_preview.PREVIEW_PARAM: draft.json()['token']},
+        ).content.decode()
+        self.assertIn('bi bi-grid-3x3-gap', page)
+        self.assertNotIn('bi-grid-3x3-gap', self.client.get(reverse('user_profile')).content.decode())
 
     def test_writing_the_field_reaches_the_preview(self):
         # setNamedFieldValue dispatches input/change, which is what the immediate
@@ -523,14 +539,6 @@ class IconPickerLivePreviewTests(TestCase):
 
         self.assertIn("dispatchEvent(new Event('input', { bubbles: true }));", block)
         self.assertIn("dispatchEvent(new Event('change', { bubbles: true }));", block)
-
-    def test_preview_is_skipped_when_the_picker_is_not_rendered(self):
-        js = self._setup_js
-        block = js[js.index('function applySidebarPreview(form)'):]
-        block = block[:block.index('\n    function ', 10)]
-
-        self.assertIn("form.querySelector('[data-dlux-icon-picker][data-icon-field=\"sidebar_toggle_icon\"]')", block)
-        self.assertIn('if (toggleIconPicker && toggleGlyph) {', block)
 
     def test_directional_list_is_served_from_python_not_duplicated_in_js(self):
         html = render_to_string('dlux/helpers/icon_picker.html', {

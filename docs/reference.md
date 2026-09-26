@@ -441,44 +441,32 @@ register_app_settings(
 
 #### Previewing app-owned system settings
 
-`register_app_settings()` describes storage and server-rendered controls. Visual
-preview behavior stays in the owning app's JavaScript because only that app can
-identify its rendered target and translate unsaved form values into UI changes.
-The shared app-settings template includes a hidden Preview action. Registering
-the same namespace through `window.DluxSetupPreview.registerAppPreview()` makes
-that action available; no Dlux feature module needs to be patched.
+An app's settings preview is a page of its own, rendered by the server with the
+unsaved app form — the same mechanism as core System Settings (see *Unsaved
+previews* in `system-configuration.md`). The shared app-settings template
+includes a hidden Preview action; registering the namespace makes it available
+and names the page to render:
 
 ```javascript
 const unregister = window.DluxSetupPreview.registerAppPreview('myproject.catalog', {
-  mode: 'glass',
-  target: '[data-catalog-shell]',
-  apply({ form, target, helpers }) {
-    const mode = form.elements.default_view.value;
-    helpers.setData(target, 'catalog-view', mode);
-    helpers.setClass(target, 'is-compact', mode === 'table');
-  },
+  path: '/catalog/',            // or (form) => '/catalog/?view=' + form.elements.default_view.value
+  audience: '',                 // 'anonymous' to render a public page as a visitor sees it
 });
 ```
 
-Use `mode: 'glass'` with `target` and `apply(context)` when the real surface is
-visible behind the Options modal. If the target is absent, Preview remains
-disabled and registration is a safe no-op. Use `mode: 'popup'` with
-`render(context)` for an off-page target; return a DOM node or plain text and
-Dlux places it in the same contained, non-persistent preview dialog used by
-core settings.
+Preview POSTs the app form to `system_settings_preview_draft` with
+`_dlux_preview_kind=app`; the server builds it with `build_app_settings_form()`
+and `get_app_settings_form_value()` exactly as a save would, places the value at
+`extra_config['app'][<namespace>]` of a draft that is never saved, and renders
+`path` with it in the popup. Anything the page reads through
+`get_app_system_config()` shows the unsaved value; nothing is written.
 
-The default form scope is
-`form[data-dlux-app-settings-namespace="<namespace>"]`. Set `formRoot` to a
-narrower CSS selector when an app owns another form root. The callback context
-contains `{namespace, form, target, helpers}`. Helpers cover body data
-attributes, CSS custom properties, element data attributes, classes, text,
-URLs, visibility, and Bootstrap icon classes. The returned `unregister()`
-function removes the registration and hides its Preview action.
+`registerAppPreview()` throws without a `path`. The returned `unregister()`
+removes the registration and hides the Preview action again.
 
-Python preview metadata is intentionally not part of `register_app_settings()`:
-simple metadata cannot safely express app-owned DOM behavior, while executable
-callbacks belong in static JavaScript and remain subject to the app's normal
-content-security and review path.
+*Changed in 1.9.5b2:* the 1.9.5b1 `mode`/`target`/`apply()`/`render()` callbacks
+and their DOM helpers are retired. A preview is a rendered page, so an app
+registers the page instead of patching the one on screen.
 
 ### Adding an Options-page card
 
@@ -848,15 +836,12 @@ System Settings form rewrites its own hidden JSON carriers during init and live
 preview, dispatching synthetic events that would otherwise mark it dirty
 immediately.
 
-System Settings page mutations are owned by `window.DluxSetupPreview` from
-`dlux/static/dlux/setup/js/previews.js`. Handlers must tolerate absent targets:
-the first-launch wizard has no sidebar, while an Options modal does. Legacy
-preview exports remain on `window.DluxSetup` for compatibility. Notification,
-email, security, profile, search, logging, backup, and feature-policy settings
-do not mutate unrelated live page chrome. Each step declares a preview
-capability: Options editors use glass mode when their real target is behind the
-modal, while the setup wizard and off-page home/login targets use a contained
-client-side popup built from unsaved values. Preview never submits the form.
+System Settings previews are rendered by the server, not patched in the page:
+`window.DluxSetupPreview` (`dlux/static/dlux/setup/js/previews.js`) only posts the
+unsaved form to `system_settings_preview_draft` and frames the page it names.
+`applySystemSettingsPreview(form)` remains for callers that rewrite a hidden
+builder field — it schedules a re-render of the draft page. Preview never
+submits the form; see *Unsaved previews* in `system-configuration.md`.
 
 The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
 user preference; while set, a dirty close discards without prompting. This is

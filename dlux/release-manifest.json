@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.9.5b1",
+  "version": "1.9.5b2",
   "display": {
-    "summary": "System Settings gain an explicit Preview action: see unsaved changes on the real page chrome or in a contained popup before saving.",
+    "summary": "System Settings previews now render the real pages with your unsaved values, in the draft's language, before anything is saved.",
     "highlights": [
-      "Visual steps preview behind a transparent Options modal or in a popup; settings with nothing to show say so.",
-      "Previews use the unsaved form, never write settings, and restore on click, Escape or Q.",
-      "Apps register previews for their own settings with DluxSetupPreview.registerAppPreview()."
+      "The page behind the Options modal follows every change; Preview lifts the modal off it.",
+      "Login, home, profile and sample list, form and modal pages open in a popup with language and width switches.",
+      "Apps preview their own settings by naming a page: registerAppPreview(namespace, {path})."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b2"
   },
   "requires": {
     "updater_schema": ">=1",

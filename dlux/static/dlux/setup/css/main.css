@@ -1505,8 +1505,80 @@
   margin-bottom: 0;
 }
 
-/* System Settings intentional preview modes. Glass mode keeps the modal's
-   outline as a return target while exposing the real page chrome beneath it. */
+/* System Settings previews. Every preview is a real page rendered by the server
+   with the unsaved form (see dlux/system/preview.py). Behind the Options modal a
+   frame of the current page follows the form as it changes; glass mode lifts the
+   modal off it. Sections whose subject is not on screen open the popup instead. */
+/* Same z-index as the sticky titlebar and the modal backdrop (1050); previews.js
+   places it between them in document order, so the draft page covers the real
+   one and the modal's own darkening still lies over the draft. */
+.dlux-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: var(--bs-body-bg);
+  pointer-events: none;
+}
+
+.dlux-preview-backdrop[hidden] {
+  display: none;
+}
+
+.dlux-preview-backdrop iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bs-body-bg);
+}
+
+.dlux-preview-backdrop iframe[data-dlux-preview-stale] {
+  visibility: hidden;
+}
+
+.dlux-preview-glass-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 1054;
+  cursor: zoom-out;
+}
+
+.dlux-settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* A bare glyph beside the section title, not a .btn: the global button chrome
+   (border, shadow, radius) turned it into a small bubble. */
+.dlux-preview-eye {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--bs-secondary-color);
+  font-size: 1em;
+  line-height: 1;
+  opacity: 0.75;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.dlux-preview-eye:hover,
+.dlux-preview-eye:focus-visible {
+  color: var(--primal, var(--bs-primary));
+  opacity: 1;
+}
+
+.dlux-preview-eye:focus-visible {
+  outline: 2px solid rgba(var(--primal-rgb, 71, 85, 105), 0.45);
+  outline-offset: 1px;
+}
+
 body.dlux-system-preview-active .modal-backdrop.show {
   opacity: 0.08;
 }
@@ -1546,209 +1618,100 @@ body.dlux-system-preview-active .modal-backdrop.show {
   pointer-events: none;
 }
 
-.dlux-system-preview-popup {
+.dlux-preview-popup {
   position: fixed;
   inset: 0;
   z-index: 2100;
   display: grid;
   place-items: center;
-  padding: clamp(0.75rem, 3vw, 2rem);
-  background: rgba(8, 15, 28, 0.68);
-  backdrop-filter: blur(6px);
+  padding: clamp(0.5rem, 2.5vw, 1.75rem);
+  background: rgba(8, 15, 28, 0.62);
+  backdrop-filter: blur(4px);
 }
 
-.dlux-system-preview-popup__dialog {
-  width: min(70rem, 100%);
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
-  border: 1px solid rgba(var(--primal-rgb), 0.35);
-  border-radius: 1.25rem;
-  background: var(--bs-body-bg);
-  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.35);
-}
-
-.dlux-system-preview-popup__heading {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+.dlux-preview-popup__dialog {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--bs-border-color);
-  background: var(--bs-body-bg);
-}
-
-.dlux-system-preview-shell {
-  --preview-accent: var(--primal, #2363c3);
-  min-height: 34rem;
-  color: var(--bs-body-color);
-  background: var(--bs-tertiary-bg);
-}
-
-.dlux-system-preview-shell[data-preview-theme="dark"],
-.dlux-system-preview-shell[data-preview-theme="gothic"],
-.dlux-system-preview-shell[data-preview-theme="neon"] {
-  color: #eef2f7;
-  background: #111827;
-}
-
-.dlux-system-preview-shell__titlebar,
-.dlux-system-preview-shell__navbar,
-.dlux-system-preview-shell__footer {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-  background: color-mix(in srgb, var(--preview-accent) 9%, transparent);
-}
-
-.dlux-system-preview-shell__logo {
-  width: 2rem;
-  height: 2rem;
-  object-fit: contain;
-}
-
-.dlux-system-preview-shell__actions {
-  margin-inline-start: auto;
-  letter-spacing: 0.35rem;
-}
-
-.dlux-system-preview-shell__navbar {
-  padding-block: 0.45rem;
-  font-size: 0.85rem;
-}
-
-.dlux-system-preview-shell__workspace {
-  display: grid;
-  grid-template-columns: minmax(9rem, 13rem) 1fr;
-  min-height: 27rem;
-}
-
-.dlux-system-preview-shell__sidebar {
-  display: grid;
-  align-content: start;
-  gap: 0.35rem;
-  padding: 1rem;
-  border-inline-end: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-}
-
-.dlux-system-preview-shell__sidebar > div {
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--preview-accent) 8%, transparent);
-}
-
-.dlux-system-preview-shell__content {
-  min-width: 0;
-  padding: clamp(1rem, 3vw, 2rem);
-}
-
-.dlux-system-preview-shell__ribbon,
-.dlux-system-preview-shell__card,
-.dlux-system-preview-login__card {
-  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  flex-direction: column;
+  width: min(100%, 90rem);
+  height: min(100%, 60rem);
+  overflow: hidden;
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--bs-body-bg) 88%, transparent);
-  box-shadow: 0 0.5rem 1.3rem rgba(0, 0, 0, 0.07);
+  background: var(--bs-body-bg);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.3);
 }
 
-.dlux-system-preview-shell[data-card-edges="normal"] :is(.dlux-system-preview-shell__ribbon, .dlux-system-preview-shell__card) {
-  border-radius: 0.35rem;
-}
-
-.dlux-system-preview-shell[data-card-edges="half_rounded"] :is(.dlux-system-preview-shell__ribbon, .dlux-system-preview-shell__card) {
-  border-radius: 0 0 1rem 1rem;
-}
-
-.dlux-system-preview-shell__ribbon {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-inline-start: 0.3rem solid var(--preview-accent);
-}
-
-.dlux-system-preview-shell__tabs,
-.dlux-system-preview-shell__cards {
+.dlux-preview-popup__bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-}
-
-.dlux-system-preview-shell__tabs span {
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-}
-
-.dlux-system-preview-shell__tabs .is-active,
-.dlux-system-preview-shell__button {
-  color: white;
-  background: var(--preview-accent);
-}
-
-.dlux-system-preview-shell__card {
-  flex: 1 1 12rem;
-  padding: 1rem;
-}
-
-.dlux-system-preview-shell__card p {
-  margin: 0.5rem 0 0;
-  opacity: 0.7;
-}
-
-.dlux-system-preview-shell__lead {
-  max-width: 42rem;
-  font-size: 1.1rem;
-  opacity: 0.72;
-}
-
-.dlux-system-preview-shell__footer {
-  justify-content: center;
-  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-  border-bottom: 0;
-  font-size: 0.75rem;
-}
-
-.dlux-system-preview-login {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
-  gap: clamp(1rem, 4vw, 4rem);
   align-items: center;
-  min-height: 29rem;
-  padding: clamp(1.25rem, 5vw, 4rem);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--preview-accent) 28%, transparent), transparent 55%);
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--bs-border-color);
 }
 
-.dlux-system-preview-login__card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 1.5rem;
-}
-
-.dlux-system-preview-shell__input,
-.dlux-system-preview-shell__button {
-  padding: 0.7rem 0.85rem;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  border-radius: 0.6rem;
-}
-
-.dlux-system-preview-shell__button {
-  border: 0;
-  text-align: center;
+.dlux-preview-popup__title {
+  margin: 0;
+  margin-inline-end: auto;
+  font-size: 1rem;
   font-weight: 700;
 }
 
-@media (max-width: 700px) {
-  .dlux-system-preview-shell__workspace,
-  .dlux-system-preview-login {
-    grid-template-columns: 1fr;
+.dlux-preview-popup__bar .form-select {
+  width: auto;
+}
+
+.dlux-preview-popup__stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bs-tertiary-bg);
+}
+
+.dlux-preview-popup__stage iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bs-body-bg);
+  transition: width 0.2s ease;
+}
+
+.dlux-preview-popup__stage[data-viewport="tablet"] iframe {
+  width: min(100%, 820px);
+}
+
+.dlux-preview-popup__stage[data-viewport="mobile"] iframe {
+  width: min(100%, 390px);
+}
+
+.dlux-preview-popup__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--bs-body-bg);
+  text-align: center;
+}
+
+.dlux-preview-popup__status[hidden] {
+  display: none;
+}
+
+.dlux-preview-popup__errors {
+  max-width: 36rem;
+  text-align: start;
+}
+
+@media (max-width: 575.98px) {
+  .dlux-preview-popup {
+    padding: 0;
   }
 
-  .dlux-system-preview-shell__sidebar {
-    grid-template-columns: repeat(2, 1fr);
-    border-inline-end: 0;
-    border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  .dlux-preview-popup__dialog {
+    height: 100%;
+    border-radius: 0;
   }
 }

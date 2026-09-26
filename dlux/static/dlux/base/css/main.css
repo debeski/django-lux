@@ -673,3 +673,13 @@ body.dlux-modal-stacked-open .modal-backdrop:last-of-type {
     display: inline-block;
     transform: scaleX(-1);
 }
+
+/* A settings preview frame (dlux/system/preview.py) re-renders a real page with
+   unsaved values; animations and transitions would replay on every render and
+   make it read as a reload. */
+html[data-dlux-preview] *,
+html[data-dlux-preview] *::before,
+html[data-dlux-preview] *::after {
+    animation: none !important;
+    transition: none !important;
+}

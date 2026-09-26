@@ -162,6 +162,15 @@ class LayoutMixin:
             classes.append('d-none')
         return ' '.join(classes)
 
+    def _preview_eye(self, strings, target):
+        """A section's own preview: opens a real page rendered with the unsaved form."""
+        label = strings.get('preview_section_eye', 'Preview this section')
+        return (
+            "<button type='button' class='dlux-preview-eye' "
+            f"data-dlux-preview-target='{target}' aria-label=\"{label}\" title=\"{label}\">"
+            "<i class='bi bi-eye' aria-hidden='true'></i></button>"
+        )
+
     def _preview_button(self, strings):
         label = strings.get('btn_preview', 'Preview')
         unavailable = strings.get('preview_unavailable', 'Preview is not available for this step.')
@@ -466,7 +475,7 @@ class LayoutMixin:
                         build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                         HTML(self.language_fonts_editor_html),
                         Field('default_fonts'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('edges_settings_title', 'Surfaces & Edges')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('edges_settings_title', 'Surfaces & Edges')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
                         Row(
                             Div(Field('table_edges'), css_class='col-12 col-lg-6'),
                             Div(Field('card_edges'), css_class='col-12 col-lg-6'),
@@ -658,7 +667,7 @@ class LayoutMixin:
                     ),
                     Div(
                         self._step_badge(s, 'layout', 'Layout'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables and Cards')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('tables_settings_title', 'Tables and Cards')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'table_accent_edges', css_class='col-12 col-lg-6'),
                             build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
@@ -677,12 +686,12 @@ class LayoutMixin:
                             Div(Field('row_actions_style'), css_class='col'),
                             css_class='mb-3'
                         ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('forms_settings_title', 'Forms')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('forms_settings_title', 'Forms')}</span>{self._preview_eye(s, 'sample_form')}</h6>"),
                         Row(
                             Div(Field('default_form_density'), css_class='col'),
                             css_class='mb-3'
                         ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('modal_settings_title', 'Modals')}</span>{self._preview_eye(s, 'sample_modal')}</h6>"),
                         Row(
                             Div(Field('default_modal_size'), css_class='col'),
                             css_class='mb-3'
