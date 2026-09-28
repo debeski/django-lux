@@ -296,8 +296,10 @@ services:
   # DjangoLux Composer agent start
   # Read-only Docker gateway (POST=0, EXEC=0): the agent reads container/image
   # state through it but can never mutate. Writes go through composer-executor.
+  # Pinned by digest: this image holds the Docker socket, so a moved tag would
+  # run new code with that access. Dependabot (.github/dependabot.yml) bumps it.
   docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
     restart: always
     labels:
       org.dlux.restart: "protected"
@@ -332,11 +334,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # DAC_READ_SEARCH lets this UID-0-but-uncapped process read the project's
-    # own 0600 .secrets/.env to deploy. Read-only override — no write/exec/setuid
-    # bypass. Without it, deploys fail reading secrets and inline updates break.
+    # DAC_OVERRIDE lets this UID-0-but-uncapped process read the project's own
+    # 0600 .secrets/.env to deploy. Not DAC_READ_SEARCH: that one also grants
+    # open_by_handle_at, which escapes the ${PWD} bind mount to the whole host
+    # filesystem. Without a capability, deploys fail reading secrets.
     cap_add:
-      - DAC_READ_SEARCH
+      - DAC_OVERRIDE
     working_dir: "${PWD}"
     command:
       - executor

@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Scaffolded Stacks Start Pinned And Without The Host-Read Capability**: new projects' `compose.yml` pins `docker-socket-proxy` to `tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b5…` instead of `:latest`, since that image holds the Docker socket and a moved tag would run new code with that access. `composer-executor` gets `DAC_OVERRIDE` instead of `DAC_READ_SEARCH` to read its 0600 `.secrets/.env`: `DAC_READ_SEARCH` also grants `open_by_handle_at`, which reaches past the `${PWD}` bind mount to the whole host filesystem. The generated `release.yml` pins its actions by commit SHA, because they see the registry token, and a new `.github/dependabot.yml` bumps those pins and the proxy digest weekly. Composer's `check --fix` makes the same changes on stacks that already exist.
 - **Advanced Filter Retirement Date**: `docs/ui-integration.md` and `docs/developer-guide.md` said `advanced_filter_helper()` was removed in v1.9.0; it stays through v1.9.x and goes in v1.10.0, the date `docs/deprecation-countdown.md` already gives. New scaffolded apps (`dlux/scaffold/templates/app/README.md.tmpl`) recommend `RibbonMixin` and `{% dlux_ribbon %}` instead of the helper. `docs/inline-updater.md` gets the same correction for the in-container update executor (v1.10.0, not v1.9.0).
 
 ## v1.9.5b3

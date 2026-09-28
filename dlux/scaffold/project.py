@@ -80,6 +80,7 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "project/requirements.txt.tmpl": target_root / "requirements.txt",
         "project/release-manifest.json.tmpl": target_root / "release-manifest.json",
         "project/.github/workflows/release.yml.tmpl": target_root / ".github" / "workflows" / "release.yml",
+        "project/.github/dependabot.yml.tmpl": target_root / ".github" / "dependabot.yml",
         "project/tools/validate_project_release_manifest.py.tmpl": (
             target_root / "tools" / "validate_project_release_manifest.py"
         ),

@@ -230,7 +230,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("  egress:", compose_contents)
             self.assertIn("composer-agent:", compose_contents)
             self.assertIn("docker-socket-proxy:", compose_contents)
-            self.assertIn("image: tecnativa/docker-socket-proxy:latest", compose_contents)
+            self.assertIn("image: tecnativa/docker-socket-proxy:v0.5.0@sha256:", compose_contents)
+            self.assertNotIn("docker-socket-proxy:latest", compose_contents)
             self.assertIn("EVENTS: 1", compose_contents)
             self.assertIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose_contents)
             self.assertIn("  docker_proxy:", compose_contents)
@@ -240,7 +241,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("  composer-executor:\n", compose_contents)
             executor_block = compose_contents.split("  composer-executor:\n", 1)[1].split("\n\n", 1)[0]
             self.assertIn("cap_drop:\n      - ALL", executor_block)
-            self.assertIn("cap_add:\n      - DAC_READ_SEARCH", executor_block)
+            self.assertIn("cap_add:\n      - DAC_OVERRIDE", executor_block)
+            self.assertNotIn("- DAC_READ_SEARCH", compose_contents)
             self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
@@ -944,6 +946,11 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
             self.assertIn("DLUX_PROJECT_RELEASE_MANIFEST=", workflow)
             # GitHub expression syntax must survive scaffold rendering.
             self.assertIn("${{ secrets.DOCKERHUB_TOKEN }}", workflow)
+            # Actions that see the registry token are pinned by commit SHA.
+            for line in workflow.splitlines():
+                if "uses:" in line:
+                    self.assertRegex(line, r"@[0-9a-f]{40} # v\d+$")
+            self.assertTrue((target / ".github" / "dependabot.yml").exists())
 
     def test_image_option_drives_every_reference(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

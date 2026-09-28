@@ -1,0 +1,12 @@
+# Keeps the digest- and SHA-pinned images and actions current. The pins stop a
+# moved tag from changing what runs; these PRs are how the pins move on purpose.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly
