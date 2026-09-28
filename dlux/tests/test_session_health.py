@@ -14,8 +14,8 @@ class SessionCookieProblemTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
-    def _request(self, secure=False, host="localhost"):
-        return self.factory.get("/accounts/login/", secure=secure, HTTP_HOST=host)
+    def _request(self, secure=False, host="localhost", **headers):
+        return self.factory.get("/accounts/login/", secure=secure, HTTP_HOST=host, **headers)
 
     @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None)
     def test_a_secure_cookie_on_an_http_page_is_reported(self):
@@ -26,6 +26,29 @@ class SessionCookieProblemTests(SimpleTestCase):
     @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None)
     def test_the_same_page_over_https_is_fine(self):
         self.assertEqual(session_cookie_problem(self._request(secure=True)), "")
+
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None, SECURE_PROXY_SSL_HEADER=None)
+    def test_https_ended_at_a_proxy_is_not_reported_as_http(self):
+        # Caddy ends TLS and forwards plain HTTP; the browser is on HTTPS and
+        # keeps the cookie even though Django was never told about the proxy.
+        request = self._request(host="decrees.example.gov.ly", HTTP_X_FORWARDED_PROTO="https")
+        self.assertFalse(request.is_secure())
+        self.assertEqual(session_cookie_problem(request), "")
+
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None, SECURE_PROXY_SSL_HEADER=None)
+    def test_a_proxy_forwarding_plain_http_is_still_reported(self):
+        message = session_cookie_problem(self._request(HTTP_X_FORWARDED_PROTO="http"))
+        self.assertIn("HTTP", message)
+
+    @override_settings(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_DOMAIN=None,
+        SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_SSL", "on"),
+    )
+    def test_a_configured_proxy_header_is_trusted_over_the_forwarded_proto(self):
+        # Once the project names its proxy header, is_secure() is the answer.
+        message = session_cookie_problem(self._request(HTTP_X_FORWARDED_PROTO="https"))
+        self.assertIn("HTTP", message)
 
     @override_settings(SESSION_COOKIE_SECURE=False, SESSION_COOKIE_DOMAIN="example.gov.ly")
     def test_a_cookie_scoped_to_another_domain_is_reported(self):
