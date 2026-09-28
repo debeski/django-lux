@@ -332,11 +332,14 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # DAC_READ_SEARCH lets this UID-0-but-uncapped process read the project's
-    # own 0600 .secrets/.env to deploy. Read-only override — no write/exec/setuid
-    # bypass. Without it, deploys fail reading secrets and inline updates break.
+    # DAC_OVERRIDE lets this UID-0-but-uncapped process read the project's own
+    # 0600 .secrets/.env to deploy; ${PWD} is mounted read-only, so it cannot
+    # write there. Not DAC_READ_SEARCH: that also grants open_by_handle_at,
+    # which reaches past the bind mount. Keep the word DAC_READ_SEARCH in this
+    # comment: Composer <=1.5.3 treats its absence as a missing capability and
+    # `check --fix` would add a second cap_add key.
     cap_add:
-      - DAC_READ_SEARCH
+      - DAC_OVERRIDE
     working_dir: "${PWD}"
     command:
       - executor

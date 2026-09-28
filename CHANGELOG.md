@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Scaffolded Executor Drops DAC_READ_SEARCH**: new projects' `composer-executor` gets `cap_add: DAC_OVERRIDE` instead of `DAC_READ_SEARCH` to read its 0600 `.secrets/.env`; `DAC_READ_SEARCH` also grants `open_by_handle_at`, which reaches past the `${PWD}` bind mount (mounted read-only, so `DAC_OVERRIDE` cannot write there). The template comment deliberately names `DAC_READ_SEARCH`, because Composer 1.5.3 and earlier treat an executor block without that text as missing its capability and `check --fix` would add a second `cap_add` key; `test_scaffold` guards it.
 - **Advanced Filter Retirement Date**: `docs/ui-integration.md` and `docs/developer-guide.md` said `advanced_filter_helper()` was removed in v1.9.0; it stays through v1.9.x and goes in v1.10.0, the date `docs/deprecation-countdown.md` already gives. New scaffolded apps (`dlux/scaffold/templates/app/README.md.tmpl`) recommend `RibbonMixin` and `{% dlux_ribbon %}` instead of the helper. `docs/inline-updater.md` gets the same correction for the in-container update executor (v1.10.0, not v1.9.0).
 
 ## v1.9.5b3
