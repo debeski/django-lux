@@ -31,6 +31,21 @@ def _host(request):
         return ""
 
 
+def _https_behind_unconfigured_proxy(request):
+    """True when a proxy says the browser is on HTTPS but Django was not told to listen.
+
+    With TLS ended at Caddy or nginx, Django sees plain HTTP and ``is_secure()``
+    stays False until ``SECURE_PROXY_SSL_HEADER`` is set. The browser is still on
+    HTTPS and keeps the Secure cookie, so login works and there is nothing to
+    report here; ``dlux_doctor`` names the missing setting. When the setting *is*
+    configured, ``is_secure()`` already reads the proxy's answer and is trusted.
+    """
+    if getattr(settings, "SECURE_PROXY_SSL_HEADER", None):
+        return False
+    proto = request.META.get("HTTP_X_FORWARDED_PROTO", "")
+    return proto.split(",")[0].strip().lower() == "https"
+
+
 def session_cookie_problem(request, strings=None):
     """A sentence explaining why login cannot persist here, or ``""``.
 
@@ -39,7 +54,11 @@ def session_cookie_problem(request, strings=None):
     """
     strings = strings or {}
 
-    if getattr(settings, "SESSION_COOKIE_SECURE", False) and not request.is_secure():
+    if (
+        getattr(settings, "SESSION_COOKIE_SECURE", False)
+        and not request.is_secure()
+        and not _https_behind_unconfigured_proxy(request)
+    ):
         return strings.get(
             "login_cookie_insecure",
             "Signing in cannot be completed: the session cookie is marked Secure, "

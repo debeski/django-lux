@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **No False "Served Over HTTP" Warning Behind A TLS Proxy**: the login page told users of an HTTPS deployment that signing in could not be completed because the page was served over HTTP. With TLS ended at Caddy or nginx and `SECURE_PROXY_SSL_HEADER` unset, Django sees every request as plain HTTP, but the browser is on HTTPS and keeps the Secure cookie, so login works. `session_cookie_problem()` now skips that warning when `SECURE_PROXY_SSL_HEADER` is unset and the proxy's `X-Forwarded-Proto` says `https`; a configured proxy header is still trusted as-is. Deployments should still set `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` so the trusted-device and session-history cookies get their Secure flag; `dlux_doctor` reports it under `security.proxy_ssl_header`.
 - **Advanced Filter Retirement Date**: `docs/ui-integration.md` and `docs/developer-guide.md` said `advanced_filter_helper()` was removed in v1.9.0; it stays through v1.9.x and goes in v1.10.0, the date `docs/deprecation-countdown.md` already gives. New scaffolded apps (`dlux/scaffold/templates/app/README.md.tmpl`) recommend `RibbonMixin` and `{% dlux_ribbon %}` instead of the helper. `docs/inline-updater.md` gets the same correction for the in-container update executor (v1.10.0, not v1.9.0).
 
 ## v1.9.5b2
