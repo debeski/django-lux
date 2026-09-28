@@ -1,14 +1,12 @@
 {
   "schema_version": 2,
-  "version": "1.9.5b2",
+  "version": "1.9.5b3",
   "display": {
-    "summary": "System Settings previews now render the real pages with your unsaved values, in the draft's language, before anything is saved.",
+    "summary": "The login page no longer tells users of an HTTPS site behind a TLS proxy that it was served over HTTP.",
     "highlights": [
-      "The page behind the Options modal follows every change; Preview lifts the modal off it.",
-      "Login, home, profile and sample list, form and modal pages open in a popup with language and width switches.",
-      "Apps preview their own settings by naming a page: registerAppPreview(namespace, {path})."
+      "The 'served over HTTP' sign-in warning is skipped when the proxy reports HTTPS and SECURE_PROXY_SSL_HEADER is unset."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b3"
   },
   "requires": {
     "updater_schema": ">=1",
