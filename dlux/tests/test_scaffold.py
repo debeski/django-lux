@@ -240,7 +240,12 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("  composer-executor:\n", compose_contents)
             executor_block = compose_contents.split("  composer-executor:\n", 1)[1].split("\n\n", 1)[0]
             self.assertIn("cap_drop:\n      - ALL", executor_block)
-            self.assertIn("cap_add:\n      - DAC_READ_SEARCH", executor_block)
+            self.assertIn("cap_add:\n      - DAC_OVERRIDE", executor_block)
+            self.assertNotIn("- DAC_READ_SEARCH", compose_contents)
+            self.assertEqual(executor_block.count("cap_add:"), 1)
+            # Composer <=1.5.3 heals any executor body lacking this substring by
+            # inserting a second cap_add key; the template's comment satisfies it.
+            self.assertIn("DAC_READ_SEARCH", executor_block)
             self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.

@@ -46,7 +46,8 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
-  - [ ] 1.9.5b2 (server-rendered draft previews, `dlux/system/preview.py`) merged into `main` 2026-09-27 (merge commit; b1/b2 tags in history) and published as a beta. Next: accept it on `testbed-dlux` via the beta channel, then promote 1.9.5.
+  - [ ] 1.9.5b3 on `main` (server-rendered draft previews + login HTTPS-proxy warning fix) is the current beta. Next: accept it on `testbed-dlux` via the beta channel, then promote 1.9.5.
+  - [ ] Local branch `fix/executor-dac-override` (uncommitted, unpushed): scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`. The template comment must keep the word `DAC_READ_SEARCH` — Composer <=1.5.3 substring-checks for it and `check --fix` would otherwise add a duplicate `cap_add`. 51 scaffold tests OK, both Composer heals no-op, `docker compose config` OK.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
@@ -68,8 +69,6 @@
   - [x] v1.8.12 `dlux_image_gate`: adopt/keep/abort verdict so an image baking an older dlux keeps the newer active release instead of being refused outright, decided by the release's own `requires.baked_image` floor. Composer must adopt the command for the gate to relax (2026-09-06).
   - [x] Tooltip positioning feedback loop fixed (v1.8.12): `positionTooltip()` clears `left`/`top` before measuring, so the fixed, auto-width box is no longer shrink-to-fit-capped by its own stale offset (2026-09-05).
   - [x] v1.8.4 managed assets public API: `ManagedAssetField(kind, namespace, reads)` + registry, namespace column (0018, backfilled by kind), namespace-scoped dedup and storage paths, field-identity-authorized instant upload for every kind, public `resolve_asset_selection`/`apply_asset_pickers`/`apply_asset_selections`/`build_asset_field`/`ManagedAssetFormMixin`, `capture` support, System Settings switched onto the same public helper (2026-09-02).
-  - [x] Data reset (shipping in v1.8.4): permanent mode (hard-deletes scoped rows + empties their recycle bin) behind a typed confirmation word, line models excluded via `cascade_parent()`, `trashed` counts in the catalog, and a `data_reset_finished` signal for projects to rebuild derived figures (2026-09-02).
-  - [x] File widget renamed off `project-archive`'s `archive_file` names to `build_file_field` / `file_field_*` / `.dlux-file-*`, with v1.x shims for the two helpers, the old string keys and the `archive-file-input` opt-in class (2026-09-01).
 
 ### One-line info about last verified Tests:
 - 2026-09-27 1.9.5b2: full `dlux.tests` 2619 OK; preview/wizard e2e 20/20 (opening a live step loads nothing, one change = one render at the reader's scroll, glass stacking, allowed fonts, modal font, no setup footer); `release_check` classify beta + `--base-tag v1.9.4` pass.
@@ -93,6 +92,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
+- Single checkout: `pkg-django-lux/main/` is the primary clone (holds `.git`, `.venv`, `.xclude`); former `system-settings-preview/` and `advanced-filter-110/` checkouts retired 2026-09-28.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
