@@ -431,6 +431,7 @@ def get_ops_state():
         "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
         "composer_version": composer_version,
+        "composer_behind": ops.composer_behind(composer_version),
     }
 
 

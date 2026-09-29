@@ -198,6 +198,15 @@ perform is disabled with its reason rather than offered and failed on a timeout.
 An unknown version gates nothing, since the run's own timeout still names the
 floor.
 
+Updating DjangoLux before Composer is allowed, so the card also says, under the
+Composer agent row, when the resident is older than it should be: older than an
+operation needs, or older than the running release's own
+`requires.services.composer` floor. The notice names both versions and who can
+fix it. When the card's operations are blocked it gives the host commands
+(`./start.sh self update`, then `./start.sh agent update`). When only the
+release's floor is missed, the card can still check and update the agent itself,
+and the notice says so instead of sending the administrator to a shell.
+
 Each row keeps its own last answer: checking the Composer does not blank what
 the deployment check found, and vice versa.
 

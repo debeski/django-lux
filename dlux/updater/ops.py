@@ -20,6 +20,9 @@ so a read-only question — "is there an update?" — never asks for one.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from django.utils import timezone
 
 from . import UpdaterError
@@ -131,13 +134,69 @@ def supports(operation, composer_version):
             # deployment lands on. Name the one command that gets it there.
             if operation.startswith("agent-"):
                 return False, reason + (
-                    "Run './start.sh agent update' on the host once; the card can "
-                    "do it from then on."
+                    "Run './start.sh self update', then './start.sh agent update' on "
+                    "the host once; the card can do it from then on."
                 )
             return False, reason + "Update the Composer agent first."
     except (InvalidVersion, TypeError):
         return True, ""
     return True, ""
+
+
+def required_composer(package_root=None):
+    """The Composer floor this DjangoLux release declares, e.g. ``"1.5.3b1"``.
+
+    Read from the running release's own manifest (``requires.services.composer``),
+    so an inline update that raises the floor raises it here too. ``""`` when the
+    manifest declares none or states it as anything but a single ``>=`` floor.
+    """
+    root = Path(package_root or Path(__file__).resolve().parents[1])
+    try:
+        manifest = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    services = (manifest.get("requires") or {}).get("services") or {}
+    spec = str(services.get("composer") or "").replace(" ", "")
+    if not spec.startswith(">=") or "," in spec:
+        return ""
+    return spec[2:]
+
+
+def composer_behind(composer_version, package_root=None):
+    """What the card says when the resident Composer is older than it should be.
+
+    ``None`` when it is current enough, or its version is unknown. Otherwise
+    ``{"version", "required", "ops_blocked"}``: ``required`` is the highest floor
+    it misses — this release's own, or an operation's — and ``ops_blocked`` says
+    whether the card can still update it or only the host can. Updating DjangoLux
+    before Composer is allowed, so without this the rows it cannot serve would
+    just sit disabled.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        current = Version(composer_version)
+    except (InvalidVersion, TypeError):
+        return None
+    missed = []
+    ops_blocked = False
+    for spec in OPERATIONS.values():
+        if current < Version(spec["min_composer"]):
+            missed.append(spec["min_composer"])
+            ops_blocked = True
+    release_floor = required_composer(package_root)
+    try:
+        if release_floor and current < Version(release_floor):
+            missed.append(release_floor)
+    except InvalidVersion:
+        pass
+    if not missed:
+        return None
+    return {
+        "version": composer_version,
+        "required": max(missed, key=Version),
+        "ops_blocked": ops_blocked,
+    }
 
 
 def normalize_operation(value):
