@@ -64,6 +64,35 @@ for (const width of [1440, 390]) {
   });
 }
 
+test('the floating bubble drags, snaps to a side and remembers where it was left', async () => {
+  const { ctx, page, errors } = await pageWithWeather(1440);
+  try {
+    const saves = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/sys/api/preferences/update/')) saves.push(request.postData());
+    });
+    await page.goto(`${BASE}/weather-dashboard/`, { waitUntil: 'networkidle' });
+    const bubble = page.locator('.dlux-weather--floating [data-weather-toggle]');
+    const from = await bubble.boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(300, 400, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const snapped = await page.locator('.dlux-weather--floating').boundingBox();
+    assert.ok(snapped.x <= 20, `snapped to the left edge: ${JSON.stringify(snapped)}`);
+    assert.equal(await bubble.getAttribute('aria-expanded'), 'false', 'a drag does not open the panel');
+    assert.ok(saves.some((body) => body && body.includes('weather_float_position')), 'the position is saved');
+    await page.reload({ waitUntil: 'networkidle' });
+    const again = await page.locator('.dlux-weather--floating').boundingBox();
+    assert.ok(again.x <= 20 && Math.abs(again.y - snapped.y) < 30, `kept after reload: ${JSON.stringify(again)}`);
+    await bubble.click();
+    const panel = await page.locator('.dlux-weather--floating [data-weather-panel]').boundingBox();
+    assert.ok(panel.x >= 0 && panel.x + panel.width <= 1440, `the panel opens away from the edge: ${JSON.stringify(panel)}`);
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+});
+
 test('Extra Features uses disabled tooltips, location search and the real save path', async () => {
   const { ctx, page, errors } = await pageWithWeather();
   try {

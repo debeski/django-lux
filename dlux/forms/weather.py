@@ -12,7 +12,7 @@ from .builders import _bind_choice_selector_widget, build_settings_toggle_field
 
 CHOICES = {
     'placement': [('titlebar', 'Titlebar'), ('user_hub', 'User hub'), ('floating', 'Floating'), ('embed', 'Project embeds only')],
-    'display': [('icon', 'Icon only'), ('text', 'Condition text'), ('temperature', 'Temperature only'), ('combined', 'Icon + temperature')],
+    'display': [('icon', 'Icon only'), ('temperature', 'Temperature only'), ('combined', 'Icon + temperature'), ('full', 'Full')],
     'units': [('metric', 'Celsius'), ('imperial', 'Fahrenheit')],
     'corner': [('bottom-end', 'Bottom end'), ('bottom-start', 'Bottom start'), ('top-end', 'Top end'), ('top-start', 'Top start')],
 }
@@ -23,8 +23,8 @@ CHOICES = {
 ICONS = {
     'placement': {'titlebar': 'bi-window-stack', 'user_hub': 'bi-person-circle',
                   'floating': 'bi-pin-angle', 'embed': 'bi-layout-text-window'},
-    'display': {'icon': 'bi-cloud-sun', 'text': 'bi-fonts', 'temperature': 'bi-thermometer-half',
-                'combined': 'bi-cloud-sun-fill'},
+    'display': {'icon': 'bi-cloud-sun', 'temperature': 'bi-thermometer-half',
+                'combined': 'bi-cloud-sun-fill', 'full': 'bi-card-text'},
     'units': {'metric': 'bi-thermometer-snow', 'imperial': 'bi-thermometer-sun'},
     'corner': {'bottom-end': 'bi-arrow-down-right', 'bottom-start': 'bi-arrow-down-left',
                'top-end': 'bi-arrow-up-right', 'top-start': 'bi-arrow-up-left'},

@@ -1,5 +1,6 @@
 """Reusable weather indicator and dashboard card."""
 import uuid
+from urllib.parse import urlencode
 
 from django import template
 from django.template.loader import render_to_string
@@ -40,9 +41,18 @@ def weather_widget(context, variant='compact', location='', placement=''):
     selector = DluxChoiceSelectorWidget(
         choices=[(item['id'], item['name']) for item in config['locations']], variant='chip',
     ).render(f'{uid}-location', selected, attrs={'id': f'{uid}-location'})
+    from django.urls import reverse
+    from ..system.preview import PREVIEW_PARAM, is_preview_request
+
+    url = reverse('weather_current')
+    if is_preview_request(request):
+        # A settings preview renders the draft; the widget's own reading request
+        # carries the draft token too, or it would read the saved settings (and
+        # hide itself when the draft is what switches weather on).
+        url += '?' + urlencode({PREVIEW_PARAM: request.GET.get(PREVIEW_PARAM, '')})
     return render_to_string('dlux/weather/widget.html', {
         **context.flatten(), 'DLUX_STRINGS': get_strings(),
         'weather': dict(selected=selected, display=config['display'], corner=config['corner'],
                         variant=variant, floating=placement == 'floating', uid=uid,
-                        selector=selector),
+                        selector=selector, url=url),
     })

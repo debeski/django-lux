@@ -33,10 +33,9 @@
     white-space: nowrap;
 }
 
-/* The display setting decides what the trigger carries. */
+/* The display setting decides what the trigger carries; Full shows all three. */
 [data-weather-display="icon"] .dlux-weather__trigger :is(.dlux-weather__temperature, .dlux-weather__condition),
 [data-weather-display="temperature"] .dlux-weather__trigger :is([data-weather-icon], .dlux-weather__condition),
-[data-weather-display="text"] .dlux-weather__trigger :is([data-weather-icon], .dlux-weather__temperature),
 [data-weather-display="combined"] .dlux-weather__trigger .dlux-weather__condition {
     display: none;
 }
@@ -144,25 +143,67 @@
     overflow-y: auto;
 }
 
-/* Floating: a corner chip whose panel opens toward the page. */
+/* Floating: a round bubble, like an assistant's launcher. It starts in the
+   configured corner; each user can drag it anywhere and it snaps to the nearer
+   side (placed by main.js with `.is-placed` and left/top). The panel opens away
+   from the edges it sits against, per `data-weather-dock` / `data-weather-rise`. */
 .dlux-weather--floating {
     position: fixed;
     z-index: 1030;
-    margin: max(0.75rem, env(safe-area-inset-bottom));
 }
 
-.dlux-weather--floating[data-weather-corner^="bottom"] { inset-block-end: var(--dlux-weather-bottom-offset, 4.5rem); }
-.dlux-weather--floating[data-weather-corner^="top"] { inset-block-start: var(--dlux-weather-top-offset, 5rem); }
-.dlux-weather--floating[data-weather-corner$="end"] { inset-inline-end: var(--dlux-weather-side-offset, 0.5rem); }
-.dlux-weather--floating[data-weather-corner$="start"] { inset-inline-start: var(--dlux-weather-side-offset, 0.5rem); }
+.dlux-weather--floating:not(.is-placed)[data-weather-corner^="bottom"] { inset-block-end: var(--dlux-weather-bottom-offset, 4.5rem); }
+.dlux-weather--floating:not(.is-placed)[data-weather-corner^="top"] { inset-block-start: var(--dlux-weather-top-offset, 5rem); }
+.dlux-weather--floating:not(.is-placed)[data-weather-corner$="end"] { inset-inline-end: var(--dlux-weather-side-offset, 0.75rem); }
+.dlux-weather--floating:not(.is-placed)[data-weather-corner$="start"] { inset-inline-start: var(--dlux-weather-side-offset, 0.75rem); }
 
-.dlux-weather--floating[data-weather-corner^="bottom"] .dlux-weather__panel {
-    inset-block: auto calc(100% + 0.6rem);
+.dlux-weather__bubble {
+    position: relative;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
 }
 
-.dlux-weather--floating[data-weather-corner$="start"] .dlux-weather__panel {
-    inset-inline: 0 auto;
+.dlux-weather--floating.is-dragging .dlux-weather__bubble {
+    cursor: grabbing;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
 }
+
+/* The bubble always shows the icon; the temperature rides on it as a badge and
+   the condition text lives in the panel. */
+.dlux-weather--floating[data-weather-display] .dlux-weather__bubble [data-weather-icon] {
+    display: inline-block;
+}
+
+.dlux-weather--floating .dlux-weather__bubble .dlux-weather__condition {
+    display: none;
+}
+
+.dlux-weather__bubble .dlux-weather__temperature {
+    position: absolute;
+    inset-block-end: -0.3rem;
+    inset-inline-end: -0.4rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 999px;
+    background: var(--primal);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.dlux-weather--floating[data-weather-dock="right"] .dlux-weather__panel { right: 0; left: auto; }
+.dlux-weather--floating[data-weather-dock="left"] .dlux-weather__panel { left: 0; right: auto; }
+.dlux-weather--floating[data-weather-rise="up"] .dlux-weather__panel { bottom: calc(100% + 0.6rem); top: auto; }
+.dlux-weather--floating[data-weather-rise="down"] .dlux-weather__panel { top: calc(100% + 0.6rem); bottom: auto; }
 
 /* Dashboard card: a Dlux card; the panel is its body. */
 .dlux-weather--card {
@@ -186,8 +227,7 @@
         position: static;
     }
 
-    .titlebar .dlux-weather__panel,
-    .dlux-weather--floating .dlux-weather__panel {
+    .titlebar .dlux-weather__panel {
         position: fixed;
         inset-block: calc(var(--header-height, 60px) + 0.5rem) auto;
         inset-inline: 0.5rem;

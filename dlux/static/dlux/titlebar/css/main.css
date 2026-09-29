@@ -87,8 +87,33 @@
     gap: 0.2rem;
 }
 
+/* A centred title is centred on the bar, not between its sides. Between the sides
+   it moved whenever an action was added or changed width (weather's reading
+   loading into its button, say). Only the heading is taken out of flow, so the
+   logo keeps its place at the start. The action rail sets
+   --dlux-titlebar-title-room to the width left free on both sides of the centre,
+   and groups actions before that runs out, so the title truncates rather than
+   running under an action. */
+.titlebar[data-title-align="center"] .titlebar__heading {
+    position: absolute;
+    inset-block-start: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: max-content;
+    max-width: var(--dlux-titlebar-title-room, 40vw);
+}
+
+.titlebar[data-title-align="center"] .titlebar__heading > * {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The heading is centred on the bar above; the logo stays at the start, where
+   it sat when the heading stretched across the centre. */
 .titlebar[data-title-align="center"] .titlebar__brand {
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .titlebar[data-title-align="center"] .titlebar__heading {

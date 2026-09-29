@@ -1,12 +1,13 @@
 {% load dlux_tags %}
 <section class="dlux-weather dlux-weather--{{ weather.variant }} no-print{% if weather.floating %} dlux-weather--floating{% endif %}{% if weather.variant == 'card' %} card border-0 shadow-sm{% endif %}"
          data-weather-widget data-weather-display="{{ weather.display }}" data-weather-corner="{{ weather.corner }}"
-         data-weather-url="{% url 'weather_current' %}" data-weather-location="{{ weather.selected }}" aria-label="{{ DLUX_STRINGS.weather_title }}">
+         data-weather-url="{{ weather.url }}" data-weather-location="{{ weather.selected }}" aria-label="{{ DLUX_STRINGS.weather_title }}">
     {% include_once 'dlux/weather/assets.html' %}
     {% if weather.variant != 'card' %}
     <button type="button"
-            class="dlux-weather__trigger{% if weather.variant == 'action' %} dlux-titlebar-btn dlux-titlebar-action{% endif %}"
+            class="dlux-weather__trigger{% if weather.variant == 'action' %} dlux-titlebar-btn dlux-titlebar-action{% elif weather.floating %} dlux-weather__bubble{% endif %}"
             data-weather-toggle aria-expanded="false" aria-controls="{{ weather.uid }}"
+            {% if weather.floating %}data-weather-draggable data-weather-drag-hint="{{ DLUX_STRINGS.weather_drag_hint|default:'Drag to move' }}"{% endif %}
             aria-label="{{ DLUX_STRINGS.weather_title }}" data-dlux-tooltip="{{ DLUX_STRINGS.weather_title }}">
         <i class="bi bi-cloud-sun" data-weather-icon aria-hidden="true"></i>
         <span class="dlux-weather__temperature" data-weather-temperature>—</span>

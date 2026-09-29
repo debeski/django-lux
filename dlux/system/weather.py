@@ -2,7 +2,9 @@
 import math
 
 PLACEMENTS = ('titlebar', 'user_hub', 'floating', 'embed')
-DISPLAYS = ('icon', 'text', 'temperature', 'combined')
+DISPLAYS = ('icon', 'temperature', 'combined', 'full')
+# 1.10.0b1 called the full display 'text' (condition text alone).
+LEGACY_DISPLAYS = {'text': 'full'}
 CORNERS = ('bottom-end', 'bottom-start', 'top-end', 'top-start')
 
 
@@ -40,6 +42,8 @@ def normalize_weather_config(value):
     cfg = value if isinstance(value, dict) else {}
     result = default_weather_config()
     result['enabled'] = cfg.get('enabled') in (True, 1, 'true', 'on')
+    if cfg.get('display') in LEGACY_DISPLAYS:
+        cfg = {**cfg, 'display': LEGACY_DISPLAYS[cfg['display']]}
     for key, choices in (('placement', PLACEMENTS), ('display', DISPLAYS),
                          ('units', ('metric', 'imperial')), ('corner', CORNERS)):
         if cfg.get(key) in choices:

@@ -379,3 +379,53 @@ class WeatherKeyAndSaveTests(TestCase):
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
         weather = html.split('data-weather-settings')[1].split('data-weather-location-builder')[0]
         self.assertIn('alert alert-danger', weather)
+
+
+class WeatherDisplayPreviewAndFloatTests(TestCase):
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+    enable = WeatherTests.enable
+
+    def render(self, markup, request=None):
+        if request is None:
+            request = RequestFactory().get('/')
+            request.user = self.admin
+        return Template('{% load dlux_weather %}' + markup).render(Context({'request': request}))
+
+    def test_the_full_display_replaces_condition_text(self):
+        from dlux.forms.weather import CHOICES
+        self.assertEqual([value for value, _ in CHOICES['display']], ['icon', 'temperature', 'combined', 'full'])
+        self.assertEqual(normalize_weather_config({'display': 'text'})['display'], 'full', '1.10.0b1 stored "text"')
+
+    def test_a_preview_passes_its_draft_token_to_the_reading_request(self):
+        from dlux.system.preview import PREVIEW_PARAM
+        config = self.enable()
+        request = RequestFactory().get('/', {PREVIEW_PARAM: 'tok123'})
+        request.user = self.admin
+        request.dlux_preview = {'token': 'tok123'}
+        with patch('dlux.weather.get_weather_config', return_value=config):
+            html = self.render('{% weather_widget variant="card" %}', request)
+            plain = self.render('{% weather_widget variant="card" %}')
+        self.assertIn(f'data-weather-url="{reverse("weather_current")}?{PREVIEW_PARAM}=tok123"', html)
+        self.assertNotIn(PREVIEW_PARAM, plain)
+
+    def test_extras_previews_on_the_live_page(self):
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / 'static/dlux/setup/js/previews.js').read_text(encoding='utf-8')
+        self.assertIn("'layout', 'extras']", js)
+
+    def test_the_floating_widget_is_a_draggable_bubble(self):
+        config = self.enable()
+        with patch('dlux.weather.get_weather_config', return_value=config):
+            html = self.render('{% weather_widget placement="floating" %}')
+        self.assertIn('dlux-weather__bubble', html)
+        self.assertIn('data-weather-draggable', html)
+
+    def test_a_centred_title_is_centred_on_the_bar(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1] / 'static/dlux/titlebar'
+        css = (root / 'css/main.css').read_text(encoding='utf-8')
+        rail = (root / 'js/action_rail.js').read_text(encoding='utf-8')
+        self.assertIn('max-width: var(--dlux-titlebar-title-room, 40vw);', css)
+        self.assertIn("titlebar.dataset.titleAlign === 'center'", rail)
+        self.assertIn("setProperty('--dlux-titlebar-title-room'", rail)

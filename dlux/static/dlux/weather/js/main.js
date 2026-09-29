@@ -19,7 +19,10 @@
     async function refresh(widget) {
         if (!widget.isConnected || widget.dataset.weatherDisabled) return;
         const selected = widget.dataset.weatherLocation;
-        const url = widget.dataset.weatherUrl + '?location=' + encodeURIComponent(selected);
+        // The base URL may already carry a settings-preview token.
+        const address = new URL(widget.dataset.weatherUrl, window.location.origin);
+        address.searchParams.set('location', selected);
+        const url = address.pathname + address.search;
         let entry = pending.get(url);
         if (!entry || Date.now() - entry.at > 60000) {
             entry = {
@@ -73,6 +76,105 @@
         }
     }
 
+    // ── The floating bubble ───────────────────────────────────────────────
+    // Dragged like an assistant launcher: it snaps to the nearer side, the
+    // position is kept per user (a preference, so it follows them), and the
+    // panel opens away from the edges the bubble sits against.
+    const FLOAT_MARGIN = 12;
+    const DRAG_THRESHOLD = 6;
+    const FLOAT_PREFERENCE = 'weather_float_position';
+
+    function clamp(value, low, high) {
+        return Math.min(Math.max(value, low), Math.max(low, high));
+    }
+
+    function orient(widget) {
+        const rect = widget.getBoundingClientRect();
+        widget.dataset.weatherDock = rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
+        widget.dataset.weatherRise = rect.top + rect.height / 2 > window.innerHeight / 2 ? 'up' : 'down';
+    }
+
+    function place(widget, left, top) {
+        const size = widget.offsetWidth;
+        widget.classList.add('is-placed');
+        widget.style.left = clamp(left, FLOAT_MARGIN, window.innerWidth - size - FLOAT_MARGIN) + 'px';
+        widget.style.top = clamp(top, FLOAT_MARGIN, window.innerHeight - size - FLOAT_MARGIN) + 'px';
+        orient(widget);
+    }
+
+    function placeSaved(widget) {
+        const saved = (window.USER_PREFS || {})[FLOAT_PREFERENCE];
+        if (!saved || (saved.side !== 'left' && saved.side !== 'right') || !Number.isFinite(saved.y)) {
+            orient(widget);
+            return;
+        }
+        const size = widget.offsetWidth;
+        const left = saved.side === 'left' ? FLOAT_MARGIN : window.innerWidth - size - FLOAT_MARGIN;
+        place(widget, left, clamp(saved.y, 0, 1) * (window.innerHeight - size));
+    }
+
+    function savePosition(widget) {
+        const rect = widget.getBoundingClientRect();
+        const value = {
+            side: rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right',
+            y: Math.round((rect.top / Math.max(1, window.innerHeight - rect.height)) * 1000) / 1000,
+        };
+        window.USER_PREFS = Object.assign({}, window.USER_PREFS || {}, { [FLOAT_PREFERENCE]: value });
+        if (typeof window.updatePreferences === 'function') {
+            window.updatePreferences({ [FLOAT_PREFERENCE]: value });
+        }
+    }
+
+    function setupFloating(widget, button) {
+        let start = null;
+        let dragging = false;
+        if (button.dataset.weatherDragHint) button.title = button.dataset.weatherDragHint;
+        placeSaved(widget);
+        button.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            const rect = widget.getBoundingClientRect();
+            start = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
+            dragging = false;
+            button.setPointerCapture(event.pointerId);
+        });
+        button.addEventListener('pointermove', (event) => {
+            if (!start) return;
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            if (!dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+            if (!dragging) {
+                dragging = true;
+                widget.classList.add('is-dragging');
+                close(widget);
+            }
+            place(widget, start.left + dx, start.top + dy);
+        });
+        const finish = () => {
+            if (!start) return;
+            start = null;
+            if (!dragging) return;
+            widget.classList.remove('is-dragging');
+            const rect = widget.getBoundingClientRect();
+            const toLeft = rect.left + rect.width / 2 < window.innerWidth / 2;
+            place(widget, toLeft ? FLOAT_MARGIN : window.innerWidth - rect.width - FLOAT_MARGIN, rect.top);
+            savePosition(widget);
+            // The click that ends a drag must not also open the panel.
+            widget.dataset.weatherJustDragged = 'true';
+            window.setTimeout(() => { delete widget.dataset.weatherJustDragged; }, 0);
+        };
+        button.addEventListener('pointerup', finish);
+        button.addEventListener('pointercancel', finish);
+        button.addEventListener('click', (event) => {
+            if (!widget.dataset.weatherJustDragged) return;
+            event.stopImmediatePropagation();
+            event.preventDefault();
+        }, true);
+        window.addEventListener('resize', () => {
+            if (widget.classList.contains('is-placed')) placeSaved(widget);
+            else orient(widget);
+        });
+    }
+
     function close(widget) {
         const button = widget.querySelector('[data-weather-toggle]');
         if (!button) return;
@@ -85,10 +187,13 @@
             if (widget.dataset.weatherReady) return;
             widget.dataset.weatherReady = 'true';
             const button = widget.querySelector('[data-weather-toggle]');
+            if (button && button.hasAttribute('data-weather-draggable')) setupFloating(widget, button);
             if (button) {
                 button.addEventListener('click', () => {
                     const panel = widget.querySelector('[data-weather-panel]');
                     const opening = panel.hidden;
+                    // Where the bubble sits now decides which way its panel opens.
+                    if (opening && button.hasAttribute('data-weather-draggable')) orient(widget);
                     document.querySelectorAll('[data-weather-widget]').forEach(close);
                     panel.hidden = !opening;
                     button.setAttribute('aria-expanded', String(opening));

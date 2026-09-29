@@ -14,11 +14,23 @@ Settings → Extra Features → Weather**, or in the same step of first-run setu
    locations.
 3. Choose Celsius or Fahrenheit, a display style, and a placement, then save.
 
-Display styles are **icon**, **condition text**, **temperature**, and
-**icon + temperature**. Placements are **titlebar**, **user hub**, **floating**,
-and **project embeds only**. The floating chip offers four corners: start/end
-follow the UI's LTR/RTL direction. The corner selector stays disabled, with a
-tooltip, unless Floating is selected.
+Display styles are **icon only**, **temperature only**, **icon + temperature**,
+and **full** (icon, temperature and condition text); 1.10.0b1's *condition text*
+is read as full. Placements are **titlebar**, **user hub**, **floating**, and
+**project embeds only**.
+
+**Floating** is a round bubble, like an assistant's launcher: the icon, with the
+temperature as a badge (the condition text is in its panel). It starts in the
+chosen corner (start/end follow the UI's LTR/RTL direction); each user can drag
+it anywhere, it snaps to the nearer side, and the position is kept as that
+user's preference (`weather_float_position`), so it follows them across devices.
+Its panel opens away from the edges it sits against. The corner selector stays
+disabled, with a tooltip, unless Floating is selected.
+
+**Preview**: Extra Features lifts the Options modal off the live page like the
+visual steps, so placement, display, units and corner can be tried before
+saving. In a preview the widget's reading request carries the draft token, so it
+reads the unsaved settings too.
 
 Titlebar and User hub placements make weather a **titlebar action**, like
 Search or Notifications: it appears in **System Settings → Titlebar → action
@@ -27,7 +39,9 @@ the bar's button shape, and it groups into the action rail on narrow screens.
 Titlebar keeps it in the bar under every hub style. User hub follows the hub: it
 sits in the user-hub dropdown card, or in the bar when the hub style lays its
 actions out there. Only an icon fits the round button, so the temperature and
-text displays widen it into a pill.
+text displays widen it into a pill. A centred title is centred on the bar
+itself, not between its sides, so the pill neither moves the title nor makes it
+jump when the reading loads.
 
 Click an indicator to open its panel, placed the way the notifications panel
 is (under the trigger, under the rail when grouped, across the width under the
