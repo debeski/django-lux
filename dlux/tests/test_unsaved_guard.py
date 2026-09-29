@@ -47,6 +47,13 @@ class UnsavedGuardAssetTests(SimpleTestCase):
         self.assertIn("const SKIP_PREFERENCE = 'skip_unsaved_settings_prompt';", js)
         self.assertIn('if (shouldSkipPrompt()) {', js)
 
+    def test_a_form_inserted_as_the_node_itself_is_guarded(self):
+        # A project settings tile's modal inserts the <form> directly, and
+        # querySelectorAll never matches its own root: the form was never bound.
+        js = self._js
+
+        self.assertIn('if (root.matches && root.matches(GUARD_SELECTOR)) {\n            forms.unshift(root);', js)
+
     def test_dirtiness_is_a_snapshot_not_an_input_listener(self):
         # The settings form rewrites its own hidden JSON carriers during init and
         # live preview, dispatching synthetic events; a listener would report the

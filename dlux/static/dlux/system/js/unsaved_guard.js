@@ -97,11 +97,18 @@
         return serializeForm(form) !== form.dataset.dluxUnsavedBaseline;
     }
 
+    // `root` itself counts: the dynamic modal inserts a project settings tile's
+    // <form> directly, and querySelectorAll only searches below the root, so a
+    // guarded form that *is* the inserted node was never bound or baselined.
     function guardedForms(root) {
         if (!root || !root.querySelectorAll) {
             return [];
         }
-        return Array.from(root.querySelectorAll(GUARD_SELECTOR));
+        const forms = Array.from(root.querySelectorAll(GUARD_SELECTOR));
+        if (root.matches && root.matches(GUARD_SELECTOR)) {
+            forms.unshift(root);
+        }
+        return forms;
     }
 
     function dirtyFormIn(modalEl) {
