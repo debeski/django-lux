@@ -1,7 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- **Weather feature branch (2026-09-29)**: `codex/weather` in `/Users/debeski/.codex/worktrees/weather/main`, based on verified `main` 946fd7b. OpenWeather settings, titlebar/user hub/floating/embed-only placement and `{% weather_widget variant="card" %}` implemented; no migration. Not merged or released; shared versioning remains integration work.
+- **v1.10.0b1 (beta, tagged 2026-09-29)**: first 1.10 beta — optional OpenWeather widgets (merged from `codex/weather`), project settings as setup step 19, grouped settings tiles, and tiles asking before discarding edits. No migration. **Next stable is 1.10.0**: there is no 1.9.x stable after 1.9.4.
 - **v1.9.5b1 (beta, published 2026-09-25, tag on `codex/system-settings-preview`)**: System Settings Preview action — glass/popup previews from the unsaved form, disabled on nonvisual steps, `registerAppPreview()` for app settings. Installed inline on `testbed-dlux` from 1.9.4 on the beta channel. Not on `main` yet: merge the branch (merge, not rebase — the tag must stay in history) after acceptance, then tag 1.9.5.
 - **v1.9.4 (stable, released 2026-09-25)**: identical to 1.9.4b1 — `DLUX_SKIP_CONFIG_IMPORT` skips the first-launch `config.json` bootstrap; needs Composer 1.5.3b1+. PyPI `latest`, GitHub release (7 assets). Installed inline on `testbed-dlux` from 1.9.3 on the stable channel with Composer 1.5.3.
 - **v1.9.3 (stable, released 2026-09-24)**: PyPI + GitHub (7 assets), `latest` on the index. the deployment and the Composer agent are two rows in the Updates and maintenance card (renamed from Application updates), behaving like the DjangoLux/image rows (check icon, update icon only when there is one, tick otherwise), findings in a modal; one deployment check that offers the repair it found; read-only `agent-check` so the agent update asks the registry before asking for a password; the eye toggle appears only on a field in use and is centred on the field, not its wrapper; operations gated on the resident Composer (needs 1.5.2); interval slider; Backup & restore folded in as a fifth row; every row's reported value pinned to the row's end and the DjangoLux row offering the installed release's notes; System info's stats spread over the card's height; each row's last check lives in its icon tooltip instead of a shared status line; release channel + interval slider and System info's details table now start hidden behind one unlabelled chevron at the end of the update card, which opens both with a height animation; System info keeps the deployer version (now published by the agent, so a recreate cannot empty it) and leaves the agent's own version to the card; login says why a session cookie cannot be stored. Needs Composer 1.5.2.
@@ -40,7 +40,7 @@
 - Browser suite on `main` (d362ee7): 10 pre-existing e2e failures in backup/global-search/tutorial/email/security. Weather: supplied key rejected by OpenWeather (city search and current conditions; current API says HTTP 401 Invalid API key). No key committed. Local Python needed `SSL_CERT_FILE=/etc/ssl/cert.pem` for verified TLS.
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Accept weather with an OpenWeather key, then select it for integration/release; preserve Claude's independent main/settings work.
+  - [ ] Before 1.10.0 stable: the scheduled removals in `docs/deprecation-countdown.md` (and project-dhub's `advanced_filter_helper` call sites) must land in a later 1.10.0 beta.
   - [ ] Pin the projects to 1.9.4 and release them (held until 1.9.4/Composer 1.5.3 were stable — now due): archive v1.1.18, decrees v2.1.20, trademarks v2.0.6 sit untagged on 1.9.3; their old local tags v1.1.17/v2.1.19/v2.0.5 and sales v0.8.2 were never pushed.
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
@@ -48,8 +48,7 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
-  - [ ] 1.9.5b4 (tagged 2026-09-29 from `main`) is the current beta: b3 plus the Composer-behind notice and the scaffold `DAC_OVERRIDE` swap. Next: accept it on `testbed-dlux` via the beta channel — including the notice against an older Composer — then promote 1.9.5.
-  - [ ] On `main`, unreleased (2026-09-29): project tiles prompt before discarding edits (needed a `unsaved_guard.js` fix: a form inserted as the node itself was never bound); tiles appear as a Project Settings step 19 in first-run setup, saved in the wizard's one save; `register_app_settings_group()` + `register_app_settings(group=)` fold namespaces into one tile saved in one write. A `to_app_config()` must not save the row itself. 2654 unit + 29 e2e OK. Next: a beta so the sales CRM can adopt all three; the `../app-settings-groups` checkout is superseded (its work is on `main`).
+  - [ ] Accept 1.10.0b1 on `testbed-dlux` via the beta channel: weather with a real OpenWeather key, the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group. The sales CRM can adopt it on its beta channel.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
@@ -92,7 +91,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Primary clone: `pkg-django-lux/main/`; weather is isolated in `/Users/debeski/.codex/worktrees/weather/main` on `codex/weather`. `.venv` and e2e node_modules there link to the primary runtime; stage explicit source paths, never those links. Do not switch Claude's checkout.
+- Primary clone: `pkg-django-lux/main/`. `codex/weather` is merged into `main`; its Codex checkout (`~/.codex/worktrees/weather/main`, `.venv`/node_modules linked to the primary) can be retired by its owner.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
