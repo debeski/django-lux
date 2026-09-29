@@ -1,13 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.9.5b4",
+  "version": "1.10.0b1",
   "display": {
-    "summary": "The Updates card now says when Composer is older than this DjangoLux needs, instead of leaving its buttons disabled.",
+    "summary": "First 1.10 beta: projects' settings join first-run setup and can share one tile, tiles ask before discarding edits, and an optional weather widget arrives.",
     "highlights": [
-      "A notice under the Composer agent row names both versions and gives the host commands, or points to the card when it can still update Composer itself.",
-      "Newly scaffolded projects give composer-executor DAC_OVERRIDE instead of DAC_READ_SEARCH."
+      "Project settings tiles appear as a Project Settings step at the end of first-run setup, saved with the rest of the wizard.",
+      "register_app_settings_group() folds several project settings into one tile, edited and saved together.",
+      "Closing a project settings tile with unsaved edits now asks first.",
+      "Optional OpenWeather widgets for the titlebar, user hub, a floating chip or project dashboards, configured under Extra Features."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b1"
   },
   "requires": {
     "updater_schema": ">=1",
