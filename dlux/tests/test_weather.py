@@ -344,3 +344,38 @@ class WeatherWorkerTests(TestCase):
             self.skipTest('celery is not installed')
         self.assertEqual(tasks.weather_refresh_task.name, 'dlux.tasks.weather_refresh')
         self.assertEqual(tasks.weather_search_task.name, 'dlux.tasks.weather_search')
+
+
+class WeatherKeyAndSaveTests(TestCase):
+    """Enabling weather and entering the key must save, and the key is not a password."""
+
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+
+    def test_the_key_is_a_plain_text_field_the_password_tools_ignore(self):
+        html = str(SystemSettingsForm(instance=self.record)['weather_api_key'])
+        self.assertIn('type="text"', html)
+        self.assertNotIn('type="password"', html)
+        self.assertNotIn('new-password', html)
+
+    def test_enabling_with_only_a_key_saves(self):
+        self.save_form(dict(weather_enabled='on', weather_api_key='abc123DEF456', weather_locations='[]',
+                            weather_placement='titlebar', weather_display='combined', weather_units='metric',
+                            weather_corner='bottom-end'))
+        config = get_weather_config()
+        self.assertTrue(config['enabled'])
+        self.assertEqual(api_key(config), 'abc123DEF456')
+        self.assertEqual(config['locations'], [])
+
+    def test_a_rejected_location_list_is_shown_not_swallowed(self):
+        from django.template import Context, Template
+        request = RequestFactory().get('/?step=' + str(SETUP_STEP_EXTRAS))
+        request.user = self.admin
+        form = SystemSettingsForm(data={**BASE, 'weather_enabled': 'on', 'weather_api_key': 'k',
+                                        'weather_locations': '{"bad": 1}'},
+                                  instance=SystemSettings.load(), request=request)
+        self.assertFalse(form.is_valid())
+        self.assertIn('weather_locations', form.errors)
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        weather = html.split('data-weather-settings')[1].split('data-weather-location-builder')[0]
+        self.assertIn('alert alert-danger', weather)

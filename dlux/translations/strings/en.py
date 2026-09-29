@@ -200,7 +200,7 @@ STRINGS = {
     "weather_search_button": "Search",
     "weather_locations_help": "Choose up to ten cities and mark one as the default.",
     "weather_corner_help": "Start and end follow the interface direction: start is the left in English, the right in Arabic.",
-    "weather_choose_location": "Choose at least one valid location (maximum ten).",
+    "weather_choose_location": "Locations must be valid, and there can be at most ten.",
     "weather_default": "Default",
     "weather_set_default": "Set as default",
     "weather_remove": "Remove",

@@ -199,7 +199,7 @@ STRINGS = {
     "weather_search_button": "بحث",
     "weather_locations_help": "اختر حتى عشر مدن وحدد الموقع الافتراضي.",
     "weather_corner_help": "تتبع البداية والنهاية اتجاه الواجهة: البداية هي اليسار في الإنجليزية واليمين في العربية.",
-    "weather_choose_location": "اختر موقعاً صالحاً واحداً على الأقل (عشرة كحد أقصى).",
+    "weather_choose_location": "يجب أن تكون المواقع صحيحة، وعشرة مواقع كحد أقصى.",
     "weather_default": "افتراضي",
     "weather_set_default": "تعيين كافتراضي",
     "weather_remove": "إزالة",

@@ -79,6 +79,10 @@ def weather_settings_layout(form, strings):
             ),
             Field('weather_api_key'),
             Field('weather_locations'), Field('weather_default_location'),
+            # The locations live in a hidden field, whose errors crispy never
+            # shows: without this a rejected list reloaded the modal silently.
+            HTML("{% if form.weather_locations.errors %}<div class='alert alert-danger' data-autoclose='false'>"
+                 "{{ form.weather_locations.errors|join:' ' }}</div>{% endif %}"),
             HTML(render_to_string('dlux/weather/settings.html', {'DLUX_STRINGS': strings})),
             **{'data-weather-dependent': ''},
         ),
@@ -95,11 +99,10 @@ def clean_weather(form, cleaned):
     from ..translations import get_strings
     strings = get_strings()
     config = normalize_weather_config((form.instance.extra_config or {}).get('weather'))
+    # Locations are optional: switching weather on and entering the key is a save
+    # of its own, and nothing is displayed until a location is added.
     try:
-        locations = normalize_locations(json.loads(cleaned.get('weather_locations') or '[]'))
-        if not locations:
-            raise ValueError
-        cleaned['weather_locations'] = locations
+        cleaned['weather_locations'] = normalize_locations(json.loads(cleaned.get('weather_locations') or '[]'))
     except (ValueError, TypeError):
         form.add_error('weather_locations', ValidationError(strings['weather_choose_location']))
     if not cleaned.get('weather_api_key') and not api_key(config):
