@@ -32,7 +32,10 @@ async function openGroup(page) {
   await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
   await page.click(TILE);
   await page.waitForSelector(FORM, { timeout: 10000 });
-  await page.waitForTimeout(400);
+  // The guard's baseline, then Bootstrap's open animation, which ignores a close.
+  await page.waitForFunction((sel) => document.querySelector(sel)?.dataset.dluxUnsavedBaseline !== undefined,
+    FORM, { timeout: 5000 });
+  await page.waitForTimeout(600);
 }
 
 describe('grouped project settings tile', { concurrency: 1 }, () => {
