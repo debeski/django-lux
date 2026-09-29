@@ -13,6 +13,7 @@ from .options import (
     email_send_test_view,
     export_system_settings_view,
     force_password_change_all_view,
+    app_settings_group_modal_view,
     app_settings_modal_view,
     options_view,
     system_setup_view,

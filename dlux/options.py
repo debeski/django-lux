@@ -43,6 +43,8 @@ _MAX_ID_LEN = 128
 # id -> card dict. Insertion order is irrelevant; render order is (order, id).
 _REGISTRY = {}
 _SETTINGS_REGISTRY = {}
+# group id -> group dict; settings registered with ``group=`` share its tile.
+_SETTINGS_GROUP_REGISTRY = {}
 _SAFE_FIELD_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 _FIELD_TYPES = {
     'boolean', 'bool', 'toggle',
@@ -138,6 +140,7 @@ def clear_registry():
     """Drop all registered cards (test helper)."""
     _REGISTRY.clear()
     _SETTINGS_REGISTRY.clear()
+    _SETTINGS_GROUP_REGISTRY.clear()
 
 
 def get_visible_cards(request):
@@ -236,7 +239,7 @@ def _normalize_field_specs(fields, namespace):
 
 def register_app_settings(*, namespace, title, fields=None, form_class=None,
                           description='', icon='bi-sliders2', order=100,
-                          defaults=None, visible=None, setup=True):
+                          defaults=None, visible=None, group=None, setup=True):
     """Register one project-specific settings surface backed by extra_config.
 
     The registered settings appear as a tile in the Options admin settings grid
@@ -249,6 +252,13 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
     ``form_class`` is the escape hatch: pass a custom ``forms.Form`` subclass and
     optionally implement ``to_app_config(current_value)`` to control the saved
     JSON value. Supply either ``fields`` or ``form_class``.
+
+    ``group`` names a tile registered with ``register_app_settings_group()``:
+    the settings become one section of that tile instead of a tile of their own,
+    ordered by ``order`` among the group's sections, under ``title`` and
+    ``description``. They still save to their own namespace; the group's modal
+    saves every section in one write. A group that is never registered leaves
+    the settings on a tile of their own.
 
     ``setup=False`` keeps the tile out of the first-run setup wizard's Project
     settings step — for settings that only make sense once data exists.
@@ -294,6 +304,8 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
         defaults = {}
     if defaults is not None and not isinstance(defaults, dict):
         raise ValueError(f"register_app_settings[{namespace}]: defaults must be a dict or None")
+    if group is not None:
+        group = _validate_namespace(group, label=f'register_app_settings[{namespace}] group')
 
     if namespace in _SETTINGS_REGISTRY:
         logger.debug("register_app_settings: overwriting already-registered app settings '%s'", namespace)
@@ -308,6 +320,7 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
         'fields': field_specs,
         'form_class': form_class,
         'visible': visible,
+        'group': group,
         'setup': bool(setup),
     }
 
@@ -315,6 +328,50 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
 def unregister_app_settings(namespace):
     """Remove an app settings registration (mainly for tests)."""
     _SETTINGS_REGISTRY.pop(namespace, None)
+
+
+def register_app_settings_group(*, id, title, description='', icon='bi-sliders2', order=100, visible=None):
+    """Register one Options tile that gathers several ``register_app_settings()``.
+
+    Settings registered with ``group=id`` render as sections of this tile, under
+    dlux's section headings, in one modal with one Save. Each section keeps its
+    own form and namespace, so readers of that namespace are unaffected; the
+    tile validates every section and saves them together in one write. A group
+    with no visible sections shows no tile.
+    """
+    group_id = _validate_namespace(id, label='register_app_settings_group')
+    if not isinstance(title, Promise) and not (isinstance(title, str) and title) and not callable(title):
+        raise ValueError(
+            f"register_app_settings_group[{group_id}]: title must be a non-empty string, "
+            "a lazy string, or a callable"
+        )
+    if (description is not None and not isinstance(description, (str, Promise))
+            and not callable(description)):
+        raise ValueError(
+            f"register_app_settings_group[{group_id}]: description must be a string, "
+            "a lazy string, a callable, or None"
+        )
+    if not isinstance(icon, str) or not _SAFE_ICON.match(icon):
+        raise ValueError(f"register_app_settings_group[{group_id}]: invalid icon {icon!r}")
+    if not isinstance(order, int) or isinstance(order, bool):
+        raise ValueError(f"register_app_settings_group[{group_id}]: order must be an int")
+    if visible is not None and not callable(visible):
+        raise ValueError(f"register_app_settings_group[{group_id}]: visible must be callable or None")
+    if group_id in _SETTINGS_GROUP_REGISTRY:
+        logger.debug("register_app_settings_group: overwriting already-registered group '%s'", group_id)
+    _SETTINGS_GROUP_REGISTRY[group_id] = {
+        'id': group_id,
+        'title': _text_callable(title, group_id, 'title'),
+        'description': _text_callable(description, group_id, 'description') or '',
+        'icon': icon,
+        'order': int(order),
+        'visible': visible,
+    }
+
+
+def unregister_app_settings_group(group_id):
+    """Remove a settings group (mainly for tests); its settings fall back to their own tiles."""
+    _SETTINGS_GROUP_REGISTRY.pop(group_id, None)
 
 
 def _text_callable(value, namespace, label):
@@ -401,13 +458,63 @@ def get_setup_app_settings(request):
     return [definition for definition in get_visible_app_settings(request) if definition.get('setup', True)]
 
 
-def setup_form_prefix(namespace):
-    """Field-name prefix for one app settings form inside the setup wizard.
+def _resolved_group(request, group):
+    """The group as a tile for this request, or None when its visible() says no."""
+    predicate = group['visible']
+    if predicate is not None:
+        try:
+            if not predicate(request):
+                return None
+        except Exception:
+            logger.exception("App settings group '%s' visible() raised; hiding it (fail-closed).", group['id'])
+            return None
+    tile = dict(group)
+    for key, fallback in (('title', group['id']), ('description', '')):
+        try:
+            tile[key] = _resolve_registered_text(group[key], request)
+        except Exception:
+            logger.exception("App settings group '%s' %s raised; showing the tile with a fallback.", group['id'], key)
+            tile[key] = fallback
+    return tile
 
-    The wizard posts every section in one form beside Dlux's own fields, so each
-    section's names are prefixed. Namespaces may contain dots and dashes, which
-    make awkward names for CSS selectors, so they become underscores; the
-    ``app__`` lead cannot collide with a Dlux field, none of which has a dash.
+
+def get_visible_app_settings_tiles(request):
+    """The Options tiles for this request: grouped settings folded into their group.
+
+    Each tile is ``{'kind': 'settings', ...definition}`` for settings on a tile
+    of their own, or ``{'kind': 'group', 'id', 'title', 'description', 'icon',
+    'order', 'sections': [definition, ...]}``. Sorted by (order, id).
+    """
+    tiles = []
+    sections = {}
+    for definition in get_visible_app_settings(request):
+        group_id = definition.get('group')
+        if group_id and group_id in _SETTINGS_GROUP_REGISTRY:
+            sections.setdefault(group_id, []).append(definition)
+            continue
+        tiles.append(dict(definition, kind='settings', id=definition['namespace']))
+    for group_id, members in sections.items():
+        tile = _resolved_group(request, _SETTINGS_GROUP_REGISTRY[group_id])
+        if tile is not None:
+            tile.update(kind='group', sections=members)
+            tiles.append(tile)
+    return sorted(tiles, key=lambda tile: (tile['order'], tile['id']))
+
+
+def get_visible_app_settings_group(request, group_id):
+    group_id = str(group_id or '').strip()
+    for tile in get_visible_app_settings_tiles(request):
+        if tile['kind'] == 'group' and tile['id'] == group_id:
+            return tile
+    return None
+
+
+def app_settings_form_prefix(namespace):
+    """Field-name prefix for one settings form shown beside others in one form.
+
+    Namespaces may contain dots and dashes, which make awkward names for CSS
+    selectors, so they become underscores; the ``app__`` lead cannot collide with
+    a Dlux field, none of which has a dash.
     """
     return 'app__' + re.sub(r'[^0-9A-Za-z_]', '_', namespace)
 
@@ -661,6 +768,44 @@ def write_app_system_config(namespace, value, *, request=None):
             logger.debug("Audit logging failed for app system-config write '%s'", namespace, exc_info=True)
 
     return app_bag.get(namespace)
+
+
+def write_app_system_configs(values, *, request=None):
+    """Persist several app namespaces in one save; ``values`` maps namespace -> value.
+
+    A grouped settings tile saves its sections through this so they land in one
+    write of the settings row — one ``write_app_system_config()`` per section
+    would load and save the row once each.
+    """
+    from django.apps import apps
+
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    sys_settings = SystemSettings.load()
+    extra = sys_settings.extra_config
+    for namespace, value in values.items():
+        extra = merge_app_system_config(extra, namespace, value)
+    app_bag = (extra.get(SYSTEM_APP_CONFIG_NAMESPACE) if isinstance(extra, dict) else None) or {}
+
+    sys_settings.extra_config = extra
+    sys_settings.save()
+
+    if request is not None:
+        try:
+            from .utils import log_user_action
+
+            for namespace, value in values.items():
+                log_user_action(
+                    request,
+                    'UPDATE',
+                    instance=sys_settings,
+                    model_name='systemsettings',
+                    details={'app_config_namespace': namespace, 'cleared': value is None},
+                    category='audit',
+                )
+        except Exception:
+            logger.debug("Audit logging failed for app system-config writes %s", list(values), exc_info=True)
+
+    return {namespace: app_bag.get(namespace) for namespace in values}
 
 
 def render_cards(request):

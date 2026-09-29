@@ -163,6 +163,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/options/app-settings/<namespace>/` | Superuser-only modal for settings registered with `register_app_settings(...)` |
+| `/sys/options/app-settings-group/<group_id>/` | Superuser-only modal for a tile registered with `register_app_settings_group(...)`: every grouped section, one Save |
 | `/sys/users/` | User management |
 | `/sys/registrations/` | Superuser-only pending public registration approvals |
 | `/sys/registrations/<int:pk>/approve/` | POST-only public registration approval |
@@ -438,6 +439,51 @@ register_app_settings(
     defaults={"label": "Catalog"},
 )
 ```
+
+#### Grouping several settings into one tile
+
+A project with several small settings surfaces can show them as one tile instead
+of one tile each. Register the tile with `register_app_settings_group()` and
+name it in each `register_app_settings(group=...)`:
+
+```python
+from dlux.options import register_app_settings, register_app_settings_group
+
+register_app_settings_group(
+    id="myproject.store",
+    title=_("Store options"),
+    description=_("Store-wide settings for the catalog and the till."),
+    icon="bi-sliders",
+    order=50,
+)
+
+register_app_settings(namespace="myproject.catalog", title=_("Catalog"), group="myproject.store", order=10, fields=[...])
+register_app_settings(namespace="myproject.till", title=_("Point of sale"), group="myproject.store", order=20,
+                      form_class=TillSettingsForm)
+```
+
+Each grouped registration becomes a section of the tile's modal, under the
+same `<h6>` section headings core settings steps use, ordered by its own
+`order`, with its `title` as the heading and its `description` beneath. Its
+form is built exactly as its own tile would build it, with field names
+prefixed by `app_settings_form_prefix(namespace)` so sections cannot clash.
+Every section validates before anything is saved, and all of them land in
+**one** write of the settings row through `write_app_system_configs({namespace:
+value, ...})` — never one load-and-save per section. Each keeps its own
+`extra_config['app'][namespace]`, so code reading a namespace does not change
+when it joins a group.
+
+- A group whose `visible()` returns false or raises hides its tile (fail
+  closed); a group with no visible sections shows no tile.
+- A registration naming a group that was never registered keeps its own tile.
+- `/sys/options/app-settings/<namespace>/` still opens one section on its own,
+  for links that point at a single namespace.
+- The group modal carries the unsaved-changes guard unless a section's form
+  sets `dlux_unsaved_guard = False`.
+- `registerAppPreview()` previews apply to standalone tiles; the group modal
+  offers no Preview action.
+- `get_visible_app_settings()` still lists every registration;
+  `get_visible_app_settings_tiles()` is the folded list the Options page draws.
 
 #### Previewing app-owned system settings
 

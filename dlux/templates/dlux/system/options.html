@@ -449,10 +449,10 @@
                         <span class="dlux-system-settings-tile-title">{{ step.label }}</span>
                     </button>
                     {% endfor %}
-                    {% for app_setting in dlux_app_settings %}
+                    {% for app_setting in dlux_app_settings_tiles %}
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'dlux_app_settings_modal' app_setting.namespace %}"
+                            data-dynamic-modal="{% if app_setting.kind == 'group' %}{% url 'dlux_app_settings_group_modal' app_setting.id %}{% else %}{% url 'dlux_app_settings_modal' app_setting.namespace %}{% endif %}"
                             data-modal-title="{{ app_setting.title }}"
                             data-dlux-tooltip="{{ app_setting.description|default:DLUX_STRINGS.app_settings_default_desc }}"
                             aria-label="{{ app_setting.title }}. {{ app_setting.description|default:DLUX_STRINGS.app_settings_default_desc }}">

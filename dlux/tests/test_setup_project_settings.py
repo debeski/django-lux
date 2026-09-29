@@ -20,7 +20,7 @@ from dlux.system.constants import SETUP_STEP_COUNT
 from dlux.tests.test_accent_edges import _form_data
 
 NAMESPACE = 'proj.settings'
-PREFIX = options.setup_form_prefix(NAMESPACE)
+PREFIX = options.app_settings_form_prefix(NAMESPACE)
 
 
 def _register(**overrides):
@@ -49,7 +49,7 @@ class RegistryTests(SimpleTestCase):
         self.assertFalse(options._SETTINGS_REGISTRY['proj.later']['setup'])
 
     def test_prefix_is_a_safe_name_that_cannot_be_a_dlux_field(self):
-        self.assertEqual(options.setup_form_prefix('crm.options-v2'), 'app__crm_options_v2')
+        self.assertEqual(options.app_settings_form_prefix('crm.options-v2'), 'app__crm_options_v2')
 
     def test_merge_sets_one_namespace_and_keeps_everything_else(self):
         extra = {'scanlink': {'enabled': True}, 'app': {'other.ns': {'x': 1}}}
