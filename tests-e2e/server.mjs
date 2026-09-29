@@ -41,10 +41,12 @@ export async function startServer({
   languageOverride = true,
   searchMode = 'icon',
   projectSettings = false,
+  weather = false,
 } = {}) {
   const args = [path.join(HERE, 'seed.py')];
   if (!configured) args.push('--unconfigured');
   if (scanlink) args.push('--scanlink');
+  if (weather) args.push('--weather');
   if (!languageOverride) args.push('--disable-language-override');
   if (searchMode === 'always') args.push('--always-search');
   execFileSync(PY, args, { cwd: HERE, stdio: 'pipe' });
@@ -57,6 +59,7 @@ export async function startServer({
       DJANGO_SETTINGS_MODULE: 'settings',
       // urls.py registers a sample project settings tile when this is set.
       DLUX_E2E_PROJECT_SETTINGS: projectSettings ? '1' : '',
+      DLUX_E2E_WEATHER: weather ? '1' : '',
     },
     stdio: 'ignore',
   });

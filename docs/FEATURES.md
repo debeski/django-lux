@@ -6,6 +6,11 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 
 ## Platform configuration
 
+- **Optional weather:** OpenWeather current conditions, searchable saved locations,
+  Celsius/Fahrenheit, four display styles, titlebar/user hub/floating placements,
+  and a reusable dashboard card. Controlled from Extra Features; disabled by
+  default. See [Weather](weather.md).
+
 - Database-backed `SystemSettings` layered over `DLUX_CONFIG`, with user-level preferences stored separately in `Profile.preferences`.
 - An eighteen-step initial setup wizard (plus a Project Settings step when a project registers settings tiles) and focused System Settings editors whose previews are real pages rendered by the server with the unsaved form: the live page behind the Options modal follows every change (glass mode lifts the modal off it), and the login, home, profile and sample list/form/modal pages open in a popup in the draft's language. Nothing is saved until Save.
 - Canonical `homepage_config` and `search_config` stores, with v1.x compatibility mirrors for legacy integrations.

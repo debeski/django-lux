@@ -1,6 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- **Weather feature branch (2026-09-29)**: `codex/weather` in `/Users/debeski/.codex/worktrees/weather/main`, based on verified `main` 946fd7b. OpenWeather settings, titlebar/user hub/floating/embed-only placement and `{% weather_widget variant="card" %}` implemented; no migration. Not merged or released; shared versioning remains integration work.
 - **v1.9.5b1 (beta, published 2026-09-25, tag on `codex/system-settings-preview`)**: System Settings Preview action — glass/popup previews from the unsaved form, disabled on nonvisual steps, `registerAppPreview()` for app settings. Installed inline on `testbed-dlux` from 1.9.4 on the beta channel. Not on `main` yet: merge the branch (merge, not rebase — the tag must stay in history) after acceptance, then tag 1.9.5.
 - **v1.9.4 (stable, released 2026-09-25)**: identical to 1.9.4b1 — `DLUX_SKIP_CONFIG_IMPORT` skips the first-launch `config.json` bootstrap; needs Composer 1.5.3b1+. PyPI `latest`, GitHub release (7 assets). Installed inline on `testbed-dlux` from 1.9.3 on the stable channel with Composer 1.5.3.
 - **v1.9.3 (stable, released 2026-09-24)**: PyPI + GitHub (7 assets), `latest` on the index. the deployment and the Composer agent are two rows in the Updates and maintenance card (renamed from Application updates), behaving like the DjangoLux/image rows (check icon, update icon only when there is one, tick otherwise), findings in a modal; one deployment check that offers the repair it found; read-only `agent-check` so the agent update asks the registry before asking for a password; the eye toggle appears only on a field in use and is centred on the field, not its wrapper; operations gated on the resident Composer (needs 1.5.2); interval slider; Backup & restore folded in as a fifth row; every row's reported value pinned to the row's end and the DjangoLux row offering the installed release's notes; System info's stats spread over the card's height; each row's last check lives in its icon tooltip instead of a shared status line; release channel + interval slider and System info's details table now start hidden behind one unlabelled chevron at the end of the update card, which opens both with a height animation; System info keeps the deployer version (now published by the agent, so a recreate cannot empty it) and leaves the agent's own version to the card; login says why a session cookie cannot be stored. Needs Composer 1.5.2.
@@ -36,9 +37,10 @@
 - The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
 - Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
 
-- Browser suite on `main` (d362ee7): 10 e2e tests fail in `backup_page` (3), `global_search_responsive` (2), `tutorial` (1), `wizard_email` (2), `wizard_security` (2) — pre-existing, independent of the preview branch.
+- Browser suite on `main` (d362ee7): 10 pre-existing e2e failures in backup/global-search/tutorial/email/security. Weather: supplied key rejected by OpenWeather (city search and current conditions; current API says HTTP 401 Invalid API key). No key committed. Local Python needed `SSL_CERT_FILE=/etc/ssl/cert.pem` for verified TLS.
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] Accept weather with an OpenWeather key, then select it for integration/release; preserve Claude's independent main/settings work.
   - [ ] Pin the projects to 1.9.4 and release them (held until 1.9.4/Composer 1.5.3 were stable — now due): archive v1.1.18, decrees v2.1.20, trademarks v2.0.6 sit untagged on 1.9.3; their old local tags v1.1.17/v2.1.19/v2.0.5 and sales v0.8.2 were never pushed.
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
   - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
@@ -69,13 +71,13 @@
   - [x] v1.8.12 `dlux_image_gate`: adopt/keep/abort verdict so an image baking an older dlux keeps the newer active release instead of being refused outright, decided by the release's own `requires.baked_image` floor. Composer must adopt the command for the gate to relax (2026-09-06).
 
 ### One-line info about last verified Tests:
-- 2026-09-27 1.9.5b2: full `dlux.tests` 2619 OK; preview/wizard e2e 20/20 (opening a live step loads nothing, one change = one render at the reader's scroll, glass stacking, allowed fonts, modal font, no setup footer); `release_check` classify beta + `--base-tag v1.9.4` pass.
+- 2026-09-29 weather: full `dlux.tests` 2668 OK (2 skips); final focused 86 OK; weather browser 4/4 (real saves, desktop/mobile, RTL, titlebar rail/user hub/floating/card). Screenshots reviewed in `tests-e2e/shots/weather-*`. Live key check returned 401; fixtures cover successful readings.
 - 2026-09-25: 1.9.4b1 + Composer 1.5.3b1 on `testbed-dlux` — `--skip-config` put the flag in web/celery/agent/executor with the system left unconfigured and `config.json` byte-identical; a plain deploy unset it and imported; after publication, beta channel installed 1.9.4b1 inline from 1.9.3 (site serves 1.9.4b1, `check` all pass). Found: unpinned `composer dlux update` ignores the beta channel (see Composer tracker).
 - 2026-09-25: releases on `testbed-dlux` — stable channel: 1.9.3 -> 1.9.4 inline with Composer 1.5.3 (site serves 1.9.4, check all pass); beta channel: 1.9.4 -> 1.9.5b1 (site and static on 1.9.5b1). Preview branch before tagging: 2601 unit OK, `release_check --classify` beta and `--base-tag v1.9.4` pass.
 - 2026-09-24: `--skip-config` live on the rig, both halves of the seam — `COMPOSER_SELF_IMAGE=composer:test-1.5.3 ./start.sh --skip-config` put `DLUX_SKIP_CONFIG_IMPORT=True` into web/celery/composer-agent, dlux then returned `skipped` from the bootstrap with the system left unconfigured and `config.json` byte-identical; with the flag off the same call reached file resolution (`missing`), and a plain `./start.sh` left the variable unset. dlux 2595 OK, Composer 704 OK.
 
 ### One-line info about last time edited Docs:
-- 2026-09-27: `system-configuration.md` *Unsaved previews* and `reference.md` app-preview section rewritten for server-rendered drafts (`registerAppPreview(namespace, {path})`); `FEATURES.md` updated.
+- 2026-09-29: `weather.md`, `system-configuration.md`, `reference.md`, `FEATURES.md`, and Unreleased changelog describe weather settings, embedding, key portability, cache behaviour, and deployment assets; tags verified before changelog edit.
 - 2026-09-26: `ui-integration.md`, `developer-guide.md`, `inline-updater.md` and the app scaffold README give v1.10.0 (not 1.9.0) for removing `advanced_filter_helper` and the in-container executor.
 - 2026-09-24: system/deployment configuration docs explain `DLUX_SKIP_CONFIG_IMPORT`, supported versions, and repeat-on-redeploy semantics; changelog/manifest opened at untagged 1.9.4 after verifying 1.9.3 was tagged.
 - 2026-09-23: `docs/inline-updater.md` gained "The Operations card" (handoff, token matching, the operation table, why the request carries no command surface); `docs/reference.md` lists both `/sys/api/dlux-ops/` endpoints.
@@ -90,7 +92,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Single checkout: `pkg-django-lux/main/` is the primary clone (holds `.git`, `.venv`, `.xclude`); former `system-settings-preview/` and `advanced-filter-110/` checkouts retired 2026-09-28.
+- Primary clone: `pkg-django-lux/main/`; weather is isolated in `/Users/debeski/.codex/worktrees/weather/main` on `codex/weather`. `.venv` and e2e node_modules there link to the primary runtime; stage explicit source paths, never those links. Do not switch Claude's checkout.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 

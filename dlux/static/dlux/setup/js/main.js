@@ -1873,6 +1873,17 @@
         const settings = extractImportedSettings(payload);
         if (!form || !settings) return false;
 
+        const weather = settings.extra_config && settings.extra_config.weather;
+        if (weather && typeof weather === 'object') {
+            setCheckboxField(form, 'weather_enabled', weather.enabled === true);
+            ['placement', 'display', 'units', 'corner', 'default_location'].forEach(key => {
+                if (weather[key] !== undefined) setNamedFieldValue(form, 'weather_' + key, weather[key]);
+            });
+            setNamedFieldValue(form, 'weather_locations', JSON.stringify(weather.locations || []));
+            form.querySelector('[name="weather_enabled"]')?.dispatchEvent(new Event('change', { bubbles: true }));
+            form.querySelector('[name="weather_locations"]')?.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
         const languages = settings.languages && typeof settings.languages === 'object' ? settings.languages : null;
         const systemNames = settings.system_names && typeof settings.system_names === 'object' ? settings.system_names : {};
         if (languages) {

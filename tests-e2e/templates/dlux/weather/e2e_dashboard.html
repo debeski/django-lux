@@ -1,0 +1,5 @@
+{% extends 'dlux/base.html' %}
+{% load dlux_weather %}
+{% block content %}
+<div class="container py-4"><h1>CRM dashboard weather example</h1>{% weather_widget variant="card" %}</div>
+{% endblock %}

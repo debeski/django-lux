@@ -3,10 +3,13 @@
 from django.urls import path
 from . import views, api
 from django.contrib.auth import views as auth_views
+from .views.weather import weather_current, weather_locations
 
 # app_name = 'dlux'
 
 urlpatterns = [
+    path('sys/api/weather/', weather_current, name='weather_current'),
+    path('sys/api/weather/locations/', weather_locations, name='weather_locations'),
     # Auth URLs (Django defaults - no prefix needed when mounted at root)
     path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),

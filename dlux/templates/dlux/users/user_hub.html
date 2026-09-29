@@ -1,4 +1,4 @@
-{% load static %}
+{% load static dlux_weather %}
 <div id="dlux-user-dropdown-card" class="dlux-user-dropdown-card no-print">
     <div class="dlux-dropdown-header">
         <div class="dlux-user-text">
@@ -16,6 +16,7 @@
         {% endif %}
     </div>
     
+    {% weather_widget placement="user_hub" %}
     <div class="dlux-dropdown-toolbar">
         <div class="dlux-toolbar-left">
             <a href="{% url 'user_profile' %}" class="dlux-tool-btn" data-dlux-tooltip="{{ DLUX_STRINGS.profile }}">
