@@ -1172,6 +1172,8 @@ STRINGS = {
     'dlux_ops_applied': 'Repairs applied.',
     'dlux_ops_agent_update': 'Update the Composer agent',
     'dlux_ops_composer': 'Composer agent',
+    'dlux_ops_composer_behind_host': 'Composer v{version} is older than this DjangoLux needs (v{required}), so it cannot run checks or updates from here. On the server, run ./start.sh self update, then ./start.sh agent update.',
+    'dlux_ops_composer_behind_card': 'Composer v{version} is older than this DjangoLux needs (v{required}). Check the Composer agent and update it from here.',
     'dlux_ops_confirm': 'Confirm',
     'dlux_update_baked_note': 'DjangoLux version baked into this image',
     'dlux_update_latest': 'Latest verified',

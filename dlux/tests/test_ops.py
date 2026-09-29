@@ -424,6 +424,60 @@ class ComposerVersionGateTests(SimpleTestCase):
         self.assertGreater(ops.timeout_for("agent-update"), ops.timeout_for("check"))
 
 
+class ComposerBehindTests(SimpleTestCase):
+    """DjangoLux may be updated before its Composer; the card has to say so."""
+
+    def _package(self, composer_spec):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        requires = {"services": {"composer": composer_spec}} if composer_spec else {}
+        with open(f"{tmp.name}/release-manifest.json", "w", encoding="utf-8") as handle:
+            json.dump({"version": "9.9.9", "requires": requires}, handle)
+        return tmp.name
+
+    def test_the_floor_is_read_from_the_running_release(self):
+        with open(ops.Path(ops.__file__).resolve().parents[1] / "release-manifest.json", encoding="utf-8") as handle:
+            declared = json.load(handle)["requires"]["services"]["composer"]
+        self.assertEqual(ops.required_composer(), declared.removeprefix(">="))
+        self.assertEqual(ops.required_composer(self._package(">=1.5.3b1")), "1.5.3b1")
+        for spec in ("", "==1.5.3", ">=1.5,<2"):
+            with self.subTest(spec=spec):
+                self.assertEqual(ops.required_composer(self._package(spec)), "")
+
+    def test_a_resident_too_old_for_the_card_is_sent_to_the_host(self):
+        behind = ops.composer_behind("1.5.1", self._package(">=1.5.3b1"))
+        self.assertEqual(behind, {"version": "1.5.1", "required": "1.5.3b1", "ops_blocked": True})
+
+    def test_a_resident_the_card_can_still_update_is_sent_to_the_card(self):
+        # 1.5.2 answers every operation, including the agent update, so the host
+        # commands would send an administrator to a shell for no reason.
+        behind = ops.composer_behind("1.5.2", self._package(">=1.5.3b1"))
+        self.assertEqual(behind, {"version": "1.5.2", "required": "1.5.3b1", "ops_blocked": False})
+
+    def test_an_operation_floor_counts_without_a_release_floor(self):
+        behind = ops.composer_behind("1.5.1", self._package(""))
+        self.assertEqual(behind["required"], "1.5.2b1")
+        self.assertTrue(behind["ops_blocked"])
+
+    def test_a_current_or_unknown_resident_says_nothing(self):
+        package = self._package(">=1.5.3b1")
+        for value in ("1.5.3b1", "1.5.3", "1.6.0", "", None, "not-a-version"):
+            with self.subTest(value=value):
+                self.assertIsNone(ops.composer_behind(value, package))
+
+    def test_the_card_renders_the_notice(self):
+        from pathlib import Path
+
+        root = Path(ops.__file__).resolve().parents[1]
+        template = (root / "templates/dlux/system/options.html").read_text(encoding="utf-8")
+        script = (root / "static/dlux/system/js/ops.js").read_text(encoding="utf-8")
+        self.assertIn("data-dlux-ops-composer-notice", template)
+        for key in ("dlux_ops_composer_behind_host", "dlux_ops_composer_behind_card"):
+            self.assertIn(key, template)
+        for name in ("labelComposerBehindHost", "labelComposerBehindCard", "state.composer_behind"):
+            self.assertIn(name, script)
+
+
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class RowStateTests(TestCase):
     """What the two rows in the Updates card read, and when they read nothing.
@@ -518,3 +572,5 @@ class GatedQueueTests(TestCase):
         self.assertEqual(state["composer_version"], "1.5.0")
         self.assertTrue(all(not o["available"] for o in state["operations"]))
         self.assertIn("1.5.2", state["operations"][0]["unavailable_reason"])
+        self.assertEqual(state["composer_behind"]["version"], "1.5.0")
+        self.assertTrue(state["composer_behind"]["ops_blocked"])

@@ -335,6 +335,8 @@
                                          data-label-unknown="{{ DLUX_STRINGS.dlux_ops_unknown|default:'could not check' }}"
                                          data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
                                          data-label-agent-update="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update the Composer agent' }}"
+                                         data-label-composer-behind-host="{{ DLUX_STRINGS.dlux_ops_composer_behind_host|default:'Composer v{version} is older than this DjangoLux needs (v{required}), so it cannot run checks or updates from here. On the server, run ./start.sh self update, then ./start.sh agent update.' }}"
+                                         data-label-composer-behind-card="{{ DLUX_STRINGS.dlux_ops_composer_behind_card|default:'Composer v{version} is older than this DjangoLux needs (v{required}). Check the Composer agent and update it from here.' }}"
                                          data-label-last-check="{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}">
                                         <div class="dlux-upd-row">
                                             <span class="dlux-upd-lead">
@@ -372,6 +374,7 @@
                                             </span>
                                             <span class="dlux-upd-target" data-dlux-ops-composer-target hidden></span>
                                         </div>
+                                        <div class="dlux-updater-run-status small text-warning" data-dlux-ops-composer-notice hidden></div>
                                         <div class="dlux-updater-run-status small" data-dlux-ops-status hidden aria-live="polite"></div>
                                     </div>
                                     {% if user.is_superuser %}

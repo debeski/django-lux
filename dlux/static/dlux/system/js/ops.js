@@ -51,6 +51,7 @@
         const summaryEl = root.querySelector('[data-dlux-ops-summary]');
         const composerVersionEl = root.querySelector('[data-dlux-ops-composer-version]');
         const composerTargetEl = root.querySelector('[data-dlux-ops-composer-target]');
+        const composerNoticeEl = root.querySelector('[data-dlux-ops-composer-notice]');
         const resultsButton = root.querySelector('[data-dlux-ops-results]');
         const checkButtons = new Map();
         root.querySelectorAll('[data-dlux-ops-check]').forEach((button) => {
@@ -253,6 +254,21 @@
             // A tick means "checked, and there is nothing to install". A version
             // nobody has checked yet gets the plain re-check arrow instead.
             setGlyph('agent', Boolean(resident.checked) && !available);
+            renderComposerNotice();
+        }
+
+        /** Says so when DjangoLux was updated ahead of its Composer, and who can fix it. */
+        function renderComposerNotice() {
+            if (!composerNoticeEl) { return; }
+            const behind = state.composer_behind;
+            const template = behind && (behind.ops_blocked
+                ? labels.labelComposerBehindHost
+                : labels.labelComposerBehindCard);
+            const bare = (value) => String(value || '').replace(/^v/, '');
+            composerNoticeEl.textContent = template
+                ? template.replace('{version}', bare(behind.version)).replace('{required}', bare(behind.required))
+                : '';
+            composerNoticeEl.hidden = !composerNoticeEl.textContent;
         }
 
         /** The deployment row: what the last check found, and the repair it offers. */

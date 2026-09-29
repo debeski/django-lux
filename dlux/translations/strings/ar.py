@@ -1168,6 +1168,8 @@ STRINGS = {
     'dlux_ops_applied': 'طُبِّقت الإصلاحات.',
     'dlux_ops_agent_update': 'تحديث وكيل Composer',
     'dlux_ops_composer': 'وكيل Composer',
+    'dlux_ops_composer_behind_host': 'إصدار Composer ‏v{version} أقدم مما يحتاجه هذا الإصدار من DjangoLux ‏(v{required})، لذا لا يمكنه تشغيل الفحص أو التحديث من هنا. على الخادم، شغّل ⁦./start.sh self update⁩ ثم ⁦./start.sh agent update⁩.',
+    'dlux_ops_composer_behind_card': 'إصدار Composer ‏v{version} أقدم مما يحتاجه هذا الإصدار من DjangoLux ‏(v{required}). افحص وكيل Composer وحدّثه من هنا.',
     'dlux_ops_confirm': 'تأكيد',
     'dlux_update_baked_note': 'إصدار DjangoLux المدمج في هذه الصورة',
     'dlux_update_latest': 'أحدث إصدار تم التحقق منه',
