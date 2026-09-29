@@ -468,6 +468,28 @@ removes the registration and hides the Preview action again.
 and their DOM helpers are retired. A preview is a rendered page, so an app
 registers the page instead of patching the one on screen.
 
+#### App settings in first-run setup
+
+Every tile registered with `register_app_settings()` also appears in the setup
+wizard, in a **Project Settings** step after Dlux's own (so it is the last step
+and no Dlux step changes index). Each tile is one section of that step, built
+with the same `build_app_settings_form()` its Options modal uses, with its field
+names prefixed `app__<namespace>-` (non-alphanumerics become `_`) so sections
+cannot clash with each other or with Dlux's fields. A custom `form_class` gets the
+prefix through its `prefix` argument or `**kwargs`; one that accepts neither has
+`form.prefix` set after construction, so markup its `__init__` builds would miss
+it.
+
+Sections validate with the rest of the wizard, and every section reports its
+errors in the same round. On finish, each value comes from
+`get_app_settings_form_value()` (so `to_app_config()` still decides it) and is
+merged by `merge_app_system_config()` — the size and JSON checks
+`write_app_system_config()` applies — into the row the wizard saves, in that one
+save. A refused value is shown on its section and nothing is saved.
+
+Pass `setup=False` to keep a tile out of setup, e.g. settings that only make sense
+once data exists. The step appears only when at least one visible tile remains.
+
 ### Adding an Options-page card
 
 Downstream apps add cards to `/sys/options/` through a small registry — the only

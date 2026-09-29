@@ -131,6 +131,22 @@ from django.urls import reverse
 from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
+class _Prerendered:
+    """A layout object for markup that is already rendered.
+
+    Crispy's ``HTML`` compiles its content as a template, so markup holding stored
+    values — a project's settings form — would have any ``{{ }}`` in them
+    evaluated. This returns what ``build()`` produced, untouched; ``build`` runs
+    at render time, so a POST that saves never renders it.
+    """
+
+    def __init__(self, build):
+        self.build = build
+
+    def render(self, form, context, template_pack=None, **kwargs):
+        return self.build() or ''
+
+
 class LayoutMixin:
     def _step_badge(self, strings, slug, fallback):
         """The "Step N: Name" pill inside a wizard panel.
@@ -151,6 +167,17 @@ class LayoutMixin:
             f"<span class='badge rounded-pill text-bg-primary'>{label}</span>"
             f"</div>"
         )
+
+    def _setup_extra_steps(self):
+        """Steps the setup view adds after Dlux's own (the Project settings step).
+
+        Setup only, and always last, so no Dlux step changes index: the Options
+        editors open steps by index and would otherwise land on the wrong one.
+        """
+        build = getattr(self, 'setup_extra_step', None)
+        if self.mode != 'setup' or self.single_step_mode or not callable(build):
+            return []
+        return [_Prerendered(build)]
 
     def _step_css_class(self, index):
         """Wizard-step visibility class. Was a closure inside __init__; it only
@@ -967,6 +994,7 @@ class LayoutMixin:
                         ),
                         css_class=self._step_css_class(SETUP_STEP_EXTRAS),
                     ),
+                    *self._setup_extra_steps(),
                     FormActions(
                         HTML(
                             f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"

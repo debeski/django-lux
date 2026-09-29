@@ -236,7 +236,7 @@ def _normalize_field_specs(fields, namespace):
 
 def register_app_settings(*, namespace, title, fields=None, form_class=None,
                           description='', icon='bi-sliders2', order=100,
-                          defaults=None, visible=None):
+                          defaults=None, visible=None, setup=True):
     """Register one project-specific settings surface backed by extra_config.
 
     The registered settings appear as a tile in the Options admin settings grid
@@ -249,6 +249,9 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
     ``form_class`` is the escape hatch: pass a custom ``forms.Form`` subclass and
     optionally implement ``to_app_config(current_value)`` to control the saved
     JSON value. Supply either ``fields`` or ``form_class``.
+
+    ``setup=False`` keeps the tile out of the first-run setup wizard's Project
+    settings step — for settings that only make sense once data exists.
     """
     namespace = _validate_namespace(namespace, label='register_app_settings')
     # A lazy translation proxy is the natural way to give a title that has to
@@ -305,6 +308,7 @@ def register_app_settings(*, namespace, title, fields=None, form_class=None,
         'fields': field_specs,
         'form_class': form_class,
         'visible': visible,
+        'setup': bool(setup),
     }
 
 
@@ -390,6 +394,22 @@ def get_visible_app_setting(request, namespace):
         if definition['namespace'] == namespace:
             return definition
     return None
+
+
+def get_setup_app_settings(request):
+    """The visible app settings that also belong in the first-run setup wizard."""
+    return [definition for definition in get_visible_app_settings(request) if definition.get('setup', True)]
+
+
+def setup_form_prefix(namespace):
+    """Field-name prefix for one app settings form inside the setup wizard.
+
+    The wizard posts every section in one form beside Dlux's own fields, so each
+    section's names are prefixed. Namespaces may contain dots and dashes, which
+    make awkward names for CSS selectors, so they become underscores; the
+    ``app__`` lead cannot collide with a Dlux field, none of which has a dash.
+    """
+    return 'app__' + re.sub(r'[^0-9A-Za-z_]', '_', namespace)
 
 
 def _field_initial(definition, current_value, spec):
@@ -490,7 +510,8 @@ class AppSettingsForm(forms.Form):
         return value
 
 
-def _custom_form_kwargs(form_class, *, data, initial, request, namespace, current_value, definition):
+def _custom_form_kwargs(form_class, *, data, initial, request, namespace, current_value, definition,
+                        prefix=None):
     import inspect
 
     base = {'data': data, 'initial': initial}
@@ -500,6 +521,8 @@ def _custom_form_kwargs(form_class, *, data, initial, request, namespace, curren
         'current_value': current_value,
         'settings_definition': definition,
     }
+    if prefix:
+        optional['prefix'] = prefix
     try:
         signature = inspect.signature(form_class.__init__)
     except (TypeError, ValueError):
@@ -512,7 +535,8 @@ def _custom_form_kwargs(form_class, *, data, initial, request, namespace, curren
     return base
 
 
-def build_app_settings_form(definition, request, data=None):
+def build_app_settings_form(definition, request, data=None, prefix=None):
+    """The tile's form. ``prefix`` namespaces its field names (the setup wizard)."""
     from .utils import get_app_system_config
 
     current_value = get_app_system_config(definition['namespace'], definition['defaults'])
@@ -524,6 +548,7 @@ def build_app_settings_form(definition, request, data=None):
             definition=definition,
             current_value=current_value,
             request=request,
+            prefix=prefix,
         )
     kwargs = _custom_form_kwargs(
         form_class,
@@ -533,8 +558,14 @@ def build_app_settings_form(definition, request, data=None):
         namespace=definition['namespace'],
         current_value=current_value,
         definition=definition,
+        prefix=prefix,
     )
     form = form_class(**kwargs)
+    if prefix and 'prefix' not in kwargs:
+        # A form whose __init__ takes neither ``prefix`` nor **kwargs still gets
+        # namespaced names: Django reads ``prefix`` lazily when binding and
+        # rendering. Only markup built inside such an __init__ would miss it.
+        form.prefix = prefix
     helper = getattr(form, 'helper', None)
     if helper is not None and hasattr(helper, 'form_tag'):
         helper.form_tag = False
@@ -561,22 +592,21 @@ def _max_system_app_config_bytes():
         return DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES
 
 
-def write_app_system_config(namespace, value, *, request=None):
-    """Persist one app-owned system config namespace and refresh config cache."""
+def merge_app_system_config(extra_config, namespace, value):
+    """A copy of ``extra_config`` with one app namespace set (``None`` clears it).
+
+    Raises ``AppSystemConfigError`` for a value that is not JSON or makes the
+    config too large. Writes nothing: ``write_app_system_config`` saves the
+    result, and the setup wizard folds it into the row it is about to save.
+    """
     import json
 
-    from django.apps import apps
-
     try:
-        namespace = _validate_namespace(namespace, label='write_app_system_config')
+        namespace = _validate_namespace(namespace, label='merge_app_system_config')
     except ValueError as exc:
         raise AppSystemConfigError(str(exc), status_code=400) from exc
 
-    SystemSettings = apps.get_model('dlux', 'SystemSettings')
-    sys_settings = SystemSettings.load()
-    extra = sys_settings.extra_config
-    extra = dict(extra) if isinstance(extra, dict) else {}
-
+    extra = dict(extra_config) if isinstance(extra_config, dict) else {}
     app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE)
     app_bag = dict(app_bag) if isinstance(app_bag, dict) else {}
     if value is None:
@@ -595,6 +625,22 @@ def write_app_system_config(namespace, value, *, request=None):
         raise AppSystemConfigError('Value is not JSON-serializable.', status_code=400) from exc
     if too_big:
         raise AppSystemConfigError('System config payload too large.', status_code=413)
+    return extra
+
+
+def write_app_system_config(namespace, value, *, request=None):
+    """Persist one app-owned system config namespace and refresh config cache."""
+    from django.apps import apps
+
+    try:
+        namespace = _validate_namespace(namespace, label='write_app_system_config')
+    except ValueError as exc:
+        raise AppSystemConfigError(str(exc), status_code=400) from exc
+
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    sys_settings = SystemSettings.load()
+    extra = merge_app_system_config(sys_settings.extra_config, namespace, value)
+    app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE) or {}
 
     sys_settings.extra_config = extra
     sys_settings.save()

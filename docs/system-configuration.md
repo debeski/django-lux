@@ -52,6 +52,7 @@ The current wizard has eighteen steps:
 16. **Logging** — activity and audit policy plus retention.
 17. **System Backup** — schedule, storage, retention, and retry policy.
 18. **Extra Features** — opt-in integrations such as ScanLink.
+19. **Project Settings** — only when the project registers settings tiles with `register_app_settings()`: each tile's own form, one section per tile. It is always last, so no Dlux step changes number, and finishing setup saves each section with the rest of the wizard (see `reference.md` → *App settings in first-run setup*).
 
 System Settings modal editors opened from Options use these same categories but show only the selected category. Setup export/import is intended for reusable development and staging configuration: it exports settings JSON, not uploaded logo/favicon binaries or host-specific email verification state.
 
