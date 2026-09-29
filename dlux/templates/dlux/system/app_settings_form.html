@@ -3,6 +3,7 @@
 <form method="post"
       class="dlux-form dlux-app-settings-form"
       data-dlux-app-settings-namespace="{{ app_setting.namespace }}"
+      {% if form.dlux_unsaved_guard is not False %}data-dlux-unsaved-guard{% endif %}
       action="{% url 'dlux_app_settings_modal' app_setting.namespace %}">
     {% csrf_token %}
     {% if app_setting.description %}

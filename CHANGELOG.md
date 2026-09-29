@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Project Settings Tiles Ask Before Discarding Edits**: `dlux/system/app_settings_form.html` now renders `data-dlux-unsaved-guard`, so closing a `register_app_settings()` tile with pending edits prompts like the core System Settings form does. On by default; a `form_class` opts out with `dlux_unsaved_guard = False`.
 ## v1.9.5b4
 
 - **Updates Card Says When Composer Is Behind**: DjangoLux can be updated before Composer, which left the Composer agent row's icons disabled with the reason only in a hover tooltip, so clicking them did nothing. `ops.composer_behind()` compares the resident version with every operation's `min_composer` and the running release's `requires.services.composer` floor (`ops.required_composer()`); `/sys/api/dlux-ops/state/` returns it as `composer_behind`, and `ops.js` shows a notice under the row naming both versions. Blocked operations send the administrator to `./start.sh self update` then `./start.sh agent update`; a resident the card can still update is sent to the card instead. The agent rows' refusal reason gained the `self update` step too. New strings `dlux_ops_composer_behind_host`/`_card` (EN/AR, commands isolated left-to-right in Arabic).

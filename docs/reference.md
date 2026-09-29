@@ -831,6 +831,10 @@ values differ from the snapshot taken after its initializers settle. The
 `#dluxUnsavedModal` prompt offers Save (via `requestSubmit` with the form's named
 submitter), Discard, or Go back.
 
+Project settings tiles (`register_app_settings`) are guarded by default: their
+form renders the marker unless it sets `dlux_unsaved_guard = False`, so a
+`form_class` that only makes sense to close freely can opt out.
+
 Dirtiness is a value snapshot rather than an input listener on purpose: the
 System Settings form rewrites its own hidden JSON carriers during init and live
 preview, dispatching synthetic events that would otherwise mark it dirty

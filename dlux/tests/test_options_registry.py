@@ -415,6 +415,20 @@ class AppSettingsModalTests(TestCase):
         self.assertIn('data-dlux-app-settings-preview', body)
         self.assertIn('hidden', body)
 
+    def test_modal_form_is_guarded_against_unsaved_changes(self):
+        self._register_builtin()
+        body = self.client.get(self._url(), HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()['html']
+        self.assertIn('data-dlux-unsaved-guard', body)
+
+    def test_custom_form_can_opt_out_of_the_unsaved_guard(self):
+        class ProjectForm(forms.Form):
+            dlux_unsaved_guard = False
+            name = forms.CharField(required=False)
+
+        options.register_app_settings(namespace='proj.custom', title='Custom', form_class=ProjectForm)
+        body = self.client.get(self._url('proj.custom'), HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()['html']
+        self.assertNotIn('data-dlux-unsaved-guard', body)
+
     def test_modal_post_saves_namespace_and_preserves_unknown_keys(self):
         self._register_builtin()
         ss = SystemSettings.load()
