@@ -39,7 +39,7 @@ from django.utils.text import slugify
 
 from dlux import __version__
 from dlux.guards import require_current_password
-from dlux.system.constants import DEFAULT_HOME_URL
+from dlux.system.constants import DEFAULT_HOME_URL, SETUP_STEP_COUNT
 from dlux.notifications import notify
 from dlux.translations import get_current_language_code, get_strings
 from dlux.utils import (
@@ -133,6 +133,81 @@ def setup_step_cards(strings):
         }
         for index, (slug, icon, _keywords) in enumerate(SETUP_STEPS)
     ]
+
+
+PROJECT_SETTINGS_STEP_ICON = 'bi-sliders2'
+
+
+def _setup_project_sections(request, data=None):
+    """Each registered project settings tile, as a section of the setup wizard.
+
+    The tile's own form, built the way its Options modal builds it but with its
+    field names prefixed, so every section posts in the wizard's one form without
+    clashing. A tile whose form cannot be built is left out of setup — it is
+    still reachable from Options — rather than breaking first-run setup.
+    """
+    from dlux.options import build_app_settings_form, get_setup_app_settings, setup_form_prefix
+
+    sections = []
+    for definition in get_setup_app_settings(request):
+        try:
+            form = build_app_settings_form(
+                definition, request, data=data, prefix=setup_form_prefix(definition['namespace']),
+            )
+        except Exception:
+            logger.exception(
+                "App settings '%s' could not build its form; leaving it out of setup.",
+                definition['namespace'],
+            )
+            continue
+        sections.append({
+            'definition': definition,
+            'form': form,
+            'has_helper': getattr(form, 'helper', None) is not None,
+        })
+    return sections
+
+
+def _project_setup_step_card(strings, index):
+    return {
+        'index': index,
+        'number': index + 1,
+        'slug': 'project_settings',
+        'icon': PROJECT_SETTINGS_STEP_ICON,
+        'label': strings.get('system_settings_project_settings', 'Project Settings'),
+        'description': strings.get('system_settings_project_settings_desc', ''),
+    }
+
+
+def _render_project_setup_step(request, sections, strings, index):
+    return render_to_string(
+        'dlux/setup/project_settings_step.html',
+        {'sections': sections, 'DLUX_STRINGS': strings, 'step_number': index + 1},
+        request=request,
+    )
+
+
+def _merge_project_sections(instance, sections):
+    """Fold every section's value into ``instance.extra_config``; False on a refusal.
+
+    Merged into the row the wizard is about to save rather than written with
+    ``write_app_system_config``: that loads and saves the row again, and a second
+    save straight after the wizard's own is one stale read from undoing it.
+    """
+    from dlux.options import AppSystemConfigError, get_app_settings_form_value, merge_app_system_config
+
+    extra_config = getattr(instance, 'extra_config', None)
+    for section in sections:
+        namespace = section['definition']['namespace']
+        try:
+            value = get_app_settings_form_value(section['definition'], section['form'])
+            extra_config = merge_app_system_config(extra_config, namespace, value)
+        except AppSystemConfigError as exc:
+            section['form'].add_error(None, str(exc))
+            return False
+    instance.extra_config = extra_config
+    return True
+
 
 def _configured_home_url():
     config = get_system_config()
@@ -1200,6 +1275,15 @@ def system_setup_view(request):
         }
         return render(request, 'dlux/setup/language.html', context)
 
+    strings = get_strings(get_current_language_code(request))
+    project_sections = _setup_project_sections(
+        request, data=request.POST if request.method == 'POST' else None,
+    )
+    project_step = None
+    if project_sections:
+        def project_step():
+            return _render_project_setup_step(request, project_sections, strings, SETUP_STEP_COUNT)
+
     if request.method == 'POST':
         form = SystemSettingsForm(
             request.POST,
@@ -1208,8 +1292,13 @@ def system_setup_view(request):
             request=request,
             user=request.user,
             mode='setup',
+            setup_extra_step=project_step,
         )
-        if form.is_valid():
+        form_valid = form.is_valid()
+        # Every section validates, not just up to the first failure, so the
+        # step shows all of its errors at once.
+        sections_valid = all([section['form'].is_valid() for section in project_sections])
+        if form_valid and sections_valid and _merge_project_sections(form.instance, project_sections):
             form.save()
             resolved_language = form.cleaned_data.get('default_language') or selected_setup_language
             saved_languages = normalize_language_catalog(form.cleaned_data.get('languages') or setup_languages)
@@ -1225,13 +1314,17 @@ def system_setup_view(request):
             request=request,
             user=request.user,
             mode='setup',
+            setup_extra_step=project_step,
         )
 
+    setup_steps = setup_step_cards(strings)
+    if project_sections:
+        setup_steps.append(_project_setup_step_card(strings, SETUP_STEP_COUNT))
     context = {
         'form': form,
         'page_title': 'System Setup',
         'hide_sidebar_toggle': True,
-        'setup_steps': setup_step_cards(get_strings(get_current_language_code(request))),
+        'setup_steps': setup_steps,
     }
     return render(request, 'dlux/setup/main.html', context)
 

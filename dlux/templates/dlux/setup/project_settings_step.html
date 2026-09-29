@@ -1,0 +1,20 @@
+{% load crispy_forms_tags %}
+{# The setup wizard's Project settings step: each registered tile's own form, prefixed. #}
+<div class="wizard-step d-none" data-dlux-project-settings-step>
+    <div class="dlux-setup-step-badge mb-3">
+        <span class="badge rounded-pill text-bg-primary">{{ DLUX_STRINGS.system_setup_step_prefix|default:"Step" }} {{ step_number }}: {{ DLUX_STRINGS.system_settings_project_settings|default:"Project Settings" }}</span>
+    </div>
+    <div class="alert alert-info">{{ DLUX_STRINGS.system_setup_project_settings_intro|default:"Settings your project adds. Each section is saved to its own settings when you finish setup, exactly as its tile under Options saves it." }}</div>
+    {% for section in sections %}
+    <section class="dlux-setup-project-section mb-4" data-dlux-app-settings-namespace="{{ section.definition.namespace }}">
+        <h6 class="fw-bold my-3"><i class="bi {{ section.definition.icon }} me-1" aria-hidden="true"></i>{{ section.definition.title }}</h6>
+        {% if section.definition.description %}
+        <p class="text-muted small mb-3">{{ section.definition.description }}</p>
+        {% endif %}
+        {% if section.form.non_field_errors %}
+        <div class="alert alert-danger" data-autoclose="false">{{ section.form.non_field_errors }}</div>
+        {% endif %}
+        {% if section.has_helper %}{% crispy section.form %}{% else %}{{ section.form|crispy }}{% endif %}
+    </section>
+    {% endfor %}
+</div>

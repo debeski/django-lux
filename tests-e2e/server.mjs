@@ -40,6 +40,7 @@ export async function startServer({
   scanlink = false,
   languageOverride = true,
   searchMode = 'icon',
+  projectSettings = false,
 } = {}) {
   const args = [path.join(HERE, 'seed.py')];
   if (!configured) args.push('--unconfigured');
@@ -50,7 +51,13 @@ export async function startServer({
 
   const proc = spawn(PY, ['-m', 'django', 'runserver', String(PORT), '--noreload'], {
     cwd: HERE,
-    env: { ...process.env, PYTHONPATH: `..:.`, DJANGO_SETTINGS_MODULE: 'settings' },
+    env: {
+      ...process.env,
+      PYTHONPATH: `..:.`,
+      DJANGO_SETTINGS_MODULE: 'settings',
+      // urls.py registers a sample project settings tile when this is set.
+      DLUX_E2E_PROJECT_SETTINGS: projectSettings ? '1' : '',
+    },
     stdio: 'ignore',
   });
 

@@ -47,6 +47,7 @@
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
   - [ ] 1.9.5b4 (tagged 2026-09-29 from `main`) is the current beta: b3 plus the Composer-behind notice and the scaffold `DAC_OVERRIDE` swap. Next: accept it on `testbed-dlux` via the beta channel — including the notice against an older Composer — then promote 1.9.5.
+  - [ ] Unmerged local branches (2026-09-29): `fix/app-settings-unsaved-guard` (project tiles get the unsaved-changes prompt) and `feat/wizard-project-settings` (tiles as a Project Settings step 19 in first-run setup, saved in the wizard's one save). Both tested (full suite + e2e); the sales CRM needs a dlux release with them.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
@@ -66,7 +67,6 @@
   - [x] v1.8.12 suite registration: `test_modal_content_init`, `test_titlebar_action_rail`, `test_inspector_shell` added to `TEST_LABELS` (2366 -> 2430) plus a guard that fails on any unregistered `test_*.py` (2026-09-06).
   - [x] v1.8.12 updater trio: reconcile also triggers on a runtime-generation change (a version update no longer leaves `active_version` frozen); `queue_image_update()` reports the live release via `active_runtime_version()`; `dlux_settings()` refuses a non-DEBUG boot on an empty/placeholder `SECRET_KEY` (opt out with `DLUX_ALLOW_INSECURE_SECRET_KEY`) (2026-09-06).
   - [x] v1.8.12 `dlux_image_gate`: adopt/keep/abort verdict so an image baking an older dlux keeps the newer active release instead of being refused outright, decided by the release's own `requires.baked_image` floor. Composer must adopt the command for the gate to relax (2026-09-06).
-  - [x] Tooltip positioning feedback loop fixed (v1.8.12): `positionTooltip()` clears `left`/`top` before measuring, so the fixed, auto-width box is no longer shrink-to-fit-capped by its own stale offset (2026-09-05).
   - [x] v1.8.4 managed assets public API: `ManagedAssetField(kind, namespace, reads)` + registry, namespace column (0018, backfilled by kind), namespace-scoped dedup and storage paths, field-identity-authorized instant upload for every kind, public `resolve_asset_selection`/`apply_asset_pickers`/`apply_asset_selections`/`build_asset_field`/`ManagedAssetFormMixin`, `capture` support, System Settings switched onto the same public helper (2026-09-02).
 
 ### One-line info about last verified Tests:

@@ -962,10 +962,12 @@ class SystemSettingsForm(
 
 
 
-    def __init__(self, *args, request=None, user=None, mode='modal', **kwargs):
+    def __init__(self, *args, request=None, user=None, mode='modal', setup_extra_step=None, **kwargs):
         self.request = request if request is not None else kwargs.pop('request', None)
         self._user = user if user is not None else kwargs.pop('user', None)
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
+        # Setup only: a callable returning the Project settings step's markup.
+        self.setup_extra_step = setup_extra_step
         super().__init__(*args, **kwargs)
         extra_config = getattr(self.instance, 'extra_config', None) or {}
         scanlink_config = extra_config.get('scanlink') if isinstance(extra_config, dict) else None

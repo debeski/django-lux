@@ -400,7 +400,9 @@ class AppSettingsModalTests(TestCase):
         self.assertContains(r, 'Project Settings')
         self.assertContains(r, self._url())
         c = Client(); c.force_login(self.regular)
-        self.assertNotContains(c.get('/sys/options/'), 'Project Settings')
+        # The tile's link, not its title: the page's strings bundle carries the
+        # setup wizard's own "Project Settings" label for every reader.
+        self.assertNotContains(c.get('/sys/options/'), self._url())
 
     def test_modal_renders_builtin_controls(self):
         self._register_builtin()
