@@ -136,6 +136,7 @@ urlpatterns = [
     path('scanlink/releases/', views.scanlink_releases_modal, name='scanlink_releases_modal'),
     path('scanlink/toggle/', views.scanlink_toggle, name='scanlink_toggle'),
     path('sys/options/app-settings/<str:namespace>/', views.app_settings_modal_view, name='dlux_app_settings_modal'),
+    path('sys/options/app-settings-group/<str:group_id>/', views.app_settings_group_modal_view, name='dlux_app_settings_group_modal'),
     path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
     path('sys/api/ribbon-tabs/', views.ribbon_tabs_preview_view, name='ribbon_tabs_preview'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),

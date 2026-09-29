@@ -54,6 +54,7 @@ TEST_LABELS = [
     'dlux.tests.test_models',
     'dlux.tests.test_notifications',
     'dlux.tests.test_options_layout',
+    'dlux.tests.test_options_groups',
     'dlux.tests.test_options_registry',
     'dlux.tests.test_package_facades',
     'dlux.tests.test_package_handoff',

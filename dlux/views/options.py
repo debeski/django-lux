@@ -146,13 +146,13 @@ def _setup_project_sections(request, data=None):
     clashing. A tile whose form cannot be built is left out of setup — it is
     still reachable from Options — rather than breaking first-run setup.
     """
-    from dlux.options import build_app_settings_form, get_setup_app_settings, setup_form_prefix
+    from dlux.options import app_settings_form_prefix, build_app_settings_form, get_setup_app_settings
 
     sections = []
     for definition in get_setup_app_settings(request):
         try:
             form = build_app_settings_form(
-                definition, request, data=data, prefix=setup_form_prefix(definition['namespace']),
+                definition, request, data=data, prefix=app_settings_form_prefix(definition['namespace']),
             )
         except Exception:
             logger.exception(
@@ -859,9 +859,10 @@ def options_view(request):
         )
     # App-contributed Options cards (registry-driven, permission-filtered and
     # sandbox-rendered — a failing card is dropped, never blanks the page).
-    from dlux.options import get_visible_app_settings, render_cards
+    from dlux.options import get_visible_app_settings, get_visible_app_settings_tiles, render_cards
     context['dlux_option_cards'] = render_cards(request)
     context['dlux_app_settings'] = get_visible_app_settings(request)
+    context['dlux_app_settings_tiles'] = get_visible_app_settings_tiles(request)
 
     context.update(diagnostic_context)
     return render(request, 'dlux/system/options.html', context)
@@ -918,6 +919,82 @@ def app_settings_modal_view(request, namespace):
         {
             'form': form,
             'app_setting': definition,
+            'DLUX_STRINGS': strings,
+        },
+        request=request,
+    )
+    return JsonResponse({'html': html})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def app_settings_group_modal_view(request, group_id):
+    """Render/save every section of one grouped app settings tile.
+
+    Each section is its settings' own form with its field names prefixed, so
+    they post together. All of them validate before anything is saved, and the
+    values land in one write of the settings row (``write_app_system_configs``)
+    rather than one load-and-save per section.
+    """
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    from dlux.options import (
+        AppSystemConfigError,
+        app_settings_form_prefix,
+        build_app_settings_form,
+        get_app_settings_form_value,
+        get_visible_app_settings_group,
+        write_app_system_configs,
+    )
+
+    group = get_visible_app_settings_group(request, group_id)
+    if group is None:
+        raise Http404
+
+    data = request.POST if request.method == 'POST' else None
+    sections = [
+        {
+            'definition': definition,
+            'form': build_app_settings_form(
+                definition, request, data=data, prefix=app_settings_form_prefix(definition['namespace']),
+            ),
+        }
+        for definition in group['sections']
+    ]
+    error = None
+    if request.method == 'POST':
+        # Every section validates, not just up to the first failure, so the
+        # modal shows all of its errors at once.
+        if all([section['form'].is_valid() for section in sections]):
+            try:
+                values = {
+                    section['definition']['namespace']: get_app_settings_form_value(
+                        section['definition'], section['form'],
+                    )
+                    for section in sections
+                }
+                stored = write_app_system_configs(values, request=request)
+            except AppSystemConfigError as exc:
+                error = exc.message
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'group': group['id'],
+                    'values': stored,
+                    'refresh_parent': True,
+                })
+
+    strings = get_strings(get_current_language_code(request))
+    html = render_to_string(
+        'dlux/system/app_settings_group_form.html',
+        {
+            'group': group,
+            'sections': sections,
+            'error': error,
+            'unsaved_guard': all(
+                getattr(section['form'], 'dlux_unsaved_guard', True) is not False for section in sections
+            ),
             'DLUX_STRINGS': strings,
         },
         request=request,

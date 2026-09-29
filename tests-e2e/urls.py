@@ -18,5 +18,19 @@ if os.environ.get('DLUX_E2E_PROJECT_SETTINGS'):
         ],
     )
 
+    # And one grouped tile: two namespaces, one Options tile, one save.
+    from dlux.options import register_app_settings_group
+
+    register_app_settings_group(id='e2e.group', title='E2E Group')
+    for order, name in ((1, 'alpha'), (2, 'beta')):
+        register_app_settings(
+            namespace=f'e2e.{name}',
+            title=f'Section {name.title()}',
+            group='e2e.group',
+            order=order,
+            fields=[{'name': 'limit', 'type': 'integer', 'label': 'Limit', 'default': order,
+                     'min_value': 1, 'max_value': 50}],
+        )
+
 urlpatterns = [path('', include('dlux.urls'))]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

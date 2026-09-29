@@ -1,0 +1,39 @@
+{% load crispy_forms_tags %}
+
+<form method="post"
+      class="dlux-form dlux-app-settings-form dlux-app-settings-group-form"
+      data-dlux-app-settings-group="{{ group.id }}"
+      {% if unsaved_guard %}data-dlux-unsaved-guard{% endif %}
+      action="{% url 'dlux_app_settings_group_modal' group.id %}">
+    {% csrf_token %}
+    {% if group.description %}
+    <p class="text-muted small mb-3">{{ group.description }}</p>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger" data-autoclose="false">{{ error }}</div>
+    {% endif %}
+    {% for section in sections %}
+    <section class="dlux-app-settings-section" data-dlux-app-settings-section="{{ section.definition.namespace }}">
+        {% if not forloop.first %}<hr class="my-4">{% endif %}
+        <h6 class="fw-bold my-3">{{ section.definition.title }}</h6>
+        {% if section.definition.description %}
+        <p class="text-muted small mb-3">{{ section.definition.description }}</p>
+        {% endif %}
+        {% if section.form.non_field_errors %}
+        <div class="alert alert-danger" data-autoclose="false">
+            {{ section.form.non_field_errors }}
+        </div>
+        {% endif %}
+        {% crispy section.form %}
+    </section>
+    {% endfor %}
+    <div class="dlux-form-actions mt-3 pt-3 border-top" data-dlux-modal-footer>
+        <button type="submit"
+                class="dlux-form-action dlux-form-action-primary"
+                aria-label="{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}"
+                title="{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}">
+            <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+            <span class="visually-hidden">{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}</span>
+        </button>
+    </div>
+</form>
