@@ -1,0 +1,23 @@
+{% load dlux_tags %}
+<section class="dlux-weather no-print{% if weather.card %} dlux-weather--card{% endif %}{% if weather.floating %} dlux-weather--floating{% endif %}"
+         data-weather-widget data-weather-display="{{ weather.display }}" data-weather-corner="{{ weather.corner }}"
+         data-weather-url="{% url 'weather_current' %}" data-weather-location="{{ weather.selected }}" aria-label="{{ DLUX_STRINGS.weather_title }}">
+    {% include_once 'dlux/weather/assets.html' %}
+    {% if not weather.card %}
+    <button type="button" class="dlux-weather__trigger" data-weather-toggle aria-label="{{ DLUX_STRINGS.weather_title }}" aria-expanded="false" aria-controls="{{ weather.uid }}">
+        <i class="bi bi-cloud" data-weather-icon aria-hidden="true"></i>
+        <span data-weather-temperature>—</span><span data-weather-description>{{ DLUX_STRINGS.weather_title }}</span>
+    </button>
+    {% endif %}
+    <div class="dlux-weather__panel" id="{{ weather.uid }}" data-weather-panel{% if not weather.card %} hidden{% endif %}>
+        <label class="form-label" for="{{ weather.uid }}-location">{{ DLUX_STRINGS.weather_location }}</label>
+        <select id="{{ weather.uid }}-location" class="form-select form-select-sm" data-weather-select>
+            {% for location in weather.locations %}<option value="{{ location.id }}"{% if location.id == weather.selected %} selected{% endif %}>{{ location.name }}</option>{% endfor %}
+        </select>
+        <div class="dlux-weather__reading"><i class="bi bi-cloud" data-weather-icon aria-hidden="true"></i> <strong data-weather-temperature>—</strong></div>
+        <p data-weather-description>{{ DLUX_STRINGS.weather_loading }}</p>
+        <p>{{ DLUX_STRINGS.weather_feels_like }} <span data-weather-feels>—</span></p>
+        <p class="small text-body-secondary" data-weather-status role="status">{{ DLUX_STRINGS.weather_loading }}</p>
+        <a class="small" href="https://openweathermap.org/" target="_blank" rel="noopener noreferrer">{{ DLUX_STRINGS.weather_attribution }}</a>
+    </div>
+</section>

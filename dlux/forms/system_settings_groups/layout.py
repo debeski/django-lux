@@ -992,6 +992,7 @@ class LayoutMixin:
                             f"{s.get('scanlink_manage_releases_help', 'Publish the installer that workstations download and update from.')}"
                             f"</div></div>"
                         ),
+                        self._weather_settings_layout(s),
                         css_class=self._step_css_class(SETUP_STEP_EXTRAS),
                     ),
                     *self._setup_extra_steps(),

@@ -4,6 +4,15 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
 see [Deployment Configuration](deployment-configuration.md).
 
+## Weather
+
+For optional weather, load `dlux_weather` and use `{% weather_widget %}` for a
+compact indicator or `{% weather_widget variant="card" %}` for a dashboard card.
+Both inherit Extra Features settings and render nothing when disabled or for
+anonymous users. `GET /sys/api/weather/` reads configured locations;
+`POST /sys/api/weather/locations/` searches cities for superusers.
+See [Weather](weather.md) for arguments, credentials, caching, and configuration.
+
 ## Scaffold Commands
 
 | Command | Purpose |

@@ -162,6 +162,9 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_profile_config(value)
         elif field_name == 'backup_config':
             data[field_name] = normalize_backup_config(value)
+        elif field_name == 'extra_config':
+            from ..system.weather import portable_extra_config
+            data[field_name] = portable_extra_config(value)
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
@@ -286,7 +289,8 @@ def normalize_system_settings_import_payload(payload):
     if 'login_config' in normalized:
         normalized['login_config'] = normalize_login_config(normalized['login_config'])
     if 'extra_config' in normalized:
-        normalized['extra_config'] = normalize_extra_config(normalized['extra_config'])
+        from ..system.weather import portable_extra_config
+        normalized['extra_config'] = portable_extra_config(normalized['extra_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:
@@ -369,6 +373,12 @@ def apply_system_settings_import(
                         setattr(instance, field_name, None)
                 elif field_name in {'logo', 'favicon'}:
                     setattr(instance, field_name, str(value))
+        elif field_name == 'extra_config':
+            from ..system.weather import normalize_weather_config
+            existing = normalize_weather_config((instance.extra_config or {}).get('weather'))
+            if 'weather' in value:
+                value['weather'] = {**value['weather'], 'encrypted_api_key': existing['encrypted_api_key']}
+            instance.extra_config = value
         elif field_name == 'email_config':
             source = raw_email_config if preserve_email_secret and isinstance(raw_email_config, dict) else value
             email_config = normalize_email_config(source)

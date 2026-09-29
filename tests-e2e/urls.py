@@ -33,4 +33,13 @@ if os.environ.get('DLUX_E2E_PROJECT_SETTINGS'):
         )
 
 urlpatterns = [path('', include('dlux.urls'))]
+if os.environ.get('DLUX_E2E_WEATHER'):
+    from django.contrib.auth.decorators import login_required
+    from django.shortcuts import render
+
+    @login_required
+    def weather_dashboard(request):
+        return render(request, 'dlux/weather/e2e_dashboard.html')
+
+    urlpatterns.insert(0, path('weather-dashboard/', weather_dashboard))
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

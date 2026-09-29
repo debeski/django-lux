@@ -57,6 +57,14 @@ def main():
     # run without the flag also proves the gate keeps everything off the page.
     extra = dict(s.extra_config or {})
     extra['scanlink'] = {'enabled': '--scanlink' in sys.argv}
+    if '--weather' in sys.argv:
+        from dlux.system.weather import normalize_weather_config
+        from dlux.weather import encrypt_api_key
+        extra['weather'] = normalize_weather_config({
+            'enabled': True, 'placement': 'floating',
+            'encrypted_api_key': encrypt_api_key('e2e-weather-key'),
+            'locations': [{'name': 'Tripoli, LY', 'lat': 32.8872, 'lon': 13.1913}],
+        })
     s.extra_config = extra
     s.save()
 

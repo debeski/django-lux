@@ -655,15 +655,12 @@ def normalize_typography_config(value):
 
 
 def normalize_extra_config(value):
-    """Copy through, untouched.
-
-    `extra_config` holds two unrelated things: dlux-owned keys at the top level
-    and opaque project config under `app`, which dlux never validates. Coercing
-    a dlux key here would also mean seeding it into every project's stored
-    config, so `scanlink` is written only when the setting is saved and read
-    defensively by `scanlink_enabled()` instead.
-    """
-    return dict(value) if isinstance(value, dict) else {}
+    """Normalize weather when present; preserve opaque project namespaces."""
+    from .weather import normalize_weather_config
+    result = dict(value) if isinstance(value, dict) else {}
+    if 'weather' in result:
+        result['weather'] = normalize_weather_config(result['weather'])
+    return result
 
 
 def normalize_titlebar_actions_order(value):

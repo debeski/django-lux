@@ -1,4 +1,4 @@
-{% load static %}
+{% load static dlux_weather %}
 {% with titlebar_buttons_shape=titlebar.buttons_shape|default:titlebar.home_shape|default:'circle' %}
 <div
     class="titlebar shadow-sm no-print"
@@ -39,6 +39,7 @@
         </div>
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
+        {% weather_widget placement="titlebar" %}
         {% if user.is_authenticated %}
             <div class="titlebar__actions" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% for action in titlebar_actions %}

@@ -3747,7 +3747,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # writing to the form field its `field_name` names, so that field must
         # exist for the pick to reach the builder at all. Raised by two for the
         # titlebar action-layout selector's pair of radios.
-        self.assertLess(len(re.findall(r'\sname=', html)), 282)
+        # Weather adds fourteen selector radios and four persisted fields.
+        self.assertLess(len(re.findall(r'\sname=', html)), 300)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

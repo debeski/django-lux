@@ -59,6 +59,7 @@ class DluxMiddleware:
                 reverse('dlux_update_runtime_health'),
                 # The wizard previews its unsaved values before anything is configured.
                 reverse('system_settings_preview_draft'),
+                reverse('weather_locations'),
             })
             allowed_prefixes.extend([
                 reverse('system_setup'),

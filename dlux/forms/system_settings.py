@@ -489,6 +489,14 @@ class SystemSettingsForm(
     # Extra Features. Not a model field: it lives in the dlux-owned top level of
     # `extra_config`, alongside the `app` namespace that projects own.
     scanlink_enabled = forms.BooleanField(required=False, initial=False)
+    weather_enabled = forms.BooleanField(required=False)
+    weather_placement = forms.ChoiceField(required=False)
+    weather_display = forms.ChoiceField(required=False)
+    weather_units = forms.ChoiceField(required=False)
+    weather_corner = forms.ChoiceField(required=False)
+    weather_api_key = forms.CharField(required=False, max_length=256, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+    weather_locations = forms.CharField(required=False, widget=forms.HiddenInput())
+    weather_default_location = forms.CharField(required=False, widget=forms.HiddenInput())
     backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)
     backup_schedule_interval_hours = forms.IntegerField(required=False, min_value=1, max_value=8760, initial=24)
     backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
@@ -1015,6 +1023,9 @@ class SystemSettingsForm(
             # before the step-preservation cleaners get a chance to restore them.
             self.fields['default_theme'].required = False
             self.fields['default_table_density'].required = False
+
+        from .weather import configure_weather_fields
+        configure_weather_fields(self, s)
 
         from dlux.discovery import (
             discover_routes_for,
@@ -3817,6 +3828,14 @@ class SystemSettingsForm(
             if field_name in imported:
                 cleaned[field_name] = imported[field_name]
 
+        weather = (imported.get('extra_config') or {}).get('weather')
+        if isinstance(weather, dict):
+            from ..system.weather import normalize_weather_config
+            weather = normalize_weather_config(weather)
+            for key in ('enabled', 'placement', 'display', 'units', 'corner', 'default_location'):
+                cleaned['weather_' + key] = weather[key]
+            cleaned['weather_locations'] = json.dumps(weather['locations'])
+
         email_config = imported.get('email_config')
         if isinstance(email_config, dict):
             cleaned['email_config'] = email_config
@@ -3987,6 +4006,8 @@ class SystemSettingsForm(
         cleaned = super().clean()
         self._imported_settings = self._read_imported_settings()
         self._apply_imported_settings(cleaned, self._imported_settings)
+        from .weather import clean_weather
+        clean_weather(self, cleaned)
         allowed_themes = cleaned.get('allowed_themes') or []
         default_theme = cleaned.get('default_theme') or 'light'
         if allowed_themes and default_theme not in allowed_themes:
@@ -4377,6 +4398,8 @@ class SystemSettingsForm(
     def save(self, commit=True):
         instance = super().save(commit=False)
         self._apply_extra_features(instance)
+        from .weather import apply_weather
+        apply_weather(self, instance)
         project_homepage = normalize_homepage_config(getattr(settings, 'DLUX_CONFIG', {}))
         fallback_home = project_homepage['default_url']
         auth_config = self.cleaned_data.get('auth_config') or default_auth_config()
@@ -4562,6 +4585,10 @@ class SystemSettingsForm(
             if isinstance(login_background_selection, AssetSelection) and (login_background_selection.asset is not None or login_background_selection.clear):
                 instance.login_background_asset = login_background_selection.asset
         return instance
+
+    def _weather_settings_layout(self, strings):
+        from .weather import weather_settings_layout
+        return weather_settings_layout(self, strings)
 
     def _apply_extra_features(self, instance):
         """Write the Extra Features toggles into `extra_config`.

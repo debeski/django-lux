@@ -2,6 +2,15 @@
 
 Use this guide when configuring DjangoLux through `/sys/setup/` or `/sys/options/`. It is for operators; projects that need code-owned defaults should start with [Project Configuration](project-configuration.md).
 
+## Optional weather
+
+Weather is configured under **Extra Features → Weather**: enable it, enter the
+OpenWeather API key, search/add locations, choose a default, and select units,
+display style, and titlebar/user hub/floating placement (or project embeds only).
+Dependent controls remain visible but disabled with tooltips while the feature
+is off; saved values are retained. See [Weather](weather.md), including the
+two-line dashboard integration and API-key import/export behaviour.
+
 ## Configuration layers
 
 ### Starting with manual setup

@@ -118,6 +118,7 @@
     <script src="{% dlux_static 'dlux/setup/js/shell.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/previews.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/weather/js/settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon_settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -149,6 +150,8 @@
     {% endif %}
     {% endblock %}
 
+    {% load dlux_weather %}
+    {% weather_widget placement="floating" %}
     {% block layout %}
     {# Use the sidebar+main chrome for authenticated users and for anonymous     #}
     {# public page visitors when the sidebar is explicitly shown there.          #}

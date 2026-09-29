@@ -1,0 +1,11 @@
+<div data-weather-location-builder data-weather-search-url="{% url 'weather_locations' %}">
+    <label class="form-label" for="weather-city-search">{{ DLUX_STRINGS.weather_search }}</label>
+    <div class="input-group">
+        <input class="form-control" id="weather-city-search" type="search" maxlength="120" autocomplete="off" data-weather-query>
+        <button class="btn btn-outline-primary" type="button" data-weather-search>{{ DLUX_STRINGS.weather_search_button }}</button>
+    </div>
+    <p class="form-text">{{ DLUX_STRINGS.weather_locations_help }}</p>
+    <p class="form-text" data-weather-search-status role="status"></p>
+    <div class="list-group my-2" data-weather-results></div>
+    <div class="list-group my-2" data-weather-chosen></div>
+</div>
