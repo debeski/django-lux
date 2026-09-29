@@ -38,6 +38,7 @@ def configure_weather_fields(form, strings):
             translated.append((value, strings.get(label_key, label)))
         form.fields[name].choices = translated
         _bind_choice_selector_widget(form.fields[name], DluxChoiceSelectorWidget(choices=translated))
+    form.fields['weather_corner'].help_text = strings.get('weather_corner_help', 'Start and end follow the interface direction.')
     form.fields['weather_api_key'].help_text = strings.get('weather_key_saved', 'API key saved. Leave blank to keep it, or enter a replacement.') if config['encrypted_api_key'] else strings.get('weather_key_help', 'Enter an OpenWeather API key with Current Weather and Geocoding access.')
 
 

@@ -81,8 +81,18 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     } }));
     await root.locator('[data-weather-query]').fill('Benghazi');
     await root.locator('[data-weather-search]').click();
-    await root.locator('[data-weather-results] button').click();
-    assert.match(await root.locator('[data-weather-chosen]').innerText(), /Benghazi/);
+    // Dlux builder parts: rows are `dlux-builder-item`, actions live on the
+    // inspector shell's action row, and the selected location renames in its panel.
+    const result = root.locator('[data-weather-results] .dlux-builder-item');
+    await result.click();
+    assert.equal(await root.locator('[data-weather-inspector-shell].dlux-inspector-shell').count(), 1);
+    await root.locator('[data-inspector-action="weather-add"]').click();
+    assert.match(await root.locator('[data-weather-chosen]').innerText(), /Benghazi, LY/);
+    const rename = root.locator('[data-inspector-field="weather-display-name"] input');
+    await rename.fill('Benghazi');
+    await rename.press('Tab');
+    await root.locator('[data-inspector-action="weather-default"]').click();
+    assert.match(await root.locator('[data-weather-chosen] .dlux-builder-item', { hasText: 'Benghazi' }).innerText(), /Default/);
     await root.locator('[name="weather_placement"][value="embed"]').check({ force: true });
     const navigation = page.waitForNavigation({ waitUntil: 'networkidle' });
     const responsePromise = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/sys/modals/'));
@@ -93,6 +103,8 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     await page.goto(`${BASE}/weather-dashboard/`, { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-weather-widget]').count(), 1, 'embed-only removes floating chrome');
     assert.equal(await page.locator('[data-weather-select] option').count(), 2);
+    assert.equal((await page.locator('[data-weather-select] option:checked').innerText()).trim(), 'Benghazi',
+      'the rename and the new default were saved');
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });

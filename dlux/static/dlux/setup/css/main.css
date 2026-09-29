@@ -587,6 +587,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Rows are often <button>s, which centre their text. */
+  text-align: start;
 }
 
 .dlux-builder-item-label {
