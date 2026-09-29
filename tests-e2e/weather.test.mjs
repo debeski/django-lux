@@ -78,6 +78,10 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     assert.ok(await root.locator('[data-weather-dependent]').getAttribute('data-dlux-tooltip'));
     await toggle.check({ force: true });
     assert.equal(await root.locator('[name="weather_api_key"]').isDisabled(), false);
+    // Switching weather on must un-grey the choice tiles, not only the section:
+    // server-disabled choices kept their tiles at 0.62 opacity.
+    assert.equal(await root.locator('[name="weather_placement"][value="user_hub"]').evaluate(input =>
+      getComputedStyle(input.closest('.dlux-choice-option').querySelector('.dlux-choice-option__surface')).opacity), '1');
     await root.locator('[name="weather_placement"][value="titlebar"]').check({ force: true });
     assert.equal(await root.locator('[name="weather_corner"]').first().isDisabled(), true);
     await page.route('**/sys/api/weather/locations/', route => route.fulfill({ json: {
