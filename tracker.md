@@ -47,7 +47,7 @@
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
   - [ ] 1.9.5b4 (tagged 2026-09-29 from `main`) is the current beta: b3 plus the Composer-behind notice and the scaffold `DAC_OVERRIDE` swap. Next: accept it on `testbed-dlux` via the beta channel — including the notice against an older Composer — then promote 1.9.5.
-  - [ ] Unmerged local branches (2026-09-29): `fix/app-settings-unsaved-guard` (project tiles get the unsaved-changes prompt) and `feat/wizard-project-settings` (tiles as a Project Settings step 19 in first-run setup, saved in the wizard's one save). Both tested (full suite + e2e); the sales CRM needs a dlux release with them.
+  - [ ] On `main`, unreleased (merged 2026-09-29): project tiles get the unsaved-changes prompt; tiles appear as a Project Settings step 19 in first-run setup, saved in the wizard's one save. Next: `feat/app-settings-groups` merges on top (switch `setup_form_prefix()` to its `app_settings_form_prefix()`), then a beta so the sales CRM can adopt it.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
