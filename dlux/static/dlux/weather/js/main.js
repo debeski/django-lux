@@ -7,6 +7,9 @@
     if (window.dluxWeatherLoaded) return;
     window.dluxWeatherLoaded = true;
     const pending = new Map();
+    // A 202 means a worker is fetching the first reading; ask again shortly.
+    const PENDING_RETRY_MS = 3000;
+    const PENDING_RETRIES = 6;
     const t = (key, fallback) => (window.DLUX_STRINGS || {})[key] || fallback;
 
     function text(root, selector, value) {
@@ -22,6 +25,7 @@
             entry = {
                 at: Date.now(),
                 promise: fetch(url, { headers: { Accept: 'application/json' } }).then(async (response) => {
+                    if (response.status === 202) throw new Error('pending');
                     if (!response.ok) throw new Error(response.status === 404 ? 'disabled' : 'unavailable');
                     return response.json();
                 }),
@@ -31,6 +35,7 @@
         try {
             const data = await entry.promise;
             if (widget.dataset.weatherLocation !== selected) return;
+            delete widget.dataset.weatherPendingTries;
             text(widget, '[data-weather-temperature]', data.temperature + data.unit);
             text(widget, '[data-weather-feels]', data.feels_like + data.unit);
             text(widget, '[data-weather-description]', data.description);
@@ -46,6 +51,16 @@
                 (data.stale ? t('weather_stale', 'Last available reading') : t('weather_updated', 'Updated')) + ': ' + when);
         } catch (error) {
             if (widget.dataset.weatherLocation !== selected) return;
+            if (error.message === 'pending') {
+                pending.delete(url);
+                const tries = Number(widget.dataset.weatherPendingTries || 0) + 1;
+                widget.dataset.weatherPendingTries = String(tries);
+                if (tries <= PENDING_RETRIES) {
+                    text(widget, '[data-weather-status]', t('weather_loading', 'Loading weather…'));
+                    window.setTimeout(() => refresh(widget), PENDING_RETRY_MS);
+                    return;
+                }
+            }
             if (error.message === 'disabled') {
                 widget.dataset.weatherDisabled = 'true';
                 widget.hidden = true;

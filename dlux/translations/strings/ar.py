@@ -214,6 +214,8 @@ STRINGS = {
     "weather_no_locations": "لا توجد مواقع بعد. ابحث عن مدينة وأضفها.",
     "weather_empty_search": "لم يتم العثور على مدن. جرّب اسم المدينة ورمز الدولة.",
     "weather_search_error": "تعذر البحث. تحقق من المفتاح وحاول مجدداً.",
+    "weather_search_error_key": "رفضت OpenWeather مفتاح API هذا. تحقق من أنه مفعّل ويملك صلاحية Geocoding.",
+    "weather_search_error_network": "تعذّر على الخادم الوصول إلى OpenWeather. تحقق من أن عامل Celery يعمل ويملك اتصالًا بالإنترنت.",
     "weather_disabled_reason": "فعّل الطقس لتعديل هذه الإعدادات.",
     "weather_corner_reason": "اختر الموضع العائم لتغيير الزاوية.",
     "weather_unavailable": "الطقس غير متاح مؤقتاً.",

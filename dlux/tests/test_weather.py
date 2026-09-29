@@ -137,7 +137,7 @@ class WeatherTests(TestCase):
         self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 403)
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(url).status_code, 405)
-        with patch('dlux.views.weather.search_locations', return_value=[LOCATION]) as provider:
+        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]) as provider:
             self.assertEqual(self.client.post(url, {**payload, 'enabled': False}, content_type='application/json').status_code, 400)
             provider.assert_not_called()
             response = self.client.post(url, payload, content_type='application/json')
@@ -160,7 +160,7 @@ class WeatherTests(TestCase):
         self.record.is_configured = False
         self.record.save()
         self.client.force_login(self.admin)
-        with patch('dlux.views.weather.search_locations', return_value=[LOCATION]):
+        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]):
             response = self.client.post(reverse('weather_locations'),
                                         {'enabled': True, 'query': 'Tripoli', 'api_key': 'draft'},
                                         content_type='application/json')
@@ -229,3 +229,118 @@ class WeatherTests(TestCase):
             for choices in CHOICES.values():
                 for value, _ in choices:
                     self.assertTrue(strings.get('weather_' + value))
+
+
+class WeatherWorkerTests(TestCase):
+    """In a generated stack web cannot reach the internet; a Celery worker can.
+
+    The worker is faked by running its task function when web sends the task,
+    or by not running it at all, which is what a missing worker looks like.
+    """
+
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+    enable = WeatherTests.enable
+
+    def worker(self, run=True):
+        from unittest.mock import MagicMock
+        from dlux import weather
+
+        app = MagicMock()
+
+        def send_task(name, args, retry=False):
+            if not run:
+                return
+            if name == 'dlux.tasks.weather_refresh':
+                try:
+                    weather.refresh_reading(*args)
+                except WeatherUnavailable:
+                    pass
+            elif name == 'dlux.tasks.weather_search':
+                weather.run_search(*args)
+
+        app.send_task.side_effect = send_task
+        return app, patch.multiple('dlux.weather', weather_worker_available=lambda: True, _celery_app=lambda: app)
+
+    def reading(self):
+        return {'main': {'temp': 21.0, 'feels_like': 20.0},
+                'weather': [{'id': 800, 'description': 'clear sky', 'icon': '01d'}], 'dt': int(time.time())}
+
+    def test_a_first_read_asks_the_worker_and_answers_pending(self):
+        from dlux.weather import WeatherPending
+        config = self.enable()
+        location = config['locations'][0]
+        app, worker = self.worker(run=False)
+        with worker, patch('dlux.weather._request') as provider:
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            provider.assert_not_called()  # web itself never calls OpenWeather
+        name, = app.send_task.call_args.args
+        self.assertEqual(name, 'dlux.tasks.weather_refresh')
+        self.assertEqual(app.send_task.call_args.kwargs['args'][3], config['encrypted_api_key'])
+
+    def test_the_worker_reading_is_what_web_serves(self):
+        from dlux.weather import WeatherPending
+        config = self.enable()
+        location = config['locations'][0]
+        _app, worker = self.worker()
+        with worker, patch('dlux.weather._request', return_value=self.reading()):
+            # Web cannot know the worker finished; the next read finds the reading.
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            reading = current_weather(config, location, 'en')
+        self.assertEqual(reading['temperature'], 21)
+        self.assertFalse(reading['stale'])
+
+    def test_a_worker_failure_is_reported_not_left_pending(self):
+        config = self.enable()
+        location = config['locations'][0]
+        _app, worker = self.worker()
+        from dlux.weather import WeatherPending
+        with worker, patch('dlux.weather._request', side_effect=WeatherUnavailable('credentials')):
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            with self.assertRaisesRegex(WeatherUnavailable, '^credentials$'):
+                current_weather(config, location, 'en')
+
+    def test_the_endpoint_answers_202_while_pending(self):
+        self.enable()
+        self.client.force_login(self.admin)
+        _app, worker = self.worker(run=False)
+        with worker:
+            response = self.client.get(reverse('weather_current'))
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json(), {'status': 'pending'})
+
+    def test_city_search_runs_in_the_worker_with_the_key_encrypted(self):
+        from dlux.weather import decrypt_api_key, find_locations
+        app, worker = self.worker()
+        rows = [{'name': 'Tripoli', 'country': 'LY', 'lat': 32.8872, 'lon': 13.1913}]
+        with worker, patch('dlux.weather._request', return_value=rows) as provider:
+            found = find_locations('Tripoli', 'draft-key')
+        self.assertEqual(found[0]['name'], 'Tripoli, LY')
+        _token, _query, sent_key = app.send_task.call_args.kwargs['args']
+        self.assertNotEqual(sent_key, 'draft-key', 'the broker never sees the key in the clear')
+        self.assertEqual(decrypt_api_key(sent_key), 'draft-key')
+        self.assertEqual(provider.call_args.args[1], 'draft-key')
+
+    def test_a_silent_worker_ends_the_search_with_an_error(self):
+        from dlux.weather import find_locations
+        _app, worker = self.worker(run=False)
+        with worker, patch('dlux.weather.SEARCH_WAIT_SECONDS', 0.3):
+            with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
+                find_locations('Tripoli', 'draft-key')
+
+    def test_without_a_worker_web_makes_the_call(self):
+        config = self.enable()
+        with patch('dlux.weather.weather_worker_available', return_value=False), \
+                patch('dlux.weather._request', return_value=self.reading()) as provider:
+            self.assertEqual(current_weather(config, config['locations'][0], 'en')['temperature'], 21)
+        provider.assert_called_once()
+
+    def test_the_tasks_are_registered_under_the_names_web_sends(self):
+        from dlux import tasks
+        if tasks.shared_task is None:
+            self.skipTest('celery is not installed')
+        self.assertEqual(tasks.weather_refresh_task.name, 'dlux.tasks.weather_refresh')
+        self.assertEqual(tasks.weather_search_task.name, 'dlux.tasks.weather_search')

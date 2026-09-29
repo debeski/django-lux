@@ -291,14 +291,22 @@
                         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
                         body: JSON.stringify({ query, api_key: field('api_key').value, enabled: true }),
                     });
-                    if (!response.ok) throw new Error('search');
+                    if (!response.ok) {
+                        let code = '';
+                        try { code = (await response.json()).error || ''; } catch (_) { /* not JSON */ }
+                        throw new Error(code || 'search');
+                    }
                     const data = await response.json();
                     if (!enabled()) return;
                     state.results = Array.isArray(data.locations) ? data.locations : [];
                     if (state.selected && state.selected.pane === 'results') state.selected = null;
                     setStatus(state.results.length ? '' : labels.labelNoResults, false);
-                } catch (_) {
-                    setStatus(labels.labelSearchError, true);
+                } catch (error) {
+                    // A refused key and an unreachable provider need different fixes.
+                    const reason = error && error.message;
+                    setStatus(reason === 'credentials' ? labels.labelErrorKey
+                        : (reason === 'provider' || reason === 'worker') ? labels.labelErrorNetwork
+                            : labels.labelSearchError, true);
                 }
                 render();
             };

@@ -93,18 +93,35 @@ back into the form, and excluded from portable settings export/import. Leave its
 field blank to retain it. Enter it again after rotating `SECRET_KEY` or importing
 settings into a new deployment. Imports retain an existing destination key.
 
-The Django endpoint calls OpenWeather over HTTPS with a four-second timeout,
-bounded responses, and no redirects. Browser requests stay same-origin. Cached
-readings are fresh for 15 minutes; refresh failures may serve the last reading
-for up to 24 hours, explicitly marked stale. Observations older than two hours
-are also marked stale. Without a cached reading the widget says unavailable.
-Refresh contention/failures back off for 30 seconds. No scheduled worker is
-required: visible pages refresh on demand and every 15 minutes.
+**The calls to OpenWeather run in the Celery worker.** In a Dlux-generated stack
+the web service has no route to the internet: only celery, smtp-relay and the
+Composer agent sit on the `egress` network. So web queues a task and the worker
+calls OpenWeather (HTTPS, four-second timeout, bounded responses, no redirects)
+and writes the answer to the shared cache, which web reads:
 
-Caching uses Django's default cache. Configure a shared backend (for example
-Redis) to share readings, refresh locks, and search throttles across web workers;
-LocMemCache shares only within each process. Widgets on the same page share
-in-flight requests. Hidden browser tabs skip periodic refreshes.
+- **Readings.** Web serves the cached reading. When it is missing or older than
+  15 minutes, web queues `dlux.tasks.weather_refresh`, at most once per reading
+  every 30 seconds. Until a first reading exists the endpoint answers `202
+  {"status": "pending"}` and the widget shows *Loading* and asks again every
+  three seconds (six times). A failed fetch is reported (`503`) rather than left
+  pending. A reading older than 15 minutes is served while it refreshes, marked
+  stale, for up to 24 hours; an observation older than two hours is also stale.
+- **City search** (superusers only). Web queues `dlux.tasks.weather_search` and
+  waits up to ten seconds for its answer. An unsaved key is encrypted before it
+  reaches the broker. Errors say which fix applies: a refused key
+  (`credentials`), or a provider the server cannot reach (`provider`, or `worker`
+  when no worker answered).
+
+Tasks are sent by name, so the worker must run DjangoLux 1.10.0b2 or later (a
+deployment's web and celery always do). Web checks for a live worker once a
+minute. **Without one** (a project with no Celery, or `CELERY_BROKER_URL`
+unset) web makes the calls itself, which works where web can reach the
+internet, such as a development server.
+
+The worker and web share Django's default cache, so it must be a shared backend
+(Redis, as generated stacks use); LocMemCache is per process and would never see
+the worker's answer. Widgets on the same page share in-flight requests, and
+hidden browser tabs skip the periodic 15-minute refresh.
 
 Endpoints: `GET /sys/api/weather/?location=<configured-id>` and administrator
 `POST /sys/api/weather/locations/` (CSRF protected, body: `query`, `enabled: true`,

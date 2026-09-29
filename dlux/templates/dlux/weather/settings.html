@@ -12,6 +12,8 @@
      data-label-empty="{{ DLUX_STRINGS.weather_no_locations|default:'No locations yet. Search for a city and add it.' }}"
      data-label-no-results="{{ DLUX_STRINGS.weather_empty_search|default:'No matching cities. Try the city and country code.' }}"
      data-label-search-error="{{ DLUX_STRINGS.weather_search_error|default:'Could not search. Check the API key and try again.' }}"
+     data-label-error-key="{{ DLUX_STRINGS.weather_search_error_key|default:'OpenWeather refused this API key. Check that it is active and has Geocoding access.' }}"
+     data-label-error-network="{{ DLUX_STRINGS.weather_search_error_network|default:'The server could not reach OpenWeather. Check that the Celery worker is running and has internet access.' }}"
      data-label-too-many="{{ DLUX_STRINGS.weather_choose_location|default:'Choose at least one valid location (maximum ten).' }}"
      data-label-disabled="{{ DLUX_STRINGS.weather_disabled_reason|default:'Enable weather to configure these settings.' }}"
      data-label-corner="{{ DLUX_STRINGS.weather_corner_reason|default:'Choose Floating placement to change the corner.' }}">
