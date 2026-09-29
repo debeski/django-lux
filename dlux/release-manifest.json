@@ -1,12 +1,13 @@
 {
   "schema_version": 2,
-  "version": "1.9.5b3",
+  "version": "1.9.5b4",
   "display": {
-    "summary": "The login page no longer tells users of an HTTPS site behind a TLS proxy that it was served over HTTP.",
+    "summary": "The Updates card now says when Composer is older than this DjangoLux needs, instead of leaving its buttons disabled.",
     "highlights": [
-      "The 'served over HTTP' sign-in warning is skipped when the proxy reports HTTPS and SECURE_PROXY_SSL_HEADER is unset."
+      "A notice under the Composer agent row names both versions and gives the host commands, or points to the card when it can still update Composer itself.",
+      "Newly scaffolded projects give composer-executor DAC_OVERRIDE instead of DAC_READ_SEARCH."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.9.5b4"
   },
   "requires": {
     "updater_schema": ">=1",
