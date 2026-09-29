@@ -8,19 +8,31 @@ Settings → Extra Features → Weather**, or in the same step of first-run setu
    [Geocoding](https://openweathermap.org/api/geocoding-api). Each deployment
    supplies its own provider account and appropriate subscription.
 2. Search by city, optionally adding a country code (for example `Tripoli,LY`).
-   Add up to ten locations and mark one as the default.
+   The location builder works like the Sidebar builder: select a search result
+   and **Add** it, then select a chosen location to **Set as default**, move it
+   up or down, rename it in the inspector panel, or **Remove** it. Up to ten
+   locations.
 3. Choose Celsius or Fahrenheit, a display style, and a placement, then save.
 
 Display styles are **icon**, **condition text**, **temperature**, and
 **icon + temperature**. Placements are **titlebar**, **user hub**, **floating**,
 and **project embeds only**. The floating chip offers four corners: start/end
 follow the UI's LTR/RTL direction. The corner selector stays disabled, with a
-tooltip, unless Floating is selected. If the titlebar uses its action-rail style
-instead of a user-hub dropdown, User hub placement appears in the titlebar.
-Titlebar weather follows the existing optional-action grouping into the titlebar
-rail on narrow screens or when grouped actions are selected.
+tooltip, unless Floating is selected.
 
-Click a compact indicator to see the location selector, condition, temperature,
+Titlebar and User hub placements make weather a **titlebar action**, like
+Search or Notifications: it appears in **System Settings → Titlebar → action
+order** (after Notifications by default) and can be reordered there, it takes
+the bar's button shape, and it groups into the action rail on narrow screens.
+Titlebar keeps it in the bar under every hub style. User hub follows the hub: it
+sits in the user-hub dropdown card, or in the bar when the hub style lays its
+actions out there. Only an icon fits the round button, so the temperature and
+text displays widen it into a pill.
+
+Click an indicator to open its panel, placed the way the notifications panel
+is (under the trigger, under the rail when grouped, across the width under the
+header on phones). It shows the location selector (a Dlux choice selector),
+condition, temperature,
 feels-like temperature, observation time, and provider attribution. Escape or
 an outside click closes it. The dashboard card keeps these details visible.
 The location selector changes only that widget; it does not change the system

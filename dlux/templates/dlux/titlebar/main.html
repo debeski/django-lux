@@ -39,7 +39,6 @@
         </div>
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
-        {% weather_widget placement="titlebar" %}
         {% if user.is_authenticated %}
             <div class="titlebar__actions" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
                 {% for action in titlebar_actions %}
@@ -95,6 +94,10 @@
                     {% elif action.kind == 'notifications' %}
                         <div class="titlebar__action-slot" data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}">
                             {% include 'dlux/notifications/main.html' %}
+                        </div>
+                    {% elif action.kind == 'weather' %}
+                        <div class="titlebar__action-slot" data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}">
+                            {% weather_widget variant="action" %}
                         </div>
                     {% elif action.kind == 'logout' %}
                         <form method="POST" action="{{ action.url }}" class="titlebar__action-form" data-titlebar-action-key="{{ action.key }}" data-titlebar-action-scope="{{ action.scope|default:'shared' }}">

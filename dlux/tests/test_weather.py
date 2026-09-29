@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from unittest.mock import patch
 
@@ -165,15 +166,43 @@ class WeatherTests(TestCase):
                                         content_type='application/json')
         self.assertEqual(response.status_code, 200)
 
-    def test_user_hub_action_rail_falls_back_to_titlebar(self):
+    def test_weather_is_a_titlebar_action_scoped_by_its_placement(self):
+        # Titlebar keeps it in the bar under every hub style; User hub lets it
+        # follow the hub, so the action rail picks it up in the actions layout.
+        from dlux.context_processors import _weather_titlebar_action
+        from dlux.system.constants import TITLEBAR_ACTIONS_ORDER
+        self.assertIn('weather', TITLEBAR_ACTIONS_ORDER)
         config = self.enable()
-        config['placement'] = 'user_hub'
+        system = lambda **values: {'extra_config': {'weather': {**config, **values}}}
+        for placement, scope in (('titlebar', 'shared'), ('user_hub', 'titlebar_actions'),
+                                 ('floating', None), ('embed', None)):
+            with self.subTest(placement=placement):
+                action = _weather_titlebar_action(system(placement=placement), {})
+                self.assertEqual(action and action['scope'], scope)
+        self.assertIsNone(_weather_titlebar_action(system(enabled=False), {}))
+        self.assertIsNone(_weather_titlebar_action({}, {}))
+
+    def test_the_action_is_a_titlebar_button_and_the_picker_a_dlux_selector(self):
+        config = self.enable()
         request = RequestFactory().get('/')
         request.user = self.admin
-        context = Context({'request': request, 'titlebar': {'user_hub_style': 'titlebar_actions'}})
         with patch('dlux.weather.get_weather_config', return_value=config):
-            self.assertIn('data-weather-widget', Template('{% load dlux_weather %}{% weather_widget placement="titlebar" %}').render(context))
-            self.assertEqual('', Template('{% load dlux_weather %}{% weather_widget placement="user_hub" %}').render(context))
+            html = Template('{% load dlux_weather %}{% weather_widget variant="action" %}').render(Context({'request': request}))
+            second = Template('{% load dlux_weather %}{% weather_widget variant="action" %}').render(Context({'request': request}))
+        self.assertIn('dlux-titlebar-btn dlux-titlebar-action', html)
+        self.assertIn('data-dlux-selector', html)
+        self.assertNotIn('<select', html)
+        names = lambda markup: set(re.findall(r'name="(weather-[0-9a-f]+-location)"', markup))
+        self.assertTrue(names(html) and names(html).isdisjoint(names(second)), 'each widget groups its own radios')
+
+    def test_shell_slots_render_only_the_chosen_placement(self):
+        config = self.enable()
+        request = RequestFactory().get('/')
+        request.user = self.admin
+        context = Context({'request': request})
+        with patch('dlux.weather.get_weather_config', return_value={**config, 'placement': 'user_hub'}):
+            self.assertIn('data-weather-widget', Template('{% load dlux_weather %}{% weather_widget placement="user_hub" %}').render(context))
+            self.assertEqual('', Template('{% load dlux_weather %}{% weather_widget placement="floating" %}').render(context))
 
     def test_provider_failures_are_bounded_and_do_not_leak_credentials(self):
         from urllib.error import HTTPError

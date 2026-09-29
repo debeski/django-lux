@@ -197,6 +197,9 @@ def _build_titlebar_actions(request, context, final_config, dlux_strings):
                 'label': dlux_strings.get('notifications', 'Notifications'),
                 'icon': 'bi-bell-fill',
             }
+        weather_action = _weather_titlebar_action(final_config, dlux_strings)
+        if weather_action:
+            available_actions['weather'] = weather_action
         if titlebar_config.get('show_home_button', True):
             available_actions['home'] = {
                 'key': 'home',
@@ -288,11 +291,36 @@ def _build_titlebar_actions(request, context, final_config, dlux_strings):
     # style change without a round trip — which read as the titlebar disagreeing
     # with the form while you were still choosing.
     for key, action in available_actions.items():
-        action['scope'] = (
+        action.setdefault('scope', (
             'shared' if key in TITLEBAR_DROPDOWN_ACTION_KEYS else TITLEBAR_USER_HUB_STYLE_ACTIONS
-        )
+        ))
 
     return [available_actions[key] for key in action_order if key in available_actions]
+
+
+def _weather_titlebar_action(final_config, dlux_strings):
+    """Weather as a titlebar action, when its placement puts it there.
+
+    Its scope comes from the placement rather than a fixed list: Titlebar keeps it
+    in the bar under every hub style, User hub lets it follow the hub — inside the
+    dropdown card, or in the bar when the hub style lays its actions out there.
+    Reads the system config this processor already loaded, through the leaf
+    normaliser: `dlux.weather` would pull this module into an import cluster.
+    """
+    from .system.weather import normalize_weather_config
+
+    config = normalize_weather_config((final_config.get('extra_config') or {}).get('weather'))
+    if not config['enabled'] or config['placement'] not in ('titlebar', 'user_hub'):
+        return None
+    if not any(item['id'] == config['default_location'] for item in config['locations']):
+        return None
+    return {
+        'key': 'weather',
+        'kind': 'weather',
+        'label': dlux_strings.get('weather_title', 'Weather'),
+        'icon': 'bi-cloud-sun',
+        'scope': 'shared' if config['placement'] == 'titlebar' else TITLEBAR_USER_HUB_STYLE_ACTIONS,
+    }
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):

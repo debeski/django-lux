@@ -28,6 +28,7 @@
         'theme',
         'language',
         'notifications',
+        'weather',
         'home',
         'profile',
         'help',

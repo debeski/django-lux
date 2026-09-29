@@ -440,7 +440,9 @@ class TitlebarActionParityTests(TestCase):
 
         # Filtering server-side would mean the titlebar disagreed with the form
         # until a round trip — the mismatch that made choosing a style confusing.
-        self.assertIn("action['scope'] = (", context_processors)
+        # setdefault: an action that decides its own scope (weather, from its
+        # placement) keeps it; every other action gets the list-driven one.
+        self.assertIn("action.setdefault('scope', (", context_processors)
         self.assertNotIn('if key in TITLEBAR_DROPDOWN_ACTION_KEYS\n', context_processors)
 
     def test_opening_search_never_moves_the_title_or_leaves_a_hole(self):

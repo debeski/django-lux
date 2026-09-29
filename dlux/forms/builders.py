@@ -245,6 +245,7 @@ _TITLEBAR_ACTION_META = {
     'theme': ('bi-circle-half', 'theme_change', 'Theme'),
     'language': ('bi-translate', 'titlebar_language_switch', 'Language'),
     'notifications': ('bi-bell-fill', 'notifications', 'Notifications'),
+    'weather': ('bi-cloud-sun', 'weather_title', 'Weather'),
     'home': ('bi-house-fill', 'btn_home', 'Home'),
     'profile': ('bi-person-bounding-box', 'profile', 'Profile'),
     'help': ('bi-question-circle-fill', 'help', 'Help'),
