@@ -80,8 +80,12 @@ def card_state(request):
     # Image-level (full container) update availability.
     # Registry-driven: composer publishes availability; we just read it.
     image_metadata = image_update_metadata()
-    state["image_update_available"] = image_metadata["available"]
+    # A locally built image is never "behind" the registry's: the card shows it as
+    # such instead of offering to replace a development build. Queuing one
+    # (`queue_image_update`) still follows the digest-driven `available` flag.
+    state["image_update_available"] = image_metadata["available"] and not image_metadata.get("local_build")
     state["image_update_target"] = image_metadata["target"]
+    state["image_update_baked_dlux"] = image_metadata.get("baked_dlux", "")
     state["image_update_reason"] = image_metadata["reason"]
     state["image_update_manifest"] = image_metadata["manifest"]
     # Application-image facts for the Updates card (app version, running/published

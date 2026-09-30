@@ -157,6 +157,8 @@ def image_update_metadata(store=None):
             "available": False,
             "target": "",
             "runtime_target": "",
+            "baked_dlux": "",
+            "local_build": False,
             "reason": "",
             "manifest": {},
         }
@@ -170,6 +172,8 @@ def image_update_metadata(store=None):
             "available": False,
             "target": "",
             "runtime_target": "",
+            "baked_dlux": "",
+            "local_build": False,
             "reason": "",
             "manifest": {},
         }
@@ -188,11 +192,21 @@ def image_update_metadata(store=None):
     version_target = _display_version(selected.get("version"))
     digest_target = str(selected.get("remote_digest") or "")[:19]
     runtime_target = version_target or digest_target
-    display_target = _display_version(manifest.get("version")) or runtime_target
+    # The image's `version` label is the DjangoLux version it bakes, not the
+    # application's own. Showing it as the target read as "update to v1.10.0" on
+    # a project at v0.9.0, so the card names the project's version when its
+    # release manifest says one, and the build's short digest otherwise; the
+    # baked DjangoLux version travels separately and is labelled as such.
+    display_target = _display_version(manifest.get("version")) or digest_target or version_target
+    baked = str(manifest.get("baked_dlux_version") or selected.get("version") or "").strip()
     return {
         "available": True,
         "target": display_target,
         "runtime_target": runtime_target,
+        "baked_dlux": baked[1:] if baked[:1] in ("v", "V") else baked,
+        # Composer found no registry digest for the running image: it was built
+        # locally (a development overlay), so "newer than what runs" means nothing.
+        "local_build": not selected.get("local_digest"),
         "reason": "A new application image is available.",
         "manifest": manifest,
     }
@@ -252,6 +266,7 @@ def image_status_summary(store=None):
         "app_version": app_version(),
         "image": first.get("image") or "",
         "running_digest": first.get("local_digest") or "",
+        "local_build": bool(first.get("image")) and not first.get("local_digest"),
         "remote_digest": first.get("remote_digest") or "",
         # Best-effort target version composer published (OCI version label); ''
         # when unavailable, in which case the UI falls back to the remote digest.

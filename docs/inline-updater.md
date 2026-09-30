@@ -218,8 +218,9 @@ things, and never guesses between them:
 
 * a tick — checked, and the pair runs what the channel publishes;
 * the update icon, with the published version beside it; or
-* nothing checked yet, or a registry that could not be read. **Unknown is not
-  "up to date"**, and it is not an update either.
+* nothing checked yet (the plain arrow), or a check that ran but could not read
+  the registry (a warning icon, with Composer's reason in a notice under the
+  row). **Unknown is not "up to date"**, and it is not an update either.
 
 **Update the Composer agent** replaces `composer-agent` and `composer-executor`
 with the channel's current image. It cannot report itself — the update recreates
@@ -230,6 +231,20 @@ password to discover that there is nothing to install. Composer refuses it
 outright if the pair already runs the channel's version. Once the pair has been
 replaced, the row goes back to asking rather than claiming, because what it runs
 now is something only a fresh check can say.
+
+The deployment row's icon is tri-state the same way: arrow until checked, then
+a tick, warning or cross by the worst finding. In the results modal, findings
+with a repair offer **Apply repairs** in the footer (preview, then password);
+findings without one say that no automatic repair is available.
+
+### The application image row
+
+Composer compares the running image's registry digest with the channel's. An image
+built locally (a development overlay) has no registry digest, so the row shows a
+neutral "Local build" icon instead of offering the registry image. When an update
+is available its target is the project release manifest's version, else the build's
+short digest; the DjangoLux version the image bakes is shown separately as
+`baked dlux`, never as the application's version.
 
 ### Previewing and applying repairs
 

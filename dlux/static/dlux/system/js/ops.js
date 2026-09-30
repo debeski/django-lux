@@ -12,6 +12,10 @@
 
     const TERMINAL = new Set(['completed', 'failed']);
     const ICONS = { ok: 'bi-check-circle', warn: 'bi-exclamation-triangle', fail: 'bi-x-circle' };
+    // What a row's check icon says: nothing checked yet (the arrow), or what the
+    // last check found. A warning is not an invitation to check again as if
+    // nothing had happened, so it does not look like one.
+    const TONE_GLYPH = { ok: 'bi-check-circle-fill', warn: 'bi-exclamation-triangle-fill', fail: 'bi-x-circle-fill' };
     // Which row each operation belongs to: a run spins the icon of the row it
     // was started from, and leaves the other row alone.
     const ROW_OF = {
@@ -73,6 +77,8 @@
         const confirmNote = modalElement?.querySelector('[data-dlux-ops-confirm-note]');
         const passwordInput = modalElement?.querySelector('[data-dlux-ops-password]');
         const submitButton = modalElement?.querySelector('[data-dlux-ops-submit]');
+        const offerButton = modalElement?.querySelector('[data-dlux-ops-offer]');
+        const noRepairEl = modalElement?.querySelector('[data-dlux-ops-norepair]');
         const modalError = modalElement?.querySelector('[data-dlux-ops-error]');
 
         let state = { operations: [] };
@@ -130,11 +136,19 @@
             if (element.hasAttribute('aria-label')) { element.setAttribute('aria-label', title); }
         }
 
-        function setGlyph(row, ok) {
-            const glyph = checkButtons.get(row)?.querySelector('[data-dlux-ops-glyph]');
+        /** ``tone``: 'ok', 'warn', 'fail', or '' for a row nothing has checked. */
+        function setGlyph(row, tone) {
+            const button = checkButtons.get(row);
+            const glyph = button?.querySelector('[data-dlux-ops-glyph]');
             if (!glyph) { return; }
-            glyph.className = ok ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
-            checkButtons.get(row)?.classList.toggle('is-ok', Boolean(ok));
+            glyph.className = `bi ${TONE_GLYPH[tone] || 'bi-arrow-clockwise'}`;
+            ['ok', 'warn', 'fail'].forEach((name) => button.classList.toggle(`is-${name}`, tone === name));
+        }
+
+        /** Is a repair on offer: Composer found one, a preview backs it, and this user may apply it. */
+        function repairOffered(run) {
+            return Boolean(run && repairsOf(run).length && state.has_preview && canManage
+                && (spec('check-fix-apply') || {}).available !== false);
         }
 
         function summaryText(run) {
@@ -219,6 +233,17 @@
                     || labels.labelResultsTitle || modalTitle.textContent;
             }
             if (modalIntro) { modalIntro.hidden = false; }
+            // Reading the last check: say what can be done about it. A repair is offered
+            // here, where the findings are; with none, say so rather than leave a bare
+            // Close button and a question.
+            const reading = !action;
+            const summary = (run && run.summary) || {};
+            if (offerButton) { offerButton.hidden = !(reading && repairOffered(run)); }
+            if (noRepairEl) {
+                const unresolved = (summary.warn || 0) + (summary.fail || 0) > 0;
+                noRepairEl.textContent = labels.labelNoRepair || 'No automatic repair is available for these findings.';
+                noRepairEl.hidden = !(reading && unresolved && !repairsOf(run).length);
+            }
             renderFindings(run);
             renderRepairs(action === 'check-fix-apply' || !action ? run : null);
             if (confirmWrap) { confirmWrap.hidden = !(action && (spec(action) || {}).changes_deployment); }
@@ -252,8 +277,10 @@
             withCheckTime(checkButtons.get('agent'), resident.checked_at);
             withCheckTime(button, resident.checked_at);
             // A tick means "checked, and there is nothing to install". A version
-            // nobody has checked yet gets the plain re-check arrow instead.
-            setGlyph('agent', Boolean(resident.checked) && !available);
+            // nobody has checked yet gets the plain re-check arrow, and a check that
+            // ran but could not read the registry says so instead of going quiet.
+            const unknown = Boolean(resident.checked_at) && !resident.checked;
+            setGlyph('agent', unknown ? 'warn' : (resident.checked && !available ? 'ok' : ''));
             renderComposerNotice();
         }
 
@@ -265,18 +292,21 @@
                 ? labels.labelComposerBehindHost
                 : labels.labelComposerBehindCard);
             const bare = (value) => String(value || '').replace(/^v/, '');
+            const resident = state.resident || {};
+            const unknown = Boolean(resident.checked_at) && !resident.checked;
             composerNoticeEl.textContent = template
                 ? template.replace('{version}', bare(behind.version)).replace('{required}', bare(behind.required))
-                : '';
+                : (unknown
+                    ? (labels.labelComposerUnknown || 'Could not check for a Composer update: {reason}')
+                        .replace('{reason}', resident.detail || '')
+                    : '');
             composerNoticeEl.hidden = !composerNoticeEl.textContent;
         }
 
         /** The deployment row: what the last check found, and the repair it offers. */
         function renderDeploymentRow() {
             const run = state.check;
-            const repairs = repairsOf(run);
-            const offered = Boolean(run && repairs.length && state.has_preview && canManage
-                && (spec('check-fix-apply') || {}).available !== false);
+            const offered = repairOffered(run);
             if (summaryEl) { summaryEl.textContent = summaryText(run); }
             const button = actionButtons.get('check');
             if (button) { button.hidden = !offered; }
@@ -286,7 +316,7 @@
             withCheckTime(button, checkedAt);
             withCheckTime(resultsButton, checkedAt);
             const summary = (run && run.summary) || {};
-            setGlyph('check', Boolean(summary.total) && !summary.fail && !summary.warn);
+            setGlyph('check', !summary.total ? '' : (summary.fail ? 'fail' : (summary.warn ? 'warn' : 'ok')));
         }
 
         function applyAvailability() {
@@ -356,6 +386,7 @@
             button.addEventListener('click', () => { openModal(button.dataset.dluxOpsOpen); });
         });
         if (resultsButton) { resultsButton.addEventListener('click', () => openModal('')); }
+        if (offerButton) { offerButton.addEventListener('click', () => openModal('check-fix-apply')); }
 
         if (submitButton) {
             submitButton.addEventListener('click', async () => {

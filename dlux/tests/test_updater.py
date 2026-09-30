@@ -1037,7 +1037,18 @@ class ImageAvailabilityMetadataTests(TestCase):
 
         self.assertNotIn("baked_dlux_version", metadata["manifest"])
 
-    def test_invalid_manifest_falls_back_to_version_then_digest(self):
+    def test_an_image_without_a_registry_digest_was_built_locally(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            self._write_availability(store, {"local_digest": None})
+            local = image_update_metadata(store)
+            self._write_availability(store, {})
+            pulled = image_update_metadata(store)
+
+        self.assertTrue(local["local_build"])
+        self.assertFalse(pulled["local_build"])
+
+    def test_invalid_manifest_falls_back_to_digest_and_labels_the_baked_dlux(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
             self._write_availability(store, {
@@ -1048,7 +1059,10 @@ class ImageAvailabilityMetadataTests(TestCase):
             self._write_availability(store, {})
             digest_metadata = image_update_metadata(store)
 
-        self.assertEqual(version_metadata["target"], "v1.4.12")
+        # The image `version` label is the baked DjangoLux version, never the target.
+        self.assertEqual(version_metadata["target"], "sha256:1234567890ab")
+        self.assertEqual(version_metadata["runtime_target"], "v1.4.12")
+        self.assertEqual(version_metadata["baked_dlux"], "1.4.12")
         self.assertEqual(version_metadata["manifest"], {})
         self.assertEqual(digest_metadata["target"], "sha256:1234567890ab")
         self.assertEqual(digest_metadata["runtime_target"], "sha256:1234567890ab")

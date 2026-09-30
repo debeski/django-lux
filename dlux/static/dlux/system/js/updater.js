@@ -57,7 +57,6 @@
         const imageNameEl = root.querySelector('[data-dlux-image-name]');
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
-        const checkGlyph = root.querySelector('[data-dlux-check-glyph]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         // What the installed release said about itself. Its own control, because
         // the review modal is about the release you have NOT installed yet.
@@ -588,6 +587,9 @@
                 setRootStatus(state.last_check_error);
             }
             const imageAvailable = Boolean(state.image_update_available);
+            // A locally built image cannot be compared with the registry's, so it is
+            // neither "up to date" nor "behind": say what it is.
+            const localBuild = Boolean((state.image || {}).local_build) && !imageAvailable;
             const imgActive = imageActive(imageUpdate);
             // DjangoLux row: the check icon doubles as the status — a green
             // check when up to date, hidden when an update is available (the
@@ -598,6 +600,12 @@
             if (checkButton) {
                 checkButton.hidden = updateAvailable;
                 checkButton.classList.toggle('is-ok', fwOk);
+                // Looked up each time, never kept: the loading-button helper swaps
+                // the icon for a spinner while a check runs and rebuilds the button
+                // when it stops, so an element found at page load is a detached
+                // node by the time the tick is due (the row stayed an arrow until
+                // the page was reloaded).
+                const checkGlyph = checkButton.querySelector('[data-dlux-check-glyph]');
                 if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
                 withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
@@ -620,7 +628,16 @@
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
-            withCheckTime(imageOkEl, imageOkEl?.dataset.titleBase, img.checked_at);
+            if (imageOkEl) {
+                imageOkEl.classList.toggle('bi-check-circle-fill', !localBuild);
+                imageOkEl.classList.toggle('bi-hdd', localBuild);
+                imageOkEl.classList.toggle('dlux-upd-ic--ok', !localBuild);
+            }
+            withCheckTime(
+                imageOkEl,
+                localBuild ? (root.dataset.labelImageLocal || imageOkEl?.dataset.titleBase) : imageOkEl?.dataset.titleBase,
+                img.checked_at,
+            );
             withCheckTime(imageButton, imageButton?.dataset.titleBase, img.checked_at);
             // When an update is available, show what it would update to: the target
             // version composer published, or the short remote digest as a fallback.
@@ -935,7 +952,7 @@
             const bakedEl = modalElement.querySelector('[data-dlux-update-baked]');
             if (bakedEl) {
                 const baked = isImage
-                    ? String(manifest?.baked_dlux_version || '').replace(/^v/, '').trim()
+                    ? String(manifest?.baked_dlux_version || state.image_update_baked_dlux || '').replace(/^v/, '').trim()
                     : '';
                 if (baked) {
                     const label = root.dataset.labelBakedDlux || 'baked dlux';
