@@ -1,6 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- **v1.10.0b2 (beta, tagged + pushed 2026-09-30)**: weather rebuilt on Dlux parts and its OpenWeather calls moved to the Celery worker (web has no egress in generated stacks); admin-assigned landing pages per user (`preferences['admin_home_url']`, refused by the preferences API, kept by reset) and per group (`extra_config['group_home_urls']` by name), gated on `allow_user_override`; README lists ScanLink. No migration. Release gates passed (`--classify` beta, `--base-tag v1.9.4`, 2694 unit OK). Live on the sales CRM dev stack; landing pages not yet exercised in a browser.
 - **v1.10.0b1 (beta, tagged 2026-09-29)**: first 1.10 beta — optional OpenWeather widgets (merged from `codex/weather`), project settings as setup step 19, grouped settings tiles, and tiles asking before discarding edits. No migration. **Next stable is 1.10.0**: there is no 1.9.x stable after 1.9.4.
 - **v1.9.5b1 (beta, published 2026-09-25, tag on `codex/system-settings-preview`)**: System Settings Preview action — glass/popup previews from the unsaved form, disabled on nonvisual steps, `registerAppPreview()` for app settings. Installed inline on `testbed-dlux` from 1.9.4 on the beta channel. Merged into `main` (`f989ab7`); the 1.9.5 line was folded into 1.10.0b1, so there is no 1.9.5 tag to cut.
 - **v1.9.4 (stable, released 2026-09-25)**: identical to 1.9.4b1 — `DLUX_SKIP_CONFIG_IMPORT` skips the first-launch `config.json` bootstrap; needs Composer 1.5.3b1+. PyPI `latest`, GitHub release (7 assets). Installed inline on `testbed-dlux` from 1.9.3 on the stable channel with Composer 1.5.3.
@@ -48,9 +49,7 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
-  - [ ] Merged into `main` locally 2026-09-30, unpushed and untagged (`fix/weather-dlux-primitives`): weather rebuilt on Dlux parts (builder + inspector shell, titlebar action, toggle selectors) and its OpenWeather calls moved to the Celery worker — web has no egress in generated stacks, so b1's weather could never search or read there. Verified live on the sales CRM stack (web→celery→OpenWeather→cache). 2678 unit OK. Ships as 1.10.0b2 (tag it; bump version + manifest first).
-  - [ ] Merged into `main` locally 2026-09-30, unpushed, ships with 1.10.0b2 (`feat/assigned-homepage`): admin-assigned landing pages per user (`preferences['admin_home_url']`, blocked from the preferences API, kept by reset) and per group preset (`extra_config['group_home_urls']` by name), gated on `allow_user_override`; order user pick → user assignment → first active group by name → `default_url`. No migration. Live on the sales CRM dev stack (mounts this checkout); not yet exercised in a browser.
-  - [ ] Accept 1.10.0b1 on `testbed-dlux` via the beta channel: weather with a real OpenWeather key, the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group. The sales CRM can adopt it on its beta channel.
+  - [ ] Accept 1.10.0b2 on `testbed-dlux` via the beta channel: weather with a real OpenWeather key, the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group. The sales CRM can adopt it on its beta channel.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
@@ -92,7 +91,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Primary clone: `pkg-django-lux/main/`. `codex/weather` is merged into `main`; its Codex checkout (`~/.codex/worktrees/weather/main`, `.venv`/node_modules linked to the primary) can be retired by its owner.
+- Primary clone: `pkg-django-lux/main/`. The weather/homepage feature branches and the `codex/weather` Codex worktree are merged and retired.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
