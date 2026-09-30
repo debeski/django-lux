@@ -1,17 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.10.0",
+  "version": "1.10.1b1",
   "display": {
-    "summary": "Outbound calls go through the Composer agent so a generated stack can keep web and celery off the internet; weather is the first feature on it, and the compatibility contracts scheduled for 1.10.0 are removed.",
+    "summary": "The Updates card tells the truth: a check that finds nothing turns green at once, a locally built image is not offered the registry image, the update target no longer shows the baked DjangoLux version, and Composer checks that cannot complete say why.",
     "highlights": [
-      "The Composer agent makes outbound calls for the project through a small, typed channel (Composer 1.6.0 or newer), with API keys sealed so only the agent can read them; projects declare their own calls in relay/operations.json.",
-      "Weather works on a generated stack with no change to compose.yml, and the settings page says which fix applies when a search fails.",
-      "Composer performs every inline update: DLUX_UPDATE_EXECUTOR and the in-container executor, `enable-updater` and `enable-agent` are removed (use `./start.sh check --fix`).",
-      "`advanced_filter_helper`, the `archive_file` widget names and the `AUDIT_FIELD_NAMES` alias are removed.",
-      "Also new since 1.9: project settings in first-run setup and grouped tiles, per-user and per-group landing pages, and a missing Celery reported on Options.",
+      "DjangoLux's check icon turns green as soon as a check finds nothing newer, without a reload.",
+      "A locally built application image shows a neutral Local build icon instead of a permanent update.",
+      "The update target is the project's version or the build's digest; the baked DjangoLux version is labelled separately.",
+      "The Composer agent row explains an unreadable registry; the deployment check offers Apply repairs from its results, or says none is available.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.1b1"
   },
   "requires": {
     "updater_schema": ">=1",
