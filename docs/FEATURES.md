@@ -14,6 +14,7 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 - Database-backed `SystemSettings` layered over `DLUX_CONFIG`, with user-level preferences stored separately in `Profile.preferences`.
 - An eighteen-step initial setup wizard (plus a Project Settings step when a project registers settings tiles) and focused System Settings editors whose previews are real pages rendered by the server with the unsaved form: the live page behind the Options modal follows every change (glass mode lifts the modal off it), and the login, home, profile and sample list/form/modal pages open in a popup in the draft's language. Nothing is saved until Save.
 - Canonical `homepage_config` and `search_config` stores, with v1.x compatibility mirrors for legacy integrations.
+- Per-user landing pages chosen by the user in Options, or assigned by administrators per user and per group preset, when the per-user homepage switch is on.
 - App-owned System Settings previews by page: `registerAppPreview(namespace, {path})` renders that page with the unsaved app form applied.
 - Grouped project settings tiles: `register_app_settings_group()` + `register_app_settings(group=...)` show several namespaces as sections of one Options tile, validated together and saved in one write (`write_app_system_configs()`).
 - Theme/font registries, custom project themes/fonts, RTL/LTR rendering, and system/user override policy.

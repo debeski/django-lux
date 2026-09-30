@@ -9,13 +9,16 @@ from ..translations import get_strings
 from ..themes import get_theme_options
 from ..utils import (
     get_effective_allowed_themes,
+    get_group_home_urls,
     get_system_config,
     get_user_scope,
     is_scope_enabled,
+    set_group_home_url,
+    user_home_override_enabled,
 )
 from ..widgets import DluxMultipleChoiceSelectorWidget
 
-from .builders import _bind_choice_selector_widget, _build_submit_only_actions
+from .builders import _bind_choice_selector_widget, _build_submit_only_actions, _landing_page_choices
 from .permissions import GroupedPermissionWidget, _apply_assignable_permission_filter, get_assignable_permissions_queryset
 
 
@@ -80,6 +83,7 @@ class GroupPresetForm(forms.ModelForm):
 
     description = forms.CharField(max_length=255, required=False)
     scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
+    home_url = forms.ChoiceField(required=False)
     permissions = forms.ModelMultipleChoiceField(
         queryset=get_assignable_permissions_queryset(),
         required=False,
@@ -106,12 +110,32 @@ class GroupPresetForm(forms.ModelForm):
         _apply_assignable_permission_filter(self, self.user_context)
 
         # Preload from the existing preset (permissions + profile metadata).
+        self._original_name = self.instance.name if self.instance and self.instance.pk else ''
+        current_home = get_group_home_urls().get(self._original_name, '') if self._original_name else ''
         if self.instance and self.instance.pk:
             self.fields['permissions'].initial = self.instance.permissions.all()
             profile = getattr(self.instance, 'dlux_profile', None)
             if profile is not None:
                 self.fields['description'].initial = profile.description
                 self.fields['scope'].initial = profile.scope_id
+
+        # Members' landing page. Offered from the pages the acting admin can open;
+        # at sign-in a member who cannot open it falls through to the next default.
+        if user_home_override_enabled() and self.user_context is not None:
+            from dlux.discovery import build_user_home_url_options
+            self.fields['home_url'].choices = _landing_page_choices(
+                build_user_home_url_options(self.user_context),
+                current_home,
+                s.get('form_group_home_url_empty', "System default"),
+            )
+            self.fields['home_url'].initial = current_home
+            self.fields['home_url'].label = s.get('form_group_home_url', "Members' Landing Page")
+            self.fields['home_url'].help_text = s.get(
+                'help_group_home_url',
+                "Where members land after signing in, unless they or an admin chose a page for them. With several groups, the first by name wins.",
+            )
+        else:
+            self.fields.pop('home_url')
 
         # Scope handling: hidden when scopes are disabled (presets are global);
         # locked to the actor's own scope for scoped non-superusers.
@@ -138,6 +162,7 @@ class GroupPresetForm(forms.ModelForm):
             Field('name', css_class='col-12'),
             Field('description', css_class='col-12'),
             Field('scope', css_class='col-12') if self._scope_enabled else Field('scope'),
+            *([Field('home_url', css_class='col-12')] if 'home_url' in self.fields else []),
             HTML("<hr>"),
             Field('permissions', css_class='col-12'),
         ]
@@ -166,6 +191,10 @@ class GroupPresetForm(forms.ModelForm):
             profile.scope = self.cleaned_data.get('scope')
             profile.updated_by = actor
             profile.save()
+            if 'home_url' in self.fields:
+                set_group_home_url(group.name, self.cleaned_data.get('home_url'), previous_name=self._original_name)
+            elif self._original_name and self._original_name != group.name:
+                set_group_home_url(group.name, get_group_home_urls().get(self._original_name), previous_name=self._original_name)
         return group
 
 

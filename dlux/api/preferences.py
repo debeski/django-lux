@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 
 from ._shared import logger
 from ..system.constants import (
+    ADMIN_HOME_URL_PREFERENCE,
     DEFAULT_MAX_PREFERENCES_BYTES,
     FORM_DENSITY_VALUES,
     MODAL_SIZE_VALUES,
@@ -117,7 +118,7 @@ def update_preferences(request):
 
             for key, value in data.items():
                 if key != 'csrfmiddlewaretoken':
-                    if key == '__language_preview':
+                    if key in ('__language_preview', ADMIN_HOME_URL_PREFERENCE):
                         continue
                     if key == PREFERENCES_APP_NAMESPACE:
                         # App-owned namespace: opaque pass-through, merged at the
@@ -262,14 +263,18 @@ def update_preferences(request):
 def reset_preferences(request):
     """
     Reset all user preferences to default.
-    Clears Profile.preferences and session keys.
+    Clears Profile.preferences (keeping the administrator's landing page) and session keys.
     """
     if request.method == "POST":
         try:
             # 1. Clear Profile preferences
             Profile = apps.get_model('dlux', 'Profile')
             profile, created = Profile.all_objects.get_or_create(user=request.user)
-            profile.preferences = {}
+            prefs = profile.preferences if isinstance(profile.preferences, dict) else {}
+            profile.preferences = (
+                {ADMIN_HOME_URL_PREFERENCE: prefs[ADMIN_HOME_URL_PREFERENCE]}
+                if prefs.get(ADMIN_HOME_URL_PREFERENCE) else {}
+            )
             profile.save()
             
             # 2. Clear Session keys related to preferences

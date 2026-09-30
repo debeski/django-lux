@@ -86,6 +86,8 @@ Only the existing Save action persists anything.
 
 **The first-run wizard** is a page of its own with nothing behind it, so its Preview always opens the popup, on the step's page. Email, Access and Security, Global Search, Notifications, Logging, System Backup and Extra Features have no page representation; their Preview is disabled with an explanatory tooltip.
 
+**Assigned landing pages.** With the per-user override on, an administrator can also choose a landing page for a user (Edit User → Landing Page, from the pages that user can open) or for everyone in a group preset (Groups → Members' Landing Page). A user's own Options choice still wins; then the user's assignment, then the first active group by name, then the system Home URL. An assigned page the user can no longer open is skipped at sign-in. Turning the override off ignores all of these without clearing them.
+
 `SystemSettings.homepage_config` and `SystemSettings.search_config` are the canonical homepage and global-search stores. Older flat and titlebar/public page keys remain compatibility mirrors through v1.x; new project code should use the canonical configurations.
 
 ## Email delivery

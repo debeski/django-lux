@@ -534,7 +534,12 @@
                             <span class="dlux-choice-option__surface">
                                 <span class="dlux-choice-option__icon"><i class="bi bi-house-door"></i></span>
                                 <span class="dlux-choice-option__copy">
+                                    {% if assigned_home_url_option %}
+                                    <span class="dlux-choice-option__label">{{ DLUX_STRINGS.options_landing_page_assigned|default:"Set by your administrator" }}</span>
+                                    <span class="dlux-choice-option__meta dlux-choice-option__meta--secondary">{{ assigned_home_url_option.label }}</span>
+                                    {% else %}
                                     <span class="dlux-choice-option__label">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</span>
+                                    {% endif %}
                                 </span>
                             </span>
                         </label>

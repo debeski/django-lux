@@ -92,6 +92,17 @@ def _build_submit_only_actions(strings, submit_label, submit_icon, submit_class=
     )
 
 
+def _landing_page_choices(options, current, empty_label):
+    """Choices for an admin landing-page select. A stored page no longer on offer
+    stays selectable, so saving an unrelated field never clears it."""
+    choices = [('', empty_label)]
+    choices.extend((option['value'], f"{option['label']} ({option['value']})") for option in options)
+    current = str(current or '').strip()
+    if current and current not in {option['value'] for option in options}:
+        choices.append((current, current))
+    return choices
+
+
 def _build_file_widget(field_label="", show_scan=False, attrs=None):
     return DluxFileInput(attrs=attrs, field_label=field_label, show_scan=show_scan)
 

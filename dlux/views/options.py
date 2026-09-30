@@ -845,8 +845,13 @@ def options_view(request):
     profile_config = get_system_config().get('profile_config') or {}
     if profile_config.get('allow_user_home_url'):
         from dlux.discovery import build_user_home_url_options
+        from dlux.utils import resolve_assigned_home_url
         context['user_home_url_options'] = build_user_home_url_options(
             request.user, lang_code=get_current_language_code(request),
+        )
+        assigned = resolve_assigned_home_url(request.user)
+        context['assigned_home_url_option'] = next(
+            (o for o in context['user_home_url_options'] if o['value'] == assigned), None,
         )
     if request.user.is_superuser:
         context['system_backup_summary'] = _get_system_backup_summary()

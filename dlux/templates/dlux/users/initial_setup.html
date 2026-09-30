@@ -48,7 +48,7 @@ system_setup-agnostic JS (data-dlux-skip-setup) which POSTs `skip=1`.
     <div class="mb-3">
       <label class="form-label fw-semibold" for="dlux-onboard-home">{{ DLUX_STRINGS.initial_user_setup_home|default:"Preferred landing page" }}</label>
       <select class="form-select" id="dlux-onboard-home" name="user_home_url">
-        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
+        <option value="">{% if assigned_home_url_option %}{{ DLUX_STRINGS.options_landing_page_assigned|default:"Set by your administrator" }}: {{ assigned_home_url_option.label }}{% else %}{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}{% endif %}</option>
         {% for opt in home_url_options %}
         <option value="{{ opt.value }}" {% if opt.value == current_home %}selected{% endif %}>{{ opt.label }}</option>
         {% endfor %}

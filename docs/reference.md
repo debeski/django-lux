@@ -1066,6 +1066,19 @@ theme/typography/layout/language configs) and **not** per-user prefs (those live
   explicit `?next` and before `homepage_config.default_url` via
   `resolve_user_home_url()`). The old
   `profile_config['allow_user_home_url']` value is a v1.x compatibility mirror.
+  The same switch lets administrators assign landing pages (no schema change):
+  **Edit User** writes `Profile.preferences['admin_home_url']`, which
+  `/sys/api/preferences/update/` refuses to write and `/sys/api/preferences/reset/`
+  keeps; the group preset form writes `extra_config['group_home_urls']`
+  (`{group name: url}`, kept across renames and pruned on delete, via
+  `get_group_home_urls()` / `set_group_home_url(name, url, previous_name=None)`).
+  Both fields are hidden while the switch is off. Resolution order is the user's own
+  pick, then `admin_home_url`, then the first active group preset by name with an
+  entry, then `default_url`; `resolve_assigned_home_url(user, config=None)` returns
+  the admin part alone and skips any page the user cannot open
+  (`build_user_home_url_options`). `user_home_override_enabled(config=None)` reads
+  the switch. Options and the first-login modal label the "default" choice with the
+  assigned page.
 - `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`) —
   whether the first-login modal runs and which preferences it offers. These three choices
   render as an evenly distributed, wrapping horizontal rail in System Settings.
