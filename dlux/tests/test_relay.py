@@ -158,6 +158,26 @@ class RelayTests(SimpleTestCase):
             "operation_id": "someone-else", "request_digest": ticket.digest, "status": "ok", "data": "forged"}))
         self.assertEqual(relay.read_result(ticket, self.store), {})
 
+    def test_a_read_only_volume_is_a_writer_error_not_an_oserror(self):
+        from unittest.mock import patch
+
+        self.agent.publish()
+        with patch("dlux.relay._atomic_json", side_effect=OSError(30, "Read-only file system")):
+            with self.assertRaises(RelayError) as caught:
+                relay.submit("finance.cbl_page", store=self.store)
+        self.assertEqual(caught.exception.code, "writer")
+        self.assertIn("Celery", caught.exception.detail)
+
+    def test_fetch_without_a_usable_store_is_a_writer_error(self):
+        from unittest.mock import patch
+
+        from dlux.updater import UpdaterError
+
+        with patch("dlux.updater.service.runtime_store", side_effect=UpdaterError("not usable")):
+            with self.assertRaises(RelayError) as caught:
+                relay.fetch("finance.cbl_page")
+        self.assertEqual(caught.exception.code, "writer")
+
     def test_status_summarises_the_agent(self):
         self.assertFalse(relay.status(self.store)["answering"])
         FakeAgent(self.store, {"finance.cbl_page": page}, unapproved=["x.y"]).publish()

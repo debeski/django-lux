@@ -176,7 +176,10 @@ def submit(operation, params=None, *, secret=None, ttl=DEFAULT_TTL, store=None):
     if len(body) > MAX_REQUEST_BYTES:
         raise RelayError("invalid", "The request is larger than the relay accepts.")
     path = relay_root(store) / "requests" / f"{operation_id}.json"
-    _atomic_json(path, request)
+    try:
+        _atomic_json(path, request)
+    except OSError as exc:
+        raise RelayError("writer", "This process cannot write to the runtime volume: run the call in a Celery task.") from exc
     return Ticket(operation_id, hashlib.sha256(path.read_bytes()).hexdigest(), operation)
 
 
@@ -201,7 +204,10 @@ def wait(ticket, timeout=15, store=None, *, sleep=time.sleep, clock=time.monoton
         result = read_result(ticket, store)
         if result:
             if store is not None:
-                (relay_root(store) / "results" / f"{ticket.id}.json").unlink(missing_ok=True)
+                try:
+                    (relay_root(store) / "results" / f"{ticket.id}.json").unlink(missing_ok=True)
+                except OSError:
+                    pass  # the agent sweeps results after five minutes
             if result.get("status") == "ok":
                 return result.get("data")
             raise RelayError(str(result.get("error") or "provider"), str(result.get("detail") or ""))
@@ -213,7 +219,11 @@ def wait(ticket, timeout=15, store=None, *, sleep=time.sleep, clock=time.monoton
 def fetch(operation, params=None, *, secret=None, timeout=15, ttl=DEFAULT_TTL, store=None):
     """Ask the agent and wait for the data. For a Celery task or management command."""
     if store is None:
+        from .updater import UpdaterError
         from .updater.service import runtime_store
 
-        store = runtime_store()
+        try:
+            store = runtime_store()
+        except UpdaterError as exc:
+            raise RelayError("writer", "The runtime volume is not writable here: run the call in a Celery task.") from exc
     return wait(submit(operation, params, secret=secret, ttl=ttl, store=store), timeout, store)
