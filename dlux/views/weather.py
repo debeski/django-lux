@@ -7,7 +7,9 @@ from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from ..weather import WeatherUnavailable, api_key, current_weather, get_weather_config, search_locations
+from ..weather import (
+    WeatherPending, WeatherUnavailable, api_key, current_weather, find_locations, get_weather_config,
+)
 
 
 @login_required
@@ -25,6 +27,9 @@ def weather_current(request):
     language = get_current_language_code()
     try:
         return JsonResponse(current_weather(config, location, language))
+    except WeatherPending:
+        # The worker has been asked; the widget tries again shortly.
+        return JsonResponse({'status': 'pending'}, status=202)
     except WeatherUnavailable:
         return JsonResponse({'error': 'unavailable'}, status=503)
 
@@ -49,6 +54,6 @@ def weather_locations(request):
     if not cache.add(f'dlux:weather:search:{request.user.pk}', True, 1):
         return JsonResponse({'error': 'retry'}, status=429)
     try:
-        return JsonResponse({'locations': search_locations(query, key)})
+        return JsonResponse({'locations': find_locations(query, key)})
     except WeatherUnavailable as exc:
         return JsonResponse({'error': str(exc)}, status=502)

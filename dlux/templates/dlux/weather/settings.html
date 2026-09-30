@@ -1,11 +1,54 @@
-<div data-weather-location-builder data-weather-search-url="{% url 'weather_locations' %}">
-    <label class="form-label" for="weather-city-search">{{ DLUX_STRINGS.weather_search }}</label>
-    <div class="input-group">
-        <input class="form-control" id="weather-city-search" type="search" maxlength="120" autocomplete="off" data-weather-query>
-        <button class="btn btn-outline-primary" type="button" data-weather-search>{{ DLUX_STRINGS.weather_search_button }}</button>
+<div class="dlux-setup-builder dlux-weather-builder" data-weather-location-builder
+     data-weather-search-url="{% url 'weather_locations' %}"
+     data-label-add="{{ DLUX_STRINGS.weather_add|default:'Add' }}"
+     data-label-remove="{{ DLUX_STRINGS.weather_remove|default:'Remove' }}"
+     data-label-set-default="{{ DLUX_STRINGS.weather_set_default|default:'Set as default' }}"
+     data-label-default="{{ DLUX_STRINGS.weather_default|default:'Default' }}"
+     data-label-result="{{ DLUX_STRINGS.weather_result_badge|default:'Search result' }}"
+     data-label-move-up="{{ DLUX_STRINGS.weather_move_up|default:'Move up' }}"
+     data-label-move-down="{{ DLUX_STRINGS.weather_move_down|default:'Move down' }}"
+     data-label-display-name="{{ DLUX_STRINGS.weather_display_name|default:'Display name' }}"
+     data-label-clear="{{ DLUX_STRINGS.navbar_clear_selection|default:'Clear selection' }}"
+     data-label-empty="{{ DLUX_STRINGS.weather_no_locations|default:'No locations yet. Search for a city and add it.' }}"
+     data-label-no-results="{{ DLUX_STRINGS.weather_empty_search|default:'No matching cities. Try the city and country code.' }}"
+     data-label-search-error="{{ DLUX_STRINGS.weather_search_error|default:'Could not search. Check the API key and try again.' }}"
+     data-label-error-key="{{ DLUX_STRINGS.weather_search_error_key|default:'OpenWeather refused this API key. Check that it is active and has Geocoding access.' }}"
+     data-label-error-network="{{ DLUX_STRINGS.weather_search_error_network|default:'The server could not reach OpenWeather. Check that the Celery worker is running and has internet access.' }}"
+     data-label-too-many="{{ DLUX_STRINGS.weather_choose_location|default:'Locations must be valid, and there can be at most ten.' }}"
+     data-label-disabled="{{ DLUX_STRINGS.weather_disabled_reason|default:'Enable weather to configure these settings.' }}"
+     data-label-corner="{{ DLUX_STRINGS.weather_corner_reason|default:'Choose Floating placement to change the corner.' }}">
+    <section class="dlux-sidebar-builder__action-row mb-3" data-weather-inspector-shell></section>
+    <div class="row g-3">
+        <div class="col-xl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h6 class="fw-bold mb-1">{{ DLUX_STRINGS.weather_chosen_title|default:"Chosen locations" }}</h6>
+                    <p class="text-muted small mb-0">{{ DLUX_STRINGS.weather_locations_help }}</p>
+                </div>
+                <div class="card-body">
+                    <div class="dlux-sidebar-available" data-weather-chosen></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <h6 class="fw-bold mb-1">{{ DLUX_STRINGS.weather_results_title|default:"Find a city" }}</h6>
+                    <p class="text-muted small mb-0">{{ DLUX_STRINGS.weather_results_desc|default:"Search OpenWeather by city, optionally with a country code (Tripoli,LY)." }}</p>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 mb-2">
+                        <label for="weather-city-search" class="visually-hidden">{{ DLUX_STRINGS.weather_search }}</label>
+                        <input id="weather-city-search" type="search" class="form-control glass-input" maxlength="120" autocomplete="off"
+                               placeholder="{{ DLUX_STRINGS.weather_search }}" data-weather-query data-dlux-unsaved-ignore>
+                        <button type="button" class="btn btn-outline-primary rounded-pill px-3 text-nowrap" data-weather-search>
+                            <i class="bi bi-search me-1" aria-hidden="true"></i>{{ DLUX_STRINGS.weather_search_button }}
+                        </button>
+                    </div>
+                    <p class="small mb-2" data-weather-search-status role="status" hidden></p>
+                    <div class="dlux-sidebar-available" data-weather-results></div>
+                </div>
+            </div>
+        </div>
     </div>
-    <p class="form-text">{{ DLUX_STRINGS.weather_locations_help }}</p>
-    <p class="form-text" data-weather-search-status role="status"></p>
-    <div class="list-group my-2" data-weather-results></div>
-    <div class="list-group my-2" data-weather-chosen></div>
 </div>

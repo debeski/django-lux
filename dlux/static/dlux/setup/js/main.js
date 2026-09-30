@@ -1859,7 +1859,7 @@
         form.querySelectorAll('.dlux-sidebar-config-data').forEach((node) => {
             node.value = raw;
         });
-        form.querySelectorAll('.dlux-setup-builder').forEach((builder) => {
+        form.querySelectorAll('[data-sidebar-builder]').forEach((builder) => {
             builder.dispatchEvent(new CustomEvent('dlux:sidebar-config-imported', {
                 detail: { config: sidebar }
             }));
@@ -2733,7 +2733,10 @@
         if (window.DluxIconPicker) window.DluxIconPicker.init(root);
         initLogBuilder(root);
         initProfileBuilder(root);
-        root.querySelectorAll('.dlux-setup-builder').forEach(initBuilder);
+        // `.dlux-setup-builder` is the shared builder styling; only the Sidebar
+        // builder carries this hook, so another builder styled like it is not
+        // initialised as a sidebar.
+        root.querySelectorAll('[data-sidebar-builder]').forEach(initBuilder);
         root.querySelectorAll('[data-navbar-builder]').forEach(initNavbarBuilder);
         initSystemNamesEditor(root);
         initLanguageCatalogEditor(root);

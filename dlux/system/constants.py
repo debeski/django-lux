@@ -429,6 +429,7 @@ TITLEBAR_ACTIONS_ORDER = (
     'theme',
     'language',
     'notifications',
+    'weather',
     'home',
     'profile',
     'help',

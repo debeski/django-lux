@@ -496,7 +496,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
             ['notifications', 'home', 'profile', 'help', 'users', 'activity', 'reports', 'settings', 'auth']
         )
         self.assertEqual(legacy[:3], ['search', 'theme', 'language'])
-        self.assertEqual(legacy[3:5], ['notifications', 'home'])
+        # Weather (1.10) joined after notifications the same way.
+        self.assertEqual(legacy[3:6], ['notifications', 'weather', 'home'])
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(

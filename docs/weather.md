@@ -8,19 +8,45 @@ Settings → Extra Features → Weather**, or in the same step of first-run setu
    [Geocoding](https://openweathermap.org/api/geocoding-api). Each deployment
    supplies its own provider account and appropriate subscription.
 2. Search by city, optionally adding a country code (for example `Tripoli,LY`).
-   Add up to ten locations and mark one as the default.
+   The location builder works like the Sidebar builder: select a search result
+   and **Add** it, then select a chosen location to **Set as default**, move it
+   up or down, rename it in the inspector panel, or **Remove** it. Up to ten
+   locations.
 3. Choose Celsius or Fahrenheit, a display style, and a placement, then save.
 
-Display styles are **icon**, **condition text**, **temperature**, and
-**icon + temperature**. Placements are **titlebar**, **user hub**, **floating**,
-and **project embeds only**. The floating chip offers four corners: start/end
-follow the UI's LTR/RTL direction. The corner selector stays disabled, with a
-tooltip, unless Floating is selected. If the titlebar uses its action-rail style
-instead of a user-hub dropdown, User hub placement appears in the titlebar.
-Titlebar weather follows the existing optional-action grouping into the titlebar
-rail on narrow screens or when grouped actions are selected.
+Display styles are **icon only**, **temperature only**, **icon + temperature**,
+and **full** (icon, temperature and condition text); 1.10.0b1's *condition text*
+is read as full. Placements are **titlebar**, **user hub**, **floating**, and
+**project embeds only**.
 
-Click a compact indicator to see the location selector, condition, temperature,
+**Floating** is a round bubble, like an assistant's launcher: the icon, with the
+temperature as a badge (the condition text is in its panel). It starts in the
+chosen corner (start/end follow the UI's LTR/RTL direction); each user can drag
+it anywhere, it snaps to the nearer side, and the position is kept as that
+user's preference (`weather_float_position`), so it follows them across devices.
+Its panel opens away from the edges it sits against. The corner selector stays
+disabled, with a tooltip, unless Floating is selected.
+
+**Preview**: Extra Features lifts the Options modal off the live page like the
+visual steps, so placement, display, units and corner can be tried before
+saving. In a preview the widget's reading request carries the draft token, so it
+reads the unsaved settings too.
+
+Titlebar and User hub placements make weather a **titlebar action**, like
+Search or Notifications: it appears in **System Settings → Titlebar → action
+order** (after Notifications by default) and can be reordered there, it takes
+the bar's button shape, and it groups into the action rail on narrow screens.
+Titlebar keeps it in the bar under every hub style. User hub follows the hub: it
+sits in the user-hub dropdown card, or in the bar when the hub style lays its
+actions out there. Only an icon fits the round button, so the temperature and
+text displays widen it into a pill. A centred title is centred on the bar
+itself, not between its sides, so the pill neither moves the title nor makes it
+jump when the reading loads.
+
+Click an indicator to open its panel, placed the way the notifications panel
+is (under the trigger, under the rail when grouped, across the width under the
+header on phones). It shows the location selector (a Dlux choice selector),
+condition, temperature,
 feels-like temperature, observation time, and provider attribution. Escape or
 an outside click closes it. The dashboard card keeps these details visible.
 The location selector changes only that widget; it does not change the system
@@ -81,18 +107,35 @@ back into the form, and excluded from portable settings export/import. Leave its
 field blank to retain it. Enter it again after rotating `SECRET_KEY` or importing
 settings into a new deployment. Imports retain an existing destination key.
 
-The Django endpoint calls OpenWeather over HTTPS with a four-second timeout,
-bounded responses, and no redirects. Browser requests stay same-origin. Cached
-readings are fresh for 15 minutes; refresh failures may serve the last reading
-for up to 24 hours, explicitly marked stale. Observations older than two hours
-are also marked stale. Without a cached reading the widget says unavailable.
-Refresh contention/failures back off for 30 seconds. No scheduled worker is
-required: visible pages refresh on demand and every 15 minutes.
+**The calls to OpenWeather run in the Celery worker.** In a Dlux-generated stack
+the web service has no route to the internet: only celery, smtp-relay and the
+Composer agent sit on the `egress` network. So web queues a task and the worker
+calls OpenWeather (HTTPS, four-second timeout, bounded responses, no redirects)
+and writes the answer to the shared cache, which web reads:
 
-Caching uses Django's default cache. Configure a shared backend (for example
-Redis) to share readings, refresh locks, and search throttles across web workers;
-LocMemCache shares only within each process. Widgets on the same page share
-in-flight requests. Hidden browser tabs skip periodic refreshes.
+- **Readings.** Web serves the cached reading. When it is missing or older than
+  15 minutes, web queues `dlux.tasks.weather_refresh`, at most once per reading
+  every 30 seconds. Until a first reading exists the endpoint answers `202
+  {"status": "pending"}` and the widget shows *Loading* and asks again every
+  three seconds (six times). A failed fetch is reported (`503`) rather than left
+  pending. A reading older than 15 minutes is served while it refreshes, marked
+  stale, for up to 24 hours; an observation older than two hours is also stale.
+- **City search** (superusers only). Web queues `dlux.tasks.weather_search` and
+  waits up to ten seconds for its answer. An unsaved key is encrypted before it
+  reaches the broker. Errors say which fix applies: a refused key
+  (`credentials`), or a provider the server cannot reach (`provider`, or `worker`
+  when no worker answered).
+
+Tasks are sent by name, so the worker must run DjangoLux 1.10.0b2 or later (a
+deployment's web and celery always do). Web checks for a live worker once a
+minute. **Without one** (a project with no Celery, or `CELERY_BROKER_URL`
+unset) web makes the calls itself, which works where web can reach the
+internet, such as a development server.
+
+The worker and web share Django's default cache, so it must be a shared backend
+(Redis, as generated stacks use); LocMemCache is per process and would never see
+the worker's answer. Widgets on the same page share in-flight requests, and
+hidden browser tabs skip the periodic 15-minute refresh.
 
 Endpoints: `GET /sys/api/weather/?location=<configured-id>` and administrator
 `POST /sys/api/weather/locations/` (CSRF protected, body: `query`, `enabled: true`,

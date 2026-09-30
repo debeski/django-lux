@@ -127,6 +127,22 @@
             Array.prototype.forEach.call(node.children, collect);
         }(end));
 
+        function titleLead() {
+            return (start ? start.offsetWidth : 0) + (logo ? logo.offsetWidth + RAIL_GAP : 0);
+        }
+
+        // A centred title's room: what the bar leaves free on both sides of its
+        // centre as it is now laid out, grouped or not (the fit check above
+        // measures the scattered layout, which is wider than a grouped bar).
+        function updateTitleRoom() {
+            if (titlebar.dataset.titleAlign !== 'center') {
+                titlebar.style.removeProperty('--dlux-titlebar-title-room');
+                return;
+            }
+            const room = titlebar.clientWidth - 2 * (Math.max(titleLead(), end.offsetWidth) + RAIL_GAP);
+            titlebar.style.setProperty('--dlux-titlebar-title-room', Math.max(room, 0) + 'px');
+        }
+
         function scatteredFits() {
             let needed = 0;
             items.forEach(function (node) {
@@ -136,11 +152,14 @@
                 const own = node.offsetWidth;
                 needed += own ? own + RAIL_GAP : 0;
             });
-            const available = titlebar.clientWidth
-                - (start ? start.offsetWidth : 0)
-                - (logo ? logo.offsetWidth : 0)
-                - needed;
-            return available >= MIN_TITLE_WIDTH;
+            // A centred title sits on the bar's centre (titlebar CSS), so it needs
+            // the wider side's width on both sides of it, not the two added up;
+            // the logo stays at the start and counts with that side.
+            const lead = titleLead();
+            if (titlebar.dataset.titleAlign === 'center') {
+                return titlebar.clientWidth - 2 * (Math.max(lead, needed) + RAIL_GAP) >= MIN_TITLE_WIDTH;
+            }
+            return titlebar.clientWidth - lead - needed >= MIN_TITLE_WIDTH;
         }
 
         // Narrow screens always group whatever the settings say — Home and the user
@@ -211,7 +230,10 @@
             isGrouped: function () { return grouped; },
             isOpen: function () { return open; },
             setOpen: setOpen,
-            sync: function () { applyGrouping(shouldGroup()); },
+            sync: function () {
+                applyGrouping(shouldGroup());
+                updateTitleRoom();
+            },
         };
     }
 

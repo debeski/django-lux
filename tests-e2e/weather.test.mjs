@@ -1,6 +1,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import { startServer, loggedInPage, chromium, BASE } from './server.mjs';
+
+// Beside this file, whichever directory the suite runs from.
+const SHOTS = fileURLToPath(new URL('./shots/', import.meta.url));
 
 let server, browser;
 before(async () => {
@@ -47,18 +51,47 @@ for (const width of [1440, 390]) {
       await page.keyboard.press('Escape');
       assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      await page.screenshot({ path: `tests-e2e/shots/weather-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `${SHOTS}weather-${width}.png`, fullPage: true });
       await page.evaluate(() => { document.documentElement.dir = 'rtl'; });
       const floating = await page.locator('.dlux-weather--floating').boundingBox();
       assert.ok(floating.x < width / 2, 'RTL end floats on the left');
       await trigger.click();
       const rtlBox = await page.locator('.dlux-weather--floating [data-weather-panel]').boundingBox();
       assert.ok(rtlBox.x >= 0 && rtlBox.x + rtlBox.width <= width);
-      await page.screenshot({ path: `tests-e2e/shots/weather-${width}-rtl.png`, fullPage: true });
+      await page.screenshot({ path: `${SHOTS}weather-${width}-rtl.png`, fullPage: true });
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
 }
+
+test('the floating bubble drags, snaps to a side and remembers where it was left', async () => {
+  const { ctx, page, errors } = await pageWithWeather(1440);
+  try {
+    const saves = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/sys/api/preferences/update/')) saves.push(request.postData());
+    });
+    await page.goto(`${BASE}/weather-dashboard/`, { waitUntil: 'networkidle' });
+    const bubble = page.locator('.dlux-weather--floating [data-weather-toggle]');
+    const from = await bubble.boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(300, 400, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const snapped = await page.locator('.dlux-weather--floating').boundingBox();
+    assert.ok(snapped.x <= 20, `snapped to the left edge: ${JSON.stringify(snapped)}`);
+    assert.equal(await bubble.getAttribute('aria-expanded'), 'false', 'a drag does not open the panel');
+    assert.ok(saves.some((body) => body && body.includes('weather_float_position')), 'the position is saved');
+    await page.reload({ waitUntil: 'networkidle' });
+    const again = await page.locator('.dlux-weather--floating').boundingBox();
+    assert.ok(again.x <= 20 && Math.abs(again.y - snapped.y) < 30, `kept after reload: ${JSON.stringify(again)}`);
+    await bubble.click();
+    const panel = await page.locator('.dlux-weather--floating [data-weather-panel]').boundingBox();
+    assert.ok(panel.x >= 0 && panel.x + panel.width <= 1440, `the panel opens away from the edge: ${JSON.stringify(panel)}`);
+    assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+});
 
 test('Extra Features uses disabled tooltips, location search and the real save path', async () => {
   const { ctx, page, errors } = await pageWithWeather();
@@ -74,6 +107,10 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     assert.ok(await root.locator('[data-weather-dependent]').getAttribute('data-dlux-tooltip'));
     await toggle.check({ force: true });
     assert.equal(await root.locator('[name="weather_api_key"]').isDisabled(), false);
+    // Switching weather on must un-grey the choice tiles, not only the section:
+    // server-disabled choices kept their tiles at 0.62 opacity.
+    assert.equal(await root.locator('[name="weather_placement"][value="user_hub"]').evaluate(input =>
+      getComputedStyle(input.closest('.dlux-choice-option').querySelector('.dlux-choice-option__surface')).opacity), '1');
     await root.locator('[name="weather_placement"][value="titlebar"]').check({ force: true });
     assert.equal(await root.locator('[name="weather_corner"]').first().isDisabled(), true);
     await page.route('**/sys/api/weather/locations/', route => route.fulfill({ json: {
@@ -81,8 +118,18 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     } }));
     await root.locator('[data-weather-query]').fill('Benghazi');
     await root.locator('[data-weather-search]').click();
-    await root.locator('[data-weather-results] button').click();
-    assert.match(await root.locator('[data-weather-chosen]').innerText(), /Benghazi/);
+    // Dlux builder parts: rows are `dlux-builder-item`, actions live on the
+    // inspector shell's action row, and the selected location renames in its panel.
+    const result = root.locator('[data-weather-results] .dlux-builder-item');
+    await result.click();
+    assert.equal(await root.locator('[data-weather-inspector-shell].dlux-inspector-shell').count(), 1);
+    await root.locator('[data-inspector-action="weather-add"]').click();
+    assert.match(await root.locator('[data-weather-chosen]').innerText(), /Benghazi, LY/);
+    const rename = root.locator('[data-inspector-field="weather-display-name"] input');
+    await rename.fill('Benghazi');
+    await rename.press('Tab');
+    await root.locator('[data-inspector-action="weather-default"]').click();
+    assert.match(await root.locator('[data-weather-chosen] .dlux-builder-item', { hasText: 'Benghazi' }).innerText(), /Default/);
     await root.locator('[name="weather_placement"][value="embed"]').check({ force: true });
     const navigation = page.waitForNavigation({ waitUntil: 'networkidle' });
     const responsePromise = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/sys/modals/'));
@@ -92,7 +139,10 @@ test('Extra Features uses disabled tooltips, location search and the real save p
     await navigation;
     await page.goto(`${BASE}/weather-dashboard/`, { waitUntil: 'networkidle' });
     assert.equal(await page.locator('[data-weather-widget]').count(), 1, 'embed-only removes floating chrome');
-    assert.equal(await page.locator('[data-weather-select] option').count(), 2);
+    // The location picker is a Dlux selector: one radio per location.
+    assert.equal(await page.locator('[data-weather-select] [data-dlux-selector] input[type="radio"]').count(), 2);
+    assert.equal((await page.locator('[data-weather-select] [data-dlux-selector-option]:has(input:checked)').innerText()).trim(), 'Benghazi',
+      'the rename and the new default were saved');
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });
@@ -121,7 +171,7 @@ test('titlebar and user hub placements open inside the mobile viewport', async (
       const box = await page.locator(`${host} [data-weather-panel]`).boundingBox();
       assert.ok(box.x >= 0 && box.x + box.width <= 390 && box.y >= 0 && box.y + box.height <= 900, JSON.stringify(box));
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      await page.screenshot({ path: `tests-e2e/shots/weather-${placement}-390.png`, fullPage: true });
+      await page.screenshot({ path: `${SHOTS}weather-${placement}-390.png`, fullPage: true });
     }
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }

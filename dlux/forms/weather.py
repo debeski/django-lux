@@ -1,7 +1,7 @@
 """Weather's Extra Features controls and save policy."""
 import json
 
-from crispy_forms.layout import Div, Field, HTML
+from crispy_forms.layout import Div, Field, HTML, Row
 from django.template.loader import render_to_string
 from django.core.exceptions import ValidationError
 
@@ -12,16 +12,28 @@ from .builders import _bind_choice_selector_widget, build_settings_toggle_field
 
 CHOICES = {
     'placement': [('titlebar', 'Titlebar'), ('user_hub', 'User hub'), ('floating', 'Floating'), ('embed', 'Project embeds only')],
-    'display': [('icon', 'Icon only'), ('text', 'Condition text'), ('temperature', 'Temperature only'), ('combined', 'Icon + temperature')],
+    'display': [('icon', 'Icon only'), ('temperature', 'Temperature only'), ('combined', 'Icon + temperature'), ('full', 'Full')],
     'units': [('metric', 'Celsius'), ('imperial', 'Fahrenheit')],
     'corner': [('bottom-end', 'Bottom end'), ('bottom-start', 'Bottom start'), ('top-end', 'Top end'), ('top-start', 'Top start')],
+}
+
+# Toggle selectors with an icon per option, like the other settings steps. The
+# corner arrows are drawn for a left-to-right UI; setup/css mirrors them under
+# `[dir="rtl"]`, where "end" is on the left.
+ICONS = {
+    'placement': {'titlebar': 'bi-window-stack', 'user_hub': 'bi-person-circle',
+                  'floating': 'bi-pin-angle', 'embed': 'bi-layout-text-window'},
+    'display': {'icon': 'bi-cloud-sun', 'temperature': 'bi-thermometer-half',
+                'combined': 'bi-cloud-sun-fill', 'full': 'bi-card-text'},
+    'units': {'metric': 'bi-thermometer-snow', 'imperial': 'bi-thermometer-sun'},
+    'corner': {'bottom-end': 'bi-arrow-down-right', 'bottom-start': 'bi-arrow-down-left',
+               'top-end': 'bi-arrow-up-right', 'top-start': 'bi-arrow-up-left'},
 }
 
 
 def configure_weather_fields(form, strings):
     config = normalize_weather_config((form.instance.extra_config or {}).get('weather'))
     active_step = not form.single_step_mode or form.single_step_index == SETUP_STEP_EXTRAS
-    enabled = bool(form.data.get('weather_enabled')) if form.is_bound and active_step else config['enabled']
     for key in ('enabled', 'placement', 'display', 'units', 'corner', 'locations', 'default_location'):
         value = config[key]
         form.initial['weather_' + key] = json.dumps(value) if key == 'locations' else value
@@ -29,7 +41,11 @@ def configure_weather_fields(form, strings):
         field = form.fields[name]
         label_key = 'form_sys_' + name
         field.label = strings.get(label_key, name)
-        field.disabled = not active_step or (name != 'weather_enabled' and not enabled)
+        # Only a field outside the step being edited is disabled here. The
+        # on/off dependency is the client's `data-weather-dependent` section, as
+        # in the core steps: disabling the choices server-side left their tiles
+        # greyed out after the switch was turned back on.
+        field.disabled = not active_step
     for key, choices in CHOICES.items():
         name = 'weather_' + key
         translated = []
@@ -37,7 +53,12 @@ def configure_weather_fields(form, strings):
             label_key = 'weather_' + value
             translated.append((value, strings.get(label_key, label)))
         form.fields[name].choices = translated
-        _bind_choice_selector_widget(form.fields[name], DluxChoiceSelectorWidget(choices=translated))
+        option_meta = {value: {'icon': icon} for value, icon in ICONS[key].items()}
+        _bind_choice_selector_widget(
+            form.fields[name],
+            DluxChoiceSelectorWidget(choices=translated, variant='toggle', option_meta=option_meta),
+        )
+    form.fields['weather_corner'].help_text = strings.get('weather_corner_help', 'Start and end follow the interface direction.')
     form.fields['weather_api_key'].help_text = strings.get('weather_key_saved', 'API key saved. Leave blank to keep it, or enter a replacement.') if config['encrypted_api_key'] else strings.get('weather_key_help', 'Enter an OpenWeather API key with Current Weather and Geocoding access.')
 
 
@@ -46,10 +67,22 @@ def weather_settings_layout(form, strings):
         HTML('<h6 class="fw-bold my-3">' + strings.get('weather_title', 'Weather') + '</h6>'),
         build_settings_toggle_field(form, 'weather_enabled', css_class='col-12'),
         Div(
-            Field('weather_placement'), Field('weather_display'), Field('weather_units'),
-            Div(Field('weather_corner'), **{'data-weather-corner': ''}),
+            Row(
+                Div(Field('weather_placement'), css_class='col-lg-6'),
+                Div(Field('weather_display'), css_class='col-lg-6'),
+                css_class='g-3 mb-3',
+            ),
+            Row(
+                Div(Field('weather_units'), css_class='col-lg-6'),
+                Div(Field('weather_corner'), css_class='col-lg-6', **{'data-weather-corner': ''}),
+                css_class='g-3 mb-3',
+            ),
             Field('weather_api_key'),
             Field('weather_locations'), Field('weather_default_location'),
+            # The locations live in a hidden field, whose errors crispy never
+            # shows: without this a rejected list reloaded the modal silently.
+            HTML("{% if form.weather_locations.errors %}<div class='alert alert-danger' data-autoclose='false'>"
+                 "{{ form.weather_locations.errors|join:' ' }}</div>{% endif %}"),
             HTML(render_to_string('dlux/weather/settings.html', {'DLUX_STRINGS': strings})),
             **{'data-weather-dependent': ''},
         ),
@@ -66,11 +99,10 @@ def clean_weather(form, cleaned):
     from ..translations import get_strings
     strings = get_strings()
     config = normalize_weather_config((form.instance.extra_config or {}).get('weather'))
+    # Locations are optional: switching weather on and entering the key is a save
+    # of its own, and nothing is displayed until a location is added.
     try:
-        locations = normalize_locations(json.loads(cleaned.get('weather_locations') or '[]'))
-        if not locations:
-            raise ValueError
-        cleaned['weather_locations'] = locations
+        cleaned['weather_locations'] = normalize_locations(json.loads(cleaned.get('weather_locations') or '[]'))
     except (ValueError, TypeError):
         form.add_error('weather_locations', ValidationError(strings['weather_choose_location']))
     if not cleaned.get('weather_api_key') and not api_key(config):

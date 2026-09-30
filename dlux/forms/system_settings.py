@@ -494,7 +494,13 @@ class SystemSettingsForm(
     weather_display = forms.ChoiceField(required=False)
     weather_units = forms.ChoiceField(required=False)
     weather_corner = forms.ChoiceField(required=False)
-    weather_api_key = forms.CharField(required=False, max_length=256, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
+    # A provider key, not an account password: a plain text field, so neither the
+    # password-rules checker nor a password manager treats it as one. The saved
+    # key is never rendered back; a blank field keeps it.
+    weather_api_key = forms.CharField(required=False, max_length=256, widget=forms.TextInput(attrs={
+        'autocomplete': 'off', 'spellcheck': 'false', 'dir': 'ltr',
+        'data-1p-ignore': '', 'data-lpignore': 'true', 'data-form-type': 'other',
+    }))
     weather_locations = forms.CharField(required=False, widget=forms.HiddenInput())
     weather_default_location = forms.CharField(required=False, widget=forms.HiddenInput())
     backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)

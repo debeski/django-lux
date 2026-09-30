@@ -583,10 +583,19 @@
   min-width: 0;
 }
 
+/* Weather's floating-corner arrows are drawn for left-to-right; start and end
+   swap sides under a right-to-left UI, so the arrows mirror with them. */
+[dir="rtl"] [data-weather-corner] .dlux-choice-option i[class*="bi-arrow-"] {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
 .dlux-builder-item-copy {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Rows are often <button>s, which centre their text. */
+  text-align: start;
 }
 
 .dlux-builder-item-label {

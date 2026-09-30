@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from unittest.mock import patch
 
@@ -136,7 +137,7 @@ class WeatherTests(TestCase):
         self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 403)
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(url).status_code, 405)
-        with patch('dlux.views.weather.search_locations', return_value=[LOCATION]) as provider:
+        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]) as provider:
             self.assertEqual(self.client.post(url, {**payload, 'enabled': False}, content_type='application/json').status_code, 400)
             provider.assert_not_called()
             response = self.client.post(url, payload, content_type='application/json')
@@ -159,21 +160,49 @@ class WeatherTests(TestCase):
         self.record.is_configured = False
         self.record.save()
         self.client.force_login(self.admin)
-        with patch('dlux.views.weather.search_locations', return_value=[LOCATION]):
+        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]):
             response = self.client.post(reverse('weather_locations'),
                                         {'enabled': True, 'query': 'Tripoli', 'api_key': 'draft'},
                                         content_type='application/json')
         self.assertEqual(response.status_code, 200)
 
-    def test_user_hub_action_rail_falls_back_to_titlebar(self):
+    def test_weather_is_a_titlebar_action_scoped_by_its_placement(self):
+        # Titlebar keeps it in the bar under every hub style; User hub lets it
+        # follow the hub, so the action rail picks it up in the actions layout.
+        from dlux.context_processors import _weather_titlebar_action
+        from dlux.system.constants import TITLEBAR_ACTIONS_ORDER
+        self.assertIn('weather', TITLEBAR_ACTIONS_ORDER)
         config = self.enable()
-        config['placement'] = 'user_hub'
+        system = lambda **values: {'extra_config': {'weather': {**config, **values}}}
+        for placement, scope in (('titlebar', 'shared'), ('user_hub', 'titlebar_actions'),
+                                 ('floating', None), ('embed', None)):
+            with self.subTest(placement=placement):
+                action = _weather_titlebar_action(system(placement=placement), {})
+                self.assertEqual(action and action['scope'], scope)
+        self.assertIsNone(_weather_titlebar_action(system(enabled=False), {}))
+        self.assertIsNone(_weather_titlebar_action({}, {}))
+
+    def test_the_action_is_a_titlebar_button_and_the_picker_a_dlux_selector(self):
+        config = self.enable()
         request = RequestFactory().get('/')
         request.user = self.admin
-        context = Context({'request': request, 'titlebar': {'user_hub_style': 'titlebar_actions'}})
         with patch('dlux.weather.get_weather_config', return_value=config):
-            self.assertIn('data-weather-widget', Template('{% load dlux_weather %}{% weather_widget placement="titlebar" %}').render(context))
-            self.assertEqual('', Template('{% load dlux_weather %}{% weather_widget placement="user_hub" %}').render(context))
+            html = Template('{% load dlux_weather %}{% weather_widget variant="action" %}').render(Context({'request': request}))
+            second = Template('{% load dlux_weather %}{% weather_widget variant="action" %}').render(Context({'request': request}))
+        self.assertIn('dlux-titlebar-btn dlux-titlebar-action', html)
+        self.assertIn('data-dlux-selector', html)
+        self.assertNotIn('<select', html)
+        names = lambda markup: set(re.findall(r'name="(weather-[0-9a-f]+-location)"', markup))
+        self.assertTrue(names(html) and names(html).isdisjoint(names(second)), 'each widget groups its own radios')
+
+    def test_shell_slots_render_only_the_chosen_placement(self):
+        config = self.enable()
+        request = RequestFactory().get('/')
+        request.user = self.admin
+        context = Context({'request': request})
+        with patch('dlux.weather.get_weather_config', return_value={**config, 'placement': 'user_hub'}):
+            self.assertIn('data-weather-widget', Template('{% load dlux_weather %}{% weather_widget placement="user_hub" %}').render(context))
+            self.assertEqual('', Template('{% load dlux_weather %}{% weather_widget placement="floating" %}').render(context))
 
     def test_provider_failures_are_bounded_and_do_not_leak_credentials(self):
         from urllib.error import HTTPError
@@ -200,3 +229,203 @@ class WeatherTests(TestCase):
             for choices in CHOICES.values():
                 for value, _ in choices:
                     self.assertTrue(strings.get('weather_' + value))
+
+
+class WeatherWorkerTests(TestCase):
+    """In a generated stack web cannot reach the internet; a Celery worker can.
+
+    The worker is faked by running its task function when web sends the task,
+    or by not running it at all, which is what a missing worker looks like.
+    """
+
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+    enable = WeatherTests.enable
+
+    def worker(self, run=True):
+        from unittest.mock import MagicMock
+        from dlux import weather
+
+        app = MagicMock()
+
+        def send_task(name, args, retry=False):
+            if not run:
+                return
+            if name == 'dlux.tasks.weather_refresh':
+                try:
+                    weather.refresh_reading(*args)
+                except WeatherUnavailable:
+                    pass
+            elif name == 'dlux.tasks.weather_search':
+                weather.run_search(*args)
+
+        app.send_task.side_effect = send_task
+        return app, patch.multiple('dlux.weather', weather_worker_available=lambda: True, _celery_app=lambda: app)
+
+    def reading(self):
+        return {'main': {'temp': 21.0, 'feels_like': 20.0},
+                'weather': [{'id': 800, 'description': 'clear sky', 'icon': '01d'}], 'dt': int(time.time())}
+
+    def test_a_first_read_asks_the_worker_and_answers_pending(self):
+        from dlux.weather import WeatherPending
+        config = self.enable()
+        location = config['locations'][0]
+        app, worker = self.worker(run=False)
+        with worker, patch('dlux.weather._request') as provider:
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            provider.assert_not_called()  # web itself never calls OpenWeather
+        name, = app.send_task.call_args.args
+        self.assertEqual(name, 'dlux.tasks.weather_refresh')
+        self.assertEqual(app.send_task.call_args.kwargs['args'][3], config['encrypted_api_key'])
+
+    def test_the_worker_reading_is_what_web_serves(self):
+        from dlux.weather import WeatherPending
+        config = self.enable()
+        location = config['locations'][0]
+        _app, worker = self.worker()
+        with worker, patch('dlux.weather._request', return_value=self.reading()):
+            # Web cannot know the worker finished; the next read finds the reading.
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            reading = current_weather(config, location, 'en')
+        self.assertEqual(reading['temperature'], 21)
+        self.assertFalse(reading['stale'])
+
+    def test_a_worker_failure_is_reported_not_left_pending(self):
+        config = self.enable()
+        location = config['locations'][0]
+        _app, worker = self.worker()
+        from dlux.weather import WeatherPending
+        with worker, patch('dlux.weather._request', side_effect=WeatherUnavailable('credentials')):
+            with self.assertRaises(WeatherPending):
+                current_weather(config, location, 'en')
+            with self.assertRaisesRegex(WeatherUnavailable, '^credentials$'):
+                current_weather(config, location, 'en')
+
+    def test_the_endpoint_answers_202_while_pending(self):
+        self.enable()
+        self.client.force_login(self.admin)
+        _app, worker = self.worker(run=False)
+        with worker:
+            response = self.client.get(reverse('weather_current'))
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json(), {'status': 'pending'})
+
+    def test_city_search_runs_in_the_worker_with_the_key_encrypted(self):
+        from dlux.weather import decrypt_api_key, find_locations
+        app, worker = self.worker()
+        rows = [{'name': 'Tripoli', 'country': 'LY', 'lat': 32.8872, 'lon': 13.1913}]
+        with worker, patch('dlux.weather._request', return_value=rows) as provider:
+            found = find_locations('Tripoli', 'draft-key')
+        self.assertEqual(found[0]['name'], 'Tripoli, LY')
+        _token, _query, sent_key = app.send_task.call_args.kwargs['args']
+        self.assertNotEqual(sent_key, 'draft-key', 'the broker never sees the key in the clear')
+        self.assertEqual(decrypt_api_key(sent_key), 'draft-key')
+        self.assertEqual(provider.call_args.args[1], 'draft-key')
+
+    def test_a_silent_worker_ends_the_search_with_an_error(self):
+        from dlux.weather import find_locations
+        _app, worker = self.worker(run=False)
+        with worker, patch('dlux.weather.SEARCH_WAIT_SECONDS', 0.3):
+            with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
+                find_locations('Tripoli', 'draft-key')
+
+    def test_without_a_worker_web_makes_the_call(self):
+        config = self.enable()
+        with patch('dlux.weather.weather_worker_available', return_value=False), \
+                patch('dlux.weather._request', return_value=self.reading()) as provider:
+            self.assertEqual(current_weather(config, config['locations'][0], 'en')['temperature'], 21)
+        provider.assert_called_once()
+
+    def test_the_tasks_are_registered_under_the_names_web_sends(self):
+        from dlux import tasks
+        if tasks.shared_task is None:
+            self.skipTest('celery is not installed')
+        self.assertEqual(tasks.weather_refresh_task.name, 'dlux.tasks.weather_refresh')
+        self.assertEqual(tasks.weather_search_task.name, 'dlux.tasks.weather_search')
+
+
+class WeatherKeyAndSaveTests(TestCase):
+    """Enabling weather and entering the key must save, and the key is not a password."""
+
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+
+    def test_the_key_is_a_plain_text_field_the_password_tools_ignore(self):
+        html = str(SystemSettingsForm(instance=self.record)['weather_api_key'])
+        self.assertIn('type="text"', html)
+        self.assertNotIn('type="password"', html)
+        self.assertNotIn('new-password', html)
+
+    def test_enabling_with_only_a_key_saves(self):
+        self.save_form(dict(weather_enabled='on', weather_api_key='abc123DEF456', weather_locations='[]',
+                            weather_placement='titlebar', weather_display='combined', weather_units='metric',
+                            weather_corner='bottom-end'))
+        config = get_weather_config()
+        self.assertTrue(config['enabled'])
+        self.assertEqual(api_key(config), 'abc123DEF456')
+        self.assertEqual(config['locations'], [])
+
+    def test_a_rejected_location_list_is_shown_not_swallowed(self):
+        from django.template import Context, Template
+        request = RequestFactory().get('/?step=' + str(SETUP_STEP_EXTRAS))
+        request.user = self.admin
+        form = SystemSettingsForm(data={**BASE, 'weather_enabled': 'on', 'weather_api_key': 'k',
+                                        'weather_locations': '{"bad": 1}'},
+                                  instance=SystemSettings.load(), request=request)
+        self.assertFalse(form.is_valid())
+        self.assertIn('weather_locations', form.errors)
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        weather = html.split('data-weather-settings')[1].split('data-weather-location-builder')[0]
+        self.assertIn('alert alert-danger', weather)
+
+
+class WeatherDisplayPreviewAndFloatTests(TestCase):
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+    enable = WeatherTests.enable
+
+    def render(self, markup, request=None):
+        if request is None:
+            request = RequestFactory().get('/')
+            request.user = self.admin
+        return Template('{% load dlux_weather %}' + markup).render(Context({'request': request}))
+
+    def test_the_full_display_replaces_condition_text(self):
+        from dlux.forms.weather import CHOICES
+        self.assertEqual([value for value, _ in CHOICES['display']], ['icon', 'temperature', 'combined', 'full'])
+        self.assertEqual(normalize_weather_config({'display': 'text'})['display'], 'full', '1.10.0b1 stored "text"')
+
+    def test_a_preview_passes_its_draft_token_to_the_reading_request(self):
+        from dlux.system.preview import PREVIEW_PARAM
+        config = self.enable()
+        request = RequestFactory().get('/', {PREVIEW_PARAM: 'tok123'})
+        request.user = self.admin
+        request.dlux_preview = {'token': 'tok123'}
+        with patch('dlux.weather.get_weather_config', return_value=config):
+            html = self.render('{% weather_widget variant="card" %}', request)
+            plain = self.render('{% weather_widget variant="card" %}')
+        self.assertIn(f'data-weather-url="{reverse("weather_current")}?{PREVIEW_PARAM}=tok123"', html)
+        self.assertNotIn(PREVIEW_PARAM, plain)
+
+    def test_extras_previews_on_the_live_page(self):
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / 'static/dlux/setup/js/previews.js').read_text(encoding='utf-8')
+        self.assertIn("'layout', 'extras']", js)
+
+    def test_the_floating_widget_is_a_draggable_bubble(self):
+        config = self.enable()
+        with patch('dlux.weather.get_weather_config', return_value=config):
+            html = self.render('{% weather_widget placement="floating" %}')
+        self.assertIn('dlux-weather__bubble', html)
+        self.assertIn('data-weather-draggable', html)
+
+    def test_a_centred_title_is_centred_on_the_bar(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1] / 'static/dlux/titlebar'
+        css = (root / 'css/main.css').read_text(encoding='utf-8')
+        rail = (root / 'js/action_rail.js').read_text(encoding='utf-8')
+        self.assertIn('max-width: var(--dlux-titlebar-title-room, 40vw);', css)
+        self.assertIn("titlebar.dataset.titleAlign === 'center'", rail)
+        self.assertIn("setProperty('--dlux-titlebar-title-room'", rail)

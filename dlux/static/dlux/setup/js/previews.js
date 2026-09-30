@@ -28,6 +28,7 @@
         'theme',
         'language',
         'notifications',
+        'weather',
         'home',
         'profile',
         'help',
@@ -59,7 +60,8 @@
         'extras',
     ];
     // Steps whose subject is the chrome of the page behind the Options modal.
-    const GLASS_STEPS = new Set(['branding', 'languages', 'appearance', 'titlebar', 'sidebar', 'navbar', 'layout']);
+    // Extras: weather places widgets on every page (titlebar, user hub, floating).
+    const GLASS_STEPS = new Set(['branding', 'languages', 'appearance', 'titlebar', 'sidebar', 'navbar', 'layout', 'extras']);
     // What the step's Preview button opens when there is no page to lift the modal off.
     const STEP_TARGETS = {
         branding: 'sample_components',

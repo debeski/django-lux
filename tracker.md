@@ -48,6 +48,7 @@
   - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
+  - [ ] Branch `fix/weather-dlux-primitives` (unmerged): weather rebuilt on Dlux parts (builder + inspector shell, titlebar action, toggle selectors) and its OpenWeather calls moved to the Celery worker — web has no egress in generated stacks, so b1's weather could never search or read there. Verified live on the sales CRM stack (web→celery→OpenWeather→cache). 2678 unit OK. Ships as 1.10.0b2.
   - [ ] Accept 1.10.0b1 on `testbed-dlux` via the beta channel: weather with a real OpenWeather key, the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group. The sales CRM can adopt it on its beta channel.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.

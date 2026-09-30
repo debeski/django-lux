@@ -49,6 +49,21 @@ if shared_task is not None:
         from .backup import run_scheduled_system_backup
         run_scheduled_system_backup()
 
+    # Weather: web has no route to the internet in a generated stack, the worker
+    # does. Both write their answer to the shared cache for web to read.
+    @shared_task(name='dlux.tasks.weather_refresh', ignore_result=True)
+    def weather_refresh_task(location, units, language, encrypted_api_key):
+        from .weather import WeatherUnavailable, refresh_reading
+        try:
+            refresh_reading(location, units, language, encrypted_api_key)
+        except WeatherUnavailable:
+            pass  # recorded in the cache for web to report
+
+    @shared_task(name='dlux.tasks.weather_search', ignore_result=True)
+    def weather_search_task(token, query, encrypted_api_key):
+        from .weather import run_search
+        run_search(token, query, encrypted_api_key)
+
     @shared_task(name='dlux.tasks.dlux_update_check', ignore_result=True)
     def dlux_update_check_task():
         # Reliable, persistent trigger for the daily DjangoLux update check. The
