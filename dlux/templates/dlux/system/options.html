@@ -266,6 +266,7 @@
                                  data-image-url="{% url 'dlux_update_image' %}"
                                  data-deploy-status-url="{{ DLUX_DEPLOY_STATUS_URL|default:'/_update/status.json' }}"
                                  data-deploy-log-url="{{ DLUX_DEPLOY_LOG_URL|default:'/_update/log.txt' }}"
+                                 data-label-image-local="{{ DLUX_STRINGS.dlux_update_image_local|default:'Local build: not compared with the registry' }}"
                                  data-label-image-title="{{ DLUX_STRINGS.dlux_update_image_title|default:'Update DjangoLux (image rebuild)' }}"
                                  data-label-image-confirm="{{ DLUX_STRINGS.dlux_update_image_confirm|default:'Rebuild and update' }}"
                                  data-label-image-started="{{ DLUX_STRINGS.dlux_update_image_started|default:'Image update started. The site will enter maintenance and return on the new version; this page may be briefly unavailable during the rebuild.' }}"
@@ -334,6 +335,8 @@
                                          data-label-latest="{{ DLUX_STRINGS.dlux_ops_latest|default:'up to date' }}"
                                          data-label-unknown="{{ DLUX_STRINGS.dlux_ops_unknown|default:'could not check' }}"
                                          data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
+                                         data-label-composer-unknown="{{ DLUX_STRINGS.dlux_ops_composer_unknown|default:'Could not check for a Composer update: {reason}' }}"
+                                         data-label-no-repair="{{ DLUX_STRINGS.dlux_ops_no_repair|default:'No automatic repair is available for these findings.' }}"
                                          data-label-agent-update="{{ DLUX_STRINGS.dlux_ops_agent_update|default:'Update the Composer agent' }}"
                                          data-label-composer-behind-host="{{ DLUX_STRINGS.dlux_ops_composer_behind_host|default:'Composer v{version} is older than this DjangoLux needs (v{required}), so it cannot run checks or updates from here. On the server, run ./start.sh self update, then ./start.sh agent update.' }}"
                                          data-label-composer-behind-card="{{ DLUX_STRINGS.dlux_ops_composer_behind_card|default:'Composer v{version} is older than this DjangoLux needs (v{required}). Check the Composer agent and update it from here.' }}"
@@ -812,6 +815,7 @@
                 <div class="modal-body">
                     <p class="small text-muted" data-dlux-ops-modal-intro>{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the Composer agent — and offers the repairs it finds.' }}</p>
                     <ul class="dlux-ops-findings list-unstyled mb-0" data-dlux-ops-findings></ul>
+                    <p class="text-muted small mt-2 mb-0" data-dlux-ops-norepair hidden></p>
                     <div class="dlux-ops-repairs mt-3" data-dlux-ops-repairs hidden>
                         <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
                         <div data-dlux-ops-diffs></div>
@@ -827,6 +831,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ DLUX_STRINGS.btn_close|default:'Close' }}</button>
+                    <button type="button" class="btn btn-warning" data-dlux-ops-offer hidden>{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}</button>
                     <button type="button" class="btn btn-warning" data-dlux-ops-submit hidden></button>
                 </div>
             </div>

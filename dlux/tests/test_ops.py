@@ -544,6 +544,25 @@ class RowStateTests(TestCase):
         self._completed("agent-check", {"findings": []})
         self.assertFalse(self._state()["resident"]["checked"])
 
+    def test_an_unreadable_registry_gives_the_row_a_reason_to_show(self):
+        self._completed("agent-check", {
+            "findings": [{"status": "warn", "message": "Could not read the registry version."}],
+            "resident": {"checked": False, "update_available": False},
+        })
+        resident = self._state()["resident"]
+        self.assertFalse(resident["checked"])
+        self.assertEqual(resident["detail"], "Could not read the registry version.")
+
+    def test_the_card_has_the_states_a_check_can_end_in(self):
+        from pathlib import Path
+        root = Path(ops.__file__).resolve().parents[1]
+        template = (root / "templates/dlux/system/options.html").read_text(encoding="utf-8")
+        script = (root / "static/dlux/system/js/ops.js").read_text(encoding="utf-8")
+        for hook in ("data-dlux-ops-norepair", "data-dlux-ops-offer", "data-label-composer-unknown", "data-label-no-repair"):
+            self.assertIn(hook, template)
+        for name in ("TONE_GLYPH", "repairOffered", "labelComposerUnknown", "labelNoRepair"):
+            self.assertIn(name, script)
+
     def test_the_run_carries_the_resident_block_to_the_browser(self):
         run = self._completed("agent-check", {"resident": {"checked": True, "update_available": False}})
         self.assertEqual(serialize_ops_run(run)["resident"], {"checked": True, "update_available": False})

@@ -358,7 +358,7 @@ def _resident_status(composer_version):
     to be the thing an administrator can believe without opening a shell.
     """
     status = {"version": composer_version, "checked": False, "update_available": False,
-              "published_version": "", "channel": "", "checked_at": None}
+              "published_version": "", "channel": "", "checked_at": None, "detail": ""}
     checked = _latest_completed("agent-check")
     if checked is None:
         return status
@@ -376,6 +376,12 @@ def _resident_status(composer_version):
         "channel": str(resident.get("channel") or ""),
         "checked_at": checked.completed_at.isoformat() if checked.completed_at else None,
     })
+    if not status["checked"]:
+        # Composer says why it could not decide (the registry could not be read);
+        # without it the row just stopped spinning and showed nothing.
+        findings = (checked.result or {}).get("findings")
+        first = findings[0] if isinstance(findings, list) and findings and isinstance(findings[0], dict) else {}
+        status["detail"] = str(first.get("message") or "").strip()[:300]
     return status
 
 
