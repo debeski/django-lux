@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.10.0b1",
+  "version": "1.10.0b2",
   "display": {
-    "summary": "First 1.10 beta: projects' settings join first-run setup and can share one tile, tiles ask before discarding edits, and an optional weather widget arrives.",
+    "summary": "Weather works in generated stacks and is built from Dlux components, and administrators can assign landing pages per user and per group.",
     "highlights": [
-      "Project settings tiles appear as a Project Settings step at the end of first-run setup, saved with the rest of the wizard.",
-      "register_app_settings_group() folds several project settings into one tile, edited and saved together.",
-      "Closing a project settings tile with unsaved edits now asks first.",
-      "Optional OpenWeather widgets for the titlebar, user hub, a floating chip or project dashboards, configured under Extra Features."
+      "Weather calls OpenWeather from the Celery worker, so city search and readings work where web has no internet access.",
+      "Weather settings use the Dlux builder, inspector shell and toggle selectors; the titlebar action floats as a bubble and previews.",
+      "With the per-user homepage switch on, administrators assign a landing page in Edit User and in each group; a user's own choice still wins.",
+      "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b2"
   },
   "requires": {
     "updater_schema": ">=1",

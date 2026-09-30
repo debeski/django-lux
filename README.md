@@ -178,6 +178,8 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
   signal-based activity logging with configurable IP resolution (direct/proxy/header), diff capture, masked sensitive fields, deduplicated entries, download/export logging, and scoped visibility.
 - Optional SSO:
   `django-lux-sso` and `django-lux-sso-client` live as separate optional packages for OIDC provider/client deployments without changing core Dlux runtime behavior.
+- Optional ScanLink:
+  a workstation tray helper that powers scan buttons in dlux forms. Off by default and enabled under Extra Features; installers are published and downloaded through permission-gated managed assets, and an update card compares each workstation's installed version with the published one. See [Operations](docs/operations.md).
 - Standalone backup viewer:
   `tools/dlb-viewer/` is a dependency-free, cross-platform binary for inspecting encrypted `.dlb` system backups offline — browse models, rows, and stored files without a running instance. Prebuilt binaries ship with each release.
 - Full-system backup policy:
