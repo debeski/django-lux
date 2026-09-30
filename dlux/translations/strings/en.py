@@ -1195,6 +1195,7 @@ STRINGS = {
     'service_db_version_lookup_failed': 'Connected, but version lookup failed: {error}',
     'service_cache_probe_unexpected': 'Cache responded, but the health probe returned an unexpected value.',
     'service_api_http_status': 'Endpoint responded with HTTP {status}.',
+    'service_celery_not_configured': 'Celery is not configured. It is part of every Dlux stack: scheduled backups, weather and update handling will not run.',
     'service_celery_missing_package': 'Celery-related settings were detected, but the celery package is not installed.',
     'service_celery_configured': 'Celery settings were detected. Worker health is not auto-checked here.',
     'service_celery_app_unavailable': 'Celery settings were detected, but the Celery app could not be loaded to check worker health.',

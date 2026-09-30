@@ -672,7 +672,10 @@ def _get_email_service():
 def _get_celery_service(probe=False):
     """Resolve the Tasks (Celery) service status.
 
-    The cheap configuration/package/app checks always run, but the broker is
+    Celery is part of every Dlux stack, so a project with no Celery settings is
+    reported as offline rather than hidden: scheduled backups, weather, update
+    handling and other background work will not run. The cheap
+    configuration/package/app checks always run, but the broker is
     pinged ONLY when ``probe=True`` (the on-demand recheck endpoint). On a normal
     page load (``probe=False``) the last persisted result is shown, or a neutral
     "not checked yet" state when no check has been run.
@@ -684,7 +687,12 @@ def _get_celery_service(probe=False):
         apps.is_installed('django_celery_results'),
     ])
     if not is_configured:
-        return None
+        return _service_status(
+            'offline',
+            detail='Celery',
+            note='Celery is not configured. It is part of every Dlux stack: scheduled backups, weather and update handling will not run.',
+            note_key='service_celery_not_configured',
+        )
 
     if not celery:
         return _service_status(
@@ -1043,11 +1051,7 @@ def celery_health_check_view(request):
         raise PermissionDenied
 
     strings = get_strings(get_current_language_code(request))
-    service = _get_celery_service(probe=True)
-    if service is None:
-        return JsonResponse({'status': 'not_configured'}, status=404)
-
-    service = _localize_service_status(service, strings)
+    service = _localize_service_status(_get_celery_service(probe=True), strings)
     return JsonResponse({
         'status': 'ok',
         'service': {

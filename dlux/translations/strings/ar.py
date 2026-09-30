@@ -1190,6 +1190,7 @@ STRINGS = {
     'service_db_version_lookup_failed': 'تم الاتصال، لكن تعذر جلب نسخة قاعدة البيانات: {error}',
     'service_cache_probe_unexpected': 'استجابت خدمة التخزين المؤقت، لكن نتيجة فحص السلامة كانت غير متوقعة.',
     'service_api_http_status': 'استجابت الواجهة البرمجية برمز HTTP {status}.',
+    'service_celery_not_configured': 'Celery غير مهيأ. وهو جزء من كل مجموعة خدمات Dlux: لن تعمل النسخ الاحتياطية المجدولة والطقس ومعالجة التحديثات.',
     'service_celery_missing_package': 'تم اكتشاف إعدادات Celery، لكن الحزمة نفسها غير مثبتة.',
     'service_celery_configured': 'تم اكتشاف إعدادات Celery، لكن لا يتم فحص حالة الـ worker تلقائياً من هنا.',
     'service_celery_app_unavailable': 'تم اكتشاف إعدادات Celery، لكن تعذّر تحميل تطبيق Celery لفحص حالة العمّال (workers).',

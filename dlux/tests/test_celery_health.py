@@ -120,3 +120,39 @@ class CeleryHealthEndpointTests(TestCase):
         self.assertEqual(data['service']['badge_class'], 'bg-success')
         # Persisted for subsequent page loads.
         self.assertEqual(options._load_celery_probe_result(), (True, 1, ''))
+
+
+class CeleryNotConfiguredTests(TestCase):
+    """Celery is part of every Dlux stack, so its absence is a fault, not a hidden row."""
+
+    def unconfigured(self):
+        return override_settings(CELERY_BROKER_URL='', CELERY_RESULT_BACKEND='')
+
+    def test_a_project_without_celery_settings_is_reported_offline(self):
+        with self.unconfigured(), mock.patch.object(options.apps, 'is_installed', return_value=False):
+            svc = options._get_celery_service()
+        self.assertEqual((svc['state'], svc['note_key']), ('offline', 'service_celery_not_configured'))
+        self.assertIn('will not run', svc['note'])
+
+    def test_the_options_page_shows_the_tasks_row_with_the_reason(self):
+        su = User.objects.create_superuser('admin', 'a@a.com', 'pw12345!x')
+        client = Client()
+        client.force_login(su)
+        with self.unconfigured(), mock.patch.object(options.apps, 'is_installed', return_value=False):
+            html = client.get(reverse('options_view')).content.decode()
+        self.assertIn('data-dlux-celery-health', html)
+        self.assertIn('Celery is not configured', html)
+
+    def test_the_recheck_endpoint_answers_instead_of_404(self):
+        su = User.objects.create_superuser('admin', 'a@a.com', 'pw12345!x')
+        client = Client()
+        client.force_login(su)
+        with self.unconfigured(), mock.patch.object(options.apps, 'is_installed', return_value=False):
+            resp = client.post(reverse('celery_health_check'), **AJAX)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['service']['state'], 'offline')
+
+    def test_the_message_is_translated(self):
+        from dlux.translations import get_strings
+        for language in ('en', 'ar'):
+            self.assertTrue(get_strings(language).get('service_celery_not_configured'), language)
