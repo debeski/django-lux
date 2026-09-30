@@ -120,7 +120,7 @@ service the network the scaffold already declares:
       - egress
 ```
 
-Recreate the service afterwards (`./start.sh`). Keep `web` off `egress`: that is
+This is an interim exception to the network rule in [Outbound Requests](outbound-requests.md); the relay replaces it. Recreate the service afterwards (`./start.sh`). Keep `web` off `egress`: that is
 the point of the split. Granting the worker egress lets every Celery task reach
 the internet, so do it only if you accept that. Without it the settings page says
 the worker has no route to the internet (city search answers `502 network`), and

@@ -16,6 +16,8 @@ The agent has no raw Docker socket. It reads through the proxy, which disables `
 
 `egress` is deliberately separate from published `frontend`. The public proxy does not share a bridge with services that need outbound access. The internal application network remains isolated for `db`, `redis`, `web`, and `celery`.
 
+The rule this topology enforces is stated in [Outbound Requests](outbound-requests.md): the agent is the only service with internet access, `celery` is the only project-side writer to the local bridge, and `web` reads it but never writes. Project code asks the agent for outbound calls instead of opening connections itself.
+
 `dlux-updater` is not part of the v1.8.0 scaffold. Runtime reconciliation and migrations run as `celery` `pre_start` steps, and Celery Beat handles the small state/intent tick. Do not add the retired service back to a new stack.
 
 ## Local bridge and enrollment
