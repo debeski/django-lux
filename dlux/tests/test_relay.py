@@ -169,14 +169,15 @@ class RelayTests(SimpleTestCase):
         self.assertIn("Celery", caught.exception.detail)
 
     def test_fetch_without_a_usable_store_is_a_writer_error(self):
-        from unittest.mock import patch
+        import os
 
-        from dlux.updater import UpdaterError
-
-        with patch("dlux.updater.service.runtime_store", side_effect=UpdaterError("not usable")):
+        blocker = Path(tempfile.mkdtemp()) / "not-a-directory"
+        blocker.write_text("x")
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=str(blocker / "runtime")):
             with self.assertRaises(RelayError) as caught:
                 relay.fetch("finance.cbl_page")
         self.assertEqual(caught.exception.code, "writer")
+        self.assertIn("Celery", caught.exception.detail)
 
     def test_status_summarises_the_agent(self):
         self.assertFalse(relay.status(self.store)["answering"])

@@ -34,7 +34,9 @@ from pathlib import Path
 
 from django.utils import timezone
 
-from .updater.runtime import state_dir
+from django.conf import settings
+
+from .updater.runtime import RuntimeStore, state_dir
 
 SCHEMA_VERSION = 1
 ALGORITHM = "x25519-hkdf-sha256-chacha20poly1305"
@@ -216,14 +218,21 @@ def wait(ticket, timeout=15, store=None, *, sleep=time.sleep, clock=time.monoton
         sleep(POLL_SECONDS)
 
 
+def _writable_store():
+    """The runtime volume, or a ``writer`` error where it cannot be written (web mounts it read-only).
+
+    Built from ``updater.runtime`` rather than ``updater.service.runtime_store``: that module
+    reaches back into tasks, and this one must stay a leaf (tests/test_import_graph.py).
+    """
+    root = getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")
+    try:
+        return RuntimeStore(root).ensure()
+    except OSError as exc:
+        raise RelayError("writer", "The runtime volume is not writable here: run the call in a Celery task.") from exc
+
+
 def fetch(operation, params=None, *, secret=None, timeout=15, ttl=DEFAULT_TTL, store=None):
     """Ask the agent and wait for the data. For a Celery task or management command."""
     if store is None:
-        from .updater import UpdaterError
-        from .updater.service import runtime_store
-
-        try:
-            store = runtime_store()
-        except UpdaterError as exc:
-            raise RelayError("writer", "The runtime volume is not writable here: run the call in a Celery task.") from exc
+        store = _writable_store()
     return wait(submit(operation, params, secret=secret, ttl=ttl, store=store), timeout, store)
