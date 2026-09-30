@@ -1086,40 +1086,6 @@ class UtilsTests(TestCase):
         self.assertNotEqual(username_field.label, '')
         self.assertIsNone(username_field.widget.attrs.get('placeholder'))
 
-    def test_advanced_filter_ignores_table_view_state_with_custom_clear_keys(self):
-        from django.template import Context, Template
-        from django_filters import FilterSet
-        from dlux.utils import advanced_filter_helper
-
-        class TestFilter(FilterSet):
-            class Meta:
-                model = User
-                fields = ['username']
-
-        config = {
-            'fields': ['username'],
-            'clear_preserve_keys': ['kind'],
-        }
-        for query in ('page=2', 'per_page=50', 'sort=username'):
-            with self.subTest(query=query):
-                request = self.factory.get(f'/?{query}')
-                filter_obj = TestFilter(request.GET, queryset=User.objects.all())
-                advanced_filter_helper(filter_obj, config=config, request=request)
-
-                html = Template(
-                    '{% load crispy_forms_tags %}{% crispy form %}'
-                ).render(Context({'form': filter_obj.form}))
-
-                self.assertNotIn('dlux-filter-clear', html)
-
-        request = self.factory.get('/?per_page=50&username=test')
-        filter_obj = TestFilter(request.GET, queryset=User.objects.all())
-        advanced_filter_helper(filter_obj, config=config, request=request)
-        html = Template(
-            '{% load crispy_forms_tags %}{% crispy form %}'
-        ).render(Context({'form': filter_obj.form}))
-        self.assertIn('dlux-filter-clear', html)
-
     def test_has_submit_button(self):
         """Test has_submit_button function."""
         from dlux.utils import has_submit_button

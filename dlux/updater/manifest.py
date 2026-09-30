@@ -12,17 +12,16 @@ import zipfile
 from dataclasses import asdict, dataclass
 from email.parser import BytesParser
 from pathlib import Path
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote, urlparse
 
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
-from packaging.utils import canonicalize_name, parse_wheel_filename
+from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from . import UPDATER_SCHEMA_VERSION, UpdaterError
 
 
-PYPI_SIMPLE_URL = "https://pypi.org/simple/django-lux/"
 PYPI_PROJECT_REPOSITORY = "https://github.com/debeski/django-lux"
 PYPI_PROJECT_REPOSITORY_NAME = "debeski/django-lux"
 # PyPI's integrity API exposes the configured GitHub workflow as its basename,
@@ -67,93 +66,6 @@ def _read_bounded(response, limit):
     if len(payload) > limit:
         raise UpdaterError("The update response is larger than the allowed limit.")
     return payload
-
-
-def fetch_simple_index(*, opener=urllib.request.urlopen):
-    request = urllib.request.Request(
-        PYPI_SIMPLE_URL,
-        headers={
-            "Accept": "application/vnd.pypi.simple.v1+json",
-            "User-Agent": "django-lux-updater/1",
-        },
-    )
-    try:
-        with opener(request, timeout=20) as response:
-            _validated_https_url(response.geturl())
-            payload = _read_bounded(response, MAX_INDEX_BYTES)
-    except UpdaterError:
-        raise
-    except Exception as exc:
-        raise UpdaterError("Could not reach the official PyPI update index.") from exc
-    try:
-        result = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise UpdaterError("PyPI returned an invalid update index.") from exc
-    if not isinstance(result, dict) or not isinstance(result.get("files"), list):
-        raise UpdaterError("PyPI returned an incomplete update index.")
-    return result
-
-
-def select_latest_candidate(index, current_version, skip_versions=None, *, allow_prereleases=False):
-    """The newest eligible release above ``current_version``, or ``None``.
-
-    ``allow_prereleases`` is the beta channel and nothing else: it widens which
-    versions are *eligible*, and every other rule — yanked, skipped, digest,
-    pure-python wheel tag, strictly newer — applies identically. Development
-    releases are never eligible on either channel; they are not published.
-
-    A stable-channel deployment sitting on a prerelease is handled by the
-    ``version <= current`` rule alone: 1.9.0 sorts above 1.9.0b2, so opting out
-    of beta offers the final release when it exists and nothing before then. It
-    never walks the deployment backwards to an older stable."""
-    try:
-        current = Version(str(current_version))
-    except InvalidVersion as exc:
-        raise UpdaterError("The installed DjangoLux version is invalid.") from exc
-
-    # Versions the admin permanently skipped are never offered; compared on the
-    # canonical Version so "1.4.7"/"v1.4.7"/"1.4.7.0" all match.
-    skip = set()
-    for raw in (skip_versions or []):
-        try:
-            skip.add(Version(str(raw).lstrip("vV")))
-        except InvalidVersion:
-            continue
-
-    candidates = []
-    for item in index.get("files", []):
-        if not isinstance(item, dict) or item.get("yanked"):
-            continue
-        filename = str(item.get("filename") or "")
-        try:
-            distribution, version, _build, tags = parse_wheel_filename(filename)
-        except Exception:
-            continue
-        if canonicalize_name(distribution) != "django-lux":
-            continue
-        if version.is_devrelease or version <= current:
-            continue
-        if version.is_prerelease and not allow_prereleases:
-            continue
-        if version in skip:
-            continue
-        if {str(tag) for tag in tags} != {"py3-none-any"}:
-            continue
-        hashes = item.get("hashes") if isinstance(item.get("hashes"), dict) else {}
-        digest = str(hashes.get("sha256") or "").lower()
-        if not re.fullmatch(r"[0-9a-f]{64}", digest):
-            continue
-        url = _validated_https_url(item.get("url"))
-        if unquote(urlparse(url).path.rsplit("/", 1)[-1]) != filename:
-            continue
-        candidates.append((version, ReleaseCandidate(
-            version=str(version),
-            filename=filename,
-            url=url,
-            sha256=digest,
-            requires_python=str(item.get("requires-python") or ""),
-        )))
-    return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
 
 def download_wheel(candidate, destination, *, opener=urllib.request.urlopen):

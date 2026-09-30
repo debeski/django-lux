@@ -19,7 +19,6 @@ from dlux.scaffold import (
     ScaffoldError,
     _register_app,
     create_project,
-    enable_agent,
     split_image_reference,
 )
 
@@ -376,58 +375,6 @@ class ScaffoldTests(unittest.TestCase):
                     f"{name} is out of sync with the composer repo; re-copy it and "
                     "update the expected version here",
                 )
-
-    def test_enable_agent_forwards_to_the_project_composer_wrapper(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            target = create_project("demo_project", Path(tmp_dir) / "demo_project")
-            result = {
-                "applied": True,
-                "files": ["compose.yml"],
-                "command": "docker compose up -d --force-recreate docker-socket-proxy composer-agent",
-                "backup_root": ".xclude/dlux-agent-bootstrap/example",
-                "warnings": [],
-            }
-            runner = mock.Mock(
-                return_value=SimpleNamespace(
-                    returncode=0,
-                    stdout=f"notice\n{json.dumps(result)}\n",
-                    stderr="",
-                )
-            )
-
-            forwarded = enable_agent(
-                target,
-                apply=True,
-                compose_file="compose.yml",
-                command_runner=runner,
-            )
-
-            self.assertEqual(forwarded, result)
-            self.assertEqual(
-                runner.call_args.args[0],
-                [
-                    str(target / "start.sh"),
-                    "enable-agent",
-                    "--apply",
-                    "--file",
-                    "compose.yml",
-                    "--json",
-                ],
-            )
-
-    def test_enable_agent_surfaces_composer_forwarding_failure(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            target = create_project("demo_project", Path(tmp_dir) / "demo_project")
-            runner = mock.Mock(
-                return_value=SimpleNamespace(
-                    returncode=2,
-                    stdout='{"error": "DjangoLux 1.5.0 is required"}\n',
-                    stderr="",
-                )
-            )
-
-            with self.assertRaisesRegex(Exception, "DjangoLux 1.5.0 is required"):
-                enable_agent(target, apply=True, command_runner=runner)
 
     def test_startapp_creates_expected_files(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1048,42 +995,6 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
     def test_repo_slug_validation(self):
         with self.assertRaises(ScaffoldError):
             create_project("demo_project", "/tmp/never-created", repo="not-a-slug")
-
-
-class UpdaterBlockSelfHealTests(unittest.TestCase):
-    """enable-updater migrates an EXISTING project's updater block in place —
-    surgical, idempotent — so deployed projects adopt the packaged supervisor and
-    the pre-migration reconcile without a re-scaffold."""
-
-    def _compose(self):
-        from dlux.scaffold import UPDATER_COMPOSE_START, UPDATER_COMPOSE_END
-        return (
-            "services:\n"
-            "  web:\n"
-            "    command: python -m tools.dlux_runtime_supervisor -- gunicorn\n"
-            f"  {UPDATER_COMPOSE_START}\n"
-            "  dlux-updater:\n"
-            '    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", '
-            '"bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]\n'
-            f"  {UPDATER_COMPOSE_END}\n"
-        )
-
-    def test_existing_block_migrates_to_package_supervisor_and_reconcile(self):
-        from dlux.scaffold import _enable_updater_compose
-        migrated = _enable_updater_compose(self._compose(), "demo", "config")
-        self.assertNotIn("tools.dlux_runtime_supervisor", migrated)
-        self.assertIn('"python", "-m", "dlux.updater.supervisor"', migrated)
-        self.assertIn("python manage.py dlux_reconcile; python manage.py migrator", migrated)
-        # Idempotent: a second pass changes nothing (no double reconcile).
-        self.assertEqual(_enable_updater_compose(migrated, "demo", "config"), migrated)
-        self.assertEqual(migrated.count("dlux_reconcile"), 1)
-
-    def test_manage_py_import_is_migrated_idempotently(self):
-        from dlux.scaffold import _migrate_manage_py
-        old = "        from dlux_runtime_supervisor import baked_version, resolve_release\n"
-        migrated = _migrate_manage_py(old)
-        self.assertIn("from dlux.updater.supervisor import baked_version, resolve_release", migrated)
-        self.assertEqual(_migrate_manage_py(migrated), migrated)
 
 
 class CliVersionTests(unittest.TestCase):

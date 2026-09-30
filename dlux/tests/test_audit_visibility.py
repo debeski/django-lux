@@ -526,8 +526,8 @@ class CanonicalColumnSetsTests(TestCase):
             self.assertIn('purged_at', deletion_column_names())
             self.assertIn('created_by', audit_column_names())
 
-    def test_the_legacy_alias_still_resolves(self):
-        from dlux.utils import AUDIT_FIELD_NAMES
-        from dlux.system.constants import DEFAULT_AUDIT_COLUMNS
+    def test_the_legacy_alias_was_removed_in_1_10(self):
+        import dlux.utils
 
-        self.assertEqual(tuple(AUDIT_FIELD_NAMES), tuple(DEFAULT_AUDIT_COLUMNS))
+        self.assertFalse(hasattr(dlux.utils, 'AUDIT_FIELD_NAMES'))
+        self.assertNotIn('AUDIT_FIELD_NAMES', dlux.utils.__all__)

@@ -30,12 +30,8 @@ class DluxFileInput(forms.ClearableFileInput):
         # the localhost probe.
         from .utils import scanlink_enabled
         data['show_scan'] = bool(self.show_scan and scanlink_enabled())
-        # `file_field_*` replaced `archive_file_*` in v1.8.3; host projects that
-        # still override the old keys keep their translations through v1.x.
         def string(suffix, default):
             value = strings.get(f'file_field_{suffix}')
-            if value is None:
-                value = strings.get(f'archive_file_{suffix}')
             return default if value is None else value
 
         data['empty_title'] = string('empty_title', 'No file selected')

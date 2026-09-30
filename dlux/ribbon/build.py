@@ -21,7 +21,7 @@ PROMOTED_NAMES = ('year',)
 RANGE_SUFFIXES = (('__gte', '__lte'), ('_gte', '_lte'))
 # Query parameters that control how the list is presented, not what it contains.
 # Changing a page or a sort must not light up the Clear control — that contract
-# is shared with `advanced_filter_helper` (see the v1.8.2 changelog) and is
+# was first fixed in the former `advanced_filter_helper` (v1.8.2 changelog) and is
 # preserved across a Clear.
 PRESENTATION_KEYS = ('page', 'per_page', 'sort', 'export_type')
 

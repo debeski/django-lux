@@ -27,24 +27,22 @@ from django.utils import timezone
 
 from dlux.updater import package_request
 from dlux.updater.runtime import RuntimeStore
-from dlux.updater.service import composer_executes_updates
 
 
-class ExecutorSelectionTests(SimpleTestCase):
-    def test_composer_is_the_default(self):
-        self.assertTrue(composer_executes_updates())
+class ExecutorRemovedTests(SimpleTestCase):
+    """The in-container executor and its `DLUX_UPDATE_EXECUTOR` switch were removed in 1.10.0."""
+
+    def test_the_predicate_is_gone(self):
+        import dlux.updater.service as service
+
+        self.assertFalse(hasattr(service, "composer_executes_updates"))
 
     @override_settings(DLUX_UPDATE_EXECUTOR="inline")
-    def test_the_legacy_path_can_still_be_selected(self):
-        self.assertFalse(composer_executes_updates())
+    def test_the_old_setting_no_longer_selects_anything(self):
+        import dlux.updater.service as service
 
-    @override_settings(DLUX_UPDATE_EXECUTOR="")
-    def test_an_empty_value_falls_back_to_composer(self):
-        self.assertTrue(composer_executes_updates())
-
-    @override_settings(DLUX_UPDATE_EXECUTOR="COMPOSER")
-    def test_the_value_is_case_insensitive(self):
-        self.assertTrue(composer_executes_updates())
+        source = open(service.__file__, encoding="utf-8").read()
+        self.assertNotIn("DLUX_UPDATE_EXECUTOR", source)
 
 
 class RequestFileTests(SimpleTestCase):

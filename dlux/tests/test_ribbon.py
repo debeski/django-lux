@@ -1859,29 +1859,18 @@ class RibbonRenderingTests(TestCase):
         self.assertEqual(html.strip(), '')
 
 
-class AdvancedFilterHelperUnchangedTests(TestCase):
-    """Five projects still call the old helper. It must behave exactly as it
-    did until it is removed in v1.10.0."""
+class AdvancedFilterHelperRemovedTests(TestCase):
+    """`advanced_filter_helper` was superseded by the ribbon and removed in v1.10.0."""
 
-    def test_helper_is_still_exported_and_builds_a_layout(self):
-        from dlux.utils import advanced_filter_helper
+    def test_helper_is_gone_and_the_ribbon_is_the_way(self):
+        import dlux.utils
+        from dlux.utils import setup_filter_helper
 
-        # The helper assigns onto `form.helper` and returns nothing.
-        filterset = UserFilterSet({})
-        advanced_filter_helper(filterset, config={'fields': ['keyword']})
-        helper = filterset.form.helper
-        self.assertEqual(helper.form_method, 'get')
-        self.assertIn('dlux-filter', helper.form_class)
-        self.assertEqual(helper.attrs.get('data-dlux-filter-autosubmit'), 'true')
+        self.assertFalse(hasattr(dlux.utils, 'advanced_filter_helper'))
+        self.assertNotIn('advanced_filter_helper', dlux.utils.__all__)
+        self.assertTrue(callable(setup_filter_helper))
 
-    def test_helper_and_ribbon_do_not_share_a_js_hook(self):
-        """Both scripts can be on the same page; if they targeted the same
-        form, a select change would submit it twice."""
-        from dlux.utils import advanced_filter_helper
-
-        filterset = UserFilterSet({})
-        advanced_filter_helper(filterset, config={'fields': ['keyword']})
-        self.assertNotIn('dlux-ribbon', filterset.form.helper.form_class)
+    def test_the_ribbon_renders_its_own_autosubmit_hook_only(self):
         rendered = Template('{% load dlux_tags %}{% dlux_ribbon ribbon %}').render(
             Context({'ribbon': _ribbon(), 'request': None})
         )
