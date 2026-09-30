@@ -3,9 +3,12 @@
 In a Dlux-generated stack neither web nor celery has a route to the internet:
 only smtp-relay and the Composer agent sit on the egress network. The calls to
 OpenWeather run in a Celery task that writes to the shared cache, and web only
-reads that cache, so the celery service must be given the egress network
-(docs/weather.md). A project without a reachable Celery worker makes the calls in
-web instead, where a development server can reach the internet.
+reads that cache. The task asks the Composer agent to make the call through the
+egress relay (``weather.geocode`` / ``weather.current``, see dlux/relay.py); where
+the agent does not offer it, a worker that has its own route out (a project that
+gave celery the egress network) calls OpenWeather itself. Celery is part of every
+Dlux stack, so web does not make the calls itself, except under DEBUG where a
+development server can reach the internet.
 """
 import base64
 import hashlib
@@ -31,6 +34,14 @@ STALE_OBSERVATION = 7200        # an observation older than this is stale regard
 BACKOFF_SECONDS = 30            # one refresh per reading per window; failures back off
 SEARCH_WAIT_SECONDS = 10        # how long web waits for a worker's city search
 WORKER_CHECK_SECONDS = 60       # how long a worker availability answer is reused
+RELAY_TIMEOUT = 8               # how long a worker waits for the agent; web waits 10 for a search
+
+# What the agent's built-in operations return (composer/relay.py BUILTIN_OPERATIONS).
+# A test compares these with the specification both repositories share.
+GEOCODE_OPERATION = 'weather.geocode'
+GEOCODE_FIELDS = ('[].name', '[].state', '[].country', '[].lat', '[].lon')
+CURRENT_OPERATION = 'weather.current'
+CURRENT_FIELDS = ('main.temp', 'main.feels_like', 'dt', 'weather.0.id', 'weather.0.icon', 'weather.0.description')
 
 
 class WeatherUnavailable(Exception):
@@ -94,34 +105,88 @@ def _request(path, key, **params):
         raise WeatherUnavailable('network') from None
 
 
+def _pick(node, tokens):
+    """One field of a JSON document, scalars only: the same rule the agent applies."""
+    if not tokens:
+        if isinstance(node, str):
+            return node[:2000]
+        return node if node is None or isinstance(node, (bool, int, float)) else None
+    head, rest = tokens[0], tokens[1:]
+    if head == '[]':
+        return [_pick(item, rest) for item in node[:100]] if isinstance(node, list) else None
+    if isinstance(node, dict):
+        return _pick(node.get(head), rest)
+    if isinstance(node, list) and head.isdigit() and int(head) < len(node):
+        return _pick(node[int(head)], rest)
+    return None
+
+
+def _project_fields(data, fields):
+    return {path: _pick(data, path.split('.')) for path in fields}
+
+
+# What a relay failure means for weather. ``relay`` is "the agent did not answer".
+_RELAY_REASONS = {
+    'credentials': 'credentials', 'network': 'network', 'blocked': 'network',
+    'response': 'response', 'timeout': 'relay', 'agent': 'relay', 'unsupported': 'relay',
+    'unapproved': 'relay',
+}
+
+
+def _call(operation, path, fields, key, **params):
+    """One OpenWeather call, returning the ``fields`` of the answer.
+
+    Through the Composer relay when the agent offers ``operation``; otherwise
+    directly, which only works for a process with its own route out (a worker on
+    the egress network, or a development server). A process that cannot write the
+    relay channel (web) also falls back to the direct call.
+    """
+    if not key:
+        raise WeatherUnavailable('credentials')
+    from . import relay
+
+    if relay.available(operation):
+        try:
+            return relay.fetch(operation, params, secret=key, timeout=RELAY_TIMEOUT)
+        except relay.RelayError as exc:
+            if exc.code != 'writer':
+                raise WeatherUnavailable(_RELAY_REASONS.get(exc.code, 'provider')) from None
+    return _project_fields(_request(path, key, **params), fields)
+
+
 def search_locations(query, key):
-    data = _request('geo/1.0/direct', key, q=query, limit=5)
+    data = _call(GEOCODE_OPERATION, 'geo/1.0/direct', GEOCODE_FIELDS, key, q=query, limit=5)
     try:
-        return normalize_locations([
-            dict(name=', '.join(str(row[k]) for k in ('name', 'state', 'country') if row.get(k)), lat=row['lat'], lon=row['lon'])
-            for row in data
-        ])
+        columns = [data[path] for path in GEOCODE_FIELDS]
+        if any(column is None for column in columns) or len({len(column) for column in columns}) != 1:
+            raise ValueError
+        rows = []
+        for name, state, country, lat, lon in zip(*columns):
+            if lat is None or lon is None:
+                raise ValueError
+            rows.append(dict(name=', '.join(str(part) for part in (name, state, country) if part), lat=lat, lon=lon))
+        return normalize_locations(rows)
     except (KeyError, TypeError, ValueError, AttributeError):
         raise WeatherUnavailable('response') from None
 
 
 def _reading(units, location, language, key):
-    data = _request('data/2.5/weather', key, lat=location['lat'], lon=location['lon'],
-                    units=units, lang=language)
+    data = _call(CURRENT_OPERATION, 'data/2.5/weather', CURRENT_FIELDS, key, lat=location['lat'], lon=location['lon'],
+                 units=units, lang=language)
     try:
-        temperature = float(data['main']['temp'])
-        feels_like = float(data['main']['feels_like'])
+        temperature = float(data['main.temp'])
+        feels_like = float(data['main.feels_like'])
         observed = int(data['dt'])
-        condition = data['weather'][0]
-        code = int(condition['id'])
-        if not all(math.isfinite(x) for x in (temperature, feels_like)) or observed <= 0:
+        code = int(data['weather.0.id'])
+        description = data['weather.0.description']
+        if description is None or not all(math.isfinite(x) for x in (temperature, feels_like)) or observed <= 0:
             raise ValueError
-        night = str(condition.get('icon', '')).endswith('n')
+        night = str(data['weather.0.icon'] or '').endswith('n')
         icon = ('cloud-lightning-rain' if code < 300 else 'cloud-drizzle' if code < 400 else
                 'cloud-rain' if code < 600 else 'snow' if code < 700 else 'cloud-fog2' if code < 800 else
                 ('moon-stars' if night else 'sun') if code == 800 else 'cloud')
         return dict(temperature=round(temperature), feels_like=round(feels_like),
-                    description=str(condition['description'])[:160], icon=icon, observed_at=observed,
+                    description=str(description)[:160], icon=icon, observed_at=observed,
                     fetched_at=int(time.time()), location=location['name'], location_id=location['id'],
                     unit='°F' if units == 'imperial' else '°C')
     except (KeyError, TypeError, ValueError, IndexError, OverflowError):
@@ -211,12 +276,18 @@ def current_weather(config, location, language):
         return {**saved, 'stale': now - saved['observed_at'] > STALE_OBSERVATION}
     if cache.add(key + ':refresh', True, BACKOFF_SECONDS):
         if not _dispatch('dlux.tasks.weather_refresh', args):
-            try:
-                reading = refresh_reading(*args)
-                return {**reading, 'stale': now - reading['observed_at'] > STALE_OBSERVATION}
-            except WeatherUnavailable:
+            if not settings.DEBUG:
+                # Celery is part of every Dlux stack; web has no route out to make the call itself.
+                cache.set(key + ':error', 'worker', BACKOFF_SECONDS)
                 if not saved:
-                    raise
+                    raise WeatherUnavailable('worker')
+            else:
+                try:
+                    reading = refresh_reading(*args)
+                    return {**reading, 'stale': now - reading['observed_at'] > STALE_OBSERVATION}
+                except WeatherUnavailable:
+                    if not saved:
+                        raise
         elif not saved:
             raise WeatherPending()
     if saved:
@@ -238,14 +309,17 @@ def run_search(token, query, encrypted_api_key):
 
 
 def find_locations(query, key):
-    """Search cities for the settings page: through the worker, or here without one.
+    """Search cities for the settings page, through the worker.
 
     Web blocks for at most ``SEARCH_WAIT_SECONDS``; this is an administrator's
-    search, one request at a time.
+    search, one request at a time. Without a worker only a development server (DEBUG)
+    searches from web.
     """
     token = uuid.uuid4().hex
     if not _dispatch('dlux.tasks.weather_search', [token, query, encrypt_api_key(key) if key else '']):
-        return search_locations(query, key)
+        if settings.DEBUG:
+            return search_locations(query, key)
+        raise WeatherUnavailable('worker')
     deadline = time.monotonic() + SEARCH_WAIT_SECONDS
     while time.monotonic() < deadline:
         result = cache.get(_search_key(token))

@@ -107,11 +107,19 @@ back into the form, and excluded from portable settings export/import. Leave its
 field blank to retain it. Enter it again after rotating `SECRET_KEY` or importing
 settings into a new deployment. Imports retain an existing destination key.
 
-**The calls to OpenWeather run in the Celery worker, so the worker needs a route
-out.** In a Dlux-generated stack neither web nor celery can reach the internet:
-only `smtp-relay` and the Composer agent sit on the `egress` network. Weather
-therefore needs one deliberate change to `compose.yml`, giving the `celery`
-service the network the scaffold already declares:
+**The calls to OpenWeather are made by the Composer agent.** In a Dlux-generated
+stack neither web nor celery can reach the internet: only the Composer agent (and
+`smtp-relay`, for mail) sits on the `egress` network. Celery is part of every Dlux
+stack, so web never makes the calls itself. Web queues a Celery task; the task asks
+the agent to make the call through the [egress relay](outbound-requests.md) using the
+built-in operations `weather.geocode` and `weather.current`; and the answer goes into
+the shared cache, which web reads. The API key is sealed to a key only the agent
+holds, so it is never on the shared volume in the clear, and the agent returns only
+the fields weather reads. This needs **Composer 1.6.0b1 or newer**; nothing has to
+change in `compose.yml`.
+
+If the agent does not offer the operation (an older Composer), the worker tries the
+call itself, which works only if you gave `celery` a route out:
 
 ```yaml
   celery:
@@ -120,17 +128,24 @@ service the network the scaffold already declares:
       - egress
 ```
 
-This is an interim exception to the network rule in [Outbound Requests](outbound-requests.md); the relay replaces it. Recreate the service afterwards (`./start.sh`). Keep `web` off `egress`: that is
-the point of the split. Granting the worker egress lets every Celery task reach
-the internet, so do it only if you accept that. Without it the settings page says
-the worker has no route to the internet (city search answers `502 network`), and
-readings stay on *Loading*. A stack whose Celery worker is not running makes the
-calls from web instead, which works where web can reach the internet, such as a
-development server.
+That is a stopgap and an exception to the network rule in
+[Outbound Requests](outbound-requests.md): granting the worker egress lets every
+Celery task reach the internet. Update Composer instead. Keep `web` off `egress`.
+Under `DEBUG` (a development server with no Celery worker) web makes the calls
+itself, which works where your machine can reach the internet.
 
-Web queues a task and the worker calls OpenWeather (HTTPS, four-second timeout,
-bounded responses, no redirects) and writes the answer to the shared cache, which
-web reads:
+The settings page tells you which of these applies when a search fails:
+
+| Reason | Meaning and fix |
+| --- | --- |
+| `credentials` | OpenWeather refused the key; check it is active and has Geocoding access. |
+| `network` | The worker has no route out and no agent offered the operation: update Composer, or give `celery` the `egress` network. |
+| `relay` | The agent did not answer in time: check `composer-agent` is running and up to date. |
+| `worker` | No Celery worker answered: check the `celery` service is running. |
+| `provider` | OpenWeather answered with an error (or an unexpected reply); try again. |
+
+`python manage.py dlux_relay weather.geocode weather.current` shows whether the
+agent offers both.
 
 - **Readings.** Web serves the cached reading. When it is missing or older than
   15 minutes, web queues `dlux.tasks.weather_refresh`, at most once per reading
@@ -141,15 +156,10 @@ web reads:
   stale, for up to 24 hours; an observation older than two hours is also stale.
 - **City search** (superusers only). Web queues `dlux.tasks.weather_search` and
   waits up to ten seconds for its answer. An unsaved key is encrypted before it
-  reaches the broker. Errors say which fix applies: a refused key
-  (`credentials`), or a provider the server cannot reach (`provider`, or `worker`
-  when no worker answered).
+  reaches the broker and sealed again for the agent.
 
-Tasks are sent by name, so the worker must run DjangoLux 1.10.0b2 or later (a
-deployment's web and celery always do). Web checks for a live worker once a
-minute. **Without one** (a project with no Celery, or `CELERY_BROKER_URL`
-unset) web makes the calls itself, which works where web can reach the
-internet, such as a development server.
+Tasks are sent by name, so the worker must run DjangoLux 1.10.0b4 or later (a
+deployment's web and celery always do). Web checks for a live worker once a minute.
 
 The worker and web share Django's default cache, so it must be a shared backend
 (Redis, as generated stacks use); LocMemCache is per process and would never see

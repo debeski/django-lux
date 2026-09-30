@@ -304,10 +304,15 @@
                 } catch (error) {
                     // A refused key and an unreachable provider need different fixes.
                     const reason = error && error.message;
-                    setStatus(reason === 'credentials' ? labels.labelErrorKey
-                        : reason === 'network' ? labels.labelErrorEgress
-                            : (reason === 'provider' || reason === 'worker') ? labels.labelErrorNetwork
-                            : labels.labelSearchError, true);
+                    const messages = {
+                        credentials: labels.labelErrorKey,
+                        network: labels.labelErrorEgress,
+                        worker: labels.labelErrorWorker,
+                        relay: labels.labelErrorRelay,
+                        provider: labels.labelErrorProvider,
+                        response: labels.labelErrorProvider,
+                    };
+                    setStatus(messages[reason] || labels.labelSearchError, true);
                 }
                 render();
             };
