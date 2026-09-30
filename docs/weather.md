@@ -107,11 +107,30 @@ back into the form, and excluded from portable settings export/import. Leave its
 field blank to retain it. Enter it again after rotating `SECRET_KEY` or importing
 settings into a new deployment. Imports retain an existing destination key.
 
-**The calls to OpenWeather run in the Celery worker.** In a Dlux-generated stack
-the web service has no route to the internet: only celery, smtp-relay and the
-Composer agent sit on the `egress` network. So web queues a task and the worker
-calls OpenWeather (HTTPS, four-second timeout, bounded responses, no redirects)
-and writes the answer to the shared cache, which web reads:
+**The calls to OpenWeather run in the Celery worker, so the worker needs a route
+out.** In a Dlux-generated stack neither web nor celery can reach the internet:
+only `smtp-relay` and the Composer agent sit on the `egress` network. Weather
+therefore needs one deliberate change to `compose.yml`, giving the `celery`
+service the network the scaffold already declares:
+
+```yaml
+  celery:
+    networks:
+      - internal
+      - egress
+```
+
+Recreate the service afterwards (`./start.sh`). Keep `web` off `egress`: that is
+the point of the split. Granting the worker egress lets every Celery task reach
+the internet, so do it only if you accept that. Without it the settings page says
+the worker has no route to the internet (city search answers `502 network`), and
+readings stay on *Loading*. A stack whose Celery worker is not running makes the
+calls from web instead, which works where web can reach the internet, such as a
+development server.
+
+Web queues a task and the worker calls OpenWeather (HTTPS, four-second timeout,
+bounded responses, no redirects) and writes the answer to the shared cache, which
+web reads:
 
 - **Readings.** Web serves the cached reading. When it is missing or older than
   15 minutes, web queues `dlux.tasks.weather_refresh`, at most once per reading

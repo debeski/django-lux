@@ -1,9 +1,10 @@
 """Server-side OpenWeather adapter and shared, bounded weather cache.
 
-In a Dlux-generated stack the web service has no route to the internet: only
-celery, smtp-relay and the Composer agent sit on the egress network. So the calls
-to OpenWeather run in a Celery task that writes to the shared cache, and web only
-reads that cache. A project without a reachable Celery worker makes the calls in
+In a Dlux-generated stack neither web nor celery has a route to the internet:
+only smtp-relay and the Composer agent sit on the egress network. The calls to
+OpenWeather run in a Celery task that writes to the shared cache, and web only
+reads that cache, so the celery service must be given the egress network
+(docs/weather.md). A project without a reachable Celery worker makes the calls in
 web instead, where a development server can reach the internet.
 """
 import base64
@@ -84,8 +85,13 @@ def _request(path, key, **params):
         return json.loads(body)
     except HTTPError as exc:
         raise WeatherUnavailable('credentials' if exc.code in (401, 403) else 'provider') from None
-    except (URLError, TimeoutError, OSError, ValueError):
+    except ValueError:
         raise WeatherUnavailable('provider') from None
+    except OSError:
+        # URLError and TimeoutError are OSErrors: DNS, refused or timed out, so
+        # this process has no route to OpenWeather (a stack whose worker is not
+        # on the egress network) rather than OpenWeather answering badly.
+        raise WeatherUnavailable('network') from None
 
 
 def search_locations(query, key):
