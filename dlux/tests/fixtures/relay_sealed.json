@@ -1,0 +1,14 @@
+{
+  "comment": "Shared by Composer and DjangoLux tests. Sealed with the sender's code, opened with the fixture private key. Test material only.",
+  "key_id": "a62b2074dff40f2e",
+  "private_key": "YOcN7QQl5OUGKb57L7efGSuSOxz4bs5VCpGD+HchwUM=",
+  "operation_id": "0b6f2f0e-6d2a-4c7e-9a44-3f1f8a7c5d21",
+  "op": "weather.current",
+  "secret": "fixture-secret-Q7x",
+  "sealed": {
+    "key_id": "a62b2074dff40f2e",
+    "epk": "A5grAHGKM/6OZ/e6zHTNlS7/pmxaB/5+E7OM2+tVdAM=",
+    "nonce": "OkctWXjc8n+/lW6S",
+    "ct": "oXIOiqAjcImCwGbGUGXDOjs54AuuIzqOHTzBm9I4FSkqTw=="
+  }
+}

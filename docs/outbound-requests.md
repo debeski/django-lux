@@ -6,10 +6,12 @@ typed, audited channel. This page states the rule, the topology it produces, and
 how a project developer asks for an outbound call.
 
 > **Status.** The topology and the rule below describe what the scaffold already
-> does. The relay itself (the channel, `dlux.relay`, declared operations) is
-> **designed and agreed but not implemented**: until it lands, the only supported
-> route out for project code is the interim in "Until the relay ships". Do not
-> build against the API sketched here yet.
+> does. The relay is **implemented on feature branches and not yet released**: the
+> agent side in Composer (`composer/relay.py`, `composer relay`, needs Composer
+> 1.6.0b1 or newer) and the client in DjangoLux (`dlux.relay`). Until both are
+> released and installed, the only supported route out for project code is the
+> interim in "Until the relay ships". `python manage.py dlux_relay` tells you
+> whether the agent you are running answers.
 
 ## The topology
 
@@ -50,21 +52,56 @@ only the fields the operation defines.
 
 ## How a developer asks (planned)
 
-1. **Use a built-in operation** when Dlux or Composer ships one (weather is the
+1. **Use a built-in operation** when Composer ships one (weather is planned as the
    first: `weather.geocode`, `weather.current`).
-2. **Declare your own** in `relay/operations.json`, deployed with the project and
-   mounted read-only into `composer-agent` alone, so application code can never
-   widen its own network access. Each operation pins one https host and port, a
-   method, typed parameters, an optional sealed secret, a timeout and size limit,
-   the response fields it returns, and a rate limit. Run `composer relay approve`
-   to record the declaration's digest in a committed `relay/operations.lock`; the
-   agent refuses anything not locked, and a reviewer sees each new host in the diff.
-3. **Call it** with `dlux.relay.fetch(op, params, secret=None, wait=...)`. In a
-   Celery task it writes the request; in a web request it queues a task by name, so
-   `web` never writes. Read the result from the cache the way weather does.
+2. **Declare your own** in `relay/operations.json` in the project directory. The
+   agent already mounts that directory read-only (`${PWD}:${PWD}:ro`) and `web` and
+   `celery` do not, so application code can never widen its own network access, and
+   no compose change is needed. Each operation pins one https host (port 443), typed
+   parameters, an optional secret, a timeout and size limit, what the response
+   returns (`text`, or `json` with only the listed fields), and a rate limit; the
+   full schema is in Composer's `docs/relay.md`.
 
-Secrets (API keys, tokens) are never placed on the volume in the clear. Dlux seals
-them to a public key only the agent holds; see the design notes.
+   ```json
+   {"schema_version": 1, "operations": [{
+     "name": "finance.cbl_page",
+     "url": "https://cbl.gov.ly/currency-exchange-rates/",
+     "headers": {"User-Agent": "Mozilla/5.0 (my-app)"},
+     "response": {"type": "text", "max_bytes": 524288},
+     "rate": {"per_minute": 6}
+   }]}
+   ```
+
+   Run `composer relay approve` (or `./start.sh relay approve`) to pin each
+   operation's digest in `relay/operations.lock`, and commit it with the
+   declarations. The agent runs only operations whose digest is locked, and a
+   reviewer sees every new or changed host in the lock diff. `composer relay list`
+   shows what is declared and approved.
+3. **Call it from a Celery task or a management command**:
+
+   ```python
+   from dlux import relay
+
+   html = relay.fetch("finance.cbl_page", timeout=20)                # text operation
+   data = relay.fetch("weather.current", {"lat": 32.9, "lon": 13.2}, secret=api_key)
+   ```
+
+   `fetch()` writes the request, waits for the agent, and returns the response
+   data. On failure it raises `relay.RelayError` with a stable `code`
+   (`agent` no answering agent, `unsupported`, `unapproved`, `invalid`,
+   `credentials`, `network`, `provider`, `response`, `blocked`, `limit`, `expired`,
+   `timeout`) and a message that names the fix. A `web` request cannot write to the
+   channel: queue a Celery task by name, cache its result, and read the cache in the
+   request, as weather does.
+
+Secrets (API keys, tokens) are never placed on the volume in the clear: `secret=`
+is sealed to a public key only the agent holds, bound to that request and operation.
+
+**Tests.** `dlux.relay_testing.FakeAgent(store, {"finance.cbl_page": handler})`
+answers relay requests from plain callables so a project's tests never touch the
+network or a Composer; it opens sealed secrets exactly as the agent does.
+`python manage.py dlux_relay finance.cbl_page` checks a deployment, exiting non-zero
+when the agent is not answering or an operation is missing, unapproved or invalid.
 
 ## What the agent enforces
 

@@ -1,0 +1,13 @@
+{
+  "comment": "Sealed by dlux.relay.seal with the same fixture key as relay_sealed.json. Frozen sample: Composer's tests open it, so DjangoLux cannot change the format alone.",
+  "key_id": "a62b2074dff40f2e",
+  "operation_id": "7c1d9a52-3b0e-4f8a-8d6e-2a9b5c4e1f03",
+  "op": "weather.current",
+  "secret": "dlux-sealed-Z3p9",
+  "sealed": {
+    "key_id": "a62b2074dff40f2e",
+    "epk": "1gtmuXZIW1dGiqnA9AII4Jb2VY3vwbvtUPKxEzBqrFk=",
+    "nonce": "UwfY9SuS1WEiFbud",
+    "ct": "vI3t8+7hlhp7LWc88Bzeru1N9DB+ot5Rje6LHKR9hXE="
+  }
+}
