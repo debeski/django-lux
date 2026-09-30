@@ -9,6 +9,22 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.10.0
+
+The stable release of the 1.10.0 line, identical in scope to `1.10.0b5`; the
+`1.10.0b1` to `1.10.0b5` entries below are its history (`1.10.0b3` was never
+tagged). Accepted before this tag on `testbed-dlux` with Composer 1.6.0: the
+inline update to `1.10.0b5`, a rollback to `1.10.0b4` and a re-apply through
+DjangoLux's own updater service and the real Celery worker, each recorded
+`completed`; `./start.sh check` all pass; the removed names absent from the running
+release; and a weather city search from web through the real `celery` (no route to
+the internet) and the Composer agent returning OpenWeather's real refusal of a
+dummy key as `credentials`. The sales CRM dev stack ran its exchange-rate scraping
+through the agent with `celery` off `egress`. Not yet exercised with a valid
+OpenWeather key. Upgrading: `project-dhub` still calls `advanced_filter_helper`
+and must adopt the ribbon first; other known projects are unaffected (see the
+`1.10.0b5` entry for the removals and their replacements).
+
 ## v1.10.0b5
 
 The removals `docs/deprecation-countdown.md` scheduled for v1.10.0 land in this beta so the stable release can be identical to a tested beta.
