@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.10.0b4
+
+v1.10.0b3 was never tagged; its weather fix is part of this release.
+
 - **Missing Celery Is Reported, Not Hidden**: the Options → System Tasks row used to disappear when a project had no Celery settings. Celery is part of every Dlux stack, so `_get_celery_service()` now reports it offline with `service_celery_not_configured` (EN/AR): scheduled backups, weather and update handling will not run. The recheck endpoint answers with that status instead of a 404.
 - **Weather Through The Egress Relay**: the worker asks the Composer agent for `weather.geocode` and `weather.current` (built into Composer 1.6.0b1+) instead of calling OpenWeather itself, so weather works on a stack whose `celery` has no route to the internet and needs no `compose.yml` change; the API key is sealed to the agent and the agent returns only the fields weather reads. `dlux/weather.py` gains `_call()` (relay if the agent offers the operation, else the direct call for a worker that has its own route out, else a clear reason), `_project_fields()` (the same scalars-only field rule the agent applies) and field constants checked in tests against `relay_weather_ops.json` and `relay_projection_cases.json`, which both repositories share. **Celery is part of every Dlux stack**: web no longer makes the OpenWeather call when no worker answers, except under `DEBUG`; it reports the new reason `worker`. The settings page now tells failures apart — `credentials`, `network` (no route out: update Composer or give `celery` egress), `relay` (agent not answering), `worker` (no Celery worker), `provider` — with new EN/AR strings `weather_search_error_egress/_provider/_worker/_relay` (`weather_search_error_network` is replaced by `_provider`). `docs/weather.md` is rewritten around the relay and no longer describes running without Celery. No migration.
 

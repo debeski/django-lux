@@ -1,15 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.10.0b2",
+  "version": "1.10.0b4",
   "display": {
-    "summary": "Weather works in generated stacks and is built from Dlux components, and administrators can assign landing pages per user and per group.",
+    "summary": "Outbound calls go through the Composer agent, so a generated stack can keep web and celery off the internet; weather is the first feature on it.",
     "highlights": [
-      "Weather calls OpenWeather from the Celery worker, so city search and readings work where web has no internet access.",
-      "Weather settings use the Dlux builder, inspector shell and toggle selectors; the titlebar action floats as a bubble and previews.",
-      "With the per-user homepage switch on, administrators assign a landing page in Edit User and in each group; a user's own choice still wins.",
+      "The Composer agent makes outbound calls for the project through a small, typed channel (needs Composer 1.6.0b1 or newer), with API keys sealed so only the agent can read them.",
+      "Weather works on a generated stack with no change to compose.yml, and the settings page says which fix applies when a search fails.",
+      "Projects declare their own outbound calls in relay/operations.json and approve them with `composer relay approve`; nothing else in the project can reach the internet.",
+      "A project with no Celery is now reported as offline on the Options page instead of the row being hidden.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b4"
   },
   "requires": {
     "updater_schema": ">=1",
