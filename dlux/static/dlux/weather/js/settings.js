@@ -305,7 +305,8 @@
                     // A refused key and an unreachable provider need different fixes.
                     const reason = error && error.message;
                     setStatus(reason === 'credentials' ? labels.labelErrorKey
-                        : (reason === 'provider' || reason === 'worker') ? labels.labelErrorNetwork
+                        : reason === 'network' ? labels.labelErrorEgress
+                            : (reason === 'provider' || reason === 'worker') ? labels.labelErrorNetwork
                             : labels.labelSearchError, true);
                 }
                 render();

@@ -217,6 +217,7 @@ STRINGS = {
     "weather_empty_search": "No matching cities. Try the city and country code.",
     "weather_search_error": "Could not search. Check the API key and try again.",
     "weather_search_error_key": "OpenWeather refused this API key. Check that it is active and has Geocoding access.",
+    "weather_search_error_egress": "The Celery worker has no route to the internet, so OpenWeather cannot be reached. Add the egress network to the celery service in compose.yml (see the Weather guide).",
     "weather_search_error_network": "The server could not reach OpenWeather. Check that the Celery worker is running and has internet access.",
     "weather_disabled_reason": "Enable weather to configure these settings.",
     "weather_corner_reason": "Choose Floating placement to change the corner.",

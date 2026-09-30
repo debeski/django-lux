@@ -221,6 +221,26 @@ class WeatherTests(TestCase):
                     current_weather(config, config['locations'][0], 'en')
             self.assertEqual(provider.call_count, 1)
 
+    def test_unreachable_network_is_reported_apart_from_provider_errors(self):
+        from urllib.error import HTTPError, URLError
+        import socket
+        from dlux.weather import _request
+        cases = [
+            (URLError(socket.gaierror(-3, 'Temporary failure in name resolution')), 'network'),
+            (TimeoutError(), 'network'),
+            (ConnectionRefusedError(), 'network'),
+            (HTTPError('https://example.invalid/', 500, 'boom', {}, None), 'provider'),
+        ]
+        for error, expected in cases:
+            with self.subTest(error=type(error).__name__), patch('dlux.weather.build_opener') as opener:
+                opener.return_value.open.side_effect = error
+                with self.assertRaisesRegex(WeatherUnavailable, f'^{expected}$'):
+                    _request('data/2.5/weather', 'secret', lat=1, lon=2)
+        with patch('dlux.weather.build_opener') as opener:
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'not json'
+            with self.assertRaisesRegex(WeatherUnavailable, '^provider$'):
+                _request('data/2.5/weather', 'secret', lat=1, lon=2)
+
     def test_english_and_arabic_cover_dynamic_settings_labels(self):
         from dlux.forms.weather import CHOICES
         from dlux.translations import get_strings
