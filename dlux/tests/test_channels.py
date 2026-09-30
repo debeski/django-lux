@@ -18,7 +18,6 @@ from packaging.version import Version
 from dlux.models.settings import SystemSettings
 from dlux.models.updater import DluxUpdateState
 from dlux.updater import UpdaterError, channel, check_policy
-from dlux.updater.manifest import select_latest_candidate
 from dlux.updater.release_check import (
     changelog_section,
     classify_tag,
@@ -31,67 +30,6 @@ from dlux.updater.service import (
     selected_channel,
     set_update_channel,
 )
-
-
-def _index(*versions):
-    return {
-        "files": [
-            {
-                "filename": f"django_lux-{v}-py3-none-any.whl",
-                "url": f"https://files.pythonhosted.org/p/django_lux-{v}-py3-none-any.whl",
-                "hashes": {"sha256": "a" * 64},
-            }
-            for v in versions
-        ]
-    }
-
-
-class EligibilityTests(SimpleTestCase):
-    def test_stable_is_the_default_and_excludes_prereleases(self):
-        chosen = select_latest_candidate(_index("1.8.14", "1.9.0b1"), "1.8.13")
-        self.assertEqual(chosen.version, "1.8.14")
-
-    def test_beta_admits_a_prerelease(self):
-        chosen = select_latest_candidate(
-            _index("1.8.14", "1.9.0b1"), "1.8.13", allow_prereleases=True,
-        )
-        self.assertEqual(chosen.version, "1.9.0b1")
-
-    def test_beta_still_prefers_a_newer_final(self):
-        # "Include beta releases" widens eligibility; it does not mean a beta
-        # outranks a final that is genuinely newer.
-        chosen = select_latest_candidate(
-            _index("1.9.0b1", "1.9.0"), "1.8.14", allow_prereleases=True,
-        )
-        self.assertEqual(chosen.version, "1.9.0")
-
-    def test_opting_out_on_a_beta_offers_nothing_rather_than_downgrading(self):
-        # The deployment runs 1.9.0b2 and the admin turns beta off. Only 1.8.14
-        # is published as stable, and offering it would be a downgrade — which
-        # is the explicit rollback path's job, not the update check's.
-        self.assertIsNone(select_latest_candidate(_index("1.8.14"), "1.9.0b2"))
-
-    def test_opting_out_on_a_beta_offers_the_final_when_it_exists(self):
-        chosen = select_latest_candidate(_index("1.8.14", "1.9.0"), "1.9.0b2")
-        self.assertEqual(chosen.version, "1.9.0")
-
-    def test_a_later_beta_supersedes_an_earlier_one(self):
-        chosen = select_latest_candidate(
-            _index("1.9.0b2", "1.9.0b10"), "1.9.0b1", allow_prereleases=True,
-        )
-        self.assertEqual(chosen.version, "1.9.0b10", "b10 is newer than b2")
-
-    def test_skipping_still_applies_on_the_beta_channel(self):
-        chosen = select_latest_candidate(
-            _index("1.9.0b1", "1.9.0b2"), "1.8.14",
-            skip_versions=["1.9.0b2"], allow_prereleases=True,
-        )
-        self.assertEqual(chosen.version, "1.9.0b1")
-
-    def test_development_releases_are_never_eligible(self):
-        self.assertIsNone(
-            select_latest_candidate(_index("1.9.0.dev1"), "1.8.14", allow_prereleases=True)
-        )
 
 
 class PolicyFileTests(SimpleTestCase):

@@ -212,16 +212,6 @@ class RelayPackagingTests(TestCase):
         self.assertIn('"python", "-m", "dlux.smtp_relay"', compose)
         self.assertNotIn('tools.smtp_relay', compose)
 
-    def test_existing_projects_are_migrated_idempotently(self):
-        from dlux.scaffold import _migrate_smtp_relay_compose
-
-        old = '    command: ["python", "-m", "tools.smtp_relay"]\n'
-        migrated = _migrate_smtp_relay_compose(old)
-
-        self.assertIn('"python", "-m", "dlux.smtp_relay"', migrated)
-        self.assertNotIn('tools.smtp_relay', migrated)
-        self.assertEqual(_migrate_smtp_relay_compose(migrated), migrated)
-
 
 class StackContractCommandTests(TestCase):
     """Composer owns the Compose file, so the retired entrypoint must be in the contract."""

@@ -1,6 +1,6 @@
 {% load crispy_forms_field %}
 
-{% if field.field.widget.template_name == 'dlux/forms/file_input.html' or 'dlux-file-input' in field.field.widget.attrs.class|default:'' or 'archive-file-input' in field.field.widget.attrs.class|default:'' %}
+{% if field.field.widget.template_name == 'dlux/forms/file_input.html' or 'dlux-file-input' in field.field.widget.attrs.class|default:'' %}
 <div{% if field.errors %} class="is-invalid"{% endif %}>
     {{ field.as_widget }}
     {% if field.errors %}

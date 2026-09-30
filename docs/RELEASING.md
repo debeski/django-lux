@@ -293,8 +293,8 @@ release can read the wider rows but may refuse to re-save them if its own
 validation still caps the old length. Backward compatibility covers the data the
 new release writes, not just the shape of the table.
 
-Note that Composer executing the update (`DLUX_UPDATE_EXECUTOR=composer`, the
-default from 1.8.0) does **not** relax any of this. `inline_safe` is a statement
+Note that Composer executing the update (the only path since 1.10.0; earlier
+releases could select it with `DLUX_UPDATE_EXECUTOR=composer`) does **not** relax any of this. `inline_safe` is a statement
 about the database, not about who runs the command: rollback returns the
 *previous* release to the *same* schema. Composer made rollback an automated,
 health-gated path that is actually taken, so backward-compatible migrations

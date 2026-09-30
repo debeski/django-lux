@@ -14,8 +14,8 @@ and in the template:
     {% load dlux_tags %}
     {% dlux_ribbon %}
 
-Replaces `dlux.utils.advanced_filter_helper`, which stays available until
-v1.10.0 (see docs/deprecation-countdown.md).
+Replaced `dlux.utils.advanced_filter_helper`, which was removed in v1.10.0 (see
+docs/deprecation-countdown.md).
 """
 
 from .build import build_action, build_ribbon, split_range_suffix

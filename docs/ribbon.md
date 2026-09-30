@@ -5,7 +5,7 @@ The ribbon is the band at the top of a list page carrying its **title**, its
 
 It is page chrome, like the navbar and the titlebar: the administrator chooses
 how it looks in *System Settings → Ribbon*, and a view gets a correct one
-without configuring anything. It replaces `advanced_filter_helper`, which
+without configuring anything. It replaced `advanced_filter_helper` (removed in v1.10.0), which
 required a hand-written `advanced_config` dict per FilterSet and had a fixed
 layout no administrator could change (removed in v1.10.0 — see
 [Deprecation Countdown](deprecation-countdown.md)).
@@ -129,7 +129,7 @@ the derivation reads.
 The Clear control reflects **filter** state, not table presentation state.
 `page`, `per_page`, `sort` and `export_type` never activate it, and a Clear
 preserves them — except `page`, which is dropped because page 7 of a different
-result set is meaningless. This is the same contract `advanced_filter_helper`
+result set is meaningless. This is the same contract the former `advanced_filter_helper`
 was fixed to honour in v1.8.2.
 
 ## Tabs

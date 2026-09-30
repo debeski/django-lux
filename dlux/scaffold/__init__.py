@@ -5,8 +5,6 @@ Facade over the scaffold package: every name importable from the old
 
 * :mod:`~dlux.scaffold.project` — ``startproject``
 * :mod:`~dlux.scaffold.app` — ``startapp`` and its project registration
-* :mod:`~dlux.scaffold.legacy` — the deprecated ``enable_updater`` /
-  ``enable_agent`` Compose migrations, removed wholesale in 1.10.0
 * :mod:`~dlux.scaffold._shared` — paths, prompts, template rendering
 """
 
@@ -29,23 +27,5 @@ from .app import (  # noqa: F401
     _register_app,
     _upsert_list_block,
     create_app,
-)
-from .legacy import (  # noqa: F401
-    POST_START_LABEL,
-    POST_START_MIGRATOR,
-    UPDATER_COMPOSE_END,
-    UPDATER_COMPOSE_START,
-    _bootstrap_backup_root,
-    _compose_service,
-    _enable_updater_compose,
-    _enable_updater_dev_compose,
-    _enable_updater_nginx,
-    _migrate_manage_py,
-    _migrate_smtp_relay_compose,
-    _replace_compose_service,
-    _replace_once,
-    _updater_service_block,
-    enable_agent,
-    enable_updater,
 )
 from .project import create_project  # noqa: F401

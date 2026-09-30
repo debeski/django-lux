@@ -142,13 +142,6 @@ def user_can_download_backup(user):
 
 from ..system.constants import DEFAULT_AUDIT_COLUMNS, audit_column_names  # noqa: F401
 
-#: Deprecated alias for the canonical set in `dlux.system.constants`. It is
-#: published in `dlux.utils.__all__`, so it keeps resolving; new code should call
-#: `audit_column_names()`, which also includes a project's own additions.
-#: Scheduled for removal in v1.10 (see docs/deprecation-countdown.md).
-AUDIT_FIELD_NAMES = DEFAULT_AUDIT_COLUMNS
-
-
 def user_can_view_audit_fields(user):
     """Whether this user may see audit columns. Superuser always; otherwise the
     explicit `dlux.view_audit_fields` permission."""
