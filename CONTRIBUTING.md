@@ -33,6 +33,7 @@ python -m pip install -e ".[updater]"
 
 - Prefer existing Dlux helpers, templates, settings patterns, and translation systems over one-off implementations.
 - Keep backend authorization aligned with UI visibility; hidden controls are not authorization.
+- Never open a connection to a public host from code that runs in `web` or `celery`: in a generated stack only `composer-agent` has internet access. Outbound calls go through the Composer relay as named, pinned operations; see [`docs/outbound-requests.md`](docs/outbound-requests.md).
 - Keep user-facing copy translation-ready and avoid hardcoded runtime text where Dlux translations are expected.
 - Keep templates, CSS, and JavaScript theme-aware, language-aware, and direction-aware.
 - Avoid inline CSS and JavaScript unless there is a documented reason.

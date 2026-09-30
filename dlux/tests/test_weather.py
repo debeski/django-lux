@@ -115,6 +115,7 @@ class WeatherTests(TestCase):
             provider.assert_not_called()
         self.assertEqual(self.client.post(url).status_code, 405)
 
+    @override_settings(DEBUG=True)  # a development server makes the call itself
     def test_cache_shares_readings_and_stale_failure_is_marked(self):
         config = self.enable()
         location = config['locations'][0]
@@ -204,6 +205,7 @@ class WeatherTests(TestCase):
             self.assertIn('data-weather-widget', Template('{% load dlux_weather %}{% weather_widget placement="user_hub" %}').render(context))
             self.assertEqual('', Template('{% load dlux_weather %}{% weather_widget placement="floating" %}').render(context))
 
+    @override_settings(DEBUG=True)
     def test_provider_failures_are_bounded_and_do_not_leak_credentials(self):
         from urllib.error import HTTPError
         from dlux.weather import _request
@@ -351,12 +353,22 @@ class WeatherWorkerTests(TestCase):
             with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
                 find_locations('Tripoli', 'draft-key')
 
-    def test_without_a_worker_web_makes_the_call(self):
+    def test_without_a_worker_only_a_development_server_makes_the_call(self):
+        from dlux.weather import find_locations
         config = self.enable()
         with patch('dlux.weather.weather_worker_available', return_value=False), \
                 patch('dlux.weather._request', return_value=self.reading()) as provider:
-            self.assertEqual(current_weather(config, config['locations'][0], 'en')['temperature'], 21)
-        provider.assert_called_once()
+            with override_settings(DEBUG=True):
+                self.assertEqual(current_weather(config, config['locations'][0], 'en')['temperature'], 21)
+            provider.assert_called_once()
+            provider.reset_mock()
+            cache.clear()
+            with override_settings(DEBUG=False):
+                with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
+                    current_weather(config, config['locations'][0], 'en')
+                with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
+                    find_locations('Tripoli', 'draft-key')
+            provider.assert_not_called()
 
     def test_the_tasks_are_registered_under_the_names_web_sends(self):
         from dlux import tasks
@@ -449,3 +461,163 @@ class WeatherDisplayPreviewAndFloatTests(TestCase):
         self.assertIn('max-width: var(--dlux-titlebar-title-room, 40vw);', css)
         self.assertIn("titlebar.dataset.titleAlign === 'center'", rail)
         self.assertIn("setProperty('--dlux-titlebar-title-room'", rail)
+
+
+class WeatherRelayTests(TestCase):
+    """OpenWeather is reached through the Composer agent when it offers the operation."""
+
+    setUp = WeatherTests.setUp
+    save_form = WeatherTests.save_form
+    enable = WeatherTests.enable
+
+    def agent(self, **handlers):
+        import tempfile
+        from dlux.relay_testing import FakeAgent
+        from dlux.updater.runtime import RuntimeStore
+
+        root = tempfile.mkdtemp()
+        store = RuntimeStore(root).ensure()
+        override = override_settings(DLUX_UPDATE_RUNTIME_ROOT=root)
+        override.enable()
+        self.addCleanup(override.disable)
+        agent = FakeAgent(store, handlers, operations={
+            name: {'response': 'json', 'auth': True, 'params': []} for name in handlers})
+        agent.publish()
+        # The agent answers as soon as a request is written, as a running one would within a poll.
+        from dlux import relay
+        real_submit = relay.submit
+
+        def submit_and_answer(*args, **kwargs):
+            ticket = real_submit(*args, **kwargs)
+            agent.step()
+            return ticket
+
+        patcher = patch('dlux.relay.submit', submit_and_answer)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return agent
+
+    GEOCODE = {'[].name': ['Tripoli', 'Tripoli'], '[].state': ['Tripoli District', None],
+               '[].country': ['LY', 'LB'], '[].lat': [32.9, 34.4], '[].lon': [13.2, 35.8]}
+
+    def current(self, **change):
+        return {'main.temp': 21.4, 'main.feels_like': 20.0, 'dt': int(time.time()), 'weather.0.id': 800,
+                'weather.0.icon': '01d', 'weather.0.description': 'clear sky', **change}
+
+    def test_city_search_goes_through_the_relay_with_the_key_sealed(self):
+        from dlux.weather import search_locations
+        agent = self.agent(**{'weather.geocode': lambda params, secret: self.GEOCODE})
+        with patch('dlux.weather._request') as direct:
+            found = search_locations('Tripoli', 'OWM-KEY')
+        direct.assert_not_called()
+        self.assertEqual([row['name'] for row in found], ['Tripoli, Tripoli District, LY', 'Tripoli, LB'])
+        self.assertEqual(agent.seen[-1], {'op': 'weather.geocode', 'params': {'q': 'Tripoli', 'limit': 5}, 'secret': 'OWM-KEY'})
+
+    def test_a_reading_goes_through_the_relay_and_keeps_its_shape(self):
+        from dlux.weather import refresh_reading
+        agent = self.agent(**{'weather.current': lambda params, secret: self.current()})
+        config = self.enable()
+        location = config['locations'][0]
+        with patch('dlux.weather._request') as direct:
+            reading = refresh_reading(location, 'metric', 'ar', config['encrypted_api_key'])
+        direct.assert_not_called()
+        self.assertEqual((reading['temperature'], reading['feels_like'], reading['icon'], reading['unit']), (21, 20, 'sun', '°C'))
+        seen = agent.seen[-1]
+        self.assertEqual(seen['params'], {'lat': location['lat'], 'lon': location['lon'], 'units': 'metric', 'lang': 'ar'})
+        self.assertEqual(seen['secret'], api_key(config))
+
+    def test_a_missing_or_null_field_is_a_response_error_not_a_crash(self):
+        from dlux.weather import refresh_reading, search_locations
+        self.agent(**{'weather.current': lambda p, s: self.current(**{'main.temp': None}),
+                      'weather.geocode': lambda p, s: {**self.GEOCODE, '[].lat': [None, None]}})
+        config = self.enable()
+        with self.assertRaisesRegex(WeatherUnavailable, '^response$'):
+            refresh_reading(config['locations'][0], 'metric', 'en', config['encrypted_api_key'])
+        with self.assertRaisesRegex(WeatherUnavailable, '^response$'):
+            search_locations('Tripoli', 'K')
+
+    def test_the_agents_error_codes_become_weather_reasons(self):
+        from dlux.weather import search_locations
+
+        class Refused(Exception):
+            def __init__(self, code):
+                super().__init__(code)
+                self.code = code
+
+        expected = {'credentials': 'credentials', 'network': 'network', 'blocked': 'network',
+                    'provider': 'provider', 'response': 'response', 'limit': 'provider'}
+        for code, reason in expected.items():
+            def refuse(params, secret, code=code):
+                raise Refused(code)
+
+            with self.subTest(code=code):
+                self.agent(**{'weather.geocode': refuse})
+                with self.assertRaisesRegex(WeatherUnavailable, f'^{reason}$'):
+                    search_locations('Tripoli', 'K')
+
+    def test_an_agent_that_does_not_answer_is_a_relay_problem_with_its_own_message(self):
+        from dlux import relay
+        from dlux.weather import search_locations
+        self.agent(**{'weather.geocode': lambda p, s: self.GEOCODE})
+        for code in ('timeout', 'agent', 'unsupported', 'unapproved'):
+            with self.subTest(code=code), patch('dlux.relay.fetch', side_effect=relay.RelayError(code)):
+                with self.assertRaisesRegex(WeatherUnavailable, '^relay$'):
+                    search_locations('Tripoli', 'K')
+
+    def test_without_the_operation_the_worker_calls_directly_and_a_web_process_falls_back_too(self):
+        from dlux import relay
+        from dlux.weather import search_locations
+        rows = [{'name': 'Tripoli', 'country': 'LY', 'lat': 32.9, 'lon': 13.2}]
+        with patch('dlux.weather._request', return_value=rows) as direct:
+            self.assertEqual(search_locations('Tripoli', 'K')[0]['name'], 'Tripoli, LY')
+        direct.assert_called_once()
+        self.agent(**{'weather.geocode': lambda p, s: self.GEOCODE})
+        with patch('dlux.relay.fetch', side_effect=relay.RelayError('writer')), \
+                patch('dlux.weather._request', return_value=rows) as direct:
+            self.assertEqual(search_locations('Tripoli', 'K')[0]['name'], 'Tripoli, LY')
+        direct.assert_called_once()
+
+    def test_no_key_never_reaches_the_relay(self):
+        from dlux.weather import search_locations
+        self.agent(**{'weather.geocode': lambda p, s: self.GEOCODE})
+        with patch('dlux.relay.fetch') as fetch, self.assertRaisesRegex(WeatherUnavailable, '^credentials$'):
+            search_locations('Tripoli', '')
+        fetch.assert_not_called()
+
+    def test_the_fields_and_parameters_match_the_specification_composer_ships(self):
+        from pathlib import Path
+        from dlux import weather
+        spec = {op['name']: op for op in json.loads(
+            (Path(__file__).parent / 'fixtures' / 'relay_weather_ops.json').read_text())['operations']}
+        self.assertEqual(list(weather.GEOCODE_FIELDS), spec[weather.GEOCODE_OPERATION]['response']['fields'])
+        self.assertEqual(list(weather.CURRENT_FIELDS), spec[weather.CURRENT_OPERATION]['response']['fields'])
+        agent = self.agent(**{'weather.geocode': lambda p, s: self.GEOCODE,
+                              'weather.current': lambda p, s: self.current()})
+        weather.search_locations('Tripoli', 'K')
+        config = self.enable()
+        weather.refresh_reading(config['locations'][0], 'imperial', 'en', config['encrypted_api_key'])
+        for seen in agent.seen:
+            declared = spec[seen['op']]['params']
+            self.assertLessEqual(set(seen['params']), set(declared))
+            self.assertTrue({name for name, rule in declared.items() if rule.get('required', True)} <= set(seen['params']))
+            self.assertTrue(spec[seen['op']]['auth'] and seen['secret'])
+
+    def test_field_projection_matches_the_cases_composer_also_checks(self):
+        from pathlib import Path
+        from dlux.weather import _project_fields
+        cases = json.loads((Path(__file__).parent / 'fixtures' / 'relay_projection_cases.json').read_text())['cases']
+        for case in cases:
+            with self.subTest(case=case['name']):
+                self.assertEqual(_project_fields(case['document'], tuple(case['fields'])), case['expected'])
+
+    def test_the_settings_page_has_a_message_for_every_failure_the_search_can_report(self):
+        from dlux.translations import get_strings
+        for language in ('en', 'ar'):
+            strings = get_strings(language)
+            for key in ('weather_search_error_key', 'weather_search_error_egress', 'weather_search_error_worker',
+                        'weather_search_error_relay', 'weather_search_error_provider'):
+                self.assertTrue(strings.get(key), (language, key))
+        template = open(__import__('os').path.join(
+            __import__('os').path.dirname(__file__), '..', 'templates', 'dlux', 'weather', 'settings.html')).read()
+        for label in ('key', 'egress', 'worker', 'relay', 'provider'):
+            self.assertIn(f'data-label-error-{label}=', template)

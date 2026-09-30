@@ -630,6 +630,10 @@ For the full contract and more examples, use:
 - [UI Integration](ui-integration.md)
 - [Template Customization](template-customization.md)
 
+## Outbound network access
+
+`web` and `celery` have no route to the internet in a generated stack; only `composer-agent` does. Do not call a public host from a view, signal, task or management command. Outbound calls go through the Composer relay as named, pinned operations, and project-specific ones are declared in `relay/operations.json`. The rule, the topology and the (planned) developer API are in [Outbound Requests](outbound-requests.md).
+
 ## Where to Go Next
 
 - Use the [Customization Guide](customization-guide.md) when you are ready to wire your own extensions; it links to the focused translation, UI, project-configuration, and template references.

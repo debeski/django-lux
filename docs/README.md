@@ -25,6 +25,7 @@ Use the sections below based on what you are trying to do.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
 - [Data & Privacy](data-privacy.md) for the personal data DjangoLux stores, transparency vs. consent, retention, and the privacy-notice / consent operator controls.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
+- [Outbound Requests](outbound-requests.md) for the network rule (only `composer-agent` reaches the internet) and how a project asks for an outbound call.
 - [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
 - [Deployment Doctor](doctor.md) for diagnosing a deployment, the JSON report contract Composer consumes, and the remediation safety tiers.
 
