@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.10.0b4",
+  "version": "1.10.0b5",
   "display": {
-    "summary": "Outbound calls go through the Composer agent, so a generated stack can keep web and celery off the internet; weather is the first feature on it.",
+    "summary": "The compatibility contracts scheduled for 1.10.0 are removed: the in-container updater, advanced_filter_helper, the archive_file shims and the AUDIT_FIELD_NAMES alias.",
     "highlights": [
-      "The Composer agent makes outbound calls for the project through a small, typed channel (needs Composer 1.6.0b1 or newer), with API keys sealed so only the agent can read them.",
-      "Weather works on a generated stack with no change to compose.yml, and the settings page says which fix applies when a search fails.",
-      "Projects declare their own outbound calls in relay/operations.json and approve them with `composer relay approve`; nothing else in the project can reach the internet.",
-      "A project with no Celery is now reported as offline on the Options page instead of the row being hidden.",
+      "Composer performs every inline update: DLUX_UPDATE_EXECUTOR and the in-container executor are gone, along with `python -m dlux enable-updater` and `enable-agent` (use `./start.sh check --fix`).",
+      "`advanced_filter_helper` is removed; list pages use the ribbon or `setup_filter_helper()`.",
+      "The `archive_file` widget names and the `AUDIT_FIELD_NAMES` alias are removed; the framework names replace them.",
+      "Everything from 1.10.0b4 is included: outbound calls through the Composer agent, weather on the relay, and a missing Celery reported on Options.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.0b5"
   },
   "requires": {
     "updater_schema": ">=1",
