@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_ROOT))
 TEST_LABELS = [
     'dlux.tests.test_weather',
     'dlux.tests.test_accent_edges',
+    'dlux.tests.test_assigned_home_url',
     'dlux.tests.test_access',
     'dlux.tests.test_activitylog',
     'dlux.tests.test_admin_actions',

@@ -10,18 +10,20 @@ from crispy_forms.bootstrap import FormActions
 from PIL import Image
 from django.core.exceptions import ValidationError
 from django.apps import apps
+from ..system.constants import ADMIN_HOME_URL_PREFERENCE
 from ..translations import get_strings
 from ..utils import (
     get_user_management_tier_state,
     get_user_scope,
     is_central_staff,
     is_scope_enabled,
+    user_home_override_enabled,
 )
 from ..widgets import DluxMultipleChoiceSelectorWidget
 
 from ._shared import User, _json_dump
 from .auth import _apply_autocomplete_attrs
-from .builders import _bind_choice_selector_widget, _build_file_widget, _build_submit_actions, _build_wizard_actions, build_file_field
+from .builders import _bind_choice_selector_widget, _build_file_widget, _landing_page_choices, _build_submit_actions, _build_wizard_actions, build_file_field
 from .permissions import GroupedPermissionWidget, _apply_assignable_permission_filter, _extract_permission_codenames, get_assignable_permissions_queryset
 
 
@@ -495,6 +497,7 @@ class CustomUserChangeForm(UserChangeForm):
 
     phone = forms.CharField(max_length=15, required=False)
     scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
+    assigned_home_url = forms.ChoiceField(required=False)
 
     class Meta:
         model = User
@@ -530,6 +533,25 @@ class CustomUserChangeForm(UserChangeForm):
         self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
         self.fields["phone"].help_text = s.get('help_phone', "Enter a valid phone number (optional).")
         self.fields["scope"].help_text = ""
+
+        if user_home_override_enabled():
+            from dlux.discovery import build_user_home_url_options
+            prefs = getattr(getattr(user_instance, 'profile', None), 'preferences', None)
+            current_home = prefs.get(ADMIN_HOME_URL_PREFERENCE, '') if isinstance(prefs, dict) else ''
+            field = self.fields['assigned_home_url']
+            field.choices = _landing_page_choices(
+                build_user_home_url_options(user_instance) if user_instance else [],
+                current_home,
+                s.get('form_assigned_home_url_empty', "Group or system default"),
+            )
+            field.initial = current_home
+            field.label = s.get('form_assigned_home_url', "Landing Page")
+            field.help_text = s.get(
+                'help_assigned_home_url',
+                "Where this user lands after signing in, unless they choose their own in Options. Only pages they can open are listed.",
+            )
+        else:
+            self.fields.pop('assigned_home_url')
         _apply_autocomplete_attrs(
             self,
             {
@@ -585,6 +607,8 @@ class CustomUserChangeForm(UserChangeForm):
         
         if scope_visible:
             layout_fields.append(Row(Field("scope", css_class="form-control")))
+        if 'assigned_home_url' in self.fields:
+            layout_fields.append(Row(Field("assigned_home_url", css_class="form-select")))
 
         actions = _build_submit_actions(
             s,
@@ -609,6 +633,14 @@ class CustomUserChangeForm(UserChangeForm):
             else:
                 if 'scope' in self.changed_data:
                     profile.scope = self.cleaned_data.get('scope')
+            if 'assigned_home_url' in self.fields:
+                prefs = dict(profile.preferences) if isinstance(profile.preferences, dict) else {}
+                assigned = self.cleaned_data.get('assigned_home_url') or ''
+                if assigned:
+                    prefs[ADMIN_HOME_URL_PREFERENCE] = assigned
+                else:
+                    prefs.pop(ADMIN_HOME_URL_PREFERENCE, None)
+                profile.preferences = prefs
             profile.save()
             
         return user

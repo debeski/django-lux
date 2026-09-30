@@ -176,6 +176,10 @@ PREFERENCES_APP_NAMESPACE = 'app'
 DEFAULT_MAX_PREFERENCES_BYTES = 64 * 1024
 # Max length of a single app-preference namespace key.
 PREFERENCES_APP_NAMESPACE_MAXLEN = 128
+# Admin-owned keys: the preferences API refuses to write this one and a
+# preferences reset keeps it; the group map is a Dlux-owned key of extra_config.
+ADMIN_HOME_URL_PREFERENCE = 'admin_home_url'
+GROUP_HOME_URLS_KEY = 'group_home_urls'
 
 # System-level app-owned config: the parallel of the per-user `app` namespace, but
 # for GLOBAL project config. Downstream projects store opaque JSON under this

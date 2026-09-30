@@ -101,6 +101,7 @@ from ..system.defaults import (
     default_profile_config as _default_profile_config,
 )
 from ..system.normalizers import (
+    normalize_group_home_urls,
     _normalize_client_ip_header_name as _system_normalize_client_ip_header_name,
     normalize_allowed_fonts as _system_normalize_allowed_fonts,
     normalize_auth_config as _system_normalize_auth_config,
@@ -797,19 +798,99 @@ def normalize_profile_config(value):
     return normalized
 
 
-def resolve_user_home_url(user, config=None):
-    """Return the user's per-user landing page (``Profile.preferences['user_home_url']``)
-    when ``homepage_config.allow_user_override`` is enabled, else ''. Safe/never raises."""
+def user_home_override_enabled(config=None):
+    """True when System Settings lets users (and admins, for them) set a landing page."""
+    if config is None:
+        config = get_system_config()
+    return bool(normalize_homepage_config(config.get('homepage_config') or config).get('allow_user_override'))
+
+
+def get_group_home_urls(config=None):
+    """Group presets' landing pages, ``{group name: url}``, from ``extra_config``."""
+    from ..system.constants import GROUP_HOME_URLS_KEY
+    if config is None:
+        config = get_system_config()
+    extra = config.get('extra_config') if isinstance(config, dict) else None
+    value = extra.get(GROUP_HOME_URLS_KEY) if isinstance(extra, dict) else None
+    return normalize_group_home_urls(value)
+
+
+def set_group_home_url(group_name, url, previous_name=None):
+    """Store (or clear, for an empty ``url``) a group preset's landing page.
+
+    Keyed by group name so a portable settings export stays meaningful on another
+    install; ``previous_name`` drops the entry a rename leaves behind.
+    """
+    from ..system.constants import GROUP_HOME_URLS_KEY
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    sys_settings = SystemSettings.load()
+    extra = dict(sys_settings.extra_config) if isinstance(sys_settings.extra_config, dict) else {}
+    urls = normalize_group_home_urls(extra.get(GROUP_HOME_URLS_KEY))
+    before = dict(urls)
+    if previous_name:
+        urls.pop(str(previous_name).strip(), None)
+    name = str(group_name or '').strip()
+    url = str(url or '').strip()
+    if name and url:
+        urls[name] = url
+    elif name:
+        urls.pop(name, None)
+    if urls == before:
+        return
+    if urls:
+        extra[GROUP_HOME_URLS_KEY] = urls
+    else:
+        extra.pop(GROUP_HOME_URLS_KEY, None)
+    sys_settings.extra_config = extra
+    sys_settings.save()
+
+
+def resolve_assigned_home_url(user, config=None):
+    """Return the landing page an administrator assigned to ``user``, else ''.
+
+    ``Profile.preferences['admin_home_url']`` wins; otherwise the first active group
+    preset (by name) the user belongs to with an entry in ``get_group_home_urls()``.
+    A page the user cannot open is skipped, so a permission change never lands them
+    on a 403. Does not consult ``allow_user_override``; ``resolve_user_home_url`` does.
+    """
+    from ..system.constants import ADMIN_HOME_URL_PREFERENCE
+    if not getattr(user, 'is_authenticated', False):
+        return ''
     try:
-        if config is None:
-            config = get_system_config()
-        homepage_config = normalize_homepage_config(config.get('homepage_config') or config)
-        if not homepage_config.get('allow_user_override'):
+        profile = getattr(user, 'profile', None)
+        prefs = getattr(profile, 'preferences', None) if profile is not None else None
+        candidates = [str(prefs.get(ADMIN_HOME_URL_PREFERENCE) or '').strip()] if isinstance(prefs, dict) else []
+        group_urls = get_group_home_urls(config)
+        if group_urls:
+            names = user.groups.filter(
+                name__in=list(group_urls), dlux_profile__is_active=True,
+            ).order_by('name').values_list('name', flat=True)
+            candidates.extend(group_urls[name] for name in names)
+        candidates = [url for url in candidates if url]
+        if not candidates:
+            return ''
+        from dlux.discovery import build_user_home_url_options
+        accessible = {option['value'] for option in build_user_home_url_options(user)}
+        return next((url for url in candidates if url in accessible), '')
+    except Exception:
+        logger.debug("Could not resolve assigned landing page for user pk=%s", getattr(user, 'pk', None), exc_info=True)
+    return ''
+
+
+def resolve_user_home_url(user, config=None):
+    """Return the user's landing page when ``homepage_config.allow_user_override`` is
+    enabled, else ''. The user's own pick (``Profile.preferences['user_home_url']``)
+    wins over an administrator's assignment (``resolve_assigned_home_url``). Never raises."""
+    try:
+        if not user_home_override_enabled(config):
             return ''
         profile = getattr(user, 'profile', None)
         prefs = getattr(profile, 'preferences', None) if profile is not None else None
         if isinstance(prefs, dict):
-            return str(prefs.get('user_home_url') or '').strip()
+            own = str(prefs.get('user_home_url') or '').strip()
+            if own:
+                return own
+        return resolve_assigned_home_url(user, config)
     except Exception:
         pass
     return ''

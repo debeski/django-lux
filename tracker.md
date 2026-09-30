@@ -49,6 +49,7 @@
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
 - **Priority 2:**
   - [ ] Branch `fix/weather-dlux-primitives` (unmerged): weather rebuilt on Dlux parts (builder + inspector shell, titlebar action, toggle selectors) and its OpenWeather calls moved to the Celery worker — web has no egress in generated stacks, so b1's weather could never search or read there. Verified live on the sales CRM stack (web→celery→OpenWeather→cache). 2678 unit OK. Ships as 1.10.0b2.
+  - [ ] Branch `feat/assigned-homepage` (unmerged, 2026-09-30): admin-assigned landing pages per user (`preferences['admin_home_url']`, blocked from the preferences API, kept by reset) and per group preset (`extra_config['group_home_urls']` by name), gated on `allow_user_override`; order user pick → user assignment → first active group by name → `default_url`. No migration. Stacked on `fix/weather-dlux-primitives` (the CRM dev stack mounts this checkout): merge weather first.
   - [ ] Accept 1.10.0b1 on `testbed-dlux` via the beta channel: weather with a real OpenWeather key, the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group. The sales CRM can adopt it on its beta channel.
   - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
@@ -71,17 +72,16 @@
   - [x] v1.8.12 `dlux_image_gate`: adopt/keep/abort verdict so an image baking an older dlux keeps the newer active release instead of being refused outright, decided by the release's own `requires.baked_image` floor. Composer must adopt the command for the gate to relax (2026-09-06).
 
 ### One-line info about last verified Tests:
+- 2026-09-30 `feat/assigned-homepage` (no-migration rework): full `dlux.tests` 2676 OK (2 skips), `test_assigned_home_url` 8 OK, `makemigrations --check` clean, import cycles clean. Not browser-tested.
 - 2026-09-29 weather: full `dlux.tests` 2668 OK (2 skips); final focused 86 OK; weather browser 4/4 (real saves, desktop/mobile, RTL, titlebar rail/user hub/floating/card). Screenshots reviewed in `tests-e2e/shots/weather-*`. Live key check returned 401; fixtures cover successful readings.
 - 2026-09-25: 1.9.4b1 + Composer 1.5.3b1 on `testbed-dlux` — `--skip-config` put the flag in web/celery/agent/executor with the system left unconfigured and `config.json` byte-identical; a plain deploy unset it and imported; after publication, beta channel installed 1.9.4b1 inline from 1.9.3 (site serves 1.9.4b1, `check` all pass). Found: unpinned `composer dlux update` ignores the beta channel (see Composer tracker).
 - 2026-09-25: releases on `testbed-dlux` — stable channel: 1.9.3 -> 1.9.4 inline with Composer 1.5.3 (site serves 1.9.4, check all pass); beta channel: 1.9.4 -> 1.9.5b1 (site and static on 1.9.5b1). Preview branch before tagging: 2601 unit OK, `release_check --classify` beta and `--base-tag v1.9.4` pass.
-- 2026-09-24: `--skip-config` live on the rig, both halves of the seam — `COMPOSER_SELF_IMAGE=composer:test-1.5.3 ./start.sh --skip-config` put `DLUX_SKIP_CONFIG_IMPORT=True` into web/celery/composer-agent, dlux then returned `skipped` from the bootstrap with the system left unconfigured and `config.json` byte-identical; with the flag off the same call reached file resolution (`missing`), and a plain `./start.sh` left the variable unset. dlux 2595 OK, Composer 704 OK.
 
 ### One-line info about last time edited Docs:
+- 2026-09-30 (`feat/assigned-homepage`): `reference.md`, `system-configuration.md`, `FEATURES.md`, Unreleased changelog describe admin-assigned landing pages; tags checked (v1.10.0b1 tagged).
 - 2026-09-29: `weather.md`, `system-configuration.md`, `reference.md`, `FEATURES.md`, and Unreleased changelog describe weather settings, embedding, key portability, cache behaviour, and deployment assets; tags verified before changelog edit.
 - 2026-09-26: `ui-integration.md`, `developer-guide.md`, `inline-updater.md` and the app scaffold README give v1.10.0 (not 1.9.0) for removing `advanced_filter_helper` and the in-container executor.
 - 2026-09-24: system/deployment configuration docs explain `DLUX_SKIP_CONFIG_IMPORT`, supported versions, and repeat-on-redeploy semantics; changelog/manifest opened at untagged 1.9.4 after verifying 1.9.3 was tagged.
-- 2026-09-23: `docs/inline-updater.md` gained "The Operations card" (handoff, token matching, the operation table, why the request carries no command surface); `docs/reference.md` lists both `/sys/api/dlux-ops/` endpoints.
-- 2026-09-20: aligned every `advanced_filter_helper` reference and scaffold recommendation with its v1.10.0 removal target.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

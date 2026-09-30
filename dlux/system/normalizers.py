@@ -11,6 +11,7 @@ from copy import deepcopy
 from urllib.parse import urlsplit
 
 from .constants import (
+    GROUP_HOME_URLS_KEY,
     EMAIL_CONFIG_VERIFIED_FIELDS,
     CLIENT_IP_MODE_CUSTOM,
     CLIENT_IP_MODE_VALUES,
@@ -660,7 +661,24 @@ def normalize_extra_config(value):
     result = dict(value) if isinstance(value, dict) else {}
     if 'weather' in result:
         result['weather'] = normalize_weather_config(result['weather'])
+    if GROUP_HOME_URLS_KEY in result:
+        urls = normalize_group_home_urls(result[GROUP_HOME_URLS_KEY])
+        if urls:
+            result[GROUP_HOME_URLS_KEY] = urls
+        else:
+            result.pop(GROUP_HOME_URLS_KEY)
     return result
+
+
+def normalize_group_home_urls(value):
+    """``{group name: landing url}`` with blank names and urls dropped."""
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(name).strip(): str(url).strip()
+        for name, url in value.items()
+        if str(name or '').strip() and str(url or '').strip()
+    }
 
 
 def normalize_titlebar_actions_order(value):
@@ -1179,6 +1197,7 @@ __all__ = [
     'normalize_email_config',
     'email_config_fingerprint',
     'normalize_extra_config',
+    'normalize_group_home_urls',
     'normalize_language_catalog',
     'normalize_language_config',
     'normalize_layout_config',

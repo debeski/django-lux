@@ -18,6 +18,7 @@ from ..utils import (
     can_manage_group_preset,
     collect_related_objects,
     get_visible_group_presets,
+    set_group_home_url,
 )
 
 User = get_user_model()
@@ -205,8 +206,10 @@ def delete_group(request, pk):
             'related': related,
         })
 
+    group_name = group.name
     try:
         group.delete()
+        set_group_home_url(group_name, '')
     except ProtectedError:
         return JsonResponse({
             'success': False,

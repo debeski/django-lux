@@ -603,6 +603,12 @@ def initial_user_setup(request):
         scopes_enabled=is_scope_enabled(),
     )
     allowed_font_slugs = set(config.get('allowed_fonts') or [])
+    home_url_options = build_user_home_url_options(request.user) if allow_home else []
+    assigned_home_url_option = None
+    if allow_home:
+        from ..utils import resolve_assigned_home_url
+        assigned = resolve_assigned_home_url(request.user)
+        assigned_home_url_option = next((o for o in home_url_options if o['value'] == assigned), None)
     context = {
         'allow_theme': allow_theme,
         'allow_language': allow_language,
@@ -615,7 +621,8 @@ def initial_user_setup(request):
         'current_language': prefs.get('language') or config.get('default_language'),
         'current_font': prefs.get('font') or '',
         'current_home': prefs.get('user_home_url') or '',
-        'home_url_options': build_user_home_url_options(request.user) if allow_home else [],
+        'home_url_options': home_url_options,
+        'assigned_home_url_option': assigned_home_url_option,
         'DLUX_STRINGS': s,
     }
     # The dlux dynamic modal fetches via AJAX and expects {html: ...}; a direct browser GET
