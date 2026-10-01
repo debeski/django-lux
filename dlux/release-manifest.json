@@ -1,16 +1,13 @@
 {
   "schema_version": 2,
-  "version": "1.10.1",
+  "version": "1.10.2b1",
   "display": {
-    "summary": "The Updates card tells the truth and keeps itself current: status icons that match what a check found, an application-image check icon, background and post-check refreshes, and a channel switch that stops saying pending.",
+    "summary": "The application image row's check icon now leads the row like the DjangoLux one: an arrow until checked, a tick afterwards, and the update icon when there is an update.",
     "highlights": [
-      "A check that finds nothing newer turns green at once; a locally built image shows a neutral Local build icon instead of a permanent update.",
-      "The application image row has its own check icon, and the card refreshes in the background and after each check, so a newly published image appears without a reload.",
-      "The update target shows the project's version or the build's digest, with the baked DjangoLux version labelled separately.",
-      "The release-channel switch clears its pending note on its own; the Backup row icon highlights on hover.",
+      "The application image row's check icon leads the row, matching the DjangoLux row, instead of sitting at its end.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b1"
   },
   "requires": {
     "updater_schema": ">=1",
