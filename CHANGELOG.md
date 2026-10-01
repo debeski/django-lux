@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.10.1
+
 - **Channel Switch Stops Saying Pending**: after turning **Include beta releases** on or off, the note "Pending: the update worker applies this shortly." stayed until a reload because nothing re-read the state once the worker had published the change. `refreshState()` in `updater.js` now polls every 2 s while `channel_pending` is set. No migration.
 
 ## v1.10.1b2
