@@ -709,6 +709,10 @@
                 } else {
                     statePollTimer = window.setTimeout(pollReadOnlyState, 1500);
                 }
+            } else if (payload.state?.channel_pending) {
+                // The worker publishes a channel change; nothing else would ask
+                // again, so the "pending" note stayed until a reload.
+                statePollTimer = window.setTimeout(pollReadOnlyState, 2000);
             }
         }
 

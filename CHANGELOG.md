@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Channel Switch Stops Saying Pending**: after turning **Include beta releases** on or off, the note "Pending: the update worker applies this shortly." stayed until a reload because nothing re-read the state once the worker had published the change. `refreshState()` in `updater.js` now polls every 2 s while `channel_pending` is set. No migration.
+
 ## v1.10.1b2
 
 - **Image Row Check, Background Refresh, Backup Hover**: the application-image row now has its own refresh icon (`data-dlux-image-check`, string `dlux_update_image_check`) that runs the same check as the DjangoLux row, so the image can be re-checked while a DjangoLux update hides that row's icon. The Updates card re-reads `dlux_update_state` every 60 s while the tab is visible and idle (and when it regains focus), so an image published after page load appears without a reload. A finished check also re-reads the state 10 s and 30 s later: when Composer is slower than the 20 s acknowledgement wait the run completes from the previous report, and the fresh image report used to appear only after a reload. The Backup row's link icon gets the same hover highlight as the buttons (`a.dlux-upd-ic:hover`). No migration.
