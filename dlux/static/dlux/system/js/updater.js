@@ -758,6 +758,16 @@
             });
         }
 
+        // A check is finished by Composer's acknowledgement, or by a timeout that
+        // falls back to its last report when the registry is slow. In that case
+        // the fresh image report lands after the run completed, and nothing asked
+        // the card to look again until a reload. Look again shortly after.
+        function followUpAfterCheck() {
+            [10000, 30000].forEach((delay) => window.setTimeout(() => {
+                if (!checkBusy && !runUrl) refreshState().catch(() => {});
+            }, delay));
+        }
+
         async function pollRun() {
             if (!runUrl) return;
             try {
@@ -777,6 +787,7 @@
                     runUrl = '';
                     stopCheckSpinner(); // no-op unless a check spinner is active
                     await refreshState();
+                    if (payload.run.action === 'check') followUpAfterCheck();
                     if (shouldReopenReview) {
                         if (hasWheelUpdate(state)) {
                             openReview('apply');
@@ -822,6 +833,7 @@
                     // Synchronous check: state is refreshed and we're done.
                     await refreshState();
                     stopCheckSpinner();
+                    followUpAfterCheck();
                     if (reopenReviewAfterCheck) {
                         reopenReviewAfterCheck = false;
                         if (hasWheelUpdate(state)) {
