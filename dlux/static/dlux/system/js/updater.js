@@ -629,16 +629,33 @@
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
+            // The image row reads like the DjangoLux row: the check icon is the
+            // status (arrow until a check, then a tick, or the disk for a local
+            // build) and gives way to the update icon when there is one.
+            const imageChecked = Boolean(img.checked_at);
+            if (imageCheckButton) {
+                imageCheckButton.classList.toggle('is-ok', imageChecked && !localBuild);
+                const glyph = imageCheckButton.querySelector('[data-dlux-check-glyph]');
+                if (glyph) {
+                    glyph.className = localBuild ? 'bi bi-hdd'
+                        : (imageChecked ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise');
+                }
+                withCheckTime(
+                    imageCheckButton,
+                    localBuild ? (root.dataset.labelImageLocal || imageCheckButton.dataset.titleBase) : imageCheckButton.dataset.titleBase,
+                    img.checked_at,
+                );
+            }
             if (imageOkEl) {
                 imageOkEl.classList.toggle('bi-check-circle-fill', !localBuild);
                 imageOkEl.classList.toggle('bi-hdd', localBuild);
                 imageOkEl.classList.toggle('dlux-upd-ic--ok', !localBuild);
+                withCheckTime(
+                    imageOkEl,
+                    localBuild ? (root.dataset.labelImageLocal || imageOkEl.dataset.titleBase) : imageOkEl.dataset.titleBase,
+                    img.checked_at,
+                );
             }
-            withCheckTime(
-                imageOkEl,
-                localBuild ? (root.dataset.labelImageLocal || imageOkEl?.dataset.titleBase) : imageOkEl?.dataset.titleBase,
-                img.checked_at,
-            );
             withCheckTime(imageButton, imageButton?.dataset.titleBase, img.checked_at);
             // When an update is available, show what it would update to: the target
             // version composer published, or the short remote digest as a fallback.
@@ -652,6 +669,7 @@
                 }
             }
             if (imageOkEl) imageOkEl.hidden = imageAvailable || imgActive;
+            if (imageCheckButton) imageCheckButton.hidden = imageAvailable || imgActive;
             if (imageButton) imageButton.hidden = !imageAvailable;
             const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);

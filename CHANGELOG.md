@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Image Row Check Follows The Card's Pattern**: the application-image check icon sat at the row's end in a quiet style, unlike every other row. It is now the row's lead icon, like the DjangoLux row's: an arrow until a check, a green tick once checked (the disk icon for a local build), hidden when an update is available so the download icon takes its place. Users who cannot manage updates keep the static tick. No migration.
+
 ## v1.10.1
 
 - **Channel Switch Stops Saying Pending**: after turning **Include beta releases** on or off, the note "Pending: the update worker applies this shortly." stayed until a reload because nothing re-read the state once the worker had published the change. `refreshState()` in `updater.js` now polls every 2 s while `channel_pending` is set. No migration.

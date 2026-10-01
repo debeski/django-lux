@@ -302,8 +302,14 @@
                                     </div>
                                     <div class="dlux-upd-row">
                                         <span class="dlux-upd-lead">
+                                            {% if can_manage_dlux_updates %}
+                                            <button type="button" class="dlux-upd-ic" data-dlux-image-check
+                                                    title="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"><i class="bi bi-arrow-clockwise" data-dlux-check-glyph></i></button>
+                                            {% else %}
                                             <i class="bi bi-check-circle-fill dlux-upd-ic dlux-upd-ic--static dlux-upd-ic--ok" data-dlux-image-ok
                                                title="{{ DLUX_STRINGS.dlux_update_image_uptodate|default:'The application image is up to date' }}"></i>
+                                            {% endif %}
                                             {% if can_manage_dlux_updates %}
                                             <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-update-image hidden
                                                     title="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"
@@ -317,11 +323,6 @@
                                             {% endif %}
                                         </span>
                                         <span class="dlux-upd-end">
-                                            {% if can_manage_dlux_updates %}
-                                            <button type="button" class="dlux-upd-ic dlux-upd-ic--rollback" data-dlux-image-check
-                                                    title="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"
-                                                    aria-label="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"><i class="bi bi-arrow-clockwise" data-dlux-check-glyph></i></button>
-                                            {% endif %}
                                             <code class="dlux-upd-digest" data-dlux-image-digest></code>
                                             <span class="dlux-upd-target" data-dlux-image-target hidden
                                                   title="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"></span>
