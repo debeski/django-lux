@@ -1,16 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.10.1b1",
+  "version": "1.10.1b2",
   "display": {
-    "summary": "The Updates card tells the truth: a check that finds nothing turns green at once, a locally built image is not offered the registry image, the update target no longer shows the baked DjangoLux version, and Composer checks that cannot complete say why.",
+    "summary": "The Updates card keeps itself current: the application image has its own check icon, the card re-reads its state in the background and after every check, and the Backup row icon highlights on hover.",
     "highlights": [
-      "DjangoLux's check icon turns green as soon as a check finds nothing newer, without a reload.",
-      "A locally built application image shows a neutral Local build icon instead of a permanent update.",
-      "The update target is the project's version or the build's digest; the baked DjangoLux version is labelled separately.",
-      "The Composer agent row explains an unreadable registry; the deployment check offers Apply repairs from its results, or says none is available.",
+      "The application image row has its own check icon, so the image can be re-checked even while a DjangoLux update is pending.",
+      "The Updates card refreshes in the background and shortly after a check, so a newly published image appears without a reload.",
+      "The Backup row icon highlights on hover like the others.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.1b2"
   },
   "requires": {
     "updater_schema": ">=1",
