@@ -675,7 +675,7 @@
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
-button.dlux-upd-ic:hover { background: color-mix(in srgb, var(--primal) 20%, transparent); transform: translateY(-1px); }
+a.dlux-upd-ic:hover, button.dlux-upd-ic:hover { background: color-mix(in srgb, var(--primal) 20%, transparent); transform: translateY(-1px); }
 .dlux-upd-ic--static { background: transparent; cursor: default; }
 .dlux-upd-ic.is-ok, .dlux-upd-ic--ok { color: #16a34a; background: transparent; }
 .dlux-upd-ic.is-warn { color: #d97706; background: transparent; }

@@ -51,6 +51,7 @@
         const checkButton = root.querySelector('[data-dlux-update-check]');
         const reviewButton = root.querySelector('[data-dlux-update-review]');
         const imageButton = root.querySelector('[data-dlux-update-image]');
+        const imageCheckButton = root.querySelector('[data-dlux-image-check]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
         const appVersionEl = root.querySelector('[data-dlux-app-version]');
         const imageTargetEl = root.querySelector('[data-dlux-image-target]');
@@ -69,7 +70,7 @@
         const notesLink = notesElement?.querySelector('[data-dlux-notes-link]');
         // Remember each icon's own wording before a time is appended to it, or
         // every render would append another one.
-        [checkButton, reviewButton, imageOkEl, imageButton].forEach((element) => {
+        [checkButton, reviewButton, imageOkEl, imageButton, imageCheckButton].forEach((element) => {
             if (element && element.dataset.titleBase === undefined) {
                 element.dataset.titleBase = element.title || '';
             }
@@ -658,6 +659,7 @@
             if (modalRecheckButton) modalRecheckButton.disabled = running || checkBusy;
             if (reviewButton) reviewButton.disabled = running;
             if (imageButton) imageButton.disabled = running;
+            if (imageCheckButton) imageCheckButton.disabled = running || checkBusy;
             if (rollbackButton) rollbackButton.disabled = running;
             // While an image update is in flight, surface its phase on the root
             // status line (the inline run panel doesn't apply to image updates).
@@ -840,6 +842,7 @@
         }
 
         checkButton?.addEventListener('click', () => runCheck(checkButton));
+        imageCheckButton?.addEventListener('click', () => runCheck(imageCheckButton));
 
         // Render release notes as short bullet highlights instead of the long
         // prose summary (which made the modal very tall). The generic
@@ -1105,6 +1108,21 @@
         });
 
         refreshState().catch((requestError) => showError(requestError.message));
+
+        // Composer re-checks on its own interval, so a release published after the
+        // page loaded would stay invisible until a reload. Re-read the state
+        // quietly while the tab is visible and idle; a run or an update in flight
+        // already has its own polling.
+        const BACKGROUND_REFRESH_MS = 60000;
+        let lastBackgroundRefresh = Date.now();
+        async function backgroundRefresh() {
+            if (document.hidden || checkBusy || runUrl || imageActive(imageUpdate)) return;
+            if (Date.now() - lastBackgroundRefresh < BACKGROUND_REFRESH_MS / 2) return;
+            lastBackgroundRefresh = Date.now();
+            try { await refreshState(); } catch (_error) { /* next tick tries again */ }
+        }
+        window.setInterval(backgroundRefresh, BACKGROUND_REFRESH_MS);
+        document.addEventListener('visibilitychange', backgroundRefresh);
     }
 
     document.addEventListener('DOMContentLoaded', function () {

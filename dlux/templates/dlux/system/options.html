@@ -317,6 +317,11 @@
                                             {% endif %}
                                         </span>
                                         <span class="dlux-upd-end">
+                                            {% if can_manage_dlux_updates %}
+                                            <button type="button" class="dlux-upd-ic dlux-upd-ic--rollback" data-dlux-image-check
+                                                    title="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_update_image_check|default:'Check for an application update' }}"><i class="bi bi-arrow-clockwise" data-dlux-check-glyph></i></button>
+                                            {% endif %}
                                             <code class="dlux-upd-digest" data-dlux-image-digest></code>
                                             <span class="dlux-upd-target" data-dlux-image-target hidden
                                                   title="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"></span>

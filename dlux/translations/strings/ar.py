@@ -1082,6 +1082,7 @@ STRINGS = {
     'dlux_update_application': 'التطبيق',
     'dlux_update_generic_changes': 'إصلاحات وتحسينات',
     'dlux_update_image': 'يتوفر تحديث للتطبيق',
+    'dlux_update_image_check': 'التحقق من وجود تحديث للتطبيق',
     'dlux_update_image_confirm': 'إعادة البناء والتحديث',
     'dlux_update_image_label': 'صورة',
     'dlux_update_image_uptodate': 'صورة التطبيق محدَّثة',

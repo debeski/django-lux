@@ -1085,6 +1085,7 @@ STRINGS = {
     'dlux_update_application': 'Application',
     'dlux_update_generic_changes': 'Bug fixes and improvements',
     'dlux_update_image': 'Application update available',
+    'dlux_update_image_check': 'Check for an application update',
     'dlux_update_image_confirm': 'Rebuild and update',
     'dlux_update_image_label': 'image',
     'dlux_update_image_uptodate': 'The application image is up to date',
