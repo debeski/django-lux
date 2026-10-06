@@ -45,8 +45,6 @@
       var progressEl = document.querySelector(".progress");
       var statusTextEl = document.getElementById("statusText");
       var logEl = document.getElementById("log");
-      var sawProgress = false;
-      var readyCount = 0;
       var recoveryTimer = null;
       var percentByStatus = {
         starting: 12,
@@ -70,14 +68,19 @@
         return String(value || "maintenance").replace(/_/g, " ");
       }
 
+      // The proxy serves this page as a 503 at the URL the visitor asked for, so
+      // once the update reaches an end state, probe that same URL and return to
+      // it as soon as the app answers. A stale end state from an earlier update
+      // is harmless: the probe keeps getting 503 until the site is really back.
       function scheduleRecoveryProbe() {
         if (recoveryTimer !== null) return;
+        var target = window.location.href;
         function probeRecovery() {
           recoveryTimer = null;
-          fetch("/", { cache: "no-store" })
+          fetch(target, { cache: "no-store", credentials: "same-origin" })
             .then(function (response) {
               if (response.ok) {
-                window.location.replace("/");
+                window.location.replace(target);
                 return;
               }
               recoveryTimer = window.setTimeout(probeRecovery, 2000);
@@ -92,7 +95,6 @@
       function setStatus(doc) {
         var status = String((doc && doc.status) || "maintenance");
         var percent = percentByStatus[status] || 20;
-        sawProgress = sawProgress || status !== "ready";
         phaseEl.textContent = label(status);
         updatedEl.textContent = doc && doc.updated_at ? "Updated " + doc.updated_at : "Waiting for status...";
         barEl.style.width = percent + "%";
@@ -103,12 +105,7 @@
           scheduleRecoveryProbe();
         } else if (status === "ready" || status === "completed" || status === "rolled_back") {
           barEl.style.background = "#22c55e";
-          readyCount += 1;
-          if (sawProgress && readyCount >= 2) {
-            window.setTimeout(function () { window.location.href = "/"; }, 1500);
-          }
-        } else {
-          readyCount = 0;
+          scheduleRecoveryProbe();
         }
       }
 

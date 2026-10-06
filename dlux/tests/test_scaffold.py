@@ -311,8 +311,11 @@ class ScaffoldTests(unittest.TestCase):
             # Caddy equivalent of the front-proxy header handling.
             self.assertIn("trusted_proxies static private_ranges", caddy_contents)
             self.assertIn("scheduleRecoveryProbe", maintenance_contents)
-            self.assertIn('fetch("/", { cache: "no-store" })', maintenance_contents)
-            self.assertIn('window.location.replace("/")', maintenance_contents)
+            # End states probe and return to the page the visitor was on, not "/",
+            # and never wait for a progress phase the page may not have seen.
+            self.assertIn("var target = window.location.href;", maintenance_contents)
+            self.assertIn("window.location.replace(target)", maintenance_contents)
+            self.assertNotIn("sawProgress", maintenance_contents)
             self.assertIn("celery", requirements_contents)
             self.assertIn(f"django-lux[updater]=={__version__}", requirements_contents)
             self.assertIn("django-cors-headers", requirements_contents)

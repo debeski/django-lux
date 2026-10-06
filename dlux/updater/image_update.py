@@ -258,7 +258,9 @@ def image_status_summary(store=None):
     last_summary = None
     if last is not None:
         last_summary = {
+            "token": last.token,
             "status": last.status,
+            "error": last.error,
             "target": last.target_version,
             "completed_at": last.completed_at.isoformat() if last.completed_at else None,
         }

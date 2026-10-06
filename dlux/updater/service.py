@@ -1890,12 +1890,15 @@ class UpdateService:
             logger.warning("Failed to emit the control-link disconnect notification.", exc_info=True)
 
     def _begin_image_update(self, row):
-        from .image_update import write_composer_trigger, write_deploy_status
+        from .image_update import write_composer_trigger, write_deploy_log, write_deploy_status
 
         # Publish an initial status immediately so the live progress page shows
         # "preparing" (not a stale 'ready' from a previous update) while we back
         # up and enter maintenance, before composer takes over the status file.
+        # The log goes with it: composer only clears it once it picks the request
+        # up, after the backup, and until then the previous update's log showed.
         write_deploy_status(self.store, "preparing")
+        write_deploy_log(self.store, "")
         row.status = row.STATUS_BACKING_UP
         row.append_log("Creating pre-update backup.")
         row.save(update_fields=["status", "progress_log"])
