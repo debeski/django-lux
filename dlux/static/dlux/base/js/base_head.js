@@ -1,6 +1,26 @@
 (function () {
     'use strict';
 
+    const clipboardUser = document.currentScript?.dataset.clipboardUser;
+    if (clipboardUser !== undefined) {
+        try {
+            const prefix = 'dlux:entry-clipboard:';
+            for (const key of Object.keys(sessionStorage)) {
+                if (key.startsWith(prefix) && (!clipboardUser || key !== prefix + clipboardUser)) sessionStorage.removeItem(key);
+            }
+            sessionStorage.setItem('dlux:entry-clipboard-owner', clipboardUser);
+        } catch (_) {}
+        window.addEventListener('pageshow', event => {
+            if (!event.persisted) return;
+            try {
+                if (sessionStorage.getItem('dlux:entry-clipboard-owner') !== clipboardUser) {
+                    window.dispatchEvent(new Event('dlux:clipboard:identity-changed'));
+                    window.location.reload();
+                }
+            } catch (_) {}
+        });
+    }
+
     function parseJsonScript(id, fallback) {
         const element = document.getElementById(id);
         if (!element) {

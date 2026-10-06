@@ -54,6 +54,17 @@ list, and reopens a fresh create form. A form may also set `add_more = True` whi
 binding. Succession mode always outranks `refresh_parent`, including an explicit
 `refresh_parent = True`; a normal Save still follows the surface default above.
 
+With Entry clipboard enabled in Extra Features, eligible text fields support
+manual snippets through an accessible clipboard-icon popover button beside the sticky-form header switch; ribbons and Dlux reports are always excluded. Widget attribute
+`data-dlux-entry-clipboard="false"` excludes a field or containing element.
+Sticky forms continue to own automatic prefill and Save & Add More reuse.
+Custom forms without model capability markers receive the Assisted entry legend
+and clipboard icon when enabled, without a sticky-reuse switch. Extending
+`form_base.html` alone does not identify the model inside custom form markup.
+The popover uses icon actions beside its field/search controls and compact snippet
+rows with insert/replace actions; entry text opens a full-content view with Back.
+See [Entry clipboard](entry-clipboard.md) for eligibility and storage rules.
+
 When `manage_sections` has to build a layout for a section form with no
 developer-provided Crispy helper, it renders every visible non-hidden field in a
 two-column grid (`col-12 col-lg-6`) with the translated field label preserved on

@@ -1,6 +1,7 @@
 
 {% load static %}
 {% load dlux_tags %}
+{% load i18n %}
 
 <div class="modal fade" id="universalDynamicModal" tabindex="-1" aria-labelledby="dynamicModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-xl-down">
@@ -24,4 +25,8 @@
     </div>
 </div>
 
+{% if DLUX_ENTRY_CLIPBOARD_ENABLED and request.user.is_authenticated %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/helpers/dynamic_modal/css/entry_clipboard.css' %}">
+<script src="{% dlux_static 'dlux/helpers/dynamic_modal/js/entry_clipboard.js' %}" nonce="{{ request.csp_nonce }}" data-user="{{ request.user.pk }}" data-title="{{ DLUX_STRINGS.entry_clipboard_title|default:"Entry clipboard" }}" data-field="{{ DLUX_STRINGS.entry_clipboard_field|default:"Target field" }}" data-copy="{{ DLUX_STRINGS.entry_clipboard_copy|default:"Copy selection or field" }}" data-clear="{{ DLUX_STRINGS.entry_clipboard_clear|default:"Clear clipboard" }}" data-search="{{ DLUX_STRINGS.entry_clipboard_search|default:"Find a snippet" }}" data-add="{{ DLUX_STRINGS.entry_clipboard_add|default:"Add to field" }}" data-replace="{{ DLUX_STRINGS.entry_clipboard_replace|default:"Replace field" }}" data-back="{{ DLUX_STRINGS.entry_clipboard_back|default:"Back to snippets" }}" data-empty="{{ DLUX_STRINGS.entry_clipboard_empty|default:"Copy text from a field to save a snippet." }}" defer></script>
+{% endif %}
 <script src="{% dlux_static 'dlux/helpers/dynamic_modal/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>

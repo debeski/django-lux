@@ -325,10 +325,11 @@
     // opened: until then it is the real page, and loading a copy of it only
     // looks like the page reloading. Changing a value back returns to the real page.
     const baselines = new WeakMap();
+    const NONVISUAL_PREVIEW_FIELDS = new Set(['entry_clipboard_enabled']);
 
     function serializeForm(form) {
         return JSON.stringify(Array.from(new FormData(form).entries())
-            .filter(([, value]) => !(value instanceof File))
+            .filter(([key, value]) => !NONVISUAL_PREVIEW_FIELDS.has(key) && !(value instanceof File))
             .map(([key, value]) => [key, String(value)]));
     }
 
@@ -710,8 +711,11 @@
         scope.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.systemSettingsPreviewBound !== 'true') {
                 form.dataset.systemSettingsPreviewBound = 'true';
-                form.addEventListener('input', () => scheduleRefresh(form));
-                form.addEventListener('change', () => scheduleRefresh(form));
+                const refreshVisualChange = event => {
+                    if (!NONVISUAL_PREVIEW_FIELDS.has(event.target.name)) scheduleRefresh(form);
+                };
+                form.addEventListener('input', refreshVisualChange);
+                form.addEventListener('change', refreshVisualChange);
                 const modal = modalOf(form);
                 if (modal && modal.dataset.dluxPreviewBackdropBound !== 'true') {
                     modal.dataset.dluxPreviewBackdropBound = 'true';

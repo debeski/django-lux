@@ -561,7 +561,7 @@ SETUP_STEPS = (
     ('backups', 'bi-safe2-fill',
      ('backup', 'restore', 'export', 'import')),
     ('extras', 'bi-puzzle-fill',
-     ('extra', 'features', 'integrations', 'scanlink', 'scanner', 'scan', 'twain')),
+     ('extra', 'features', 'integrations', 'scanlink', 'scanner', 'scan', 'twain', 'clipboard', 'snippets')),
 )
 
 SETUP_STEP_SLUGS = tuple(slug for slug, _icon, _keywords in SETUP_STEPS)

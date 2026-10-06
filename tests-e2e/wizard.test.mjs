@@ -58,6 +58,26 @@ async function setToggle(page, name, on) {
 }
 
 describe('setup wizard', { concurrency: 1 }, () => {
+  test('clipboard import honors extra aliases, boolean strings and absent flags', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      for (const [key, enabled, expected] of [['extra_config', true, true], ['extra', 'false', false], ['custom', 'on', true]]) {
+        await page.setInputFiles('[data-settings-import-file]', {
+          name: 'config.json', mimeType: 'application/json',
+          buffer: Buffer.from(JSON.stringify({ [key]: { entry_clipboard: { enabled } } })),
+        });
+        await page.waitForFunction(([want]) => document.querySelector('[name="entry_clipboard_enabled"]').checked === want, [expected]);
+        assert.equal(await page.locator('[name="entry_clipboard_enabled"]').isChecked(), expected);
+      }
+      await page.setInputFiles('[data-settings-import-file]', {
+        name: 'config.json', mimeType: 'application/json', buffer: Buffer.from('{"extra_config":{"app":{}}}'),
+      });
+      await page.waitForFunction(() => !document.querySelector('[name="entry_clipboard_enabled"]').checked);
+      assert.equal(await page.locator('[name="entry_clipboard_enabled"]').isChecked(), false);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
+
   test('loads past the language gate with no scripting errors', async () => {
     const { ctx, page, errors } = await wizard();
     try {

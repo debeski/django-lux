@@ -3624,7 +3624,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('submitForm(form, e.submitter);', script)
         self.assertIn('const submitBtn = submitter ||', script)
-        self.assertIn("formData.append(submitter.name, submitter.value || '');", script)
+        self.assertIn('formData.append(submittedAction.name, submittedAction.value);', script)
+        self.assertLess(script.index('const submittedAction ='), script.index('loadingButton.start(submitBtn'))
         self.assertLess(
             script.index('if (data.add_more)'),
             script.index('if (data.refresh_parent && currentLoadedUrl === currentBaseUrl)'),
@@ -3749,7 +3750,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # exist for the pick to reach the builder at all. Raised by two for the
         # titlebar action-layout selector's pair of radios.
         # Weather adds fourteen selector radios and four persisted fields.
-        self.assertLess(len(re.findall(r'\sname=', html)), 300)
+        self.assertLess(len(re.findall(r'\sname=', html)), 301)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

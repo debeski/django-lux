@@ -26,6 +26,14 @@ is for changes to the `dlux` package itself.
 
 ## 1. The mental model
 
+Framework-owned Extra Features flags can use a top-level namespace inside
+`extra_config`, as ScanLink and the entry clipboard do, without adding a model
+column. They still need a canonical default and normalizer, step-scoped form
+initialization/save guards, import/export and uploaded-file support, translated
+controls, runtime asset gating, and regression tests. Keep `default_extra_config()`
+empty so project-supplied `DLUX_CONFIG['extra']` keys retain their precedence;
+normalize a feature namespace only when present. See [Entry clipboard](entry-clipboard.md).
+
 A setting has up to **three representations**. Understanding which you need drives
 everything else.
 

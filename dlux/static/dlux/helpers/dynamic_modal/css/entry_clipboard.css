@@ -1,0 +1,50 @@
+.dlux-entry-clipboard-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+}
+
+.dlux-entry-clipboard-trigger { flex-shrink: 0; }
+
+.dlux-clipboard-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+}
+.dlux-clipboard-controls > .form-select,
+.dlux-clipboard-controls > .form-control { min-width: 0; }
+.dlux-clipboard-action { flex-shrink: 0; color: var(--bs-secondary-color); }
+.dlux-clipboard-action:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.dlux-clipboard-row {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding-block: 0.125rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.dlux-clipboard-entry {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    padding: 0.375rem;
+    text-align: start;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.875rem;
+}
+.dlux-clipboard-entry:hover { background: var(--bs-tertiary-bg); }
+.dlux-clipboard-content { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; padding: 0.375rem; }
+[dir="rtl"] .dlux-clipboard-detail .bi-arrow-left { display: inline-block; transform: scaleX(-1); }
