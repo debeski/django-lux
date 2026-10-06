@@ -313,7 +313,15 @@
             if (password) password.disabled = true;
             if (modalRecheckButton) modalRecheckButton.classList.add('d-none');
             if (skipButton) skipButton.classList.add('d-none');
-            setModalLocked(false);
+            // Locked like an inline run: the update owns the page until web is
+            // back on the new image. Unlocked by showImageFinished().
+            setModalLocked(true);
+            if (dismissAction) {
+                dismissAction.textContent = dismissActionLabel;
+                dismissAction.classList.remove('btn-success');
+                dismissAction.classList.add('btn-secondary');
+            }
+            if (progressLog) progressLog.textContent = '';
             if (progressBar) {
                 progressBar.style.width = '100%';
                 progressBar.classList.add('progress-bar-animated');
@@ -325,6 +333,44 @@
                 progressLog.scrollTop = progressLog.scrollHeight;
             }
             modal.show();
+        }
+
+        // The update is over once DjangoLux on the new container says so, not
+        // when Composer writes `ready`: web lowers the maintenance flag only after
+        // that, so reloading on `ready` landed on the maintenance page.
+        function showImageFinished() {
+            finishImageNotice();
+            setModalLocked(false);
+            if (!modal || !progressPanel || progressPanel.hidden) return;
+            const succeeded = imageUpdate?.status === 'completed';
+            if (progressBar) progressBar.style.width = '100%';
+            if (dismissAction && succeeded) {
+                dismissAction.textContent = root.dataset.labelFinish || dismissActionLabel;
+                dismissAction.classList.remove('btn-secondary');
+                dismissAction.classList.add('btn-success');
+            }
+            if (succeeded) {
+                modalElement.addEventListener('hidden.bs.modal', () => window.location.reload(), { once: true });
+            }
+        }
+
+        async function awaitImageCompletion() {
+            let payload = null;
+            try {
+                payload = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
+            } catch (_error) { /* web still recreating or behind maintenance */ }
+            if (!payload?.state) { scheduleImagePoll(); return; }
+            const tracked = imageUpdate;
+            imageUpdate = payload.image_update || null;
+            if (imageActive(imageUpdate)) { scheduleImagePoll(); return; }
+            // The state view only carries an active update; the finished one is
+            // the card's last_update, matched to the update this page started.
+            const last = payload.state.image?.last_update;
+            if (!imageUpdate && last && (!tracked?.token || last.token === tracked.token)) {
+                imageUpdate = { ...(tracked || {}), ...last, active: false };
+            }
+            render(payload.state, payload.run);
+            showImageFinished();
         }
 
         function finishImageNotice() {
@@ -361,9 +407,8 @@
             const pct = DEPLOY_PCT[st] != null ? DEPLOY_PCT[st] : 100;
             if (progressBar) {
                 progressBar.style.width = `${pct}%`;
-                progressBar.classList.toggle('progress-bar-animated', st !== 'ready' && st !== 'failed');
+                progressBar.classList.toggle('progress-bar-animated', st !== 'failed');
                 progressBar.classList.toggle('bg-danger', st === 'failed');
-                progressBar.classList.toggle('bg-success', st === 'ready');
             }
             if (progressStatus) {
                 progressStatus.textContent = st === 'failed' && doc && doc.error
@@ -402,10 +447,9 @@
                 return; // stop polling; operator dismisses
             }
             // Honor 'ready' only after real progress this session (ignore a stale
-            // 'ready' from a previous update) or after a safety timeout — then
-            // reload in place to return the operator where they were.
+            // 'ready' from a previous update) or after a safety timeout.
             if (st === 'ready' && (imgSawProgress || Date.now() - imgStarted > 20000)) {
-                window.location.reload();
+                await awaitImageCompletion();
                 return;
             }
             scheduleImagePoll();

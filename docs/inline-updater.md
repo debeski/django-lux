@@ -311,6 +311,34 @@ Release eligibility remains strict. Composer honors the release manifest's schem
 
 Update admission serializes through the DjangoLux state row. An image update and an inline update cannot be admitted concurrently. When a pre-update backup is requested, DjangoLux must finish it before the update intent is written.
 
+## The end of an image update
+
+An image update has two finish lines. Composer writes `ready` to
+`state/deploy-status.json` once the containers are recreated and migrated; the new
+web container's DjangoLux then marks the `DluxImageUpdate` completed (the Celery
+state tick runs `_finalize_image_update`) and lowers the maintenance flag. Until
+then the proxy answers 503 with `.proxy/maintenance.html`.
+
+- When the update starts, DjangoLux resets both `deploy-status.json` (to
+  `preparing`) and `deploy-log.txt`, so the modal never shows the previous
+  update's log while the backup runs.
+- The update modal is locked while the update runs, as it is for an inline update.
+  On `ready` it polls the state endpoint until web answers and the update reads
+  completed (from `state.image.last_update`, matched by token) or failed. Success
+  turns the bar green and the dismiss button into **Finish**; closing the modal
+  then reloads the page. A failure unlocks the modal with the error.
+- The maintenance page treats every end state (`ready`, `completed`,
+  `rolled_back`, `failed`) as a reason to probe the URL it is shown at, and
+  reloads that URL once the app answers. Before 1.11.0b2 it redirected to `/`,
+  and only after seeing a progress phase, so a first read of `ready` waited
+  forever.
+
+The modal fix takes effect for updates started from a page running 1.11.0b2 or
+later: the page that starts an update runs the release it was loaded with.
+`.proxy/maintenance.html` is the project's own file, bind-mounted into the proxy,
+so a DjangoLux release does not change it; Composer 1.6.1b2+ `check` reports a
+stock copy from an older DjangoLux and `check --fix` replaces it.
+
 ## Moving to an image that bakes an older DjangoLux
 
 The active release lives on the runtime volume and is what the supervisor puts on `PYTHONPATH`, so an image baking an older DjangoLux does not by itself downgrade a deployment. Composer's preflight gate reads one image label and refuses anything older than the active release, which is safe but stricter than the deployment requires.
