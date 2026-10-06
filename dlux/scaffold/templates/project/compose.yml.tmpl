@@ -3,6 +3,8 @@ name: {{ project_slug }}
 x-environment:
   # Database settings
   &de
+  # The stack contract schema this file was generated for (see docs/stack-schema.md).
+  DLUX_STACK_SCHEMA: "{{ stack_schema }}"
   WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
   POSTGRES_DB: "${POSTGRES_DB:-{{ project_slug }}_db}"
   POSTGRES_PORT: "5432"

@@ -158,7 +158,7 @@ class ScaffoldTests(unittest.TestCase):
             env_keys = [
                 line.partition("=")[0]
                 for line in env_contents.splitlines()
-                if line.strip()
+                if line.strip() and not line.startswith("#")
             ]
             self.assertEqual(len(env_keys), len(set(env_keys)))
             expected_env_keys = {
@@ -772,6 +772,22 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
         self.assertEqual(set(self.contract["volumes"]), declared_volumes)
 
 
+    def test_every_stack_file_is_stamped_with_the_contract_schema(self):
+        from dlux.contracts import stack as stack_contract
+
+        root = Path(self._tmp.name) / "demo_project"
+        stamped = [
+            "compose.yml", "compose.dev.yml", "Dockerfile", "entrypoint.sh", "gunicorn.py",
+            ".secrets/.env", ".proxy/Caddyfile", ".proxy/default.conf.template", ".proxy/maintenance.html",
+        ]
+        for relative in stamped:
+            text = (root / relative).read_text(encoding="utf-8")
+            self.assertEqual(stack_contract.read_stamp(text), self.contract["schema_version"], relative)
+        self.assertIn(
+            f'{stack_contract.STACK_SCHEMA_ENV}: "{self.contract["schema_version"]}"',
+            self.compose.partition("\nservices:\n")[0],
+        )
+
 class StackContractTests(unittest.TestCase):
     """The contract is the shared spec; its diff helper is what Composer mirrors,
     so its behaviour is pinned here."""
@@ -792,6 +808,16 @@ class StackContractTests(unittest.TestCase):
         # Bumped to 2 when service command_module / retired_command_modules were
         # added so Composer can check and fix retired entrypoints.
         self.assertEqual(self.contract["schema_version"], 2)
+
+    def test_read_stamp_spellings(self):
+        read = self.stack_contract.read_stamp
+        self.assertEqual(read('x:\n  DLUX_STACK_SCHEMA: "3"\n'), 3)
+        self.assertEqual(read('LABEL org.dlux.stack-schema="4"'), 4)
+        self.assertEqual(read("#!/bin/sh\n# dlux stack schema 5\n"), 5)
+        self.assertEqual(read("<!-- dlux stack schema 6 -->"), 6)
+        self.assertIsNone(read("# composer-wrapper: 3\n"))
+        self.assertIsNone(read(""))
+        self.assertEqual(self.stack_contract.stack_schema(), self.contract["schema_version"])
 
     def test_contract_is_internally_consistent(self):
         declared = set(self.contract["networks"])

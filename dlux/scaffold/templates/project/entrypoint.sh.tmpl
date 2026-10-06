@@ -1,4 +1,5 @@
 #!/bin/sh
+# dlux stack schema {{ stack_schema }}
 set -e
 
 until nc -z -v -w30 db 5432; do

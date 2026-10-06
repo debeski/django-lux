@@ -18,6 +18,7 @@ This file owns the release history for `django-lux`.
 - **Clipboard Report Exclusion**: Exclude Dlux report pages, report builders and user-report surfaces from clipboard buttons and snippet targets.
 - **Custom-Form Assisted Header**: Add the translated Assisted entry legend to clipboard-only forms without model metadata; retain capability gating for sticky reuse.
 - **Clipboard User Isolation**: Purge other users' tab-local snippets on account changes and all snippets on anonymous pages; clear/reload clipboard state when browser history restores a page for a different user, and refuse initialization without a user ID. Sticky-form expansion and live-preview integration remain outside this release.
+- **Stack Schema Stamps**: `dlux startproject` stamps the generated stack files with the stack contract's `schema_version`: `DLUX_STACK_SCHEMA` in `compose.yml`'s `x-environment` (so it reaches web/celery), `LABEL org.dlux.stack-schema` in the `Dockerfile`, and a `dlux stack schema N` header in `compose.dev.yml`, `entrypoint.sh`, `gunicorn.py`, `.secrets/.env` and `.proxy/*`. `dlux.contracts.stack` gains `stack_schema()`, `read_stamp()`, `STACK_SCHEMA_ENV` and `STACK_SCHEMA_LABEL` for Composer to share. New doctor check `stack.schema`: unstamped is `skipped` (informational), mismatch is a `warning`, never an error. `start.sh`/`start.ps1` keep Composer's own `composer-wrapper` marker. Existing projects are unaffected until stamped. No migration.
 
 ## v1.10.2b1
 

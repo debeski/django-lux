@@ -13,6 +13,7 @@ Adding services/keys is backwards-compatible; renaming a field or the meaning of
 an invariant requires a `schema_version` bump.
 """
 import json
+import re
 from pathlib import Path
 
 from .. import __version__
@@ -20,6 +21,16 @@ from .. import __version__
 CONTRACT_PATH = Path(__file__).resolve().parent / "stack.json"
 
 _ALL_NETWORKS = frozenset({"frontend", "egress", "internal", "docker_proxy"})
+
+# Every generated stack file records the contract schema it was written for, in
+# one of three spellings: the `DLUX_STACK_SCHEMA` entry of compose.yml's shared
+# environment (which also puts it in web/celery's environment), the Dockerfile's
+# `org.dlux.stack-schema` label, or a `dlux stack schema N` header comment.
+STACK_SCHEMA_ENV = "DLUX_STACK_SCHEMA"
+STACK_SCHEMA_LABEL = "org.dlux.stack-schema"
+_STAMP_RE = re.compile(
+    r"""(?:DLUX_STACK_SCHEMA["']?\s*[:=]|org\.dlux\.stack-schema=|dlux stack schema)\s*["']?(\d+)"""
+)
 
 
 def load_contract():
@@ -31,6 +42,19 @@ def load_contract():
     data = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     data["dlux_version"] = __version__
     return data
+
+
+def stack_schema():
+    return int(json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))["schema_version"])
+
+
+def read_stamp(text):
+    """Return the stack schema a generated file declares, or None when unstamped.
+
+    Pure, so Composer can read stamps from host-side files with the same rule.
+    """
+    match = _STAMP_RE.search(text or "")
+    return int(match.group(1)) if match else None
 
 
 def _service_networks(contract):
