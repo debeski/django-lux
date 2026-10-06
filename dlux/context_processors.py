@@ -612,6 +612,9 @@ def dlux_context(request):
     # helper only exists on operator desktops that installed the tray app.
     from .utils import scanlink_enabled
     context['DLUX_SCANLINK_ENABLED'] = scanlink_enabled()
+    from .system.normalizers import normalize_entry_clipboard_config
+    clipboard_config = normalize_entry_clipboard_config((final_config.get('extra_config') or {}).get('entry_clipboard'))
+    context['DLUX_ENTRY_CLIPBOARD_ENABLED'] = clipboard_config['enabled']
     if context['DLUX_SCANLINK_ENABLED']:
         import json as _json
         from .system.constants import SCANLINK_CONNECT_ORIGINS

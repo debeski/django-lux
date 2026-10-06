@@ -475,10 +475,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Pin the standard action bar to the sticky footer (must run last, after the
         // back/edit/delete listeners are attached so moving the bar keeps them).
         syncModalFooter();
+        window.DluxEntryClipboard?.init(modalBody);
     }
 
     // 4. Form Submission Logic
     function submitForm(form, submitter) {
+        const submittedAction = submitter && submitter.name && !submitter.disabled
+            ? { name: submitter.name, value: submitter.value || '' } : null;
         // The submit button may have been relocated into the sticky footer
         // (associated back via the form= attribute), so look there too.
         const submitBtn = submitter || form.querySelector('[type="submit"]')
@@ -496,8 +499,8 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         const formData = new FormData(form);
-        if (submitter && submitter.name && !submitter.disabled) {
-            formData.append(submitter.name, submitter.value || '');
+        if (submittedAction) {
+            formData.append(submittedAction.name, submittedAction.value);
         }
         const actionUrl = form.getAttribute('action') || currentBaseUrl;
 

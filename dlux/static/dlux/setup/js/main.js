@@ -1874,6 +1874,13 @@
         if (!form || !settings) return false;
 
         const weather = settings.extra_config && settings.extra_config.weather;
+        const clipboardExtraKey = ['extra_config', 'extra', 'custom'].find(key => Object.prototype.hasOwnProperty.call(settings, key));
+        if (clipboardExtraKey) {
+            const clipboard = settings[clipboardExtraKey]?.entry_clipboard;
+            const enabled = clipboard?.enabled;
+            setCheckboxField(form, 'entry_clipboard_enabled', typeof enabled === 'string'
+                ? ['1', 'true', 'yes', 'on'].includes(enabled.trim().toLowerCase()) : Boolean(enabled));
+        }
         if (weather && typeof weather === 'object') {
             setCheckboxField(form, 'weather_enabled', weather.enabled === true);
             ['placement', 'display', 'units', 'corner', 'default_location'].forEach(key => {

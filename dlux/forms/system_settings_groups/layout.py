@@ -979,6 +979,8 @@ class LayoutMixin:
                     Div(
                         self._step_badge(s, 'extras', 'Extra Features'),
                         HTML(f"<div class='alert alert-info'>{s.get('extras_settings_intro', 'Optional integrations that stay switched off until a deployment needs them. Each one is inert while disabled.')}</div>"),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('entry_clipboard_title', 'Entry clipboard')}</h6>"),
+                        build_settings_toggle_field(self, 'entry_clipboard_enabled', css_class='col-12'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('scanlink_settings_title', 'ScanLink Scanning')}</h6>"),
                         build_settings_toggle_field(self, 'scanlink_enabled', css_class='col-12'),
                         HTML(

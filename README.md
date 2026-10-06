@@ -10,10 +10,6 @@
   <img src="https://raw.githubusercontent.com/debeski/django-lux/main/dlux/static/img/login_logo.svg" alt="DjangoLux Logo" width="450"/>
 </p>
 
-<p align="center">
-  <a href="https://chatgpt.com/g/g-6a14ac8cbb0c8191aad3b3619e5bef21-dlux-agent"><strong>Open DjangoLux Agent on ChatGPT</strong></a><br/>
-  <sub>Specialized custom GPT for django-lux integration, configuration, extension, and troubleshooting.</sub>
-</p>
 
 DjangoLux is an extensive UX/UI framework for Django — a complete, design-first playground for building modern web apps. It ships a polished, themeable design system on top of Bootstrap 5 (multiple built-in themes, full RTL/LTR + multilingual support, custom font management, and theme/language/direction-aware components) and pairs it with the batteries a real application needs: a first-launch setup wizard, user management and security, scopes, navigation, activity logging, guided onboarding, data export, and zero-boilerplate CRUD tooling.
 

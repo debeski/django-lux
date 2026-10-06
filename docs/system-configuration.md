@@ -128,3 +128,11 @@ Themes and fonts use shared registries, so their setup choices, validation, prev
 `/sys/options/` is the operational hub after setup. It provides personal display preferences to ordinary users and superuser-only System Settings, setup export, backup, Extra Features, and update actions. The System Information card presents deployment facts and on-demand service diagnostics; the Celery check is manual and stores its last result rather than probing on every page load.
 
 For operational procedures, use [Operations](operations.md). For assets, use [Managed Assets](managed-assets.md). For deploy/update safety, use [Verified Inline Updates](inline-updater.md) and [Deployment Doctor](doctor.md).
+
+## Entry clipboard
+
+Extra Features offers **Enable entry clipboard**, off by default. It stores
+`extra_config.entry_clipboard.enabled` and preserves other Extra Features/project
+namespaces. Enabled deployments load the clipboard only for signed-in users.
+The popover button shares the assisted-entry row with **Reuse my last entry**;
+sticky forms continue to own automatic prefill. See [Entry clipboard](entry-clipboard.md).

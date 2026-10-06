@@ -4,6 +4,14 @@
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
 
+- **Entry clipboard:** Extra Features enables tab-local snippets through a
+  popover opened by a clipboard icon beside the sticky-form header switch, with compact control rows, snippet insert/replace actions and full-content viewing; ribbons and Dlux reports are excluded and eligible entry fields use explicit opt-out. Sticky forms retain ownership of prefill. See
+  [Entry clipboard](entry-clipboard.md).
+- Custom full-page forms show the Assisted entry legend with clipboard controls;
+  sticky reuse remains conditional on explicit model capability metadata.
+- Clipboard snippets are isolated by user and cleared on logout/account switches;
+  stale browser-history restores reload their clipboard state.
+
 ## Platform configuration
 
 - **Optional weather:** OpenWeather current conditions, searchable saved locations,

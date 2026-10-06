@@ -164,7 +164,7 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_backup_config(value)
         elif field_name == 'extra_config':
             from ..system.weather import portable_extra_config
-            data[field_name] = portable_extra_config(value)
+            data[field_name] = portable_extra_config(normalize_extra_config(value))
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
@@ -290,7 +290,7 @@ def normalize_system_settings_import_payload(payload):
         normalized['login_config'] = normalize_login_config(normalized['login_config'])
     if 'extra_config' in normalized:
         from ..system.weather import portable_extra_config
-        normalized['extra_config'] = portable_extra_config(normalized['extra_config'])
+        normalized['extra_config'] = portable_extra_config(normalize_extra_config(normalized['extra_config']))
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:

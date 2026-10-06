@@ -32,7 +32,7 @@
         {{ theme_preview_css|safe }}
     </style>
     {% endif %}
-    <script src="{% dlux_static 'dlux/base/js/base_head.js' %}" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% dlux_static 'dlux/base/js/base_head.js' %}" nonce="{{ request.csp_nonce }}" data-clipboard-user="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}" id="bootstrap-css">

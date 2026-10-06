@@ -83,6 +83,7 @@ from .defaults import (
     default_backup_config,
     default_client_ip_config,
     default_email_config,
+    default_entry_clipboard_config,
     default_extra_config,
     default_homepage_config,
     default_language_config,
@@ -655,10 +656,18 @@ def normalize_typography_config(value):
     }
 
 
+def normalize_entry_clipboard_config(value):
+    config = dict(value) if isinstance(value, dict) else {}
+    config['enabled'] = _coerce_import_bool(config.get('enabled', default_entry_clipboard_config()['enabled']))
+    return config
+
+
 def normalize_extra_config(value):
-    """Normalize weather when present; preserve opaque project namespaces."""
+    """Normalize framework extras when present; preserve opaque project namespaces."""
     from .weather import normalize_weather_config
     result = dict(value) if isinstance(value, dict) else {}
+    if 'entry_clipboard' in result:
+        result['entry_clipboard'] = normalize_entry_clipboard_config(result['entry_clipboard'])
     if 'weather' in result:
         result['weather'] = normalize_weather_config(result['weather'])
     if GROUP_HOME_URLS_KEY in result:

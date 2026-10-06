@@ -9,6 +9,16 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Entry Clipboard**: An Extra Features switch (`extra_config.entry_clipboard.enabled`, default off) enables a snippet popover from an accessible Bootstrap clipboard icon beside the sticky-form header switch, with selection-preserving copy/paste, search, explicit field/container opt-out, user-scoped session storage and sensitive-control exclusions. Dlux ribbons are always excluded. Automatic prefill remains with sticky forms. No migration.
+- **Modal Submit Action**: Capture the clicked submitter before the loading state disables it, preserving `save_add_more` in the POST even without the loading-button helper.
+- **Clipboard Toggle Preview Isolation**: Exclude `entry_clipboard_enabled` from automatic System Settings backdrop refreshes and visual-change baselines, so toggling clipboard availability preserves the real page and its sidebar expansion state.
+- **Clipboard Settings Pipeline**: Add canonical default/normalization, seed the form after its settings-row refresh, disable the field outside Extra Features, make its save guard independent of ScanLink, and support boolean/namespace aliases across export/import and uploaded setup files.
+- **Clipboard Popover Layout**: Pair target/search controls with accessible copy/clear icons, remove Close, and display compact snippet rows with insert/whole-field replace icons and a full-content view with Back.
+- **Clipboard Testbed Mount**: Document read-only local source mounts for testbed web/Celery at app and active inline-release paths, static refresh and restoration to packaged release testing.
+- **Clipboard Report Exclusion**: Exclude Dlux report pages, report builders and user-report surfaces from clipboard buttons and snippet targets.
+- **Custom-Form Assisted Header**: Add the translated Assisted entry legend to clipboard-only forms without model metadata; retain capability gating for sticky reuse.
+- **Clipboard User Isolation**: Purge other users' tab-local snippets on account changes and all snippets on anonymous pages; clear/reload clipboard state when browser history restores a page for a different user, and refuse initialization without a user ID. Sticky-form expansion and live-preview integration remain outside this release.
+
 ## v1.10.2b1
 
 - **Image Row Check Follows The Card's Pattern**: the application-image check icon sat at the row's end in a quiet style, unlike every other row. It is now the row's lead icon, like the DjangoLux row's: an arrow until a check, a green tick once checked (the disk icon for a local build), hidden when an update is available so the download icon takes its place. Users who cannot manage updates keep the static tick. No migration.

@@ -489,6 +489,7 @@ class SystemSettingsForm(
     # Extra Features. Not a model field: it lives in the dlux-owned top level of
     # `extra_config`, alongside the `app` namespace that projects own.
     scanlink_enabled = forms.BooleanField(required=False, initial=False)
+    entry_clipboard_enabled = forms.BooleanField(required=False, initial=False)
     weather_enabled = forms.BooleanField(required=False)
     weather_placement = forms.ChoiceField(required=False)
     weather_display = forms.ChoiceField(required=False)
@@ -1032,6 +1033,12 @@ class SystemSettingsForm(
 
         from .weather import configure_weather_fields
         configure_weather_fields(self, s)
+        from ..system.normalizers import normalize_entry_clipboard_config
+        clipboard = normalize_entry_clipboard_config((self.instance.extra_config or {}).get('entry_clipboard'))
+        self.initial.setdefault('entry_clipboard_enabled', clipboard['enabled'])
+        self.fields['entry_clipboard_enabled'].disabled = (
+            self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS
+        )
 
         from dlux.discovery import (
             discover_routes_for,
@@ -1497,6 +1504,8 @@ class SystemSettingsForm(
         self.fields['profile_config'].label = s.get('form_sys_profile', 'Profile Page Configuration')
         self.fields['backup_config'].label = s.get('form_sys_backup', 'Backup Configuration')
         self.fields['scanlink_enabled'].label = s.get('form_sys_scanlink_enabled', 'Enable ScanLink scanning')
+        self.fields['entry_clipboard_enabled'].label = s.get('form_sys_entry_clipboard_enabled', 'Enable entry clipboard')
+        self.fields['entry_clipboard_enabled'].help_text = s.get('help_sys_entry_clipboard_enabled', 'Adds a snippet clipboard beside the assisted-entry controls in form headers.')
         self.fields['scanlink_enabled'].help_text = s.get('help_sys_scanlink_enabled', 'Adds a Scan button to file fields, driven by the ScanLink helper installed on each operator workstation. Leave this off where the helper is not installed: the browser logs a failed connection for every scan attempt.')
         self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
         self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically through Celery beat.')
@@ -3834,6 +3843,10 @@ class SystemSettingsForm(
             if field_name in imported:
                 cleaned[field_name] = imported[field_name]
 
+        extra_config = imported.get('extra_config')
+        if isinstance(extra_config, dict):
+            from ..system.normalizers import normalize_entry_clipboard_config
+            cleaned['entry_clipboard_enabled'] = normalize_entry_clipboard_config(extra_config.get('entry_clipboard'))['enabled']
         weather = (imported.get('extra_config') or {}).get('weather')
         if isinstance(weather, dict):
             from ..system.weather import normalize_weather_config
@@ -4604,12 +4617,16 @@ class SystemSettingsForm(
         actually rendered the step may write, or a single-step save of another
         step would silently reset the toggle.
         """
-        if 'scanlink_enabled' not in self.cleaned_data:
-            return
         if self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS:
             return
         extra_config = dict(getattr(instance, 'extra_config', None) or {})
-        scanlink = dict(extra_config.get('scanlink') or {}) if isinstance(extra_config.get('scanlink'), dict) else {}
-        scanlink['enabled'] = bool(self.cleaned_data.get('scanlink_enabled', False))
-        extra_config['scanlink'] = scanlink
+        if 'scanlink_enabled' in self.cleaned_data:
+            scanlink = dict(extra_config.get('scanlink') or {}) if isinstance(extra_config.get('scanlink'), dict) else {}
+            scanlink['enabled'] = bool(self.cleaned_data['scanlink_enabled'])
+            extra_config['scanlink'] = scanlink
+        if 'entry_clipboard_enabled' in self.cleaned_data:
+            from ..system.normalizers import normalize_entry_clipboard_config
+            clipboard = normalize_entry_clipboard_config(extra_config.get('entry_clipboard'))
+            clipboard['enabled'] = bool(self.cleaned_data['entry_clipboard_enabled'])
+            extra_config['entry_clipboard'] = clipboard
         instance.extra_config = extra_config

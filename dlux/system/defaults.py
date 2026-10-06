@@ -422,6 +422,10 @@ def default_scanlink_config():
     return {'enabled': False}
 
 
+def default_entry_clipboard_config():
+    return {'enabled': False}
+
+
 __all__ = [
     'default_auth_config',
     'default_backup_config',
@@ -430,6 +434,7 @@ __all__ = [
     'default_extra_config',
     'default_homepage_config',
     'default_scanlink_config',
+    'default_entry_clipboard_config',
     'default_language_config',
     'default_layout_config',
     'default_log_config',

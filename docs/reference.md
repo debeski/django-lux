@@ -4,6 +4,24 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
 see [Deployment Configuration](deployment-configuration.md).
 
+## Entry clipboard
+
+Enable the deployment-wide **Entry clipboard** switch in Extra Features
+(`extra_config.entry_clipboard.enabled`, off by default). Its accessible icon-only
+Bootstrap clipboard button shares the assisted-entry header row with sticky forms.
+Dlux ribbons and reports are always excluded. Eligible text fields
+support session snippets by default when enabled. Set
+`data-dlux-entry-clipboard="false"` on a field or containing element to opt out.
+Automatic prefill remains with sticky forms. `window.DluxEntryClipboard.init(root)` initializes opted-in forms
+inserted by custom clients. Alt+Shift+C opens the focused form's popover; Escape dismisses it.
+See [Entry clipboard](entry-clipboard.md).
+Popover controls pair field selection with Copy and search with Clear; compact
+snippet rows expose Add and Replace icons. Entry text opens a detail view with Back.
+Custom clipboard-only forms also show the Assisted entry legend; sticky reuse
+requires explicit create-only model capability metadata.
+Snippet storage is isolated by user ID and purged on logout/account switching;
+stale browser-history restores clear the previous user's tray and reload the page.
+
 ## Weather
 
 For optional weather, load `dlux_weather` and use `{% weather_widget %}` for a
