@@ -42,8 +42,14 @@ from the app container's environment, which comes from `compose.yml`:
 
 It never reports `error`. A mismatch means the stack files need the changes
 below, not that the site is down. The doctor cannot read the other stamped files
-because `.dockerignore` keeps them out of the image. Checking those belongs to
-Composer's host-side `composer check`, which does not read stamps yet.
+because `.dockerignore` keeps them out of the image.
+
+Composer 1.6.1b1+ reads them on the host: the `stack-schema` finding of
+`composer check` compares every stamped file with compose.yml's stamp. No stamps
+is `ok` (predates stamping); stamps that disagree, or stamped files beside an
+unstamped compose.yml, are `warn`, naming the files per schema. It never fails.
+Composer checks the files against each other, and this doctor check compares
+compose.yml with the running contract; `composer check --deep` shows both.
 
 ## Bumping the schema
 
