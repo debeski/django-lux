@@ -2,11 +2,12 @@
   "schema_version": 2,
   "version": "1.11.0b2",
   "display": {
-    "summary": "Entry Clipboard, an opt-in snippet popover for entry forms, and stack schema stamps on generated stack files, reported by a new doctor check.",
+    "summary": "Entry Clipboard and stack schema stamps from 1.11.0b1, plus an image update that ends when DjangoLux is back instead of stranding the operator on the maintenance page.",
     "highlights": [
-      "Entry Clipboard (Extra Features, off by default): copy, search and paste snippets between entry form fields, kept per user in the browser tab.",
-      "Generated stack files record the stack contract schema they were written for; the new stack.schema doctor check reports it.",
-      "The modal's Save and add another button keeps working without the loading-button helper.",
+      "Image updates: the progress dialog stays locked, starts with an empty log, and offers Finish once the site is back on the new image.",
+      "The maintenance page returns to the page you were on as soon as the site answers (new projects; Composer 1.6.1b2 check --fix updates stock pages).",
+      "A deployment whose image moved to an older DjangoLux is offered updates again.",
+      "Entry Clipboard (Extra Features, off by default) and stack schema stamps with the stack.schema doctor check.",
       "No database migration."
     ],
     "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b2"
