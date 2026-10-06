@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.11.0b2
+
+- **Stale Image Activation Version**: `UpdateService.reconcile()` rewrites `state/active.json` when `source` is `image` and its `version` no longer matches the baked package (`RuntimeStore.recorded_version()`), keeping the generation. After a backward image move the file kept the newer version: dlux served the baked package, but Composer reported the stale version as installed and `dlux check` called the deployment up to date, so no update was offered. Seen on `testbed-dlux` after removing source mounts. No migration.
+
 ## v1.11.0b1
 
 - **Entry Clipboard**: An Extra Features switch (`extra_config.entry_clipboard.enabled`, default off) enables a snippet popover from an accessible Bootstrap clipboard icon beside the sticky-form header switch, with selection-preserving copy/paste, search, explicit field/container opt-out, user-scoped session storage and sensitive-control exclusions. Dlux ribbons are always excluded. Automatic prefill remains with sticky forms. No migration.

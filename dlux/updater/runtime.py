@@ -138,6 +138,19 @@ class RuntimeStore:
         except Exception as exc:
             raise UpdaterError("The active DjangoLux runtime state is invalid.") from exc
 
+    def recorded_version(self):
+        """The version active.json names, or None when it is absent or unreadable.
+
+        ``read_active`` reports the baked version for an image activation, so a
+        stale ``version`` left in the file is only visible here. Composer reads
+        the field literally.
+        """
+        try:
+            payload = json.loads(self.active_file.read_text(encoding="utf-8"))
+            return self.normalize_version(payload.get("version"))
+        except Exception:
+            return None
+
     def write_active(self, version, *, source="volume", generation=None):
         version = self.normalize_version(version)
         if source not in {"image", "volume"}:

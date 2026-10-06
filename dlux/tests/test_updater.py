@@ -490,6 +490,38 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.baked_version, "1.2.2")
             self.assertEqual(reconciled.active_version, "1.2.3")
 
+    def test_reconcile_rewrites_a_stale_image_version_after_a_backward_image_move(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.write_active("1.11.0b1", source="image", generation=9)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.9.4"
+            state.active_version = "1.9.4"
+            state.generation = 9
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.9.4"):
+                reconciled = service.reconcile()
+            payload = json.loads(store.active_file.read_text(encoding="utf-8"))
+            self.assertEqual(payload["version"], "1.9.4")
+            self.assertEqual(payload["source"], "image")
+            self.assertEqual(payload["generation"], 9, "a label correction is not a new runtime generation")
+            self.assertEqual(reconciled.active_version, "1.9.4")
+
+    def test_reconcile_leaves_a_matching_image_activation_untouched(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.write_active("1.9.4", source="image", generation=3)
+            before = store.active_file.stat().st_mtime_ns
+            state = DluxUpdateState.load()
+            state.baked_version = "1.9.4"
+            state.active_version = "1.9.4"
+            state.generation = 3
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.9.4"):
+                UpdateService(store=store).reconcile()
+            self.assertEqual(store.active_file.stat().st_mtime_ns, before)
+
     def test_an_installed_release_stops_being_an_offer(self):
         """The card kept offering the version it had just installed.
 
