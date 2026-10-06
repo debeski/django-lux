@@ -1,13 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.10.2b1",
+  "version": "1.11.0b1",
   "display": {
-    "summary": "The application image row's check icon now leads the row like the DjangoLux one: an arrow until checked, a tick afterwards, and the update icon when there is an update.",
+    "summary": "Entry Clipboard, an opt-in snippet popover for entry forms, and stack schema stamps on generated stack files, reported by a new doctor check.",
     "highlights": [
-      "The application image row's check icon leads the row, matching the DjangoLux row, instead of sitting at its end.",
+      "Entry Clipboard (Extra Features, off by default): copy, search and paste snippets between entry form fields, kept per user in the browser tab.",
+      "Generated stack files record the stack contract schema they were written for; the new stack.schema doctor check reports it.",
+      "The modal's Save and add another button keeps working without the loading-button helper.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b1"
   },
   "requires": {
     "updater_schema": ">=1",

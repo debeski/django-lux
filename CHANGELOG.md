@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b1
 
 - **Entry Clipboard**: An Extra Features switch (`extra_config.entry_clipboard.enabled`, default off) enables a snippet popover from an accessible Bootstrap clipboard icon beside the sticky-form header switch, with selection-preserving copy/paste, search, explicit field/container opt-out, user-scoped session storage and sensitive-control exclusions. Dlux ribbons are always excluded. Automatic prefill remains with sticky forms. No migration.
 - **Modal Submit Action**: Capture the clicked submitter before the loading state disables it, preserving `save_add_more` in the POST even without the loading-button helper.
