@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b1",
+  "version": "1.11.0b2",
   "display": {
     "summary": "Entry Clipboard, an opt-in snippet popover for entry forms, and stack schema stamps on generated stack files, reported by a new doctor check.",
     "highlights": [
@@ -9,7 +9,7 @@
       "The modal's Save and add another button keeps working without the loading-button helper.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b2"
   },
   "requires": {
     "updater_schema": ">=1",

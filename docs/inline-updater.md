@@ -75,6 +75,17 @@ derives both from what is actually on the volume:
   the baked version is not offered: reconcile resets anything under that floor,
   so the rollback would be undone on the next pass.
 
+### When the image moves backward
+
+`state/active.json` with `source: image` means "whatever the image bakes". dlux
+reads it that way, but Composer reports its `version` field as the installed
+release. When the baked package moves to an older version under an image
+activation (an older application image, or a removed source mount), reconcile
+rewrites the file with the baked version and the same generation; it is a label
+correction, not a new runtime. Before 1.11.0b2 the stale version stayed, and
+Composer called the deployment up to date with a release it was not running, so
+no update was offered.
+
 ### Which releases are eligible: stable and beta
 
 Stable is the default and admits no prerelease. Beta is a persistent, explicit

@@ -977,6 +977,16 @@ class UpdateService:
         if active:
             if self.store.read_generation() != active["generation"]:
                 self.store.set_generation(active["generation"])
+            if (
+                active["source"] == "image"
+                and self.store.active_file.exists()
+                and self.store.recorded_version() != active["version"]
+            ):
+                # The image moved backward under an image activation (an older app
+                # image, or a removed source mount). read_active() already serves
+                # the baked package, but the file still names the newer version,
+                # and Composer would report it as installed and offer no update.
+                self.store.write_active(baked_version, source="image", generation=active["generation"])
             if state.active_version != active["version"]:
                 state.active_version = active["version"]
                 changed.append("active_version")
