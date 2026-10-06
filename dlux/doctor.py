@@ -429,6 +429,36 @@ def _check_updater_runtime_volume(ctx):
     return ok(f'Runtime volume at {root} is writable.')
 
 
+@check('stack.schema', 'services', 'Stack files match the stack contract schema')
+def _check_stack_schema(ctx):
+    """Compares compose.yml's ``DLUX_STACK_SCHEMA`` with the running contract.
+
+    Never an error: an unstamped stack predates stamping, and a mismatch means
+    the generated files need the migration notes, not that the site is down.
+    """
+    from .contracts.stack import STACK_SCHEMA_ENV, stack_schema
+
+    expected = stack_schema()
+    raw = os.environ.get(STACK_SCHEMA_ENV, '').strip()
+    if not raw:
+        return skip(f'No {STACK_SCHEMA_ENV} in this environment: the stack was generated '
+                    f'before schema stamping. This DjangoLux expects stack schema {expected}.')
+    try:
+        declared = int(raw)
+    except ValueError:
+        return warn(f'{STACK_SCHEMA_ENV}={raw!r} is not a number.',
+                    f'Set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml\'s x-environment block.')
+    if declared == expected:
+        return ok(f'compose.yml declares stack schema {declared}.')
+    direction = 'older' if declared < expected else 'newer'
+    return warn(
+        f'compose.yml declares stack schema {declared}; this DjangoLux expects {expected} '
+        f'(the stack files are {direction}).',
+        'Apply the changes docs/stack-schema.md lists between the two schemas, '
+        f'then set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
+    )
+
+
 @check('email.configured', 'services', 'Email backend is configured')
 def _check_email_config(ctx):
     backend = getattr(settings, 'EMAIL_BACKEND', '')

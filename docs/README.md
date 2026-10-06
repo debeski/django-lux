@@ -28,6 +28,7 @@ Use the sections below based on what you are trying to do.
 - [Outbound Requests](outbound-requests.md) for the network rule (only `composer-agent` reaches the internet) and how a project asks for an outbound call.
 - [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
 - [Deployment Doctor](doctor.md) for diagnosing a deployment, the JSON report contract Composer consumes, and the remediation safety tiers.
+- [Stack Schema Stamps](stack-schema.md) for the contract schema number generated stack files carry, and what changed between schemas.
 
 ## I am Integrating DjangoLux into a Django Project
 

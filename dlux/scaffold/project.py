@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from .. import __version__
+from ..contracts.stack import stack_schema
 from ._shared import (
     ScaffoldError,
     _normalize_identifier,
@@ -62,6 +63,7 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         # workflow's validator then fails loudly with the URL it expects.
         "github_repo": github_repo or "OWNER/REPO",
         "dlux_version": __version__,
+        "stack_schema": stack_schema(),
         "generated_date": date.today().isoformat(),
         "secret_key": secrets.token_urlsafe(38),
     }

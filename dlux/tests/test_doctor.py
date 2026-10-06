@@ -1,4 +1,5 @@
 import json
+import os
 from io import StringIO
 from unittest.mock import patch
 
@@ -178,6 +179,36 @@ class DoctorCheckBehaviourTests(TestCase):
         self.assertEqual(cache.get('unrelated.session.key'), 'preserved')
         self.assertIsNone(cache.get('dlux.doctor.probe'))
 
+
+class DoctorStackSchemaTests(TestCase):
+    def _run(self, env):
+        from dlux.contracts.stack import STACK_SCHEMA_ENV
+
+        environ = {k: v for k, v in os.environ.items() if k != STACK_SCHEMA_ENV}
+        if env is not None:
+            environ[STACK_SCHEMA_ENV] = env
+        with patch.dict('os.environ', environ, clear=True):
+            return doctor._check_stack_schema(None)
+
+    def test_unstamped_stack_is_informational(self):
+        self.assertEqual(self._run(None).status, doctor.SKIPPED)
+
+    def test_matching_stamp_passes(self):
+        from dlux.contracts.stack import stack_schema
+
+        self.assertEqual(self._run(str(stack_schema())).status, doctor.OK)
+
+    def test_older_or_newer_stamp_warns_never_errors(self):
+        from dlux.contracts.stack import stack_schema
+
+        current = stack_schema()
+        for value in (current - 1, current + 1):
+            finding = self._run(str(value))
+            self.assertEqual(finding.status, doctor.WARNING)
+            self.assertIn('docs/stack-schema.md', finding.remedy)
+
+    def test_garbage_stamp_warns(self):
+        self.assertEqual(self._run('two').status, doctor.WARNING)
 
 class DoctorFixTieringTests(TestCase):
     """`--apply` must not silently mutate the database. Fixes are tiered and the

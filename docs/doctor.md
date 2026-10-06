@@ -64,7 +64,7 @@ id or changing the field set requires a version bump.
 
 ## Stack contract
 
-`dlux/stack_contract.json` is the machine-readable spec of the expected Compose
+`dlux/contracts/stack.json` is the machine-readable spec of the expected Compose
 stack: which services exist, which networks each joins, the sole published
 ingress, where the Docker socket may be mounted (`ro`, socket-proxy only), the
 `dlux_runtime` read/write split, each service's restart class, and the declared
@@ -97,8 +97,11 @@ static-collection fix avoids). `load_contract()` stamps the report with
 both the tests and Composer use — it flags a contract service on the wrong
 networks, a missing contract service, any service on an undeclared network, and
 any service (contract or project-added) that bridges `frontend` and `egress` and
-so collapses the ingress/egress isolation. `schema_version` is `1`; adding
+so collapses the ingress/egress isolation. `schema_version` is `2`; adding
 services/keys is backwards-compatible, renaming a field bumps the version.
+Generated stack files record the schema they were written for; the
+`stack.schema` check compares `compose.yml`'s stamp with the running contract
+(see [Stack Schema Stamps](stack-schema.md)).
 
 ## Check groups
 
@@ -107,7 +110,7 @@ services/keys is backwards-compatible, renaming a field bumps the version.
 | `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
-| `services` | cache round-trip, email backend, SMTP reachability, Celery broker |
+| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, Celery broker |
 | `static` | `STATIC_ROOT` configured, populated, contains dlux assets |
 | `security` | `DEBUG`, placeholder `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, proxy SSL header, secure cookies |
 | `packages` | optional extras present |
