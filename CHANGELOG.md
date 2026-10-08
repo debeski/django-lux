@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b4
 
 - **Incremental Backups**: a full backup now starts a chain and *Type → Incremental* stores only rows whose serialized-JSON digest changed (`_CursorlessJSONSerializer.row_observer`), `deleted/<app>/<model>.json` primary keys gone since the parent, and media whose storage name is new (`stream_model_into_zip(file_filter=)`). Every member writes its row index to `index.json` and an encrypted `.idx` sidecar (`dlux.backup.chain`), so the next increment never decrypts its parent archive. `SystemBackup.kind`, `parent`, `chain_id`, `sequence`, `index_root`, `migration_digest` (migration `0025`, inline-safe).
 - **Increments Are Refused By Older Releases**: an increment's header `kind` is `dlux-system-backup-increment` (`INCREMENT_KIND`); `read_dlb_metadata()` and the viewer accept both kinds. DjangoLux 1.11.0b3 and earlier check that kind and refuse the file, where they would otherwise restore an increment as a full backup — wiping every table and loading only the changed rows — for example after rolling back from this release.

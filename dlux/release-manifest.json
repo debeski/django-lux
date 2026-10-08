@@ -1,16 +1,17 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b3",
+  "version": "1.11.0b4",
   "display": {
-    "summary": "Faster, snapshot-consistent system backups you can cancel, with a choice of encryption and a portable project-data scope, on top of 1.11.0b2.",
+    "summary": "Incremental system backups (chains of a full backup plus changes-only increments, restorable to any point, readable in the DLB viewer) and per-user General Reports for report viewers, on top of 1.11.0b3.",
     "highlights": [
-      "System backups run several times faster on large tables and encrypt while they are written.",
-      "On PostgreSQL a backup is one point-in-time snapshot while the site keeps working.",
-      "Choose server-key, passphrase or no encryption, and optionally a portable project-data-only backup.",
-      "Cancel a running backup, see its live console and time left; only one backup runs at a time.",
-      "Database migration: additive and inline-safe (new backup options columns)."
+      "Incremental backups store only changed and deleted rows and new media since the previous backup.",
+      "Restore any point of a chain in one step; a missing or foreign member is refused before anything changes.",
+      "Scheduled backups can run incrementally, with a new full backup by age or chain length.",
+      "The DLB viewer opens a backup chain as its merged state and groups models by app.",
+      "General Reports: staff with the reports permission can open each listed user's activity breakdown.",
+      "Database migration: additive and inline-safe (backup chain columns)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b4"
   },
   "requires": {
     "updater_schema": ">=1",
