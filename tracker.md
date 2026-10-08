@@ -42,7 +42,8 @@
 ### Incomplete Tasks:
 - **Priority 1:**
   - [ ] Accept published `v1.11.0b3` on `testbed-dlux` through the beta channel (`./start.sh dlux update`) and reset `WEB_IMAGE` to `testbed-dlux-app:2.1.20`.
-  - [ ] Incremental backups: design in local `incremental_backup_plan.md` (chains, per-row digest index, chain restore with root-hash check); own branch, phase 1 first.
+  - [ ] `feat/incremental-backups` (unmerged; CHANGELOG `Unreleased`, candidate `1.11.0b4`): chains, row-digest index + `.idx` sidecars, chain restore, chain retention/delete/download, scheduled increments; migration `0025`. Accepted on `testbed-dlux` (image `...-dlux-1.11.0b4`): base 40,160 rows/20.9 MB; increments 704 rows/931 KB and 53 rows/692 KB; restoring #2 and #1 matched DB fingerprints exactly. Index is embedded in every `.dlb` (~600 KB at 40k rows). Viewer shows increments as plain archives.
+  - [ ] General Reports per-user gap reported by the owner: not reproduced on testbed as superuser (By-user table + user report correct for UI edits and seeded logs); awaiting which project/role/table.
   - [ ] project-dhub must adopt the ribbon (6 `advanced_filter_helper` sites in `documents/filters.py`) and `dlux-file-input` before it upgrades to 1.10.0; it is pinned to an older DjangoLux until then.
   - [ ] Pin the projects to 1.9.4 and release them (held until 1.9.4/Composer 1.5.3 were stable — now due): archive v1.1.18, decrees v2.1.20, trademarks v2.0.6 sit untagged on 1.9.3; their old local tags v1.1.17/v2.1.19/v2.0.5 and sales v0.8.2 were never pushed.
   - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
@@ -71,7 +72,6 @@
   - [x] v1.8.14: boot gate gained `apply` (celery migrates when Compose skips `pre_start`, instead of every service waiting); `requires.migration_baseline` makes a multi-release update's migration span knowable and `release_check` now actually enforces both floors (`validate_image_baseline` had never been called); audit/deletion sets centralised in `dlux.system.constants`, extensible, with the `AUDIT_FIELD_NAMES` shim due for removal in v1.10; audit columns now hide even when a table declares them; `test_settings_step_anchors` guards step anchors and immediately caught `ribbon_title`; backup restore test pinned to the inline path (2026-09-07).
 
 ### One-line info about last verified Tests:
-- 2026-10-06 release commit 1.11.0b1: full suite 2708 OK (2 skips); `release_check --classify` beta, `--base-tag v1.10.1` inline-safe; import cycles clean.
 - 2026-10-03 clipboard: final full suite 2702 OK (2 skips); browser 4/4 covers account switch/logout, missing identity, stale-history reload, popover and exclusions. CRM/testbed refreshed/healthy; both login pages carry anonymous cleanup identity. User dropped sticky expansion (reverted) and live-preview integration from release scope.
 - 2026-09-30 `feat/assigned-homepage` (no-migration rework): full `dlux.tests` 2676 OK (2 skips), `test_assigned_home_url` 8 OK, `makemigrations --check` clean, import cycles clean. Not browser-tested.
 - 2026-09-29 weather: full `dlux.tests` 2668 OK (2 skips); final focused 86 OK; weather browser 4/4 (real saves, desktop/mobile, RTL, titlebar rail/user hub/floating/card). Screenshots reviewed in `tests-e2e/shots/weather-*`. Live key check returned 401; fixtures cover successful readings.

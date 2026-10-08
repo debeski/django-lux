@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ._shared import _log_system_action, logger, system_backup_celery_available
+from .chain import chain_policy, open_chain_head
 from .config import _backup_config
 from .create import run_system_backup
 from .crypto import _clean_passphrase
@@ -200,11 +201,39 @@ def run_scheduled_system_backup(*, now=None):
         latest = SystemBackup.objects.filter(trigger=SystemBackup.TRIGGER_SCHEDULED).order_by("-created_at").first()
         if latest is not None and latest.created_at >= interval_start:
             return latest
-        backup = SystemBackup.objects.create(
-            requested_by_username="system",
-            trigger=SystemBackup.TRIGGER_SCHEDULED,
-        )
+        head = None
+        if chain_policy()["incremental_enabled"]:
+            # Scheduled backups are full scope with the server key, so they only
+            # ever continue a chain of exactly that kind.
+            head, _reason = open_chain_head(
+                media_included=True,
+                system_data_included=True,
+                encryption=SystemBackup.ENCRYPTION_SERVER_KEY,
+                now=now,
+            )
+        if head is not None:
+            backup = incremental_backup_row(head, requested_by="system", trigger=SystemBackup.TRIGGER_SCHEDULED)
+        else:
+            backup = SystemBackup.objects.create(
+                requested_by_username="system",
+                trigger=SystemBackup.TRIGGER_SCHEDULED,
+            )
     return run_system_backup(backup.pk)
+
+
+def incremental_backup_row(head, *, requested_by, trigger):
+    """A pending increment continuing ``head``; scope and encryption are the chain's."""
+    SystemBackup = type(head)
+    return SystemBackup.objects.create(
+        requested_by_username=requested_by,
+        trigger=trigger,
+        kind=SystemBackup.KIND_INCREMENTAL,
+        parent=head,
+        media_included=head.media_included,
+        system_data_included=head.system_data_included,
+        encryption=head.encryption,
+        passphrase_required=head.passphrase_required,
+    )
 
 
 def dispatch_system_backup(backup, *, passphrase=None):

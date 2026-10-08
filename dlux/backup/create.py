@@ -14,6 +14,9 @@ from django.utils import timezone
 from ..utils.archive import build_relation_schema, stream_model_into_zip
 
 from ._shared import _SUPERUSER_PASSWORD_OMITTED, _dlux_version, _log_system_action, get_current_migration_state, logger
+from .chain import (
+    INDEX_MEMBER, delete_backup_files, index_root, migration_digest, new_index, read_index_sidecar, row_digest, write_index_sidecar,
+)
 from .config import _backup_config, _is_user_model, _system_model_queryset, get_system_backup_models, get_system_backup_storage_prefix
 from .crypto import DlbPayloadWriter, _clean_passphrase
 from .reporters import BackupCancelled, _BackupReporter, _CallbackReporter, _NullReporter, _ThreadedReporter, _format_count
@@ -68,6 +71,9 @@ def write_system_backup(
     include_system_data=True,
     encrypt=True,
     consistency=CONSISTENCY_LIVE,
+    previous_index=None,
+    chain=None,
+    index_out=None,
 ):
     """Build the complete system backup into ``dest``. Returns ``(metadata, manifest)``.
 
@@ -78,6 +84,13 @@ def write_system_backup(
     ``include_system_data=False`` leaves Dlux's own bookkeeping out (see
     ``SYSTEM_DATA_MODELS``): a portable project-data snapshot. ``encrypt=False``
     stores the archive unencrypted.
+
+    Every backup digests each row and writes the resulting index (see
+    ``dlux.backup.chain``) into ``index.json`` and, when given, ``index_out``.
+    With ``previous_index`` the backup is an increment: only rows whose digest
+    differs, media whose storage name is new, and ``deleted/<app>/<model>.json``
+    lists of primary keys gone since are written. ``chain`` is the member's
+    chain identity, completed here with its index ``root``.
 
     The archive is encrypted while it is written (``DlbPayloadWriter``), so there
     is no separate encryption pass. ``reporter`` receives coarse ``checkpoint()``
@@ -131,6 +144,15 @@ def write_system_backup(
         return BAND_START + int((position / total_weight) * (BAND_END - BAND_START))
 
     natural_key_cache = {}
+    index = new_index()
+    parent_models = (previous_index or {}).get("models") or {}
+    parent_files = set((previous_index or {}).get("files") or [])
+    incremental = previous_index is not None
+    current_files = set()
+
+    def file_filter(name):
+        current_files.add(name)
+        return not incremental or name not in parent_files
     writer = DlbPayloadWriter(passphrase=passphrase, encrypt=encrypt)
     try:
         done_weight = 0
@@ -166,6 +188,16 @@ def write_system_backup(
                         stage=STAGE_MODELS,
                     )
 
+                label = model._meta.label_lower
+                model_index = {}
+                previous_rows = parent_models.get(label) or {}
+
+                def observe(pk, text, _rows=model_index, _previous=previous_rows):
+                    key = str(pk)
+                    digest = row_digest(text)
+                    _rows[key] = digest
+                    return not incremental or _previous.get(key) != digest
+
                 stream_model_into_zip(
                     zf, model, qs, manifest,
                     serialize_kwargs={"use_natural_foreign_keys": True},
@@ -173,13 +205,30 @@ def write_system_backup(
                     include_files=include_media,
                     step_callback=report_step,
                     natural_key_cache=natural_key_cache,
+                    row_observer=observe,
+                    file_filter=file_filter,
                 )
+                index["models"][label] = model_index
+                if incremental:
+                    deleted = sorted(set(previous_rows) - set(model_index))
+                    manifest["models"][-1]["deleted"] = len(deleted)
+                    if deleted:
+                        zf.writestr(
+                            f"deleted/{model._meta.app_label}/{model._meta.model_name}.json",
+                            json.dumps(deleted),
+                        )
                 done_weight += weight
                 reporter.checkpoint(
                     band(done_weight),
                     strings.get("backup_progress_model_done", "Backed up {model}.").format(model=model_label),
                     stage=STAGE_MODELS,
                 )
+            index["files"] = sorted(current_files)
+            chain = dict(chain or {})
+            chain["root"] = index_root(index)
+            manifest["chain"] = chain
+            manifest["migration_digest"] = migration_digest(manifest["migration_state"])
+            zf.writestr(INDEX_MEMBER, json.dumps(index, separators=(",", ":")))
             zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
         reporter.checkpoint(
             92,
@@ -198,10 +247,14 @@ def write_system_backup(
             "media_included": bool(include_media),
             "system_data_included": bool(include_system_data),
             "consistency": consistency,
+            "chain": chain,
+            "migration_digest": manifest["migration_digest"],
         })
     except BaseException:
         writer.abort()
         raise
+    if index_out is not None:
+        index_out.update(index)
     return metadata, manifest
 
 
@@ -211,6 +264,43 @@ def _encryption_mode(backup):
     if backup.passphrase_required:
         return SystemBackup.ENCRYPTION_PASSPHRASE
     return mode
+
+
+def _discard(paths, backup_pk):
+    for path in paths:
+        try:
+            default_storage.delete(path)
+        except Exception:
+            logger.warning("Could not remove a file of backup pk=%s", backup_pk, exc_info=True)
+
+
+def _chain_start(backup, passphrase):
+    """``(previous_index, chain)`` for the member this row will become.
+
+    A full backup starts its own chain. An incremental continues ``parent``,
+    whose index sidecar must open with this run's key (so a passphrase chain
+    keeps one passphrase) and whose schema must still be the current one.
+    """
+    SystemBackup = type(backup)
+    if not backup.is_incremental:
+        return None, {
+            "id": backup.token, "sequence": 0, "token": backup.token,
+            "parent": "", "parent_root": "", "kind": SystemBackup.KIND_FULL,
+        }
+    parent = backup.parent
+    if parent is None or parent.status != SystemBackup.STATUS_COMPLETED or not parent.index_root:
+        raise ValueError("The backup this increment continues is no longer available; take a full backup.")
+    if parent.migration_digest != migration_digest():
+        raise ValueError("The database schema changed since this backup chain began; take a full backup.")
+    if not parent.index_path or not default_storage.exists(parent.index_path):
+        raise ValueError("The index of the previous backup is missing; take a full backup.")
+    previous_index = read_index_sidecar(parent.index_path, passphrase=passphrase)
+    if index_root(previous_index) != parent.index_root:
+        raise ValueError("The index of the previous backup does not match it; take a full backup.")
+    return previous_index, {
+        "id": parent.chain_id, "sequence": parent.sequence + 1, "token": backup.token,
+        "parent": parent.token, "parent_root": parent.index_root, "kind": SystemBackup.KIND_INCREMENTAL,
+    }
 
 
 def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=False):
@@ -260,25 +350,32 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
     strings = get_strings()
     start_backup_progress(backup)
     reporter = _BackupReporter(backup)
-    saved_path = ""
+    saved_paths = []
+    sealed_passphrase = passphrase if mode == SystemBackup.ENCRYPTION_PASSPHRASE else None
+    encrypt = mode != SystemBackup.ENCRYPTION_NONE
     try:
         reporter.checkpoint(
             2,
             strings.get("backup_progress_preparing", "Preparing backup..."),
             stage=SystemBackup.STAGE_PREPARING,
         )
+        previous_index, chain = _chain_start(backup, sealed_passphrase)
+        index = {}
         with tempfile.TemporaryFile() as tmp:
             with consistent_snapshot() as consistency:
                 run_reporter = _ThreadedReporter(reporter) if consistency == CONSISTENCY_SNAPSHOT else reporter
                 try:
                     metadata, manifest = write_system_backup(
                         tmp,
-                        passphrase=passphrase if mode == SystemBackup.ENCRYPTION_PASSPHRASE else None,
+                        passphrase=sealed_passphrase,
                         reporter=run_reporter,
                         include_media=bool(backup.media_included),
                         include_system_data=bool(backup.system_data_included),
-                        encrypt=mode != SystemBackup.ENCRYPTION_NONE,
+                        encrypt=encrypt,
                         consistency=consistency,
+                        previous_index=previous_index,
+                        chain=chain,
+                        index_out=index,
                     )
                 finally:
                     if run_reporter is not reporter:
@@ -290,13 +387,21 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
                 strings.get("backup_progress_storing", "Storing backup artifact..."),
                 stage=SystemBackup.STAGE_STORING,
             )
-            saved_path = default_storage.save(
-                f"{get_system_backup_storage_prefix()}/system-{backup.token}.dlb",
-                File(tmp),
-            )
+            prefix = get_system_backup_storage_prefix()
+            saved_path = default_storage.save(f"{prefix}/system-{backup.token}.dlb", File(tmp))
+            saved_paths.append(saved_path)
+        chain = manifest["chain"]
+        sidecar = saved_path[:-4] + ".idx" if saved_path.endswith(".dlb") else f"{saved_path}.idx"
+        saved_paths.append(write_index_sidecar(
+            sidecar, index, passphrase=sealed_passphrase, encrypt=encrypt, chain=chain,
+        ))
         completed_at = timezone.now()
         values = {
             "file_path": saved_path,
+            "chain_id": chain["id"],
+            "sequence": chain["sequence"],
+            "index_root": chain["root"],
+            "migration_digest": manifest["migration_digest"],
             "file_size": size,
             "model_count": metadata["models"],
             "row_count": metadata["rows"],
@@ -328,19 +433,18 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
             "system_data": bool(backup.system_data_included),
             "consistency": metadata.get("consistency", ""),
             "seconds": backup.duration_seconds,
+            "backup_kind": backup.kind,
+            "chain_sequence": backup.sequence,
         })
         apply_backup_retention(protected_pk=backup.pk)
     except BackupCancelled:
-        if saved_path:
-            try:
-                default_storage.delete(saved_path)
-            except Exception:
-                logger.warning("Could not remove the file of cancelled backup pk=%s", backup_pk, exc_info=True)
+        _discard(saved_paths, backup_pk)
         backup.refresh_from_db()
         if backup.status == SystemBackup.STATUS_CANCELLED:
             cancel_backup_progress(backup, strings.get("sysbackup_cancelled_note", "Backup cancelled."))
     except Exception as exc:
         logger.exception("System backup pk=%s failed", backup_pk)
+        _discard(saved_paths, backup_pk)
         fail_system_backup(
             backup,
             str(exc)[:1000],
@@ -352,6 +456,11 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
 def apply_backup_retention(*, protected_pk=None, now=None):
     """Apply configured age/count rotation to completed system backups.
 
+    Rotation works on whole chains (a full backup and its increments): an
+    increment is useless without the members before it, so a chain is kept or
+    removed as one. Age is the age of a chain's newest member and the count is
+    a count of chains. A backup outside any chain is a chain of one.
+
     File removal and row removal are deliberately best-effort per item; a
     storage outage must not turn an otherwise valid new backup into a failure.
     """
@@ -360,23 +469,33 @@ def apply_backup_retention(*, protected_pk=None, now=None):
     retention_days = config["retention_days"]
     max_to_keep = config["max_backups_to_keep"]
     now = now or timezone.now()
-    candidates = SystemBackup.objects.filter(status=SystemBackup.STATUS_COMPLETED).order_by("-created_at")
-    delete_pks = set()
+    chains = {}
+    for backup in SystemBackup.objects.filter(status=SystemBackup.STATUS_COMPLETED).order_by("created_at"):
+        chains.setdefault(backup.chain_id or backup.token, []).append(backup)
+    ordered = sorted(chains.items(), key=lambda item: item[1][-1].created_at, reverse=True)
+    protected = {
+        key for key, members in chains.items()
+        if protected_pk is not None and any(member.pk == protected_pk for member in members)
+    }
+    doomed = set()
     if retention_days:
         cutoff = now - timedelta(days=retention_days)
-        delete_pks.update(candidates.filter(created_at__lt=cutoff).values_list("pk", flat=True))
+        doomed.update(key for key, members in ordered if members[-1].created_at < cutoff)
     if max_to_keep:
-        delete_pks.update(candidates.values_list("pk", flat=True)[max_to_keep:])
-    if protected_pk is not None:
-        delete_pks.discard(protected_pk)
+        doomed.update(key for key, _members in ordered[max_to_keep:])
+    doomed -= protected
 
     removed = 0
-    for old_backup in SystemBackup.objects.filter(pk__in=delete_pks):
-        try:
-            if old_backup.file_path:
-                default_storage.delete(old_backup.file_path)
-            old_backup.delete()
-            removed += 1
-        except Exception:
-            logger.exception("Could not rotate system backup pk=%s", old_backup.pk)
+    for key in doomed:
+        members = chains[key]
+        # Every row in the chain, not only completed ones: a failed retry of an
+        # increment still points at the base being removed.
+        extra = list(SystemBackup.objects.filter(chain_id=key).exclude(pk__in=[m.pk for m in members]))
+        for old_backup in sorted(members + extra, key=lambda item: item.sequence, reverse=True):
+            try:
+                delete_backup_files(old_backup)
+                old_backup.delete()
+                removed += 1
+            except Exception:
+                logger.exception("Could not rotate system backup pk=%s", old_backup.pk)
     return removed

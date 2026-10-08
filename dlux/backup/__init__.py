@@ -72,8 +72,16 @@ from .retry import (  # noqa: F401
     fail_system_backup,
     retry_countdown_for,
 )
+from .chain import (  # noqa: F401
+    chain_members_after,
+    chain_policy,
+    delete_backup_files,
+    open_chain_head,
+    resolve_chain_paths,
+)
 from .dispatch import (  # noqa: F401
     cancel_system_backup,
+    incremental_backup_row,
     dispatch_due_backup_retries,
     dispatch_system_backup,
     dispatch_system_restore,
@@ -91,6 +99,11 @@ __all__ = [
     'backup_retry_policy',
     'build_migration_report',
     'cancel_system_backup',
+    'chain_members_after',
+    'delete_backup_files',
+    'incremental_backup_row',
+    'open_chain_head',
+    'resolve_chain_paths',
     'decrypt_dlb_to_tempfile',
     'dispatch_due_backup_retries',
     'dispatch_system_backup',

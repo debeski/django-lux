@@ -1,0 +1,13 @@
+<small id="sysbackup-chain-note" class="text-muted d-block" hidden>
+    {% if open_chain.available %}
+        <i class="bi bi-link-45deg me-1"></i>{{ DLUX_STRINGS.sysbackup_chain_note|default:'Continues the chain started' }} {{ open_chain.base.created_at|date:'Y-m-d H:i' }}
+        · {% if open_chain.media_included %}{{ DLUX_STRINGS.sysbackup_scope_full|default:'Full (database + media)' }}{% else %}{{ DLUX_STRINGS.sysbackup_scope_data|default:'Quick — data only (no media)' }}{% endif %}
+        {% if not open_chain.system_data_included %}· {{ DLUX_STRINGS.sysbackup_portable_badge|default:'Portable' }}{% endif %}
+        {% if open_chain.encryption == 'passphrase' %}· {{ DLUX_STRINGS.sysbackup_chain_passphrase|default:'enter the chain passphrase' }}{% elif open_chain.encryption == 'none' %}· {{ DLUX_STRINGS.sysbackup_unencrypted_badge|default:'Not encrypted' }}{% endif %}
+    {% endif %}
+</small>
+{% if not open_chain.available %}
+    <small class="text-muted" id="sysbackup-chain-unavailable">
+        <i class="bi bi-info-circle me-1"></i>{% if open_chain.reason == 'base_too_old' %}{{ DLUX_STRINGS.sysbackup_chain_reason_old|default:'Incremental: the last full backup is older than the policy allows; take a full backup.' }}{% elif open_chain.reason == 'chain_full' %}{{ DLUX_STRINGS.sysbackup_chain_reason_full|default:'Incremental: the chain reached its length limit; take a full backup.' }}{% elif open_chain.reason == 'schema_changed' %}{{ DLUX_STRINGS.sysbackup_chain_reason_schema|default:'Incremental: the database schema changed since the last full backup; take a full backup.' }}{% else %}{{ DLUX_STRINGS.sysbackup_chain_reason_none|default:'Incremental backups become available after a full backup.' }}{% endif %}
+    </small>
+{% endif %}

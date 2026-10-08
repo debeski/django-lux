@@ -3750,7 +3750,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # exist for the pick to reach the builder at all. Raised by two for the
         # titlebar action-layout selector's pair of radios.
         # Weather adds fourteen selector radios and four persisted fields.
-        self.assertLess(len(re.findall(r'\sname=', html)), 301)
+        # Incremental backups add three persisted policy fields.
+        self.assertLess(len(re.findall(r'\sname=', html)), 304)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

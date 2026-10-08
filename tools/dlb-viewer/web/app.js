@@ -62,6 +62,8 @@ function fmtBytes(n) {
 // ── application state ─────────────────────────────────────────────────────────
 let META = null;
 let SUMMARY = null;
+// {mode: "" | "chain" | "delta", sequence, members, note} from /api/state.
+let CHAIN = null;
 
 // Lazy index of archived files keyed by `model|pk|field`, built from
 // SUMMARY.files. Lets the data tables turn a record's file-field cell into a
@@ -186,6 +188,7 @@ async function openByPath() {
 // ── step 2: unlock ────────────────────────────────────────────────────────────
 function onLoaded(state) {
   META = state.meta;
+  CHAIN = state.chain || null;
   $("#source-label").textContent = state.source || "";
   renderUnlockMeta();
   if (state.unlocked) { SUMMARY = state.manifest; enterBrowse(); }
@@ -206,6 +209,7 @@ async function unlock(password) {
     body: JSON.stringify({ password }),
   });
   SUMMARY = st.manifest;
+  CHAIN = st.chain || CHAIN;
   enterBrowse();
 }
 
@@ -217,6 +221,8 @@ function renderUnlockMeta() {
   dl.innerHTML = "";
   const add = (k, v) => { dl.append(el("dt", { text: k }), el("dd", {}, v)); };
   add("Created", META.created_at || "—");
+  const chainText = chainLabel();
+  if (chainText) add("Backup type", el("span", { class: "badge" + (CHAIN.mode === "delta" ? " warn" : ""), text: chainText }));
   add("Dlux version", META.dlux_version || "—");
   add("Models / rows", `${META.models ?? "—"} / ${META.rows ?? "—"}`);
   add("Stored files", String(META.files ?? "—"));
@@ -263,6 +269,24 @@ function wireUnlock() {
 }
 
 // ── step 3: browse ────────────────────────────────────────────────────────────
+// "Incremental #3 · chain of 4 backups" — or why only the changes can be shown.
+function chainLabel() {
+  if (!CHAIN || !CHAIN.sequence) return "";
+  if (CHAIN.mode === "chain") return `Incremental #${CHAIN.sequence} · chain of ${CHAIN.members} backups`;
+  return `Incremental #${CHAIN.sequence} · changes only (${CHAIN.note || "earlier backups not found"})`;
+}
+
+function chainBanner() {
+  if (!CHAIN || !CHAIN.sequence) return null;
+  if (CHAIN.mode === "chain") {
+    return el("div", { class: "chain-banner", text:
+      `State as of incremental backup #${CHAIN.sequence}, merged from the full backup and ${CHAIN.members - 1} increment(s).` });
+  }
+  return el("div", { class: "chain-banner delta", text:
+    `Incremental backup #${CHAIN.sequence}: showing only what changed since the previous backup, and the keys deleted since. ` +
+    `To see the complete state, open the chain ZIP (Download chain on the backup page) or put every backup of the chain in one folder and open this file by path.` });
+}
+
 function enterBrowse() {
   SCHEMA = (SUMMARY && SUMMARY.schema) || null;
   FILE_INDEX = null;
@@ -289,21 +313,63 @@ function setupRelToggle() {
   };
 }
 
+// Framework apps sink below the project's own apps, which hold the business data.
+const FRAMEWORK_APPS = ["dlux", "auth", "contenttypes", "sessions", "admin"];
+
+function appRank(app) {
+  const i = FRAMEWORK_APPS.indexOf(app);
+  return i === -1 ? -1 : i;
+}
+
+function loadCollapsedApps() {
+  try { return new Set(JSON.parse(localStorage.getItem("dlb-collapsed-apps") || "[]")); }
+  catch (err) { return new Set(); }
+}
+
+function saveCollapsedApps(set) {
+  try { localStorage.setItem("dlb-collapsed-apps", JSON.stringify([...set])); }
+  catch (err) { /* collapsing still works for this session */ }
+}
+
 function buildSidebar() {
   const list = $("#model-list");
   list.innerHTML = "";
   const models = (SUMMARY && SUMMARY.models) || [];
-  models
-    .slice()
-    .sort((a, b) => a.model.localeCompare(b.model))
-    .forEach((m) => {
-      const item = el("button", { class: "modelitem", "data-model": m.model }, [
-        el("span", { text: m.model }),
+  const groups = new Map();
+  for (const m of models) {
+    const dot = m.model.indexOf(".");
+    const app = dot === -1 ? m.model : m.model.slice(0, dot);
+    if (!groups.has(app)) groups.set(app, []);
+    groups.get(app).push(m);
+  }
+  const apps = [...groups.keys()].sort((a, b) => appRank(a) - appRank(b) || a.localeCompare(b));
+  const collapsed = loadCollapsedApps();
+  for (const app of apps) {
+    const items = groups.get(app).sort((a, b) => a.model.localeCompare(b.model));
+    const rows = items.reduce((sum, m) => sum + (m.count || 0), 0);
+    const group = el("details", { class: "appgroup", "data-app": app }, [
+      el("summary", { class: "apphead" }, [
+        el("span", { class: "appname", text: app }),
+        el("span", { class: "count", text: `${rows}`, title: `${items.length} models, ${rows} rows` }),
+      ]),
+    ]);
+    if (!collapsed.has(app)) group.open = true;
+    group.addEventListener("toggle", () => {
+      const now = loadCollapsedApps();
+      if (group.open) now.delete(app); else now.add(app);
+      saveCollapsedApps(now);
+    });
+    for (const m of items) {
+      const name = m.model.slice(app.length + 1) || m.model;
+      const item = el("button", { class: "modelitem" + (m.count ? "" : " empty"), "data-model": m.model, title: m.model }, [
+        el("span", { text: name }),
         el("span", { class: "count", text: String(m.count) }),
       ]);
       item.addEventListener("click", () => selectModel(m.model));
-      list.append(item);
-    });
+      group.append(item);
+    }
+    list.append(group);
+  }
 
   document.querySelectorAll(".navitem").forEach((b) => {
     b.addEventListener("click", () => selectView(b.dataset.view));
@@ -328,6 +394,8 @@ function selectView(view) {
 function renderOverview(c) {
   c.innerHTML = "";
   c.append(el("h2", { text: "Backup overview" }));
+  const banner = chainBanner();
+  if (banner) c.append(banner);
 
   const stat = (n, l) => el("div", { class: "stat" }, [
     el("div", { class: "n", text: String(n) }),
@@ -349,8 +417,12 @@ function renderOverview(c) {
   const ovScope = scopeLabel(SUMMARY.media_included);
   add("Backup scope", ovScope ? ovScope.text : "Unknown (pre-1.2.10 backup)");
   const enc = META.encryption || {};
-  add("Encryption", `${enc.scheme || "fernet-chunked"} · ${enc.kdf || ""} · ${enc.iterations || ""} iters`);
-  add("Key source", enc.key_source || "—");
+  if (enc.scheme === "none") {
+    add("Encryption", "not encrypted");
+  } else {
+    add("Encryption", `${enc.scheme || "fernet-chunked"} · ${enc.kdf || ""} · ${enc.iterations || ""} iters`);
+    add("Key source", enc.key_source || "—");
+  }
   c.append(dl);
 
   if (SUMMARY.superuser_policy) {
@@ -416,6 +488,8 @@ let MODEL_STATE = { key: null, offset: 0, limit: 50, total: 0 };
 
 function selectModel(key) {
   setActive((b) => b.classList.contains("modelitem") && b.dataset.model === key);
+  const group = document.querySelector(`.appgroup[data-app="${CSS.escape(key.split(".")[0])}"]`);
+  if (group && !group.open) group.open = true;
   MODEL_STATE = { key, offset: 0, limit: 50, total: 0 };
   loadModelPage();
 }
@@ -444,6 +518,16 @@ async function loadModelPage() {
 async function renderModelTable(c, data) {
   c.innerHTML = "";
   c.append(el("h2", { text: data.key }));
+  if (CHAIN && CHAIN.mode === "delta") {
+    c.append(chainBanner());
+    try {
+      const gone = await api("/api/deleted?" + new URLSearchParams({ key: data.key }).toString());
+      if ((gone.deleted || []).length) {
+        c.append(el("p", { text: `${gone.deleted.length} record(s) deleted since the previous backup:` }));
+        c.append(el("div", { class: "deleted-list", text: gone.deleted.slice(0, 500).join(", ") + (gone.deleted.length > 500 ? " …" : "") }));
+      }
+    } catch (err) { /* the changed records are still worth showing */ }
+  }
 
   const recs = data.records || [];
   c.append(pager(data));

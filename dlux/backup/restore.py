@@ -15,7 +15,8 @@ from django.utils import timezone
 
 from ._shared import _dlux_version, _log_system_action, get_current_migration_state, logger
 from .config import _is_user_model, get_system_backup_models
-from .crypto import decrypt_dlb_to_tempfile
+from .chain import resolve_chain_paths
+from .crypto import decrypt_dlb_to_tempfile, read_dlb_metadata
 from .reporters import _format_count
 
 
@@ -126,7 +127,72 @@ def _apply_superuser_password_policy(deserialized, current_passwords):
         obj.set_unusable_password()
 
 
-def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70), partial=False):
+def _deleted_member(zf, model):
+    name = f"deleted/{model._meta.app_label}/{model._meta.model_name}.json"
+    try:
+        zf.getinfo(name)
+    except KeyError:
+        return None
+    return name
+
+
+def _delete_rows(cursor, model, models_to_restore, pks):
+    """Raw-delete ``pks`` of ``model`` and their implicit M2M links.
+
+    Raw on purpose: an increment's deletions are the exact rows gone at that
+    point, cascades included, so ORM cascades would only delete rows a later
+    member still holds.
+    """
+    pk_column = connection.ops.quote_name(model._meta.pk.column)
+    table = connection.ops.quote_name(model._meta.db_table)
+    links = []
+    for owner in models_to_restore:
+        for field in owner._meta.many_to_many:
+            through = field.remote_field.through
+            if not through._meta.auto_created:
+                continue
+            if owner is model:
+                links.append((through._meta.db_table, field.m2m_column_name()))
+            if field.related_model is model:
+                links.append((through._meta.db_table, field.m2m_reverse_name()))
+    for start in range(0, len(pks), 500):
+        chunk = pks[start:start + 500]
+        placeholders = ", ".join(["%s"] * len(chunk))
+        for through_table, column in links:
+            cursor.execute(
+                f"DELETE FROM {connection.ops.quote_name(through_table)} "
+                f"WHERE {connection.ops.quote_name(column)} IN ({placeholders})",
+                chunk,
+            )
+        cursor.execute(f"DELETE FROM {table} WHERE {pk_column} IN ({placeholders})", chunk)
+
+
+def _apply_increment(zf, models_to_restore, current_superuser_passwords, deferred, counts):
+    """Upsert an increment's changed rows and delete the rows gone since its parent."""
+    for model in models_to_restore:
+        member = _zip_data_member(zf, model)
+        if member is not None:
+            loaded = 0
+            with zf.open(member) as raw:
+                text = io.TextIOWrapper(raw, encoding="utf-8")
+                for obj in serializers.deserialize("json", text, handle_forward_references=True):
+                    _apply_superuser_password_policy(obj, current_superuser_passwords)
+                    # Deserialized saves are raw: UPDATE by primary key, INSERT
+                    # when the row is new, so a changed row simply replaces.
+                    obj.save()
+                    if getattr(obj, "deferred_fields", None):
+                        deferred.append(obj)
+                    loaded += 1
+            counts[model._meta.label_lower] = counts.get(model._meta.label_lower, 0) + loaded
+        gone = _deleted_member(zf, model)
+        if gone is not None:
+            pks = [model._meta.pk.to_python(value) for value in json.loads(zf.read(gone))]
+            if pks:
+                with connection.cursor() as cursor:
+                    _delete_rows(cursor, model, models_to_restore, pks)
+
+
+def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70), partial=False, increments=()):
     """Replace every restorable model's rows with the backup contents.
 
     Runs inside one transaction with FK checks deferred/disabled, so neither
@@ -135,6 +201,10 @@ def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70), parti
     ``reporter`` progress spans ``span`` and is mirrored through the cache,
     because a row written from inside this transaction stays invisible to the
     polling web process until the whole load commits.
+
+    ``increments`` are the open archives of a chain's later members, applied in
+    order after the base inside the same transaction, so a chain restore
+    commits as a whole or not at all.
     """
     from ..signals import suspend_dlux_signals
     from ..utils.backup_progress import NullRestoreReporter
@@ -200,6 +270,15 @@ def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70), parti
                     strings.get("sysrestore_stage_integrity", "Verifying integrity..."),
                     stage=stage,
                 )
+                for position, increment in enumerate(increments, start=1):
+                    reporter.tick(
+                        span_end - 2,
+                        strings.get(
+                            "sysrestore_stage_increment", "Applying increment {done} of {total}...",
+                        ).format(done=position, total=len(increments)),
+                        stage=stage,
+                    )
+                    _apply_increment(increment, models_to_restore, current_superuser_passwords, deferred, counts)
                 for obj in deferred:
                     obj.save_deferred_fields()
                 if partial:
@@ -277,14 +356,22 @@ def run_system_restore(restore_pk, passphrase=None):
             strings.get("sysrestore_stage_reading", "Reading the backup file..."),
             stage=SystemRestore.STAGE_READING,
         )
-        try:
-            container_size = default_storage.size(restore.backup_file_path)
-        except Exception:
-            container_size = 0
+        with default_storage.open(restore.backup_file_path, "rb") as fh:
+            target_meta = read_dlb_metadata(fh)
+        member_paths = resolve_chain_paths(restore.backup_file_path, target_meta)
+        sizes = []
+        for path in member_paths:
+            try:
+                sizes.append(default_storage.size(path))
+            except Exception:
+                sizes.append(0)
+        container_size = sum(sizes)
         decrypt_label = strings.get("sysrestore_stage_decrypting", "Decrypting")
         total_label = filesizeformat(container_size) if container_size else ""
+        done_before = [0]
 
         def _on_decrypt(consumed):
+            consumed += done_before[0]
             if container_size:
                 percent = 3 + int(min(consumed / container_size, 1.0) * 27)
                 message = f"{decrypt_label} {filesizeformat(consumed)} / {total_label}"
@@ -293,40 +380,60 @@ def run_system_restore(restore_pk, passphrase=None):
                 message = f"{decrypt_label} {filesizeformat(consumed)}"
             reporter.tick(percent, message, stage=SystemRestore.STAGE_DECRYPTING)
 
-        with default_storage.open(restore.backup_file_path, "rb") as fh:
-            metadata, zip_tmp = decrypt_dlb_to_tempfile(
-                fh, passphrase=passphrase, on_chunk=_on_decrypt,
-            )
+        temps, archives = [], []
         try:
-            with zipfile.ZipFile(zip_tmp) as zf:
-                reporter.checkpoint(
-                    32,
-                    strings.get("sysrestore_stage_manifest", "Checking the backup contents..."),
-                    stage=SystemRestore.STAGE_READING,
+            for path, size in zip(member_paths, sizes):
+                with default_storage.open(path, "rb") as fh:
+                    metadata, zip_tmp = decrypt_dlb_to_tempfile(
+                        fh, passphrase=passphrase, on_chunk=_on_decrypt,
+                    )
+                temps.append(zip_tmp)
+                archives.append(zipfile.ZipFile(zip_tmp))
+                done_before[0] += size
+            reporter.checkpoint(
+                32,
+                strings.get("sysrestore_stage_manifest", "Checking the backup contents..."),
+                stage=SystemRestore.STAGE_READING,
+            )
+            manifests = [json.loads(zf.read("manifest.json")) for zf in archives]
+            base_manifest = manifests[0]
+            migration_report = build_migration_report(base_manifest)
+            report = {"metadata": target_meta, "migrations": migration_report, "chain_members": len(archives)}
+            base_state = sorted(base_manifest.get("migration_state") or [])
+            if any(sorted(item.get("migration_state") or []) != base_state for item in manifests[1:]):
+                raise ValueError("The backup chain spans a schema change and cannot be restored as one")
+            if not migration_report["match"] and not restore.ignore_version_mismatch:
+                restore.report = report
+                restore.status = SystemRestore.STATUS_FAILED
+                restore.completed_at = timezone.now()
+                restore.error = "Migration state mismatch between backup and this system"
+                restore.save(update_fields=["report", "status", "completed_at", "error"])
+                finish_restore_progress(restore, success=False, error=restore.error)
+                return restore
+            models_to_restore = _models_in_scope(base_manifest)
+            counts = _wipe_and_load(
+                archives[0], models_to_restore, reporter,
+                partial=not base_manifest.get("system_data_included", True),
+                increments=archives[1:],
+            )
+            files_restored, files_failed = 0, 0
+            width = 22 / len(archives)
+            for position, (zf, manifest) in enumerate(zip(archives, manifests)):
+                restored, failed = _restore_files(
+                    zf, manifest, reporter,
+                    span=(70 + int(position * width), 70 + int((position + 1) * width)),
                 )
-                manifest = json.loads(zf.read("manifest.json"))
-                migration_report = build_migration_report(manifest)
-                report = {"metadata": metadata, "migrations": migration_report}
-                if not migration_report["match"] and not restore.ignore_version_mismatch:
-                    restore.report = report
-                    restore.status = SystemRestore.STATUS_FAILED
-                    restore.completed_at = timezone.now()
-                    restore.error = "Migration state mismatch between backup and this system"
-                    restore.save(update_fields=["report", "status", "completed_at", "error"])
-                    finish_restore_progress(restore, success=False, error=restore.error)
-                    return restore
-                models_to_restore = _models_in_scope(manifest)
-                counts = _wipe_and_load(
-                    zf, models_to_restore, reporter,
-                    partial=not manifest.get("system_data_included", True),
-                )
-                files_restored, files_failed = _restore_files(zf, manifest, reporter)
-                report["restored_rows"] = sum(counts.values())
-                report["restored_models"] = len(counts)
-                report["restored_files"] = files_restored
-                report["failed_files"] = files_failed
+                files_restored += restored
+                files_failed += failed
+            report["restored_rows"] = sum(counts.values())
+            report["restored_models"] = len(counts)
+            report["restored_files"] = files_restored
+            report["failed_files"] = files_failed
         finally:
-            zip_tmp.close()
+            for zf in archives:
+                zf.close()
+            for tmp in temps:
+                tmp.close()
         reporter.checkpoint(
             95,
             strings.get("sysrestore_stage_finalizing", "Clearing caches and sessions..."),
@@ -348,7 +455,8 @@ def run_system_restore(restore_pk, passphrase=None):
             "kind": "system_restore",
             "rows": report.get("restored_rows"),
             "files": report.get("restored_files"),
-            "backup_created_at": metadata.get("created_at"),
+            "backup_created_at": target_meta.get("created_at"),
+            "chain_members": report.get("chain_members", 1),
         })
         finish_restore_progress(restore, success=True)
     except Exception as exc:

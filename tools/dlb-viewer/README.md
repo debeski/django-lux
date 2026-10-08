@@ -72,7 +72,10 @@ a clear "incorrect password or corrupted backup" message.
   *Data only — media excluded* (the Quick scope), read from the `media_included`
   flag in the header/manifest. Pre-1.2.10 backups predate the flag and show
   *Unknown*. The same scope is shown on the unlock screen before you decrypt.
-- **Models** — each model's serialized rows, paginated, rendered as a table.
+- **Models** — grouped by app in the sidebar: the project's own apps first,
+  framework apps (`dlux`, `auth`, …) after, each with its total row count and
+  collapsible (the choice is remembered). Empty models are dimmed. Each
+  model's serialized rows are paginated and rendered as a table.
   (Superuser password hashes are omitted in the backup itself, by design.)
   Relation columns (foreign keys, one-to-one, many-to-many) are marked with a
   `↗`. A **"Resolve relations"** toggle in the top bar swaps them between the
@@ -102,6 +105,25 @@ Unknown types — and active content like HTML/SVG/XML — are forced to downloa
 instead of rendering, so a malicious `.dlb` can't run script in the viewer's own
 origin. Responses always carry `X-Content-Type-Options: nosniff`.
 
+## Incremental backups
+
+An incremental `.dlb` holds only what changed since the previous backup of its
+chain (changed rows, deleted keys, new files). The viewer shows it as the
+complete state at that point whenever it can find the backups before it:
+
+- **Chain ZIP** — open the ZIP from *Download chain* on the Backup & Restore
+  page (drop it in, or open it by path). The newest backup inside is shown.
+- **Same folder** — open an increment *by path* with the other backups of its
+  chain beside it; they are matched by chain id and fingerprint, so unrelated
+  `.dlb` files in the folder are ignored.
+
+The members are decrypted with the one password you enter, merged (base, then
+each increment's changes and deletions) into a temporary archive, and the
+unlock screen and overview say which increment you are looking at and how many
+backups were merged. Opening an increment any other way — uploaded alone, or
+with a member missing — shows **changes only**: a banner says so and why, and
+each model lists the primary keys deleted since the previous backup.
+
 ## Container format (reference)
 
 ```
@@ -116,6 +138,11 @@ repeated frames:
 With `encryption.scheme` `"none"` there are no frames: the inner ZIP follows the
 metadata as-is. Archives are written as a stream, so members use ZIP data
 descriptors, and already-compressed media is stored rather than deflated.
+
+A chain member's header also carries `chain` (`id`, `sequence`, `parent`,
+`root`, `parent_root`); an increment's ZIP adds `deleted/<app>/<model>.json`
+(primary keys removed since its parent) and every member has `index.json`
+(row digests used to compute the next increment).
 
 The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 (Django fixtures), and `files/<app>/<model>/<pk>/<field>/<name>`.

@@ -33,6 +33,24 @@ class _CursorlessJSONSerializer(JsonSerializer):
     """
 
     natural_key_cache = None
+    # ``row_observer(pk, text) -> bool`` sees each record's exact JSON and says
+    # whether to write it; incremental backups digest every row this way and
+    # keep only the ones that changed.
+    row_observer = None
+    _written = False
+
+    def end_object(self, obj):
+        if self.row_observer is None:
+            return super().end_object(obj)
+        dump = self.get_dump_object(obj)
+        text = json.dumps(dump, **self.json_kwargs)
+        self._current = None
+        if not self.row_observer(dump.get("pk"), text):
+            return
+        if self._written:
+            self.stream.write(", ")
+        self.stream.write(text)
+        self._written = True
 
     def _cached_natural_key(self, model, key, loader):
         cache = self.natural_key_cache
@@ -246,6 +264,8 @@ def stream_model_into_zip(
     include_records=True,
     step_callback=None,
     natural_key_cache=None,
+    row_observer=None,
+    file_filter=None,
 ):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
@@ -270,6 +290,11 @@ def stream_model_into_zip(
     ``natural_key_cache`` is a dict shared across the models of one run, so a
     user referenced by every audited table is resolved once, not once per row.
 
+    ``row_observer(pk, text) -> bool`` receives every record's serialized JSON
+    and decides whether it is written; the manifest count is then the number
+    written. ``file_filter(storage_name) -> bool`` decides whether a media file
+    is copied. Incremental backups use both to keep only what changed.
+
     ``step_callback(stage, done, total)`` — ``stage`` being ``"rows"`` or
     ``"files"`` — reports movement *inside* one model. Without it a model holding
     thousands of uploads looks frozen for as long as it takes to copy them, which
@@ -278,7 +303,8 @@ def stream_model_into_zip(
     meta = model._meta
     model_key = meta.label_lower
     total_rows = qs.count()
-    manifest["models"].append({"model": model_key, "count": total_rows})
+    model_entry = {"model": model_key, "count": total_rows}
+    manifest["models"].append(model_entry)
 
     def report(stage, done, total):
         if step_callback:
@@ -299,6 +325,13 @@ def stream_model_into_zip(
             text_stream = io.TextIOWrapper(raw_stream, encoding="utf-8")
             serializer = _CursorlessJSONSerializer()
             serializer.natural_key_cache = natural_key_cache
+            written = [0]
+            if row_observer is not None:
+                def observe(pk, text):
+                    keep = row_observer(pk, text)
+                    written[0] += 1 if keep else 0
+                    return keep
+                serializer.row_observer = observe
             serializer.serialize(
                 serialized_objects(),
                 stream=text_stream,
@@ -306,6 +339,9 @@ def stream_model_into_zip(
             )
             text_stream.flush()
             text_stream.detach()
+        if row_observer is not None:
+            model_entry["count"] = written[0]
+            model_entry["total"] = total_rows
     if not include_files:
         return
     file_fields = [
@@ -335,6 +371,8 @@ def stream_model_into_zip(
         for field in file_fields:
             file_value = getattr(record, field.name, None)
             if not file_value or not getattr(file_value, "name", ""):
+                continue
+            if file_filter is not None and not file_filter(file_value.name):
                 continue
             archive_name = f"files/{meta.app_label}/{meta.model_name}/{record_folder}/{field.name}/{file_value.name.split('/')[-1]}"
             try:

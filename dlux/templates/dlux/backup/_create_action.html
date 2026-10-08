@@ -6,6 +6,8 @@
               data-busy="{% if active_backup %}1{% else %}0{% endif %}"
               data-estimate-full="{{ backup_estimates.full|default:'' }}"
               data-estimate-data="{{ backup_estimates.data|default:'' }}"
+              data-estimate-incremental="{{ backup_estimates.incremental|default:'' }}"
+              data-chain-encryption="{{ open_chain.encryption|default:'' }}"
               data-msg-preparing="{{ DLUX_STRINGS.sysbackup_preparing }}"
               data-msg-ready="{{ DLUX_STRINGS.sysbackup_ready }}"
               data-msg-failed="{{ DLUX_STRINGS.sysbackup_failed }}"
@@ -20,6 +22,13 @@
             {% csrf_token %}
             <fieldset id="sysbackup-create-fields" class="dlux-backup-create-form"{% if active_backup %} disabled{% endif %}>
                 <div>
+                    <label class="form-label small mb-1" for="sysbackup-kind">{{ DLUX_STRINGS.sysbackup_kind_label|default:'Type' }}</label>
+                    <select id="sysbackup-kind" name="backup_kind" class="form-select form-select-sm glass-input">
+                        <option value="full">{{ DLUX_STRINGS.sysbackup_kind_full|default:'Full' }}</option>
+                        <option value="incremental"{% if not open_chain.available %} disabled{% endif %}>{{ DLUX_STRINGS.sysbackup_kind_incremental|default:'Incremental (changes only)' }}{% if open_chain.available %} #{{ open_chain.next_sequence }}{% endif %}</option>
+                    </select>
+                </div>
+                <div class="dlux-backup-full-only">
                     <label class="form-label small mb-1" for="sysbackup-encryption">{{ DLUX_STRINGS.sysbackup_encryption_label|default:'Encryption' }}</label>
                     <select id="sysbackup-encryption" name="backup_encryption" class="form-select form-select-sm glass-input">
                         <option value="server_key">{{ DLUX_STRINGS.sysbackup_encryption_server_key|default:'Server key (SECRET_KEY)' }}</option>
@@ -35,14 +44,14 @@
                     <label class="form-label small mb-1" for="sysbackup-passphrase-confirm">{{ DLUX_STRINGS.sysbackup_passphrase_confirm }}</label>
                     <input type="password" id="sysbackup-passphrase-confirm" name="backup_passphrase_confirm" class="form-control form-control-sm glass-input" autocomplete="new-password" data-dlux-password-rules="off">
                 </div>
-                <div>
+                <div class="dlux-backup-full-only">
                     <label class="form-label small mb-1" for="sysbackup-scope">{{ DLUX_STRINGS.sysbackup_scope_label|default:'Scope' }}</label>
                     <select id="sysbackup-scope" name="backup_scope" class="form-select form-select-sm glass-input">
                         <option value="full">{{ DLUX_STRINGS.sysbackup_scope_full|default:'Full (database + media)' }}</option>
                         <option value="data">{{ DLUX_STRINGS.sysbackup_scope_data|default:'Quick — data only (no media)' }}</option>
                     </select>
                 </div>
-                <div class="dlux-backup-system-toggle">
+                <div class="dlux-backup-system-toggle dlux-backup-full-only">
                     <input type="hidden" name="include_system_data" value="0">
                     <div class="form-check form-switch mb-0" title="{{ DLUX_STRINGS.sysbackup_system_data_hint|default:'Off: a portable copy of project data only. Settings, notifications, activity log, preferences and devices are left out, and restoring it keeps those of the target system.' }}">
                         <input class="form-check-input" type="checkbox" role="switch" id="sysbackup-system-data" name="include_system_data" value="1" checked>
@@ -62,6 +71,7 @@
         <small id="sysbackup-encryption-note" class="text-danger-emphasis" hidden>
             <i class="bi bi-unlock me-1"></i>{{ DLUX_STRINGS.sysbackup_encryption_none_warning|default:'An unencrypted backup exposes user password hashes and all data to anyone who obtains the file.' }}
         </small>
+        <div id="sysbackup-chain-status">{% include 'dlux/backup/_chain_status.html' %}</div>
         <small id="sysbackup-estimate" class="text-muted" hidden></small>
         <small id="sysbackup-create-status" class="text-muted"></small>
     </div>

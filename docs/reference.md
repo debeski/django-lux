@@ -202,6 +202,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/backup/` | Superuser-only full system backup and restore page |
 | `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |
 | `/sys/backup/<token>/status/` | Backup status JSON, including `log` (console history), `elapsed`, `eta`, `encryption`, `system_data_included` |
+| `/sys/backup/<token>/download-chain/` | ZIP of every chain member from the full backup up to this increment |
 | `/sys/backup/<token>/cancel/` | POST-only: cancel a pending or running backup (JSON for XHR, redirect otherwise) |
 | `/sys/backup/<token>/delete/` | POST-only: delete a finished backup and its file; refused while it is active |
 | `/sys/backup/upload/` | Upload an encrypted `.dlb` for restore |
@@ -1129,8 +1130,8 @@ backup subsystem:
 
 - `scheduled_enabled` — opt in to Celery-beat scheduling (off by default).
 - `schedule_interval_hours` — due interval, from 1 through 8760 hours; beat polls every 15 minutes.
-- `retention_days` — remove completed backups older than this age; `0` keeps indefinitely.
-- `max_backups_to_keep` — retain the newest completed rows/files; `0` disables the count limit.
+- `retention_days` — remove completed backups older than this age (a chain goes when its newest member does); `0` keeps indefinitely.
+- `max_backups_to_keep` — retain the newest completed backups, counting a chain (full + its increments) as one; `0` disables the count limit.
 - `auto_export_target` — validated relative folder inside Django `default_storage`.
 - `use_celery` and `exclude_models` — normalized code-owned compatibility keys retained from `DLUX_CONFIG['backup']`.
 - `stall_timeout_minutes` — 2–1440 (default 30). A pending/running backup whose
@@ -1138,10 +1139,51 @@ backup subsystem:
 - `auto_retry_enabled` — re-run a failed or stalled backup automatically (default on).
 - `max_attempts` — 1–10 total attempts per backup row, counting the first (default 3).
 - `retry_delay_minutes` — 0–1440 wait between attempts (default 5).
+- `incremental_enabled` — scheduled runs are increments of the open chain (default off).
+- `full_every_days` — 1–365 (default 7): a chain whose full backup is older than this is closed.
+- `max_chain_length` — 1–500 increments per chain (default 24) before the next backup is full.
 
 Each `SystemBackup` stores a `manual`, `scheduled`, or `update` trigger. Inline
 apply/rollback always creates and verifies an update-triggered backup before
 maintenance, aborts if it fails, and protects the new backup while retention runs.
+
+#### Incremental backups (chains)
+
+A full backup is the base of a chain (`kind=full`, `sequence=0`,
+`chain_id` = its own token); an increment (`kind=incremental`) continues the
+newest completed member (`parent`) and stores only:
+
+- rows whose digest changed — every row's serialized JSON is hashed (BLAKE2b-64)
+  while it is written, so detection needs no timestamps and covers every model;
+- `deleted/<app>/<model>.json` — primary keys present in the parent, gone now;
+- media whose storage name is not in the parent's index.
+
+Every member, full or incremental, writes its index — `{"models": {label: {pk:
+digest}}, "files": [storage names]}` — into `index.json` inside the `.dlb` and
+into a `.idx` sidecar beside it (same encryption), so the next increment reads
+one small file instead of decrypting its parent. `SystemBackup.index_root` is
+the SHA-256 of that index and the header/manifest `chain` block carries `id`,
+`sequence`, `token`, `parent`, `root` and `parent_root`.
+
+A chain is **closed** — the next backup must be full — when its base is gone or
+older than `full_every_days`, it reached `max_chain_length`, the applied
+migrations differ from the chain's (`migration_digest`), or the head lost its
+sidecar. Increments inherit the chain's scope and encryption; a passphrase chain
+keeps one passphrase (the increment must open its parent's sidecar). Scheduled
+runs continue only a full-scope, server-key chain.
+
+Restoring a member resolves base → member from the cleartext headers of the
+`.dlb` files in the backup folder (so uploaded chains work too), follows
+`parent_root` → `root` links, and refuses a missing, foreign or swapped member
+before anything is wiped. All members must share the base's migration state. The
+base is loaded as a normal restore, then each increment, in order and in the
+same transaction, upserts its rows (deserialized saves update by primary key)
+and raw-deletes its `deleted/` keys and their implicit M2M links.
+
+Deleting a member deletes every later member of its chain (the DLB viewer opens a chain ZIP, or an increment beside its earlier members, as the merged state); an increment's
+Download returns the whole chain as one ZIP
+(`GET sys/backup/<token>/download-chain/`). The create form's Type selector
+offers *Incremental* only while a chain is open and says why when it is not.
 
 #### Interrupted backups
 

@@ -373,6 +373,10 @@ def default_backup_config():
     ``stall_timeout_minutes`` is how long a run may go without a progress
     heartbeat before it is treated as dead; ``max_attempts`` counts the first
     attempt, so the default 3 means up to two automatic retries.
+
+    With ``incremental_enabled`` a scheduled run is an increment of the open
+    chain; a full backup starts a new chain every ``full_every_days`` or after
+    ``max_chain_length`` increments.
     """
     return {
         'scheduled_enabled': False,
@@ -386,6 +390,9 @@ def default_backup_config():
         'auto_retry_enabled': True,
         'max_attempts': 3,
         'retry_delay_minutes': 5,
+        'incremental_enabled': False,
+        'full_every_days': 7,
+        'max_chain_length': 24,
     }
 
 
