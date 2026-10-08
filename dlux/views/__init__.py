@@ -122,6 +122,7 @@ from .backup import (
     system_backup_page,
     system_backup_resume_view,
     system_backup_cancel_view,
+    system_backup_chain_download_view,
     system_backup_status_view,
     system_backup_upload_view,
     system_restore_start_view,

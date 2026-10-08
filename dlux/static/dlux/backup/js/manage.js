@@ -10,6 +10,8 @@
     const encryptionNote = document.getElementById('sysbackup-encryption-note');
     const encryptionSelect = document.getElementById('sysbackup-encryption');
     const scopeSelect = document.getElementById('sysbackup-scope');
+    const kindSelect = document.getElementById('sysbackup-kind');
+    let chainNote = document.getElementById('sysbackup-chain-note');
     const passphraseInputs = [
         document.getElementById('sysbackup-passphrase'),
         document.getElementById('sysbackup-passphrase-confirm'),
@@ -58,9 +60,43 @@
         if (busyNote) busyNote.hidden = !busy;
     }
 
+    function isIncremental() {
+        return !!kindSelect && kindSelect.value === 'incremental';
+    }
+
+    // An increment inherits scope and encryption from its chain, so those
+    // controls give way to a note; a passphrase chain still asks for its key.
+    function syncKind() {
+        const incremental = isIncremental();
+        document.querySelectorAll('.dlux-backup-full-only').forEach(function (field) {
+            field.hidden = incremental;
+        });
+        if (chainNote) chainNote.hidden = !incremental;
+        syncEncryption();
+        syncEstimate();
+    }
+
+    // A finished backup can open, extend, or close a chain; keep the Type
+    // option and its note in step without reloading the page.
+    function syncChain(chain) {
+        if (!form || !kindSelect) return;
+        const option = kindSelect.querySelector('option[value="incremental"]');
+        if (option) {
+            option.disabled = !chain.available;
+            option.textContent = option.textContent.replace(/\s*#\d+$/, '') +
+                (chain.available && chain.next_sequence ? ' #' + chain.next_sequence : '');
+        }
+        form.dataset.chainEncryption = chain.encryption || '';
+        const status = document.getElementById('sysbackup-chain-status');
+        if (status && typeof chain.html === 'string') status.innerHTML = chain.html;
+        chainNote = document.getElementById('sysbackup-chain-note');
+        if (!chain.available && isIncremental()) kindSelect.value = 'full';
+        syncKind();
+    }
+
     function syncEncryption() {
         if (!encryptionSelect) return;
-        const mode = encryptionSelect.value;
+        const mode = isIncremental() ? (form.dataset.chainEncryption || 'server_key') : encryptionSelect.value;
         document.querySelectorAll('.dlux-backup-passphrase-field').forEach(function (field) {
             field.hidden = mode !== 'passphrase';
         });
@@ -73,7 +109,9 @@
 
     function syncEstimate() {
         if (!form || !estimateNote || !scopeSelect) return;
-        const seconds = scopeSelect.value === 'data' ? form.dataset.estimateData : form.dataset.estimateFull;
+        const seconds = isIncremental()
+            ? form.dataset.estimateIncremental
+            : (scopeSelect.value === 'data' ? form.dataset.estimateData : form.dataset.estimateFull);
         estimateNote.hidden = !seconds;
         if (seconds) {
             estimateNote.textContent = (form.dataset.msgEstimate || '{duration}').replace('{duration}', formatDuration(seconds));
@@ -131,8 +169,8 @@
     if (form && createBtn) {
         if (encryptionSelect) encryptionSelect.addEventListener('change', syncEncryption);
         if (scopeSelect) scopeSelect.addEventListener('change', syncEstimate);
-        syncEncryption();
-        syncEstimate();
+        if (kindSelect) kindSelect.addEventListener('change', syncKind);
+        syncKind();
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             if (form.dataset.busy === '1') return;
@@ -252,6 +290,23 @@
         detailsModal.addEventListener('hidden.bs.modal', function () {
             detailsUrl = '';
             if (detailsTimer) window.clearTimeout(detailsTimer);
+        });
+    }
+
+    function bindChainDeletes(root) {
+        root.querySelectorAll('form[data-chain-delete]:not([data-dlux-backup-bound])').forEach(function (deleteForm) {
+            deleteForm.dataset.dluxBackupBound = 'true';
+            deleteForm.addEventListener('submit', function (event) {
+                const chain = deleteForm.dataset.chainId;
+                const sequence = Number(deleteForm.dataset.chainSequence || 0);
+                const later = Array.prototype.some.call(
+                    document.querySelectorAll('form[data-chain-id]'),
+                    function (other) {
+                        return other.dataset.chainId === chain && Number(other.dataset.chainSequence || 0) > sequence;
+                    },
+                );
+                if (later && !window.confirm(deleteForm.dataset.chainDelete)) event.preventDefault();
+            });
         });
     }
 
@@ -402,9 +457,11 @@
                     bindResumeButtons(tableBody);
                     bindDetailsButtons(tableBody);
                     bindCancelForms(tableBody);
+                    bindChainDeletes(tableBody);
                     announceStatusChanges(previousStatuses, data.items);
                 }
                 if (typeof data.busy === 'boolean') setBusy(data.busy);
+                if (data.chain) syncChain(data.chain);
                 announceStalledBackups(data.items);
                 scheduleListPoll(data.active ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
             })
@@ -475,6 +532,7 @@
     bindResumeButtons(document);
     bindDetailsButtons(document);
     bindCancelForms(document);
+    bindChainDeletes(document);
     const resumeCancel = document.getElementById('sysbackup-resume-cancel');
     if (resumeCancel && resumePanel) {
         resumeCancel.addEventListener('click', function () { resumePanel.classList.add('d-none'); });

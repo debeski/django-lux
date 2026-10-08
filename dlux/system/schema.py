@@ -415,6 +415,9 @@ SYSTEM_SETTING_GROUPS = (
             _field('backup', 'auto_retry_enabled', form_name='backup_auto_retry_enabled', field_type='bool', default=True, widget='switch'),
             _field('backup', 'max_attempts', form_name='backup_max_attempts', field_type='int', default=3),
             _field('backup', 'retry_delay_minutes', form_name='backup_retry_delay_minutes', field_type='int', default=5),
+            _field('backup', 'incremental_enabled', form_name='backup_incremental_enabled', field_type='bool', default=False, widget='switch'),
+            _field('backup', 'full_every_days', form_name='backup_full_every_days', field_type='int', default=7),
+            _field('backup', 'max_chain_length', form_name='backup_max_chain_length', field_type='int', default=24),
         ),
     ),
     SettingGroup(

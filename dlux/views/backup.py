@@ -18,6 +18,10 @@ from ..backup import (
     ENCRYPTION_MODES,
     backup_retry_policy,
     cancel_system_backup,
+    chain_members_after,
+    delete_backup_files,
+    incremental_backup_row,
+    open_chain_head,
     dispatch_system_backup,
     dispatch_system_restore,
     read_dlb_metadata,
@@ -79,7 +83,7 @@ def _recent_system_backups(*, reap=True):
             reap_stalled_system_backups(allow_inline=False)
         except Exception:
             logger.warning('Could not reap stalled system backups', exc_info=True)
-    return list(_system_backup_model().objects.all()[:20])
+    return list(_system_backup_model().objects.select_related('parent')[:20])
 
 
 def _recent_system_restores():
@@ -135,12 +139,18 @@ def _backup_estimates():
     """
     SystemBackup = _system_backup_model()
     estimates = {}
-    for key, media in (('full', True), ('data', False)):
+    for key, kind, media in (
+        ('full', SystemBackup.KIND_FULL, True),
+        ('data', SystemBackup.KIND_FULL, False),
+        ('incremental', SystemBackup.KIND_INCREMENTAL, None),
+    ):
+        rows = SystemBackup.objects.filter(kind=kind)
+        if media is not None:
+            rows = rows.filter(media_included=media)
         durations = [
             (completed - started).total_seconds()
-            for started, completed in SystemBackup.objects.filter(
+            for started, completed in rows.filter(
                 status=SystemBackup.STATUS_COMPLETED,
-                media_included=media,
                 started_at__isnull=False,
                 completed_at__isnull=False,
             ).order_by('-completed_at').values_list('started_at', 'completed_at')[:3]
@@ -148,6 +158,37 @@ def _backup_estimates():
         if durations:
             estimates[key] = int(sum(durations) / len(durations))
     return estimates
+
+
+def _open_chain_context():
+    """What an incremental would continue, for the create form."""
+    head, reason = open_chain_head()
+    if head is None:
+        return {'available': False, 'reason': reason}
+    base = _system_backup_model().objects.filter(token=head.chain_id).first()
+    return {
+        'available': True,
+        'head': head,
+        'base': base,
+        'next_sequence': head.sequence + 1,
+        'encryption': head.encryption,
+        'media_included': head.media_included,
+        'system_data_included': head.system_data_included,
+    }
+
+
+def _chain_payload(request):
+    chain = _open_chain_context()
+    return {
+        'available': chain['available'],
+        'next_sequence': chain.get('next_sequence'),
+        'encryption': chain.get('encryption', ''),
+        'html': render_to_string(
+            'dlux/backup/_chain_status.html',
+            {'open_chain': chain, 'DLUX_STRINGS': get_strings()},
+            request=request,
+        ),
+    }
 
 
 def _backup_rows_context(backups):
@@ -216,6 +257,7 @@ def system_backup_page(request):
         'backup_config': get_system_config().get('backup_config', {}),
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
         'active_backup': _active_backup(),
+        'open_chain': _open_chain_context(),
         'backup_estimates': _backup_estimates(),
     }
     context['ribbon'] = _backup_ribbon(request)
@@ -293,7 +335,18 @@ def system_backup_create_view(request):
             'token': active.token,
         }, status=409)
     passphrase = _posted_passphrase(request)
-    encryption = _posted_encryption(request, passphrase)
+    incremental = str(request.POST.get('backup_kind') or '').strip().lower() == SystemBackup.KIND_INCREMENTAL
+    head = None
+    if incremental:
+        head, _reason = open_chain_head()
+        if head is None:
+            return JsonResponse({
+                'ok': False,
+                'error': s.get('sysbackup_incremental_unavailable', 'There is no backup chain to continue. Take a full backup first.'),
+            }, status=400)
+        encryption = head.encryption
+    else:
+        encryption = _posted_encryption(request, passphrase)
     if encryption == SystemBackup.ENCRYPTION_PASSPHRASE:
         confirm = str(request.POST.get('backup_passphrase_confirm') or '').strip()
         if not passphrase:
@@ -308,15 +361,20 @@ def system_backup_create_view(request):
             }, status=400)
     else:
         passphrase = ''
-    # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
-    include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
-    backup = SystemBackup.objects.create(
-        requested_by_username=request.user.get_username(),
-        passphrase_required=bool(passphrase),
-        media_included=include_media,
-        system_data_included=_posted_flag(request, 'include_system_data'),
-        encryption=encryption,
-    )
+    if head is not None:
+        backup = incremental_backup_row(
+            head, requested_by=request.user.get_username(), trigger=SystemBackup.TRIGGER_MANUAL,
+        )
+    else:
+        # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
+        include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
+        backup = SystemBackup.objects.create(
+            requested_by_username=request.user.get_username(),
+            passphrase_required=bool(passphrase),
+            media_included=include_media,
+            system_data_included=_posted_flag(request, 'include_system_data'),
+            encryption=encryption,
+        )
     if dispatch_system_backup(backup, passphrase=passphrase):
         queued = True
     else:
@@ -352,6 +410,7 @@ def system_backup_list_status_view(request):
         'revision': _system_backup_revision(backups),
         'active': any(backup.is_active for backup in backups),
         'busy': _active_backup() is not None,
+        'chain': _chain_payload(request),
         'items': [
             {
                 'token': backup.token,
@@ -454,6 +513,42 @@ def system_backup_download_view(request, token):
 
 
 @login_required
+def system_backup_chain_download_view(request, token):
+    """One ZIP of every member from the base up to this increment.
+
+    A lone increment cannot be restored, so this is what an incremental row's
+    Download offers; upload the members (or keep them in the backup folder) to
+    restore elsewhere.
+    """
+    import tempfile
+    import zipfile
+
+    from ..backup import resolve_chain_paths
+
+    backup = _get_backup_or_404(request, token)
+    if backup.status != 'completed' or not backup.file_path or not default_storage.exists(backup.file_path):
+        raise Http404
+    try:
+        paths = resolve_chain_paths(backup.file_path)
+    except ValueError:
+        raise Http404
+    bundle = tempfile.TemporaryFile()
+    with zipfile.ZipFile(bundle, 'w', zipfile.ZIP_STORED, allowZip64=True) as zf:
+        for path in paths:
+            with default_storage.open(path, 'rb') as src, zf.open(path.rsplit('/', 1)[-1], 'w', force_zip64=True) as dest:
+                while chunk := src.read(4 * 1024 * 1024):
+                    dest.write(chunk)
+    bundle.seek(0)
+    stamp = timezone.localdate(backup.completed_at).isoformat()
+    return FileResponse(
+        bundle,
+        as_attachment=True,
+        filename=f'dlux-backup-chain-{stamp}-{backup.sequence}.zip',
+        content_type='application/zip',
+    )
+
+
+@login_required
 @require_POST
 def system_backup_cancel_view(request, token):
     """Stop a pending or running backup; it discards whatever it built."""
@@ -483,12 +578,12 @@ def system_backup_delete_view(request, token):
             request=request, action='backup_delete_active', category='backup',
         )
         return redirect('system_backup_page')
-    if backup.file_path:
-        try:
-            default_storage.delete(backup.file_path)
-        except Exception:
-            pass
-    backup.delete()
+    # Later members of a chain cannot be restored without this one, so they go
+    # with it (newest first, so no row ever points at a deleted parent).
+    members = [backup] if backup.status != 'completed' else chain_members_after(backup)
+    for member in sorted(members, key=lambda item: item.sequence, reverse=True):
+        delete_backup_files(member)
+        member.delete()
     notify.success(get_strings().get('sysbackup_deleted'), request=request, action='backup_delete', category='backup')
     return redirect('system_backup_page')
 

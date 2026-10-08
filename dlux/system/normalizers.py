@@ -1095,6 +1095,19 @@ def normalize_backup_config(value):
             min_value=0,
             max_value=1440,
         ),
+        'incremental_enabled': _to_bool(config.get('incremental_enabled'), defaults['incremental_enabled']),
+        'full_every_days': _to_int(
+            config.get('full_every_days'),
+            defaults['full_every_days'],
+            min_value=1,
+            max_value=365,
+        ),
+        'max_chain_length': _to_int(
+            config.get('max_chain_length'),
+            defaults['max_chain_length'],
+            min_value=1,
+            max_value=500,
+        ),
     }
 
 

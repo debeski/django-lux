@@ -513,6 +513,9 @@ class SystemSettingsForm(
     backup_auto_retry_enabled = forms.BooleanField(required=False, initial=True)
     backup_max_attempts = forms.IntegerField(required=False, min_value=1, max_value=10, initial=3)
     backup_retry_delay_minutes = forms.IntegerField(required=False, min_value=0, max_value=1440, initial=5)
+    backup_incremental_enabled = forms.BooleanField(required=False, initial=False)
+    backup_full_every_days = forms.IntegerField(required=False, min_value=1, max_value=365, initial=7)
+    backup_max_chain_length = forms.IntegerField(required=False, min_value=1, max_value=500, initial=24)
     sidebar_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -1525,6 +1528,12 @@ class SystemSettingsForm(
         self.fields['backup_max_attempts'].help_text = s.get('help_sys_backup_max_attempts', 'Total attempts per backup, counting the first one. Use 1 to disable retrying.')
         self.fields['backup_retry_delay_minutes'].label = s.get('form_sys_backup_retry_delay_minutes', 'Retry delay (minutes)')
         self.fields['backup_retry_delay_minutes'].help_text = s.get('help_sys_backup_retry_delay_minutes', 'How long to wait after a failure before the next automatic attempt starts.')
+        self.fields['backup_incremental_enabled'].label = s.get('form_sys_backup_incremental_enabled', 'Incremental scheduled backups')
+        self.fields['backup_incremental_enabled'].help_text = s.get('help_sys_backup_incremental_enabled', 'Scheduled runs store only what changed since the previous backup. A full backup still starts each new chain.')
+        self.fields['backup_full_every_days'].label = s.get('form_sys_backup_full_every_days', 'New full backup every (days)')
+        self.fields['backup_full_every_days'].help_text = s.get('help_sys_backup_full_every_days', 'Start a new chain with a full backup once the current one is this old.')
+        self.fields['backup_max_chain_length'].label = s.get('form_sys_backup_max_chain_length', 'Increments per chain')
+        self.fields['backup_max_chain_length'].help_text = s.get('help_sys_backup_max_chain_length', 'After this many increments the next backup is full. Longer chains are smaller but slower to restore.')
         self.fields['navbar_enabled'].label = s.get('form_sys_navbar_enabled', '')
         self.fields['navbar_enabled'].help_text = s.get('help_sys_navbar_enabled', '')
         self.fields['navbar_default_mode'].label = s.get('form_sys_navbar_default_mode', '')
@@ -3943,6 +3952,9 @@ class SystemSettingsForm(
             cleaned['backup_auto_retry_enabled'] = backup['auto_retry_enabled']
             cleaned['backup_max_attempts'] = backup['max_attempts']
             cleaned['backup_retry_delay_minutes'] = backup['retry_delay_minutes']
+            cleaned['backup_incremental_enabled'] = backup['incremental_enabled']
+            cleaned['backup_full_every_days'] = backup['full_every_days']
+            cleaned['backup_max_chain_length'] = backup['max_chain_length']
 
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
@@ -4143,6 +4155,9 @@ class SystemSettingsForm(
             'backup_auto_retry_enabled',
             'backup_max_attempts',
             'backup_retry_delay_minutes',
+            'backup_incremental_enabled',
+            'backup_full_every_days',
+            'backup_max_chain_length',
         ))
         existing_backup = normalize_backup_config(getattr(self.instance, 'backup_config', None) or {})
         if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != SETUP_STEP_BACKUPS and not backup_fields_posted:
@@ -4161,6 +4176,9 @@ class SystemSettingsForm(
                 'auto_retry_enabled': bool(cleaned.get('backup_auto_retry_enabled', False)),
                 'max_attempts': cleaned.get('backup_max_attempts'),
                 'retry_delay_minutes': cleaned.get('backup_retry_delay_minutes'),
+                'incremental_enabled': bool(cleaned.get('backup_incremental_enabled', False)),
+                'full_every_days': cleaned.get('backup_full_every_days'),
+                'max_chain_length': cleaned.get('backup_max_chain_length'),
             })
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))

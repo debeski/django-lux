@@ -59,7 +59,7 @@ The current wizard has eighteen steps:
 14. **Global Search** — titlebar search display and optional record search.
 15. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
 16. **Logging** — activity and audit policy plus retention.
-17. **System Backup** — schedule, storage, retention, and retry policy.
+17. **System Backup** — schedule, storage, retention, retry policy, and incremental chains.
 18. **Extra Features** — opt-in integrations such as ScanLink.
 19. **Project Settings** — only when the project registers settings tiles with `register_app_settings()`: each tile's own form, one section per tile. It is always last, so no Dlux step changes number, and finishing setup saves each section with the rest of the wizard (see `reference.md` → *App settings in first-run setup*).
 

@@ -109,6 +109,12 @@ class SystemBackup(models.Model):
         (ENCRYPTION_SERVER_KEY, 'Server key'),
         (ENCRYPTION_NONE, 'Not encrypted'),
     ]
+    KIND_FULL = 'full'
+    KIND_INCREMENTAL = 'incremental'
+    KIND_CHOICES = [
+        (KIND_FULL, 'Full'),
+        (KIND_INCREMENTAL, 'Incremental'),
+    ]
     TRIGGER_MANUAL = 'manual'
     TRIGGER_SCHEDULED = 'scheduled'
     TRIGGER_UPDATE = 'update'
@@ -194,6 +200,31 @@ class SystemBackup(models.Model):
     heartbeat_at = models.DateTimeField(blank=True, null=True, verbose_name="Heartbeat At")
     # Coarse machine-readable phase so the UI can say where a stall happened.
     stage = models.CharField(max_length=20, blank=True, default='', db_default='', verbose_name="Stage")
+    # Chains: a full backup is the base (sequence 0, chain_id = its own token);
+    # each incremental stores only rows whose digest changed since `parent`,
+    # plus the primary keys deleted since. `index_root` fingerprints the row
+    # index of this member (kept in a sidecar next to the .dlb) and
+    # `migration_digest` the schema it was taken under: a chain only continues
+    # while the schema is unchanged.
+    kind = models.CharField(
+        max_length=12,
+        choices=KIND_CHOICES,
+        default=KIND_FULL,
+        db_default=KIND_FULL,
+        verbose_name="Kind",
+    )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='children',
+        verbose_name="Parent",
+    )
+    chain_id = models.CharField(max_length=64, blank=True, default='', db_default='', db_index=True, verbose_name="Chain")
+    sequence = models.PositiveIntegerField(default=0, db_default=0, verbose_name="Sequence")
+    index_root = models.CharField(max_length=64, blank=True, default='', db_default='', verbose_name="Index Root")
+    migration_digest = models.CharField(max_length=64, blank=True, default='', db_default='', verbose_name="Migration Digest")
     # Bounded console history of progress messages for the details view:
     # [{"at": iso, "percent": int, "stage": str, "message": str}, ...]
     progress_log = models.JSONField(default=list, db_default=[], blank=True, verbose_name="Progress Log")
@@ -232,6 +263,18 @@ class SystemBackup(models.Model):
         if reference is None:
             return 0
         return max(0, int(((now or timezone.now()) - reference).total_seconds()))
+
+    @property
+    def is_incremental(self):
+        return self.kind == self.KIND_INCREMENTAL
+
+    @property
+    def index_path(self):
+        """Storage path of this member's row-index sidecar."""
+        if not self.file_path:
+            return ''
+        base = self.file_path[:-4] if self.file_path.endswith('.dlb') else self.file_path
+        return f"{base}.idx"
 
     @property
     def duration_seconds(self):

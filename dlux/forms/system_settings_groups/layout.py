@@ -965,6 +965,13 @@ class LayoutMixin:
                             css_class='g-3',
                         ),
                         Field('backup_auto_export_target', css_class='form-control font-monospace', dir='ltr'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_incremental_title', 'Incremental Backups')}</h6>"),
+                        build_settings_toggle_field(self, 'backup_incremental_enabled', css_class='col-12'),
+                        Row(
+                            Div(Field('backup_full_every_days', css_class='form-control'), css_class='col-12 col-lg-6'),
+                            Div(Field('backup_max_chain_length', css_class='form-control'), css_class='col-12 col-lg-6'),
+                            css_class='g-3',
+                        ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_recovery_title', 'Interrupted Backup Recovery')}</h6>"),
                         build_settings_toggle_field(self, 'backup_auto_retry_enabled', css_class='col-12'),
                         Row(

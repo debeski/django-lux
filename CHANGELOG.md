@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Incremental Backups**: a full backup now starts a chain and *Type → Incremental* stores only rows whose serialized-JSON digest changed (`_CursorlessJSONSerializer.row_observer`), `deleted/<app>/<model>.json` primary keys gone since the parent, and media whose storage name is new (`stream_model_into_zip(file_filter=)`). Every member writes its row index to `index.json` and an encrypted `.idx` sidecar (`dlux.backup.chain`), so the next increment never decrypts its parent archive. `SystemBackup.kind`, `parent`, `chain_id`, `sequence`, `index_root`, `migration_digest` (migration `0025`, inline-safe).
+- **Chain Rules**: `open_chain_head()` closes a chain on a missing or too-old base (`full_every_days`), `max_chain_length`, a schema change (`migration_digest`), or a lost sidecar. Increments inherit scope and encryption; a passphrase chain must reuse its passphrase. `backup_config.incremental_enabled` makes scheduled runs incremental (full-scope, server-key chains only).
+- **Chain Restore**: `resolve_chain_paths()` rebuilds base → member from the `.dlb` headers in the backup folder (uploaded files included) along `parent_root` → `root` links and refuses a missing, foreign or swapped member before wiping. The base loads as before; increments then upsert and raw-delete (`_apply_increment`, `_delete_rows`, implicit M2M links included) inside the same transaction.
+- **Chain-Aware Retention And Deletion**: `apply_backup_retention()` keeps or removes whole chains (age of the newest member, count of chains) together with their sidecars; deleting a member deletes the later ones after a confirmation; an increment downloads as a ZIP of its chain (`sys/backup/<token>/download-chain/`).
+- **Backup Page**: Type selector with the chain it continues (or why none is open), kept current by the list poll (`chain`); Incremental #n / Full badges; per-kind duration estimates.
+
 ## v1.11.0b3
 
 - **System Backup Speed**: `_CursorlessJSONSerializer` caches natural keys per run (`natural_key_cache`, shared across models) and `stream_model_into_zip` joins natural-key FK targets (`select_related`) and prefetches auto-created M2M links in 1,000-row pages; the files pass loads only pk + file columns. Each FK to a natural-key model used to cost one query per row: 20,042 activity rows went from ~20k queries / 33.6s to 221 queries / 4.5s on PostgreSQL.
