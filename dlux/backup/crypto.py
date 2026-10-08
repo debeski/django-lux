@@ -94,6 +94,8 @@ def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
 
 
 def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chunk=None):
+    from cryptography.fernet import InvalidToken
+
     fernet = _backup_fernet(salt_hex, encryption=encryption, passphrase=passphrase)
     consumed = 0
     while True:
@@ -106,7 +108,14 @@ def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
         token = src.read(length)
         if len(token) != length:
             raise ValueError("Truncated backup container")
-        dest.write(fernet.decrypt(token))
+        try:
+            plain = fernet.decrypt(token)
+        except InvalidToken:
+            # InvalidToken carries no message, which left failed restores blank.
+            raise ValueError(
+                "Wrong passphrase or server key for this backup, or the file is corrupted"
+            ) from None
+        dest.write(plain)
         consumed += len(header) + length
         if on_chunk:
             on_chunk(consumed)

@@ -19,6 +19,7 @@ This file owns the release history for `django-lux`.
 - **Backup Details Console And Time Estimates**: a Details modal per row shows the timestamped progress log (`SystemBackup.progress_log`, last 200), elapsed and remaining time, live while running. Running backups and restores show `~Xm left` from their progress rate; finished rows show their duration instead of the last progress message; the form estimates a new backup from the last three of the same scope. `dlux_duration` / `dlux_format_duration` template filters.
 - **Backup Notice Wording**: the notice points to the encryption options *above* (it said "below"); the passphrase label is no longer "Optional".
 - **DLB Viewer**: opens unencrypted backups without a password and labels portable ones.
+- **Wrong-Key Restore Error**: `_decrypt_stream` turns Fernet's message-less `InvalidToken` into "Wrong passphrase or server key for this backup, or the file is corrupted"; a restore with the wrong passphrase used to fail with an empty error.
 - **Migration**: `0024_system_backup_options` adds `encryption`, `system_data_included`, `progress_log` (all with `db_default`) and the state-only `cancelled` choice; inline-safe.
 
 ## v1.11.0b2

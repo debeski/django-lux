@@ -71,6 +71,13 @@ class EncryptionModeTests(TestCase):
             self.assertEqual(tmp.read(), payload)
             tmp.close()
 
+    def test_wrong_passphrase_says_so(self):
+        buffer = io.BytesIO()
+        write_system_backup(buffer, passphrase='right-pass', include_media=False)
+        buffer.seek(0)
+        with self.assertRaisesRegex(ValueError, 'Wrong passphrase'):
+            decrypt_dlb_to_tempfile(buffer, passphrase='wrong-pass')
+
     def test_passphrase_row_without_passphrase_fails_instead_of_using_server_key(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
         backup = SystemBackup.objects.create(
