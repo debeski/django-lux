@@ -35,8 +35,8 @@ elsewhere on the page; `{'html': ...}` passes rendered markup through for a
 composite control.
 
 Keep page-owned POST workflows out of the action rail when they need several
-fields. The Backup & Restore page renders its passphrase, scope, and create
-button as a row immediately under `{% dlux_ribbon %}`, leaving the ribbon actions
+fields. The Backup & Restore page renders its encryption, passphrase, scope,
+system-data switch and create button as a row immediately under `{% dlux_ribbon %}`, leaving the ribbon actions
 for navigation, filters, and compact triggers.
 
 ## What is derived, and how

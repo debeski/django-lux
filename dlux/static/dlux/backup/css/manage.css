@@ -29,15 +29,35 @@
 }
 
 
+/* A fieldset, so one `disabled` locks every control while a backup runs. */
 .dlux-backup-create-form {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(10.5rem, 1fr)) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: end;
     gap: 0.65rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
 }
 
 .dlux-backup-create-form > div {
+    flex: 1 1 10.5rem;
     min-width: 0;
+}
+
+.dlux-backup-create-form > .dlux-backup-system-toggle {
+    flex: 0 1 auto;
+    align-self: center;
+    padding-block-start: 1.4rem;
+}
+
+.dlux-backup-create-form > .btn {
+    flex: 0 0 auto;
+}
+
+.dlux-backup-create-form:disabled {
+    opacity: 0.6;
 }
 
 .dlux-backup-create-form .form-control,
@@ -140,23 +160,15 @@
     color: inherit;
 }
 
-@media (max-width: 1199.98px) {
-    .dlux-backup-create-form {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .dlux-backup-create-form > button {
-        justify-self: start;
-    }
-}
 
 @media (max-width: 767.98px) {
-    .dlux-backup-create-form {
-        grid-template-columns: minmax(0, 1fr);
+    .dlux-backup-create-form > div,
+    .dlux-backup-create-form > button {
+        flex-basis: 100%;
     }
 
-    .dlux-backup-create-form > button {
-        width: 100%;
+    .dlux-backup-create-form > .dlux-backup-system-toggle {
+        padding-block-start: 0;
     }
 }
 
@@ -184,4 +196,35 @@
         align-items: stretch;
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+.dlux-backup-details-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0.75rem 0;
+}
+
+.dlux-backup-details-facts dt {
+    font-weight: 600;
+}
+
+.dlux-backup-details-facts dd {
+    margin: 0;
+}
+
+.dlux-backup-console {
+    min-height: 12rem;
+    max-height: 50vh;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    overflow: auto;
+    border-radius: 0.75rem;
+    background: #0f172a;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    direction: ltr;
+    text-align: left;
 }

@@ -104,28 +104,39 @@ class SystemBackupPolicyTests(TestCase):
                 "(token, requested_by_username, status, file_path, file_size, "
                 " model_count, row_count, file_count, missing_file_count, "
                 " passphrase_required, error, created_at) "
-                "VALUES ('oldcode-token', 'admin', 'pending', '', 0, 0, 0, 0, 0, 0, '', %s)",
+                "VALUES ('oldcode-token', 'admin', 'pending', '', 0, 0, 0, 0, 0, FALSE, '', %s)",
                 [timezone.now()],
             )
         row = self.SystemBackup.objects.get(token='oldcode-token')
         self.assertEqual(row.trigger, self.SystemBackup.TRIGGER_MANUAL)
+        self.assertEqual(row.encryption, self.SystemBackup.ENCRYPTION_SERVER_KEY)
+        self.assertTrue(row.system_data_included)
+        self.assertEqual(row.progress_log, [])
 
     def test_run_system_backup_reads_media_choice_from_row(self):
-        # The runner must derive include_media from the row (not an argument) so the
+        # The runner must derive its options from the row (not arguments) so the
         # choice survives a Celery handoff, where the task only receives the pk.
         captured = {}
 
-        def fake_write(dest, *, passphrase=None, progress_callback=None, reporter=None, include_media=True):
-            captured['include_media'] = include_media
+        def fake_write(dest, **kwargs):
+            captured.update(kwargs)
             return (
-                {'models': 0, 'rows': 0, 'files': 0, 'media_included': include_media, 'passphrase_required': False},
+                {'models': 0, 'rows': 0, 'files': 0, 'passphrase_required': False},
                 {'missing_files': []},
             )
 
-        backup = self.SystemBackup.objects.create(requested_by_username='boss', media_included=False)
+        backup = self.SystemBackup.objects.create(
+            requested_by_username='boss',
+            media_included=False,
+            system_data_included=False,
+            encryption=self.SystemBackup.ENCRYPTION_NONE,
+        )
         with mock.patch('dlux.backup.create.write_system_backup', side_effect=fake_write):
             run_system_backup(backup.pk)
         self.assertFalse(captured['include_media'])
+        self.assertFalse(captured['include_system_data'])
+        self.assertFalse(captured['encrypt'])
+        self.assertIsNone(captured['passphrase'])
 
     def test_scheduler_is_disabled_by_default_and_deduplicates_interval(self):
         self._save_config(scheduled_enabled=False)
@@ -416,7 +427,8 @@ class SystemBackupViewTests(TestCase):
         self.assertContains(response, 'id="sysbackup-table-body"')
         self.assertContains(response, 'data-autoclose="false"')
         self.assertContains(response, 'dlux-backup-page')
-        self.assertContains(response, 'dlux-form dlux-backup-create-form')
+        self.assertContains(response, 'id="sysbackup-create-form"')
+        self.assertContains(response, 'id="sysbackup-create-fields" class="dlux-backup-create-form"')
         self.assertContains(response, 'dlux-backup-create-row')
         self.assertContains(response, 'dlux-table-shell')
         self.assertContains(response, 'data-dlux-file-widget')
@@ -442,7 +454,8 @@ class SystemBackupViewTests(TestCase):
         client.login(username='boss', password='bosspass123')
         # Mock the runners so we only assert the row the view creates from the choice.
         with mock.patch('dlux.views.backup.dispatch_system_backup', return_value=False), \
-                mock.patch('dlux.views.backup.run_system_backup'):
+                mock.patch('dlux.views.backup.run_system_backup'), \
+                mock.patch('dlux.views.backup._active_backup', return_value=None):
             client.post(reverse('system_backup_create'), {'backup_scope': 'data'})
             client.post(reverse('system_backup_create'), {'backup_scope': 'full'})
             client.post(reverse('system_backup_create'))  # default = full
@@ -826,19 +839,22 @@ class ProgressCellLayoutTests(TestCase):
         self.assertIn(f'dlux-backup-progress-note">{self.LONG_MESSAGE}<', cell)
         self.assertNotIn('·', cell)
 
-    def test_completed_rows_render_the_same_structure(self):
-        """100% took the same code path, so it must not diverge either."""
+    def test_finished_rows_show_duration_not_progress(self):
+        """A finished run's last progress message is history, not status."""
+        from datetime import timedelta
+
         from dlux.views.backup import _backup_rows_context
 
+        started = timezone.now() - timedelta(minutes=3, seconds=10)
         backup = self.SystemBackup.objects.create(
             requested_by_username='x', status='completed',
             progress_percent=100, progress_message='Backup ready.',
+            started_at=started, completed_at=started + timedelta(minutes=3, seconds=10),
         )
-        cell = self._cell(render_to_string(
-            'dlux/backup/_backup_rows.html', _backup_rows_context([backup]),
-        ))
-        self.assertIn('dlux-backup-progress-percent">100%<', cell)
-        self.assertIn('dlux-backup-progress-note">Backup ready.<', cell)
+        html = render_to_string('dlux/backup/_backup_rows.html', _backup_rows_context([backup]))
+        self.assertNotIn('dlux-backup-progress-status', html)
+        self.assertNotIn('Backup ready.', html)
+        self.assertIn('3m 10s', html)
 
     def test_stylesheet_defines_the_layout_the_markup_relies_on(self):
         from pathlib import Path

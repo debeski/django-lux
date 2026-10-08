@@ -114,9 +114,10 @@ def resume_system_backup(backup, *, passphrase=None, requested_by=None):
     requested backup, with ``attempt_count`` showing what it took.
     """
     SystemBackup = type(backup)
-    if backup.status not in (SystemBackup.STATUS_FAILED, SystemBackup.STATUS_PENDING):
-        raise ValueError("Only a failed backup can be resumed.")
-    if backup.passphrase_required and not _clean_passphrase(passphrase):
+    if backup.status not in (SystemBackup.STATUS_FAILED, SystemBackup.STATUS_PENDING, SystemBackup.STATUS_CANCELLED):
+        raise ValueError("Only a failed or cancelled backup can be resumed.")
+    needs_passphrase = backup.passphrase_required or backup.encryption == SystemBackup.ENCRYPTION_PASSPHRASE
+    if needs_passphrase and not _clean_passphrase(passphrase):
         raise ValueError("This backup is passphrase-protected; the passphrase is required to resume it.")
     claimed = SystemBackup.objects.filter(pk=backup.pk, status=backup.status).update(
         status=SystemBackup.STATUS_PENDING,
@@ -141,6 +142,38 @@ def resume_system_backup(backup, *, passphrase=None, requested_by=None):
         run_system_backup(backup.pk, passphrase=passphrase)
         backup.refresh_from_db()
     return backup
+
+
+def cancel_system_backup(backup, *, requested_by=None):
+    """Stop a pending or running backup.
+
+    A pending row is simply never claimed. A running one notices at its next
+    progress write (every few seconds — each write is conditional on the row
+    still running) and discards what it built. Returns whether the row was
+    cancelled by this call.
+    """
+    SystemBackup = type(backup)
+    now = timezone.now()
+    cancelled = SystemBackup.objects.filter(
+        pk=backup.pk,
+        status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
+    ).update(
+        status=SystemBackup.STATUS_CANCELLED,
+        completed_at=now,
+        heartbeat_at=now,
+        next_attempt_at=None,
+    )
+    if not cancelled:
+        return False
+    backup.refresh_from_db()
+    if requested_by:
+        _log_system_action(requested_by, "EXPORT", {
+            "kind": "system_backup_cancel",
+            "token": backup.token,
+            "stage": backup.stage,
+            "percent": backup.progress_percent,
+        })
+    return True
 
 
 def run_scheduled_system_backup(*, now=None):

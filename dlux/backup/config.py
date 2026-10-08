@@ -19,6 +19,33 @@ _SYSTEM_BACKUP_EXCLUDED = {
 }
 
 
+# Dlux's own bookkeeping: what a portable (project-data-only) backup leaves out.
+# Users, groups, scopes, group access and managed assets stay in, because
+# project rows reference them. A listed model that a kept model still points at
+# is kept too (see ``_system_data_exclusions``).
+SYSTEM_DATA_MODELS = frozenset({
+    "dlux.systemsettings",
+    "dlux.systemsettingssnapshot",
+    "dlux.scopesettings",
+    "dlux.managedfontfamily",
+    "dlux.managedfontvariant",
+    "dlux.scanlinkrelease",
+    "dlux.dluxnotification",
+    "dlux.dluxnotificationstate",
+    "dlux.dluxnotificationrule",
+    "dlux.dluxnotificationwatch",
+    "dlux.profile",
+    "dlux.trusteddevice",
+    "dlux.userknowndevice",
+    "dlux.userpresencesession",
+    "dlux.publicregistration",
+    "dlux.dluximageupdate",
+    "dlux.dluxcontrollinkrequest",
+    "dlux.dluxopsrun",
+    "dlux.activitylog",
+})
+
+
 def _backup_config():
     try:
         from ..utils import get_system_config
@@ -82,8 +109,30 @@ def _dependency_sorted(models_list):
     return ordered
 
 
-def get_system_backup_models():
-    """Every concrete managed model that belongs in a full snapshot, dependency-ordered."""
+def _system_data_exclusions(candidates):
+    """System-data models that no kept model references, so dropping them is safe."""
+    dropped = {model for model in candidates if model._meta.label_lower in SYSTEM_DATA_MODELS}
+    changed = True
+    while changed:
+        changed = False
+        for model in candidates:
+            if model in dropped:
+                continue
+            fields = list(model._meta.concrete_fields) + list(model._meta.many_to_many)
+            for field in fields:
+                related = getattr(field, "related_model", None)
+                if field.is_relation and related in dropped:
+                    dropped.discard(related)
+                    changed = True
+    return dropped
+
+
+def get_system_backup_models(*, include_system_data=True):
+    """Every concrete managed model that belongs in a snapshot, dependency-ordered.
+
+    ``include_system_data=False`` leaves out ``SYSTEM_DATA_MODELS`` for a
+    portable project-data backup.
+    """
     excluded = _SYSTEM_BACKUP_EXCLUDED | _config_excluded_keys()
     result = []
     for model in apps.get_models():
@@ -93,6 +142,9 @@ def get_system_backup_models():
         if meta.label_lower in excluded:
             continue
         result.append(model)
+    if not include_system_data:
+        dropped = _system_data_exclusions(result)
+        result = [model for model in result if model not in dropped]
     return _dependency_sorted(result)
 
 

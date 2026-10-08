@@ -13,6 +13,7 @@ from ._shared import (  # noqa: F401
     system_backup_celery_available,
 )
 from .config import (  # noqa: F401
+    SYSTEM_DATA_MODELS,
     _SYSTEM_BACKUP_EXCLUDED,
     _backup_config,
     _config_excluded_keys,
@@ -25,6 +26,8 @@ from .config import (  # noqa: F401
 from .crypto import (  # noqa: F401
     DLB_FORMAT_VERSION,
     DLB_MAGIC,
+    ENCRYPTION_MODES,
+    DlbPayloadWriter,
     _CHUNK_SIZE,
     _PASSWORD_KDF_ITERATIONS,
     _backup_fernet,
@@ -38,6 +41,7 @@ from .crypto import (  # noqa: F401
     write_dlb_container,
 )
 from .reporters import (  # noqa: F401
+    BackupCancelled,
     _BackupReporter,
     _CallbackReporter,
     _NullReporter,
@@ -46,6 +50,8 @@ from .reporters import (  # noqa: F401
 from .create import (  # noqa: F401
     _scrub_superuser_password,
     apply_backup_retention,
+    consistent_snapshot,
+    snapshot_supported,
     run_system_backup,
     write_system_backup,
 )
@@ -67,6 +73,7 @@ from .retry import (  # noqa: F401
     retry_countdown_for,
 )
 from .dispatch import (  # noqa: F401
+    cancel_system_backup,
     dispatch_due_backup_retries,
     dispatch_system_backup,
     dispatch_system_restore,
@@ -79,8 +86,11 @@ __all__ = [
     'DLB_FORMAT_VERSION',
     'DLB_MAGIC',
     'apply_backup_retention',
+    'BackupCancelled',
+    'SYSTEM_DATA_MODELS',
     'backup_retry_policy',
     'build_migration_report',
+    'cancel_system_backup',
     'decrypt_dlb_to_tempfile',
     'dispatch_due_backup_retries',
     'dispatch_system_backup',

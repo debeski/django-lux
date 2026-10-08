@@ -55,6 +55,10 @@ reads that and labels the prompt accordingly:
 | ---------------------- | ---------------------------------------------------------- |
 | `passphrase`           | The one-off **passphrase** chosen when the backup was made |
 | `django-secret-key`    | The originating project's Django **`SECRET_KEY`**          |
+| `none`                 | Nothing — an unencrypted backup opens straight away        |
+
+A *portable* backup (made with "Include system data" off) carries project data
+only; the unlock screen labels it, and its overview simply lists fewer models.
 
 (A legacy `sha256-salt-seed` KDF is also accepted; it is `SECRET_KEY`-only.)
 
@@ -108,6 +112,10 @@ repeated frames:
   u64 (big-endian)     Fernet-token length
   Fernet token         one <=32 MB plaintext chunk of the inner ZIP
 ```
+
+With `encryption.scheme` `"none"` there are no frames: the inner ZIP follows the
+metadata as-is. Archives are written as a stream, so members use ZIP data
+descriptors, and already-compressed media is stored rather than deflated.
 
 The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 (Django fixtures), and `files/<app>/<model>/<pk>/<field>/<name>`.

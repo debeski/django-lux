@@ -1,5 +1,6 @@
+{% load dlux_tags %}
 {% for backup in backups %}
-    {% with quiet_for=backup.seconds_since_signal %}
+    {% with quiet_for=backup.seconds_since_signal eta=backup.eta_seconds %}
     <tr data-system-backup-row data-backup-token="{{ backup.token }}" data-backup-status="{{ backup.status }}">
         <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
         <td>{{ backup.requested_by_username|default:'-' }}</td>
@@ -8,14 +9,20 @@
             {% if not backup.media_included %}
                 <span class="badge bg-info text-dark" title="{{ DLUX_STRINGS.sysbackup_data_only_hint|default:'Database only — uploaded media was not included' }}">{{ DLUX_STRINGS.sysbackup_data_only_badge|default:'Data only' }}</span>
             {% endif %}
+            {% if not backup.system_data_included %}
+                <span class="badge bg-primary-subtle text-primary-emphasis" title="{{ DLUX_STRINGS.sysbackup_portable_hint|default:'Project data only — Dlux system data was left out' }}">{{ DLUX_STRINGS.sysbackup_portable_badge|default:'Portable' }}</span>
+            {% endif %}
         </td>
         <td>
             {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
             {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
+            {% elif backup.status == 'cancelled' %}<span class="badge bg-secondary">{{ DLUX_STRINGS.sysbackup_status_cancelled|default:'Cancelled' }}</span>
             {% elif backup.next_attempt_at %}<span class="badge bg-warning text-dark" title="{{ backup.error }}">{{ DLUX_STRINGS.sysbackup_status_retrying|default:'Retrying' }}</span>
             {% elif backup.is_active and quiet_for > backup_stall_warn_seconds %}<span class="badge bg-warning text-dark">{{ DLUX_STRINGS.sysbackup_status_no_progress|default:'No progress' }}</span>
             {% else %}<span class="badge bg-secondary">{{ backup.get_status_display }}</span>{% endif %}
-            {% if backup.passphrase_required %}
+            {% if backup.encryption == 'none' %}
+                <span class="badge bg-danger-subtle text-danger-emphasis">{{ DLUX_STRINGS.sysbackup_unencrypted_badge|default:'Not encrypted' }}</span>
+            {% elif backup.passphrase_required %}
                 <span class="badge bg-dark">{{ DLUX_STRINGS.sysbackup_passphrase_badge }}</span>
             {% endif %}
             {% if backup.attempt_count > 1 %}
@@ -23,32 +30,43 @@
             {% endif %}
         </td>
         <td class="dlux-backup-progress-cell">
-            <progress class="dlux-backup-progress{% if backup.status == 'completed' %} dlux-backup-progress--success{% elif backup.status == 'failed' %} dlux-backup-progress--error{% elif backup.is_active and quiet_for > backup_stall_warn_seconds %} dlux-backup-progress--stalled{% endif %}" max="100" value="{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}" aria-label="{{ DLUX_STRINGS.backup_progress }}"></progress>
-            <small class="text-muted dlux-backup-progress-status">
-                <span class="dlux-backup-progress-percent">{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}%</span>
-                {% if backup.progress_message %}<span class="dlux-backup-progress-note">{{ backup.progress_message }}</span>{% endif %}
-            </small>
             {% if backup.is_active %}
+                <progress class="dlux-backup-progress{% if quiet_for > backup_stall_warn_seconds %} dlux-backup-progress--stalled{% endif %}" max="100" value="{{ backup.progress_percent }}" aria-label="{{ DLUX_STRINGS.backup_progress }}"></progress>
+                <small class="text-muted dlux-backup-progress-status">
+                    <span class="dlux-backup-progress-percent">{{ backup.progress_percent }}%</span>
+                    {% if backup.progress_message %}<span class="dlux-backup-progress-note">{{ backup.progress_message }}</span>{% endif %}
+                </small>
                 <small class="d-block {% if quiet_for > backup_stall_warn_seconds %}text-warning-emphasis fw-semibold{% else %}text-muted{% endif %}">
                     <i class="bi bi-activity me-1"></i>{{ DLUX_STRINGS.sysbackup_last_signal|default:'Last update' }}: {{ quiet_for }}{{ DLUX_STRINGS.sysbackup_seconds_short|default:'s' }}
+                    {% if eta is not None %}<span class="text-nowrap ms-2"><i class="bi bi-hourglass-split me-1"></i>{{ DLUX_STRINGS.sysbackup_eta_short|default:'~{duration} left'|dlux_format_duration:eta }}</span>{% endif %}
                     {% if quiet_for > backup_stall_warn_seconds %}
                         · {{ DLUX_STRINGS.sysbackup_stall_warning|default:'No progress reported. It will be marked failed after the stall timeout.' }} ({{ backup_policy.stall_timeout_minutes }}{{ DLUX_STRINGS.sysbackup_minutes_short|default:'m' }})
                     {% endif %}
                 </small>
-            {% endif %}
-            {% if backup.next_attempt_at %}
-                <small class="d-block text-warning-emphasis">
-                    <i class="bi bi-arrow-repeat me-1"></i>{{ DLUX_STRINGS.sysbackup_next_attempt|default:'Next attempt' }}: {{ backup.next_attempt_at|date:'H:i' }}
+                {% if backup.next_attempt_at %}
+                    <small class="d-block text-warning-emphasis">
+                        <i class="bi bi-arrow-repeat me-1"></i>{{ DLUX_STRINGS.sysbackup_next_attempt|default:'Next attempt' }}: {{ backup.next_attempt_at|date:'H:i' }}
+                    </small>
+                {% endif %}
+            {% elif backup.status == 'failed' %}
+                {% if backup.error %}<small class="d-block text-danger">{{ backup.error|truncatechars:120 }}</small>{% endif %}
+            {% elif backup.duration_seconds is not None %}
+                <small class="text-muted" title="{{ DLUX_STRINGS.sysbackup_duration_hint|default:'Time this backup took' }}">
+                    <i class="bi bi-stopwatch me-1"></i>{{ backup.duration_seconds|dlux_duration }}
                 </small>
-            {% endif %}
-            {% if backup.status == 'failed' and backup.error %}
-                <small class="d-block text-danger">{{ backup.error|truncatechars:120 }}</small>
             {% endif %}
         </td>
         <td>{{ backup.row_count }}</td>
         <td>{{ backup.file_count }}</td>
         <td>{{ backup.file_size|filesizeformat }}</td>
-        <td class="text-end">
+        <td class="text-end text-nowrap">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm rounded-pill sysbackup-details-open"
+                    data-status-url="{% url 'system_backup_status' backup.token %}"
+                    data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}"
+                    title="{{ DLUX_STRINGS.sysbackup_details|default:'Details' }}">
+                <i class="bi bi-terminal"></i>
+            </button>
             {% if backup.status == 'completed' %}
                 <a class="btn btn-outline-primary btn-sm rounded-pill"
                    href="{% url 'system_backup_download' backup.token %}">
@@ -60,21 +78,30 @@
                         data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>{{ DLUX_STRINGS.sysrestore_action }}
                 </button>
-            {% elif backup.status == 'failed' %}
+            {% elif backup.status == 'failed' or backup.status == 'cancelled' %}
                 <button type="button"
                         class="btn btn-outline-warning btn-sm rounded-pill sysbackup-resume-open"
                         data-resume-url="{% url 'system_backup_resume' backup.token %}"
                         data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}"
-                        data-needs-passphrase="{% if backup.passphrase_required %}1{% else %}0{% endif %}">
+                        data-needs-passphrase="{% if backup.passphrase_required or backup.encryption == 'passphrase' %}1{% else %}0{% endif %}">
                     <i class="bi bi-arrow-repeat me-1"></i>{{ DLUX_STRINGS.sysbackup_resume|default:'Retry' }}
                 </button>
             {% endif %}
-            <form method="post" action="{% url 'system_backup_delete' backup.token %}" class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
-                    <i class="bi bi-trash me-1"></i>{{ DLUX_STRINGS.sysbackup_delete }}
-                </button>
-            </form>
+            {% if backup.is_active %}
+                <form method="post" action="{% url 'system_backup_cancel' backup.token %}" class="d-inline sysbackup-cancel-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">
+                        <i class="bi bi-x-circle me-1"></i>{{ DLUX_STRINGS.sysbackup_cancel|default:'Cancel' }}
+                    </button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'system_backup_delete' backup.token %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
+                        <i class="bi bi-trash me-1"></i>{{ DLUX_STRINGS.sysbackup_delete }}
+                    </button>
+                </form>
+            {% endif %}
         </td>
     </tr>
     {% endwith %}

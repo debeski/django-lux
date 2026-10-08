@@ -2,10 +2,14 @@
 
 import base64
 import hashlib
+import io
 import json
+import queue
 import secrets
+import shutil
 import struct
 import tempfile
+import threading
 from django.conf import settings
 
 
@@ -16,6 +20,21 @@ DLB_FORMAT_VERSION = 1
 
 
 _CHUNK_SIZE = 32 * 1024 * 1024
+
+
+# Frames written by the streaming writer. Smaller than ``_CHUNK_SIZE`` so the
+# encrypting thread starts early and two in-flight frames bound memory; readers
+# take any frame length from its prefix.
+_STREAM_CHUNK_SIZE = 8 * 1024 * 1024
+
+
+ENCRYPTION_PASSPHRASE = "passphrase"
+ENCRYPTION_SERVER_KEY = "server_key"
+ENCRYPTION_NONE = "none"
+ENCRYPTION_MODES = (ENCRYPTION_PASSPHRASE, ENCRYPTION_SERVER_KEY, ENCRYPTION_NONE)
+
+
+SCHEME_NONE = "none"
 
 
 _PASSWORD_KDF_ITERATIONS = 390_000
@@ -75,6 +94,8 @@ def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
 
 
 def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chunk=None):
+    from cryptography.fernet import InvalidToken
+
     fernet = _backup_fernet(salt_hex, encryption=encryption, passphrase=passphrase)
     consumed = 0
     while True:
@@ -87,39 +108,185 @@ def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
         token = src.read(length)
         if len(token) != length:
             raise ValueError("Truncated backup container")
-        dest.write(fernet.decrypt(token))
+        try:
+            plain = fernet.decrypt(token)
+        except InvalidToken:
+            # InvalidToken carries no message, which left failed restores blank.
+            raise ValueError(
+                "Wrong passphrase or server key for this backup, or the file is corrupted"
+            ) from None
+        dest.write(plain)
         consumed += len(header) + length
         if on_chunk:
             on_chunk(consumed)
 
 
-def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None, on_chunk=None):
-    """Wrap an already-built backup zip stream into an encrypted .dlb container."""
-    salt_hex = secrets.token_bytes(16).hex()
+def _encryption_block(*, passphrase=None, encrypt=True):
+    if not encrypt:
+        return {"scheme": SCHEME_NONE, "key_source": "none", "passphrase_required": False}
     has_passphrase = bool(_clean_passphrase(passphrase))
-    encryption = {
+    return {
         "scheme": "fernet-chunked",
         "kdf": "pbkdf2-sha256",
-        "salt": salt_hex,
+        "salt": secrets.token_bytes(16).hex(),
         "iterations": _PASSWORD_KDF_ITERATIONS,
         "key_source": "passphrase" if has_passphrase else "django-secret-key",
         "passphrase_required": has_passphrase,
     }
-    metadata = dict(metadata or {})
-    metadata.setdefault("format", DLB_FORMAT_VERSION)
-    metadata.setdefault("kind", "dlux-system-backup")
-    metadata["encryption"] = encryption
-    payload = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
-    dest.write(DLB_MAGIC)
-    dest.write(struct.pack(">I", len(payload)))
-    dest.write(payload)
-    _encrypt_stream(
-        zip_fileobj, dest, salt_hex,
-        encryption=encryption,
-        passphrase=passphrase,
-        on_chunk=on_chunk,
-    )
-    return metadata
+
+
+class DlbPayloadWriter:
+    """Write-only stream that encrypts the inner ZIP while it is being built.
+
+    ``zipfile`` writes into this object; full frames are handed to one worker
+    thread that encrypts them (OpenSSL releases the GIL) and appends them, in
+    order, to a temporary payload file. Serialization and encryption therefore
+    overlap instead of running as two passes over the whole archive. The header
+    is written last by ``finish()``, once the row and file counts are known.
+
+    ``seek`` is unsupported on purpose: ``zipfile`` then writes data descriptors
+    and never rewinds into bytes that may already be encrypted.
+    """
+
+    def __init__(self, *, passphrase=None, encrypt=True, on_chunk=None, chunk_size=_STREAM_CHUNK_SIZE):
+        self.encryption = _encryption_block(passphrase=passphrase, encrypt=encrypt)
+        self._fernet = None
+        if encrypt:
+            self._fernet = _backup_fernet(
+                self.encryption["salt"], encryption=self.encryption, passphrase=passphrase,
+            )
+        self._payload = tempfile.TemporaryFile()
+        self._buffer = bytearray()
+        self._chunk_size = chunk_size
+        self._position = 0
+        self._processed = 0
+        self._on_chunk = on_chunk
+        self._error = None
+        self._closed = False
+        self._queue = queue.Queue(maxsize=2)
+        self._thread = threading.Thread(target=self._drain, name="dlb-encrypt", daemon=True)
+        self._thread.start()
+
+    def _drain(self):
+        while True:
+            chunk = self._queue.get()
+            if chunk is None:
+                return
+            if self._error is not None:
+                continue
+            try:
+                if self._fernet is None:
+                    self._payload.write(chunk)
+                else:
+                    token = self._fernet.encrypt(bytes(chunk))
+                    self._payload.write(struct.pack(">Q", len(token)))
+                    self._payload.write(token)
+                self._processed += len(chunk)
+            except Exception as exc:
+                self._error = exc
+
+    def _submit(self, chunk):
+        if self._error is not None:
+            raise self._error
+        self._queue.put(chunk)
+        if self._on_chunk:
+            self._on_chunk(self._position)
+
+    def writable(self):
+        return True
+
+    def seekable(self):
+        return False
+
+    def seek(self, *args):
+        raise io.UnsupportedOperation("seek")
+
+    def tell(self):
+        return self._position
+
+    def write(self, data):
+        if self._closed:
+            raise ValueError("write to a finished backup payload")
+        self._buffer += data
+        self._position += len(data)
+        while len(self._buffer) >= self._chunk_size:
+            chunk = bytes(self._buffer[:self._chunk_size])
+            del self._buffer[:self._chunk_size]
+            self._submit(chunk)
+        return len(data)
+
+    def flush(self):
+        pass
+
+    @property
+    def size(self):
+        """Plaintext bytes written so far (the inner ZIP's size once finished)."""
+        return self._position
+
+    def _close_worker(self):
+        if self._closed:
+            return
+        self._closed = True
+        if self._buffer and self._error is None:
+            self._queue.put(bytes(self._buffer))
+            self._buffer.clear()
+        self._queue.put(None)
+        self._thread.join()
+
+    def finish(self, dest, metadata):
+        """Write header + payload into ``dest``; returns the header metadata."""
+        self._close_worker()
+        if self._error is not None:
+            raise self._error
+        metadata = dict(metadata or {})
+        metadata.setdefault("format", DLB_FORMAT_VERSION)
+        metadata.setdefault("kind", "dlux-system-backup")
+        metadata["encryption"] = self.encryption
+        metadata["passphrase_required"] = bool(self.encryption.get("passphrase_required"))
+        payload = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+        dest.write(DLB_MAGIC)
+        dest.write(struct.pack(">I", len(payload)))
+        dest.write(payload)
+        self._payload.seek(0)
+        shutil.copyfileobj(self._payload, dest, 4 * 1024 * 1024)
+        self._payload.close()
+        return metadata
+
+    def abort(self):
+        self._close_worker()
+        self._payload.close()
+
+    def close(self):
+        self.abort()
+
+
+def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None, on_chunk=None, encrypt=True):
+    """Wrap an already-built backup zip stream into a .dlb container."""
+    writer = DlbPayloadWriter(passphrase=passphrase, encrypt=encrypt, chunk_size=_CHUNK_SIZE)
+    try:
+        while True:
+            chunk = zip_fileobj.read(_CHUNK_SIZE)
+            if not chunk:
+                break
+            writer.write(chunk)
+            if on_chunk:
+                on_chunk(writer.size)
+        return writer.finish(dest, metadata)
+    except BaseException:
+        writer.abort()
+        raise
+
+
+def _copy_plain_payload(src, dest, *, on_chunk=None):
+    consumed = 0
+    while True:
+        chunk = src.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        dest.write(chunk)
+        consumed += len(chunk)
+        if on_chunk:
+            on_chunk(consumed)
 
 
 def read_dlb_metadata(fileobj):
@@ -147,6 +314,15 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None, on_chunk=None):
     fileobj.seek(0)
     metadata = read_dlb_metadata(fileobj)
     encryption = metadata.get("encryption") or {}
+    if encryption.get("scheme") == SCHEME_NONE:
+        tmp = tempfile.TemporaryFile()
+        try:
+            _copy_plain_payload(fileobj, tmp, on_chunk=on_chunk)
+        except Exception:
+            tmp.close()
+            raise
+        tmp.seek(0)
+        return metadata, tmp
     salt_hex = str(encryption.get("salt") or "")
     if not salt_hex:
         raise ValueError("Backup metadata is missing encryption parameters")

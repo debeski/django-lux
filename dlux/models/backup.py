@@ -93,11 +93,21 @@ class SystemBackup(models.Model):
     STATUS_RUNNING = 'running'
     STATUS_COMPLETED = 'completed'
     STATUS_FAILED = 'failed'
+    STATUS_CANCELLED = 'cancelled'
     STATUS_CHOICES = [
         (STATUS_PENDING, 'Pending'),
         (STATUS_RUNNING, 'Running'),
         (STATUS_COMPLETED, 'Completed'),
         (STATUS_FAILED, 'Failed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+    ENCRYPTION_PASSPHRASE = 'passphrase'
+    ENCRYPTION_SERVER_KEY = 'server_key'
+    ENCRYPTION_NONE = 'none'
+    ENCRYPTION_CHOICES = [
+        (ENCRYPTION_PASSPHRASE, 'Passphrase'),
+        (ENCRYPTION_SERVER_KEY, 'Server key'),
+        (ENCRYPTION_NONE, 'Not encrypted'),
     ]
     TRIGGER_MANUAL = 'manual'
     TRIGGER_SCHEDULED = 'scheduled'
@@ -142,6 +152,21 @@ class SystemBackup(models.Model):
     # the choice survives a Celery handoff (the task only receives the pk). db_default
     # keeps it insert-safe for any code that doesn't set it.
     media_included = models.BooleanField(default=True, db_default=True, verbose_name="Media Included")
+    # False = a portable snapshot of project data only: Dlux's own bookkeeping
+    # (settings, notifications, activity log, preferences, devices, update runs)
+    # is left out, and a restore of it leaves those tables untouched.
+    system_data_included = models.BooleanField(
+        default=True,
+        db_default=True,
+        verbose_name="System Data Included",
+    )
+    encryption = models.CharField(
+        max_length=12,
+        choices=ENCRYPTION_CHOICES,
+        default=ENCRYPTION_SERVER_KEY,
+        db_default=ENCRYPTION_SERVER_KEY,
+        verbose_name="Encryption",
+    )
     file_path = models.CharField(max_length=512, blank=True, verbose_name="File Path")
     file_size = models.BigIntegerField(default=0, verbose_name="File Size")
     model_count = models.PositiveIntegerField(default=0, verbose_name="Model Count")
@@ -169,6 +194,9 @@ class SystemBackup(models.Model):
     heartbeat_at = models.DateTimeField(blank=True, null=True, verbose_name="Heartbeat At")
     # Coarse machine-readable phase so the UI can say where a stall happened.
     stage = models.CharField(max_length=20, blank=True, default='', db_default='', verbose_name="Stage")
+    # Bounded console history of progress messages for the details view:
+    # [{"at": iso, "percent": int, "stage": str, "message": str}, ...]
+    progress_log = models.JSONField(default=list, db_default=[], blank=True, verbose_name="Progress Log")
     attempt_count = models.PositiveSmallIntegerField(default=0, db_default=0, verbose_name="Attempts")
     next_attempt_at = models.DateTimeField(blank=True, null=True, verbose_name="Next Attempt At")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
@@ -179,6 +207,8 @@ class SystemBackup(models.Model):
     STAGE_MODELS = 'models'
     STAGE_ENCRYPTING = 'encrypting'
     STAGE_STORING = 'storing'
+
+    PROGRESS_LOG_LIMIT = 200
 
     class Meta:
         verbose_name = "System Backup"
@@ -202,6 +232,27 @@ class SystemBackup(models.Model):
         if reference is None:
             return 0
         return max(0, int(((now or timezone.now()) - reference).total_seconds()))
+
+    @property
+    def duration_seconds(self):
+        if not self.started_at:
+            return None
+        end = self.completed_at if not self.is_active else timezone.now()
+        if end is None:
+            return None
+        return max(0, int((end - self.started_at).total_seconds()))
+
+    def eta_seconds(self, now=None):
+        """Remaining time extrapolated from the progress rate of this run."""
+        if self.status != self.STATUS_RUNNING or not self.started_at:
+            return None
+        percent = int(self.progress_percent or 0)
+        if percent < 3:
+            return None
+        elapsed = ((now or timezone.now()) - self.started_at).total_seconds()
+        if elapsed < 5:
+            return None
+        return max(0, int(elapsed * (100 - percent) / percent))
 
 
 class SystemRestore(models.Model):
@@ -285,3 +336,23 @@ class SystemRestore(models.Model):
         if reference is None:
             return 0
         return max(0, int(((now or timezone.now()) - reference).total_seconds()))
+
+    @property
+    def duration_seconds(self):
+        if not self.started_at:
+            return None
+        end = self.completed_at if not self.is_active else timezone.now()
+        if end is None:
+            return None
+        return max(0, int((end - self.started_at).total_seconds()))
+
+    def eta_seconds(self, now=None, percent=None):
+        if self.status != self.STATUS_RUNNING or not self.started_at:
+            return None
+        percent = int(self.progress_percent if percent is None else percent or 0)
+        if percent < 3:
+            return None
+        elapsed = ((now or timezone.now()) - self.started_at).total_seconds()
+        if elapsed < 5:
+            return None
+        return max(0, int(elapsed * (100 - percent) / percent))

@@ -32,6 +32,57 @@ def build_migration_report(manifest):
     }
 
 
+def _models_in_scope(manifest):
+    """Models a restore replaces.
+
+    A full backup replaces every backed-up model (one that has no rows in the
+    archive is emptied). A portable backup carries no Dlux system data, so only
+    the models it lists are replaced and this system's settings, logs and
+    notifications are kept.
+    """
+    if manifest.get("system_data_included", True):
+        return get_system_backup_models()
+    listed = {entry.get("model") for entry in manifest.get("models") or []}
+    return [
+        model for model in get_system_backup_models()
+        if model._meta.label_lower in listed
+    ]
+
+
+def _reconcile_kept_references(models_restored):
+    """Repair rows a portable restore kept that point into replaced tables.
+
+    Restored rows keep their backup primary keys, so on the system the backup
+    came from nothing dangles. Restored somewhere else, a kept profile or
+    notification may name a user the backup does not have: nullable links are
+    cleared, required ones lose their row, so the restore can commit instead of
+    failing its constraint check.
+    """
+    restored = set(models_restored)
+    kept = [model for model in get_system_backup_models() if model not in restored]
+    for model in kept:
+        manager = model._base_manager
+        for field in model._meta.concrete_fields:
+            target = getattr(field, "related_model", None)
+            if not field.is_relation or target not in restored:
+                continue
+            valid = target._base_manager.values(field.target_field.attname)
+            dangling = manager.exclude(**{f"{field.attname}__isnull": True}).exclude(
+                **{f"{field.attname}__in": valid},
+            )
+            if field.null:
+                dangling.update(**{field.attname: None})
+            else:
+                dangling.delete()
+        for field in model._meta.many_to_many:
+            through = field.remote_field.through
+            if not through._meta.auto_created or field.related_model not in restored:
+                continue
+            target_fk = field.m2m_reverse_field_name()
+            valid = field.related_model._base_manager.values("pk")
+            through._base_manager.exclude(**{f"{target_fk}__in": valid}).delete()
+
+
 def _zip_data_member(zf, model):
     name = f"data/{model._meta.app_label}/{model._meta.model_name}.json"
     try:
@@ -75,7 +126,7 @@ def _apply_superuser_password_policy(deserialized, current_passwords):
         obj.set_unusable_password()
 
 
-def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70)):
+def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70), partial=False):
     """Replace every restorable model's rows with the backup contents.
 
     Runs inside one transaction with FK checks deferred/disabled, so neither
@@ -151,6 +202,8 @@ def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70)):
                 )
                 for obj in deferred:
                     obj.save_deferred_fields()
+                if partial:
+                    _reconcile_kept_references(models_to_restore)
                 table_names = [model._meta.db_table for model in models_to_restore]
                 connection.check_constraints(table_names=table_names)
     # Outside the transaction: bring PK sequences in line with the restored ids.
@@ -262,8 +315,11 @@ def run_system_restore(restore_pk, passphrase=None):
                     restore.save(update_fields=["report", "status", "completed_at", "error"])
                     finish_restore_progress(restore, success=False, error=restore.error)
                     return restore
-                models_to_restore = get_system_backup_models()
-                counts = _wipe_and_load(zf, models_to_restore, reporter)
+                models_to_restore = _models_in_scope(manifest)
+                counts = _wipe_and_load(
+                    zf, models_to_restore, reporter,
+                    partial=not manifest.get("system_data_included", True),
+                )
                 files_restored, files_failed = _restore_files(zf, manifest, reporter)
                 report["restored_rows"] = sum(counts.values())
                 report["restored_models"] = len(counts)

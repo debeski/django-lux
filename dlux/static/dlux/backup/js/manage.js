@@ -3,10 +3,21 @@
 
     const form = document.getElementById('sysbackup-create-form');
     const createBtn = document.getElementById('sysbackup-create-btn');
+    const fields = document.getElementById('sysbackup-create-fields');
     const note = document.getElementById('sysbackup-create-status');
+    const busyNote = document.getElementById('sysbackup-busy-note');
+    const estimateNote = document.getElementById('sysbackup-estimate');
+    const encryptionNote = document.getElementById('sysbackup-encryption-note');
+    const encryptionSelect = document.getElementById('sysbackup-encryption');
+    const scopeSelect = document.getElementById('sysbackup-scope');
+    const passphraseInputs = [
+        document.getElementById('sysbackup-passphrase'),
+        document.getElementById('sysbackup-passphrase-confirm'),
+    ].filter(Boolean);
     const tableBody = document.getElementById('sysbackup-table-body');
     const restoreTableBody = document.getElementById('sysrestore-table-body');
     const POLL_INTERVAL_MS = 4000;
+    const DETAILS_POLL_MS = 2000;
     const POLL_LIMIT = 1800;
     const IDLE_LIST_POLL_MS = 15000;
     const STALL_WARN_SECONDS = 120;
@@ -21,11 +32,64 @@
         note.className = 'text-center ' + (tone === 'error' ? 'text-danger' : 'text-muted');
     }
 
+    function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined || seconds === '') return '';
+        const units = form ? form.dataset : {};
+        const total = Math.max(0, Math.round(Number(seconds)));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = total % 60;
+        const pad = function (value) { return String(value).padStart(2, '0'); };
+        if (hours) return hours + (units.unitH || 'h') + ' ' + pad(minutes) + (units.unitM || 'm');
+        if (minutes) return minutes + (units.unitM || 'm') + ' ' + pad(secs) + (units.unitS || 's');
+        return secs + (units.unitS || 's');
+    }
+
+    function clearPassphrases() {
+        passphraseInputs.forEach(function (input) { input.value = ''; });
+    }
+
+    // While any backup is pending or running, a second one cannot start: the
+    // server refuses it, and the form says so instead of failing on submit.
+    function setBusy(busy) {
+        if (!form) return;
+        form.dataset.busy = busy ? '1' : '0';
+        if (fields) fields.disabled = !!busy;
+        if (busyNote) busyNote.hidden = !busy;
+    }
+
+    function syncEncryption() {
+        if (!encryptionSelect) return;
+        const mode = encryptionSelect.value;
+        document.querySelectorAll('.dlux-backup-passphrase-field').forEach(function (field) {
+            field.hidden = mode !== 'passphrase';
+        });
+        passphraseInputs.forEach(function (input) {
+            input.required = mode === 'passphrase';
+            if (mode !== 'passphrase') input.value = '';
+        });
+        if (encryptionNote) encryptionNote.hidden = mode !== 'none';
+    }
+
+    function syncEstimate() {
+        if (!form || !estimateNote || !scopeSelect) return;
+        const seconds = scopeSelect.value === 'data' ? form.dataset.estimateData : form.dataset.estimateFull;
+        estimateNote.hidden = !seconds;
+        if (seconds) {
+            estimateNote.textContent = (form.dataset.msgEstimate || '{duration}').replace('{duration}', formatDuration(seconds));
+        }
+    }
+
+    function finishRun(text, tone) {
+        setNote(text, tone);
+        setBusy(false);
+        refreshBackupList(true);
+    }
+
     function pollBackup(statusUrl, attempt) {
-        if (!form || !createBtn) return;
+        if (!form) return;
         if (attempt >= POLL_LIMIT) {
             setNote(form.dataset.msgFailed, 'error');
-            createBtn.disabled = false;
             return;
         }
         fetch(statusUrl, {
@@ -38,18 +102,17 @@
             })
             .then(function (data) {
                 if (data.status === 'completed') {
-                    setNote(form.dataset.msgReady);
-                    createBtn.disabled = false;
-                    refreshBackupList(true);
+                    finishRun(form.dataset.msgReady);
                 } else if (data.status === 'failed') {
-                    setNote(form.dataset.msgFailed + (data.error ? ' - ' + data.error : ''), 'error');
-                    createBtn.disabled = false;
-                    refreshBackupList(true);
+                    finishRun(form.dataset.msgFailed + (data.error ? ' - ' + data.error : ''), 'error');
+                } else if (data.status === 'cancelled') {
+                    finishRun(form.dataset.msgCancelled);
                 } else {
                     // Say what the run is actually doing and how long ago it last
                     // said anything — a bare "preparing..." for an hour is what
                     // made a dead backup look like a slow one.
                     const parts = [(data.progress_percent || 0) + '%'];
+                    if (data.eta) parts.push((form.dataset.msgEta || '{duration}').replace('{duration}', data.eta));
                     if (data.progress_message) parts.push(data.progress_message);
                     if (data.attempt_count > 1) {
                         parts.push('#' + data.attempt_count + '/' + (data.max_attempts || data.attempt_count));
@@ -66,11 +129,19 @@
     }
 
     if (form && createBtn) {
+        if (encryptionSelect) encryptionSelect.addEventListener('change', syncEncryption);
+        if (scopeSelect) scopeSelect.addEventListener('change', syncEstimate);
+        syncEncryption();
+        syncEstimate();
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            createBtn.disabled = true;
+            if (form.dataset.busy === '1') return;
             setNote(form.dataset.msgPreparing);
             const formData = new FormData(form);
+            // The passphrase lives only in this request; never leave it typed
+            // into the page once the backup has been handed off.
+            clearPassphrases();
+            setBusy(true);
             const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
             fetch(form.dataset.createUrl, {
                 method: 'POST',
@@ -82,19 +153,21 @@
             })
                 .then(function (resp) {
                     return resp.json().then(function (data) {
+                        if (resp.status === 409) {
+                            setNote(data.error || '', 'error');
+                            refreshBackupList(true);
+                            return null;
+                        }
                         if (!resp.ok) throw new Error(data.error || 'create failed');
                         return data;
                     });
                 })
                 .then(function (data) {
+                    if (!data) return;
                     if (data.status === 'completed') {
-                        setNote(form.dataset.msgReady);
-                        createBtn.disabled = false;
-                        refreshBackupList(true);
+                        finishRun(form.dataset.msgReady);
                     } else if (data.status === 'failed') {
-                        setNote(form.dataset.msgFailed, 'error');
-                        createBtn.disabled = false;
-                        refreshBackupList(true);
+                        finishRun(form.dataset.msgFailed, 'error');
                     } else {
                         pollBackup(data.status_url, 0);
                         refreshBackupList(true);
@@ -102,8 +175,107 @@
                 })
                 .catch(function (error) {
                     setNote(error.message || form.dataset.msgFailed, 'error');
-                    createBtn.disabled = false;
+                    setBusy(false);
                 });
+        });
+    }
+
+    const detailsModal = document.getElementById('sysbackup-details-modal');
+    let detailsUrl = '';
+    let detailsTimer = null;
+
+    function renderDetails(data) {
+        if (!detailsModal) return;
+        const progress = detailsModal.querySelector('[data-details-progress]');
+        const facts = detailsModal.querySelector('[data-details-facts]');
+        const consoleEl = detailsModal.querySelector('[data-details-console]');
+        if (progress) progress.value = data.status === 'completed' ? 100 : (data.progress_percent || 0);
+        if (facts) {
+            facts.replaceChildren();
+            const rows = [[detailsModal.dataset.msgElapsed, data.elapsed]];
+            if (data.active && data.eta) rows.push([detailsModal.dataset.msgEta, data.eta]);
+            rows.forEach(function (row) {
+                if (!row[1]) return;
+                const dt = document.createElement('dt');
+                dt.textContent = row[0];
+                const dd = document.createElement('dd');
+                dd.textContent = row[1];
+                facts.append(dt, dd);
+            });
+        }
+        if (consoleEl) {
+            const pinned = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 8;
+            const lines = (data.log || []).map(function (entry) {
+                const at = entry.at ? new Date(entry.at).toLocaleTimeString() : '';
+                return '[' + at + '] ' + String(entry.percent).padStart(3, ' ') + '%  ' + (entry.message || '');
+            });
+            if (data.error) lines.push('!! ' + data.error);
+            consoleEl.textContent = lines.length ? lines.join('\n') : (detailsModal.dataset.msgEmpty || '');
+            if (pinned) consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+    }
+
+    function pollDetails() {
+        if (!detailsUrl) return;
+        fetch(detailsUrl, { cache: 'no-store', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('details failed');
+                return resp.json();
+            })
+            .then(function (data) {
+                renderDetails(data);
+                if (data.active && detailsUrl) detailsTimer = window.setTimeout(pollDetails, DETAILS_POLL_MS);
+            })
+            .catch(function () {
+                if (detailsUrl) detailsTimer = window.setTimeout(pollDetails, POLL_INTERVAL_MS);
+            });
+    }
+
+    function bindDetailsButtons(root) {
+        if (!detailsModal || !window.bootstrap) return;
+        root.querySelectorAll('.sysbackup-details-open:not([data-dlux-backup-bound])').forEach(function (btn) {
+            btn.dataset.dluxBackupBound = 'true';
+            btn.addEventListener('click', function () {
+                const label = detailsModal.querySelector('[data-details-label]');
+                if (label) label.textContent = btn.dataset.backupLabel || '';
+                const consoleEl = detailsModal.querySelector('[data-details-console]');
+                if (consoleEl) consoleEl.textContent = '';
+                if (detailsTimer) window.clearTimeout(detailsTimer);
+                detailsUrl = btn.dataset.statusUrl || '';
+                window.bootstrap.Modal.getOrCreateInstance(detailsModal).show();
+                pollDetails();
+            });
+        });
+    }
+
+    if (detailsModal) {
+        detailsModal.addEventListener('hidden.bs.modal', function () {
+            detailsUrl = '';
+            if (detailsTimer) window.clearTimeout(detailsTimer);
+        });
+    }
+
+    function bindCancelForms(root) {
+        root.querySelectorAll('.sysbackup-cancel-form:not([data-dlux-backup-bound])').forEach(function (cancelForm) {
+            cancelForm.dataset.dluxBackupBound = 'true';
+            cancelForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                const button = cancelForm.querySelector('button');
+                if (button) button.disabled = true;
+                const csrfInput = cancelForm.querySelector('[name="csrfmiddlewaretoken"]');
+                fetch(cancelForm.action, {
+                    method: 'POST',
+                    body: new FormData(cancelForm),
+                    headers: {
+                        'X-CSRFToken': csrfInput ? csrfInput.value : '',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (data) { setNote(data.message || ''); })
+                    .catch(function () { if (button) button.disabled = false; })
+                    .finally(function () { refreshBackupList(true); });
+            });
         });
     }
 
@@ -171,16 +343,20 @@
     function announceStatusChanges(previousStatuses, items) {
         let completed = false;
         let failed = false;
+        let cancelled = false;
         (items || []).forEach(function (item) {
             const previous = previousStatuses[item.token];
             if (previous === item.status) return;
             if (item.status === 'completed') completed = true;
             if (item.status === 'failed') failed = true;
+            if (item.status === 'cancelled') cancelled = true;
         });
         if (failed && form) {
             setNote(form.dataset.msgFailed, 'error');
         } else if (completed && form) {
             setNote(form.dataset.msgReady);
+        } else if (cancelled && form) {
+            setNote(form.dataset.msgCancelled);
         }
     }
 
@@ -224,8 +400,11 @@
                     tableBody.dataset.revision = data.revision || '';
                     bindRestoreButtons(tableBody);
                     bindResumeButtons(tableBody);
+                    bindDetailsButtons(tableBody);
+                    bindCancelForms(tableBody);
                     announceStatusChanges(previousStatuses, data.items);
                 }
+                if (typeof data.busy === 'boolean') setBusy(data.busy);
                 announceStalledBackups(data.items);
                 scheduleListPoll(data.active ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
             })
@@ -294,6 +473,8 @@
 
     bindRestoreButtons(document);
     bindResumeButtons(document);
+    bindDetailsButtons(document);
+    bindCancelForms(document);
     const resumeCancel = document.getElementById('sysbackup-resume-cancel');
     if (resumeCancel && resumePanel) {
         resumeCancel.addEventListener('click', function () { resumePanel.classList.add('d-none'); });

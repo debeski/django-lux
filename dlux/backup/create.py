@@ -3,20 +3,25 @@
 import json
 import tempfile
 import zipfile
+from contextlib import contextmanager
 from datetime import timedelta
 from django.apps import apps
 from django.core.files import File
 from django.core.files.storage import default_storage
-from django.db import models
+from django.db import connection, models, transaction
 from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 from ..utils.archive import build_relation_schema, stream_model_into_zip
 
 from ._shared import _SUPERUSER_PASSWORD_OMITTED, _dlux_version, _log_system_action, get_current_migration_state, logger
 from .config import _backup_config, _is_user_model, _system_model_queryset, get_system_backup_models, get_system_backup_storage_prefix
-from .crypto import _clean_passphrase, write_dlb_container
-from .reporters import _BackupReporter, _CallbackReporter, _NullReporter, _format_count
+from .crypto import DlbPayloadWriter, _clean_passphrase
+from .reporters import BackupCancelled, _BackupReporter, _CallbackReporter, _NullReporter, _ThreadedReporter, _format_count
 from .retry import fail_system_backup
+
+
+CONSISTENCY_SNAPSHOT = "snapshot"
+CONSISTENCY_LIVE = "live"
 
 
 def _scrub_superuser_password(obj):
@@ -26,16 +31,59 @@ def _scrub_superuser_password(obj):
     return obj
 
 
-def write_system_backup(dest, *, passphrase=None, progress_callback=None, reporter=None, include_media=True):
-    """Build the complete encrypted system backup into ``dest``. Returns metadata.
+def snapshot_supported():
+    """Whether reads can be frozen into one consistent snapshot here.
+
+    PostgreSQL only: a read-only REPEATABLE READ transaction sees the database
+    as of its first query, with no locks taken, so writers carry on while the
+    backup reads a frozen copy. Not inside an outer transaction, whose
+    isolation level is already fixed.
+    """
+    return connection.vendor == "postgresql" and not connection.in_atomic_block
+
+
+@contextmanager
+def consistent_snapshot():
+    """Hold the database at one point in time for the duration of the block.
+
+    Yields ``"snapshot"`` when frozen, ``"live"`` when the engine cannot freeze
+    (rows are then read model by model as the backup proceeds).
+    """
+    if not snapshot_supported():
+        yield CONSISTENCY_LIVE
+        return
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        yield CONSISTENCY_SNAPSHOT
+
+
+def write_system_backup(
+    dest,
+    *,
+    passphrase=None,
+    progress_callback=None,
+    reporter=None,
+    include_media=True,
+    include_system_data=True,
+    encrypt=True,
+    consistency=CONSISTENCY_LIVE,
+):
+    """Build the complete system backup into ``dest``. Returns ``(metadata, manifest)``.
 
     ``include_media=False`` writes a data-only backup (database rows + migration
     state, no media blobs) — much faster, used for the inline updater's pre-update
     safety snapshot since an inline code/schema update never alters media on disk.
 
-    ``reporter`` receives coarse ``checkpoint()`` milestones and frequent
-    ``tick()`` sub-progress; ``progress_callback`` is the older two-argument
-    milestone-only form.
+    ``include_system_data=False`` leaves Dlux's own bookkeeping out (see
+    ``SYSTEM_DATA_MODELS``): a portable project-data snapshot. ``encrypt=False``
+    stores the archive unencrypted.
+
+    The archive is encrypted while it is written (``DlbPayloadWriter``), so there
+    is no separate encryption pass. ``reporter`` receives coarse ``checkpoint()``
+    milestones and frequent ``tick()`` sub-progress; ``progress_callback`` is the
+    older two-argument milestone-only form. A reporter may raise
+    ``BackupCancelled`` to stop the run.
     """
     if reporter is None:
         reporter = _CallbackReporter(progress_callback) if progress_callback else _NullReporter()
@@ -45,6 +93,8 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, report
         "dlux_version": _dlux_version(),
         "migration_state": get_current_migration_state(),
         "media_included": bool(include_media),
+        "system_data_included": bool(include_system_data),
+        "consistency": consistency,
         "superuser_policy": {
             "users": "included",
             "password_hashes": "omitted",
@@ -54,36 +104,50 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, report
         "files": [],
         "missing_files": [],
     }
-    models_to_export = get_system_backup_models()
+    models_to_export = get_system_backup_models(include_system_data=include_system_data)
     # Bake relation/label schema into the manifest so the standalone .dlb viewer
     # can resolve FK/M2M/O2O references to readable names without this project.
     manifest["schema"] = build_relation_schema(models_to_export)
-    total_models = max(len(models_to_export), 1)
     from ..translations import get_strings
     strings = get_strings()
     STAGE_MODELS = "models"
     STAGE_ENCRYPTING = "encrypting"
-    with tempfile.TemporaryFile() as zip_tmp:
-        with zipfile.ZipFile(zip_tmp, "w", zipfile.ZIP_DEFLATED) as zf:
-            for index, model in enumerate(models_to_export):
+    BAND_START, BAND_END = 5, 90
+
+    # Progress is weighted by rows, not by model count, so the bar (and the ETA
+    # derived from it) moves at the rate work is actually done: a 20k-row
+    # activity log is most of a backup, an empty settings table is nothing.
+    querysets = [(model, _system_model_queryset(model)) for model in models_to_export]
+    weights = []
+    for model, qs in querysets:
+        has_files = include_media and any(
+            isinstance(field, models.FileField) for field in model._meta.get_fields()
+        )
+        # A model with uploads is walked twice (records, then files).
+        weights.append(((qs.count() + 1) * (2 if has_files else 1), has_files))
+    total_weight = max(sum(weight for weight, _has_files in weights), 1)
+
+    def band(position):
+        return BAND_START + int((position / total_weight) * (BAND_END - BAND_START))
+
+    natural_key_cache = {}
+    writer = DlbPayloadWriter(passphrase=passphrase, encrypt=encrypt)
+    try:
+        done_weight = 0
+        with zipfile.ZipFile(writer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for (model, qs), (weight, has_files) in zip(querysets, weights):
                 model_label = str(model._meta.verbose_name)
-                span_start = 5 + int((index / total_models) * 70)
-                span_end = 5 + int(((index + 1) / total_models) * 70)
                 reporter.checkpoint(
-                    span_start,
+                    band(done_weight),
                     strings.get("backup_progress_model", "Backing up {model}...").format(model=model_label),
                     stage=STAGE_MODELS,
                 )
 
-                def report_step(step_stage, done, total, _start=span_start, _end=span_end, _label=model_label):
-                    # Sub-progress is confined to this model's slice of the 5–75
-                    # band, so the bar keeps creeping instead of freezing on a
-                    # model that owns thousands of uploads.
+                def report_step(step_stage, done, total, _base=done_weight, _weight=weight,
+                                _halves=has_files, _label=model_label):
                     share = (done / total) if total else 1.0
-                    if step_stage == "files":
-                        share = 0.5 + (share * 0.5)
-                    else:
-                        share = share * 0.5
+                    if _halves:
+                        share = 0.5 + share * 0.5 if step_stage == "files" else share * 0.5
                     template = (
                         "backup_progress_model_files" if step_stage == "files" else "backup_progress_model_rows"
                     )
@@ -93,7 +157,7 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, report
                         else "Backing up {model} - records {done}/{total}..."
                     )
                     reporter.tick(
-                        _start + int((_end - _start) * share),
+                        band(_base + int(_weight * share)),
                         strings.get(template, fallback).format(
                             model=_label,
                             done=_format_count(done),
@@ -102,59 +166,60 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, report
                         stage=STAGE_MODELS,
                     )
 
-                qs = _system_model_queryset(model)
                 stream_model_into_zip(
                     zf, model, qs, manifest,
                     serialize_kwargs={"use_natural_foreign_keys": True},
                     object_transform=_scrub_superuser_password,
                     include_files=include_media,
                     step_callback=report_step,
+                    natural_key_cache=natural_key_cache,
                 )
+                done_weight += weight
                 reporter.checkpoint(
-                    span_end,
+                    band(done_weight),
                     strings.get("backup_progress_model_done", "Backed up {model}.").format(model=model_label),
                     stage=STAGE_MODELS,
                 )
             zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-        payload_size = zip_tmp.tell()
-        zip_tmp.seek(0)
         reporter.checkpoint(
-            82,
-            strings.get("backup_progress_encrypting", "Encrypting backup artifact..."),
+            92,
+            strings.get(
+                "backup_progress_sealing" if encrypt else "backup_progress_sealing_plain",
+                "Finishing encryption ({size})..." if encrypt else "Writing the backup file ({size})...",
+            ).format(size=filesizeformat(writer.size)),
             stage=STAGE_ENCRYPTING,
         )
-
-        def report_encryption(written):
-            share = (written / payload_size) if payload_size else 1.0
-            reporter.tick(
-                82 + int(min(1.0, share) * 12),
-                strings.get(
-                    "backup_progress_encrypting_bytes",
-                    "Encrypting backup artifact ({done} of {total})...",
-                ).format(done=filesizeformat(written), total=filesizeformat(payload_size)),
-                stage=STAGE_ENCRYPTING,
-            )
-
-        metadata = write_dlb_container(zip_tmp, dest, {
+        metadata = writer.finish(dest, {
             "created_at": manifest["generated_at"],
             "dlux_version": manifest["dlux_version"],
             "models": len(manifest["models"]),
             "rows": sum(item["count"] for item in manifest["models"]),
             "files": len(manifest["files"]),
             "media_included": bool(include_media),
-            "passphrase_required": bool(_clean_passphrase(passphrase)),
-        }, passphrase=passphrase, on_chunk=report_encryption)
+            "system_data_included": bool(include_system_data),
+            "consistency": consistency,
+        })
+    except BaseException:
+        writer.abort()
+        raise
     return metadata, manifest
+
+
+def _encryption_mode(backup):
+    SystemBackup = type(backup)
+    mode = getattr(backup, "encryption", "") or SystemBackup.ENCRYPTION_SERVER_KEY
+    if backup.passphrase_required:
+        return SystemBackup.ENCRYPTION_PASSPHRASE
+    return mode
 
 
 def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=False):
     """Celery-or-inline runner that builds the .dlb for a SystemBackup row.
 
-    Whether media blobs are included is read from ``backup.media_included`` (set by
-    the caller when the row is created), so the choice survives a Celery handoff —
-    the task only receives the pk. ``media_included=False`` yields a faster data-only
-    snapshot (database + migration state), used by the inline updater's pre-update
-    backup and by manual "quick" backups.
+    Scope and encryption are read off the row (``media_included``,
+    ``system_data_included``, ``encryption``), set by the caller when the row is
+    created, so the choice survives a Celery handoff — the task only receives
+    the pk (and the passphrase, which is stored nowhere).
 
     ``allow_passphrase_retry`` is set only by the Celery task, which can arm an
     automatic retry for a passphrase-protected backup because it re-queues itself
@@ -180,54 +245,77 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
         stage=SystemBackup.STAGE_PREPARING,
         attempt_count=models.F("attempt_count") + 1,
         next_attempt_at=None,
+        progress_log=[],
     )
     if not claimed:
         backup.refresh_from_db()
         return backup
     backup.refresh_from_db()
-    include_media = bool(backup.media_included)
-    from ..utils.backup_progress import finish_backup_progress, start_backup_progress
+    mode = _encryption_mode(backup)
+    if mode == SystemBackup.ENCRYPTION_PASSPHRASE and not _clean_passphrase(passphrase):
+        fail_system_backup(backup, "This backup is passphrase-protected; the passphrase is required to build it.")
+        return backup
+    from ..utils.backup_progress import cancel_backup_progress, finish_backup_progress, start_backup_progress
     from ..translations import get_strings
+    strings = get_strings()
     start_backup_progress(backup)
     reporter = _BackupReporter(backup)
-    reporter.checkpoint(
-        2,
-        get_strings().get("backup_progress_preparing", "Preparing backup..."),
-        stage=SystemBackup.STAGE_PREPARING,
-    )
+    saved_path = ""
     try:
+        reporter.checkpoint(
+            2,
+            strings.get("backup_progress_preparing", "Preparing backup..."),
+            stage=SystemBackup.STAGE_PREPARING,
+        )
         with tempfile.TemporaryFile() as tmp:
-            metadata, manifest = write_system_backup(
-                tmp,
-                passphrase=passphrase,
-                reporter=reporter,
-                include_media=include_media,
-            )
+            with consistent_snapshot() as consistency:
+                run_reporter = _ThreadedReporter(reporter) if consistency == CONSISTENCY_SNAPSHOT else reporter
+                try:
+                    metadata, manifest = write_system_backup(
+                        tmp,
+                        passphrase=passphrase if mode == SystemBackup.ENCRYPTION_PASSPHRASE else None,
+                        reporter=run_reporter,
+                        include_media=bool(backup.media_included),
+                        include_system_data=bool(backup.system_data_included),
+                        encrypt=mode != SystemBackup.ENCRYPTION_NONE,
+                        consistency=consistency,
+                    )
+                finally:
+                    if run_reporter is not reporter:
+                        run_reporter.close()
             size = tmp.tell()
             tmp.seek(0)
             reporter.checkpoint(
                 95,
-                get_strings().get("backup_progress_storing", "Storing backup artifact..."),
+                strings.get("backup_progress_storing", "Storing backup artifact..."),
                 stage=SystemBackup.STAGE_STORING,
             )
             saved_path = default_storage.save(
                 f"{get_system_backup_storage_prefix()}/system-{backup.token}.dlb",
                 File(tmp),
             )
-        backup.file_path = saved_path
-        backup.file_size = size
-        backup.model_count = metadata["models"]
-        backup.row_count = metadata["rows"]
-        backup.file_count = metadata["files"]
-        backup.missing_file_count = len(manifest["missing_files"])
-        backup.passphrase_required = bool(metadata.get("passphrase_required"))
-        backup.status = SystemBackup.STATUS_COMPLETED
-        backup.completed_at = timezone.now()
-        backup.heartbeat_at = backup.completed_at
-        backup.stage = ""
-        backup.next_attempt_at = None
-        backup.error = ""
-        backup.save()
+        completed_at = timezone.now()
+        values = {
+            "file_path": saved_path,
+            "file_size": size,
+            "model_count": metadata["models"],
+            "row_count": metadata["rows"],
+            "file_count": metadata["files"],
+            "missing_file_count": len(manifest["missing_files"]),
+            "passphrase_required": bool(metadata.get("passphrase_required")),
+            "status": SystemBackup.STATUS_COMPLETED,
+            "completed_at": completed_at,
+            "heartbeat_at": completed_at,
+            "stage": "",
+            "next_attempt_at": None,
+            "error": "",
+        }
+        # Conditional, like every progress write: a cancel that lands while the
+        # file is being stored must win, and the stored file must not linger.
+        if not SystemBackup.objects.filter(pk=backup.pk, status=SystemBackup.STATUS_RUNNING).update(**values):
+            raise BackupCancelled()
+        for name, value in values.items():
+            setattr(backup, name, value)
         finish_backup_progress(backup, success=True)
         _log_system_action(backup.requested_by_username, "EXPORT", {
             "kind": "system_backup",
@@ -236,8 +324,21 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
             "rows": backup.row_count,
             "files": backup.file_count,
             "attempts": backup.attempt_count,
+            "encryption": mode,
+            "system_data": bool(backup.system_data_included),
+            "consistency": metadata.get("consistency", ""),
+            "seconds": backup.duration_seconds,
         })
         apply_backup_retention(protected_pk=backup.pk)
+    except BackupCancelled:
+        if saved_path:
+            try:
+                default_storage.delete(saved_path)
+            except Exception:
+                logger.warning("Could not remove the file of cancelled backup pk=%s", backup_pk, exc_info=True)
+        backup.refresh_from_db()
+        if backup.status == SystemBackup.STATUS_CANCELLED:
+            cancel_backup_progress(backup, strings.get("sysbackup_cancelled_note", "Backup cancelled."))
     except Exception as exc:
         logger.exception("System backup pk=%s failed", backup_pk)
         fail_system_backup(

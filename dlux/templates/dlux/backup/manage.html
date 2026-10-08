@@ -161,6 +161,28 @@
         </form>
     </section>
 
+    <div class="modal fade" id="sysbackup-details-modal" tabindex="-1" aria-hidden="true" aria-labelledby="sysbackup-details-title"
+         data-msg-elapsed="{{ DLUX_STRINGS.sysbackup_elapsed|default:'Elapsed' }}"
+         data-msg-eta="{{ DLUX_STRINGS.sysbackup_eta_label|default:'Remaining' }}"
+         data-msg-empty="{{ DLUX_STRINGS.sysbackup_log_empty|default:'No progress recorded yet.' }}">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sysbackup-details-title">
+                        <i class="bi bi-terminal me-2"></i>{{ DLUX_STRINGS.sysbackup_details|default:'Details' }}
+                        <small class="text-muted ms-2" data-details-label></small>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
+                </div>
+                <div class="modal-body">
+                    <progress class="dlux-backup-progress w-100" max="100" value="0" data-details-progress></progress>
+                    <dl class="dlux-backup-details-facts" data-details-facts></dl>
+                    <pre class="dlux-backup-console" data-details-console aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <section id="sysrestore-panel" class="glass-container dlux-backup-card dlux-backup-card--danger d-none">
         <h5 class="text-danger mb-2"><i class="bi bi-exclamation-octagon-fill me-2"></i>{{ DLUX_STRINGS.sysrestore_title }}</h5>
         <p class="mb-1">{{ DLUX_STRINGS.sysrestore_warning }}</p>
