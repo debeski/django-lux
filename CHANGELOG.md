@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b3
 
 - **System Backup Speed**: `_CursorlessJSONSerializer` caches natural keys per run (`natural_key_cache`, shared across models) and `stream_model_into_zip` joins natural-key FK targets (`select_related`) and prefetches auto-created M2M links in 1,000-row pages; the files pass loads only pk + file columns. Each FK to a natural-key model used to cost one query per row: 20,042 activity rows went from ~20k queries / 33.6s to 221 queries / 4.5s on PostgreSQL.
 - **Encryption While Writing**: `DlbPayloadWriter` (`dlux.backup.crypto`) is the ZIP's output stream and encrypts 8 MB frames on a background thread while models are still being serialized, then writes the header once counts are known; the separate whole-archive encryption pass is gone. Already-compressed media (`_STORED_EXTENSIONS`: images, PDFs, office files, archives, video) is stored instead of re-deflated. Progress is weighted by row counts, so the bar and its ETA track real work.

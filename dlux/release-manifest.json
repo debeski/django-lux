@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b2",
+  "version": "1.11.0b3",
   "display": {
-    "summary": "Entry Clipboard and stack schema stamps from 1.11.0b1, plus an image update that ends when DjangoLux is back instead of stranding the operator on the maintenance page.",
+    "summary": "Faster, snapshot-consistent system backups you can cancel, with a choice of encryption and a portable project-data scope, on top of 1.11.0b2.",
     "highlights": [
-      "Image updates: the progress dialog stays locked, starts with an empty log, and offers Finish once the site is back on the new image.",
-      "The maintenance page returns to the page you were on as soon as the site answers (new projects; Composer 1.6.1b2 check --fix updates stock pages).",
-      "A deployment whose image moved to an older DjangoLux is offered updates again.",
-      "Entry Clipboard (Extra Features, off by default) and stack schema stamps with the stack.schema doctor check.",
-      "No database migration."
+      "System backups run several times faster on large tables and encrypt while they are written.",
+      "On PostgreSQL a backup is one point-in-time snapshot while the site keeps working.",
+      "Choose server-key, passphrase or no encryption, and optionally a portable project-data-only backup.",
+      "Cancel a running backup, see its live console and time left; only one backup runs at a time.",
+      "Database migration: additive and inline-safe (new backup options columns)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b3"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -21,7 +21,7 @@
     "migration_baseline": ">=1.9.3"
   },
   "migrations": {
-    "effect": "none",
+    "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },
