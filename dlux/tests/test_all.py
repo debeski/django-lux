@@ -92,6 +92,7 @@ TEST_LABELS = [
     'dlux.tests.test_smtp_timeouts',
     'dlux.tests.test_suite_registration',
     'dlux.tests.test_system_backup',
+    'dlux.tests.test_report_user_activity',
     'dlux.tests.test_backup_options',
     'dlux.tests.test_backup_chains',
     'dlux.tests.test_system_settings_previews',

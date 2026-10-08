@@ -58,8 +58,13 @@ authorization decision.
   for 30 days to bypass 2FA challenges on the same browser, and untrusted
   sessions cannot revoke trusted sessions. When configured, a newly trusted
   session can revoke every other active session for that user.
-- User Reports are sensitive audit surfaces. They must remain backend-gated by
+- User Reports are sensitive audit surfaces. The full report (devices, IP
+  addresses, user agents, sessions, e-mail) must remain backend-gated by
   user-directory access, target-management access, and activity-log access.
+  A General Reports viewer (`dlux.view_reports`) gets only the *activity* view
+  of a user the reports page lists to them (`user_report_access()` →
+  `activity`): identity basics and report-eligible actions within their report
+  scope; the sensitive sections are never queried for that view.
   Durable non-auth device grouping uses a signed first-party cookie stored only
   as a hash and must not be treated as authentication or trusted-device proof.
 - Client IP resolution is centralized and configurable (direct, header, or

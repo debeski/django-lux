@@ -22,12 +22,14 @@
         </div>
     </div>
 
+    {% if not report.activity_only %}
     <div class="alert alert-info border-0 shadow-sm small mb-4">
         <i class="bi bi-info-circle me-1"></i>{{ DLUX_STRINGS.user_report_history_note }}
         {% if report.history_started_at %}
             <span class="fw-bold">{{ report.history_started_at|date:"Y-m-d H:i" }}</span>
         {% endif %}
     </div>
+    {% endif %}
 
     <div class="row g-3 mb-4">
         <div class="col-md-6 col-xl-3">
@@ -36,6 +38,7 @@
                 <strong data-dlux-user-report-total-actions>{{ report.summary.activity_count }}</strong>
             </div>
         </div>
+        {% if not report.activity_only %}
         <div class="col-md-6 col-xl-3">
             <div class="dlux-user-report-tile">
                 <span>{{ DLUX_STRINGS.user_report_estimated_time }}</span>
@@ -54,7 +57,11 @@
                 <strong>{{ report.summary.ip_count }}</strong>
             </div>
         </div>
+        {% endif %}
     </div>
+    {% if report.activity_only %}
+        <p class="text-muted small mb-4"><i class="bi bi-shield-lock me-1"></i>{{ DLUX_STRINGS.user_report_activity_only_note|default:'Activity view from General Reports. Devices, network addresses, sessions and e-mail need user-directory and activity-log access.' }}</p>
+    {% endif %}
 
     <div class="row g-4">
         <div class="col-lg-6">
@@ -65,8 +72,10 @@
                     <dd>{{ report.summary.username }}</dd>
                     <dt>{{ DLUX_STRINGS.tbl_full_name }}</dt>
                     <dd>{{ report.summary.display_name }}</dd>
+                    {% if not report.activity_only %}
                     <dt>{{ DLUX_STRINGS.form_email }}</dt>
                     <dd>{{ report.summary.email|default:DLUX_STRINGS.user_report_not_available }}</dd>
+                    {% endif %}
                     <dt>{{ DLUX_STRINGS.role_type }}</dt>
                     <dd>{{ report.tier.title }}</dd>
                     <dt>{{ DLUX_STRINGS.tbl_is_active }}</dt>
@@ -79,6 +88,7 @@
             </section>
         </div>
 
+        {% if not report.activity_only %}
         <div class="col-lg-6">
             <section class="dlux-user-report-card">
                 <h5><i class="bi bi-activity me-2"></i>{{ DLUX_STRINGS.user_report_presence }}</h5>
@@ -98,6 +108,7 @@
                 </dl>
             </section>
         </div>
+        {% endif %}
 
         <div class="col-12">
             <section class="dlux-user-report-card">
@@ -135,6 +146,7 @@
             </section>
         </div>
 
+        {% if not report.activity_only %}
         <div class="col-12">
             <section class="dlux-user-report-card">
                 <h5><i class="bi bi-hdd-network me-2"></i>{{ DLUX_STRINGS.user_report_devices_networks }}</h5>
@@ -172,6 +184,7 @@
                 </div>
             </section>
         </div>
+        {% endif %}
 
         <div class="col-12">
             <section class="dlux-user-report-card">

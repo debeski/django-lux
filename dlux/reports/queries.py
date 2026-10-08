@@ -1,11 +1,11 @@
 """Report querysets: scoping, windowing, aggregation and pk-paged iteration."""
 
 from django.apps import apps
-from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q
 from ..utils.common import _iter_queryset_by_pk  # re-exported: generic pagination
 from ..utils import get_user_scope, is_central_staff, is_global_staff, is_scope_enabled
+from ..utils.users import report_visible_users
 
 from ._shared import REPORT_ACTIVITY_CATEGORY
 from .config import _reports_config
@@ -102,17 +102,7 @@ def filter_report_eligible_activity(queryset):
 
 
 def _visible_user_queryset(actor):
-    User = apps.get_model(settings.AUTH_USER_MODEL)
-    qs = User._default_manager.select_related("profile__scope").order_by("username")
-    if getattr(actor, "is_superuser", False) or is_global_staff(actor) or not is_scope_enabled():
-        return qs
-    if is_central_staff(actor):
-        return qs.filter(profile__scope__isnull=True)
-    actor_scope = get_user_scope(actor)
-    if actor_scope is not None:
-        return qs.filter(profile__scope=actor_scope)
-    return qs.none()
-
+    return report_visible_users(actor)
 
 def _aggregation_queryset(queryset):
     """Strip ordering/joins before grouped count queries."""

@@ -321,6 +321,24 @@ def is_central_staff(user):
     return not user.has_perm('dlux.manage_scopes')
 
 # User Management - Function classifies a user-management tier from booleans and permissions.
+
+def report_visible_users(actor):
+    """Users a General Reports viewer may see: everyone for superusers, global
+    staff or with scopes off; scopeless users for central staff; the viewer's
+    own scope otherwise. The reports page and its per-user drill-down share it."""
+    from django.contrib.auth import get_user_model
+    from .common import is_scope_enabled
+
+    qs = get_user_model()._default_manager.select_related("profile__scope").order_by("username")
+    if getattr(actor, "is_superuser", False) or is_global_staff(actor) or not is_scope_enabled():
+        return qs
+    if is_central_staff(actor):
+        return qs.filter(profile__scope__isnull=True)
+    actor_scope = get_user_scope(actor)
+    if actor_scope is not None:
+        return qs.filter(profile__scope=actor_scope)
+    return qs.none()
+
 def get_user_management_tier_state(
     *,
     is_superuser,

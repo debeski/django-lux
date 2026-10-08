@@ -1768,6 +1768,7 @@ STRINGS = {
     'date_joined': 'Date Joined',
     'back_to_users': 'Back to User Management',
     'tbl_staff_tier': 'Staff Tier',
+    'user_report_activity_only_note': 'Activity view from General Reports. Devices, network addresses, sessions and e-mail need user-directory and activity-log access.',
     'user_report_title': 'User Report',
     'user_report_kicker': 'Sensitive Audit File',
     'user_report_subtitle': 'A consolidated summary of what Dlux knows about this user in the current project.',
