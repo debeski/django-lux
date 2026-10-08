@@ -10,6 +10,7 @@ from ..translations import get_strings
 from ..utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
 from . import (
     activity_report_key,
+    apply_report_scope,
     build_activity_windows,
     apply_report_window,
     filter_report_eligible_activity,
@@ -51,7 +52,14 @@ def _distinct_values(queryset, field_name):
     return values
 
 
-def build_user_report(target_user, actor=None, window='week'):
+def build_user_report(target_user, actor=None, window='week', activity_only=False):
+    """Everything Dlux knows about ``target_user``, for the report modal and XLSX.
+
+    ``activity_only`` is the General Reports view (see ``user_report_access``):
+    actions are limited to the viewer's report scope, exactly as on the reports
+    page, and presence, devices, addresses, user agents and e-mail are never
+    queried.
+    """
     s = get_strings()
     window = normalize_report_window(window)
     ActivityLog = apps.get_model('dlux', 'ActivityLog')
@@ -60,11 +68,15 @@ def build_user_report(target_user, actor=None, window='week'):
     PresenceSession = apps.get_model('dlux', 'UserPresenceSession')
 
     activity_qs = ActivityLog._default_manager.filter(created_by=target_user).order_by('-created_at')
+    if activity_only:
+        activity_qs = apply_report_scope(activity_qs, actor)
     eligible_activity_qs = filter_report_eligible_activity(activity_qs).order_by('-created_at')
     selected_activity_qs = apply_report_window(eligible_activity_qs, window).order_by('-created_at')
     presence_qs = PresenceSession.objects.filter(user=target_user).select_related('known_device').order_by('-last_seen_at')
     known_devices = KnownDevice.objects.filter(user=target_user).select_related('trusted_device').order_by('-last_seen_at')
     trusted_devices = TrustedDevice.objects.filter(user=target_user).order_by('-last_used_at')
+    if activity_only:
+        presence_qs, known_devices, trusted_devices = presence_qs.none(), known_devices.none(), trusted_devices.none()
 
     first_activity = eligible_activity_qs.order_by('created_at').first()
     last_activity = eligible_activity_qs.first()
@@ -129,8 +141,8 @@ def build_user_report(target_user, actor=None, window='week'):
         if item.last_seen_at:
             presence_days.add(timezone.localtime(item.last_seen_at).date())
 
-    ip_addresses = set(_distinct_values(eligible_activity_qs, 'ip_address'))
-    user_agents = set(_distinct_values(eligible_activity_qs, 'user_agent'))
+    ip_addresses = set() if activity_only else set(_distinct_values(eligible_activity_qs, 'ip_address'))
+    user_agents = set() if activity_only else set(_distinct_values(eligible_activity_qs, 'user_agent'))
     browsers = set()
     operating_systems = set()
     for device in known_devices:
@@ -161,6 +173,7 @@ def build_user_report(target_user, actor=None, window='week'):
         history_started_at = first_activity.created_at
 
     return {
+        'activity_only': bool(activity_only),
         'generated_at': generated_at,
         'selected_window': window,
         'history_started_at': history_started_at,
@@ -171,7 +184,7 @@ def build_user_report(target_user, actor=None, window='week'):
         'summary': {
             'username': target_user.get_username(),
             'display_name': target_user.get_full_name() or target_user.get_username(),
-            'email': target_user.email or '',
+            'email': '' if activity_only else (target_user.email or ''),
             'is_active': bool(target_user.is_active),
             'is_staff': bool(target_user.is_staff),
             'is_superuser': bool(target_user.is_superuser),
@@ -235,10 +248,14 @@ def build_user_report_xlsx(report, window=None):
             max_len = max(len(str(cell.value or '')) for cell in column)
             ws.column_dimensions[column[0].column_letter].width = min(max(max_len + 2, 12), 60)
 
+    activity_only = bool(report.get('activity_only'))
     summary_rows = [
         [s.get('user_report_field'), s.get('user_report_value')],
     ]
-    for key in (
+    summary_keys = (
+        'username', 'display_name', 'is_active', 'is_staff', 'is_superuser',
+        'date_joined', 'last_login', 'activity_count',
+    ) if activity_only else (
         'username',
         'display_name',
         'email',
@@ -254,7 +271,8 @@ def build_user_report_xlsx(report, window=None):
         'estimated_duration',
         'request_count',
         'ip_count',
-    ):
+    )
+    for key in summary_keys:
         summary_rows.append([s.get(f'user_report_{key}'), report['summary'].get(key)])
     write_rows(summary, summary_rows)
 
@@ -262,6 +280,10 @@ def build_user_report_xlsx(report, window=None):
     rows = [[s.get('user_report_action'), s.get('user_report_count')]]
     rows.extend([[item['label'], item['count']] for item in report['action_counts']])
     write_rows(ws, rows)
+
+    if activity_only:
+        _write_log_sheet(wb, report, window, s, write_rows, network=False)
+        return _workbook_bytes(wb)
 
     ws = wb.create_sheet(s.get('user_report_sheet_presence')[:31])
     rows = [[
@@ -305,27 +327,36 @@ def build_user_report_xlsx(report, window=None):
         ])
     write_rows(ws, rows)
 
+    _write_log_sheet(wb, report, window, s, write_rows, network=True)
+    return _workbook_bytes(wb)
+
+
+def _write_log_sheet(wb, report, window, s, write_rows, *, network):
     ws = wb.create_sheet(s.get('user_report_sheet_logs')[:31])
-    rows = [[
+    header = [
         s.get('user_report_timestamp'),
         s.get('user_report_action'),
         s.get('user_report_model'),
-        s.get('user_report_ip_address'),
-        s.get('user_report_user_agent'),
-    ]]
+    ]
+    if network:
+        header += [s.get('user_report_ip_address'), s.get('user_report_user_agent')]
+    rows = [header]
     selected_qs = report.get('selected_activity_qs') or report['activity_qs']
     if window:
         selected_qs = apply_report_window(selected_qs, normalize_report_window(window)).order_by('-created_at')
     for item in selected_qs[:1000]:
-        rows.append([
+        row = [
             item.created_at,
             s.get(f'action_{str(item.action or "").lower()}', item.action),
             translate_activity_log_model_name(item.model_name, strings=s),
-            item.ip_address,
-            item.user_agent,
-        ])
+        ]
+        if network:
+            row += [item.ip_address, item.user_agent]
+        rows.append(row)
     write_rows(ws, rows)
 
+
+def _workbook_bytes(wb):
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)

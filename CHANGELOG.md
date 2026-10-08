@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **General Reports User Drill-Down For Report Viewers**: the reports page offers a *User report* button for every user it lists, but the report demanded user-directory + activity-log access, so a central staff member with only `dlux.view_reports` got 403 on every user and saw no per-user creates/edits/deletes. `user_report_access()` (`dlux.utils.authorization`) now returns `full` (unchanged rule) or `activity` for a report viewer looking at a user `_visible_user_queryset()` lists; `build_user_report(activity_only=True)` limits actions to the viewer's report scope (`apply_report_scope`) and never queries presence, devices, IPs, user agents or e-mail, and the XLSX drops those sheets and columns. Staff without the reports permission, and scoped users outside a central viewer's reach, are still refused.
+
 ## v1.11.0b3
 
 - **System Backup Speed**: `_CursorlessJSONSerializer` caches natural keys per run (`natural_key_cache`, shared across models) and `stream_model_into_zip` joins natural-key FK targets (`select_related`) and prefetches auto-created M2M links in 1,000-row pages; the files pass loads only pk + file columns. Each FK to a natural-key model used to cost one query per row: 20,042 activity rows went from ~20k queries / 33.6s to 221 queries / 4.5s on PostgreSQL.

@@ -39,6 +39,8 @@ from ..utils import (
     user_can_view_activity_log,
     user_can_view_user_report,
     user_can_view_user_directory,
+    user_report_access,
+    USER_REPORT_ACTIVITY,
 )
 from ..reports.users import build_user_report, build_user_report_xlsx
 from ..ribbon import RibbonMixin
@@ -544,11 +546,15 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
 @login_required
 def user_report_modal_view(request, pk):
     target_user = get_object_or_404(User, pk=pk)
-    if not user_can_view_user_report(request.user, target_user):
+    access = user_report_access(request.user, target_user)
+    if access is None:
         raise PermissionDenied
 
     window = request.GET.get('window') or 'week'
-    report = build_user_report(target_user, actor=request.user, window=window)
+    report = build_user_report(
+        target_user, actor=request.user, window=window,
+        activity_only=access == USER_REPORT_ACTIVITY,
+    )
     context = {
         'DLUX_STRINGS': get_strings(),
         'report': report,
@@ -562,11 +568,15 @@ def user_report_modal_view(request, pk):
 @login_required
 def user_report_xlsx_view(request, pk):
     target_user = get_object_or_404(User, pk=pk)
-    if not user_can_view_user_report(request.user, target_user):
+    access = user_report_access(request.user, target_user)
+    if access is None:
         raise PermissionDenied
 
     window = request.GET.get('window') or 'week'
-    report = build_user_report(target_user, actor=request.user, window=window)
+    report = build_user_report(
+        target_user, actor=request.user, window=window,
+        activity_only=access == USER_REPORT_ACTIVITY,
+    )
     content = build_user_report_xlsx(report, window=window)
     filename = f"dlux-user-report-{target_user.pk}-{report['selected_window']}.xlsx"
     response = HttpResponse(

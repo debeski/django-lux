@@ -41,6 +41,7 @@
 - Browser suite on `main` (d362ee7): 10 pre-existing e2e failures in backup/global-search/tutorial/email/security. Weather: supplied key rejected by OpenWeather (city search and current conditions; current API says HTTP 401 Invalid API key). No key committed. Local Python needed `SSL_CERT_FILE=/etc/ssl/cert.pem` for verified TLS.
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] `fix/report-user-activity` (unmerged): General Reports listed a User report button for every user, but the report required user-directory + activity-log access, so central staff with only `view_reports` got 403 on each. `user_report_access()` -> `activity` view (scope-limited actions, no devices/IPs/UA/e-mail; XLSX without network columns). Shared `report_visible_users()` in `utils.users`. 7 tests; browser-checked as central staff.
   - [ ] Accept published `v1.11.0b3` on `testbed-dlux` through the beta channel (`./start.sh dlux update`) and reset `WEB_IMAGE` to `testbed-dlux-app:2.1.20`.
   - [ ] Incremental backups: design in local `incremental_backup_plan.md` (chains, per-row digest index, chain restore with root-hash check); own branch, phase 1 first.
   - [ ] project-dhub must adopt the ribbon (6 `advanced_filter_helper` sites in `documents/filters.py`) and `dlux-file-input` before it upgrades to 1.10.0; it is pinned to an older DjangoLux until then.
@@ -72,7 +73,6 @@
 
 ### One-line info about last verified Tests:
 - 2026-10-06 release commit 1.11.0b1: full suite 2708 OK (2 skips); `release_check --classify` beta, `--base-tag v1.10.1` inline-safe; import cycles clean.
-- 2026-10-03 clipboard: final full suite 2702 OK (2 skips); browser 4/4 covers account switch/logout, missing identity, stale-history reload, popover and exclusions. CRM/testbed refreshed/healthy; both login pages carry anonymous cleanup identity. User dropped sticky expansion (reverted) and live-preview integration from release scope.
 - 2026-09-30 `feat/assigned-homepage` (no-migration rework): full `dlux.tests` 2676 OK (2 skips), `test_assigned_home_url` 8 OK, `makemigrations --check` clean, import cycles clean. Not browser-tested.
 - 2026-09-29 weather: full `dlux.tests` 2668 OK (2 skips); final focused 86 OK; weather browser 4/4 (real saves, desktop/mobile, RTL, titlebar rail/user hub/floating/card). Screenshots reviewed in `tests-e2e/shots/weather-*`. Live key check returned 401; fixtures cover successful readings.
 - 2026-10-08 backup branch: full suite 2731 OK (4 skips), `makemigrations --check` clean, import cycles clean; 88 backup tests OK on SQLite and PostgreSQL 17 (snapshot tests PG-only); Go viewer tests OK incl. Python-made streamed container; page checked in browser (desktop/mobile, busy lock, cancel, console).

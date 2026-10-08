@@ -197,7 +197,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/reset_password/<int:pk>/` | Staff password-reset endpoint for a target user |
 | `/sys/logs/` | Activity log |
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
-| `/sys/reports/` | Activity reports overview |
+| `/sys/reports/` | Activity reports overview; its user buttons open `/sys/users/<pk>/report/` in the activity view (`user_report_access()`) for report viewers without user-directory/activity-log access |
 | `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
 | `/sys/backup/` | Superuser-only full system backup and restore page |
 | `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |

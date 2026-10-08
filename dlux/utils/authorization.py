@@ -57,7 +57,7 @@ except ImportError:
 
 # ── intra-package imports (shared + feature deps) ──
 from .common import get_user_scope, user_has_scope_state
-from .users import can_manage_target_user
+from .users import can_manage_target_user, report_visible_users
 
 # Authorization - Function gates access to user directory surfaces.
 def user_can_view_user_directory(user):
@@ -112,6 +112,29 @@ def user_can_view_user_report(actor, target_user=None):
     if not user_can_view_activity_log(actor):
         return False
     return can_manage_target_user(actor, target_user)
+
+USER_REPORT_FULL = 'full'
+USER_REPORT_ACTIVITY = 'activity'
+
+
+def user_report_access(actor, target_user):
+    """How much of ``target_user``'s report ``actor`` may see, or ``None``.
+
+    ``full`` — the complete report (self, or user-directory + activity-log
+    access over a manageable user). ``activity`` — a General Reports viewer
+    looking at a user the reports page shows them: identity basics and that
+    user's report-eligible actions within the viewer's report scope, without
+    devices, addresses, sessions or e-mail. The reports page links every user
+    it lists, so this is what keeps those links from answering 403.
+    """
+    if user_can_view_user_report(actor, target_user):
+        return USER_REPORT_FULL
+    if not user_can_view_reports(actor) or target_user is None:
+        return None
+    if report_visible_users(actor).filter(pk=target_user.pk).exists():
+        return USER_REPORT_ACTIVITY
+    return None
+
 
 # Authorization - Function gates project-level report overviews.
 def user_can_view_reports(user):

@@ -28,7 +28,7 @@ Bulk writes run no `save()` or `delete()`, so a figure a project derives in thos
 
 `/sys/logs/` is an operational audit surface. It records configured CRUD events, login/logout, merged User/Profile changes, masked sensitive values, and download/export activity. Scope-aware staff see only the activity they are authorized to inspect.
 
-The User Report is available to authorized staff from the user directory. It combines account/security facts, activity, known devices, and IP observations; the modal can be printed through the browser or exported as XLSX.
+The User Report is available to authorized staff from the user directory. It combines account/security facts, activity, known devices, and IP observations; the modal can be printed through the browser or exported as XLSX. From **General Reports**, a staff user with the reports permission (but not user-directory and activity-log access) opens an *activity* version for the users that page lists: account basics plus that user's creates, edits and deletes per model and their recent actions, counted within the viewer's report scope, without devices, addresses, sessions or e-mail; its XLSX has no network columns.
 
 General Reports use business activity (`ActivityLog.category = "user"`) rather than framework infrastructure events. They support the selected period and model or operation filters, a printable analytical view, XLSX record export, and a ZIP containing the workbook plus eligible media. Models can opt out with `dlux_report = False` or `DLUX_CONFIG['reports']['exclude_models']`.
 
