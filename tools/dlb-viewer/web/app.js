@@ -189,12 +189,30 @@ function onLoaded(state) {
   $("#source-label").textContent = state.source || "";
   renderUnlockMeta();
   if (state.unlocked) { SUMMARY = state.manifest; enterBrowse(); }
+  else if ((META.encryption || {}).scheme === "none") {
+    unlock("").catch((err) => {
+      show("screen-unlock");
+      $("#unlock-error").textContent = err.message;
+      $("#unlock-error").hidden = false;
+    });
+  }
   else show("screen-unlock");
+}
+
+async function unlock(password) {
+  const st = await api("/api/unlock", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  SUMMARY = st.manifest;
+  enterBrowse();
 }
 
 function renderUnlockMeta() {
   const enc = META.encryption || {};
   const passphrase = enc.key_source === "passphrase";
+  const plain = enc.scheme === "none";
   const dl = $("#unlock-meta");
   dl.innerHTML = "";
   const add = (k, v) => { dl.append(el("dt", { text: k }), el("dd", {}, v)); };
@@ -204,9 +222,10 @@ function renderUnlockMeta() {
   add("Stored files", String(META.files ?? "—"));
   const metaScope = scopeLabel(META.media_included);
   if (metaScope) add("Backup scope", el("span", { class: "badge " + metaScope.cls, text: metaScope.text }));
+  if (META.system_data_included === false) add("Contents", el("span", { class: "badge", text: "portable (project data only)" }));
   add("Protection", el("span", {
-    class: "badge " + (passphrase ? "warn" : ""),
-    text: passphrase ? "passphrase" : "project SECRET_KEY",
+    class: "badge " + (passphrase || plain ? "warn" : ""),
+    text: plain ? "not encrypted" : passphrase ? "passphrase" : "project SECRET_KEY",
   }));
 
   $("#password-label").textContent = passphrase ? "Backup passphrase" : "Project SECRET_KEY";
@@ -227,13 +246,7 @@ function wireUnlock() {
     btn.disabled = true;
     btn.textContent = "Decrypting…";
     try {
-      const st = await api("/api/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: $("#password-input").value }),
-      });
-      SUMMARY = st.manifest;
-      enterBrowse();
+      await unlock($("#password-input").value);
     } catch (err) {
       errEl.textContent = err.message;
       errEl.hidden = false;

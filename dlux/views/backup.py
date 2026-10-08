@@ -15,7 +15,9 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from ..backup import (
+    ENCRYPTION_MODES,
     backup_retry_policy,
+    cancel_system_backup,
     dispatch_system_backup,
     dispatch_system_restore,
     read_dlb_metadata,
@@ -25,7 +27,7 @@ from ..backup import (
     run_system_backup,
     run_system_restore,
 )
-from ..utils.backup_progress import read_restore_progress
+from ..utils.backup_progress import format_duration, read_restore_progress
 from ..guards import require_current_password
 from ..notifications import notify
 from ..translations import get_strings
@@ -111,10 +113,41 @@ def _system_backup_revision(backups):
             # without the revision churning on every single poll.
             str(_stall_seconds(backup) // 30),
             backup.next_attempt_at.isoformat() if backup.next_attempt_at else '',
+            str((backup.eta_seconds() or 0) // 30),
         ))
         for backup in backups
     )
     return hashlib.sha256(rendered_state.encode('utf-8')).hexdigest()
+
+
+def _active_backup():
+    SystemBackup = _system_backup_model()
+    return SystemBackup.objects.filter(
+        status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
+    ).order_by('created_at').first()
+
+
+def _backup_estimates():
+    """Typical duration per scope, from the last three completed runs of each.
+
+    Seeds the create form's estimate before anything runs; once a run starts,
+    its own progress rate (``SystemBackup.eta_seconds``) takes over.
+    """
+    SystemBackup = _system_backup_model()
+    estimates = {}
+    for key, media in (('full', True), ('data', False)):
+        durations = [
+            (completed - started).total_seconds()
+            for started, completed in SystemBackup.objects.filter(
+                status=SystemBackup.STATUS_COMPLETED,
+                media_included=media,
+                started_at__isnull=False,
+                completed_at__isnull=False,
+            ).order_by('-completed_at').values_list('started_at', 'completed_at')[:3]
+        ]
+        if durations:
+            estimates[key] = int(sum(durations) / len(durations))
+    return estimates
 
 
 def _backup_rows_context(backups):
@@ -182,6 +215,8 @@ def system_backup_page(request):
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
+        'active_backup': _active_backup(),
+        'backup_estimates': _backup_estimates(),
     }
     context['ribbon'] = _backup_ribbon(request)
     return render(request, 'dlux/backup/manage.html', context)
@@ -228,25 +263,59 @@ system_backup_page.dlux_ribbon_host = True
 system_backup_page.dlux_ribbon_actions = _backup_action_specs
 
 
+def _posted_flag(request, name, default=True):
+    """A checkbox paired with a hidden ``0`` input; absent means ``default``."""
+    values = request.POST.getlist(name)
+    if not values:
+        return default
+    return str(values[-1]).strip().lower() in ('1', 'on', 'yes', 'true')
+
+
+def _posted_encryption(request, passphrase):
+    mode = str(request.POST.get('backup_encryption') or '').strip().lower()
+    if mode in ENCRYPTION_MODES:
+        return mode
+    # Clients that predate the selector send only the optional passphrase.
+    return 'passphrase' if passphrase else 'server_key'
+
+
 @login_required
 @require_POST
 def system_backup_create_view(request):
     _require_superuser(request)
     s = get_strings()
-    passphrase = _posted_passphrase(request)
-    confirm = str(request.POST.get('backup_passphrase_confirm') or '').strip()
-    if passphrase != confirm:
+    SystemBackup = _system_backup_model()
+    active = _active_backup()
+    if active is not None:
         return JsonResponse({
             'ok': False,
-            'error': s.get('sysbackup_passphrase_mismatch'),
-        }, status=400)
+            'error': s.get('sysbackup_busy', 'A backup is still running. Wait for it to finish before starting another.'),
+            'token': active.token,
+        }, status=409)
+    passphrase = _posted_passphrase(request)
+    encryption = _posted_encryption(request, passphrase)
+    if encryption == SystemBackup.ENCRYPTION_PASSPHRASE:
+        confirm = str(request.POST.get('backup_passphrase_confirm') or '').strip()
+        if not passphrase:
+            return JsonResponse({
+                'ok': False,
+                'error': s.get('sysbackup_passphrase_required', 'Enter a passphrase, or choose another encryption option.'),
+            }, status=400)
+        if passphrase != confirm:
+            return JsonResponse({
+                'ok': False,
+                'error': s.get('sysbackup_passphrase_mismatch'),
+            }, status=400)
+    else:
+        passphrase = ''
     # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
     include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
-    SystemBackup = _system_backup_model()
     backup = SystemBackup.objects.create(
         requested_by_username=request.user.get_username(),
         passphrase_required=bool(passphrase),
         media_included=include_media,
+        system_data_included=_posted_flag(request, 'include_system_data'),
+        encryption=encryption,
     )
     if dispatch_system_backup(backup, passphrase=passphrase):
         queued = True
@@ -282,6 +351,7 @@ def system_backup_list_status_view(request):
     return JsonResponse({
         'revision': _system_backup_revision(backups),
         'active': any(backup.is_active for backup in backups),
+        'busy': _active_backup() is not None,
         'items': [
             {
                 'token': backup.token,
@@ -291,6 +361,7 @@ def system_backup_list_status_view(request):
                 'stage': backup.stage,
                 'attempt_count': backup.attempt_count,
                 'seconds_since_progress': _stall_seconds(backup),
+                'eta_seconds': backup.eta_seconds(),
                 'stalled': bool(
                     backup.is_active
                     and _stall_seconds(backup) > context['backup_stall_warn_seconds']
@@ -321,6 +392,15 @@ def system_backup_status_view(request, token):
         'seconds_since_progress': _stall_seconds(backup),
         'next_attempt_at': backup.next_attempt_at.isoformat() if backup.next_attempt_at else '',
         'error': backup.error[:200] if backup.status == SystemBackup.STATUS_FAILED else '',
+        'active': backup.is_active,
+        'elapsed_seconds': backup.duration_seconds,
+        'elapsed': format_duration(backup.duration_seconds),
+        'eta_seconds': backup.eta_seconds(),
+        'eta': format_duration(backup.eta_seconds()),
+        'encryption': backup.encryption,
+        'media_included': backup.media_included,
+        'system_data_included': backup.system_data_included,
+        'log': list(backup.progress_log or []),
     }
     if backup.status == SystemBackup.STATUS_COMPLETED:
         payload['download_url'] = reverse('system_backup_download', args=[backup.token])
@@ -375,8 +455,34 @@ def system_backup_download_view(request, token):
 
 @login_required
 @require_POST
+def system_backup_cancel_view(request, token):
+    """Stop a pending or running backup; it discards whatever it built."""
+    backup = _get_backup_or_404(request, token)
+    s = get_strings()
+    cancelled = cancel_system_backup(backup, requested_by=request.user.get_username())
+    message = (
+        s.get('sysbackup_cancel_requested', 'Cancelling the backup.')
+        if cancelled
+        else s.get('sysbackup_cancel_too_late', 'This backup is no longer running.')
+    )
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'ok': cancelled, 'message': message, 'status': backup.status})
+    (notify.success if cancelled else notify.warning)(
+        message, request=request, action='backup_cancel', category='backup',
+    )
+    return redirect('system_backup_page')
+
+
+@login_required
+@require_POST
 def system_backup_delete_view(request, token):
     backup = _get_backup_or_404(request, token)
+    if backup.is_active:
+        notify.error(
+            get_strings().get('sysbackup_delete_active', 'Cancel a running backup before deleting it.'),
+            request=request, action='backup_delete_active', category='backup',
+        )
+        return redirect('system_backup_page')
     if backup.file_path:
         try:
             default_storage.delete(backup.file_path)
@@ -478,6 +584,7 @@ def system_restore_status_view(request, token):
         'progress_message': progress['progress_message'],
         'stage': progress['stage'],
         'seconds_since_progress': restore.seconds_since_signal() if restore.is_active else 0,
+        'eta': format_duration(restore.eta_seconds(percent=progress['progress_percent'])),
     })
 
 
@@ -490,6 +597,7 @@ def _attach_restore_progress(restores):
     """
     for restore in restores:
         restore.live_progress = read_restore_progress(restore)
+        restore.live_eta = restore.eta_seconds(percent=restore.live_progress['progress_percent'])
     return restores
 
 
@@ -513,6 +621,7 @@ def _system_restore_revision(restores):
             # Bucketed so an active run refreshes its elapsed marker without the
             # revision churning on every poll.
             str(restore.seconds_since_signal() // 30 if restore.is_active else 0),
+            str((restore.live_eta or 0) // 30),
         ))
         for restore in _attach_restore_progress(restores)
     )

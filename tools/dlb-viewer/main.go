@@ -282,10 +282,14 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := deriveKey(meta.Encryption, body.Password)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
+	var key []byte
+	if !meta.Unencrypted() {
+		var err error
+		key, err = deriveKey(meta.Encryption, body.Password)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	src, err := os.Open(srcPath)
@@ -304,7 +308,13 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "cannot create temp file")
 		return
 	}
-	if err := decryptToFile(src, key, zf); err != nil {
+	var payloadErr error
+	if meta.Unencrypted() {
+		_, payloadErr = io.Copy(zf, src)
+	} else {
+		payloadErr = decryptToFile(src, key, zf)
+	}
+	if err := payloadErr; err != nil {
 		zf.Close()
 		os.Remove(zf.Name())
 		if errors.Is(err, ErrBadPassword) {

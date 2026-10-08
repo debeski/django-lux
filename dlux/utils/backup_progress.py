@@ -13,6 +13,24 @@ from ..translations import get_strings
 logger = logging.getLogger("dlux")
 
 
+def format_duration(seconds, strings=None):
+    """Compact localized duration: ``45s``, ``3m 10s``, ``1h 05m``."""
+    if seconds is None:
+        return ""
+    strings = strings or get_strings()
+    seconds = max(0, int(seconds))
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    h = strings.get("duration_hours_short", "h")
+    m = strings.get("duration_minutes_short", "m")
+    s = strings.get("duration_seconds_short", "s")
+    if hours:
+        return f"{hours}{h} {minutes:02d}{m}"
+    if minutes:
+        return f"{minutes}{m} {secs:02d}{s}"
+    return f"{secs}{s}"
+
+
 def _has_field(backup, name):
     return any(field.name == name for field in type(backup)._meta.fields)
 
@@ -111,7 +129,23 @@ def start_backup_progress(backup):
         return None
 
 
-def touch_backup_progress(backup, percent=None, message=None, stage=None):
+def _append_progress_log(backup, values, percent, message, stage):
+    limit = getattr(type(backup), "PROGRESS_LOG_LIMIT", 0)
+    if not limit or not _has_field(backup, "progress_log") or not message:
+        return
+    log = list(getattr(backup, "progress_log", None) or [])
+    if log and log[-1].get("message") == message and log[-1].get("percent") == percent:
+        return
+    log.append({
+        "at": timezone.now().isoformat(),
+        "percent": percent,
+        "stage": str(stage or getattr(backup, "stage", "") or ""),
+        "message": message,
+    })
+    values["progress_log"] = log[-limit:]
+
+
+def touch_backup_progress(backup, percent=None, message=None, stage=None, *, require_status=None, log=False):
     """Write a liveness heartbeat (and optional progress) without touching the drawer.
 
     The drawer notification is comparatively expensive to rewrite, so long inner
@@ -130,21 +164,35 @@ def touch_backup_progress(backup, percent=None, message=None, stage=None):
         values["progress_message"] = message
     if stage is not None and _has_field(backup, "stage"):
         values["stage"] = str(stage)[:20]
+    if log and percent is not None:
+        _append_progress_log(backup, values, percent, message, stage)
     if not values:
-        return
-    type(backup).objects.filter(pk=backup.pk).update(**values)
+        return 1
+    rows = type(backup).objects.filter(pk=backup.pk)
+    if require_status is not None:
+        rows = rows.filter(status=require_status)
+    updated = rows.update(**values)
     for name, value in values.items():
         setattr(backup, name, value)
+    return updated
 
 
-def set_backup_progress(backup, percent, message, stage=None):
-    """Persist bounded progress and update the active drawer item in place."""
+def set_backup_progress(backup, percent, message, stage=None, *, require_status=None):
+    """Persist bounded progress and update the active drawer item in place.
+
+    Returns the number of rows written (0 = the row left ``require_status``).
+    """
     percent = max(0, min(int(percent or 0), 99))
     message = str(message or "")[:255]
-    touch_backup_progress(backup, percent=percent, message=message, stage=stage)
+    updated = touch_backup_progress(
+        backup, percent=percent, message=message, stage=stage,
+        require_status=require_status, log=True,
+    )
+    if not updated:
+        return 0
     notification = _progress_notification(backup) or start_backup_progress(backup)
     if notification is None:
-        return
+        return updated
     metadata = dict(notification.metadata or {})
     metadata.update({
         "backup_progress": True,
@@ -159,6 +207,33 @@ def set_backup_progress(backup, percent, message, stage=None):
     notification.message = message or notification.message
     notification.metadata = metadata
     notification.save(update_fields=["message", "metadata", "updated_at"])
+    return updated
+
+
+def cancel_backup_progress(backup, message):
+    """Unlock the drawer item of a cancelled run; nothing failed, so no alert."""
+    message = str(message or "")[:255]
+    values = {"progress_message": message}
+    if _has_field(backup, "progress_log"):
+        _append_progress_log(backup, values, int(getattr(backup, "progress_percent", 0) or 0), message, "")
+    type(backup).objects.filter(pk=backup.pk).update(**values)
+    for name, value in values.items():
+        setattr(backup, name, value)
+    notification = _progress_notification(backup)
+    if notification is None:
+        return
+    metadata = dict(notification.metadata or {})
+    metadata.update({
+        "progress_message": message,
+        "status": "cancelled",
+        "locked": False,
+    })
+    metadata.pop("message_key", None)
+    metadata.pop("translation_key", None)
+    notification.message = message
+    notification.level = "warning"
+    notification.metadata = metadata
+    notification.save(update_fields=["message", "level", "metadata", "updated_at"])
 
 
 def mark_backup_retrying(backup, message):
@@ -194,10 +269,12 @@ def finish_backup_progress(backup, *, success, error=""):
     percent = 100 if success else int(getattr(backup, "progress_percent", 0) or 0)
     copy = _notification_copy(kind, "completed" if success else "failed")
     terminal_message = copy["message"] if success else f"{copy['message']} {str(error or '').strip()}".strip()
-    type(backup).objects.filter(pk=backup.pk).update(
-        progress_percent=percent,
-        progress_message=terminal_message[:255],
-    )
+    values = {"progress_percent": percent, "progress_message": terminal_message[:255]}
+    if _has_field(backup, "progress_log"):
+        _append_progress_log(backup, values, percent, terminal_message[:255], "")
+    type(backup).objects.filter(pk=backup.pk).update(**values)
+    if "progress_log" in values:
+        backup.progress_log = values["progress_log"]
     backup.progress_percent = percent
     backup.progress_message = terminal_message[:255]
     notification = _progress_notification(backup)

@@ -144,6 +144,22 @@ def dlux_ribbon(context, ribbon=None):
 
 
 @register.filter
+def dlux_duration(seconds):
+    """Compact localized duration for a number of seconds (``3m 10s``)."""
+    from ..utils.backup_progress import format_duration
+
+    return format_duration(seconds)
+
+
+@register.filter
+def dlux_format_duration(template, seconds):
+    """Fill ``{duration}`` in a translated string with a compact duration."""
+    from ..utils.backup_progress import format_duration
+
+    return str(template or "").replace("{duration}", format_duration(seconds))
+
+
+@register.filter
 def dlux_ribbon_field(form, name):
     """The bound field for `name`, or empty when the form does not have it."""
     if form is None or name not in getattr(form, 'fields', {}):

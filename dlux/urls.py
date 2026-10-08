@@ -100,6 +100,7 @@ urlpatterns = [
     path('sys/backup/<str:token>/download/', views.system_backup_download_view, name='system_backup_download'),
     path('sys/backup/<str:token>/delete/', views.system_backup_delete_view, name='system_backup_delete'),
     path('sys/backup/<str:token>/resume/', views.system_backup_resume_view, name='system_backup_resume'),
+    path('sys/backup/<str:token>/cancel/', views.system_backup_cancel_view, name='system_backup_cancel'),
     # Scope Management URLs
     path('sys/scopes/manage/', views.manage_scopes, name='manage_scopes'),
     path('sys/scopes/form/', views.get_scope_form, name='get_scope_form'),

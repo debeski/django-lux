@@ -200,7 +200,10 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/reports/` | Activity reports overview |
 | `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
 | `/sys/backup/` | Superuser-only full system backup and restore page |
-| `/sys/backup/create/` | Create an encrypted `.dlb` system backup |
+| `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |
+| `/sys/backup/<token>/status/` | Backup status JSON, including `log` (console history), `elapsed`, `eta`, `encryption`, `system_data_included` |
+| `/sys/backup/<token>/cancel/` | POST-only: cancel a pending or running backup (JSON for XHR, redirect otherwise) |
+| `/sys/backup/<token>/delete/` | POST-only: delete a finished backup and its file; refused while it is active |
 | `/sys/backup/upload/` | Upload an encrypted `.dlb` for restore |
 | `/sys/backup/restore/` | Start a system restore from an uploaded or existing `.dlb` |
 | `/sys/scopes/manage/` | Scope management |
@@ -236,7 +239,9 @@ Backup export contract:
 - `/sys/reports/print/` renders the same criteria as a print-ready analytical report (charts plus a table twin per chart) using the bundled Chart.js on a fixed paper surface; both routes require `dlux.view_reports`
 - report ZIP and full system `.dlb` exports use primary-key pagination plus a backup-local JSON serializer, so PostgreSQL deployments do not need Django server-side named cursors for export streaming
 - system backup rows, report backup rows, system restore rows, updater runtime state/run rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
-- `.dlb` payloads are encrypted in chunked Fernet frames and include a manifest with Dlux version, migration state, model counts, file counts, and omitted-superuser-password policy
+- `.dlb` payloads are encrypted in chunked Fernet frames (8 MB frames from the streaming writer, encrypted on a background thread while the archive is built) — or, with `encryption.scheme: "none"`, stored as the plain ZIP right after the header — and include a manifest with Dlux version, migration state, model counts, file counts, `system_data_included`, `consistency` (`snapshot` on PostgreSQL, `live` elsewhere) and omitted-superuser-password policy
+- `SystemBackup` records `encryption` (`server_key`/`passphrase`/`none`), `system_data_included`, a bounded `progress_log` (last 200 progress messages) and the `cancelled` status (migration `0024`, inline-safe: every column has a `db_default`, the status choice is state-only)
+- `dlux.backup.SYSTEM_DATA_MODELS` lists the Dlux bookkeeping models a portable backup leaves out; one that a kept model still references is kept
 - superuser password hashes are omitted from system backups and preserved from the target database during restore
 
 ## 2FA Routes
@@ -1160,7 +1165,14 @@ automatically** — the passphrase is stored nowhere, so a blind re-run would
 silently produce a secret-key-encrypted file instead. The one exception is a
 retry queued from inside the Celery task, which still holds the passphrase in
 its arguments; every other path leaves the row failed with a Retry button that
-asks for the passphrase (`POST sys/backup/<token>/resume/`).
+asks for the passphrase (`POST sys/backup/<token>/resume/`). A cancelled
+backup can be retried the same way.
+
+Cancelling (`POST sys/backup/<token>/cancel/`) flips the row to `cancelled`.
+Every progress write a running backup makes is conditional on the row still
+being `running`, so the write that matches nothing is the cancellation signal:
+the run stops within a heartbeat (about 3 seconds), deletes any file it already
+stored, and unlocks its drawer item without a failure notice.
 
 Common preference keys:
 

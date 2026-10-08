@@ -23,22 +23,98 @@ from django.db import models
 from .common import _iter_queryset_by_pk
 
 class _CursorlessJSONSerializer(JsonSerializer):
-    """Backup serializer variant that avoids QuerySet.iterator() entirely."""
+    """Backup serializer variant that avoids QuerySet.iterator() entirely.
+
+    Natural keys are memoised per related row in ``natural_key_cache`` (shared
+    across every model of one backup run). Without it each FK to a natural-key
+    model costs one query per serialized row — 60k queries for 20k audited rows.
+    M2M values read from the prefetch cache that ``_serialization_queryset``
+    arranges instead of issuing a query per row.
+    """
+
+    natural_key_cache = None
+
+    def _cached_natural_key(self, model, key, loader):
+        cache = self.natural_key_cache
+        if cache is None:
+            return loader()
+        cache_key = (model, key)
+        if cache_key not in cache:
+            cache[cache_key] = loader()
+        return cache[cache_key]
+
+    def _resolve_fk_natural_key(self, obj, field):
+        related_model = field.remote_field.model
+        if not self._model_supports_natural_key(related_model):
+            return None
+        value = getattr(obj, field.attname, None)
+        if value is None:
+            return None
+
+        def load():
+            related = getattr(obj, field.name, None)
+            try:
+                return related.natural_key()
+            except AttributeError:
+                return None
+
+        return self._cached_natural_key(related_model, (field.target_field.attname, value), load)
 
     def handle_m2m_field(self, obj, field):
         if not field.remote_field.through._meta.auto_created:
             return
-        related = getattr(obj, field.name)
-        if self.use_natural_foreign_keys and hasattr(
-            field.remote_field.model, "natural_key"
-        ):
-            self._current[field.name] = [value.natural_key() for value in related.all()]
+        related_model = field.remote_field.model
+        related = list(getattr(obj, field.name).all())
+        related.sort(key=lambda value: value.pk)
+        if self.use_natural_foreign_keys and hasattr(related_model, "natural_key"):
+            self._current[field.name] = [
+                self._cached_natural_key(related_model, ("pk", value.pk), value.natural_key)
+                or self._value_from_field(value, value._meta.pk)
+                for value in related
+            ]
             return
-        related_qs = related.select_related(None).only("pk")
         self._current[field.name] = [
-            self._value_from_field(value, value._meta.pk)
-            for value in related_qs
+            self._value_from_field(value, value._meta.pk) for value in related
         ]
+
+
+def _serialization_queryset(qs, *, natural_foreign_keys):
+    """Join natural-key FK targets and prefetch auto M2M links for serialization."""
+    meta = qs.model._meta
+    joins = []
+    if natural_foreign_keys:
+        for field in meta.concrete_fields:
+            related = getattr(field, "related_model", None)
+            if field.is_relation and related is not None and callable(getattr(related, "natural_key", None)):
+                joins.append(field.name)
+    prefetches = [
+        field.name for field in meta.many_to_many
+        if field.remote_field.through._meta.auto_created
+    ]
+    if joins:
+        qs = qs.select_related(*joins)
+    if prefetches:
+        qs = qs.prefetch_related(*prefetches)
+    return qs
+
+
+# Media that is already compressed gains nothing from DEFLATE and costs ~20x the
+# time of a plain copy, so those archive members are stored as-is.
+_STORED_EXTENSIONS = frozenset({
+    "7z", "avif", "bz2", "docx", "gif", "gz", "heic", "jpeg", "jpg", "m4a", "m4v",
+    "mov", "mp3", "mp4", "ogg", "pdf", "png", "pptx", "rar", "webm", "webp",
+    "xlsx", "xz", "zip", "zst",
+})
+
+
+def _file_member(name):
+    import time
+    import zipfile
+
+    info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+    extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    info.compress_type = zipfile.ZIP_STORED if extension in _STORED_EXTENSIONS else zipfile.ZIP_DEFLATED
+    return info
 
 
 def _model_natural_key_fields(model):
@@ -169,6 +245,7 @@ def stream_model_into_zip(
     include_files=True,
     include_records=True,
     step_callback=None,
+    natural_key_cache=None,
 ):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
@@ -190,6 +267,9 @@ def stream_model_into_zip(
     the entries workbook — and is never restored. The restorable ``.dlb`` always
     keeps the JSON.
 
+    ``natural_key_cache`` is a dict shared across the models of one run, so a
+    user referenced by every audited table is resolved once, not once per row.
+
     ``step_callback(stage, done, total)`` — ``stage`` being ``"rows"`` or
     ``"files"`` — reports movement *inside* one model. Without it a model holding
     thousands of uploads looks frozen for as long as it takes to copy them, which
@@ -204,8 +284,13 @@ def stream_model_into_zip(
         if step_callback:
             step_callback(stage, done, total)
 
+    serialize_kwargs = serialize_kwargs or {}
+    rows_qs = _serialization_queryset(
+        qs, natural_foreign_keys=bool(serialize_kwargs.get("use_natural_foreign_keys")),
+    )
+
     def serialized_objects():
-        for position, obj in enumerate(_iter_queryset_by_pk(qs, chunk_size=200), start=1):
+        for position, obj in enumerate(_iter_queryset_by_pk(rows_qs, chunk_size=1000), start=1):
             report("rows", position, total_rows)
             yield object_transform(obj) if object_transform else obj
 
@@ -213,10 +298,11 @@ def stream_model_into_zip(
         with zf.open(f"data/{meta.app_label}/{meta.model_name}.json", mode="w") as raw_stream:
             text_stream = io.TextIOWrapper(raw_stream, encoding="utf-8")
             serializer = _CursorlessJSONSerializer()
+            serializer.natural_key_cache = natural_key_cache
             serializer.serialize(
                 serialized_objects(),
                 stream=text_stream,
-                **(serialize_kwargs or {}),
+                **serialize_kwargs,
             )
             text_stream.flush()
             text_stream.detach()
@@ -228,11 +314,16 @@ def stream_model_into_zip(
     ]
     if not file_fields:
         return
+    # Human folders may name a record by ``str(record)``, which can read any
+    # field, so only the flat-pk layout narrows the columns it loads.
+    files_qs = qs if human_record_folders else qs.only(
+        meta.pk.attname, *(field.attname for field in file_fields),
+    )
     record_label_field = (
         label_field_resolver(model) if human_record_folders and label_field_resolver else ""
     )
     folder_counts = {}
-    for position, record in enumerate(_iter_queryset_by_pk(qs, chunk_size=100), start=1):
+    for position, record in enumerate(_iter_queryset_by_pk(files_qs, chunk_size=500), start=1):
         report("files", position, total_rows)
         if human_record_folders:
             base_folder = backup_record_folder(record, label_field=record_label_field)
@@ -248,7 +339,7 @@ def stream_model_into_zip(
             archive_name = f"files/{meta.app_label}/{meta.model_name}/{record_folder}/{field.name}/{file_value.name.split('/')[-1]}"
             try:
                 with default_storage.open(file_value.name, "rb") as fh, \
-                        zf.open(archive_name, mode="w") as dest:
+                        zf.open(_file_member(archive_name), mode="w") as dest:
                     shutil.copyfileobj(fh, dest, 256 * 1024)
                 manifest["files"].append({
                     "model": model_key,

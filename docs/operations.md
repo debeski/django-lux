@@ -36,6 +36,16 @@ General Reports use business activity (`ActivityLog.category = "user"`) rather t
 
 Open **Options → Admin panel → Backup & Restore** for system backups. A full `.dlb` backup contains restorable data and media; a quick/data-only backup omits media. Backups expose progress, heartbeat, retry state, retention, and explicit failure information. Passphrase-protected backups are never retried unattended because DjangoLux does not retain the passphrase.
 
+Each backup chooses:
+
+- **Encryption** — the server's Django `SECRET_KEY` (default), a one-off passphrase (entered twice, cleared from the form as soon as the backup starts, stored nowhere), or **None**. An unencrypted file exposes regular-user password hashes and all data to whoever holds it; the page warns before you choose it.
+- **Scope** — full (data + media) or quick (data only).
+- **Include system data** — on by default. Off produces a *portable* backup of project data only: users, groups, scopes, group access and managed assets are kept, while Dlux's own settings, notifications, activity log, preferences, devices and update runs are left out. Restoring a portable backup replaces only the tables it carries and keeps the target system's settings and logs; rows of those that point at users the backup does not contain are cleared (nullable links) or removed.
+
+Only one backup runs at a time: while one is pending or running, the create form is disabled with a note, and the server refuses a second (HTTP 409). A running or pending backup offers **Cancel** instead of Delete; the run notices within a few seconds, discards what it built and is recorded as *Cancelled* (it can be retried). Every row has a **Details** console with the run's timestamped progress log, elapsed time and, while running, the estimated time remaining. Finished rows show how long they took instead of their last progress message, and the create form estimates a new backup's duration from the last three of the same scope.
+
+On PostgreSQL a backup reads the whole database inside one read-only `REPEATABLE READ` transaction, so the archive is a single point-in-time snapshot while the site keeps writing (other engines read model by model; the manifest records `consistency: snapshot|live`). Records are serialized with natural-key lookups cached per run and related rows joined or prefetched in pages of 1,000, and the archive is encrypted by a background thread while it is written — there is no separate encryption pass. Already-compressed media (images, PDFs, archives, office files) is stored, not re-deflated.
+
 Restore is project-local. Inspect a backup before restoring with the read-only [DLB viewer](../tools/dlb-viewer/README.md). Inline-update rollback changes code and static assets only; it never reverses database migrations or restores a database backup automatically.
 
 ## Assets and optional features

@@ -9,6 +9,9 @@
 //	  u64 (big-endian)    Fernet-token length
 //	  Fernet token        one <=32 MB plaintext chunk of the inner ZIP
 //
+// When the "encryption" block's scheme is "none", the inner ZIP follows the
+// header as-is, with no frames and no key.
+//
 // Key derivation, from the cleartext "encryption" block:
 //
 //	key_source == "passphrase"      -> seed = the user-supplied passphrase
@@ -43,6 +46,7 @@ const (
 	defaultKDFIterations      = 390000
 	maxMetadataLen            = 10 * 1024 * 1024
 	fernetVersion        byte = 0x80
+	schemeNone                = "none"
 )
 
 // ErrBadPassword is returned when the supplied password fails Fernet's HMAC
@@ -71,7 +75,10 @@ type Metadata struct {
 	// MediaIncluded is the v1.2.10+ backup-scope flag (full vs data-only/quick).
 	// A pointer keeps it tri-state: nil means a pre-1.2.10 backup that predates the
 	// flag, so the viewer reports "unknown" rather than mislabeling it as data-only.
-	MediaIncluded      *bool      `json:"media_included"`
+	MediaIncluded *bool `json:"media_included"`
+	// SystemDataIncluded is false for a portable (project-data-only) backup;
+	// nil for backups that predate the option, which always included it.
+	SystemDataIncluded *bool      `json:"system_data_included"`
 	PassphraseRequired bool       `json:"passphrase_required"`
 	Encryption         Encryption `json:"encryption"`
 }
@@ -106,6 +113,11 @@ func parseHeader(r io.Reader) (*Metadata, error) {
 		return nil, errors.New("unsupported backup kind")
 	}
 	return &meta, nil
+}
+
+// Unencrypted reports whether the payload is a plain ZIP needing no key.
+func (m *Metadata) Unencrypted() bool {
+	return m.Encryption.Scheme == schemeNone
 }
 
 // deriveKey computes the 32-byte Fernet digest for the given password.
