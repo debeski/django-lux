@@ -14,6 +14,13 @@ import (
 	"testing"
 )
 
+func kindFor(chain ChainInfo) string {
+	if chain.Sequence > 0 {
+		return "dlux-system-backup-increment"
+	}
+	return "dlux-system-backup"
+}
+
 // member writes an unencrypted .dlb whose inner ZIP holds the given entries.
 func member(t *testing.T, dir, name string, chain ChainInfo, entries map[string]string) string {
 	t.Helper()
@@ -33,7 +40,7 @@ func member(t *testing.T, dir, name string, chain ChainInfo, entries map[string]
 	}
 	zw.Close()
 	header, _ := json.Marshal(map[string]any{
-		"kind":       "dlux-system-backup",
+		"kind":       kindFor(chain),
 		"format":     1,
 		"chain":      chain,
 		"encryption": map[string]string{"scheme": "none", "key_source": "none"},

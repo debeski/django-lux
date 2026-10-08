@@ -26,6 +26,7 @@ from dlux.backup import (
     decrypt_dlb_to_tempfile,
     incremental_backup_row,
     open_chain_head,
+    read_dlb_metadata,
     run_scheduled_system_backup,
     run_system_backup,
     run_system_restore,
@@ -120,6 +121,12 @@ class IncrementalContentTests(ChainTestCase):
         # Only the base backup's own EXPORT entry is new; no CREATE row changed.
         self.assertEqual([item['fields']['action'] for item in logs], ['EXPORT'])
         self.assertEqual(manifest['chain']['parent_root'], base.index_root)
+        # A pre-chain DjangoLux only accepts this exact kind; an increment must
+        # not pass, or that release would restore it as a full backup.
+        with default_storage.open(inc.file_path, 'rb') as fh:
+            self.assertNotEqual(read_dlb_metadata(fh)['kind'], 'dlux-system-backup')
+        with default_storage.open(base.file_path, 'rb') as fh:
+            self.assertEqual(read_dlb_metadata(fh)['kind'], 'dlux-system-backup')
         self.assertLess(inc.row_count, base.row_count)
         log_entry = next(item for item in manifest['models'] if item['model'] == 'dlux.activitylog')
         self.assertEqual((log_entry['count'], log_entry['deleted']), (1, 1))
