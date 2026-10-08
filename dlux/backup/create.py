@@ -18,7 +18,7 @@ from .chain import (
     INDEX_MEMBER, delete_backup_files, index_root, migration_digest, new_index, read_index_sidecar, row_digest, write_index_sidecar,
 )
 from .config import _backup_config, _is_user_model, _system_model_queryset, get_system_backup_models, get_system_backup_storage_prefix
-from .crypto import DlbPayloadWriter, _clean_passphrase
+from .crypto import BACKUP_KIND, INCREMENT_KIND, DlbPayloadWriter, _clean_passphrase
 from .reporters import BackupCancelled, _BackupReporter, _CallbackReporter, _NullReporter, _ThreadedReporter, _format_count
 from .retry import fail_system_backup
 
@@ -249,6 +249,7 @@ def write_system_backup(
             "consistency": consistency,
             "chain": chain,
             "migration_digest": manifest["migration_digest"],
+            "kind": INCREMENT_KIND if incremental else BACKUP_KIND,
         })
     except BaseException:
         writer.abort()

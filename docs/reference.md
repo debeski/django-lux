@@ -1163,7 +1163,10 @@ digest}}, "files": [storage names]}` — into `index.json` inside the `.dlb` and
 into a `.idx` sidecar beside it (same encryption), so the next increment reads
 one small file instead of decrypting its parent. `SystemBackup.index_root` is
 the SHA-256 of that index and the header/manifest `chain` block carries `id`,
-`sequence`, `token`, `parent`, `root` and `parent_root`.
+`sequence`, `token`, `parent`, `root` and `parent_root`. An increment's header
+`kind` is `dlux-system-backup-increment` (a full backup's stays
+`dlux-system-backup`), so DjangoLux before 1.11.0b4 and older viewers refuse an
+increment instead of restoring it as a full backup.
 
 A chain is **closed** — the next backup must be full — when its base is gone or
 older than `full_every_days`, it reached `max_chain_length`, the applied

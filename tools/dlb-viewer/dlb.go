@@ -111,7 +111,8 @@ func parseHeader(r io.Reader) (*Metadata, error) {
 	if err := json.Unmarshal(raw, &meta); err != nil {
 		return nil, fmt.Errorf("invalid backup metadata: %w", err)
 	}
-	if meta.Kind != "dlux-system-backup" {
+	// Increments have their own kind so pre-chain readers refuse them.
+	if meta.Kind != "dlux-system-backup" && meta.Kind != "dlux-system-backup-increment" {
 		return nil, errors.New("unsupported backup kind")
 	}
 	return &meta, nil

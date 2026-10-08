@@ -37,6 +37,14 @@ ENCRYPTION_MODES = (ENCRYPTION_PASSPHRASE, ENCRYPTION_SERVER_KEY, ENCRYPTION_NON
 SCHEME_NONE = "none"
 
 
+BACKUP_KIND = "dlux-system-backup"
+# Increments carry their own kind on purpose: DjangoLux before 1.11.0b4 checks
+# the header kind and refuses anything else, where it would otherwise restore an
+# increment as a full backup — wiping every table and loading only the delta.
+INCREMENT_KIND = "dlux-system-backup-increment"
+BACKUP_KINDS = (BACKUP_KIND, INCREMENT_KIND)
+
+
 _PASSWORD_KDF_ITERATIONS = 390_000
 
 
@@ -240,7 +248,7 @@ class DlbPayloadWriter:
             raise self._error
         metadata = dict(metadata or {})
         metadata.setdefault("format", DLB_FORMAT_VERSION)
-        metadata.setdefault("kind", "dlux-system-backup")
+        metadata.setdefault("kind", BACKUP_KIND)
         metadata["encryption"] = self.encryption
         metadata["passphrase_required"] = bool(self.encryption.get("passphrase_required"))
         payload = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
@@ -298,7 +306,7 @@ def read_dlb_metadata(fileobj):
     if length <= 0 or length > 10 * 1024 * 1024:
         raise ValueError("Corrupt backup metadata header")
     metadata = json.loads(fileobj.read(length).decode("utf-8"))
-    if metadata.get("kind") != "dlux-system-backup":
+    if metadata.get("kind") not in BACKUP_KINDS:
         raise ValueError("Unsupported backup kind")
     return metadata
 
