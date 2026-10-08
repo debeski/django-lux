@@ -65,6 +65,10 @@ type Manifest struct {
 	// MediaIncluded mirrors the backup-scope flag (see Metadata.MediaIncluded);
 	// nil for pre-1.2.10 backups that predate the full-vs-data-only split.
 	MediaIncluded *bool `json:"media_included"`
+	// Chain is the member's identity in an incremental chain; ChainView is set
+	// on an archive the viewer merged from several members.
+	Chain     *ChainInfo      `json:"chain"`
+	ChainView json.RawMessage `json:"chain_view"`
 }
 
 // ModelSchema / RelationInfo mirror the per-model relation+label metadata baked
@@ -91,6 +95,14 @@ type App struct {
 	srcPath   string // path to the .dlb on disk
 	srcIsTemp bool   // true when the source was uploaded into a temp file
 	meta      *Metadata
+
+	// members are the .dlb paths to unlock, base -> opened member; a single
+	// entry unless an increment's chain was found. chainTemps are members
+	// extracted from a chain ZIP, removed on reset.
+	members    []string
+	chainTemps []string
+	chainMode  string
+	chainNote  string
 
 	zipPath   string // decrypted inner zip (temp file)
 	zipFile   *os.File
@@ -129,6 +141,7 @@ func main() {
 	mux.HandleFunc("/api/model", app.guard(app.handleModel))
 	mux.HandleFunc("/api/labels", app.guard(app.handleLabels))
 	mux.HandleFunc("/api/file", app.guard(app.handleFile))
+	mux.HandleFunc("/api/deleted", app.guard(app.handleDeleted))
 
 	srv := &http.Server{Handler: mux}
 
@@ -212,6 +225,12 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	if a.meta != nil {
 		resp["meta"] = a.meta
 		resp["source"] = path.Base(a.srcPath)
+		resp["chain"] = map[string]any{
+			"mode":     a.chainMode,
+			"sequence": seqOf(a.meta),
+			"members":  len(a.members),
+			"note":     a.chainNote,
+		}
 	}
 	if a.manifest != nil {
 		resp["manifest"] = a.manifestSummary()
@@ -246,7 +265,7 @@ func (a *App) handleOpenUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	tmp, err := os.CreateTemp("", "dlbview-src-*.dlb")
+	tmp, err := os.CreateTemp("", "dlbview-src-*"+path.Ext(hdr.Filename))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "cannot buffer upload")
 		return
@@ -275,67 +294,74 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 
 	a.mu.Lock()
 	meta := a.meta
-	srcPath := a.srcPath
+	members := append([]string(nil), a.members...)
 	a.mu.Unlock()
-	if meta == nil {
+	if meta == nil || len(members) == 0 {
 		writeErr(w, http.StatusBadRequest, "no backup loaded")
 		return
 	}
 
-	var key []byte
-	if !meta.Unencrypted() {
-		var err error
-		key, err = deriveKey(meta.Encryption, body.Password)
+	// Every member is unlocked with the same password (a chain keeps one key
+	// source), each with its own salt.
+	var plain []string
+	cleanup := func() {
+		for _, p := range plain {
+			os.Remove(p)
+		}
+	}
+	for i, member := range members {
+		zipPath, err := decryptMember(member, body.Password)
 		if err != nil {
+			cleanup()
+			if errors.Is(err, ErrBadPassword) {
+				writeErr(w, http.StatusUnauthorized, ErrBadPassword.Error())
+				return
+			}
+			if len(members) > 1 {
+				err = fmt.Errorf("chain member %d: %v", i, err)
+			}
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		plain = append(plain, zipPath)
 	}
 
-	src, err := os.Open(srcPath)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "backup file went away")
-		return
-	}
-	defer src.Close()
-	if _, err := parseHeader(src); err != nil { // re-advance past the header
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	zf, err := os.CreateTemp("", "dlbview-zip-*.zip")
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "cannot create temp file")
-		return
-	}
-	var payloadErr error
-	if meta.Unencrypted() {
-		_, payloadErr = io.Copy(zf, src)
-	} else {
-		payloadErr = decryptToFile(src, key, zf)
-	}
-	if err := payloadErr; err != nil {
-		zf.Close()
-		os.Remove(zf.Name())
-		if errors.Is(err, ErrBadPassword) {
-			writeErr(w, http.StatusUnauthorized, ErrBadPassword.Error())
+	zipPath := plain[0]
+	if len(plain) > 1 {
+		merged, err := os.CreateTemp("", "dlbview-chain-*.zip")
+		if err != nil {
+			cleanup()
+			writeErr(w, http.StatusInternalServerError, "cannot create temp file")
 			return
 		}
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
+		err = mergeChain(plain, merged)
+		merged.Close()
+		cleanup()
+		if err != nil {
+			os.Remove(merged.Name())
+			writeErr(w, http.StatusBadRequest, "could not merge the backup chain: "+err.Error())
+			return
+		}
+		zipPath = merged.Name()
 	}
 
+	zf, err := os.Open(zipPath)
+	if err != nil {
+		os.Remove(zipPath)
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	fi, err := zf.Stat()
 	if err != nil {
 		zf.Close()
-		os.Remove(zf.Name())
+		os.Remove(zipPath)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	zr, err := zip.NewReader(zf, fi.Size())
 	if err != nil {
 		zf.Close()
-		os.Remove(zf.Name())
+		os.Remove(zipPath)
 		writeErr(w, http.StatusBadRequest, "decrypted payload is not a valid archive")
 		return
 	}
@@ -349,13 +375,70 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	a.closeZipLocked()
 	a.zipFile = zf
-	a.zipPath = zf.Name()
+	a.zipPath = zipPath
 	a.zipReader = zr
 	a.manifest = &mani
 	a.rawMani = rawMani
 	a.mu.Unlock()
 
 	a.handleState(w, r)
+}
+
+// decryptMember writes one member's inner ZIP to a temp file and returns its path.
+func decryptMember(member, password string) (string, error) {
+	src, err := os.Open(member)
+	if err != nil {
+		return "", errors.New("backup file went away")
+	}
+	defer src.Close()
+	meta, err := parseHeader(src)
+	if err != nil {
+		return "", err
+	}
+	zf, err := os.CreateTemp("", "dlbview-zip-*.zip")
+	if err != nil {
+		return "", errors.New("cannot create temp file")
+	}
+	if meta.Unencrypted() {
+		_, err = io.Copy(zf, src)
+	} else {
+		var key []byte
+		if key, err = deriveKey(meta.Encryption, password); err == nil {
+			err = decryptToFile(src, key, zf)
+		}
+	}
+	zf.Close()
+	if err != nil {
+		os.Remove(zf.Name())
+		return "", err
+	}
+	return zf.Name(), nil
+}
+
+// handleDeleted lists the primary keys an increment shown on its own removed
+// from a model since its parent.
+func (a *App) handleDeleted(w http.ResponseWriter, r *http.Request) {
+	key := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("key")))
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 {
+		writeErr(w, http.StatusBadRequest, "a model key (app.model) is required")
+		return
+	}
+	a.mu.Lock()
+	zr := a.zipReader
+	mode := a.chainMode
+	a.mu.Unlock()
+	if zr == nil {
+		writeErr(w, http.StatusBadRequest, "backup is locked")
+		return
+	}
+	pks := []string{}
+	if mode == chainModeDelta {
+		if raw, err := readZipMember(zr, fmt.Sprintf("deleted/%s/%s.json", parts[0], parts[1])); err == nil {
+			_ = json.Unmarshal(raw, &pks)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"key": key, "deleted": pks})
 }
 
 func (a *App) handleManifest(w http.ResponseWriter, r *http.Request) {
@@ -631,14 +714,40 @@ func (a *App) openPath(p string) error {
 // adoptSource validates the header of a candidate source and, on success,
 // installs it as the active (locked) backup, discarding any previous one.
 func (a *App) adoptSource(p string, isTemp bool, displayName string) error {
-	f, err := os.Open(p)
-	if err != nil {
+	if _, err := os.Stat(p); err != nil {
 		return fmt.Errorf("cannot open file: %v", err)
 	}
-	defer f.Close()
-	meta, err := parseHeader(f)
-	if err != nil {
-		return err
+	members := []string{p}
+	var temps []string
+	mode, note := chainModeFull, ""
+	var meta *Metadata
+	if isZipFile(p) {
+		var err error
+		members, meta, temps, err = extractChainZip(p)
+		if err != nil {
+			for _, t := range temps {
+				os.Remove(t)
+			}
+			return err
+		}
+		if meta.isIncrement() {
+			mode = chainModeChain
+		}
+	} else {
+		var err error
+		if meta, err = headerOf(p); err != nil {
+			return err
+		}
+		if meta.isIncrement() {
+			mode, note = chainModeDelta, "opened on its own"
+			if !isTemp {
+				if chain, err := siblingChain(p, meta); err == nil {
+					members, mode, note = chain, chainModeChain, ""
+				} else {
+					note = err.Error()
+				}
+			}
+		}
 	}
 
 	a.mu.Lock()
@@ -647,6 +756,10 @@ func (a *App) adoptSource(p string, isTemp bool, displayName string) error {
 	a.srcPath = p
 	a.srcIsTemp = isTemp
 	a.meta = meta
+	a.members = members
+	a.chainTemps = temps
+	a.chainMode = mode
+	a.chainNote = note
 	_ = displayName
 	return nil
 }
@@ -693,9 +806,16 @@ func (a *App) resetLocked() {
 	if a.srcIsTemp && a.srcPath != "" {
 		os.Remove(a.srcPath)
 	}
+	for _, t := range a.chainTemps {
+		os.Remove(t)
+	}
 	a.srcPath = ""
 	a.srcIsTemp = false
 	a.meta = nil
+	a.members = nil
+	a.chainTemps = nil
+	a.chainMode = chainModeFull
+	a.chainNote = ""
 }
 
 func (a *App) closeZipLocked() {

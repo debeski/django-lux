@@ -1180,7 +1180,7 @@ base is loaded as a normal restore, then each increment, in order and in the
 same transaction, upserts its rows (deserialized saves update by primary key)
 and raw-deletes its `deleted/` keys and their implicit M2M links.
 
-Deleting a member deletes every later member of its chain; an increment's
+Deleting a member deletes every later member of its chain (the DLB viewer opens a chain ZIP, or an increment beside its earlier members, as the merged state); an increment's
 Download returns the whole chain as one ZIP
 (`GET sys/backup/<token>/download-chain/`). The create form's Type selector
 offers *Incremental* only while a chain is open and says why when it is not.

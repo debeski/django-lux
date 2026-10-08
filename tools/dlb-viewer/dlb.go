@@ -78,7 +78,9 @@ type Metadata struct {
 	MediaIncluded *bool `json:"media_included"`
 	// SystemDataIncluded is false for a portable (project-data-only) backup;
 	// nil for backups that predate the option, which always included it.
-	SystemDataIncluded *bool      `json:"system_data_included"`
+	SystemDataIncluded *bool `json:"system_data_included"`
+	// Chain identifies a member of an incremental chain; nil before chains.
+	Chain              *ChainInfo `json:"chain"`
 	PassphraseRequired bool       `json:"passphrase_required"`
 	Encryption         Encryption `json:"encryption"`
 }
