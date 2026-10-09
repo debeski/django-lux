@@ -1,14 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.10.2b2",
+  "version": "1.10.2b3",
   "display": {
-    "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0).",
+    "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0), and Composer can take one before an operator's CLI update.",
     "highlights": [
       "Inline updates and rollbacks back up before Composer swaps the code; a failed backup stops the update. Takes effect for updates started from this release.",
+      "New manage.py dlux_backup: Composer runs it before `dlux update` / `dlux rollback` from the command line.",
       "Includes 1.10.2b1: the image row check icon leads its row.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b3"
   },
   "requires": {
     "updater_schema": ">=1",
