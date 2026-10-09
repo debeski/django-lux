@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Inline Updates Back Up Again**: since 1.10.0 an inline apply or rollback handed to Composer took no backup — the step lived in the in-container executor removed in `9745606` — while the UI offered a backup mode and the Backup settings promised one. `_handoff_to_composer()` now runs `_create_backup()` first (status *Backing up*, `backup_token` recorded, `skip` honoured) and a failed backup fails the run before the Composer request is written. Found on `testbed-dlux` (`testbed_break_scenarios.md` S1).
+- **Chain Members Release Their Parent Link**: completed members no longer hold `SystemBackup.parent` (`release_parent_links()`, run after each completed backup, also clears links left by 1.11.0b4); only an increment being built references its parent. After a rollback to 1.11.0b3, deleting a chain's base failed on the database foreign key (HTTP 500) after that release had already removed the file (S2).
+- **Clear, Final Chain Errors**: an increment whose parent index cannot be read (wrong chain passphrase or a damaged `.idx`) or no longer matches fails with that explanation instead of "Wrong passphrase or server key…", and such `ChainUnavailable` failures are not armed for an automatic retry (`fail_system_backup(retryable=False)`).
+- **Atomic One-Backup Guard**: `system_backup_create_view` re-checks for an active backup under the `SystemSettings` row lock before creating one, so simultaneous submits cannot both start.
+
 ## v1.11.0b4
 
 - **Incremental Backups**: a full backup now starts a chain and *Type → Incremental* stores only rows whose serialized-JSON digest changed (`_CursorlessJSONSerializer.row_observer`), `deleted/<app>/<model>.json` primary keys gone since the parent, and media whose storage name is new (`stream_model_into_zip(file_filter=)`). Every member writes its row index to `index.json` and an encrypted `.idx` sidecar (`dlux.backup.chain`), so the next increment never decrypts its parent archive. `SystemBackup.kind`, `parent`, `chain_id`, `sequence`, `index_root`, `migration_digest` (migration `0025`, inline-safe).

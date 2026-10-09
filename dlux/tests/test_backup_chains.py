@@ -238,8 +238,10 @@ class ChainRestoreTests(ChainTestCase):
 
         User.objects.create_user('bob', password='x')
         wrong = self._increment(passphrase='other-pass')
+        # Final, not armed for a retry: a wrong key cannot heal by itself.
         self.assertEqual(wrong.status, 'failed')
-        self.assertIn('Wrong passphrase', wrong.error)
+        self.assertIsNone(wrong.next_attempt_at)
+        self.assertIn('passphrase is wrong', wrong.error)
         wrong.delete()
 
         right = self._increment(passphrase='chain-pass')
@@ -248,6 +250,38 @@ class ChainRestoreTests(ChainTestCase):
         restore = self._restore(right, passphrase='chain-pass')
         self.assertEqual(restore.status, 'completed', restore.error)
         self.assertTrue(User.objects.filter(username='bob').exists())
+
+
+class OlderReleaseCompatibilityTests(ChainTestCase):
+    def test_finished_members_hold_no_parent_link(self):
+        self._full()
+        User.objects.create_user('a', password='x')
+        inc = self._increment()
+        self.assertEqual(inc.status, 'completed')
+        self.assertIsNone(inc.parent_id)
+        self.assertEqual((inc.chain_id, inc.sequence), (self.SystemBackup.objects.get(sequence=0).token, 1))
+
+    def test_a_release_without_the_parent_column_can_delete_the_base(self):
+        """1.11.0b3 deletes rows knowing nothing of `parent`; the FK must not bite."""
+        from django.db import connection, transaction
+
+        base = self._full()
+        User.objects.create_user('a', password='x')
+        self._increment()
+        table = connection.ops.quote_name(self.SystemBackup._meta.db_table)
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute(f"DELETE FROM {table} WHERE id = %s", [base.pk])
+            connection.check_constraints(table_names=[self.SystemBackup._meta.db_table])
+
+    def test_older_links_are_released_by_the_next_backup(self):
+        base = self._full()
+        User.objects.create_user('a', password='x')
+        inc = self._increment()
+        self.SystemBackup.objects.filter(pk=inc.pk).update(parent=base)
+        self._full()
+        inc.refresh_from_db()
+        self.assertIsNone(inc.parent_id)
 
 
 class ChainPolicyTests(ChainTestCase):

@@ -275,6 +275,24 @@ def _discard(paths, backup_pk):
             logger.warning("Could not remove a file of backup pk=%s", backup_pk, exc_info=True)
 
 
+class ChainUnavailable(ValueError):
+    """The increment cannot continue its chain; re-running it would not help."""
+
+
+def release_parent_links():
+    """Drop ``parent`` from completed members; chains are tracked by chain id.
+
+    The link is only needed while an increment is being built. Held by a
+    finished row, the database foreign key makes DjangoLux before 1.11.0b4 —
+    which does not know the column — fail to delete a chain's base after a
+    rollback, and that release removes the file before the row, losing it.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    return SystemBackup.objects.filter(
+        status=SystemBackup.STATUS_COMPLETED, parent__isnull=False,
+    ).update(parent=None)
+
+
 def _chain_start(backup, passphrase):
     """``(previous_index, chain)`` for the member this row will become.
 
@@ -290,14 +308,20 @@ def _chain_start(backup, passphrase):
         }
     parent = backup.parent
     if parent is None or parent.status != SystemBackup.STATUS_COMPLETED or not parent.index_root:
-        raise ValueError("The backup this increment continues is no longer available; take a full backup.")
+        raise ChainUnavailable("The backup this increment continues is no longer available; take a full backup.")
     if parent.migration_digest != migration_digest():
-        raise ValueError("The database schema changed since this backup chain began; take a full backup.")
+        raise ChainUnavailable("The database schema changed since this backup chain began; take a full backup.")
     if not parent.index_path or not default_storage.exists(parent.index_path):
-        raise ValueError("The index of the previous backup is missing; take a full backup.")
-    previous_index = read_index_sidecar(parent.index_path, passphrase=passphrase)
+        raise ChainUnavailable("The index of the previous backup is missing; take a full backup.")
+    try:
+        previous_index = read_index_sidecar(parent.index_path, passphrase=passphrase)
+    except Exception:
+        raise ChainUnavailable(
+            "The index of the previous backup cannot be read — the chain passphrase is "
+            "wrong or the index file is damaged; take a full backup."
+        ) from None
     if index_root(previous_index) != parent.index_root:
-        raise ValueError("The index of the previous backup does not match it; take a full backup.")
+        raise ChainUnavailable("The index of the previous backup does not match it; take a full backup.")
     return previous_index, {
         "id": parent.chain_id, "sequence": parent.sequence + 1, "token": backup.token,
         "parent": parent.token, "parent_root": parent.index_root, "kind": SystemBackup.KIND_INCREMENTAL,
@@ -422,6 +446,7 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
             raise BackupCancelled()
         for name, value in values.items():
             setattr(backup, name, value)
+        release_parent_links()
         finish_backup_progress(backup, success=True)
         _log_system_action(backup.requested_by_username, "EXPORT", {
             "kind": "system_backup",
@@ -450,6 +475,7 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
             backup,
             str(exc)[:1000],
             passphrase_in_hand=bool(allow_passphrase_retry and _clean_passphrase(passphrase)),
+            retryable=not isinstance(exc, ChainUnavailable),
         )
     return backup
 

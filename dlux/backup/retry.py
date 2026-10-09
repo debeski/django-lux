@@ -41,7 +41,7 @@ def _can_auto_retry(backup, policy=None, *, passphrase_in_hand=False):
     return bool(passphrase_in_hand or system_backup_celery_available())
 
 
-def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_hand=False):
+def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_hand=False, retryable=True):
     """Record a failed attempt and, when policy allows, arm the next one.
 
     Returns the seconds to wait before re-running, or ``None`` when this is the
@@ -56,7 +56,7 @@ def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_
     error = str(error or "")[:1000]
     strings = get_strings()
 
-    if _can_auto_retry(backup, policy, passphrase_in_hand=passphrase_in_hand):
+    if retryable and _can_auto_retry(backup, policy, passphrase_in_hand=passphrase_in_hand):
         delay = timedelta(minutes=policy["retry_delay_minutes"])
         backup.status = SystemBackup.STATUS_PENDING
         backup.error = error

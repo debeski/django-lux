@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -83,7 +84,7 @@ def _recent_system_backups(*, reap=True):
             reap_stalled_system_backups(allow_inline=False)
         except Exception:
             logger.warning('Could not reap stalled system backups', exc_info=True)
-    return list(_system_backup_model().objects.select_related('parent')[:20])
+    return list(_system_backup_model().objects.all()[:20])
 
 
 def _recent_system_restores():
@@ -361,20 +362,34 @@ def system_backup_create_view(request):
             }, status=400)
     else:
         passphrase = ''
-    if head is not None:
-        backup = incremental_backup_row(
-            head, requested_by=request.user.get_username(), trigger=SystemBackup.TRIGGER_MANUAL,
-        )
-    else:
-        # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
-        include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
-        backup = SystemBackup.objects.create(
-            requested_by_username=request.user.get_username(),
-            passphrase_required=bool(passphrase),
-            media_included=include_media,
-            system_data_included=_posted_flag(request, 'include_system_data'),
-            encryption=encryption,
-        )
+    with transaction.atomic():
+        # The early check above answers most requests cheaply; this one, under
+        # the settings-row lock the scheduler also takes, is what makes two
+        # simultaneous submits produce one backup.
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        SystemSettings.objects.get_or_create(pk=1)
+        SystemSettings.objects.select_for_update().get(pk=1)
+        active = _active_backup()
+        if active is not None:
+            return JsonResponse({
+                'ok': False,
+                'error': s.get('sysbackup_busy', 'A backup is still running. Wait for it to finish before starting another.'),
+                'token': active.token,
+            }, status=409)
+        if head is not None:
+            backup = incremental_backup_row(
+                head, requested_by=request.user.get_username(), trigger=SystemBackup.TRIGGER_MANUAL,
+            )
+        else:
+            # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
+            include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
+            backup = SystemBackup.objects.create(
+                requested_by_username=request.user.get_username(),
+                passphrase_required=bool(passphrase),
+                media_included=include_media,
+                system_data_included=_posted_flag(request, 'include_system_data'),
+                encryption=encryption,
+            )
     if dispatch_system_backup(backup, passphrase=passphrase):
         queued = True
     else:

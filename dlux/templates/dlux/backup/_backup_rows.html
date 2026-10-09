@@ -7,7 +7,7 @@
         <td>
             {{ backup.get_trigger_display }}
             {% if backup.is_incremental %}
-                <span class="badge bg-warning-subtle text-warning-emphasis" title="{{ DLUX_STRINGS.sysbackup_incremental_hint|default:'Only the changes since the previous backup in its chain' }}{% if backup.parent %} ({{ backup.parent.created_at|date:'Y-m-d H:i' }}){% endif %}">{{ DLUX_STRINGS.sysbackup_incremental_badge|default:'Incremental' }}{% if backup.sequence %} #{{ backup.sequence }}{% endif %}</span>
+                <span class="badge bg-warning-subtle text-warning-emphasis" title="{{ DLUX_STRINGS.sysbackup_incremental_hint|default:'Only the changes since the previous backup in its chain' }}">{{ DLUX_STRINGS.sysbackup_incremental_badge|default:'Incremental' }}{% if backup.sequence %} #{{ backup.sequence }}{% endif %}</span>
             {% elif backup.index_root and backup.status == 'completed' %}
                 <span class="badge bg-light text-dark border" title="{{ DLUX_STRINGS.sysbackup_base_hint|default:'Full backup; incremental backups can continue from it' }}">{{ DLUX_STRINGS.sysbackup_base_badge|default:'Full' }}</span>
             {% endif %}
