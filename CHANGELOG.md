@@ -7,6 +7,16 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.10.2
+
+Identical in code to 1.10.2b3 (published and verified: the PyPI wheel is byte-identical to the tag outside `tests/`, and a fresh project migrates on it and completes `manage.py dlux_backup`). Stable patch for the 1.10 line:
+
+- **Inline Updates Back Up Again** (1.10.2b2): inline apply/rollback takes the pre-update backup before the Composer hand-off; a failed backup stops the update. Lost in 1.10.0 with the in-container executor. Applies to updates started on 1.10.2 or later.
+- **`dlux_backup` Management Command** (1.10.2b3): the foreground backup Composer runs before an operator's `dlux update` / `dlux rollback`.
+- **Image Row Check Icon** (1.10.2b1): leads its row like the DjangoLux one.
+
+No migration.
+
 ## v1.10.2b3
 
 - **`dlux_backup` Management Command**: `manage.py dlux_backup [--scope data|full] [--trigger update|manual|scheduled] [--requested-by NAME]` takes a system backup in the foreground and prints one JSON line (`ok`, `token`, `status`, `rows`, `files`, `size`, `path`, `error`); it exits non-zero unless the backup completed and marks a failure final instead of leaving a retry armed. Composer runs it before an operator's `composer dlux update` / `dlux rollback`, which bypass DjangoLux's update path and so ran without a snapshot. Ported from 1.11.0b6. No migration.

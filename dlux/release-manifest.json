@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.10.2b3",
+  "version": "1.10.2",
   "display": {
     "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0), and Composer can take one before an operator's CLI update.",
     "highlights": [
@@ -9,7 +9,7 @@
       "Includes 1.10.2b1: the image row check icon leads its row.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2"
   },
   "requires": {
     "updater_schema": ">=1",
