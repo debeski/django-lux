@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b6
 
 - **`dlux_backup` Management Command**: `manage.py dlux_backup [--scope data|full] [--trigger update|manual|scheduled] [--requested-by NAME]` takes a system backup in the foreground and prints one JSON line (`ok`, `token`, `status`, `rows`, `files`, `size`, `path`, `error`); it exits non-zero unless the backup completed and cancels any automatic retry the failure armed. Composer runs it before an operator's `composer dlux update` / `dlux rollback`, which bypass DjangoLux's own update path and so ran without a snapshot (`testbed_break_scenarios.md` S4).
 

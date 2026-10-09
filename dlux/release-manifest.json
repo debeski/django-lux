@@ -1,16 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b5",
+  "version": "1.11.0b6",
   "display": {
-    "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0), plus backup-chain fixes found by break-testing 1.11.0b4.",
+    "summary": "New manage.py dlux_backup, which Composer runs before an operator's command-line DjangoLux update or rollback, on top of 1.11.0b5.",
     "highlights": [
-      "Inline updates and rollbacks back up before Composer swaps the code; a failed backup stops the update. Takes effect for updates started from this release.",
-      "Rolling back below 1.11.0b4 no longer breaks deleting a backup chain's full backup.",
-      "Clearer, final errors when an incremental backup cannot continue its chain.",
-      "Starting two backups at the same moment can no longer create two.",
+      "manage.py dlux_backup takes a backup in the foreground and reports it as JSON; Composer 1.6.1b4+ runs it before `dlux update` / `dlux rollback`.",
+      "Includes 1.11.0b5: inline updates and rollbacks back up before Composer swaps the code.",
       "Database migration: additive and inline-safe for 1.10.x installs (backup options and chain columns); none since 1.11.0b4."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b5"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b6"
   },
   "requires": {
     "updater_schema": ">=1",
