@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b5
 
 - **Inline Updates Back Up Again**: since 1.10.0 an inline apply or rollback handed to Composer took no backup — the step lived in the in-container executor removed in `9745606` — while the UI offered a backup mode and the Backup settings promised one. `_handoff_to_composer()` now runs `_create_backup()` first (status *Backing up*, `backup_token` recorded, `skip` honoured) and a failed backup fails the run before the Composer request is written. Found on `testbed-dlux` (`testbed_break_scenarios.md` S1).
 - **Chain Members Release Their Parent Link**: completed members no longer hold `SystemBackup.parent` (`release_parent_links()`, run after each completed backup, also clears links left by 1.11.0b4); only an increment being built references its parent. After a rollback to 1.11.0b3, deleting a chain's base failed on the database foreign key (HTTP 500) after that release had already removed the file (S2).

@@ -1,17 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b4",
+  "version": "1.11.0b5",
   "display": {
-    "summary": "Incremental system backups (chains of a full backup plus changes-only increments, restorable to any point, readable in the DLB viewer) and per-user General Reports for report viewers, on top of 1.11.0b3.",
+    "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0), plus backup-chain fixes found by break-testing 1.11.0b4.",
     "highlights": [
-      "Incremental backups store only changed and deleted rows and new media since the previous backup.",
-      "Restore any point of a chain in one step; a missing or foreign member is refused before anything changes.",
-      "Scheduled backups can run incrementally, with a new full backup by age or chain length.",
-      "The DLB viewer opens a backup chain as its merged state and groups models by app.",
-      "General Reports: staff with the reports permission can open each listed user's activity breakdown.",
-      "Database migration: additive and inline-safe (backup chain columns)."
+      "Inline updates and rollbacks back up before Composer swaps the code; a failed backup stops the update. Takes effect for updates started from this release.",
+      "Rolling back below 1.11.0b4 no longer breaks deleting a backup chain's full backup.",
+      "Clearer, final errors when an incremental backup cannot continue its chain.",
+      "Starting two backups at the same moment can no longer create two.",
+      "Database migration: additive and inline-safe for 1.10.x installs (backup options and chain columns); none since 1.11.0b4."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b5"
   },
   "requires": {
     "updater_schema": ">=1",
