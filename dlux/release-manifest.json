@@ -1,13 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.10.2b1",
+  "version": "1.10.2b2",
   "display": {
-    "summary": "The application image row's check icon now leads the row like the DjangoLux one: an arrow until checked, a tick afterwards, and the update icon when there is an update.",
+    "summary": "Inline updates and rollbacks take their pre-update backup again (lost in 1.10.0).",
     "highlights": [
-      "The application image row's check icon leads the row, matching the DjangoLux row, instead of sitting at its end.",
+      "Inline updates and rollbacks back up before Composer swaps the code; a failed backup stops the update. Takes effect for updates started from this release.",
+      "Includes 1.10.2b1: the image row check icon leads its row.",
       "No database migration."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.2b2"
   },
   "requires": {
     "updater_schema": ">=1",

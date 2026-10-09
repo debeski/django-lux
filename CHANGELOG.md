@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.10.2b2
+
+- **Inline Updates Back Up Again**: since 1.10.0 an inline apply or rollback handed to Composer took no backup — the step lived in the in-container executor removed in 1.10.0 — while the UI offered a backup mode and the Backup settings promised one. `_handoff_to_composer()` now runs `_create_backup()` first (status *Backing up*, `backup_token` recorded, `skip` honoured) and a failed backup fails the run before the Composer request is written. The step runs in the release updated from, so it applies to updates started on 1.10.2 or later. Found while break-testing 1.11.0b4 on `testbed-dlux`. No migration.
+
 ## v1.10.2b1
 
 - **Image Row Check Follows The Card's Pattern**: the application-image check icon sat at the row's end in a quiet style, unlike every other row. It is now the row's lead icon, like the DjangoLux row's: an arrow until a check, a green tick once checked (the disk icon for a local build), hidden when an update is available so the download icon takes its place. Users who cannot manage updates keep the static tick. No migration.
