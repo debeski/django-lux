@@ -65,8 +65,15 @@ happened, severity, status.
 - **Got**: no `DluxUpdateRun`, no admission checks, no backup — Composer
   installs and restarts directly.
 - **Severity**: medium (operator tool), but it is the documented acceptance
-  path. **Status**: open — Composer-side; should either queue through
-  DjangoLux or take the backup itself.
+  path. **Status**: fixed in Composer (`feat/dlux-update-snapshot`, merged on
+  Composer `main`, unreleased): `dlux update`/`dlux rollback` take a DjangoLux
+  backup in the stack before anything is staged (`--backup data|full|skip`),
+  through `manage.py dlux_backup` (DjangoLux 1.10.2 / 1.11.0b6) or a
+  `manage.py shell` fallback for older releases; a failed backup changes
+  nothing. Verified live on the testbed: fallback on b5 (40,301-row backup,
+  then the swap), a refused rollback with an unwritable backup folder (and,
+  after a fix, no automatic retry left armed), and the primary path on a b6
+  candidate (`--backup full`, 40,302 rows + 305 files).
 
 ### S5 — An update run's "completed" is not checked against what runs (observation)
 
