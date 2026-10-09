@@ -300,6 +300,8 @@ Release eligibility remains strict. Composer honors the release manifest's schem
 
 Update admission serializes through the DjangoLux state row. An image update and an inline update cannot be admitted concurrently. When a pre-update backup is requested, DjangoLux must finish it before the update intent is written.
 
+An inline apply or rollback started from DjangoLux (Options or `sys/api/dlux-update/`) takes its backup in the Celery worker before writing the Composer request: the run moves to *Backing up* ("Creating a data-only pre-update DjangoLux backup."), the backup's token is stored on the run, and a failed backup fails the run so Composer is never asked to swap code. `backup_mode` is `data` (default), `full` or `skip`. This step was lost in 1.10.0 with the in-container executor and restored in 1.10.2; between those releases inline updates ran without it. The step runs in the release being updated *from*, so the first update that takes it is one started on 1.10.2 or later. `./start.sh dlux update` and `dlux rollback` go to Composer directly and do not pass through this step.
+
 ## Moving to an image that bakes an older DjangoLux
 
 The active release lives on the runtime volume and is what the supervisor puts on `PYTHONPATH`, so an image baking an older DjangoLux does not by itself downgrade a deployment. Composer's preflight gate reads one image label and refuses anything older than the active release, which is safe but stricter than the deployment requires.

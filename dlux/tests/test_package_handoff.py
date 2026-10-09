@@ -179,12 +179,19 @@ class HandoffTests(TestCase):
         self.assertEqual(self._payload()["payload"]["target_version"], "")
 
     def test_composers_progress_is_not_overwritten_while_it_executes(self):
-        """That file is the only progress the modal has once web restarts."""
+        """That file is the only progress the modal has once web restarts.
+
+        Before the hand-off DjangoLux owns it (it shows the pre-update backup);
+        once Composer is executing, nothing DjangoLux does may write over it.
+        """
         Run = self._run_model()
         self._queue(Run.ACTION_APPLY)
+        service = self._service()
+        service.process_next()
         self._composer_status({"status": "running", "kind": "package", "message": "staging"})
 
-        self._service().process_next()
+        service.process_next()
+        service.tick_package_update()
 
         self.assertEqual(package_request.composer_progress(self.store)["message"], "staging")
 
@@ -198,6 +205,63 @@ class HandoffTests(TestCase):
         self.assertEqual(run.status, Run.STATUS_FAILED)
         self.assertIn("already performing", run.error)
         self.assertEqual(self._payload()["token"], "tok-held", "the held request is untouched")
+
+    def _update_backups(self):
+        from django.apps import apps
+
+        SystemBackup = apps.get_model("dlux", "SystemBackup")
+        return list(SystemBackup.objects.filter(trigger=SystemBackup.TRIGGER_UPDATE))
+
+    def test_an_apply_backs_up_before_composer_is_told(self):
+        """Lost with the in-container executor in 1.10.0; the settings promise it."""
+        Run = self._run_model()
+        self._queue(Run.ACTION_APPLY, backup_mode="data")
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_APPLYING, run.error)
+        backups = self._update_backups()
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].status, "completed")
+        self.assertFalse(backups[0].media_included)
+        self.assertEqual(run.backup_token, backups[0].token)
+        self.assertIn("data-only pre-update", run.progress_log)
+        self.assertEqual(self._payload()["token"], run.token)
+
+    def test_a_rollback_backs_up_too(self):
+        Run = self._run_model()
+        self._queue(Run.ACTION_ROLLBACK, target_version="1.8.7", backup_mode="full")
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_APPLYING, run.error)
+        backups = self._update_backups()
+        self.assertEqual(len(backups), 1)
+        self.assertTrue(backups[0].media_included)
+        self.assertIn("pre-rollback", run.progress_log)
+
+    def test_skip_hands_off_without_a_backup(self):
+        Run = self._run_model()
+        self._queue(Run.ACTION_APPLY, backup_mode="skip")
+
+        run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_APPLYING, run.error)
+        self.assertEqual(self._update_backups(), [])
+        self.assertEqual(run.backup_token, "")
+
+    def test_a_failed_backup_stops_the_update_before_the_request(self):
+        from unittest import mock
+
+        Run = self._run_model()
+        self._queue(Run.ACTION_APPLY)
+
+        with mock.patch("dlux.backup.create.write_system_backup", side_effect=RuntimeError("disk full")):
+            run = self._service().process_next()
+
+        self.assertEqual(run.status, Run.STATUS_FAILED)
+        self.assertIn("backup failed", run.error)
+        self.assertFalse(package_request.trigger_path(self.store).exists(), "Composer must never hear of it")
 
 
 class HandoffCompletionTests(TestCase):

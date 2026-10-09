@@ -1524,6 +1524,16 @@ class UpdateService:
         pending = package_request.pending_token(self.store)
         if pending:
             raise UpdaterError("Composer is already performing a DjangoLux update.")
+        # The snapshot comes first and must succeed: Composer is only told to
+        # swap code once there is a backup to come back to. This step lived in
+        # the in-container executor and was lost with it in 1.10.0, so inline
+        # updates ran without the backup the settings page promises.
+        phase = "pre-rollback" if mode == package_request.ROLLBACK else "pre-update"
+        self._transition(run, run.STATUS_BACKING_UP, self._backup_phase_message(run, phase))
+        backup = self._create_backup(run)
+        if backup is not None:
+            run.backup_token = backup.token
+            run.save(update_fields=["backup_token"])
         state = _state_model().load()
         target = "" if mode == package_request.ROLLBACK else (run.target_version or state.latest_version or "")
         # No operation_id: `control_operation_id` belongs to DluxImageUpdate, the
@@ -1555,6 +1565,15 @@ class UpdateService:
         from . import package_request
 
         return self._handoff_to_composer(run, package_request.ROLLBACK)
+
+    @staticmethod
+    def _backup_phase_message(run, phase):
+        Run = _run_model()
+        mode = getattr(run, "backup_mode", Run.BACKUP_DATA) or Run.BACKUP_DATA
+        if mode == Run.BACKUP_SKIP:
+            return f"Skipping the {phase} backup (operator choice)."
+        scope = "full" if mode == Run.BACKUP_FULL else "data-only"
+        return f"Creating a {scope} {phase} DjangoLux backup."
 
     def _create_backup(self, run):
         """Create the pre-update/-rollback backup per the run's backup_mode.
