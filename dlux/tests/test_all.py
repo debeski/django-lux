@@ -95,6 +95,7 @@ TEST_LABELS = [
     'dlux.tests.test_report_user_activity',
     'dlux.tests.test_backup_options',
     'dlux.tests.test_backup_chains',
+    'dlux.tests.test_backup_command',
     'dlux.tests.test_system_settings_previews',
     'dlux.tests.test_system_registry',
     'dlux.tests.test_table_edges',
