@@ -21,6 +21,10 @@ from .permissions import (  # noqa: F401
     _extract_permission_codenames,
     _get_assignable_permission_ids_for_user,
     get_assignable_permissions_queryset,
+    hidden_permission_ids,
+    keep_hidden_permissions,
+    register_permission_visibility_filter,
+    unregister_permission_visibility_filter,
 )
 from .builders import (  # noqa: F401
     EMAIL_DEPENDENT_SETTING_FIELDS,
@@ -127,6 +131,10 @@ __all__ = [
     'build_settings_toggle_field',
     'build_titlebar_actions_order_builder',
     'get_assignable_permissions_queryset',
+    'hidden_permission_ids',
+    'keep_hidden_permissions',
+    'register_permission_visibility_filter',
+    'unregister_permission_visibility_filter',
     'logger',
 ]
 from .lookup import DluxLookupField  # noqa: F401

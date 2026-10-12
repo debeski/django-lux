@@ -832,6 +832,17 @@ results and an Arabic query matches:
 - **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user. Only cards the current configuration actually renders are indexed — a single-language install returns no Language result, a single-theme install no Theme result, and the same applies to `allow_user_home_url`, `allow_user_font_override`, `navbar.allow_user_mode_override`, and `sidebar.allow_user_density`. Below the split thresholds (non-tabs layout, at most 5 themes and 2 languages) the page merges Theme and Language into one `theme-language` card, so those two results are remapped to that slug rather than dropped. The index is keyed on the sidebar cache version, which `SystemSettings.refresh_cache()` bumps on save, so configuration changes take effect at once. A result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card. Under the tabbed Options layout the target card usually sits in an inactive pane, so the deep link activates that pane before scrolling. A `hashchange` handler re-runs the same logic, because selecting a second Options result while already on the page changes only the hash and never reloads.
 - **Actions** are curated titlebar/nav shortcuts (My Profile, Options).
 
+### Permission visibility
+
+| API | Purpose |
+| --- | --- |
+| `dlux.access.register_permission_visibility_filter(fn)` | `fn()` returns a `Q` over `Permission` to hide from the group/user permission editors, or `None`. Evaluated per form; duplicates ignored. |
+| `dlux.access.unregister_permission_visibility_filter(fn)` | Remove a filter (tests). |
+| `dlux.access.hidden_permission_ids()` | Permission ids hidden right now. |
+| `dlux.forms.keep_hidden_permissions(form, current, submitted)` | `submitted` plus the `current` permissions the form hid; the group and user forms save through it. |
+
+See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-feature).
+
 ### Translation keys
 
 `DLUX_STRINGS.<key>|default:'…'` and `strings.get('<key>', '…')` fall back to the
