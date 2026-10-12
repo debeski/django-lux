@@ -60,26 +60,20 @@ class SeedScopedRecord(ScopedModel):
 
 
 class DluxSeedTests(TransactionTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
+    # Per test, not per class: the flush after each test truncates auth_user, which
+    # PostgreSQL refuses while these tables still reference it.
+    def setUp(self):
+        super().setUp()
         with connection.schema_editor() as editor:
             editor.create_model(SeedLookup)
             editor.create_model(SeedRecord)
             editor.create_model(SeedScopedRecord)
 
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(self):
         with connection.schema_editor() as editor:
             editor.delete_model(SeedScopedRecord)
             editor.delete_model(SeedRecord)
             editor.delete_model(SeedLookup)
-        super().tearDownClass()
-
-    def tearDown(self):
-        SeedScopedRecord.all_objects.all().delete()
-        SeedRecord.objects.all().delete()
-        SeedLookup.objects.all().delete()
         super().tearDown()
 
     @staticmethod

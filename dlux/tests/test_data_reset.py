@@ -97,6 +97,7 @@ class ResetPermanentModeTests(TestCase):
         self.su = User.objects.create_superuser('root', 'r@x.com', 'pw')
         from dlux.middleware import _thread_locals
         _thread_locals.user = self.su
+        self.addCleanup(_thread_locals.__dict__.pop, 'user', None)
         self.AL = apps.get_model('dlux.ActivityLog')
 
     def _rows(self, live=2, trashed=3):
@@ -173,6 +174,7 @@ class ResetExecutionTests(TestCase):
         su = User.objects.create_superuser('root', 'r@x.com', 'pw')
         from dlux.middleware import _thread_locals
         _thread_locals.user = su
+        self.addCleanup(_thread_locals.__dict__.pop, 'user', None)
         AL = apps.get_model('dlux.ActivityLog')
         for _ in range(3):
             AL.all_objects.create(action='T', model_name='x', category='user')
