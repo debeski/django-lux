@@ -3627,7 +3627,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("formData.append(submitter.name, submitter.value || '');", script)
         self.assertLess(
             script.index('if (data.add_more)'),
-            script.index('if (data.refresh_parent && currentLoadedUrl === currentBaseUrl)'),
+            script.index('if (data.refresh_parent && (data.close_modal || currentLoadedUrl === currentBaseUrl))'),
         )
 
     def test_dynamic_modal_wizard_controls_can_live_in_the_shared_footer(self):

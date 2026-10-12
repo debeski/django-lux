@@ -1784,3 +1784,8 @@ When you need to trace behavior in the code, these files are the usual first sto
 - `dlux/translations.py` for built-in translation keys and language-resolution logic
 - `dlux/utils/` for authorization, configuration merging, filtering/CRUD helpers,
   import/export, navigation, settings integration, and UI utilities
+
+
+## Optional PDF toolkit
+
+See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls use the app-owned `dlux.pdf` namespace. No PDF-feature migrations; the dependency metadata change requires an image rebuild.

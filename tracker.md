@@ -1,97 +1,29 @@
-# Project Tracker (django-lux) [Max 100 lines total]
-## Part 1: Project Related
-### Current Verified Snapshot:
-- **In progress: `fix/updates-card` (worktree `updates-card`, 2026-09-30)**: Updates-card status fixes (stale DjangoLux tick, local-build image, baked-DjangoLux target label, agent "could not check" notice, deployment warn icon + Apply-repairs footer). Tests green (e2e 19, unit 2693); uncommitted until merge, then release 1.10.1b1 -> testbed -> 1.10.1. CRM release workflow does not publish the project release-manifest label yet.
-- **v1.10.0 (STABLE, tagged + published 2026-09-30)**: identical in scope to 1.10.0b5 (b3 never tagged). The egress relay and weather through it, per-user/per-group landing pages, project settings in first-run setup, a missing Celery reported on Options, and the four scheduled removals: `AUDIT_FIELD_NAMES`, the in-container update executor (`DLUX_UPDATE_EXECUTOR`, `dlux.scaffold.legacy`, `enable-updater`/`enable-agent`), the `archive_file` shims, `advanced_filter_helper` (2,300 lines net). PyPI `latest`, GitHub Latest. Needs Composer 1.6.0 (stable, published the same day) to use the relay. Accepted on `testbed-dlux` on the stable channel with Composer 1.6.0: b5 install, rollback to b4 and re-apply through the real worker, then the stable upgrade; relay and weather (dummy key -> `credentials`) work with celery off the internet. The sales CRM dev stack runs it with celery off `egress`. **Breaking: project-dhub** still calls `advanced_filter_helper` (6 sites) and puts `archive-file-input` on its own widget; it fails on import until migrated (accepted). Not yet run with a valid OpenWeather key.
-- **v1.9.5b1 (beta, published 2026-09-25, tag on `codex/system-settings-preview`)**: System Settings Preview action — glass/popup previews from the unsaved form, disabled on nonvisual steps, `registerAppPreview()` for app settings. Installed inline on `testbed-dlux` from 1.9.4 on the beta channel. Merged into `main` (`f989ab7`); the 1.9.5 line was folded into 1.10.0b1, so there is no 1.9.5 tag to cut.
-- **v1.9.4 (stable, released 2026-09-25)**: identical to 1.9.4b1 — `DLUX_SKIP_CONFIG_IMPORT` skips the first-launch `config.json` bootstrap; needs Composer 1.5.3b1+. PyPI `latest`, GitHub release (7 assets). Installed inline on `testbed-dlux` from 1.9.3 on the stable channel with Composer 1.5.3.
-- **v1.9.3 (stable, released 2026-09-24)**: PyPI + GitHub (7 assets), `latest` on the index. the deployment and the Composer agent are two rows in the Updates and maintenance card (renamed from Application updates), behaving like the DjangoLux/image rows (check icon, update icon only when there is one, tick otherwise), findings in a modal; one deployment check that offers the repair it found; read-only `agent-check` so the agent update asks the registry before asking for a password; the eye toggle appears only on a field in use and is centred on the field, not its wrapper; operations gated on the resident Composer (needs 1.5.2); interval slider; Backup & restore folded in as a fifth row; every row's reported value pinned to the row's end and the DjangoLux row offering the installed release's notes; System info's stats spread over the card's height; each row's last check lives in its icon tooltip instead of a shared status line; release channel + interval slider and System info's details table now start hidden behind one unlabelled chevron at the end of the update card, which opens both with a height animation; System info keeps the deployer version (now published by the agent, so a recreate cannot empty it) and leaves the agent's own version to the card; login says why a session cookie cannot be stored. Needs Composer 1.5.2.
-- **v1.9.2 (stable)** (2026-09-23): Operations phase 2 — Preview repairs (Composer's `check --fix` diffs) and Apply repairs (password-confirmed, refused unless the preview's compose digest still matches). Needs Composer >=1.5.1, which applies the repair from a container that can write, since both residents mount the project read-only. Stays on the 1.9 line; 1.10.0 remains reserved for its removals.
-- Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
-- Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
-- Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
-
-### Current Project Adopted Standards:
-- Integrate settings with `from dlux.utils import dlux_settings; dlux_settings(globals())`; mount `dlux.urls` at root.
-- Use Dlux-native UI primitives and feature-first static layout; backend authorization must match UI visibility and mutations are POST-only.
-- Project images and fonts go through `ManagedAssetField`, never a raw `ImageField`/`FileField`; namespace isolates each pool and the field's own permission gates upload.
-- `dlux.system` owns settings defaults/schema/normalizers; migration-history wrappers remain in `dlux.models`.
-- Settings steps order controls per section: toggles, then selectors, then fields, then builders; a field sits in the step its subject belongs to, not its storage group.
-
-### Adopted Standards' rules and policies:
-- Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work.
-- Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
-- **Beta first, every release, no exceptions** (2026-09-24): tag `vX.Y.ZbN`, test it on the beta channel, and only then tag the stable. `requires_beta_first()` now returns True for patches too, in both repos. A cross-repo floor names the other release's FIRST prerelease (`>=1.5.3b1`), or the two betas cannot be tested against each other.
-- Never delete files; move superseded material into `.xclude/` with its relative path.
-- New feature releases/workstreams start from verified `main` on separate one-feature branches; merge only after branch-local implementation, docs, and tests pass.
-
-### Cross-Cutting Audits if any:
-- Import-cycle and template/render-cost guards remain active; do not replace function-scope imports blindly.
-- Generated deployment docs must reflect Compose 5.3+ `pre_start`, Composer external execution, and the retired updater service.
-- 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
-
-### Current Project's Unsolved Known Bugs:
-- Tag rulesets on these remotes CAN be bypassed with the owner's admin rights (the same bypass that lets `main` take a direct push). So when a release job fails BEFORE anything is published — no PyPI upload, no image push, no release page — delete the tag (`git push origin :refs/tags/vX.Y.Z`), fix, and re-cut the SAME version. Burn a version only when artifacts were actually published (as 1.8.14b1 was). Ask the owner before choosing either path.
-- Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
-- The whole inline-update hand-off shipped untested end to end (1.8.0-1.8.8): unit tests pinned `write_request` while the caller could not reach it, and one updater test passed only because the crash produced the status it asserted. Drive the run, not the helper.
-- Inline updates require a runtime volume writable *by Celery*; web's mount may be read-only and its local probe no longer decides (1.8.6). No fallback path is valid.
-
-- Browser suite on `main` (d362ee7): 10 pre-existing e2e failures in backup/global-search/tutorial/email/security. Weather: supplied key rejected by OpenWeather (city search and current conditions; current API says HTTP 401 Invalid API key). No key committed. Local Python needed `SSL_CERT_FILE=/etc/ssl/cert.pem` for verified TLS.
-### Incomplete Tasks:
-- **Priority 1:**
-  - [ ] project-dhub must adopt the ribbon (6 `advanced_filter_helper` sites in `documents/filters.py`) and `dlux-file-input` before it upgrades to 1.10.0; it is pinned to an older DjangoLux until then.
-  - [ ] Pin the projects to 1.9.4 and release them (held until 1.9.4/Composer 1.5.3 were stable — now due): archive v1.1.18, decrees v2.1.20, trademarks v2.0.6 sit untagged on 1.9.3; their old local tags v1.1.17/v2.1.19/v2.0.5 and sales v0.8.2 were never pushed.
-  - [ ] `release_channels_plan.md` remaining after the rehearsal: the reference-stack acceptance harness (§7), published-artifact acceptance as a dependent job (§3.8), promotion serialization (§3.6), and the Composer 1.4.0 retirement inventory (§9). 1.9.0b1/1.4.0b1 stay the first feature betas.
-  - [ ] v1.8.8 shipped the titlebar feature unreviewed because `git add -A` swept the tree; `docs/RELEASING.md` now says stage explicit paths. Deployed stacks need `collectstatic` under `dlux.updater.supervisor` or they serve baked-image static against runtime templates.
-  - [ ] v1.9.0 remaining: an asset-manager view grouped by namespace; then adopt in the projects — switch_pos `Product.image`/`Service.image`/`PublicCatalogListing.image_override` and gov_edition `storage.Asset.image`, each with a migration and a backfill command.
-  - [ ] Review live Docker staging acceptance for Composer migration and `dlux_doctor --apply`.
-- **Priority 2:**
-  - [ ] Still open from the 1.10 acceptance: weather with a valid OpenWeather key (the earlier key was refused with 401), the Composer-behind notice against an older agent, and a project tile in first-run setup and in a group.
-  - [ ] System Settings > Login Page > Full-page split: EN/AR hero-message textareas reuse the active UI language's empty Markdown placeholder, so both show Arabic under an Arabic UI (and both English under an English UI). Cosmetic only; resolve per field and preserve configured language order.
-  - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
-  - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
-- **Completed Recently:**
-  - [x] Weather needs a route out (found 2026-09-30 on `testbed-dlux`): the scaffold keeps celery off `egress` by design, so b2's OpenWeather calls failed on generated stacks. Fixed by the egress relay — the Composer agent is the only service with internet, only celery writes the channel, secrets are sealed to the agent's key. Composer 1.6.0b1 + DjangoLux 1.10.0b4. smtp-relay stays (decided; see local `egress_relay_plan.md` section 10). The CRM's rate scrapers use it on `main` (unpushed).
-  - [x] Scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`; shipped in 1.9.5b4. Template comment must keep the word `DAC_READ_SEARCH`: Composer <=1.5.3 substring-checks for it.
-  - [x] 1.9.3 review round (2026-09-23): the interval/channel/skip endpoints returned a payload with no `image` block, so moving the slider blanked the application version until the next poll — every updater response now builds its state through one `card_state()`. Composer's `remote_image_version()` returned `None` for every Docker Hub image (Hub answers a blob GET with a 307 to a CDN and the client rejected all redirects); blob reads now follow that one https hop without forwarding credentials.
-  - [x] 1.9.0b1 published + accepted live (2026-09-22): decrees stack b2 -> 1.9.0b1 inline in ~25s (web + celery on `releases/1.9.0b1`); Options switch HTTP 200 both ways, pending -> applied in one tick, 0 web errors; opt-out keeps 1.9.0b1, 1.8.13 not offered; served `dynamic_modal/js/main.js?v=1.9.0b1` is byte-identical to the tag. PyPI + GitHub prerelease (7 assets), latest still v1.8.13.
-  - [x] Live beta-channel acceptance (2026-09-22) on a decrees stack, dlux 1.8.14b1 + Composer 1.3.14b2: stable not offered 1.8.13, opt-in offers/installs b2 (web + celery restart onto it), opt-out keeps b2, `composer dlux channel` applies in one tick. Found + fixed: Options switch 500 (`set_update_channel` wrote to web's read-only mount).
-  - [x] Modal footer fields (`is_active`) now `form=`-associated after relocation, and the unsaved guard reads `form.elements`; merged to `main` (`43c7ccd`).
-  - [x] Beta-first gate (2026-09-10): `validate_beta_first()` in `release_check --classify` refuses a stable `vX.Y.0` without a published `bN`/`rcN` of that version in history (PyPI, non-yanked). Patches ungated. Tree bumped to 1.8.14b3 (untagged).
-  - [x] Channels implemented across both repos (2026-09-08). Dlux: `updater/channel.py` policy + token handoff, `DluxUpdateState.update_channel` (migration 0021), `allow_prereleases` selection, Options switch + `POST /sys/api/dlux-update/channel/`, tag classification in `release_check --classify`, PEP 440 tag ordering with migrations diffed against the last **stable** tag, `validate_declared_migration_effect` (caught this release's own manifest declaring `none` while adding 0021). Composer: `versions.py`/`dlux_channel.py`/`channel_config.py`/`release_tag.py`, `dlux channel`, `check --beta|--stable`, wrappers at marker 3.
-  - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
-  - [x] `dlux_prune_assets`: dry-run by default, `--apply` to delete, `--namespace`/`--kind` scoping. References come from the `ManagedAssetField` registry (no reverse accessors exist — `related_name='+'`), the `dlux.shared` pool is skipped unless `--include-shared`, and a declaration it cannot read makes the run refuse rather than treat that model's assets as orphans. 9 tests (2026-09-08).
-  - [x] v1.8.14: boot gate gained `apply` (celery migrates when Compose skips `pre_start`, instead of every service waiting); `requires.migration_baseline` makes a multi-release update's migration span knowable and `release_check` now actually enforces both floors (`validate_image_baseline` had never been called); audit/deletion sets centralised in `dlux.system.constants`, extensible, with the `AUDIT_FIELD_NAMES` shim due for removal in v1.10; audit columns now hide even when a table declares them; `test_settings_step_anchors` guards step anchors and immediately caught `ribbon_title`; backup restore test pinned to the inline path (2026-09-07).
-  - [x] v1.8.13: Record Visibility switches anchored to `SETUP_STEP_SECURITY` (were `SETUP_STEP_LAYOUT` after the move) — the audit toggle could be turned on and never off; `_should_add_more_after_save()` now reads the value of `save_add_more`, not its presence, so a plain Save stops reopening the modal. Both reproduced on the live decrees dev stack before/after (2026-09-07).
-  - [x] v1.8.12 context-menu regression: `dlux:dynamic_modal:open` bound in capture phase, so a host dispatching a non-bubbling CustomEvent on `document.body` (decrees view/edit) reaches the modal again. Latent since 1.8.0, masked by stale static; browser-verified across all three dispatch shapes (2026-09-06).
-  - [x] v1.8.12 suite registration: `test_modal_content_init`, `test_titlebar_action_rail`, `test_inspector_shell` added to `TEST_LABELS` (2366 -> 2430) plus a guard that fails on any unregistered `test_*.py` (2026-09-06).
-  - [x] v1.8.12 updater trio: reconcile also triggers on a runtime-generation change (a version update no longer leaves `active_version` frozen); `queue_image_update()` reports the live release via `active_runtime_version()`; `dlux_settings()` refuses a non-DEBUG boot on an empty/placeholder `SECRET_KEY` (opt out with `DLUX_ALLOW_INSECURE_SECRET_KEY`) (2026-09-06).
-  - [x] v1.8.12 `dlux_image_gate`: adopt/keep/abort verdict so an image baking an older dlux keeps the newer active release instead of being refused outright, decided by the release's own `requires.baked_image` floor. Composer must adopt the command for the gate to relax (2026-09-06).
-
-### One-line info about last verified Tests:
-- 2026-09-30 `testbed-dlux` (beta channel, Composer 1.5.3): 1.9.4 -> 1.10.0b2 inline, `check` all pass, runtime generation 3, no migration. Landing pages driven through the real forms, login, Options and preferences API (18 checks incl. rename, delete, switch off); test rows removed, switch restored off. Weather: worker tasks registered, web egress blocked as designed, city search 502 `provider` since celery has no egress (see Known Bugs).
-- 2026-09-30 `feat/assigned-homepage` (no-migration rework): full `dlux.tests` 2676 OK (2 skips), `test_assigned_home_url` 8 OK, `makemigrations --check` clean, import cycles clean. Not browser-tested.
-- 2026-09-29 weather: full `dlux.tests` 2668 OK (2 skips); final focused 86 OK; weather browser 4/4 (real saves, desktop/mobile, RTL, titlebar rail/user hub/floating/card). Screenshots reviewed in `tests-e2e/shots/weather-*`. Live key check returned 401; fixtures cover successful readings.
-- 2026-09-25: 1.9.4b1 + Composer 1.5.3b1 on `testbed-dlux` — `--skip-config` put the flag in web/celery/agent/executor with the system left unconfigured and `config.json` byte-identical; a plain deploy unset it and imported; after publication, beta channel installed 1.9.4b1 inline from 1.9.3 (site serves 1.9.4b1, `check` all pass). Found: unpinned `composer dlux update` ignores the beta channel (see Composer tracker).
-
-### One-line info about last time edited Docs:
-- 2026-09-30 (`feat/assigned-homepage`): `reference.md`, `system-configuration.md`, `FEATURES.md`, Unreleased changelog describe admin-assigned landing pages; tags checked (v1.10.0b1 tagged).
-- 2026-09-29: `weather.md`, `system-configuration.md`, `reference.md`, `FEATURES.md`, and Unreleased changelog describe weather settings, embedding, key portability, cache behaviour, and deployment assets; tags verified before changelog edit.
-- 2026-09-26: `ui-integration.md`, `developer-guide.md`, `inline-updater.md` and the app scaffold README give v1.10.0 (not 1.9.0) for removing `advanced_filter_helper` and the in-container executor.
-- 2026-09-24: system/deployment configuration docs explain `DLUX_SKIP_CONFIG_IMPORT`, supported versions, and repeat-on-redeploy semantics; changelog/manifest opened at untagged 1.9.4 after verifying 1.9.3 was tagged.
-
-## Part 2: Global
-### Global Standard Helpers, Shortcuts, Info, etc.:
-- Gov stack serves `/static/*` from the `static` volume via Caddy, so changed dlux assets need `collectstatic` in `project-sales-crm/gov_edition` before they reach the browser — and Caddy sends `Cache-Control: immutable, max-age=31536000` on unhashed filenames, so a hard reload is required too.
-- Prefer `rg`; run generated Compose commands through `./start.sh`; inspect updater state through DB/runtime records, not web logs.
-
-### Global Rulesets:
-- Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
-
-### Agent Handoff Rules:
-- Primary clone: `pkg-django-lux/main/`. The weather/homepage feature branches and the `codex/weather` Codex worktree are merged and retired.
-- Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
-- Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
-
-### References and Links:
-- Deployment: `docs/inline-updater.md`, `docs/composer-agent.md`, `docs/doctor.md`; settings: `docs/adding-system-settings.md`.
+# DjangoLux PDF workstream tracker
+## Current snapshot
+- 2026-10-11: Optional, model-agnostic PDF toolkit implemented; no feature migrations.
+- Main-line feature branch: codex/shared-pdf-editor (unpublished 1.11.0b7 candidate).
+- Maintenance backport: codex/pdf-stable-1103 (unpublished 1.10.3b1 candidate based on published 1.10.2).
+- 2026-10-12 review: beta first required; dependency extra requires image rebuild, no schema migration.
+- Archive 1.2.0 requires a published stable provider; no package/tag/image publication authorized or performed.
+## Standards
+- Preserve existing data and files; scope/permissions/storage/history belong to project adapters.
+- Optional tools use the app-owned dlux.pdf Options namespace; local assets avoid CDN dependence.
+- Follow the framework's main AGENTS.md and ecosystem rules; no deletions or feature work on main.
+## Active tasks
+- [x] Final packaged Archive validation: 49 tests, real browser journeys, schema/static checks PASS; no source overlays.
+- [ ] Publish 1.10.3b1 only when separately authorized; accept published beta on testbed before stable 1.10.3.
+- [ ] Archive then rebuilds against published stable; no production deployment authorized.
+- [ ] Decrees adoption remains later work.
+## Completed recently
+- [x] Viewer/editor/history UI, bounded assembly, native file widget, administrator controls, and modal save extensions.
+- [x] 2026-10-12 maintenance full suite: 2710 tests OK (2 skips); final release/PDF focused 69 OK; JS 66 OK.
+- [x] Added adapter authentication/permission/revision/rollback tests and editor disposal/loading/late-save regression tests.
+- [x] Release classification + migration gate, no schema drift, import graph and final wheel/sdist checks PASS.
+- [x] 1.10.3 wheel/assets verified; final namespaced PDF translations pass 181 focused tests.
+## Validation and docs
+- Final logs/artifacts: .xclude/validation/pdf-release-2026-10-12/; prior Archive acceptance: project-archive/main/.xclude/validation/1.2.0/.
+- Docs: docs/pdf-toolkit.md, docs/FEATURES.md, docs/reference.md; candidate changelog/version metadata updated.
+## Handoff
+- Primary code remains unchanged; main tracker records review. Main-line candidate needs these final fixes ported before integration.
+- Both projects own DocumentFileVersion; shared UI adoption preserves rows/paths/bytes, with no normalization/backfill.
+- Do not promote the beta line to satisfy Archive's stable dependency requirement.

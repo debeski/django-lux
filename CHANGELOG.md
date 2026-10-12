@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.10.3b1
+- **Optional PDF Toolkit**: Added the `pdf` extra, `dlux.pdf` adapter/assembly API, local viewer/editor/history assets, and app-owned Options controls without model migrations.
+- **Modal Save Navigation**: Added `close_modal` and exact `add_more_url` responses; submission replies no longer replace a newer modal surface.
+- **PDF Modal Lifecycle**: Cancel PDF loads on editor disposal, block saving during page loading, and ignore save replies after navigating away.
+- **PDF Dependency Installation**: Declare an image rebuild because the new optional extra changes wheel dependency metadata; database migration effect remains `none`.
+
 ## v1.10.2
 
 Identical in code to 1.10.2b3 (published and verified: the PyPI wheel is byte-identical to the tag outside `tests/`, and a fresh project migrates on it and completes `manage.py dlux_backup`). Stable patch for the 1.10 line:
