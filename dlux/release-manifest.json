@@ -1,18 +1,18 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b6",
+  "version": "1.11.0b7",
   "display": {
-    "summary": "New manage.py dlux_backup, which Composer runs before an operator's command-line DjangoLux update or rollback, on top of 1.11.0b5.",
+    "summary": "Optional, model-agnostic PDF viewer and modal editor toolkit.",
     "highlights": [
-      "manage.py dlux_backup takes a backup in the foreground and reports it as JSON; Composer 1.6.1b4+ runs it before `dlux update` / `dlux rollback`.",
-      "Includes 1.11.0b5: inline updates and rollbacks back up before Composer swaps the code.",
-      "Database migration: additive and inline-safe for 1.10.x installs (backup options and chain columns); none since 1.11.0b4."
+      "Projects supply permissions, source lookup, revision, and persistence through a PDF adapter.",
+      "PDF page editing/history controls use app-owned Options settings; assets are bundled for offline use.",
+      "Optional django-lux[pdf] supplies bounded pypdf assembly; rebuild the image to install the extra. No PDF feature migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b6"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b7"
   },
   "requires": {
     "updater_schema": ">=1",
-    "baked_image": ">=1.2.7",
+    "baked_image": ">=1.11.0b7",
     "services": {
       "composer": ">=1.5.3b1"
     },
@@ -24,7 +24,7 @@
     "downtime": "none"
   },
   "install": {
-    "inline": "allowed"
+    "inline": "forbidden"
   },
   "rollback": {
     "supported": true

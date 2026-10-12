@@ -1,0 +1,71 @@
+<div class="dlux-pdf-history-shell">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-clock-history me-2"></i>
+            {{ DLUX_STRINGS.pdf_version_history_label|default:"Version History" }} - {{ document }}
+        </h1>
+        {% if is_modal and history_return_url %}
+        <button type="button"
+                class="btn btn-dark"
+                data-dynamic-modal="{{ history_return_url }}"
+                data-modal-title="{{ DLUX_STRINGS.pdf_edit_pdf_label|default:'Edit PDF' }}">
+            <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
+        </button>
+        {% elif is_modal %}
+        <button type="button" class="btn btn-dark" data-bs-dismiss="modal">
+            <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
+        </button>
+        {% elif history_return_url %}
+        <a class="btn btn-dark" href="{{ history_return_url }}">
+            <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
+        </a>
+        {% else %}
+        <a class="btn btn-dark" href="{{ back_url }}">
+            <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>{{ DLUX_STRINGS.pdf_label_version_number|default:"Version" }}</th>
+                    <th>{{ DLUX_STRINGS.pdf_label_action_type|default:"Action" }}</th>
+                    <th>{{ DLUX_STRINGS.pdf_label_page_count|default:"Pages" }}</th>
+                    <th>{{ DLUX_STRINGS.pdf_label_archived_file|default:"Archived File" }}</th>
+                    <th>{{ DLUX_STRINGS.pdf_label_created_at|default:"Created At" }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for version in versions %}
+                <tr>
+                    <td>V{{ version.version_number }}</td>
+                    <td>
+                        {% if version.action_type == "edit" %}
+                            {{ DLUX_STRINGS.pdf_action_edit|default:"Edited" }}
+                        {% elif version.action_type == "normalize" %}
+                            {{ DLUX_STRINGS.pdf_action_normalize|default:"Normalized" }}
+                        {% else %}
+                            {{ DLUX_STRINGS.pdf_action_replace|default:"Replaced" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ version.page_count }}</td>
+                    <td>
+                        <a href="{{ version.download_url }}" target="_blank" rel="noopener">
+                            {{ version.file_name }}
+                        </a>
+                    </td>
+                    <td>{{ version.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        {{ DLUX_STRINGS.pdf_no_versions_available|default:"No archived versions are available." }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

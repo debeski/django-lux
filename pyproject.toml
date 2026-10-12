@@ -79,6 +79,7 @@ Homepage = "https://github.com/debeski/django-lux"
 dlux = "dlux.cli:main"
 
 [project.optional-dependencies]
+pdf = ["pypdf>=6.13.0"]
 updater = [
     "pypi-attestations>=0.0.29",
 ]

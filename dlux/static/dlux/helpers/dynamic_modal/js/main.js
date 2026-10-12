@@ -498,6 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
             else if (submitBtn) submitBtn.disabled = false;
         };
 
+        const submitLoadToken = activeLoadToken;
         const formData = new FormData(form);
         if (submittedAction) {
             formData.append(submittedAction.name, submittedAction.value);
@@ -531,6 +532,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return data;
         }))
         .then(data => {
+            if (submitLoadToken !== activeLoadToken) { releaseSubmit(); return; }
             if (data.success) {
                 if (Array.isArray(data.assets) && data.assets.length) {
                     document.dispatchEvent(new CustomEvent('dlux:managed-assets-uploaded', {
@@ -538,6 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }));
                 }
                 if (data.add_more) {
+                    if (data.add_more_url) currentBaseUrl = data.add_more_url;
                     // "Save and add more": reload the page so the parent table reflects
                     // the new record (preserving the current URL/query), then reopen this
                     // modal with a fresh form via the persisted modal state.
@@ -548,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // A save made deeper in a stacked modal returns to the surface the
                 // modal was opened on, never to the page behind it: the record was
                 // reached from that list, and the list is what has to be redrawn.
-                if (data.refresh_parent && currentLoadedUrl === currentBaseUrl) {
+                if (data.refresh_parent && (data.close_modal || currentLoadedUrl === currentBaseUrl)) {
                     clearModalState();
                     window.location.reload();
                     return;

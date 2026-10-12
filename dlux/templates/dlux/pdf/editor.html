@@ -1,0 +1,65 @@
+{% load static %}
+<div class="dlux-pdf-editor-shell"
+     data-current-url="{{ source_url }}"
+     data-save-url="{{ edit_url }}"
+     data-worker-url="{% static 'dlux/pdf/vendor/pdf.worker.min.js' %}"
+     data-revision="{{ revision }}" data-modal-mode="1"
+     data-label-pdfjs-failed="{{ DLUX_STRINGS.pdf_editor_pdfjs_failed|default:'PDF.js failed to load. Reload the page and try again.' }}"
+     data-label-remove-page="{{ DLUX_STRINGS.pdf_remove_page_label|default:'Remove page' }}"
+     data-label-pages-ready="{{ DLUX_STRINGS.pdf_editor_pages_ready|default:'{count} page(s) ready. Drag pages to reorder them.' }}"
+     data-label-page-short="{{ DLUX_STRINGS.pdf_page_short_label|default:'p.' }}"
+     data-label-only-pdf="{{ DLUX_STRINGS.pdf_only_files_label|default:'Only PDF files can be added.' }}"
+     data-label-scanning="{{ DLUX_STRINGS.pdf_scanning_label|default:'Scanning' }}"
+     data-label-scanner-error="{{ DLUX_STRINGS.pdf_scanner_error_label|default:'Scanner app returned an error.' }}"
+     data-label-scanlink-unavailable="{{ DLUX_STRINGS.pdf_scanlink_unavailable_label|default:'ScanLink is not available.' }}"
+     data-label-empty-save="{{ DLUX_STRINGS.pdf_empty_save_label|default:'Select at least one page before saving.' }}"
+     data-label-saving="{{ DLUX_STRINGS.pdf_saving_label|default:'Saving PDF...' }}"
+     data-label-save-failed="{{ DLUX_STRINGS.pdf_save_failed_label|default:'Failed to save PDF.' }}"
+     data-label-current-file="{{ DLUX_STRINGS.pdf_current_file_label|default:'Current file' }}"
+     data-label-current-load-failed="{{ DLUX_STRINGS.pdf_current_load_failed_label|default:'Current PDF could not be loaded. You can still add a new PDF from file or scanner.' }}"
+     data-label-no-current="{{ DLUX_STRINGS.pdf_no_current_label|default:'No current PDF. Add pages from file or scanner.' }}">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-file-earmark-pdf me-2"></i>
+            {{ DLUX_STRINGS.pdf_edit_pdf_label|default:"Edit PDF" }} - {{ document }}
+        </h1>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if download_url %}
+            <a class="btn btn-outline-primary" href="{{ download_url }}">
+                <i class="bi bi-download me-2"></i>{{ DLUX_STRINGS.pdf_download_pdf_label|default:"Download PDF" }}
+            </a>
+            {% endif %}
+            {% if pdf_features.history_enabled %}<a class="btn btn-outline-secondary"
+               href="{{ history_url }}"
+               data-dynamic-modal="{{ history_url }}"
+               data-modal-title="{{ DLUX_STRINGS.pdf_version_history_label|default:'Version History' }}">
+                <i class="bi bi-clock-history me-2"></i>{{ DLUX_STRINGS.pdf_version_history_label|default:"Version History" }}
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-dark" data-bs-dismiss="modal">
+                <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
+            </button>
+
+        </div>
+    </div>
+
+    <div class="dlux-pdf-editor-toolbar no-print">
+        {% csrf_token %}
+        <div class="d-none">{{ source_input }}</div>
+        <button type="button" class="btn btn-outline-primary" data-add-files>
+            <i class="bi bi-file-earmark-plus me-2"></i>{{ DLUX_STRINGS.pdf_add_from_files_label|default:"Add From Files" }}
+        </button>
+        {% if DLUX_SCANLINK_ENABLED %}<button type="button" class="btn btn-outline-warning" data-scan-pages>
+            <i class="bi bi-printer me-2"></i>{{ DLUX_STRINGS.pdf_scan_add_pages_label|default:"Scan To Add" }}
+        </button>
+        {% endif %}<button type="button" class="btn btn-success ms-auto" data-save-pdf>
+            <i class="bi bi-check-lg me-2"></i>{{ DLUX_STRINGS.pdf_save_pdf_label|default:"Save PDF" }}
+        </button>
+    </div>
+
+    <div class="alert alert-info mt-3" data-editor-status data-autoclose="false">
+        {{ DLUX_STRINGS.pdf_editor_loading|default:"Loading PDF pages..." }}
+    </div>
+
+    <ul class="dlux-pdf-grid" data-page-grid></ul>
+</div>

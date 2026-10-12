@@ -58,3 +58,8 @@ See [Developer Guide](developer-guide.md), [Project Configuration](project-confi
 - Stable and beta release channels: stable is the default and excludes every prerelease, beta is an explicit per-deployment opt-in, and opting out never downgrades an installed release.
 
 See [Getting Started](getting-started.md), [Composer Agent Integration](composer-agent.md), [Verified Inline Updates](inline-updater.md), and [Deployment Doctor](doctor.md).
+
+
+## Optional PDF toolkit
+
+See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls use the app-owned `dlux.pdf` namespace. The main-line 1.11.0b7 candidate carries the published 1.10.3 toolkit and lifecycle fixes, requires an image rebuild (`>=1.11.0b7`), and introduces no PDF-feature migrations.
