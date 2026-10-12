@@ -72,4 +72,4 @@ Run the registered PDF tests, translation/template/widget policy tests, import-c
 
 Archive must use a published stable provider before its 1.2.0 release. The feature branch's 1.11.0b7 metadata is an unpublished development candidate; it is not an approved Archive dependency or an instruction to publish/promote the framework's beta line.
 
-The maintenance candidate is `1.10.3b1`, based on published `1.10.2`. Publish and accept that beta on the reference stack before preparing stable `1.10.3`; the beta alone does not satisfy Archive's release requirement. CI installs the optional PDF extra so assembly tests execute.
+The maintenance beta `1.10.3b1`, based on published `1.10.2`, was published and accepted on 2026-10-12. Stable `1.10.3` is prepared with the same implementation; the beta alone does not satisfy Archive's release requirement. CI installs the optional PDF extra so assembly tests execute. See [published beta acceptance](pdf-release-acceptance.md) for evidence and limits.

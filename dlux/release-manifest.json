@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.10.3b1",
+  "version": "1.10.3",
   "display": {
     "summary": "Optional PDF viewer and modal page editor for downstream projects.",
     "highlights": [
@@ -8,7 +8,7 @@
       "Administrator PDF tool switches and configurable assembly bounds.",
       "No database migration; existing stable update/backup safeguards retained."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.3b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.10.3"
   },
   "requires": {
     "updater_schema": ">=1",
