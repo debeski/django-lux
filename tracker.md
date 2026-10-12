@@ -4,14 +4,14 @@
 - Main-line feature branch: codex/shared-pdf-editor (unpublished 1.11.0b7 candidate).
 - Maintenance backport: codex/pdf-stable-1103 (unpublished 1.10.3b1 candidate based on published 1.10.2).
 - 2026-10-12 review: beta first required; dependency extra requires image rebuild, no schema migration.
-- Archive 1.2.0 requires a published stable provider; no package/tag/image publication authorized or performed.
+- Archive 1.2.0 requires a published stable provider; user authorized beta publication and reference-stack acceptance on 2026-10-12.
 ## Standards
 - Preserve existing data and files; scope/permissions/storage/history belong to project adapters.
 - Optional tools use the app-owned dlux.pdf Options namespace; local assets avoid CDN dependence.
 - Follow the framework's main AGENTS.md and ecosystem rules; no deletions or feature work on main.
 ## Active tasks
 - [x] Final packaged Archive validation: 49 tests, real browser journeys, schema/static checks PASS; no source overlays.
-- [ ] Publish 1.10.3b1 only when separately authorized; accept published beta on testbed before stable 1.10.3.
+- [ ] Publish authorized 1.10.3b1; accept published beta on testbed before preparing stable 1.10.3.
 - [ ] Archive then rebuilds against published stable; no production deployment authorized.
 - [ ] Decrees adoption remains later work.
 ## Completed recently
