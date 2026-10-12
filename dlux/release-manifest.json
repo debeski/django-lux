@@ -1,14 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b8",
+  "version": "1.11.0",
   "display": {
-    "summary": "Permission visibility filters and a translation audit command.",
+    "summary": "Incremental backups, the PDF toolkit, permission visibility filters and a translation audit.",
     "highlights": [
-      "register_permission_visibility_filter() hides a disabled feature's permissions from the group and user editors and keeps existing grants on save.",
-      "manage.py dlux_translations reports missing, undefined, duplicated and untranslated DLUX_STRINGS keys; --fail for CI, --stub for paste-ready entries.",
-      "Inline install from a 1.11.0b7 or newer image; older images rebuild first. No new migrations or dependencies."
+      "Backups: incremental chains, encryption choice, snapshot-consistent PostgreSQL reads, cancel, and a backup before every update or rollback (manage.py dlux_backup).",
+      "Optional PDF viewer and modal page editor (django-lux[pdf]); Entry Clipboard snippets for entry forms.",
+      "register_permission_visibility_filter() and manage.py dlux_translations for projects.",
+      "Upgrading from 1.10.x needs a project image rebuild (floor 1.11.0b7); additive migrations only."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b8"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0"
   },
   "requires": {
     "updater_schema": ">=1",

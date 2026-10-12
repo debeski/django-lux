@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.11.0
+- **Stable 1.11 Line**: Same implementation as accepted `1.11.0b8` (incremental backups and `dlux_backup` from b1-b6, the PDF toolkit and modal save transport from b7, permission visibility filters and `dlux_translations` from b8). Upgrading from 1.10.x requires a project image rebuild: `requires.baked_image` stays `>=1.11.0b7` for the `pdf` extra's dependency metadata; migrations since 1.10.x are additive. `release/1.10.x` is frozen at 1.10.3.
+- **PostgreSQL Test Isolation**: `test_data_reset` now clears the `_thread_locals.user` it sets, which otherwise stamped later tests' rows with a rolled-back user (deferred FK violations at teardown), and `test_seed` creates and drops its tables per test so the post-test flush can truncate `auth_user`. Test-only; the full suite passes on SQLite and PostgreSQL 17 (2792 each).
+
 ## v1.11.0b8
 
 - **Permission Visibility Filters**: `dlux.access.register_permission_visibility_filter(fn)` (re-exported by `dlux.forms`; importable from `AppConfig.ready()`) lets a project hide permissions from `GroupPresetForm`, `CustomUserCreationForm` and `CustomUserPermissionsForm` while a feature is off (`fn()` returns a `Q` over `Permission`, re-evaluated per form). `keep_hidden_permissions()` merges the hidden permissions a group/user already holds back into the saved set, so disabling a feature never revokes its grants and re-enabling shows them unchanged; only filter-hidden permissions are kept, existing assignable/`manage_scopes` rules are untouched. A failing filter is logged and hides nothing. Tests `dlux.tests.test_permission_visibility`.
