@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **`dlux_translations` Audit Command**: `manage.py dlux_translations` checks project `translations.py` files against code and templates: `missing` (a key one language lacks), `undefined` (looked up via `t()`/`lazy_t()`/`strings.get()`/`get_strings().get()`/`label_key`/`DLUX_STRINGS.key`, resolved through `STRING_ALIASES`, template comments ignored), `models` (`app_`/`model_`/`perm_` keys the permission manager reads, non-English), `duplicates` (repeated dict-literal keys, conflicting apps, DjangoLux overrides), `same` (values left in English) and opt-in `unused`. `--lang`, `--app`, `--check`, `--json`, `--fail` (CI exit 1), `--stub LANG` (paste-ready entries per file) and `--core` (DjangoLux's own catalogue). Fixture app `dlux.tests.translation_audit_app`; tests `dlux.tests.test_translations_command`.
+
 ## v1.11.0b7
 - **Stable PDF Reconciliation**: Carry the published 1.10.3 editor lifecycle fixes, authorization/revision/rollback tests, and JavaScript loading/disposal/late-save regressions into the 1.11 line while retaining its Entry Clipboard modal integration.
 - **PDF Image Installation**: Install the `pdf` extra in CI/release test jobs, forbid inline updates for the new dependency metadata, and declare the candidate image floor `>=1.11.0b7`; existing 1.11 backup migrations remain additive.

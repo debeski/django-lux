@@ -46,6 +46,7 @@ See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed
 - `DluxTable`, filter helpers, sections, dynamic modals, context-menu actions, fetch/export helpers, tutorials, and activity APIs.
 - Dlux-owned inputs, choice selectors, toggles, loading buttons, the **Dlux icon picker** (`dlux/helpers/icon_picker.html`, initialized by `initIconPickers()`), and the adapter-driven **Dlux inspector shell** (`window.DluxInspectorShell.create(...)`).
 - Translation dictionaries, database-backed override entries, language catalogs, and RTL-aware template behavior.
+- `dlux_translations` audit command: missing, undefined, permission-label, duplicate and untranslated keys, with paste-ready stubs and a CI `--fail` mode.
 
 See [Developer Guide](developer-guide.md), [Project Configuration](project-configuration.md), [Translations](translation-guide.md), [UI Integration](ui-integration.md), and [Template Customization](template-customization.md).
 
