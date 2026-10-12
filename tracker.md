@@ -15,7 +15,7 @@
 - [x] Official testbed follow-up: actual published beta web/Celery, 19 PDF tests, deep/browser/backup checks PASS; original rows and 341 files unchanged.
 - [x] Official testbed restored healthy to 1.11.0b6 in web/Celery; final original-row/file fingerprints unchanged.
 - [x] Stable 1.10.3 published: CI3.11–3.13 PASS, seven release assets, all 638 PyPI package files match tag.
-- [ ] Archive then rebuilds against published stable; no production deployment authorized.
+- [x] Archive 1.2.0 and Decrees 2.1.22 released; downloaded images pass 50/37 tests and complete app/provider payload checks. No production deployment.
 - [x] Decrees adapter adoption implemented and committed; Archive integration ready, both require final stable artifact acceptance.
 ## Completed recently
 - [x] Viewer/editor/history UI, bounded assembly, native file widget, administrator controls, and modal save extensions.
