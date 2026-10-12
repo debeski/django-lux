@@ -52,3 +52,7 @@ Stable 1.10.3 carries the beta implementation unchanged. Its wheel implementatio
 Machine-local logs, downloaded artifacts, hashes, browser scripts, and screenshots: `pkg-django-lux/pdf-stable-1103/.xclude/validation/pdf-release-2026-10-12/`; reference-stack logs/snapshots: `testbed-dlux/.xclude/pdf-maintenance-1103b1/`.
 
 The first stable tag failed the baseline-image metadata gate before package build or publication. PyPI and GitHub release endpoints confirmed no publication. On owner authorization, that failed tag was replaced with the corrected stable image floor. The corrected tag-source suite passed 2,710 tests (three expected skips), plus classification and manifest/migration gates. Evidence: `.xclude/validation/stable-tag-repair-2026-10-12/`.
+
+## Stable publication: 1.10.3 (2026-10-12)
+
+[Release workflow 38251382769](https://github.com/debeski/django-lux/actions/runs/38251382769) passed all Python 3.11–3.13 jobs, builds and publication. [GitHub stable release](https://github.com/debeski/django-lux/releases/tag/v1.10.3) contains seven assets. The downloaded PyPI wheel SHA256 is `b4f1d517cc9dfcc0091cb582b07a2f296ebf14af68e37badfeec1f510e2de72f`; all 638 package files match the tag byte-for-byte and the stable image floor is `>=1.10.3`. Downloaded sdist SHA256: `6c5e8fe07556cfe7b60c02b44c9bc908151cc3e0364bac9f30ecff30a2ad50a5`. Evidence: `.xclude/validation/published-stable-2026-10-12/`.

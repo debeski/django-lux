@@ -2,7 +2,7 @@
 ## Current snapshot
 - 2026-10-11: Optional, model-agnostic PDF toolkit implemented; no feature migrations.
 - Main-line feature branch: codex/shared-pdf-editor (unpublished 1.11.0b7 candidate).
-- Maintenance: published/accepted 1.10.3b1 on release/1.10.x; stable 1.10.3 prepared on codex/pdf-stable-1103, unpublished.
+- Maintenance: published/accepted 1.10.3b1 on release/1.10.x; stable 1.10.3 published from release/1.10.x.
 - 2026-10-12 review: beta first required; dependency extra requires image rebuild, no schema migration.
 - User authorized stable provider first, then pinned Archive/Decrees releases after official shared-editor end-to-end acceptance (2026-10-12); production deployment excluded.
 ## Standards
@@ -14,7 +14,7 @@
 - [x] Publish authorized 1.10.3b1 and accept published beta on copied reference stack + isolated Archive consumer.
 - [x] Official testbed follow-up: actual published beta web/Celery, 19 PDF tests, deep/browser/backup checks PASS; original rows and 341 files unchanged.
 - [x] Official testbed restored healthy to 1.11.0b6 in web/Celery; final original-row/file fingerprints unchanged.
-- [ ] Publish authorized stable 1.10.3 after official shared-editor journeys (all three models PASS).
+- [x] Stable 1.10.3 published: CI3.11–3.13 PASS, seven release assets, all 638 PyPI package files match tag.
 - [ ] Archive then rebuilds against published stable; no production deployment authorized.
 - [x] Decrees adapter adoption implemented and committed; Archive integration ready, both require final stable artifact acceptance.
 ## Completed recently
