@@ -12,6 +12,8 @@
 ## Active tasks
 - [x] Final packaged Archive validation: 49 tests, real browser journeys, schema/static checks PASS; no source overlays.
 - [x] Publish authorized 1.10.3b1 and accept published beta on copied reference stack + isolated Archive consumer.
+- [x] Official testbed follow-up: actual published beta web/Celery, 19 PDF tests, deep/browser/backup checks PASS; original rows and 341 files unchanged.
+- [x] Official testbed restored healthy to 1.11.0b6 in web/Celery; final original-row/file fingerprints unchanged.
 - [ ] Publish prepared stable 1.10.3 when authorized.
 - [ ] Archive then rebuilds against published stable; no production deployment authorized.
 - [ ] Decrees adoption remains later work.

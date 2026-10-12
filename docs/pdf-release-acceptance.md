@@ -18,6 +18,19 @@ The existing `testbed-dlux` remains on 1.11.0b6. A separate copy at `testbed-dlu
 - `dlux_backup` completed: 40,304 rows, no error. Options displayed 1.10.3b1 and the collected PDF editor asset was served; desktop/mobile browser checks passed without page errors.
 - The highest beta-channel update remains 1.11.0b6. This acceptance deliberately uses the exact maintenance beta wheel, rather than an unpinned update.
 
+### Official testbed follow-up
+
+The user additionally requested acceptance on the original testbed. On 2026-10-12, `testbed-dlux` itself was switched to the published 1.10.3b1 image using the generated wrapper, after a completed backup and PostgreSQL snapshot. Composer's explicit downgrade override was needed because its existing image was 1.11.0b6.
+
+- Web and Celery both executed 1.10.3b1. All 638 installed package files matched the downloaded PyPI wheel; its SHA256 matched the published artifact.
+- All 18 Composer deep-check results passed, including topology, versions, migration state, static collection, and the in-container doctor. Django system and migration-drift checks passed.
+- Nine Decrees PDF tests and ten toolkit assembly/transport tests passed inside the official web container. Toolkit tests were copied from the beta tag into `/tmp`; the framework package was not overlaid.
+- Options displayed 1.10.3b1, collected PDF assets were served, and desktop/mobile browser checks passed without page errors; the mobile screenshot was inspected.
+- All nine document-table row fingerprints, including 20,100 decrees, and all 341 original media hashes were unchanged while running the beta. Its backup command completed with 40,308 rows and no error.
+- Original image selection was restored after validation. Generated-stack startup returned all services healthy; web and Celery were verified on 1.11.0b6, Django checks passed, and all original document rows and 341 original media files remained unchanged. The additional file is the beta acceptance backup.
+
+Official testbed evidence: `testbed-dlux/.xclude/pdf-official-testbed-2026-10-12/` (snapshots, backups, runtime/browser/test logs and screenshots).
+
 ## Archive consumer
 
 An isolated copy of the existing Archive validation database/media runs an application image with the published beta wheel on port 8124. This is beta compatibility acceptance, not an Archive release artifact.
