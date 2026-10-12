@@ -70,6 +70,9 @@ Generated app scaffold baseline:
 | `python manage.py dlux_doctor` | Run the deployment doctor: settings wiring, URLs, database, migrations, cache, SMTP, static files, and production-safety checks. Exits 1 when any check fails. |
 | `python manage.py dlux_doctor --format json` | Emit the machine-readable report Composer consumes. |
 | `python manage.py dlux_backup [--scope data\|full] [--trigger update\|manual\|scheduled] [--requested-by NAME]` | Take a system backup in the foreground (server key, system data included) and print one JSON line: `ok`, `token`, `status`, `trigger`, `scope`, `rows`, `files`, `size`, `path`, `error`. Exits non-zero unless it completed, and never leaves an automatic retry armed. Composer runs it before an operator's `dlux update`/`dlux rollback`. |
+| `python manage.py dlux_translations` | Audit translation strings: keys missing from a language, looked up but undefined, permission/model labels, duplicates, and values left in English. See [Translations](translation-guide.md#auditing-strings). |
+| `python manage.py dlux_translations --lang ar --stub ar` | Print every Arabic gap as paste-ready entries grouped by `translations.py`. |
+| `python manage.py dlux_translations --fail [--check …] [--app LABEL] [--json] [--core]` | Exit 1 on failing gaps (CI); limit checks or apps, emit JSON, or audit DjangoLux's own catalogue. |
 | `python manage.py dlux_doctor --group security` | Limit to one group (`settings`, `urls`, `database`, `services`, `static`, `security`, `packages`); repeatable. |
 | `python manage.py dlux_doctor --strict` | Exit 1 on warnings as well as errors. |
 | `python manage.py dlux_doctor --apply` | Apply the safe fixes for failing checks (for example `collectstatic`). |

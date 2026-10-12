@@ -25,6 +25,21 @@ Language catalogs define the display name, direction, and optional flag. A langu
 
 Model, section, route, and permission labels resolve through the same catalog. Provide project keys for custom models and actions rather than hard-coding English in a template or view. Per-language sidebar/Navbar labels are optional overrides: a blank value falls back to the discovered translated route name.
 
+## Auditing strings
+
+`python manage.py dlux_translations` compares every project app's `translations.py` with the code that reads it and prints one section per check:
+
+| Check | Finds |
+| --- | --- |
+| `missing` | A key one language of a `translations.py` defines and another lacks. |
+| `undefined` | A key looked up in code (`t()`, `lazy_t()`, `strings.get()`, `get_strings().get()`, `label_key`) or templates (`DLUX_STRINGS.key`, `{# comments #}` ignored) that no language defines, after following `STRING_ALIASES`. The template `|default:` text is shown: that is what a user currently sees. |
+| `models` | `app_<label>`, `model_<model>` and `perm_<codename>` keys the permission manager and model labels read, for every non-English language (English falls back to verbose names). |
+| `duplicates` | A key written twice in one dict literal (Python keeps the second silently), two apps defining one key differently (the app loaded last wins), and keys overriding a DjangoLux string (reported, never failing). |
+| `same` | A non-English value identical to English, i.e. probably never translated. |
+| `unused` | Opt-in (`--check unused`): keys with no reference, ignoring DjangoLux naming conventions, f-string prefixes and `<namespace>_<url name>` route keys. Heuristic; review before removing. |
+
+Options: `--lang ar` limits to one language, `--app catalog` to one app, `--check` to some checks, `--json` for tooling, `--fail` exits 1 when `missing`, `undefined`, `models` or `duplicates` finds anything (CI). `--stub ar` prints every Arabic gap as paste-ready `"key": "English draft",  # TODO translate` lines grouped by the file they belong in. `--core` runs the same checks on DjangoLux's own `translations/strings/*.py` and package code.
+
 ## Verification
 
-Check an English and an Arabic request after adding strings. Verify that controls with directional meaning mirror correctly, especially navigation arrows, action rails, table pagination, and titlebar/sidebars. See [Developer Guide](developer-guide.md#translation-and-scope-behavior) for the runtime resolver and [Template Customization](template-customization.md) for direction-safe template patterns.
+Run `python manage.py dlux_translations --lang <code>`, then check an English and an Arabic request after adding strings. Verify that controls with directional meaning mirror correctly, especially navigation arrows, action rails, table pagination, and titlebar/sidebars. See [Developer Guide](developer-guide.md#translation-and-scope-behavior) for the runtime resolver and [Template Customization](template-customization.md) for direction-safe template patterns.

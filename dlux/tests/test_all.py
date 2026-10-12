@@ -111,6 +111,7 @@ TEST_LABELS = [
     'dlux.tests.test_titlebar_action_rail',
     'dlux.tests.test_transaction_safety',
     'dlux.tests.test_translation_coverage',
+    'dlux.tests.test_translations_command',
     'dlux.tests.test_unsaved_guard',
     'dlux.tests.test_updater',
     'dlux.tests.test_utils',
