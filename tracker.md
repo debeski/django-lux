@@ -19,12 +19,13 @@
 - [x] Decrees adapter adoption implemented and committed; Archive integration ready, both require final stable artifact acceptance.
 ## Completed recently
 - [x] Viewer/editor/history UI, bounded assembly, native file widget, administrator controls, and modal save extensions.
-- [x] 2026-10-12 maintenance full suite: 2710 tests OK (2 skips); final release/PDF focused 69 OK; JS 66 OK.
+- [x] 2026-10-12 maintenance full suite: 2710 tests OK (3 skips; corrected stable floor); final release/PDF focused 69 OK; JS 66 OK.
 - [x] Added adapter authentication/permission/revision/rollback tests and editor disposal/loading/late-save regression tests.
 - [x] Release classification + migration gate, no schema drift, import graph and final wheel/sdist checks PASS.
 - [x] Published beta: reference stack healthy; 19 Decrees/49 Archive tests; backup + desktop/mobile browsers PASS; original rows/files unchanged.
 - [x] Stable wheel implementation/dependencies identical to published beta; stable release gates, build/twine, and final 69 PDF/release tests PASS.
 - [x] 1.10.3 wheel/assets verified; final namespaced PDF translations pass 181 focused tests.
+- [x] Owner authorized replacing failed, unpublished stable tag; corrected image floor >=1.10.3 passes full suite.
 ## Validation and docs
 - Final logs/artifacts: .xclude/validation/pdf-release-2026-10-12/; prior Archive acceptance: project-archive/main/.xclude/validation/1.2.0/.
 - Docs: docs/pdf-release-acceptance.md records published artifacts, restored-copy acceptance, and three missing historical fixture files; topic/reference/features current.

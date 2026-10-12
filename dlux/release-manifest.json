@@ -12,7 +12,7 @@
   },
   "requires": {
     "updater_schema": ">=1",
-    "baked_image": ">=1.10.3b1",
+    "baked_image": ">=1.10.3",
     "services": {
       "composer": ">=1.5.3b1"
     },
