@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.0b8
 
 - **Permission Visibility Filters**: `dlux.access.register_permission_visibility_filter(fn)` (re-exported by `dlux.forms`; importable from `AppConfig.ready()`) lets a project hide permissions from `GroupPresetForm`, `CustomUserCreationForm` and `CustomUserPermissionsForm` while a feature is off (`fn()` returns a `Q` over `Permission`, re-evaluated per form). `keep_hidden_permissions()` merges the hidden permissions a group/user already holds back into the saved set, so disabling a feature never revokes its grants and re-enabling shows them unchanged; only filter-hidden permissions are kept, existing assignable/`manage_scopes` rules are untouched. A failing filter is logged and hides nothing. Tests `dlux.tests.test_permission_visibility`.
 - **`dlux_translations` Audit Command**: `manage.py dlux_translations` checks project `translations.py` files against code and templates: `missing` (a key one language lacks), `undefined` (looked up via `t()`/`lazy_t()`/`strings.get()`/`get_strings().get()`/`label_key`/`DLUX_STRINGS.key`, resolved through `STRING_ALIASES`, template comments ignored), `models` (`app_`/`model_`/`perm_` keys the permission manager reads, non-English), `duplicates` (repeated dict-literal keys, conflicting apps, DjangoLux overrides), `same` (values left in English) and opt-in `unused`. `--lang`, `--app`, `--check`, `--json`, `--fail` (CI exit 1), `--stub LANG` (paste-ready entries per file) and `--core` (DjangoLux's own catalogue). Fixture app `dlux.tests.translation_audit_app`; tests `dlux.tests.test_translations_command`.

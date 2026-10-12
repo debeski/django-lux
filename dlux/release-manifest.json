@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.11.0b7",
+  "version": "1.11.0b8",
   "display": {
-    "summary": "Optional, model-agnostic PDF viewer and modal editor toolkit.",
+    "summary": "Permission visibility filters and a translation audit command.",
     "highlights": [
-      "Projects supply permissions, source lookup, revision, and persistence through a PDF adapter.",
-      "PDF page editing/history controls use app-owned Options settings; assets are bundled for offline use.",
-      "Optional django-lux[pdf] supplies bounded pypdf assembly; rebuild the image to install the extra. No PDF feature migrations."
+      "register_permission_visibility_filter() hides a disabled feature's permissions from the group and user editors and keeps existing grants on save.",
+      "manage.py dlux_translations reports missing, undefined, duplicated and untranslated DLUX_STRINGS keys; --fail for CI, --stub for paste-ready entries.",
+      "Inline install from a 1.11.0b7 or newer image; older images rebuild first. No new migrations or dependencies."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b7"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0b8"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -24,7 +24,7 @@
     "downtime": "none"
   },
   "install": {
-    "inline": "forbidden"
+    "inline": "allowed"
   },
   "rollback": {
     "supported": true
