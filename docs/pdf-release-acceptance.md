@@ -31,6 +31,10 @@ The user additionally requested acceptance on the original testbed. On 2026-10-1
 
 Official testbed evidence: `testbed-dlux/.xclude/pdf-official-testbed-2026-10-12/` (snapshots, backups, runtime/browser/test logs and screenshots).
 
+### Shared editor end-to-end before stable promotion
+
+On 2026-10-12 the official testbed was additionally wired to the new Decrees adapter and shared templates, using the downloaded published beta wheel. All three document models passed real browser journeys: shared preview, editor → history → editor, page removal/save, unchanged old-history downloads, exact preservation of the prior active PDF, bookmarked modal entry, registered Options, desktop/mobile layout, and zero page errors. All original document-row fingerprints and 344 original media files remained unchanged; fixture records were added separately. Evidence: `testbed-dlux/.xclude/pdf-editor-e2e-2026-10-12/`. The user authorized stable DjangoLux publication followed by stable-pinned Archive and Decrees releases after these checks.
+
 ## Archive consumer
 
 An isolated copy of the existing Archive validation database/media runs an application image with the published beta wheel on port 8124. This is beta compatibility acceptance, not an Archive release artifact.
@@ -43,6 +47,6 @@ An isolated copy of the existing Archive validation database/media runs an appli
 
 ## Stable preparation and remaining work
 
-Stable 1.10.3 carries the beta implementation unchanged. Its wheel implementation/assets/dependency metadata match the published beta byte-for-byte; only version and release URL differ. Stable classification, manifest/migration gates, wheel/sdist checks, and 69 final PDF/release tests pass. Publication requires authorization. After publication, Archive must rebuild against the stable PyPI artifact and verify equivalence before its 1.2.0 release. Production deployment remains outside this acceptance. Physical scanner testing and production backup/restored-copy rehearsal remain operator work. Decrees shared-toolkit adoption is a separate adapter task and retains its current history/storage contract.
+Stable 1.10.3 carries the beta implementation unchanged. Its wheel implementation/assets/dependency metadata match the published beta byte-for-byte; only version and release URL differ. Stable classification, manifest/migration gates, wheel/sdist checks, and 69 final PDF/release tests pass. Publication and the subsequent consumer releases were authorized on 2026-10-12. After publication, both projects must rebuild against the stable PyPI artifact and verify equivalence before release. Production deployment remains outside this acceptance. Physical scanner testing and production backup/restored-copy rehearsal remain operator work. Decrees shared-toolkit adoption retains its current history/storage contract.
 
 Machine-local logs, downloaded artifacts, hashes, browser scripts, and screenshots: `pkg-django-lux/pdf-stable-1103/.xclude/validation/pdf-release-2026-10-12/`; reference-stack logs/snapshots: `testbed-dlux/.xclude/pdf-maintenance-1103b1/`.

@@ -8,6 +8,7 @@ This file owns the release history for `django-lux`.
 
 
 ## v1.10.3
+- **Shared Editor Testbed Journey**: Wired Decrees' adapter into the official testbed on published `1.10.3b1`; all three models passed preview/edit/history Back, real page saves, exact prior-file downloads, and desktop/mobile checks before stable promotion.
 - **Stable PDF Toolkit**: Same implementation and dependency metadata as published and accepted `1.10.3b1`; optional `dlux.pdf` viewer/editor/history, bounded assembly, and Settings/Options controls. Requires an image rebuild; introduces no schema migration or data backfill.
 - **Published Beta Acceptance**: PyPI wheel matched its tag; Python 3.11–3.13 release gates, copied reference stack, Archive preservation/download/edit journeys, and desktop/mobile visual review passed. See `docs/pdf-release-acceptance.md` for evidence and fixture limits.
 - **Official Testbed Acceptance**: Published `1.10.3b1` additionally passed on the original testbed: web/Celery payload verification, 19 PDF tests, deep checks, desktop/mobile Options, backup, and unchanged document/media fingerprints.

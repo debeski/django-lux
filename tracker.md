@@ -4,7 +4,7 @@
 - Main-line feature branch: codex/shared-pdf-editor (unpublished 1.11.0b7 candidate).
 - Maintenance: published/accepted 1.10.3b1 on release/1.10.x; stable 1.10.3 prepared on codex/pdf-stable-1103, unpublished.
 - 2026-10-12 review: beta first required; dependency extra requires image rebuild, no schema migration.
-- Archive 1.2.0 requires a published stable provider; user authorized beta publication and reference-stack acceptance on 2026-10-12.
+- User authorized stable provider first, then pinned Archive/Decrees releases after official shared-editor end-to-end acceptance (2026-10-12); production deployment excluded.
 ## Standards
 - Preserve existing data and files; scope/permissions/storage/history belong to project adapters.
 - Optional tools use the app-owned dlux.pdf Options namespace; local assets avoid CDN dependence.
@@ -14,9 +14,9 @@
 - [x] Publish authorized 1.10.3b1 and accept published beta on copied reference stack + isolated Archive consumer.
 - [x] Official testbed follow-up: actual published beta web/Celery, 19 PDF tests, deep/browser/backup checks PASS; original rows and 341 files unchanged.
 - [x] Official testbed restored healthy to 1.11.0b6 in web/Celery; final original-row/file fingerprints unchanged.
-- [ ] Publish prepared stable 1.10.3 when authorized.
+- [ ] Publish authorized stable 1.10.3 after official shared-editor journeys (all three models PASS).
 - [ ] Archive then rebuilds against published stable; no production deployment authorized.
-- [ ] Decrees adoption remains later work.
+- [x] Decrees adapter adoption implemented and committed; Archive integration ready, both require final stable artifact acceptance.
 ## Completed recently
 - [x] Viewer/editor/history UI, bounded assembly, native file widget, administrator controls, and modal save extensions.
 - [x] 2026-10-12 maintenance full suite: 2710 tests OK (2 skips); final release/PDF focused 69 OK; JS 66 OK.
