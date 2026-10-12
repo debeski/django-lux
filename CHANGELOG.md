@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.11.0b7
+- **Stable PDF Reconciliation**: Carry the published 1.10.3 editor lifecycle fixes, authorization/revision/rollback tests, and JavaScript loading/disposal/late-save regressions into the 1.11 line while retaining its Entry Clipboard modal integration.
+- **PDF Image Installation**: Install the `pdf` extra in CI/release test jobs, forbid inline updates for the new dependency metadata, and declare the candidate image floor `>=1.11.0b7`; existing 1.11 backup migrations remain additive.
+- **Optional PDF Toolkit**: Added `dlux.pdf`, bounded assembly through the `pdf` extra, project-supplied editor adapters, reusable viewer/editor/history templates, and bundled PDF.js assets with evaluation disabled.
+- **PDF Options**: Added optional registration for `dlux.pdf` editing/history switches and configurable page/source limits without model migrations.
+- **Modal Save Transport**: Added explicit `close_modal` and `add_more_url` response support and ignored stale submission replies after modal navigation.
+
 ## v1.11.0b6
 
 - **`dlux_backup` Management Command**: `manage.py dlux_backup [--scope data|full] [--trigger update|manual|scheduled] [--requested-by NAME]` takes a system backup in the foreground and prints one JSON line (`ok`, `token`, `status`, `rows`, `files`, `size`, `path`, `error`); it exits non-zero unless the backup completed and cancels any automatic retry the failure armed. Composer runs it before an operator's `composer dlux update` / `dlux rollback`, which bypass DjangoLux's own update path and so ran without a snapshot (`testbed_break_scenarios.md` S4).

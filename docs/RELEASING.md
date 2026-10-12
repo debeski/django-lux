@@ -129,15 +129,15 @@ versions strictly *above* the installed one, so a deployment on `1.9.0b2` that
 leaves the beta channel simply waits for `1.9.0`. Going back to an older release
 is the explicit rollback path, with its own database and image-floor checks.
 
-### A new minor or major must be a beta first
+### Every stable release must be a beta first
 
-`classify` refuses a stable `vX.Y.0` tag unless a beta or release candidate of
+`classify` refuses a stable tag unless a beta or release candidate of
 that exact version is both in the tagged commit's history **and** on PyPI with a
 file that is not yanked. `v1.9.0` cannot publish until `v1.9.0b1` (or `rc1`)
 has, and a beta tag whose release job failed before upload does not count.
 
-Patch releases (`v1.9.1`) are not gated — a hotfix should not wait for a beta
-cycle. If PyPI cannot be reached, the tag is refused; re-run the job once it is.
+Patch releases are gated too. If PyPI cannot be reached, the tag is refused;
+re-run the job once it is.
 
 This proves a beta was *published*. It does not prove the beta passed
 acceptance; that stronger gate is still to come.
@@ -348,8 +348,11 @@ API value after cryptographic attestation verification.
   version, and a tag is immutable. So any change after a release = a new version.
   (This replaces the old "check `dist/` before editing the changelog" workaround
   — the tooling now enforces it.)
-- **Tag from `main` only**, after CI is green. `git checkout vX.Y.Z` will always
-  show exactly what shipped.
+- **Tag from the integration branch only**, after its implementation, docs,
+  and tests pass. Use `main` for the active line or `release/1.10.x` for a
+  maintenance release based on the published 1.10 line; merge the isolated
+  feature there before tagging. Never include unrelated beta-line changes in
+  a maintenance release. `git show vX.Y.Z` shows exactly what shipped.
 - **If a release run fails before PyPI upload**, fix forward: bump to the next
   patch and re-tag. Don't try to reuse a tag.
 
