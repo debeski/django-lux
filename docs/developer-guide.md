@@ -525,6 +525,23 @@ The user side of DjangoLux has a few important defaults:
 
 If you extend user-facing workflows, treat `Profile` as part of the normal user contract rather than an optional extra.
 
+### Hiding permissions of a disabled feature
+
+An optional feature can keep its permission cards out of the group and user permission editors while it is switched off. Register a filter in `AppConfig.ready()`; it runs every time a permission form is built and returns a `Q` over `Permission` (or `None` to hide nothing):
+
+```python
+from django.db.models import Q
+from dlux.access import register_permission_visibility_filter
+
+def hide_pos_permissions():
+    from .pos_settings import pos_enabled
+    return None if pos_enabled() else Q(content_type__app_label='sales', codename__in=['use_pos', 'pos_unlimited_discount'])
+
+register_permission_visibility_filter(hide_pos_permissions)
+```
+
+Hiding is display-only. Saving a group or user keeps every hidden permission it already holds (`keep_hidden_permissions()`), so turning the feature back on shows the original grants unchanged, and `has_perm()` is never affected. Filters that raise are logged and hide nothing; registering the same callable twice is a no-op. `hidden_permission_ids()` returns what is hidden right now.
+
 ## Translation and Scope Behavior
 
 Two recent themes in DjangoLux are worth treating as first-class features, not side effects:

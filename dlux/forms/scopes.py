@@ -19,7 +19,10 @@ from ..utils import (
 from ..widgets import DluxMultipleChoiceSelectorWidget
 
 from .builders import _bind_choice_selector_widget, _build_submit_only_actions, _landing_page_choices
-from .permissions import GroupedPermissionWidget, _apply_assignable_permission_filter, get_assignable_permissions_queryset
+from .permissions import (
+    GroupedPermissionWidget, _apply_assignable_permission_filter, get_assignable_permissions_queryset,
+    keep_hidden_permissions,
+)
 
 
 class ScopeForm(forms.ModelForm):
@@ -179,7 +182,9 @@ class GroupPresetForm(forms.ModelForm):
         group = super().save(commit=False)
         if commit:
             group.save()
-            group.permissions.set(self.cleaned_data.get('permissions') or [])
+            group.permissions.set(keep_hidden_permissions(
+                self, group.permissions.all(), self.cleaned_data.get('permissions') or [],
+            ))
             GroupProfile = apps.get_model('dlux', 'GroupProfile')
             actor = self.user_context if getattr(self.user_context, 'pk', None) else None
             profile, _created = GroupProfile.objects.get_or_create(

@@ -65,6 +65,7 @@ TEST_LABELS = [
     'dlux.tests.test_package_handoff',
     'dlux.tests.test_password_reset',
     'dlux.tests.test_permissions_ui',
+    'dlux.tests.test_permission_visibility',
     'dlux.tests.test_prune_assets',
     'dlux.tests.test_registration',
     'dlux.tests.test_render_cost',

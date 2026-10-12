@@ -80,3 +80,56 @@ def apply_modal_queryset_filters(queryset, user):
         if narrowed is not None:
             queryset = narrowed
     return queryset
+
+
+_PERMISSION_VISIBILITY_FILTERS = []
+
+
+def register_permission_visibility_filter(filter_fn):
+    """Hide permissions from the group/user permission editors while a feature is off.
+
+    ``filter_fn()`` runs each time a permission form is built and returns a ``Q`` over
+    ``Permission`` naming what to hide (``None`` hides nothing). Hiding is display-only:
+    the forms keep every hidden permission a group or user already holds on save, so
+    turning the feature back on restores them unchanged. Registering the same callable
+    twice is a no-op, and like the modal filters this module imports nothing, so it is
+    safe to call from ``AppConfig.ready()``.
+    """
+    if not callable(filter_fn):
+        raise ValueError('dlux.access: a permission visibility filter must be callable')
+    if filter_fn not in _PERMISSION_VISIBILITY_FILTERS:
+        _PERMISSION_VISIBILITY_FILTERS.append(filter_fn)
+    return filter_fn
+
+
+def unregister_permission_visibility_filter(filter_fn):
+    """Remove a registered filter (mainly for tests)."""
+    try:
+        _PERMISSION_VISIBILITY_FILTERS.remove(filter_fn)
+    except ValueError:
+        pass
+
+
+def hidden_permission_ids():
+    """Ids of the permissions the registered visibility filters hide right now."""
+    if not _PERMISSION_VISIBILITY_FILTERS:
+        return set()
+    import logging
+
+    from django.contrib.auth.models import Permission
+    from django.db.models import Q
+
+    logger = logging.getLogger('dlux')
+    hidden = Q(pk__in=[])
+    for filter_fn in tuple(_PERMISSION_VISIBILITY_FILTERS):
+        try:
+            condition = filter_fn()
+        except Exception:
+            logger.exception(
+                'dlux.access: permission visibility filter %r raised; hiding nothing for it.',
+                getattr(filter_fn, '__name__', filter_fn),
+            )
+            continue
+        if condition is not None:
+            hidden |= condition
+    return set(Permission.objects.filter(hidden).values_list('id', flat=True))

@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Permission Visibility Filters**: `dlux.access.register_permission_visibility_filter(fn)` (re-exported by `dlux.forms`; importable from `AppConfig.ready()`) lets a project hide permissions from `GroupPresetForm`, `CustomUserCreationForm` and `CustomUserPermissionsForm` while a feature is off (`fn()` returns a `Q` over `Permission`, re-evaluated per form). `keep_hidden_permissions()` merges the hidden permissions a group/user already holds back into the saved set, so disabling a feature never revokes its grants and re-enabling shows them unchanged; only filter-hidden permissions are kept, existing assignable/`manage_scopes` rules are untouched. A failing filter is logged and hides nothing. Tests `dlux.tests.test_permission_visibility`.
+
 ## v1.11.0b7
 - **Stable PDF Reconciliation**: Carry the published 1.10.3 editor lifecycle fixes, authorization/revision/rollback tests, and JavaScript loading/disposal/late-save regressions into the 1.11 line while retaining its Entry Clipboard modal integration.
 - **PDF Image Installation**: Install the `pdf` extra in CI/release test jobs, forbid inline updates for the new dependency metadata, and declare the candidate image floor `>=1.11.0b7`; existing 1.11 backup migrations remain additive.

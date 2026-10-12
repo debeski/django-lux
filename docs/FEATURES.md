@@ -34,6 +34,7 @@ See [System Configuration](system-configuration.md) and [Deployment Configuratio
 
 - Local authentication with password policy, lockout, email/TOTP 2FA, trusted devices, session controls, password reset, and optional public registration.
 - Centralized client-IP resolution, privacy/consent presentation, audit logging, scope-aware permissions, and POST-only security mutations.
+- Permission visibility filters: optional features hide their permissions from the group/user editors while disabled, and saves keep the existing grants.
 - Users, staff tiers, groups/presets, scopes, activity logs, printable/XLSX reports, full/data-only/portable and incremental (chained) backups (server-key, passphrase or unencrypted; snapshot-consistent on PostgreSQL; cancellable, with a live details console and time estimates), restore controls, and the offline DLB viewer.
 - Managed images, WOFF2 fonts, protected installer assets, and opt-in ScanLink releases.
 

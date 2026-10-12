@@ -6,6 +6,11 @@ from django.db.models import Q
 from django.apps import apps
 from django.forms.widgets import ChoiceWidget
 from django.template.loader import render_to_string
+from ..access import (  # noqa: F401  re-exported for dlux.forms
+    hidden_permission_ids,
+    register_permission_visibility_filter,
+    unregister_permission_visibility_filter,
+)
 from ..translations import get_strings
 
 
@@ -72,6 +77,25 @@ def get_assignable_permissions_queryset():
     )
 
 
+def _apply_permission_visibility(form):
+    hidden_ids = hidden_permission_ids()
+    form._dlux_hidden_permission_ids = hidden_ids
+    if not hidden_ids:
+        return
+    field = form.fields['permissions']
+    field.queryset = field.queryset.exclude(id__in=hidden_ids)
+    field.widget._filtered_queryset = field.queryset
+
+
+def keep_hidden_permissions(form, current, submitted):
+    """``submitted`` plus the ``current`` permissions the form hid, so a save never drops them."""
+    hidden_ids = getattr(form, '_dlux_hidden_permission_ids', set())
+    permissions = list(submitted)
+    chosen = {permission.pk for permission in permissions}
+    permissions += [p for p in current if p.pk in hidden_ids and p.pk not in chosen]
+    return permissions
+
+
 def _get_assignable_permission_ids_for_user(user):
     if not user or getattr(user, 'is_superuser', False):
         return None
@@ -90,6 +114,7 @@ def _get_assignable_permission_ids_for_user(user):
 
 
 def _apply_assignable_permission_filter(form, user):
+    _apply_permission_visibility(form)
     if not user or getattr(user, 'is_superuser', False):
         return
     permission_ids = _get_assignable_permission_ids_for_user(user)

@@ -24,7 +24,10 @@ from ..widgets import DluxMultipleChoiceSelectorWidget
 from ._shared import User, _json_dump
 from .auth import _apply_autocomplete_attrs
 from .builders import _bind_choice_selector_widget, _build_file_widget, _landing_page_choices, _build_submit_actions, _build_wizard_actions, build_file_field
-from .permissions import GroupedPermissionWidget, _apply_assignable_permission_filter, _extract_permission_codenames, get_assignable_permissions_queryset
+from .permissions import (
+    GroupedPermissionWidget, _apply_assignable_permission_filter, _extract_permission_codenames,
+    get_assignable_permissions_queryset, keep_hidden_permissions,
+)
 
 
 class ProfileImageWidget(forms.ClearableFileInput):
@@ -457,7 +460,7 @@ class CustomUserCreationForm(UserCreationForm):
                 except Permission.DoesNotExist:
                     pass
             
-            user.user_permissions.set(permissions)
+            user.user_permissions.set(keep_hidden_permissions(self, user.user_permissions.all(), permissions))
             
             # Save Profile fields
             Profile = apps.get_model('dlux', 'Profile')
@@ -763,7 +766,7 @@ class CustomUserPermissionsForm(UserChangeForm):
                 except Permission.DoesNotExist:
                     pass
 
-            user.user_permissions.set(permissions)
+            user.user_permissions.set(keep_hidden_permissions(self, user.user_permissions.all(), permissions))
 
             # Sync any selected permission presets (live group membership + audit).
             if 'groups' in self.fields:
