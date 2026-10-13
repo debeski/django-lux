@@ -38,7 +38,43 @@ def _is_scope_enabled():
     except (LookupError, Exception):
         return False
 
-class ScopedManager(models.Manager):
+class ScopedQuerySet(models.QuerySet):
+    """Bulk operations for ``ScopedModel`` rows.
+
+    ``delete()`` soft-deletes, like ``ScopedModel.delete()`` does for one row, so
+    the Django admin's "delete selected" and any ``filter(...).delete()`` keep
+    the rows (and the history pointing at them) recoverable. Rows already in the
+    recycle bin keep their original ``deleted_at``/``deleted_by``.
+    ``hard_delete()`` is the explicit escape hatch for maintenance paths that
+    must really remove rows (log pruning, Reset data's permanent mode).
+    """
+
+    def delete(self):
+        from django.utils import timezone
+
+        user = get_current_user()
+        actor = user if user is not None and getattr(user, 'is_authenticated', False) else None
+        live = self.filter(deleted_at__isnull=True)
+        count = live.update(deleted_at=timezone.now(), deleted_by=actor)
+        return count, {self.model._meta.label: count}
+
+    delete.alters_data = True
+    delete.queryset_only = True
+
+    def hard_delete(self):
+        return super().delete()
+
+    hard_delete.alters_data = True
+    hard_delete.queryset_only = True
+
+    def restore(self):
+        return self.update(deleted_at=None, deleted_by=None)
+
+    restore.alters_data = True
+    restore.queryset_only = True
+
+
+class ScopedManager(models.Manager.from_queryset(ScopedQuerySet)):
     """
     A manager that automatically filters queries by the current user's scope.
     Automatically excludes soft-deleted records (deleted_at is built into ScopedModel).

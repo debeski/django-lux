@@ -1193,7 +1193,7 @@ def data_reset_execute_view(request):
 
     results = execute_reset(request.user, selected, delete_media=delete_media, mode=mode)
     total_deleted = sum(int(r.get('deleted') or 0) for r in results)
-    soft = sum(int(r.get('deleted') or 0) for r in results if r.get('scoped'))
+    soft = sum(int(r.get('soft_count') or 0) for r in results)
     hard = total_deleted - soft
     blocked = [r for r in results if r.get('status') in ('protected', 'error')]
 
@@ -1201,7 +1201,9 @@ def data_reset_execute_view(request):
         'data_reset_success',
         'Data reset complete: {total} row(s) cleared ({soft} soft-deleted, {hard} permanently).',
     )
-    if mode == RESET_MODE_PERMANENT:
+    # Users with history are soft-deleted even in permanent mode, so only claim
+    # "permanently" when nothing was kept recoverable.
+    if mode == RESET_MODE_PERMANENT and not soft:
         message_template = strings.get(
             'data_reset_success_permanent',
             'Data reset complete: {total} row(s) permanently deleted.',

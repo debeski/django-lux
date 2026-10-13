@@ -2,7 +2,7 @@
 
 - ``user`` and ``system`` categories are pruned when their section ``retention_days`` > 0.
 - ``audit`` is privileged: it is pruned ONLY when ``audit.retention_days`` > 0 (the
-  app-level immutability guard is intentionally bypassed here via a bulk delete, because the
+  app-level immutability guard is intentionally bypassed here via a bulk ``hard_delete()``, because the
   operator explicitly configured an audit retention window).
 
 Usage:
@@ -55,7 +55,8 @@ class Command(BaseCommand):
                 f"(before {cutoff.isoformat()})"
             )
             if count and not dry_run:
-                qs.delete()
+                # Pruning really frees the rows; ScopedQuerySet.delete() would only soft-delete them.
+                qs.hard_delete()
 
         prefix = "[dry-run] " if dry_run else ""
         self.stdout.write(self.style.SUCCESS(f"{prefix}Activity-log prune complete: {total} row(s)."))

@@ -37,6 +37,7 @@ TEST_LABELS = [
     'dlux.tests.test_custom_languages',
     'dlux.tests.test_custom_themes',
     'dlux.tests.test_data_reset',
+    'dlux.tests.test_deletion_protection',
     'dlux.tests.test_defaults_and_urls',
     'dlux.tests.test_dependent_settings',
     'dlux.tests.test_deployment_config_docs',

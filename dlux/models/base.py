@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from ..system.constants import TABLE_DENSITY_VALUES
-from ..managers import ScopedManager
+from ..managers import ScopedManager, ScopedQuerySet
 
 from ._shared import logger
 
@@ -323,7 +323,7 @@ class ScopedModel(models.Model):
     )
 
     objects = ScopedManager()
-    all_objects = models.Manager()
+    all_objects = ScopedQuerySet.as_manager()
 
     class Meta:
         abstract = True

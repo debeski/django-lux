@@ -468,7 +468,7 @@ class GeneralViewsTests(TestCase):
             is_staff=True,
         )
         Profile = apps.get_model('dlux', 'Profile')
-        Profile.all_objects.filter(user=staff_without_profile).delete()
+        Profile.all_objects.filter(user=staff_without_profile).hard_delete()
 
         self.client.logout()
         self.client.login(username='missingprofile', password='missingpass123')
