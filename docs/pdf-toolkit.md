@@ -13,14 +13,14 @@ Include assets once in the project base-page extension:
 {% include_once 'dlux/pdf/assets.html' %}
 ```
 
-Register the optional settings tile from the consuming app's `dlux_options.py`:
+Turn on the administrator controls from the consuming app's `dlux_options.py`; they appear in **System Settings → Extra Features** under **PDF tools**, beside the Entry clipboard (since 1.11.1; earlier releases drew a separate Options tile):
 
 ```python
 from dlux.pdf import register_pdf_options
 register_pdf_options()
 ```
 
-`get_pdf_features()` reads the app-owned `dlux.pdf` namespace. Editing and history viewing default on; selected pages default to 500 and combined source bytes to 100 MiB. Administrators may configure 1–5,000 pages and 1–500 MiB. The limits include existing PDF sources, independently of proxy/request size limits. Disabling tools preserves project data; projects must continue their own required file preservation.
+The controls are page editing, file history, maximum pages and maximum combined size; a project that never calls `register_pdf_options()` sees none of them. They are stored where they always were, `extra_config['app']['dlux.pdf']`, so upgrading keeps existing values, and only an Extra Features save writes them. `get_pdf_features()` reads that namespace. Editing and history viewing default on; selected pages default to 500 and combined source bytes to 100 MiB. Administrators may configure 1–5,000 pages and 1–500 MiB. The limits include existing PDF sources, independently of proxy/request size limits. Disabling tools preserves project data; projects must continue their own required file preservation.
 
 ## Editor adapter
 

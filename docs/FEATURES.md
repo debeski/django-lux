@@ -64,4 +64,4 @@ See [Getting Started](getting-started.md), [Composer Agent Integration](composer
 
 ## Optional PDF toolkit
 
-See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls use the app-owned `dlux.pdf` namespace. The main-line 1.11.0b7 candidate carries the published 1.10.3 toolkit and lifecycle fixes, requires an image rebuild (`>=1.11.0b7`), and introduces no PDF-feature migrations.
+See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.

@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **PDF Tools In Extra Features**: `register_pdf_options()` no longer registers a separate `dlux.pdf` Options tile; it enables a **PDF tools** section in System Settings → Extra Features (page editing, file history, maximum pages 1-5,000, maximum combined size 1-500 MB) through new `SystemSettingsForm` fields `pdf_editing_enabled`, `pdf_history_enabled`, `pdf_max_pages`, `pdf_max_source_mb`, plus `dlux.pdf.pdf_tools_registered()`. Values stay in `extra_config['app']['dlux.pdf']`, so existing settings carry over without a migration; other steps' saves leave them untouched and projects that never register see no fields. Excluded from the settings preview diff like the clipboard switch. Tests `dlux.tests.test_pdf_extra_features`.
+
 ## v1.11.0
 - **Stable 1.11 Line**: Same implementation as accepted `1.11.0b8` (incremental backups and `dlux_backup` from b1-b6, the PDF toolkit and modal save transport from b7, permission visibility filters and `dlux_translations` from b8). Upgrading from 1.10.x requires a project image rebuild: `requires.baked_image` stays `>=1.11.0b7` for the `pdf` extra's dependency metadata; migrations since 1.10.x are additive. `release/1.10.x` is frozen at 1.10.3.
 - **PostgreSQL Test Isolation**: `test_data_reset` now clears the `_thread_locals.user` it sets, which otherwise stamped later tests' rows with a rolled-back user (deferred FK violations at teardown), and `test_seed` creates and drops its tables per test so the post-test flush can truncate `auth_user`. Test-only; the full suite passes on SQLite and PostgreSQL 17 (2792 each).

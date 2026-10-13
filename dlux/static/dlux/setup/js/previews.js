@@ -325,7 +325,10 @@
     // opened: until then it is the real page, and loading a copy of it only
     // looks like the page reloading. Changing a value back returns to the real page.
     const baselines = new WeakMap();
-    const NONVISUAL_PREVIEW_FIELDS = new Set(['entry_clipboard_enabled']);
+    const NONVISUAL_PREVIEW_FIELDS = new Set([
+        'entry_clipboard_enabled',
+        'pdf_editing_enabled', 'pdf_history_enabled', 'pdf_max_pages', 'pdf_max_source_mb',
+    ]);
 
     function serializeForm(form) {
         return JSON.stringify(Array.from(new FormData(form).entries())
