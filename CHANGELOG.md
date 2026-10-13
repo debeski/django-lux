@@ -7,6 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.11.1
+- **Stable 1.11.1**: Same code as accepted `1.11.1b1`: the assist bar on root-node modal forms, the translated modal title fallback, and PDF tools settings in System Settings > Extra Features. Accepted on `testbed-dlux` (decrees 2.1.23, beta channel): inline install from 1.11.0 with a pre-update backup, web and Celery on 1.11.1b1, all three PDF models' add-page/save/history journeys, PDF controls in Extra Features with no Options card, rollback to 1.11.0 and re-apply. Installs inline on a `>=1.11.0b7` image; no migrations.
+
 ## v1.11.1b1
 
 - **Assist Bar On Root-Node Modal Forms**: `helpers/sticky/js/main.js` scanned only inside each node a modal inserted, so a project modal whose root element is the `<form>` itself (Archive's document modals) never received the `dlux-assist-bar` or the **Reuse my last entry** switch; the observer also stopped at the first form-bearing node of a mutation batch. `assistableForms()` now includes a root that is a form and every added node is scanned. Test `tests-e2e/assisted_entry_modal.test.mjs`.

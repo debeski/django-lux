@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.11.1b1",
+  "version": "1.11.1",
   "display": {
     "summary": "Assisted entry on project modal forms; PDF tools settings in Extra Features.",
     "highlights": [
@@ -8,7 +8,7 @@
       "PDF tools settings move from their own Options tile into System Settings > Extra Features; stored values carry over.",
       "Modals opened without a title read \"Details\" in the interface language instead of a fixed Arabic word."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.1"
   },
   "requires": {
     "updater_schema": ">=1",
