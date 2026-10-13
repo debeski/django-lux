@@ -107,7 +107,7 @@ class IncrementalContentTests(ChainTestCase):
         bob.first_name = 'Robert'
         bob.save()
         User.objects.create_user('carol', password='x')
-        self.ActivityLog.objects.filter(model_name='T0').delete()
+        self.ActivityLog.objects.filter(model_name='T0').hard_delete()
         inc = self._increment()
 
         self.assertEqual((inc.status, inc.kind, inc.sequence, inc.chain_id), ('completed', 'incremental', 1, base.token))

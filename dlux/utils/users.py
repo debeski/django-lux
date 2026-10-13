@@ -506,3 +506,100 @@ def get_user_management_tier_state_for_user(user, strings=None):
         permission_codenames=permission_codenames,
         strings=strings,
     )
+
+
+#: Models that CASCADE from the user yet are history, not part of the account.
+CASCADE_HISTORY_MODELS = frozenset({'admin.logentry'})
+
+
+def _user_history_relations(user_model):
+    """Reverse foreign keys that make a row *history* about a user.
+
+    A row that CASCADEs from the user belongs to the account itself (sessions,
+    devices, group memberships, the profile) and goes with it. Any other
+    reference — SET_NULL, PROTECT, SET_DEFAULT, DO_NOTHING — records something
+    the person did or was named in (``created_by``, ``deleted_by``, an activity
+    log entry, a review), and a hard delete would blank or orphan it.
+
+    Django's admin ``LogEntry`` CASCADEs from the user but records what the
+    person did in the admin, so it counts as history too.
+    """
+    relations = []
+    for rel in user_model._meta.get_fields(include_hidden=True):
+        if not getattr(rel, 'auto_created', False) or getattr(rel, 'concrete', False):
+            continue
+        if not (getattr(rel, 'one_to_many', False) or getattr(rel, 'one_to_one', False)):
+            continue
+        if (getattr(rel, 'on_delete', None) is dj_models.CASCADE
+                and rel.related_model._meta.label_lower not in CASCADE_HISTORY_MODELS):
+            continue
+        relations.append(rel)
+    return relations
+
+
+def user_has_history(user):
+    """True when any installed model holds history that points at ``user``.
+
+    Soft-deleted rows count: they are still history. Such a user must only ever
+    be soft-deleted (see ``soft_delete_user``).
+    """
+    if user is None or getattr(user, 'pk', None) is None:
+        return False
+    for rel in _user_history_relations(type(user)):
+        try:
+            if rel.related_model._base_manager.filter(**{rel.field.name: user.pk}).exists():
+                return True
+        except Exception:
+            # An unreadable table must not make a user deletable.
+            return True
+    return False
+
+
+def is_soft_deleted_user(user):
+    profile_model = apps.get_model('dlux', 'Profile')
+    return profile_model.all_objects.filter(user=user, deleted_at__isnull=False).exists()
+
+
+def soft_delete_user(user):
+    """Deactivate the account, soft-delete its profile and free its username.
+
+    The user row stays, so every ``created_by``/``updated_by`` and log entry keeps
+    pointing at a real person. Returns the new username.
+    """
+    from django.contrib.auth import get_user_model
+
+    user_model = get_user_model()
+    user.is_active = False
+    user.skip_signal_logging = True
+    user.save()
+
+    profile_model = apps.get_model('dlux', 'Profile')
+    profile, _created = profile_model.all_objects.get_or_create(user=user)
+    profile.soft_delete()
+
+    # Rename to free the username for reuse (e.g. admin -> admin_del, admin_del2).
+    base_username = f"{user.username}_del"
+    new_username = base_username
+    counter = 2
+    while user_model.objects.filter(username=new_username).exists():
+        new_username = f"{base_username}{counter}"
+        counter += 1
+    user.username = new_username
+    user.skip_signal_logging = True
+    user.save()
+    return new_username
+
+
+def delete_user_preserving_history(user):
+    """Delete ``user`` without losing history: 'soft', 'hard' or 'kept'.
+
+    A user with history is soft-deleted ('kept' when that already happened), and
+    one without history is hard-deleted.
+    """
+    if user_has_history(user):
+        if is_soft_deleted_user(user):
+            return 'kept'
+        soft_delete_user(user)
+        return 'soft'
+    user.delete()
+    return 'hard'

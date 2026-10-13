@@ -168,7 +168,7 @@ class DluxSeedTests(TransactionTestCase):
             password="test-pass-123",
         )
         scope = Scope.objects.create(name="Seed scope")
-        ActivityLog.all_objects.all().delete()
+        ActivityLog.all_objects.all().hard_delete()
 
         discovery_patch, populate_patch = self._command_patches([SeedScopedRecord])
         output = StringIO()
@@ -212,7 +212,7 @@ class DluxSeedTests(TransactionTestCase):
         second_user.profile.save(update_fields=["scope"])
         inactive_user.profile.scope = first_scope
         inactive_user.profile.save(update_fields=["scope"])
-        ActivityLog.all_objects.all().delete()
+        ActivityLog.all_objects.all().hard_delete()
 
         discovery_patch, populate_patch = self._command_patches([SeedLookup])
         with discovery_patch, populate_patch:
@@ -243,7 +243,7 @@ class DluxSeedTests(TransactionTestCase):
     def test_scope_id_implies_logging_with_a_fixed_scope(self):
         user = User.objects.create_user(username="seed-random-scope", is_active=True)
         scope = Scope.objects.create(name="Forced scope")
-        ActivityLog.all_objects.all().delete()
+        ActivityLog.all_objects.all().hard_delete()
 
         discovery_patch, populate_patch = self._command_patches([SeedLookup])
         with discovery_patch, populate_patch:

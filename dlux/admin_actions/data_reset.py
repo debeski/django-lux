@@ -5,19 +5,26 @@ Clears row data from selected models, in one of two modes.
 **Soft** (the default) respects Dlux semantics:
 
 - ``ScopedModel`` subclasses are **soft-deleted** (the same recoverable
-  ``deleted_at`` mechanism the app uses everywhere) via a bulk ``update()`` —
-  ``QuerySet.delete()`` would bypass the model's soft-delete override. Their
-  media files are always kept (the rows are recoverable).
+  ``deleted_at`` mechanism the app uses everywhere) via a bulk ``update()``.
+  Their media files are always kept (the rows are recoverable).
 - Non-scoped models are **hard-deleted** via ``QuerySet.delete()``, which honours
   each incoming relation's ``on_delete`` (CASCADE cascades, SET_NULL nulls,
   PROTECT blocks — that model is skipped and reported). Their FileField/ImageField
   blobs are removed only when the caller opts into deleting media.
 
 **Permanent** is for starting over: every selected model is hard-deleted,
-scoped ones included, and for those it also empties the recycle bin — rows soft-
-deleted by any earlier action go too. Media follows the same opt-in. There is no
-undo, so the endpoint requires an explicit typed confirmation on top of the
-password gate.
+scoped ones included (through ``ScopedQuerySet.hard_delete()``), and for those it
+also empties the recycle bin — rows soft-deleted by any earlier action go too.
+Media follows the same opt-in. There is no undo, so the endpoint requires an
+explicit typed confirmation on top of the password gate.
+
+Users are the exception in both modes: a user that history points at is only
+soft-deleted (deactivated and renamed, as User Management does), so no
+``created_by``, log entry or review loses its person. Only users with no history
+are hard-deleted. See ``dlux.utils.users.user_has_history``.
+
+A model can keep itself out of Reset data entirely with ``dlux_reset = False``
+— for history tables that must only ever go with the record they describe.
 
 A model that exists only as a line of another record — an invoice's items, a
 product's variants — is never offered: see ``cascade_parent``.
@@ -98,6 +105,8 @@ def _structurally_eligible(model):
     if meta.app_label in HARD_EXCLUDED_APPS:
         return False
     if meta.label_lower in HARD_EXCLUDED_MODELS:
+        return False
+    if getattr(model, 'dlux_reset', True) is False:
         return False
     return True
 
@@ -244,6 +253,19 @@ def _delete_media_files(model, queryset):
     return removed
 
 
+def _reset_users(key, label, queryset):
+    """Users with history are soft-deleted (never twice), the rest hard-deleted."""
+    from ..utils.users import delete_user_preserving_history
+
+    outcomes = {'soft': 0, 'hard': 0, 'kept': 0}
+    for user in list(queryset):
+        outcomes[delete_user_preserving_history(user)] += 1
+    deleted = outcomes['soft'] + outcomes['hard']
+    return {'key': key, 'label': label, 'status': 'deleted' if deleted else 'empty',
+            'deleted': deleted, 'scoped': False, 'media_deleted': 0,
+            'soft_count': outcomes['soft'], 'kept': outcomes['kept']}
+
+
 def execute_reset(actor, selected_keys, *, delete_media=False, mode=RESET_MODE_SOFT):
     """Clear the selected models. Each model runs in its own savepoint so a
     PROTECT block (or any error) on one does not roll back the others. Returns a
@@ -270,20 +292,27 @@ def execute_reset(actor, selected_keys, *, delete_media=False, mode=RESET_MODE_S
                 count = qs.count()
                 if count == 0:
                     results.append({'key': key, 'label': label, 'status': 'empty', 'deleted': 0,
-                                    'scoped': scoped, 'media_deleted': 0})
+                                    'scoped': scoped, 'media_deleted': 0, 'soft_count': 0})
                     continue
-                if soft:
+                if model is get_user_model():
+                    results.append(_reset_users(key, label, qs))
+                elif soft:
                     # Bulk soft-delete — QuerySet.delete() bypasses the soft-delete
                     # override, so update() the recoverable markers directly.
                     qs.update(deleted_at=timezone.now(), deleted_by=actor)
                     results.append({'key': key, 'label': label, 'status': 'soft_deleted',
-                                    'deleted': count, 'scoped': True, 'media_deleted': 0})
+                                    'deleted': count, 'scoped': True, 'media_deleted': 0,
+                                    'soft_count': count})
                 else:
                     # Media goes with the rows now that nothing can bring them back.
                     media_deleted = _delete_media_files(model, qs) if delete_media else 0
-                    qs.delete()
+                    if scoped:
+                        qs.hard_delete()
+                    else:
+                        qs.delete()
                     results.append({'key': key, 'label': label, 'status': 'deleted',
-                                    'deleted': count, 'scoped': scoped, 'media_deleted': media_deleted})
+                                    'deleted': count, 'scoped': scoped, 'media_deleted': media_deleted,
+                                    'soft_count': 0})
         except ProtectedError:
             results.append({'key': key, 'label': label, 'status': 'protected', 'deleted': 0,
                             'scoped': scoped})

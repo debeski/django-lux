@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.0b1
+
+- **Soft Bulk Delete On ScopedModel**: `ScopedManager` and `all_objects` now use the new `dlux.managers.ScopedQuerySet`. `queryset.delete()` soft-deletes (sets `deleted_at` and `deleted_by` to the current user on rows not already deleted) instead of erasing rows, so the Django admin's "delete selected" and project bulk deletes keep history the way `instance.delete()` always did. `queryset.hard_delete()` is the explicit real delete and `queryset.restore()` the bulk undo. `dlux_prune_activity_log` and Reset data's permanent mode switch to `hard_delete()` and behave as before. **Behavior change**: project code that relied on `queryset.delete()` erasing scoped rows must call `hard_delete()`. Cascades from a non-scoped parent are still Django's hard delete.
+- **Users With History Are Never Hard-Deleted**: `dlux.utils.user_has_history()` treats any non-`CASCADE` reverse relation to the user as history, plus Django admin `LogEntry` rows (`CASCADE_HISTORY_MODELS`). The Django admin user delete (single and bulk) and Reset data (both modes) soft-delete such users the way User Management does (deactivate, soft-delete the profile, rename to `name_del`) and hard-delete only users with no history; Reset data reports `soft_count` and skips users already soft-deleted. The logic moves from `views.users.delete_user` into `dlux.utils.soft_delete_user()` and `delete_user_preserving_history()`.
+- **`dlux_reset = False`**: a model attribute, like `dlux_report` / `dlux_seed`, that keeps the model out of Reset data entirely.
+- Tests `dlux.tests.test_deletion_protection`. Installs inline (no new migrations); **behavior change** for code calling `delete()` on a scoped queryset.
+
 ## v1.11.1
 - **Stable 1.11.1**: Same code as accepted `1.11.1b1`: the assist bar on root-node modal forms, the translated modal title fallback, and PDF tools settings in System Settings > Extra Features. Accepted on `testbed-dlux` (decrees 2.1.23, beta channel): inline install from 1.11.0 with a pre-update backup, web and Celery on 1.11.1b1, all three PDF models' add-page/save/history journeys, PDF controls in Extra Features with no Options card, rollback to 1.11.0 and re-apply. Installs inline on a `>=1.11.0b7` image; no migrations.
 

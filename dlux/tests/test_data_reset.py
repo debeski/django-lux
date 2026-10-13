@@ -104,7 +104,7 @@ class ResetPermanentModeTests(TestCase):
         from django.utils import timezone
         # Creating the superuser above logs its own activity row; start from zero
         # so the counts below are exactly what this test wrote.
-        self.AL.all_objects.all().delete()
+        self.AL.all_objects.all().hard_delete()
         for _ in range(live):
             self.AL.all_objects.create(action='LIVE', model_name='x', category='user')
         for _ in range(trashed):

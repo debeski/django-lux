@@ -36,6 +36,7 @@ from ..utils import (
     is_staff,
     is_superuser,
     log_user_action,
+    soft_delete_user,
     user_can_view_activity_log,
     user_can_view_user_report,
     user_can_view_user_directory,
@@ -446,30 +447,7 @@ def delete_user(request, pk):
         # Capture original username for logging
         original_username = user.username
         
-        # Soft delete the user
-        user.is_active = False
-        user.skip_signal_logging = True # Prevent "UPDATE" log
-        user.save()
-        
-        # Soft delete the profile
-        Profile = apps.get_model('dlux', 'Profile')
-        # Use all_objects to include already-deleted profiles
-        profile, created = Profile.all_objects.get_or_create(user=user)
-        profile.soft_delete()
-        
-        # Rename username to free it for reuse (e.g. admin -> admin_del, admin_del2)
-        base_username = f"{user.username}_del"
-        new_username = base_username
-        counter = 2
-        
-        # Check if username_del already exists, increment if needed
-        while User.objects.filter(username=new_username).exists():
-            new_username = f"{base_username}{counter}"
-            counter += 1
-        
-        user.username = new_username
-        user.skip_signal_logging = True # Prevent "UPDATE" log for rename
-        user.save()
+        soft_delete_user(user)
 
         # Log the Delete Action with original username
         log_user_action(request, "DELETE", instance=user, model_name="User", number=original_username)

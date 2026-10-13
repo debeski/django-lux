@@ -20,6 +20,18 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ['username', 'email']
     ordering = ['username']
 
+    # A user that history points at (created_by, logs, reviews…) is only ever
+    # soft-deleted, the same way User Management deletes; a hard delete would
+    # blank or orphan that history. Users with no history delete normally.
+    def delete_model(self, request, obj):
+        from .utils import delete_user_preserving_history
+
+        delete_user_preserving_history(obj)
+
+    def delete_queryset(self, request, queryset):
+        for user in queryset:
+            self.delete_model(request, user)
+
 @admin.register(UserActivityLog)
 class UserActivityLogAdmin(admin.ModelAdmin):
     list_display = ('created_by', 'category', 'action', 'model_name', 'object_id', 'created_at', 'ip_address')

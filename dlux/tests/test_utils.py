@@ -819,7 +819,7 @@ class UtilsTests(TestCase):
             is_staff=True,
         )
         Profile = apps.get_model('dlux', 'Profile')
-        Profile.all_objects.filter(user=user).delete()
+        Profile.all_objects.filter(user=user).hard_delete()
         user = User.objects.get(pk=user.pk)
 
         self.assertFalse(is_central_staff(user))

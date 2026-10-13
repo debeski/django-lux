@@ -90,8 +90,14 @@ Behavior to remember:
 - `save()` auto-assigns actor fields from the current request user
 - `save()` can also inherit scope from the current user's profile
 - `delete()` becomes a soft-delete
+- bulk `queryset.delete()` is a soft-delete too: it sets `deleted_at` and `deleted_by` (the current user) on the rows not already deleted, and returns `(count, {label: count})`
+- `queryset.hard_delete()` really removes rows, for maintenance such as log pruning; `queryset.restore()` clears the soft-delete markers in bulk
 - `objects` is scope-aware and hides soft-deleted rows
-- `all_objects` is the raw escape hatch
+- `all_objects` is the raw escape hatch (no scoping, soft-deleted rows included, same queryset methods)
+- Django's cascade from a non-scoped parent still hard-deletes scoped children; soft-delete the parent's children yourself when they must survive
+- `dlux_reset = False` on a model keeps it out of Reset data, for history tables that must only go with the record they describe
+
+Users that history points at are never hard-deleted. Any reverse relation to the user whose `on_delete` is not `CASCADE` (`created_by`, `deleted_by`, activity logs, a project's `PROTECT` links) counts as history, and so do Django admin log entries; `CASCADE` rows (sessions, devices, the profile) belong to the account itself. User Management, the Django admin (single and bulk) and Reset data all soft-delete such users (deactivate, soft-delete the profile, rename to `name_del`) and hard-delete only users with no history. `dlux.utils` exposes `user_has_history()`, `soft_delete_user()` and `delete_user_preserving_history()` for project code.
 - When `ScopeSettings.auto_create_user_scope` is enabled, new users automatically receive their own dedicated scope
 
 ## Startup Patches and Zero-Boilerplate Behavior

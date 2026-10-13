@@ -27,4 +27,4 @@ Useful companion references:
 
 ## Admin safety rules
 
-Interface visibility never replaces backend authorization. System-changing actions are POST-only; security-sensitive actions also require the current password. Take a full backup before destructive data reset or restore work, and use `composer check` before changing a generated Compose stack. Reset data additionally offers a permanent mode that empties the recycle bin and cannot be undone; it is gated behind a typed confirmation word as well as the password.
+Interface visibility never replaces backend authorization. System-changing actions are POST-only; security-sensitive actions also require the current password. Take a full backup before destructive data reset or restore work, and use `composer check` before changing a generated Compose stack. Reset data additionally offers a permanent mode that empties the recycle bin and cannot be undone; it is gated behind a typed confirmation word as well as the password. In both modes a user that any record or log points at is only deactivated and renamed, never erased, so history keeps its person; the result reports how many users were soft-deleted.

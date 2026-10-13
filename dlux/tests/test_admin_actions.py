@@ -79,7 +79,7 @@ class ForcePasswordChangeTests(TestCase):
 
     def test_a_user_without_a_profile_gets_one(self):
         user = self._user('profileless')
-        self.Profile.all_objects.filter(user=user).delete()
+        self.Profile.all_objects.filter(user=user).hard_delete()
 
         force_password_change_for_all_non_superusers()
 
