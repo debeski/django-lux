@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.11.1b1
 
 - **Assist Bar On Root-Node Modal Forms**: `helpers/sticky/js/main.js` scanned only inside each node a modal inserted, so a project modal whose root element is the `<form>` itself (Archive's document modals) never received the `dlux-assist-bar` or the **Reuse my last entry** switch; the observer also stopped at the first form-bearing node of a mutation batch. `assistableForms()` now includes a root that is a form and every added node is scanned. Test `tests-e2e/assisted_entry_modal.test.mjs`.
 - **Translated Modal Title Fallback**: `dynamic_modal/js/main.js` titled a modal opened without `data-modal-title` with a hard-coded Arabic «تفاصيل», including in English interfaces. It now reads the new `modal_default_title` string (EN "Details", AR «تفاصيل»).

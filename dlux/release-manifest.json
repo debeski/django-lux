@@ -1,15 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.11.0",
+  "version": "1.11.1b1",
   "display": {
-    "summary": "Incremental backups, the PDF toolkit, permission visibility filters and a translation audit.",
+    "summary": "Assisted entry on project modal forms; PDF tools settings in Extra Features.",
     "highlights": [
-      "Backups: incremental chains, encryption choice, snapshot-consistent PostgreSQL reads, cancel, and a backup before every update or rollback (manage.py dlux_backup).",
-      "Optional PDF viewer and modal page editor (django-lux[pdf]); Entry Clipboard snippets for entry forms.",
-      "register_permission_visibility_filter() and manage.py dlux_translations for projects.",
-      "Upgrading from 1.10.x needs a project image rebuild (floor 1.11.0b7); additive migrations only."
+      "The Reuse my last entry bar reaches modal forms whose root element is the form (Archive document modals).",
+      "PDF tools settings move from their own Options tile into System Settings > Extra Features; stored values carry over.",
+      "Modals opened without a title read \"Details\" in the interface language instead of a fixed Arabic word."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.1b1"
   },
   "requires": {
     "updater_schema": ">=1",
