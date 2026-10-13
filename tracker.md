@@ -22,7 +22,7 @@
 - Settings steps order controls per section: toggles, then selectors, then fields, then builders; a field sits in the step its subject belongs to, not its storage group.
 
 ### Adopted Standards' rules and policies:
-- Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work.
+- Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work. Repo agent rules live in committed `AGENTS.md`; `CLAUDE.md` only imports it.
 - Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
 - **Beta first, every release, no exceptions** (2026-09-24): tag `vX.Y.ZbN`, test it on the beta channel, and only then tag the stable. `requires_beta_first()` now returns True for patches too, in both repos. A cross-repo floor names the other release's FIRST prerelease (`>=1.5.3b1`), or the two betas cannot be tested against each other.
 - **`release/1.10.x` frozen (2026-10-12)**: 1.10.3 is the last stable on that line; only security or data-loss fixes go there until 1.11.0 is stable, then the line retires. New work targets `main` (1.11).
