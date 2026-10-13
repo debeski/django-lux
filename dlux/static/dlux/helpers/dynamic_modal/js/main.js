@@ -260,7 +260,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // events, non-bubbling body dispatches, and `document` itself, once each.
     document.addEventListener('dlux:dynamic_modal:open', function(e) {
         const url = e.detail.data?.url || e.detail.action?.url;
-        const title = e.detail.data?.title || e.detail.action?.title || 'تفاصيل';
+        const title = e.detail.data?.title || e.detail.action?.title
+            || window.DLUX_STRINGS?.modal_default_title || 'Details';
         const trigger = e.detail.trigger || e.detail.originalTarget || null;
 
         if (!url) return;

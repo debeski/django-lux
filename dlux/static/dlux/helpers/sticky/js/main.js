@@ -90,7 +90,11 @@
 
     function assistableForms(root) {
         const scope = root && root.querySelectorAll ? root : document;
-        return Array.from(scope.querySelectorAll('form')).filter((form) => formCapabilities(form).sticky);
+        const forms = Array.from(scope.querySelectorAll('form'));
+        if (scope.matches && scope.matches('form')) {
+            forms.unshift(scope);
+        }
+        return forms.filter((form) => formCapabilities(form).sticky);
     }
 
     // ── inline control ──────────────────────────────────────────────────────
@@ -263,7 +267,6 @@
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType === 1 && (node.matches?.('form') || node.querySelector?.('form'))) {
                         scan(node);
-                        return;
                     }
                 }
             }

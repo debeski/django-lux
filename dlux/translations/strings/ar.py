@@ -1077,6 +1077,7 @@ STRINGS = {
     'theme_picker_location_disabled': 'صفحة الخيارات فقط',
     'theme_picker_location_disabled_desc': 'لا يظهر في الواجهة إطلاقاً — صفحة الخيارات فقط.',
     'assist_bar_legend': 'إدخال مساعَد',
+    'modal_default_title': 'تفاصيل',
     'assist_related_desc': 'اختيار سجل مرتبط ينسخ حقوله المطابقة إلى هذا النموذج.',
     'assist_related_on': 'ستقوم السجلات المرتبطة بتعبئة الحقول المطابقة.',
     'assist_related_off': 'لن تقوم السجلات المرتبطة بتعبئة الحقول.',
