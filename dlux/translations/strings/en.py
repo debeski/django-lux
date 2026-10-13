@@ -1080,6 +1080,7 @@ STRINGS = {
     'theme_picker_location_disabled': 'Options only',
     'theme_picker_location_disabled_desc': 'Nowhere in the chrome — the Options page only.',
     'assist_bar_legend': 'Assisted entry',
+    'modal_default_title': 'Details',
     'assist_related_desc': 'Choosing a linked record copies its matching fields into this form.',
     'assist_related_on': 'Related records will fill matching fields.',
     'assist_related_off': 'Related records will no longer fill fields.',

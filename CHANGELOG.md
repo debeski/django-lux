@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Assist Bar On Root-Node Modal Forms**: `helpers/sticky/js/main.js` scanned only inside each node a modal inserted, so a project modal whose root element is the `<form>` itself (Archive's document modals) never received the `dlux-assist-bar` or the **Reuse my last entry** switch; the observer also stopped at the first form-bearing node of a mutation batch. `assistableForms()` now includes a root that is a form and every added node is scanned. Test `tests-e2e/assisted_entry_modal.test.mjs`.
+- **Translated Modal Title Fallback**: `dynamic_modal/js/main.js` titled a modal opened without `data-modal-title` with a hard-coded Arabic «تفاصيل», including in English interfaces. It now reads the new `modal_default_title` string (EN "Details", AR «تفاصيل»).
+
 ## v1.11.0
 - **Stable 1.11 Line**: Same implementation as accepted `1.11.0b8` (incremental backups and `dlux_backup` from b1-b6, the PDF toolkit and modal save transport from b7, permission visibility filters and `dlux_translations` from b8). Upgrading from 1.10.x requires a project image rebuild: `requires.baked_image` stays `>=1.11.0b7` for the `pdf` extra's dependency metadata; migrations since 1.10.x are additive. `release/1.10.x` is frozen at 1.10.3.
 - **PostgreSQL Test Isolation**: `test_data_reset` now clears the `_thread_locals.user` it sets, which otherwise stamped later tests' rows with a rolled-back user (deferred FK violations at teardown), and `test_seed` creates and drops its tables per test so the post-test flush can truncate `auth_user`. Test-only; the full suite passes on SQLite and PostgreSQL 17 (2792 each).

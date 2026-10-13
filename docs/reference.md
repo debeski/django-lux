@@ -872,7 +872,8 @@ A form advertises what it supports. FK selects carrying `data-autofill-source`
 `data-model-name` + `data-app-label` enable the second — the dynamic modal emits
 them on **create** forms only, since pre-filling an existing record from a
 different one would be data loss. A project rendering its own form templates must
-emit them itself for sticky-forms to apply there.
+emit them itself for sticky-forms to apply there; the attributed `<form>` may be the
+root element the modal inserts.
 
 Forms that support sticky-forms get a thin `dlux-assist-bar` at the top, with the
 switch at its end. That switch is the shared `dlux-settings-toggle-field` control
