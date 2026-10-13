@@ -20,23 +20,14 @@ def get_pdf_features():
     return result
 
 
-def register_pdf_options():
-    from dlux.options import register_app_settings
-    from dlux.translations import lazy_translator
+_registered = False
 
-    register_app_settings(
-        namespace=NAMESPACE,
-        title=lazy_translator('pdf_options_title', 'PDF tools'),
-        description=lazy_translator('pdf_options_description', 'Disable tools without removing documents or file history.'),
-        icon='bi-file-earmark-pdf', setup=False,
-        fields=[
-            {'name': key, 'type': 'boolean', 'default': True,
-             'label': lazy_translator('pdf_option_' + key, label)}
-            for key, label in [('editing_enabled', 'Enable page editing'), ('history_enabled', 'Enable file history')]
-        ] + [
-            {'name': 'max_pages', 'type': 'integer', 'default': 500, 'min_value': 1, 'max_value': 5000,
-             'label': lazy_translator('pdf_option_max_pages', 'Maximum editable pages')},
-            {'name': 'max_source_mb', 'type': 'integer', 'default': 100, 'min_value': 1, 'max_value': 500,
-             'label': lazy_translator('pdf_option_max_source_mb', 'Maximum combined PDF size (MB)')},
-        ],
-    )
+
+def register_pdf_options():
+    """Show the PDF tools controls in System Settings > Extra Features."""
+    global _registered
+    _registered = True
+
+
+def pdf_tools_registered():
+    return _registered

@@ -490,6 +490,12 @@ class SystemSettingsForm(
     # `extra_config`, alongside the `app` namespace that projects own.
     scanlink_enabled = forms.BooleanField(required=False, initial=False)
     entry_clipboard_enabled = forms.BooleanField(required=False, initial=False)
+    # PDF tools: present only once a project calls dlux.pdf.register_pdf_options();
+    # stored in the `dlux.pdf` app namespace that get_pdf_features() reads.
+    pdf_editing_enabled = forms.BooleanField(required=False, initial=True)
+    pdf_history_enabled = forms.BooleanField(required=False, initial=True)
+    pdf_max_pages = forms.IntegerField(required=False, min_value=1, max_value=5000)
+    pdf_max_source_mb = forms.IntegerField(required=False, min_value=1, max_value=500)
     weather_enabled = forms.BooleanField(required=False)
     weather_placement = forms.ChoiceField(required=False)
     weather_display = forms.ChoiceField(required=False)
@@ -1042,6 +1048,7 @@ class SystemSettingsForm(
         self.fields['entry_clipboard_enabled'].disabled = (
             self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS
         )
+        self._configure_pdf_fields()
 
         from dlux.discovery import (
             discover_routes_for,
@@ -1509,6 +1516,11 @@ class SystemSettingsForm(
         self.fields['scanlink_enabled'].label = s.get('form_sys_scanlink_enabled', 'Enable ScanLink scanning')
         self.fields['entry_clipboard_enabled'].label = s.get('form_sys_entry_clipboard_enabled', 'Enable entry clipboard')
         self.fields['entry_clipboard_enabled'].help_text = s.get('help_sys_entry_clipboard_enabled', 'Adds a snippet clipboard beside the assisted-entry controls in form headers.')
+        if 'pdf_editing_enabled' in self.fields:
+            self.fields['pdf_editing_enabled'].label = s.get('pdf_option_editing_enabled', 'Enable page editing')
+            self.fields['pdf_history_enabled'].label = s.get('pdf_option_history_enabled', 'Enable file history')
+            self.fields['pdf_max_pages'].label = s.get('pdf_option_max_pages', 'Maximum editable pages')
+            self.fields['pdf_max_source_mb'].label = s.get('pdf_option_max_source_mb', 'Maximum combined PDF size (MB)')
         self.fields['scanlink_enabled'].help_text = s.get('help_sys_scanlink_enabled', 'Adds a Scan button to file fields, driven by the ScanLink helper installed on each operator workstation. Leave this off where the helper is not installed: the browser logs a failed connection for every scan attempt.')
         self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
         self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically through Celery beat.')
@@ -4627,6 +4639,41 @@ class SystemSettingsForm(
         from .weather import weather_settings_layout
         return weather_settings_layout(self, strings)
 
+    def _pdf_settings_layout(self, strings):
+        if 'pdf_editing_enabled' not in self.fields:
+            return []
+        return [
+            HTML(f"<h6 class='fw-bold my-3'>{strings.get('pdf_options_title', 'PDF tools')}</h6>"),
+            HTML(f"<p class='form-text mt-0'>{strings.get('pdf_options_description', 'Disable tools without removing documents or file history.')}</p>"),
+            build_settings_toggle_field(self, 'pdf_editing_enabled', css_class='col-12'),
+            build_settings_toggle_field(self, 'pdf_history_enabled', css_class='col-12'),
+            Row(
+                Div(Field('pdf_max_pages', css_class='form-control'), css_class='col-12 col-lg-6'),
+                Div(Field('pdf_max_source_mb', css_class='form-control'), css_class='col-12 col-lg-6'),
+                css_class='g-3',
+            ),
+        ]
+
+    PDF_FIELDS = {
+        'pdf_editing_enabled': 'editing_enabled',
+        'pdf_history_enabled': 'history_enabled',
+        'pdf_max_pages': 'max_pages',
+        'pdf_max_source_mb': 'max_source_mb',
+    }
+
+    def _configure_pdf_fields(self):
+        from ..pdf import get_pdf_features, pdf_tools_registered
+
+        if not pdf_tools_registered():
+            for name in self.PDF_FIELDS:
+                self.fields.pop(name, None)
+            return
+        features = get_pdf_features()
+        outside_step = self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS
+        for name, key in self.PDF_FIELDS.items():
+            self.initial.setdefault(name, features[key])
+            self.fields[name].disabled = outside_step
+
     def _apply_extra_features(self, instance):
         """Write the Extra Features toggles into `extra_config`.
 
@@ -4647,4 +4694,18 @@ class SystemSettingsForm(
             clipboard = normalize_entry_clipboard_config(extra_config.get('entry_clipboard'))
             clipboard['enabled'] = bool(self.cleaned_data['entry_clipboard_enabled'])
             extra_config['entry_clipboard'] = clipboard
+        if 'pdf_editing_enabled' in self.cleaned_data:
+            from ..pdf import DEFAULTS as PDF_DEFAULTS, NAMESPACE as PDF_NAMESPACE
+            from ..system.constants import SYSTEM_APP_CONFIG_NAMESPACE
+
+            app_bag = dict(extra_config.get(SYSTEM_APP_CONFIG_NAMESPACE) or {})
+            pdf = dict(app_bag.get(PDF_NAMESPACE) or {}) if isinstance(app_bag.get(PDF_NAMESPACE), dict) else {}
+            for name, key in self.PDF_FIELDS.items():
+                value = self.cleaned_data.get(name)
+                if key.endswith('_enabled'):
+                    pdf[key] = bool(value)
+                else:
+                    pdf[key] = value if value is not None else pdf.get(key, PDF_DEFAULTS[key])
+            app_bag[PDF_NAMESPACE] = pdf
+            extra_config[SYSTEM_APP_CONFIG_NAMESPACE] = app_bag
         instance.extra_config = extra_config
