@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.11.1",
+  "version": "1.12.0b1",
   "display": {
-    "summary": "Assisted entry on project modal forms; PDF tools settings in Extra Features.",
+    "summary": "Deleting keeps history: bulk deletes on scoped models are soft, and users that records point at are deactivated instead of erased.",
     "highlights": [
-      "The Reuse my last entry bar reaches modal forms whose root element is the form (Archive document modals).",
-      "PDF tools settings move from their own Options tile into System Settings > Extra Features; stored values carry over.",
-      "Modals opened without a title read \"Details\" in the interface language instead of a fixed Arabic word."
+      "Bulk delete on scoped models (including the Django admin's \"delete selected\") now soft-deletes; queryset.hard_delete() and queryset.restore() are new.",
+      "The Django admin and Reset data only soft-delete users that any record, log or admin log entry points at; users with no history are still removed.",
+      "Models can opt out of Reset data with dlux_reset = False."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.11.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0b1"
   },
   "requires": {
     "updater_schema": ">=1",
