@@ -52,10 +52,19 @@ class ScopedQuerySet(models.QuerySet):
     def delete(self):
         from django.utils import timezone
 
+        from .files.registry import document_file_fields
+
         user = get_current_user()
         actor = user if user is not None and getattr(user, 'is_authenticated', False) else None
         live = self.filter(deleted_at__isnull=True)
-        count = live.update(deleted_at=timezone.now(), deleted_by=actor)
+        cascade = bool(document_file_fields(self.model))
+        pks = list(live.values_list('pk', flat=True)) if cascade else ()
+        deleted_at = timezone.now()
+        count = live.update(deleted_at=deleted_at, deleted_by=actor)
+        if cascade:
+            from .files.history import cascade_soft_delete
+
+            cascade_soft_delete(self.model, pks, deleted_at, getattr(actor, 'pk', None))
         return count, {self.model._meta.label: count}
 
     delete.alters_data = True
@@ -68,7 +77,16 @@ class ScopedQuerySet(models.QuerySet):
     hard_delete.queryset_only = True
 
     def restore(self):
-        return self.update(deleted_at=None, deleted_by=None)
+        from .files.registry import document_file_fields
+
+        cascade = bool(document_file_fields(self.model))
+        deleted = dict(self.filter(deleted_at__isnull=False).values_list('pk', 'deleted_at')) if cascade else {}
+        count = self.update(deleted_at=None, deleted_by=None)
+        if cascade:
+            from .files.history import cascade_restore
+
+            cascade_restore(self.model, deleted)
+        return count
 
     restore.alters_data = True
     restore.queryset_only = True
