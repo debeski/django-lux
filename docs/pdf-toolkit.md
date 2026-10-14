@@ -40,7 +40,7 @@ Requests carry a `revision` and a JSON `manifest`, for example:
 [{"source":"current","page":2},{"source":"upload_0","page":1}]
 ```
 
-Pages are one-based integers. An item may also carry `rotate` (0/90/180/270, clockwise) and `fit: "a4"` (the page scaled onto an A4 sheet, portrait or landscape following the page, keeping its proportions). The assembler rejects empty/malformed selections, out-of-range pages, invalid page options, encrypted sources, and configured size/page excesses; each source is read once. `assemble_pdf(..., accept=...)` turns any accepted `dlux.files` kind into pages first, so images (JPG/JPEG, PNG, TIF/TIFF, WebP) are sources too.
+Pages are one-based integers. An item may also carry `rotate` (0/90/180/270, clockwise) and `fit: "a4"` (the page scaled onto an A4 sheet, portrait or landscape following the page, keeping its proportions). The assembler rejects empty/malformed selections, out-of-range pages, invalid page options, encrypted sources, and configured size/page excesses; each source is read once. `assemble_pdf(..., accept=...)` turns any accepted `dlux.files` kind into pages first, so images (JPG/JPEG, PNG, TIF/TIFF, WebP) are sources too, embedded without quality loss. The result is cleaned up losslessly (`optimize_pdf_writer`: Flate content streams, identical objects stored once).
 
 `PdfEditorView.accept` (default `('pdf',)`) chooses which kinds the editor's chooser offers. Images are converted to PDF pages in the browser's round trip through `POST /sys/files/convert/` (`dlux_files_convert`) before upload, so a project adapter's `read_source` still receives PDF bytes. For new work prefer [`register_document_file()`](document-files.md), which supplies the adapter, routes and history.
 

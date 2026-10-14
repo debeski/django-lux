@@ -49,7 +49,10 @@ def default_pdf_metadata(document):
 
 
 def write_pdf_metadata(pdf_bytes, document, field_name='pdf_file'):
-    """Return ``(pdf bytes with document info, page count)``; existing info keys are kept unless replaced."""
+    """Return ``(pdf bytes with document info, page count)``; existing info keys are kept unless replaced.
+
+    The output is cleaned up losslessly (`optimize_pdf_writer`), so every save stores a compact file.
+    """
     from pypdf import PdfReader, PdfWriter
 
     spec = get_document_file(document, field_name)
@@ -61,6 +64,9 @@ def write_pdf_metadata(pdf_bytes, document, field_name='pdf_file'):
     info = {str(key): str(value) for key, value in (reader.metadata or {}).items() if value is not None}
     info.update({key: str(value) for key, value in metadata.items() if value is not None})
     writer.add_metadata(info)
+    from dlux.pdf.assembly import optimize_pdf_writer
+
+    optimize_pdf_writer(writer)
     output = BytesIO()
     writer.write(output)
     return output.getvalue(), len(reader.pages)

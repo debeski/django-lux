@@ -38,6 +38,19 @@ def _add_fitted_to_a4(writer, source_page, rotate):
     sheet.merge_transformed_page(page, Transformation().scale(scale, scale).translate(offset_x, offset_y))
 
 
+def optimize_pdf_writer(writer):
+    """Lossless clean-up before writing: compress page content streams and merge identical objects.
+
+    Images and fonts are left byte-for-byte; only content streams are (re)compressed
+    with Flate and duplicate objects (e.g. the same image used on several pages) are
+    stored once.
+    """
+    for page in writer.pages:
+        page.compress_content_streams()
+    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+    return writer
+
+
 def assemble_pdf(manifest, read_source, *, max_pages=500, max_source_bytes=30 * 1024 * 1024, accept=('pdf',)):
     """Build one PDF from `manifest` pages.
 
@@ -75,6 +88,7 @@ def assemble_pdf(manifest, read_source, *, max_pages=500, max_source_bytes=30 * 
             page = writer.add_page(reader.pages[page_number - 1])
             if rotate:
                 page.rotate(rotate)
+    optimize_pdf_writer(writer)
     result = BytesIO()
     writer.write(result)
     return result.getvalue()

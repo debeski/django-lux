@@ -74,7 +74,7 @@
   - [x] v1.8.14: boot gate gained `apply` (celery migrates when Compose skips `pre_start`, instead of every service waiting); `requires.migration_baseline` makes a multi-release update's migration span knowable and `release_check` now actually enforces both floors (`validate_image_baseline` had never been called); audit/deletion sets centralised in `dlux.system.constants`, extensible, with the `AUDIT_FIELD_NAMES` shim due for removal in v1.10; audit columns now hide even when a table declares them; `test_settings_step_anchors` guards step anchors and immediately caught `ribbon_title`; backup restore test pinned to the inline path (2026-09-07).
 
 ### One-line info about last verified Tests:
-- 2026-10-14 b2 branch: full suite 2853, same 5 container-env failures as unchanged b1; 38 new + JS 68 OK; Archive 92 / Decrees 42 OK on the branch; Decrees-testbed copy: editor images/Fit A4/rotate/save + ScanLink path in browser, 14 history rows adopted + verified.
+- 2026-10-14 b2 branch: full suite 2853, same 5 container-env failures as unchanged b1; 41 new + JS 68 OK, lossless image pages verified (JPEG bytes/PNG pixels identical); Archive 92 / Decrees 42 OK on the branch; Decrees-testbed copy: editor images/Fit A4/rotate/save + ScanLink path in browser, 14 history rows adopted + verified.
 - 2026-10-08 backup branch: full suite 2731 OK (4 skips), `makemigrations --check` clean, import cycles clean; 88 backup tests OK on SQLite and PostgreSQL 17 (snapshot tests PG-only); Go viewer tests OK incl. Python-made streamed container; page checked in browser (desktop/mobile, busy lock, cancel, console).
 
 ### One-line info about last time edited Docs:

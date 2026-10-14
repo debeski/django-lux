@@ -49,7 +49,8 @@ register_file_type(
 
 - Built in: `pdf` and `image` (JPG/JPEG, PNG, TIF/TIFF, WebP).
 - `detect_file_type(data, filename, accept)` decides by **content**: the extension must belong to an accepted kind and the bytes must match it. Renamed, damaged and unaccepted files raise `ValueError` with a translated message (`files_*` strings). `validate_upload(upload, accept, limit)` is the form version (`ValidationError`), `to_pdf_bytes()` returns PDF bytes, `accept_attribute(accept)` the `<input accept>` value, `convertible_types()` the kinds other than PDF that can become pages.
-- Images become pages with Pillow: one page per image and one per frame of a multi-page TIFF (an animated WebP gives its first frame); EXIF orientation is applied, transparency is flattened onto white, and a page keeps the image's own size at its recorded DPI (72–1200) or 150 DPI. Frames above 280 megapixels and decompression bombs are refused.
+- Images become pages without quality loss: a JPEG is embedded byte-for-byte (its EXIF orientation becomes the page rotation; mirrored orientations are redrawn losslessly), every other image is stored as Flate-compressed pixels. One page per image and one per frame of a multi-page TIFF (an animated WebP gives its first frame); transparency is flattened onto white; a page keeps the image's own size at its recorded DPI (72–1200) or 150 DPI. Frames above 280 megapixels and decompression bombs are refused.
+- Every assembled or saved PDF is cleaned up losslessly (`dlux.pdf.assembly.optimize_pdf_writer`): page content streams are Flate-compressed and identical objects are stored once. Nothing is downsampled; lossy shrinking is not offered yet.
 
 ## 3. What the registration provides
 

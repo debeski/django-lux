@@ -108,9 +108,30 @@ class ImagePageTests(SimpleTestCase):
         self.assertEqual(len(page_sizes(to_pdf_bytes(image_bytes('TIFF', frames=3), 'scan.tiff'))), 3)
 
     def test_exif_orientation_and_transparency_are_applied(self):
+        # An untouched JPEG keeps its pixels; the EXIF turn becomes the page rotation.
         upright = page_sizes(to_pdf_bytes(image_bytes('JPEG', size=(300, 150), dpi=72, exif_orientation=6), 'phone.jpg'))
-        self.assertEqual(upright, [(150, 300, 0)])
+        self.assertEqual(upright, [(300, 150, 90)])
+        mirrored = page_sizes(to_pdf_bytes(image_bytes('PNG', size=(300, 150), dpi=72, exif_orientation=6), 'turned.png'))
+        self.assertEqual(mirrored, [(150, 300, 0)])
         self.assertEqual(len(page_sizes(to_pdf_bytes(image_bytes('PNG', mode='RGBA'), 'logo.png'))), 1)
+
+    def test_jpeg_is_embedded_byte_for_byte(self):
+        original = image_bytes('JPEG', size=(320, 200), dpi=200)
+        page = PdfReader(BytesIO(to_pdf_bytes(original, 'photo.jpg'))).pages[0]
+        xobject = page['/Resources']['/XObject']['/Im0'].get_object()
+        self.assertEqual(xobject['/Filter'], '/DCTDecode')
+        self.assertEqual(xobject._data, original)
+
+    def test_other_images_keep_every_pixel(self):
+        noisy = Image.effect_noise((120, 80), 64).convert('RGB')
+        for fmt in ('PNG', 'TIFF', 'WEBP'):
+            with self.subTest(fmt=fmt):
+                buffer = BytesIO()
+                noisy.save(buffer, format=fmt, **({'lossless': True} if fmt == 'WEBP' else {}))
+                page = PdfReader(BytesIO(to_pdf_bytes(buffer.getvalue(), f'graph.{fmt.lower()}'))).pages[0]
+                xobject = page['/Resources']['/XObject']['/Im0'].get_object()
+                self.assertEqual(xobject['/Filter'], '/FlateDecode')
+                self.assertEqual(xobject.get_data(), noisy.tobytes())
 
     def test_decompression_bombs_are_refused(self):
         from unittest.mock import patch
@@ -146,6 +167,12 @@ class AssemblyPageOptionTests(SimpleTestCase):
             {'source': 'current', 'page': 2, 'fit': 'a4', 'rotate': 90},
         ], sources)
         self.assertEqual(page_sizes(output), [(595, 842, 0), (842, 595, 0), (595, 842, 0)])
+
+    def test_saving_stores_a_repeated_image_once(self):
+        photo = image_bytes('JPEG', size=(800, 600), dpi=150)
+        once = self.assemble([{'source': 'img', 'page': 1}], {'img': photo}, accept=('image',))
+        twice = self.assemble([{'source': 'img', 'page': 1}] * 3, {'img': photo}, accept=('image',))
+        self.assertLess(len(twice), len(once) + len(photo) // 2)
 
     def test_invalid_page_options_are_rejected(self):
         for item in ({'rotate': 45}, {'rotate': True}, {'fit': 'letter'}):
