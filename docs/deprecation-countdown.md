@@ -20,6 +20,10 @@ The `dlux/main/css/{main,buttons,index_cards}.css` compatibility stylesheets and
 
 The `dlux.forms`, `dlux.models`, `dlux.reports`, `dlux.discovery`, `dlux.backup`, and `dlux.translations` package facades are public API and remain permanently. Their internal module splits do not require host-project import changes.
 
+### Project-owned PDF adapters and file-history models
+
+As of v1.12.0b2 DjangoLux owns file history (`dlux.FileVersion`) and the wiring between the file card, Scan, viewer, page editor and history (`register_document_file()`, see [Document files](document-files.md)). `PdfEditorView` with a project adapter, and project history models such as Archive's and Decrees' `DocumentFileVersion`, keep working unchanged through v1.x. Move to `register_document_file()` and run `dlux_adopt_file_history <app.Model>`; the adapter path is scheduled for removal in v2.0.
+
 ### Raw `ImageField` for project images
 
 As of v1.8.4 a model image or font belongs in the asset library through

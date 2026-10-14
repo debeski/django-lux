@@ -1,106 +1,104 @@
-# Document files — design for 1.12.0b2
+# Document files
 
-**Status:** design approved 14 October 2026 (decisions D1–D4 in §6). Branch `feat/document-file-pipeline` from `origin/main` (= `v1.12.0b1`). The owner agreed the direction on 14 October 2026: history moves into DjangoLux, the PDF editor uses ScanLink, file-type checks live in DjangoLux and are extendable, images are supported, and one setup call connects everything. §6 records the decisions.
+A *document file* is a model `FileField` that holds a record's PDF. DjangoLux
+connects everything around it — the upload card (with Scan), accepted file
+types, the PDF viewer, the page editor, downloads and file history — from one
+registration. Projects keep their models, permissions and naming; they write no
+views, templates or history code.
 
-## 1. What exists today (checked in source)
+Since 1.12.0b2. Designed and approved 14 October 2026 (decisions in §8).
 
-| Piece | Today | Problem |
-|---|---|---|
-| File card (`DluxFileInput`, `build_file_field`) | Upload card with a Scan button when ScanLink is on. | Knows nothing about what file types the field accepts beyond an `accept` attribute. |
-| ScanLink client (`helpers/scanlink/js/main.js`, `scan_button.js`) | Job-based client: health probe, HTTPS/HTTP fallback, scanner selection, progress, errors. Produces a PDF. | — |
-| PDF editor (`dlux.pdf`: `PdfEditorView`, `assemble_pdf`, `editor.js`) | Page reorder/remove/append, modal transport, project adapter (`lookup`, `revision`, `context`, `read_source`, `save`). | Its Scan button `fetch`es `http://localhost:5000/scan` directly (`editor.js:239`), bypassing the ScanLink client: no HTTPS fallback, no scanner choice, no progress, different errors. PDF only. |
-| File history | Not in DjangoLux. Archive and Decrees each own a `DocumentFileVersion` model and about ten helpers (`archive_previous_pdf`, `save_active_pdf_bytes`, `finalize_archive_pdf`, `_next_version_number`, `write_pdf_metadata`, …). | The two models are column-identical and the helpers are copies. Every new project would copy them again; the history and download routes are re-written per project. |
-| File-type checks | None in DjangoLux for documents. Archive/Decrees validate PDFs in their forms; the asset manager has its own image/font checks (`dlux/assets.py`, Pillow). | Three independent rule sets. |
-| Asset manager | Shared library of reusable images/fonts (`ManagedAssetField`). | Separate by design; later it should reuse the same type checks and upload path (§5). |
+## 1. One call
 
-Pillow is already a core DjangoLux dependency (`pillow>=11.0`) and reads JPEG, PNG, TIFF and WebP; `pypdf` comes with the `pdf` extra. Image support needs no new package.
+```python
+# <app>/apps.py — AppConfig.ready()   (or the app's dlux_options.py)
+from dlux.files.registry import register_document_file
 
-## 2. Target: one document-file pipeline
+register_document_file(
+    Decree, 'pdf_file',
+    accept=('pdf', 'image'),            # default; kinds from the file-type registry (§2)
+    file_name=decree_file_name,         # optional: (document, field_name) -> storage name
+    pdf_metadata=decree_pdf_metadata,   # optional: document -> {'/Title': ..., ...}
+    can_access=reviewer_access,         # optional: (request, document, action) -> True / False / None
+    queryset=archive_queryset,          # optional: (request, model) -> QuerySet to look documents up in
+)
+```
 
-**Get pages** (PDF upload, image upload, ScanLink) → **arrange** (editor) → **save one PDF** → **keep the previous file** (history) → **view / download** — all provided by DjangoLux and connected by one call.
+| Hook | Default |
+|---|---|
+| `accept` | `('pdf', 'image')` |
+| `file_name` | the field's `upload_to` applied to `<model>_<pk>.pdf`; a name containing `/` is used as is. The storage never overwrites; a taken name gets a suffix. |
+| `pdf_metadata` | `{'/Title': str(document), '/Subject': <verbose name>}`; existing info keys are kept unless replaced. |
+| `can_access` | `None` for every action, i.e. the standard check below. `True` grants, `False` refuses. Actions: `view`, `download`, `history`, `edit`. |
+| `queryset` | the dynamic modal's scope- and access-filtered set (`_scope_filtered_modal_queryset`). A project whose central users see `scope IS NULL` rows supplies its own. |
 
-### 2.1 File types (`dlux.files`)
+The standard check is `view_<model>` for `view`/`download`/`history` and `change_<model>` for `edit`, on a document found in the lookup set (scope applied, soft-deleted rows hidden). Backend checks match what the UI offers (DSRP-1).
 
-A registry of accepted file kinds, each with extensions, MIME types, a content sniff, a size limit, and how it becomes PDF pages:
+## 2. File types (`dlux.files`)
 
 ```python
 from dlux.files import register_file_type
 
-register_file_type('pdf', extensions=['.pdf'], sniff=b'%PDF-', to_pages=pdf_pages)          # built in
-register_file_type('image', extensions=['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp'], to_pages=image_pages)  # built in
-register_file_type('heic', extensions=['.heic'], to_pages=my_heic_pages)                     # a project extension
-```
-
-- Checks run server-side on the content (magic bytes / Pillow decode), never the name alone. Renamed or corrupt files are refused with a translated message.
-- A document field declares which kinds it accepts (`accept=('pdf', 'image')`, default both). The file card's `accept` attribute, the editor's chooser, and server validation all read the same declaration.
-- Limits: the existing PDF tools settings (max pages, max combined MB) still apply to the whole assembly; each kind may add its own per-file limit (images: max pixels to stop decompression bombs).
-
-### 2.2 Images as pages
-
-`assemble_pdf` accepts any registered kind. JPG/JPEG, PNG, TIFF/TIF and WebP become pages — one per image, and one per frame of a multi-page TIFF: EXIF orientation honoured, alpha flattened onto white, converted with Pillow. By default an image page keeps the image's own size and proportions (the image's DPI when it records a sane one, 72–1200, otherwise 150 DPI), so A3 scans, receipts and screenshots stay as they are (§6 D2). The editor previews images as page thumbnails and lets them be rotated, reordered and removed like PDF pages. The manifest gains two optional per-page settings that apply to PDF and image pages alike: `rotate` (0/90/180/270) and `fit` (`"a4"`): **Fit to A4** scales the selected pages onto an A4 sheet, portrait or landscape following the page, keeping proportions and centring them.
-
-### 2.3 ScanLink in the editor
-
-The editor's Scan button uses the shared ScanLink client (scanner selection, progress, HTTPS/HTTP fallback, the same translated errors as the file card). The scanned PDF is added as a new source, exactly like an uploaded file. The direct `fetch('http://localhost:5000/scan')` is removed. (Image output from ScanLink is a later ScanLink-side option; nothing here depends on it.)
-
-### 2.4 History in DjangoLux
-
-- DjangoLux ships a concrete history model, `dlux.FileVersion` (additive migration in `dlux`): generic link (`content_type`, `object_id`), `field_name`, `version_number`, `action_type` (`replace`, `edit`, `normalize`, `clear`), `archived_file`, `active_name_before/after`, `page_count`, `metadata`, scope and audit fields from `ScopedModel`; unique on (content type, object, field, version). Same columns as the Archive/Decrees tables.
-- One service does what the copied helpers do today: copy the previous file byte-for-byte into history, write the new file under a new storage name, write PDF metadata, update the field and audit, and roll back cleanly if anything fails (`dlux.files.history.save_new_version`, `archive_previous`, `finalize`).
-- Every project uses `dlux.FileVersion` (§6 D1). A project with its own history table moves its rows over once with `manage.py dlux_adopt_file_history <app.Model>`: rows are copied with their document link, field, version numbers, action, archived file name, page count, metadata, scope and audit fields; the archived files themselves stay where they are on disk. The command is idempotent (an adopted row is recognised by document, field and version), refuses conflicting rows, reports counts, and `--verify` compares every copied row and file hash. The project's old table stays untouched until a later project release retires it. Archive and Decrees then delete their copied helpers.
-- Soft delete/restore of a document soft-deletes/restores its history rows (the Archive 1.3.0 behaviour, now in DjangoLux).
-
-### 2.5 One setup call
-
-```python
-# documents/dlux_options.py (or apps.ready)
-from dlux.files import register_document_file
-
-register_document_file(
-    Decree, 'pdf_file',
-    accept=('pdf', 'image'),
-    file_name=decree_pdf_name,                        # optional naming callable
-    pdf_metadata=decree_pdf_metadata,                 # optional title/subject/keywords
-    can_access=archive_can_access,                    # optional extra rule, e.g. Archive's reviewers
+register_file_type(
+    'heic', extensions=['.heic'], mime_types=['image/heic'],
+    sniff=lambda data: data[4:12] in (b'ftypheic', b'ftypheix'),
+    to_pdf=heic_to_pdf,                 # bytes -> PDF bytes; omit for kinds that are stored but not paged
+    label_key='files_type_heic', label='HEIC', max_bytes=50 * 1024 * 1024,
 )
 ```
 
-That one call provides, with no project views or templates:
+- Built in: `pdf` and `image` (JPG/JPEG, PNG, TIF/TIFF, WebP).
+- `detect_file_type(data, filename, accept)` decides by **content**: the extension must belong to an accepted kind and the bytes must match it. Renamed, damaged and unaccepted files raise `ValueError` with a translated message (`files_*` strings). `validate_upload(upload, accept, limit)` is the form version (`ValidationError`), `to_pdf_bytes()` returns PDF bytes, `accept_attribute(accept)` the `<input accept>` value, `convertible_types()` the kinds other than PDF that can become pages.
+- Images become pages with Pillow: one page per image and one per frame of a multi-page TIFF (an animated WebP gives its first frame); EXIF orientation is applied, transparency is flattened onto white, and a page keeps the image's own size at its recorded DPI (72–1200) or 150 DPI. Frames above 280 megapixels and decompression bombs are refused.
 
-- Routes under `dlux.urls`: `/sys/files/<app>/<model>/<pk>/<field>/` `source/`, `download/`, `edit/` (editor), `history/`, `history/<version>/download/`.
-- Access: `view_<model>` to view/download/history, `change_<model>` to edit, the model's `ScopedManager` scope, soft-deleted rows hidden — plus the optional `can_access(request, document, action)` hook for project rules. Backend checks match what the UI shows (DSRP-1).
-- `{% dlux_document_viewer object 'pdf_file' %}` renders the viewer with the right URLs; the file card in forms gets the accepted types and Scan button from the registration; the modal form save path calls the history service when the file changes.
-- The PDF tools settings (editing on/off, history on/off, limits) keep working as today.
+## 3. What the registration provides
 
-### 2.6 Compatibility
+| Surface | Detail |
+|---|---|
+| Routes (in `dlux.urls`) | `/sys/files/<app>/<model>/<pk>/<field>/` + `source/` (inline), `download/`, `edit/` (page editor), `history/` (modal list), `history/<version>/download/`. Names `dlux_document_file_source`, `_download`, `_edit`, `_history`, `_version`. Excluded from navigation discovery. |
+| Viewer | `{% load dlux_files %}{% dlux_document_viewer object 'pdf_file' %}` renders `dlux/pdf/viewer.html` with these routes; edit and history buttons follow the user's access and the PDF tools settings. `dlux.files.views.document_file_context()` gives the same context to a project template. |
+| Page editor | The built-in `DocumentFileAdapter` behind `PdfEditorView` (accept = the registration's kinds). Images join as pages; pages can be selected, rotated and fitted to A4; Scan uses ScanLink (§5). Saving keeps the previous file in history. |
+| Forms | Every form the dynamic modal builds gets, for each registered field, the DjangoLux file card with Scan, the `accept` attribute and the server-side type check (`dlux.files.forms.apply_document_file_fields(form)`; a project form can call it too). |
+| Modal save | The modal save and the history write share one transaction: a replaced file goes to history (`replace`, or `clear` when emptied), a new PDF gets metadata and its target name, and an accepted image uploaded through the form becomes the PDF (the uploaded image itself is not kept). |
+| Soft delete | Deleting a registered document (`instance.delete()` or `queryset.delete()`) soft-deletes its history rows with the same time and actor; `restore()` brings back exactly those rows. |
 
-`PdfEditorView` with a project adapter keeps working in 1.12 (listed in `docs/deprecation-countdown.md` with a removal target), so Archive and Decrees run unchanged on 1.12.0b2 and move to `register_document_file` in their own releases. The downstream grep and `tests/test_downstream_compat.py` cover `dlux/pdf/*` templates and `dlux.pdf` symbols they import.
+The PDF tools settings (System Settings → Extra Features: editing, history, maximum pages and size) still apply to every surface.
 
-## 3. Asset manager
+## 4. File history
 
-Stays a separate feature (a reusable library, deletable when unused; not record history). Once this pipeline is established it reuses the same file-type registry and upload checks, and the file card's Scan/camera input can feed it. Not part of 1.12.0b2.
+- `dlux.FileVersion` (migration `0026_file_versions`, additive and inline-safe): generic document link, `field_name`, `version_number`, `action_type` (`replace`, `edit`, `normalize`, `clear`), `archived_file` (`dlux/file_history/<app>_<model>/<id>/<field>/v<n>_<name>`), `active_name_before`/`after`, `page_count`, `metadata`, scope and audit fields. Unique on document + field + version. History rows take the document's scope, never the actor's.
+- `dlux.files.history`: `save_new_version(document, pdf_bytes, field_name, user)` (editor saves), `record_upload(document, previous_name, field_name, user)` (form saves), `archive_previous(...)`, `versions_for(document, field)`, `next_version_number(...)`. The previous file is always copied byte-for-byte before the new one is written under a new storage name; nothing is overwritten. A missing original stops the save.
+- Soft-delete wiring uses `dlux.models.soft_delete_signals` (`soft_deleted`, `restored`). `ScopedModel` and `ScopedQuerySet` gather the arguments only when a receiver is connected for that model, so unregistered models pay nothing.
 
-## 4. Project follow-ups (each in its own release, after 1.12.0b2)
+### Moving a project's own history
 
-- **Archive:** run `dlux_adopt_file_history documents.DocumentFileVersion` (a few hundred rows), then replace `documents/pdf.py` adapter + history helpers with `register_document_file(...)`; the reviewer PDF route uses `can_access`; 1.3.1 "multiple images" becomes turning on `accept=('pdf', 'image')`.
-- **Decrees:** the same: adopt its history rows, then switch.
-- **CRMs / others:** opt in only where they hold document files.
+```bash
+python manage.py dlux_adopt_file_history documents.DocumentFileVersion           # dry run: counts only
+python manage.py dlux_adopt_file_history documents.DocumentFileVersion --apply --verify
+```
 
-Byte-for-byte checks of current and historical downloads on a restored copy are required before either project deploys the switch.
+Copies every row (soft-deleted ones included) with all values kept: document link, field, version number, action, archived file name, before/after names, page count, metadata, scope, created/updated/deleted times and users. Archived files stay where they are; the copies point at the same storage names. Re-running skips adopted rows; a different row with the same document/field/version is a conflict and stops the run before anything is written. `--verify` checks each copy and that its file can be read. The source table is never modified; a later project release retires it.
 
-## 5. Implementation order (branch `feat/document-file-pipeline`)
+## 5. Scan
 
-1. `dlux.files` type registry + server-side checks (PDF, JPG/JPEG, PNG, TIFF/TIF, WebP built in); tests incl. renamed/corrupt/oversized files.
-2. Image pages in `assemble_pdf` + per-page rotation; editor thumbnails for images.
-3. Editor Scan through the ScanLink client.
-4. `dlux.FileVersion` + history service + soft-delete cascade + `dlux_adopt_file_history` (copy, idempotency, `--verify`).
-5. `register_document_file`: routes, access rules, viewer tag, form/file-card wiring, modal-save hook.
-6. Compatibility shims, deprecation entry, downstream compat tests; docs (`FEATURES.md`, `reference.md`, `pdf-toolkit.md`, this file); changelog; `1.12.0b2`.
-7. Acceptance on the testbed: Decrees on 1.12.0b2 unchanged; a scratch project using only `register_document_file`; Archive/Decrees history tables plugged in on restored copies with byte-for-byte download checks; desktop/mobile/Arabic browser journeys.
+`scan_button.js` exposes `window.DluxScan.scan({messages, onProgress, metadata})`, which resolves to the scanned PDF. The file card's Scan button and the page editor both call it, so they share the ScanLink health checks (HTTPS/HTTP fallback), scanner selection, progress text and translated errors. File-card Scan buttons inside modals loaded after the page work through event delegation. The attribute set with the wording lives in `dlux/helpers/scanlink/scan_messages.html`. ScanLink stays opt-in (System Settings → Extra Features); without it no scan code reaches the page.
 
-## 6. Decisions for the owner
+## 6. Existing adapters
 
-- **D1 — History storage. Decided 14 October 2026:** one table everywhere. Projects move their history rows into `dlux.FileVersion` (deployed history is a few hundred editor changes); archived files are not moved.
-- **D2 — Image page size. Decided 14 October 2026:** pages keep their own size by default (A3 scans, receipts and screenshots are not forced to A4); **Fit to A4** is an editor option for the selected pages, PDF or image.
-- **D3 — Keep original images? Decided 14 October 2026:** no. The assembled PDF is the record; earlier PDFs, including pages that came from images, stay in history.
-- **D4 — Accepted image types in 1.12.0b2. Decided 14 October 2026:** JPG, JPEG, PNG, TIF, TIFF and WebP become PDF pages. A multi-page TIFF contributes one page per frame; an animated WebP contributes its first frame. Other types (e.g. HEIC) can be added later through the registry.
+`PdfEditorView` with a project adapter is unchanged: `accept` defaults to `('pdf',)`, so existing editors offer PDFs only; setting `accept=('pdf', 'image')` adds images, converted to PDF in the browser round trip (`POST /sys/files/convert/`, `dlux_files_convert`) so the adapter still reads PDF bytes. This path and project-owned history models keep working through v1.x and are scheduled for removal in v2.0 ([Deprecation countdown](deprecation-countdown.md)).
+
+## 7. Moving a project over
+
+1. Upgrade to 1.12.0b2+ (migration `0026` applies).
+2. `register_document_file(...)` for each document field, with `queryset`/`can_access` where the project's rules differ from the defaults, and `file_name`/`pdf_metadata` to keep its naming.
+3. `dlux_adopt_file_history <app.Model> --apply --verify` on a restored copy, then in production.
+4. Replace project PDF routes/templates with the DjangoLux routes and `{% dlux_document_viewer %}`; delete the copied history helpers.
+5. Check current and historical downloads byte-for-byte on the restored copy before deploying.
+
+## 8. Decisions (14 October 2026)
+
+- **D1 — History storage:** one table, `dlux.FileVersion`; projects move their rows with `dlux_adopt_file_history` (deployed history is a few hundred editor changes); archived files do not move.
+- **D2 — Page size:** pages keep their own size (A3 scans, receipts and screenshots stay as they are); **Fit to A4** is an editor option for selected pages, PDF or image.
+- **D3 — Original images:** not kept. The assembled PDF is the record; earlier PDFs, including pages that came from images, stay in history.
+- **D4 — Image types:** JPG, JPEG, PNG, TIF, TIFF and WebP; more through `register_file_type()`.
+- The asset manager stays a separate feature (a reusable library). It will reuse the file-type registry and upload checks in a later release.

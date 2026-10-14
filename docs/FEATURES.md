@@ -62,6 +62,10 @@ See [Developer Guide](developer-guide.md), [Project Configuration](project-confi
 See [Getting Started](getting-started.md), [Composer Agent Integration](composer-agent.md), [Verified Inline Updates](inline-updater.md), and [Deployment Doctor](doctor.md).
 
 
+## Document files
+
+See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over.
+
 ## Optional PDF toolkit
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
