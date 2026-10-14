@@ -57,6 +57,8 @@ BASELINE_DEFERRED_CLUSTERS = {
         # data modules — scopes, assets, backup — stay outside.
         'dlux.models.activity', 'dlux.models.base', 'dlux.models.notifications',
         'dlux.models.settings', 'dlux.models.updater', 'dlux.models.users',
+        # FileVersion is a ScopedModel, so its module inherits dlux.models.base's edges.
+        'dlux.models.files',
     }),
     frozenset({
         # The backup/reports/updater/tasks knot. Splitting `backup.py` and

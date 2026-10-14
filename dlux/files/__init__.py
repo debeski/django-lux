@@ -132,6 +132,14 @@ def to_pdf_bytes(data, filename='', accept=None):
     return file_type.to_pdf(data)
 
 
-from .types import register_builtin_types  # noqa: E402
+from .types import image_to_pdf, sniff_image, sniff_pdf  # noqa: E402
 
-register_builtin_types()
+register_file_type(
+    'pdf', extensions=['.pdf'], mime_types=['application/pdf'], sniff=sniff_pdf, to_pdf=lambda data: data,
+    label_key='files_type_pdf', label='PDF',
+)
+register_file_type(
+    'image', extensions=['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp'],
+    mime_types=['image/jpeg', 'image/png', 'image/tiff', 'image/webp'], sniff=sniff_image, to_pdf=image_to_pdf,
+    label_key='files_type_image', label='Image',
+)

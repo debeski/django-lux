@@ -1,34 +1,11 @@
-"""Which model fields are document files, and how each one behaves."""
-
-from dataclasses import dataclass
-from typing import Callable, Optional
+"""Declaring document files: `register_document_file()` and its soft-delete wiring."""
 
 from . import DEFAULT_ACCEPT, get_file_type
+from .specs import DocumentFileSpec, _specs, document_file_fields, get_document_file, registered_document_files  # noqa: F401
 
 
-@dataclass(frozen=True)
-class DocumentFileSpec:
-    model: type
-    field_name: str
-    accept: tuple = DEFAULT_ACCEPT
-    #: ``file_name(document, field_name) -> str``: storage name (under the field's
-    #: ``upload_to`` directory unless it contains a ``/``) for the current file.
-    file_name: Optional[Callable] = None
-    #: ``pdf_metadata(document) -> dict`` of PDF document info (``/Title`` …).
-    pdf_metadata: Optional[Callable] = None
-    #: ``can_access(request, document, action) -> bool | None``; ``True`` grants,
-    #: ``False`` refuses, ``None`` falls back to the standard permission check.
-    can_access: Optional[Callable] = None
-
-    @property
-    def key(self):
-        return f'{self.model._meta.app_label}.{self.model._meta.model_name}.{self.field_name}'
-
-
-_specs = {}
-
-
-def register_document_file(model, field_name='pdf_file', *, accept=DEFAULT_ACCEPT, file_name=None, pdf_metadata=None, can_access=None):
+def register_document_file(model, field_name='pdf_file', *, accept=DEFAULT_ACCEPT, file_name=None, pdf_metadata=None,
+                           can_access=None, queryset=None):
     """Declare ``model.field_name`` a document file.
 
     One call connects the file card, the viewer, the page editor, file history,
@@ -44,26 +21,40 @@ def register_document_file(model, field_name='pdf_file', *, accept=DEFAULT_ACCEP
         get_file_type(name)
     spec = DocumentFileSpec(
         model=model, field_name=field_name, accept=tuple(accept), file_name=file_name,
-        pdf_metadata=pdf_metadata, can_access=can_access,
+        pdf_metadata=pdf_metadata, can_access=can_access, queryset=queryset,
     )
     _specs[(model._meta.label_lower, field_name)] = spec
+    _connect_history(model)
     return spec
-
-
-def get_document_file(model_or_instance, field_name='pdf_file'):
-    meta = model_or_instance._meta
-    return _specs.get((meta.label_lower, field_name))
-
-
-def document_file_fields(model_or_instance):
-    label = model_or_instance._meta.label_lower
-    return [spec for (model_label, _), spec in _specs.items() if model_label == label]
-
-
-def registered_document_files():
-    return list(_specs.values())
 
 
 def unregister_document_file(model, field_name='pdf_file'):
     """Remove a registration (tests and reloads)."""
     _specs.pop((model._meta.label_lower, field_name), None)
+    if not document_file_fields(model):
+        _disconnect_history(model)
+
+
+def _connect_history(model):
+    """Soft delete/restore of a document carries its file history (one connection per model)."""
+    from dlux.models.soft_delete_signals import restored, soft_deleted
+
+    from .history import cascade_restore, cascade_soft_delete
+
+    uid = f'dlux.files:{model._meta.label_lower}'
+    soft_deleted.connect(
+        lambda sender, pks, deleted_at, deleted_by_id, **kwargs: cascade_soft_delete(sender, pks, deleted_at, deleted_by_id),
+        sender=model, dispatch_uid=uid, weak=False,
+    )
+    restored.connect(
+        lambda sender, deleted_at_by_pk, **kwargs: cascade_restore(sender, deleted_at_by_pk),
+        sender=model, dispatch_uid=uid, weak=False,
+    )
+
+
+def _disconnect_history(model):
+    from dlux.models.soft_delete_signals import restored, soft_deleted
+
+    uid = f'dlux.files:{model._meta.label_lower}'
+    soft_deleted.disconnect(sender=model, dispatch_uid=uid)
+    restored.disconnect(sender=model, dispatch_uid=uid)

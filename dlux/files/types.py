@@ -86,17 +86,3 @@ def image_to_pdf(data):
     output = BytesIO()
     pages[0].save(output, format='PDF', save_all=True, append_images=pages[1:], resolution=dpi)
     return output.getvalue()
-
-
-def register_builtin_types():
-    from . import register_file_type
-
-    register_file_type(
-        'pdf', extensions=['.pdf'], mime_types=['application/pdf'], sniff=sniff_pdf, to_pdf=lambda data: data,
-        label_key='files_type_pdf', label='PDF',
-    )
-    register_file_type(
-        'image', extensions=['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp'],
-        mime_types=['image/jpeg', 'image/png', 'image/tiff', 'image/webp'], sniff=sniff_image, to_pdf=image_to_pdf,
-        label_key='files_type_image', label='Image',
-    )

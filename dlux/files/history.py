@@ -10,7 +10,7 @@ from io import BytesIO
 
 from django.core.files.base import ContentFile
 
-from .registry import get_document_file
+from .specs import get_document_file
 
 
 def _messages(key, default):
@@ -148,7 +148,8 @@ def record_upload(document, previous_name, *, field_name='pdf_file', user=None):
     """After a form saved a new upload (or cleared the field), keep the replaced file and tidy the new one.
 
     The replaced file goes to history (``replace``, or ``clear`` when the field is
-    now empty). A new PDF gets the document's metadata and its target name.
+    now empty). A new PDF gets the document's metadata and its target name; an
+    accepted image is converted into that PDF and the uploaded image removed.
     """
     file_field = getattr(document, field_name)
     current = file_field.name or ''
@@ -159,14 +160,28 @@ def record_upload(document, previous_name, *, field_name='pdf_file', user=None):
         action_type='replace' if current else 'clear', active_name_after=current,
     )
     if current and file_field.storage.exists(current):
+        from . import detect_file_type, to_pdf_bytes
+
         with file_field.storage.open(current, 'rb') as stream:
             data = stream.read()
-        if data.startswith(b'%PDF') or b'%PDF-' in data[:1024]:
-            data, _ = write_pdf_metadata(data, document, field_name)
-            saved = _store(document, field_name, data, user)
-            if version:
-                version.active_name_after = saved
-                version.save(update_fields=['active_name_after'])
+        spec = get_document_file(document, field_name)
+        accept = spec.accept if spec else ('pdf',)
+        try:
+            kind = detect_file_type(data, current, accept)
+        except ValueError:
+            return version
+        if kind.name != 'pdf':
+            if kind.to_pdf is None:
+                return version
+            # An accepted image becomes the document's PDF; the uploaded image is not kept (D3).
+            data = to_pdf_bytes(data, current, accept)
+        data, _ = write_pdf_metadata(data, document, field_name)
+        saved = _store(document, field_name, data, user)
+        if kind.name != 'pdf':
+            file_field.storage.delete(current)
+        if version:
+            version.active_name_after = saved
+            version.save(update_fields=['active_name_after'])
     return version
 
 
