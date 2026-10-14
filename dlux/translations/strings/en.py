@@ -7,6 +7,12 @@ Plain data — one key per interface string. Loaded and merged by
 
 STRINGS = {
     # Titlebar
+    'files_content_mismatch': 'The file is damaged or is not what its name says.',
+    'files_not_pages': 'This file type cannot be turned into PDF pages.',
+    'files_too_large': 'The file is larger than the allowed size.',
+    'files_type_image': 'Image',
+    'files_type_not_allowed': 'This file type is not accepted. Allowed: {allowed}.',
+    'files_type_pdf': 'PDF',
     'help': 'Help',
     'tour_title': 'Guided Tour',
     'profile': 'Profile',

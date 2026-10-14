@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_ROOT))
 TEST_LABELS = [
     'dlux.tests.test_pdf_editor',
     'dlux.tests.test_pdf_extra_features',
+    'dlux.tests.test_document_files',
     'dlux.tests.test_entry_clipboard',
     'dlux.tests.test_weather',
     'dlux.tests.test_accent_edges',
