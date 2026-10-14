@@ -13,7 +13,7 @@
 | File-type checks | None in DjangoLux for documents. Archive/Decrees validate PDFs in their forms; the asset manager has its own image/font checks (`dlux/assets.py`, Pillow). | Three independent rule sets. |
 | Asset manager | Shared library of reusable images/fonts (`ManagedAssetField`). | Separate by design; later it should reuse the same type checks and upload path (§5). |
 
-Pillow is already a core DjangoLux dependency (`pillow>=11.0`); `pypdf` comes with the `pdf` extra. Image support needs no new package.
+Pillow is already a core DjangoLux dependency (`pillow>=11.0`) and reads JPEG, PNG, TIFF and WebP; `pypdf` comes with the `pdf` extra. Image support needs no new package.
 
 ## 2. Target: one document-file pipeline
 
@@ -27,8 +27,8 @@ A registry of accepted file kinds, each with extensions, MIME types, a content s
 from dlux.files import register_file_type
 
 register_file_type('pdf', extensions=['.pdf'], sniff=b'%PDF-', to_pages=pdf_pages)          # built in
-register_file_type('image', extensions=['.jpg', '.jpeg', '.png'], to_pages=image_pages)       # built in
-register_file_type('tiff', extensions=['.tif', '.tiff'], to_pages=my_tiff_pages)             # a project extension
+register_file_type('image', extensions=['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp'], to_pages=image_pages)  # built in
+register_file_type('heic', extensions=['.heic'], to_pages=my_heic_pages)                     # a project extension
 ```
 
 - Checks run server-side on the content (magic bytes / Pillow decode), never the name alone. Renamed or corrupt files are refused with a translated message.
@@ -37,7 +37,7 @@ register_file_type('tiff', extensions=['.tif', '.tiff'], to_pages=my_tiff_pages)
 
 ### 2.2 Images as pages
 
-`assemble_pdf` accepts any registered kind. JPG/PNG become one page each: EXIF orientation honoured, alpha flattened onto white, converted with Pillow, page sized by §6 decision D2. The editor previews images as page thumbnails and lets them be rotated, reordered and removed like PDF pages; the manifest gains an optional `rotate` (0/90/180/270) per page, applied to PDF pages too.
+`assemble_pdf` accepts any registered kind. JPG/JPEG, PNG, TIFF/TIF and WebP become pages — one per image, and one per frame of a multi-page TIFF: EXIF orientation honoured, alpha flattened onto white, converted with Pillow, page sized by §6 decision D2. The editor previews images as page thumbnails and lets them be rotated, reordered and removed like PDF pages; the manifest gains an optional `rotate` (0/90/180/270) per page, applied to PDF pages too.
 
 ### 2.3 ScanLink in the editor
 
@@ -91,7 +91,7 @@ Byte-for-byte checks of current and historical downloads on a restored copy are 
 
 ## 5. Implementation order (branch `feat/document-file-pipeline`)
 
-1. `dlux.files` type registry + server-side checks (PDF, JPG/PNG built in); tests incl. renamed/corrupt/oversized files.
+1. `dlux.files` type registry + server-side checks (PDF, JPG/JPEG, PNG, TIFF/TIF, WebP built in); tests incl. renamed/corrupt/oversized files.
 2. Image pages in `assemble_pdf` + per-page rotation; editor thumbnails for images.
 3. Editor Scan through the ScanLink client.
 4. `dlux.FileVersion` + history service + `history_model` override + system check + soft-delete cascade.
@@ -104,4 +104,4 @@ Byte-for-byte checks of current and historical downloads on a restored copy are 
 - **D1 — History storage.** Recommended: DjangoLux ships `dlux.FileVersion` as the default, and projects with an existing table point at it with `history_model=` (no data migration). Alternative: copy Archive/Decrees history rows into `dlux.FileVersion` — one table everywhere, but a real data migration of years of records. I recommend the first.
 - **D2 — Image page size.** Recommended: fit each image onto an A4 page (portrait or landscape following the image), keeping its proportions, at no more than 300 DPI. Alternative: page size equals the image size at 200 DPI (no white margins, pages vary in size).
 - **D3 — Keep original images?** Recommended: no; the assembled PDF is the record and earlier PDFs go to history, exactly as for PDFs today. Alternative: also store the uploaded image files in history (more storage).
-- **D4 — Accepted image types in 1.12.0b2.** Recommended: JPG and PNG only (the roadmap's list); HEIC/TIFF/WebP later through the registry.
+- **D4 — Accepted image types in 1.12.0b2. Decided 14 October 2026:** JPG, JPEG, PNG, TIF, TIFF and WebP become PDF pages. A multi-page TIFF contributes one page per frame; an animated WebP contributes its first frame. Other types (e.g. HEIC) can be added later through the registry.
