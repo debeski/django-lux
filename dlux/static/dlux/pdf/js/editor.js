@@ -104,17 +104,40 @@
         shell.dataset.pdfEditorReady = "1";
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
-        function reorderPages(fromId, beforeId) {
-            if (!fromId || !beforeId || fromId === beforeId) return;
+        // Moves a page next to `targetId` (after it when `after`), or to the end
+        // when there is no target: a drop past the last card.
+        function reorderPages(fromId, targetId, after) {
+            if (!fromId || fromId === targetId) return;
             const fromIndex = pages.findIndex((item) => item.id === fromId);
-            const beforeIndex = pages.findIndex((item) => item.id === beforeId);
-            if (fromIndex < 0 || beforeIndex < 0) return;
+            if (fromIndex < 0) return;
             const moved = pages.splice(fromIndex, 1)[0];
-            const insertIndex = pages.findIndex((item) => item.id === beforeId);
-            pages.splice(insertIndex, 0, moved);
+            const targetIndex = targetId ? pages.findIndex((item) => item.id === targetId) : -1;
+            if (targetId && targetIndex < 0) {
+                pages.splice(fromIndex, 0, moved);
+                return;
+            }
+            pages.splice(targetId ? targetIndex + (after ? 1 : 0) : pages.length, 0, moved);
             shell.dataset.dirty = "1";
             renderGrid();
         }
+
+        // The half of the card the pointer is over decides before/after,
+        // mirrored in right-to-left layouts.
+        function dropsAfter(card, event) {
+            const rect = card.getBoundingClientRect();
+            const rightHalf = event.clientX > rect.left + rect.width / 2;
+            const rtl = window.getComputedStyle(card).direction === "rtl";
+            return rtl ? !rightHalf : rightHalf;
+        }
+
+        grid.addEventListener("dragover", function (event) {
+            if (draggedId) event.preventDefault();
+        });
+        grid.addEventListener("drop", function (event) {
+            if (!draggedId || event.target.closest(".dlux-pdf-page-card")) return;
+            event.preventDefault();
+            reorderPages(draggedId, null, true);
+        });
 
         function selectedPages() {
             return pages.filter((item) => item.selected);
@@ -220,7 +243,8 @@
                 });
                 li.addEventListener("drop", function (event) {
                     event.preventDefault();
-                    reorderPages(draggedId, item.id);
+                    event.stopPropagation();
+                    reorderPages(draggedId, item.id, dropsAfter(li, event));
                 });
 
                 grid.appendChild(li);

@@ -17,6 +17,8 @@ function element() {
         listeners: {}, dataset: {}, children: [], disabled: false,
         classList: { add() {}, remove() {}, toggle() {} }, style: {},
         setAttribute() {},
+        getBoundingClientRect() { return { left: 0, width: 100 }; },
+        closest() { return null; },
         addEventListener(name, fn) { this.listeners[name] = fn; },
         removeEventListener(name) { delete this.listeners[name]; },
         appendChild(child) { this.children.push(child); },
@@ -42,6 +44,7 @@ function harness(currentUrl = '') {
     const forms = [];
     const window = {
         location: { reload() { reloads += 1; } },
+        getComputedStyle: () => ({ direction: 'ltr' }),
         pdfjsLib: {
             GlobalWorkerOptions: {},
             getDocument() {
@@ -130,4 +133,27 @@ test('files outside the accepted kinds are refused without a request', async () 
     assert.equal(h.requests(), 0);
     assert.equal(h.tasks.length, 0);
     assert.match(h.selectors['[data-editor-status]'].textContent, /cannot be added/);
+});
+
+test('a page can be dragged to the last position', async () => {
+    const h = harness();
+    h.pdf.numPages = 3;
+    await h.upload();
+    const grid = h.selectors['[data-page-grid]'];
+    // The fake grid never empties on re-render; the current cards are the last three.
+    const cards = () => grid.children.slice(-3);
+    const order = () => cards().map(card => card.children[1].children[1].textContent.slice(-1));
+    const drop = (card, clientX) => card.listeners.drop({ preventDefault() {}, stopPropagation() {}, clientX });
+
+    cards()[0].listeners.dragstart();
+    drop(cards()[2], 80);
+    assert.deepEqual(order(), ['2', '3', '1']);
+
+    cards()[0].listeners.dragstart();
+    grid.listeners.drop({ preventDefault() {}, target: grid });
+    assert.deepEqual(order(), ['3', '1', '2']);
+
+    cards()[2].listeners.dragstart();
+    drop(cards()[0], 20);
+    assert.deepEqual(order(), ['2', '3', '1']);
 });
