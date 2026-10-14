@@ -58,6 +58,7 @@
             selectPage: shell.dataset.labelSelectPage || "Select page",
             fitBadge: shell.dataset.labelFitBadge || "A4",
             selected: shell.dataset.labelSelected || "{count} selected",
+            discardEdits: shell.dataset.labelDiscardEdits || "Discard unsaved PDF edits?",
             scanning: shell.dataset.labelScanning || "Scanning",
             scannerError: shell.dataset.labelScannerError || "Scanner app returned an error.",
             scanLinkUnavailable: shell.dataset.labelScanlinkUnavailable || "ScanLink is not available.",
@@ -81,8 +82,28 @@
             return;
         }
         const modalElement = shell.closest(".modal");
+        // Closing with unsaved page edits asks through DjangoLux's unsaved-changes
+        // prompt (Save / Discard / Go back), the same one forms use.
         function guardClose(event) {
-            if (shell.isConnected && shell.dataset.dirty === "1" && shell.dataset.saved !== "1" && !window.confirm("Discard unsaved PDF edits?")) event.preventDefault();
+            if (!shell.isConnected || shell.dataset.dirty !== "1" || shell.dataset.saved === "1") return;
+            if (modalElement.dataset.dluxPdfDiscard === "1") {
+                delete modalElement.dataset.dluxPdfDiscard;
+                return;
+            }
+            const guard = window.dluxUnsavedGuard;
+            if (guard && typeof guard.prompt === "function") {
+                if (typeof guard.skipPrompt === "function" && guard.skipPrompt()) return;
+                event.preventDefault();
+                guard.prompt({
+                    onSave: function () { saveButton.click(); },
+                    onDiscard: function () {
+                        modalElement.dataset.dluxPdfDiscard = "1";
+                        window.bootstrap.Modal.getOrCreateInstance(modalElement).hide();
+                    },
+                });
+                return;
+            }
+            if (!window.confirm(labels.discardEdits)) event.preventDefault();
         }
         shell.disposePdfEditor = () => {
             shell.dataset.closed = "1";

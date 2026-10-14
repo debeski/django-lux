@@ -15,6 +15,7 @@ STRINGS = {
     'files_type_pdf': 'PDF',
     'help': 'مساعدة',
     'pdf_converting_label': 'جارٍ تجهيز {name}...',
+    'pdf_discard_edits_label': 'تجاهل تعديلات PDF غير المحفوظة؟',
     'pdf_file_not_accepted_label': 'لا يمكن إضافة هذا النوع من الملفات.',
     'pdf_fit_a4_badge': 'A4',
     'pdf_fit_a4_help': 'ملاءمة الصفحات المحددة لمقاس A4 مع الحفاظ على تناسبها',

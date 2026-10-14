@@ -15,6 +15,7 @@ STRINGS = {
     'files_type_pdf': 'PDF',
     'help': 'Help',
     'pdf_converting_label': 'Preparing {name}...',
+    'pdf_discard_edits_label': 'Discard unsaved PDF edits?',
     'pdf_file_not_accepted_label': 'This file type cannot be added.',
     'pdf_fit_a4_badge': 'A4',
     'pdf_fit_a4_help': 'Scale the selected pages onto A4 sheets, keeping their proportions',

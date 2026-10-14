@@ -80,7 +80,7 @@ function harness(currentUrl = '') {
         selectors['#dlux-pdf-file-input'].files = [{ name, async arrayBuffer() { return new ArrayBuffer(1); } }];
         await selectors['#dlux-pdf-file-input'].listeners.change();
     }
-    return { shell, selectors, tasks, pdf, upload, choose, reply, forms, reloads: () => reloads, requests: () => requests };
+    return { shell, selectors, tasks, pdf, upload, choose, reply, forms, window, modal, reloads: () => reloads, requests: () => requests };
 }
 
 test('save waits for current PDF even after uploaded pages become ready', async () => {
@@ -156,4 +156,23 @@ test('a page can be dragged to the last position', async () => {
     cards()[2].listeners.dragstart();
     drop(cards()[0], 20);
     assert.deepEqual(order(), ['2', '3', '1']);
+});
+
+test('closing with unsaved edits asks through the DjangoLux unsaved prompt', async () => {
+    const h = harness();
+    await h.upload();
+    const prompts = [];
+    let hidden = 0;
+    h.window.dluxUnsavedGuard = { prompt: config => prompts.push(config), skipPrompt: () => false };
+    h.window.bootstrap = { Modal: { getOrCreateInstance: () => ({ hide() { hidden += 1; } }) } };
+    let prevented = false;
+    h.modal.listeners['hide.bs.modal']({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(prompts.length, 1);
+
+    prompts[0].onDiscard();
+    assert.equal(hidden, 1);
+    prevented = false;
+    h.modal.listeners['hide.bs.modal']({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false, 'the discarding close goes through');
 });
