@@ -3,7 +3,7 @@ from unittest import skipUnless
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from PIL import Image
 
 try:
@@ -151,3 +151,81 @@ class AssemblyPageOptionTests(SimpleTestCase):
         for item in ({'rotate': 45}, {'rotate': True}, {'fit': 'letter'}):
             with self.subTest(item=item), self.assertRaises(ValueError):
                 self.assemble([{'source': 'current', 'page': 1, **item}], {'current': pdf_bytes([(100, 100)])})
+
+
+class ConvertEndpointTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from django.core.cache import cache
+
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        cache.clear()
+        self.user = get_user_model().objects.create_superuser('converter', 'converter@example.com', 'pw12345!')
+
+    def post(self, upload, user=True):
+        from django.test import Client
+        from django.urls import reverse
+
+        client = Client()
+        if user:
+            client.force_login(self.user)
+        return client.post(reverse('dlux_files_convert'), {'file': upload} if upload else {})
+
+    @skipUnless(PdfReader, 'Install django-lux[pdf] to test page conversion.')
+    def test_images_come_back_as_pdf_pages(self):
+        response = self.post(SimpleUploadedFile('scan.tiff', image_bytes('TIFF', frames=2)))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertEqual(len(page_sizes(response.content)), 2)
+
+    def test_refusals(self):
+        self.assertEqual(self.post(SimpleUploadedFile('scan.png', image_bytes('PNG')), user=False).status_code, 302)
+        self.assertEqual(self.post(None).status_code, 400)
+        self.assertEqual(self.post(SimpleUploadedFile('doc.pdf', pdf_bytes([(10, 10)]) if PdfWriter else b'%PDF-1.4')).status_code, 400)
+        self.assertEqual(self.post(SimpleUploadedFile('fake.png', b'not an image')).status_code, 400)
+
+    def test_get_is_not_allowed(self):
+        from django.test import Client
+        from django.urls import reverse
+
+        client = Client()
+        client.force_login(self.user)
+        self.assertEqual(client.get(reverse('dlux_files_convert')).status_code, 405)
+
+
+class EditorAcceptTests(TestCase):
+    def render(self, accept):
+        import json
+        from unittest.mock import Mock, patch
+
+        from django.contrib.auth import get_user_model
+        from django.test import RequestFactory
+
+        from dlux.pdf.views import PdfEditorView
+
+        user = get_user_model()(username='editor-accept', pk=1)
+        adapter = Mock()
+        adapter.context.return_value = {'source_url': '', 'edit_url': '/e/', 'history_url': '/h/', 'download_url': ''}
+        adapter.revision.return_value = 'r'
+        from django.contrib.sessions.middleware import SessionMiddleware
+
+        request = RequestFactory().get('/e/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.user = user
+        with patch('dlux.pdf.views.get_pdf_features', return_value={'editing_enabled': True, 'history_enabled': False, 'max_pages': 5, 'max_source_mb': 1}):
+            response = PdfEditorView.as_view(adapter=adapter, accept=accept)(request)
+        return json.loads(response.content)['html']
+
+    def test_editor_offers_only_accepted_kinds(self):
+        html = self.render(('pdf',))
+        self.assertIn('data-accept-extensions=".pdf"', html)
+        self.assertIn('accept="application/pdf,.pdf"', html)
+        html = self.render(('pdf', 'image'))
+        self.assertIn('data-accept-extensions=".pdf .jpg .jpeg .png .tif .tiff .webp"', html)
+        self.assertIn('data-convert-url="/sys/files/convert/"', html)
+        self.assertIn('data-fit-selected', html)
+        self.assertNotIn('localhost:5000', html)

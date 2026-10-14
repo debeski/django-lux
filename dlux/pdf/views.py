@@ -22,6 +22,10 @@ class PdfSourceInput(DluxFileInput):
 
 class PdfEditorView(LoginRequiredMixin, View):
     adapter = None
+    #: File kinds the editor's chooser offers (`dlux.files`). Images are converted
+    #: to PDF pages in the browser through `dlux_files_convert` before upload, so an
+    #: adapter's `read_source` still receives PDF bytes.
+    accept = ('pdf',)
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -34,7 +38,14 @@ class PdfEditorView(LoginRequiredMixin, View):
         document = self.adapter.lookup(request, kwargs, lock=False)
         context = self.adapter.context(request, document, kwargs)
         context.update(document=document, revision=self.adapter.revision(document), pdf_features=get_pdf_features())
-        context['source_input'] = PdfSourceInput(attrs={'id': 'dlux-pdf-file-input', 'accept': 'application/pdf,.pdf', 'multiple': True}).render('pdf_sources', None)
+        from django.urls import reverse
+
+        from dlux.files import accept_attribute, file_types
+
+        accept_value = accept_attribute(self.accept)
+        context['source_input'] = PdfSourceInput(attrs={'id': 'dlux-pdf-file-input', 'accept': accept_value, 'multiple': True}).render('pdf_sources', None)
+        context['accept_extensions'] = ' '.join(ext for file_type in file_types(self.accept) for ext in file_type.extensions)
+        context['convert_url'] = reverse('dlux_files_convert')
         return JsonResponse({'html': render_to_string('dlux/pdf/editor.html', context, request=request)})
 
     def post(self, request, *args, **kwargs):
@@ -45,7 +56,7 @@ class PdfEditorView(LoginRequiredMixin, View):
             try:
                 manifest = json.loads(request.POST.get('manifest', '[]'))
                 limits = get_pdf_features()
-                data = assemble_pdf(manifest, lambda source: self.adapter.read_source(request, document, source), max_pages=limits['max_pages'], max_source_bytes=limits['max_source_mb'] * 1024 * 1024)
+                data = assemble_pdf(manifest, lambda source: self.adapter.read_source(request, document, source), max_pages=limits['max_pages'], max_source_bytes=limits['max_source_mb'] * 1024 * 1024, accept=self.accept)
                 with transaction.atomic():
                     self.adapter.save(request, document, data)
             except Exception as exc:

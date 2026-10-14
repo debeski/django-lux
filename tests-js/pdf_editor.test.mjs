@@ -15,7 +15,8 @@ function deferred() {
 function element() {
     return {
         listeners: {}, dataset: {}, children: [], disabled: false,
-        classList: { add() {}, remove() {} },
+        classList: { add() {}, remove() {}, toggle() {} }, style: {},
+        setAttribute() {},
         addEventListener(name, fn) { this.listeners[name] = fn; },
         removeEventListener(name) { delete this.listeners[name]; },
         appendChild(child) { this.children.push(child); },
@@ -38,6 +39,7 @@ function harness(currentUrl = '') {
     let reloads = 0;
     let requests = 0;
     const reply = deferred();
+    const forms = [];
     const window = {
         location: { reload() { reloads += 1; } },
         pdfjsLib: {
@@ -57,7 +59,7 @@ function harness(currentUrl = '') {
             querySelectorAll: () => [shell], createElement: element,
         },
         MutationObserver: class { observe() {} },
-        FormData: class { append() {} },
+        FormData: class { append(name, value) { forms.push([name, value]); } },
         setTimeout, clearTimeout,
         fetch() { requests += 1; return reply.promise; },
     });
@@ -71,7 +73,11 @@ function harness(currentUrl = '') {
         tasks.at(-1).resolve(pdf);
         await done;
     }
-    return { shell, selectors, tasks, pdf, upload, reply, reloads: () => reloads, requests: () => requests };
+    async function choose(name) {
+        selectors['#dlux-pdf-file-input'].files = [{ name, async arrayBuffer() { return new ArrayBuffer(1); } }];
+        await selectors['#dlux-pdf-file-input'].listeners.change();
+    }
+    return { shell, selectors, tasks, pdf, upload, choose, reply, forms, reloads: () => reloads, requests: () => requests };
 }
 
 test('save waits for current PDF even after uploaded pages become ready', async () => {
@@ -103,4 +109,25 @@ test('a late successful save cannot reload after editor replacement', async () =
     h.reply.resolve({ ok: true, async text() { return '{"success":true}'; } });
     await saving;
     assert.equal(h.reloads(), 0);
+});
+
+test('page rotation and fit travel in the save manifest', async () => {
+    const h = harness();
+    await h.upload();
+    const card = () => h.selectors['[data-page-grid]'].children.at(-1);
+    const footer = () => card().children[1];
+    footer().children[2].listeners.click();
+    footer().children[2].listeners.click();
+    h.selectors['[data-save-pdf]'].listeners.click();
+    await tick();
+    const manifest = JSON.parse(h.forms.find(([name]) => name === 'manifest')[1]);
+    assert.deepEqual(manifest, [{ source: 'upload_0', page: 1, rotate: 180 }]);
+});
+
+test('files outside the accepted kinds are refused without a request', async () => {
+    const h = harness();
+    await h.choose('photo.png');
+    assert.equal(h.requests(), 0);
+    assert.equal(h.tasks.length, 0);
+    assert.match(h.selectors['[data-editor-status]'].textContent, /cannot be added/);
 });

@@ -55,6 +55,11 @@ def file_types(accept=None):
     return [get_file_type(name) for name in names]
 
 
+def convertible_types():
+    """Registered kinds, other than PDF itself, that can become PDF pages."""
+    return tuple(name for name, file_type in _registry.items() if name != 'pdf' and file_type.to_pdf is not None)
+
+
 def accept_attribute(accept=None):
     """The `accept` value for a file input taking these kinds."""
     values = []

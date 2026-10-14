@@ -4,6 +4,7 @@ from django.urls import path
 from . import views, api
 from django.contrib.auth import views as auth_views
 from .views.weather import weather_current, weather_locations
+from .files import views as file_views
 
 # app_name = 'dlux'
 
@@ -126,6 +127,7 @@ urlpatterns = [
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/assets/upload/', views.managed_asset_picker_upload, name='managed_asset_picker_upload'),
+    path('sys/files/convert/', file_views.convert_to_pdf, name='dlux_files_convert'),
     # Pre-1.9 route, kept so a cached page or an unchanged template still posts somewhere real.
     path('sys/setup/assets/upload/', views.managed_asset_picker_upload, name='managed_image_picker_upload'),
     path('sys/assets/', views.asset_manager_page, name='manage_assets'),

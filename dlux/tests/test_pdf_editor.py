@@ -139,5 +139,5 @@ class PdfTransportTests(TestCase):
             response = self.view(request)
         self.assertEqual(json.loads(response.content), {'success': True, 'refresh_parent': True})
         self.adapter.lookup.assert_called_once_with(request, {}, lock=True)
-        self.assertEqual(assemble.call_args.kwargs, {'max_pages': 5, 'max_source_bytes': 1024 * 1024})
+        self.assertEqual(assemble.call_args.kwargs, {'max_pages': 5, 'max_source_bytes': 1024 * 1024, 'accept': ('pdf',)})
         self.adapter.save.assert_called_once()
