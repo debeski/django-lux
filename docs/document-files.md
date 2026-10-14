@@ -1,6 +1,6 @@
 # Document files — design for 1.12.0b2
 
-**Status:** design draft, 14 October 2026, for the owner's approval before any code. Branch `feat/document-file-pipeline` from `origin/main` (= `v1.12.0b1`). The owner agreed the direction on 14 October 2026: history moves into DjangoLux, the PDF editor uses ScanLink, file-type checks live in DjangoLux and are extendable, images are supported, and one setup call connects everything. §6 lists the decisions still open.
+**Status:** design approved 14 October 2026 (decisions D1–D4 in §6). Branch `feat/document-file-pipeline` from `origin/main` (= `v1.12.0b1`). The owner agreed the direction on 14 October 2026: history moves into DjangoLux, the PDF editor uses ScanLink, file-type checks live in DjangoLux and are extendable, images are supported, and one setup call connects everything. §6 records the decisions.
 
 ## 1. What exists today (checked in source)
 
@@ -37,7 +37,7 @@ register_file_type('heic', extensions=['.heic'], to_pages=my_heic_pages)        
 
 ### 2.2 Images as pages
 
-`assemble_pdf` accepts any registered kind. JPG/JPEG, PNG, TIFF/TIF and WebP become pages — one per image, and one per frame of a multi-page TIFF: EXIF orientation honoured, alpha flattened onto white, converted with Pillow, page sized by §6 decision D2. The editor previews images as page thumbnails and lets them be rotated, reordered and removed like PDF pages; the manifest gains an optional `rotate` (0/90/180/270) per page, applied to PDF pages too.
+`assemble_pdf` accepts any registered kind. JPG/JPEG, PNG, TIFF/TIF and WebP become pages — one per image, and one per frame of a multi-page TIFF: EXIF orientation honoured, alpha flattened onto white, converted with Pillow. By default an image page keeps the image's own size and proportions (the image's DPI when it records a sane one, 72–1200, otherwise 150 DPI), so A3 scans, receipts and screenshots stay as they are (§6 D2). The editor previews images as page thumbnails and lets them be rotated, reordered and removed like PDF pages. The manifest gains two optional per-page settings that apply to PDF and image pages alike: `rotate` (0/90/180/270) and `fit` (`"a4"`): **Fit to A4** scales the selected pages onto an A4 sheet, portrait or landscape following the page, keeping proportions and centring them.
 
 ### 2.3 ScanLink in the editor
 
@@ -47,7 +47,7 @@ The editor's Scan button uses the shared ScanLink client (scanner selection, pro
 
 - DjangoLux ships a concrete history model, `dlux.FileVersion` (additive migration in `dlux`): generic link (`content_type`, `object_id`), `field_name`, `version_number`, `action_type` (`replace`, `edit`, `normalize`, `clear`), `archived_file`, `active_name_before/after`, `page_count`, `metadata`, scope and audit fields from `ScopedModel`; unique on (content type, object, field, version). Same columns as the Archive/Decrees tables.
 - One service does what the copied helpers do today: copy the previous file byte-for-byte into history, write the new file under a new storage name, write PDF metadata, update the field and audit, and roll back cleanly if anything fails (`dlux.files.history.save_new_version`, `archive_previous`, `finalize`).
-- A project that already has a history table points DjangoLux at it (§6 D1): `history_model='documents.DocumentFileVersion'`. A system check verifies the table has the required fields. **Existing tables and files stay where they are; no data moves.** Archive and Decrees then delete their copied helpers.
+- Every project uses `dlux.FileVersion` (§6 D1). A project with its own history table moves its rows over once with `manage.py dlux_adopt_file_history <app.Model>`: rows are copied with their document link, field, version numbers, action, archived file name, page count, metadata, scope and audit fields; the archived files themselves stay where they are on disk. The command is idempotent (an adopted row is recognised by document, field and version), refuses conflicting rows, reports counts, and `--verify` compares every copied row and file hash. The project's old table stays untouched until a later project release retires it. Archive and Decrees then delete their copied helpers.
 - Soft delete/restore of a document soft-deletes/restores its history rows (the Archive 1.3.0 behaviour, now in DjangoLux).
 
 ### 2.5 One setup call
@@ -59,7 +59,6 @@ from dlux.files import register_document_file
 register_document_file(
     Decree, 'pdf_file',
     accept=('pdf', 'image'),
-    history_model='documents.DocumentFileVersion',   # omit to use dlux.FileVersion
     file_name=decree_pdf_name,                        # optional naming callable
     pdf_metadata=decree_pdf_metadata,                 # optional title/subject/keywords
     can_access=archive_can_access,                    # optional extra rule, e.g. Archive's reviewers
@@ -83,8 +82,8 @@ Stays a separate feature (a reusable library, deletable when unused; not record 
 
 ## 4. Project follow-ups (each in its own release, after 1.12.0b2)
 
-- **Archive:** replace `documents/pdf.py` adapter + history helpers with `register_document_file(..., history_model='documents.DocumentFileVersion')`; the reviewer PDF route uses `can_access`; 1.3.1 "multiple images" becomes turning on `accept=('pdf', 'image')`.
-- **Decrees:** the same, with its own history table.
+- **Archive:** run `dlux_adopt_file_history documents.DocumentFileVersion` (a few hundred rows), then replace `documents/pdf.py` adapter + history helpers with `register_document_file(...)`; the reviewer PDF route uses `can_access`; 1.3.1 "multiple images" becomes turning on `accept=('pdf', 'image')`.
+- **Decrees:** the same: adopt its history rows, then switch.
 - **CRMs / others:** opt in only where they hold document files.
 
 Byte-for-byte checks of current and historical downloads on a restored copy are required before either project deploys the switch.
@@ -94,14 +93,14 @@ Byte-for-byte checks of current and historical downloads on a restored copy are 
 1. `dlux.files` type registry + server-side checks (PDF, JPG/JPEG, PNG, TIFF/TIF, WebP built in); tests incl. renamed/corrupt/oversized files.
 2. Image pages in `assemble_pdf` + per-page rotation; editor thumbnails for images.
 3. Editor Scan through the ScanLink client.
-4. `dlux.FileVersion` + history service + `history_model` override + system check + soft-delete cascade.
+4. `dlux.FileVersion` + history service + soft-delete cascade + `dlux_adopt_file_history` (copy, idempotency, `--verify`).
 5. `register_document_file`: routes, access rules, viewer tag, form/file-card wiring, modal-save hook.
 6. Compatibility shims, deprecation entry, downstream compat tests; docs (`FEATURES.md`, `reference.md`, `pdf-toolkit.md`, this file); changelog; `1.12.0b2`.
 7. Acceptance on the testbed: Decrees on 1.12.0b2 unchanged; a scratch project using only `register_document_file`; Archive/Decrees history tables plugged in on restored copies with byte-for-byte download checks; desktop/mobile/Arabic browser journeys.
 
 ## 6. Decisions for the owner
 
-- **D1 — History storage.** Recommended: DjangoLux ships `dlux.FileVersion` as the default, and projects with an existing table point at it with `history_model=` (no data migration). Alternative: copy Archive/Decrees history rows into `dlux.FileVersion` — one table everywhere, but a real data migration of years of records. I recommend the first.
-- **D2 — Image page size.** Recommended: fit each image onto an A4 page (portrait or landscape following the image), keeping its proportions, at no more than 300 DPI. Alternative: page size equals the image size at 200 DPI (no white margins, pages vary in size).
-- **D3 — Keep original images?** Recommended: no; the assembled PDF is the record and earlier PDFs go to history, exactly as for PDFs today. Alternative: also store the uploaded image files in history (more storage).
+- **D1 — History storage. Decided 14 October 2026:** one table everywhere. Projects move their history rows into `dlux.FileVersion` (deployed history is a few hundred editor changes); archived files are not moved.
+- **D2 — Image page size. Decided 14 October 2026:** pages keep their own size by default (A3 scans, receipts and screenshots are not forced to A4); **Fit to A4** is an editor option for the selected pages, PDF or image.
+- **D3 — Keep original images? Decided 14 October 2026:** no. The assembled PDF is the record; earlier PDFs, including pages that came from images, stay in history.
 - **D4 — Accepted image types in 1.12.0b2. Decided 14 October 2026:** JPG, JPEG, PNG, TIF, TIFF and WebP become PDF pages. A multi-page TIFF contributes one page per frame; an animated WebP contributes its first frame. Other types (e.g. HEIC) can be added later through the registry.
