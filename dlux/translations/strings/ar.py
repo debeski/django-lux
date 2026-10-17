@@ -2539,6 +2539,7 @@ STRINGS = {
     'pdf_label_action_type': 'الإجراء',
     'pdf_label_archived_file': 'الملف المؤرشف',
     'pdf_label_created_at': 'تاريخ الإنشاء',
+    'pdf_label_changed_by': 'عُدّل بواسطة',
     'pdf_label_page_count': 'الصفحات',
     'pdf_label_version_number': 'النسخة',
     'pdf_next_page_label': 'الصفحة التالية',

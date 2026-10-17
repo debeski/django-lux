@@ -190,7 +190,7 @@ def document_file_history(request, app_label, model_name, pk, field_name):
     if not get_pdf_features()['history_enabled']:
         raise PermissionDenied
     _, document = resolve_document(request, app_label, model_name, pk, field_name, 'history')
-    versions = list(versions_for(document, field_name))
+    versions = list(versions_for(document, field_name).select_related('created_by'))
     kwargs = _route_kwargs(document, field_name)
     for version in versions:
         version.file_name = os.path.basename(version.archived_file.name)

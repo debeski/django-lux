@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **File History Actor Column**: The shared PDF history table displays `created_by` as translated “Changed by”, using full name, username fallback, or `—` without an actor. Registered history views fetch actors with `select_related()`.
+
 ## v1.12.0b2
 
 - **Document Files (`register_document_file`)**: `dlux.files.registry.register_document_file(Model, 'pdf_file', accept=..., file_name=..., pdf_metadata=..., can_access=..., queryset=...)` declares a document file. It adds routes under `/sys/files/<app>/<model>/<pk>/<field>/` (`source/`, `download/`, `edit/`, `history/`, `history/<version>/download/`; names `dlux_document_file_*`) checked by `view_`/`change_<model>`, the dynamic-modal scope filter and the optional `can_access` hook; `{% load dlux_files %}{% dlux_document_viewer obj 'pdf_file' %}`; and in dynamic-modal forms the file card with Scan plus a server-side type check. Modal saves of a registered field record the replaced file in history in the same transaction, and an accepted image uploaded through the form becomes the PDF.
