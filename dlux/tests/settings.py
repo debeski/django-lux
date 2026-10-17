@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_tables2',
     'dlux',
+    'dlux.tests.document_files_app.apps.DocumentFilesAppConfig',
 ]
 
 MIDDLEWARE = [

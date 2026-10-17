@@ -52,10 +52,17 @@ class ScopedQuerySet(models.QuerySet):
     def delete(self):
         from django.utils import timezone
 
+        from .models.soft_delete_signals import soft_deleted
+
         user = get_current_user()
         actor = user if user is not None and getattr(user, 'is_authenticated', False) else None
         live = self.filter(deleted_at__isnull=True)
-        count = live.update(deleted_at=timezone.now(), deleted_by=actor)
+        announce = soft_deleted.has_listeners(self.model)
+        pks = list(live.values_list('pk', flat=True)) if announce else []
+        deleted_at = timezone.now()
+        count = live.update(deleted_at=deleted_at, deleted_by=actor)
+        if announce:
+            soft_deleted.send(sender=self.model, pks=pks, deleted_at=deleted_at, deleted_by_id=getattr(actor, 'pk', None))
         return count, {self.model._meta.label: count}
 
     delete.alters_data = True
@@ -68,7 +75,14 @@ class ScopedQuerySet(models.QuerySet):
     hard_delete.queryset_only = True
 
     def restore(self):
-        return self.update(deleted_at=None, deleted_by=None)
+        from .models.soft_delete_signals import restored
+
+        announce = restored.has_listeners(self.model)
+        deleted = dict(self.filter(deleted_at__isnull=False).values_list('pk', 'deleted_at')) if announce else {}
+        count = self.update(deleted_at=None, deleted_by=None)
+        if announce:
+            restored.send(sender=self.model, deleted_at_by_pk=deleted)
+        return count
 
     restore.alters_data = True
     restore.queryset_only = True

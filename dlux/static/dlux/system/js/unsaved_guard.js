@@ -125,8 +125,9 @@
     }
 
     /*
-     * config: { form, onDiscard, onStay }
-     * Returns nothing; the chosen outcome drives the callbacks.
+     * config: { form, onSave, onDiscard, onStay }
+     * Returns nothing; the chosen outcome drives the callbacks. `onSave`, when
+     * given, replaces submitting `form` (for editors that save without a form).
      */
     function showUnsavedPrompt(config) {
         const modalEl = document.querySelector('[data-dlux-unsaved-modal]');
@@ -169,6 +170,11 @@
         }
 
         function onSave() {
+            if (typeof config.onSave === 'function') {
+                finish('save');
+                config.onSave();
+                return;
+            }
             const submitter = form ? form.querySelector('.dlux-btn-submit, button[type="submit"]') : null;
             // requestSubmit runs the form's own validation and submit handlers,
             // which a direct programmatic submit would bypass. The named
@@ -305,6 +311,8 @@
     }
 
     window.dluxUnsavedGuard = {
+        prompt: showUnsavedPrompt,
+        skipPrompt: shouldSkipPrompt,
         scan: scanGuards,
         baseline: baselineForm,
         isDirty: isDirty,

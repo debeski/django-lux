@@ -15,7 +15,10 @@ function deferred() {
 function element() {
     return {
         listeners: {}, dataset: {}, children: [], disabled: false,
-        classList: { add() {}, remove() {} },
+        classList: { add() {}, remove() {}, toggle() {} }, style: {},
+        setAttribute() {},
+        getBoundingClientRect() { return { left: 0, width: 100 }; },
+        closest() { return null; },
         addEventListener(name, fn) { this.listeners[name] = fn; },
         removeEventListener(name) { delete this.listeners[name]; },
         appendChild(child) { this.children.push(child); },
@@ -38,8 +41,10 @@ function harness(currentUrl = '') {
     let reloads = 0;
     let requests = 0;
     const reply = deferred();
+    const forms = [];
     const window = {
         location: { reload() { reloads += 1; } },
+        getComputedStyle: () => ({ direction: 'ltr' }),
         pdfjsLib: {
             GlobalWorkerOptions: {},
             getDocument() {
@@ -57,7 +62,7 @@ function harness(currentUrl = '') {
             querySelectorAll: () => [shell], createElement: element,
         },
         MutationObserver: class { observe() {} },
-        FormData: class { append() {} },
+        FormData: class { append(name, value) { forms.push([name, value]); } },
         setTimeout, clearTimeout,
         fetch() { requests += 1; return reply.promise; },
     });
@@ -71,7 +76,11 @@ function harness(currentUrl = '') {
         tasks.at(-1).resolve(pdf);
         await done;
     }
-    return { shell, selectors, tasks, pdf, upload, reply, reloads: () => reloads, requests: () => requests };
+    async function choose(name) {
+        selectors['#dlux-pdf-file-input'].files = [{ name, async arrayBuffer() { return new ArrayBuffer(1); } }];
+        await selectors['#dlux-pdf-file-input'].listeners.change();
+    }
+    return { shell, selectors, tasks, pdf, upload, choose, reply, forms, window, modal, reloads: () => reloads, requests: () => requests };
 }
 
 test('save waits for current PDF even after uploaded pages become ready', async () => {
@@ -103,4 +112,67 @@ test('a late successful save cannot reload after editor replacement', async () =
     h.reply.resolve({ ok: true, async text() { return '{"success":true}'; } });
     await saving;
     assert.equal(h.reloads(), 0);
+});
+
+test('page rotation and fit travel in the save manifest', async () => {
+    const h = harness();
+    await h.upload();
+    const card = () => h.selectors['[data-page-grid]'].children.at(-1);
+    const footer = () => card().children[1];
+    footer().children[2].listeners.click();
+    footer().children[2].listeners.click();
+    h.selectors['[data-save-pdf]'].listeners.click();
+    await tick();
+    const manifest = JSON.parse(h.forms.find(([name]) => name === 'manifest')[1]);
+    assert.deepEqual(manifest, [{ source: 'upload_0', page: 1, rotate: 180 }]);
+});
+
+test('files outside the accepted kinds are refused without a request', async () => {
+    const h = harness();
+    await h.choose('photo.png');
+    assert.equal(h.requests(), 0);
+    assert.equal(h.tasks.length, 0);
+    assert.match(h.selectors['[data-editor-status]'].textContent, /cannot be added/);
+});
+
+test('a page can be dragged to the last position', async () => {
+    const h = harness();
+    h.pdf.numPages = 3;
+    await h.upload();
+    const grid = h.selectors['[data-page-grid]'];
+    // The fake grid never empties on re-render; the current cards are the last three.
+    const cards = () => grid.children.slice(-3);
+    const order = () => cards().map(card => card.children[1].children[1].textContent.slice(-1));
+    const drop = (card, clientX) => card.listeners.drop({ preventDefault() {}, stopPropagation() {}, clientX });
+
+    cards()[0].listeners.dragstart();
+    drop(cards()[2], 80);
+    assert.deepEqual(order(), ['2', '3', '1']);
+
+    cards()[0].listeners.dragstart();
+    grid.listeners.drop({ preventDefault() {}, target: grid });
+    assert.deepEqual(order(), ['3', '1', '2']);
+
+    cards()[2].listeners.dragstart();
+    drop(cards()[0], 20);
+    assert.deepEqual(order(), ['2', '3', '1']);
+});
+
+test('closing with unsaved edits asks through the DjangoLux unsaved prompt', async () => {
+    const h = harness();
+    await h.upload();
+    const prompts = [];
+    let hidden = 0;
+    h.window.dluxUnsavedGuard = { prompt: config => prompts.push(config), skipPrompt: () => false };
+    h.window.bootstrap = { Modal: { getOrCreateInstance: () => ({ hide() { hidden += 1; } }) } };
+    let prevented = false;
+    h.modal.listeners['hide.bs.modal']({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(prompts.length, 1);
+
+    prompts[0].onDiscard();
+    assert.equal(hidden, 1);
+    prevented = false;
+    h.modal.listeners['hide.bs.modal']({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false, 'the discarding close goes through');
 });

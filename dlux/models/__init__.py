@@ -68,6 +68,10 @@ from .assets import (  # noqa: F401
     managed_asset_upload_to,
     ScanLinkRelease,
 )
+from .files import (  # noqa: F401
+    FileVersion,
+    file_version_upload_to,
+)
 from .notifications import (  # noqa: F401
     DluxNotification,
     DluxNotificationRule,

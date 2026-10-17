@@ -40,7 +40,9 @@ Requests carry a `revision` and a JSON `manifest`, for example:
 [{"source":"current","page":2},{"source":"upload_0","page":1}]
 ```
 
-Pages are one-based integers. The assembler rejects empty/malformed selections, out-of-range pages, encrypted sources, and configured size/page excesses; each source is read once. It supports PDFs only. Image assembly is a separate future extension.
+Pages are one-based integers. An item may also carry `rotate` (0/90/180/270, clockwise) and `fit: "a4"` (the page scaled onto an A4 sheet, portrait or landscape following the page, keeping its proportions). The assembler rejects empty/malformed selections, out-of-range pages, invalid page options, encrypted sources, and configured size/page excesses; each source is read once. `assemble_pdf(..., accept=...)` turns any accepted `dlux.files` kind into pages first, so images (JPG/JPEG, PNG, TIF/TIFF, WebP) are sources too, embedded without quality loss. The result is cleaned up losslessly (`optimize_pdf_writer`: Flate content streams, identical objects stored once).
+
+`PdfEditorView.accept` (default `('pdf',)`) chooses which kinds the editor's chooser offers. Images are converted to PDF pages in the browser's round trip through `POST /sys/files/convert/` (`dlux_files_convert`) before upload, so a project adapter's `read_source` still receives PDF bytes. For new work prefer [`register_document_file()`](document-files.md), which supplies the adapter, routes and history.
 
 Editing-disabled requests receive 403 before adapter lookup. Authentication and ordinary project CSRF middleware remain required. Authorization and source/history routes are deliberately project responsibilities.
 
@@ -48,7 +50,7 @@ Editing-disabled requests receive 403 before adapter lookup. Authentication and 
 
 Render `dlux/pdf/viewer.html` with `source_url`, `file_name`, `download_url`, `edit_url`, `history_url`, `can_edit`, and `pdf_features`. No model field name is assumed. The viewer initializes on dynamically inserted content and releases its PDF worker when removed/closed.
 
-The editor uses a DjangoLux file widget, supports reorder/remove/append and the existing ScanLink interface, guards unsaved page edits, releases thumbnail workers, and avoids submitting an untouched current PDF.
+The editor uses a DjangoLux file widget, supports reorder/remove/append, page selection, Rotate and Fit to A4, guards unsaved page edits, releases thumbnail workers, and avoids submitting an untouched current PDF. Its Scan button uses the shared ScanLink client (`window.DluxScan.scan()` from `scan_button.js`), the same routine as the file card: health check, scanner selection, progress and translated errors.
 
 Saving is disabled while source pages are loading. Closing or replacing the editor cancels active PDF loads; a late save reply cannot navigate away from a newer modal surface.
 

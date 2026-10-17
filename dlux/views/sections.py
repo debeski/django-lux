@@ -1251,6 +1251,9 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             # Form doesn't accept the extra kwargs — retry without them
             form = form_class(*args, **kwargs)
         _compact_section_form_fields(form)
+        from ..files.forms import apply_document_file_fields
+
+        apply_document_file_fields(form)
         return form
 
     def get_model(self):
@@ -1397,28 +1400,51 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
 
         classes = get_model_classes(model._meta.model_name, app_label=model._meta.app_label)
         form_class = self.form_class or classes['form']
+        # Read before the form binds: validation already puts the new upload on the instance.
+        from ..files.forms import document_file_names
+        from ..files.registry import document_file_fields
+
+        previous_files = document_file_names(instance) if instance else {
+            spec.field_name: '' for spec in document_file_fields(model)
+        }
         form = self._build_form(form_class, request.POST, request.FILES, instance=instance)
 
         if form.is_valid():
-            # Forms with handles_save=True manage their own save cycle
-            if getattr(form, 'handles_save', False):
-                obj = form.save(commit=True)
-            else:
-                obj = form.save(commit=False)
-                obj._dlux_notify_source = 'generic_crud'
-                obj._dlux_notify_surface = 'dynamic_modal'
-                obj._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
-                # created_by/updated_by auto-populated by ScopedModel.save()
-                
-                # Scope forced for non-superusers
-                if is_scope_enabled() and hasattr(obj, 'scope'):
-                    user_scope = getattr(getattr(request.user, 'profile', None), 'scope', None)
-                    if user_scope and not request.user.is_superuser:
-                        obj.scope = user_scope
-                
-                obj.save()
-                form.save_m2m()
-            
+            from contextlib import nullcontext
+
+            from django.db import transaction
+
+            from ..files.forms import record_document_file_uploads
+
+            try:
+                # Registered document files keep the record and its file history in one transaction.
+                with transaction.atomic() if previous_files else nullcontext():
+                    # Forms with handles_save=True manage their own save cycle
+                    if getattr(form, 'handles_save', False):
+                        obj = form.save(commit=True)
+                    else:
+                        obj = form.save(commit=False)
+                        obj._dlux_notify_source = 'generic_crud'
+                        obj._dlux_notify_surface = 'dynamic_modal'
+                        obj._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
+                        # created_by/updated_by auto-populated by ScopedModel.save()
+
+                        # Scope forced for non-superusers
+                        if is_scope_enabled() and hasattr(obj, 'scope'):
+                            user_scope = getattr(getattr(request.user, 'profile', None), 'scope', None)
+                            if user_scope and not request.user.is_superuser:
+                                obj.scope = user_scope
+
+                        obj.save()
+                        form.save_m2m()
+                    if previous_files:
+                        record_document_file_uploads(obj, previous_files, user=request.user)
+            except ValueError as exc:
+                if not previous_files:
+                    raise
+                logger.warning('Document file save failed; database changes rolled back.', exc_info=True)
+                return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+
             return JsonResponse({
                 'success': True,
                 'refresh_parent': self._should_refresh_parent_after_save(model, form),

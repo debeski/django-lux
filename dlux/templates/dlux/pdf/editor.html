@@ -4,11 +4,19 @@
      data-save-url="{{ edit_url }}"
      data-worker-url="{% static 'dlux/pdf/vendor/pdf.worker.min.js' %}"
      data-revision="{{ revision }}" data-modal-mode="1"
+     data-accept-extensions="{{ accept_extensions }}"
+     data-convert-url="{{ convert_url }}"
+     data-label-not-accepted="{{ DLUX_STRINGS.pdf_file_not_accepted_label|default:'This file type cannot be added.' }}"
+     data-label-converting="{{ DLUX_STRINGS.pdf_converting_label|default:'Preparing {name}...' }}"
+     data-label-rotate="{{ DLUX_STRINGS.pdf_rotate_page_label|default:'Rotate page' }}"
+     data-label-select-page="{{ DLUX_STRINGS.pdf_select_page_label|default:'Select page' }}"
+     data-label-fit-badge="{{ DLUX_STRINGS.pdf_fit_a4_badge|default:'A4' }}"
+     data-label-selected="{{ DLUX_STRINGS.pdf_selected_pages_label|default:'{count} selected' }}"
+     data-label-discard-edits="{{ DLUX_STRINGS.pdf_discard_edits_label|default:'Discard unsaved PDF edits?' }}"
      data-label-pdfjs-failed="{{ DLUX_STRINGS.pdf_editor_pdfjs_failed|default:'PDF.js failed to load. Reload the page and try again.' }}"
      data-label-remove-page="{{ DLUX_STRINGS.pdf_remove_page_label|default:'Remove page' }}"
      data-label-pages-ready="{{ DLUX_STRINGS.pdf_editor_pages_ready|default:'{count} page(s) ready. Drag pages to reorder them.' }}"
      data-label-page-short="{{ DLUX_STRINGS.pdf_page_short_label|default:'p.' }}"
-     data-label-only-pdf="{{ DLUX_STRINGS.pdf_only_files_label|default:'Only PDF files can be added.' }}"
      data-label-scanning="{{ DLUX_STRINGS.pdf_scanning_label|default:'Scanning' }}"
      data-label-scanner-error="{{ DLUX_STRINGS.pdf_scanner_error_label|default:'Scanner app returned an error.' }}"
      data-label-scanlink-unavailable="{{ DLUX_STRINGS.pdf_scanlink_unavailable_label|default:'ScanLink is not available.' }}"
@@ -49,10 +57,19 @@
         <button type="button" class="btn btn-outline-primary" data-add-files>
             <i class="bi bi-file-earmark-plus me-2"></i>{{ DLUX_STRINGS.pdf_add_from_files_label|default:"Add From Files" }}
         </button>
-        {% if DLUX_SCANLINK_ENABLED %}<button type="button" class="btn btn-outline-warning" data-scan-pages>
+        {% if DLUX_SCANLINK_ENABLED %}<button type="button" class="btn btn-outline-warning" data-scan-pages {% include 'dlux/helpers/scanlink/scan_messages.html' %}>
             <i class="bi bi-printer me-2"></i>{{ DLUX_STRINGS.pdf_scan_add_pages_label|default:"Scan To Add" }}
         </button>
-        {% endif %}<button type="button" class="btn btn-success ms-auto" data-save-pdf>
+        {% endif %}<div class="btn-group dlux-pdf-selection-tools" role="group" data-selection-tools>
+            <button type="button" class="btn btn-outline-secondary" data-rotate-selected disabled title="{{ DLUX_STRINGS.pdf_rotate_selected_label|default:'Rotate selected pages' }}">
+                <i class="bi bi-arrow-clockwise me-2"></i>{{ DLUX_STRINGS.pdf_rotate_label|default:"Rotate" }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-fit-selected disabled title="{{ DLUX_STRINGS.pdf_fit_a4_help|default:'Scale the selected pages onto A4 sheets, keeping their proportions' }}">
+                <i class="bi bi-aspect-ratio me-2"></i>{{ DLUX_STRINGS.pdf_fit_a4_label|default:"Fit to A4" }}
+            </button>
+        </div>
+        <span class="text-muted small align-self-center" data-selection-count></span>
+        <button type="button" class="btn btn-success ms-auto" data-save-pdf>
             <i class="bi bi-check-lg me-2"></i>{{ DLUX_STRINGS.pdf_save_pdf_label|default:"Save PDF" }}
         </button>
     </div>

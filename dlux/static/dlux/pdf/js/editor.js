@@ -1,5 +1,5 @@
 (function () {
-    const EDITOR_VERSION = "1.0.0";
+    const EDITOR_VERSION = "1.1.0";
 
     if (window.DluxPdfEditor && window.DluxPdfEditor.version === EDITOR_VERSION) {
         window.DluxPdfEditor.initAll(document);
@@ -41,13 +41,24 @@
         const addFilesButton = shell.querySelector("[data-add-files]");
         const scanButton = shell.querySelector("[data-scan-pages]");
         const saveButton = shell.querySelector("[data-save-pdf]");
+        const rotateSelectedButton = shell.querySelector("[data-rotate-selected]");
+        const fitSelectedButton = shell.querySelector("[data-fit-selected]");
+        const selectionCount = shell.querySelector("[data-selection-count]");
+        const acceptExtensions = (shell.dataset.acceptExtensions || ".pdf").split(/\s+/).filter(Boolean);
+        const convertUrl = shell.dataset.convertUrl || "";
         const csrfToken = (shell.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
         const labels = {
             pdfJsFailed: shell.dataset.labelPdfjsFailed || "PDF.js failed to load. Reload the page and try again.",
             removePage: shell.dataset.labelRemovePage || "Remove page",
             pagesReady: shell.dataset.labelPagesReady || "{count} page(s) ready. Drag pages to reorder them.",
             pageShort: shell.dataset.labelPageShort || "p.",
-            onlyPdf: shell.dataset.labelOnlyPdf || "Only PDF files can be added.",
+            notAccepted: shell.dataset.labelNotAccepted || "This file type cannot be added.",
+            converting: shell.dataset.labelConverting || "Preparing {name}...",
+            rotate: shell.dataset.labelRotate || "Rotate page",
+            selectPage: shell.dataset.labelSelectPage || "Select page",
+            fitBadge: shell.dataset.labelFitBadge || "A4",
+            selected: shell.dataset.labelSelected || "{count} selected",
+            discardEdits: shell.dataset.labelDiscardEdits || "Discard unsaved PDF edits?",
             scanning: shell.dataset.labelScanning || "Scanning",
             scannerError: shell.dataset.labelScannerError || "Scanner app returned an error.",
             scanLinkUnavailable: shell.dataset.labelScanlinkUnavailable || "ScanLink is not available.",
@@ -71,8 +82,28 @@
             return;
         }
         const modalElement = shell.closest(".modal");
+        // Closing with unsaved page edits asks through DjangoLux's unsaved-changes
+        // prompt (Save / Discard / Go back), the same one forms use.
         function guardClose(event) {
-            if (shell.isConnected && shell.dataset.dirty === "1" && shell.dataset.saved !== "1" && !window.confirm("Discard unsaved PDF edits?")) event.preventDefault();
+            if (!shell.isConnected || shell.dataset.dirty !== "1" || shell.dataset.saved === "1") return;
+            if (modalElement.dataset.dluxPdfDiscard === "1") {
+                delete modalElement.dataset.dluxPdfDiscard;
+                return;
+            }
+            const guard = window.dluxUnsavedGuard;
+            if (guard && typeof guard.prompt === "function") {
+                if (typeof guard.skipPrompt === "function" && guard.skipPrompt()) return;
+                event.preventDefault();
+                guard.prompt({
+                    onSave: function () { saveButton.click(); },
+                    onDiscard: function () {
+                        modalElement.dataset.dluxPdfDiscard = "1";
+                        window.bootstrap.Modal.getOrCreateInstance(modalElement).hide();
+                    },
+                });
+                return;
+            }
+            if (!window.confirm(labels.discardEdits)) event.preventDefault();
         }
         shell.disposePdfEditor = () => {
             shell.dataset.closed = "1";
@@ -94,20 +125,62 @@
         shell.dataset.pdfEditorReady = "1";
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
-        function reorderPages(fromId, beforeId) {
-            if (!fromId || !beforeId || fromId === beforeId) return;
+        // Moves a page next to `targetId` (after it when `after`), or to the end
+        // when there is no target: a drop past the last card.
+        function reorderPages(fromId, targetId, after) {
+            if (!fromId || fromId === targetId) return;
             const fromIndex = pages.findIndex((item) => item.id === fromId);
-            const beforeIndex = pages.findIndex((item) => item.id === beforeId);
-            if (fromIndex < 0 || beforeIndex < 0) return;
+            if (fromIndex < 0) return;
             const moved = pages.splice(fromIndex, 1)[0];
-            const insertIndex = pages.findIndex((item) => item.id === beforeId);
-            pages.splice(insertIndex, 0, moved);
+            const targetIndex = targetId ? pages.findIndex((item) => item.id === targetId) : -1;
+            if (targetId && targetIndex < 0) {
+                pages.splice(fromIndex, 0, moved);
+                return;
+            }
+            pages.splice(targetId ? targetIndex + (after ? 1 : 0) : pages.length, 0, moved);
+            shell.dataset.dirty = "1";
+            renderGrid();
+        }
+
+        // The half of the card the pointer is over decides before/after,
+        // mirrored in right-to-left layouts.
+        function dropsAfter(card, event) {
+            const rect = card.getBoundingClientRect();
+            const rightHalf = event.clientX > rect.left + rect.width / 2;
+            const rtl = window.getComputedStyle(card).direction === "rtl";
+            return rtl ? !rightHalf : rightHalf;
+        }
+
+        grid.addEventListener("dragover", function (event) {
+            if (draggedId) event.preventDefault();
+        });
+        grid.addEventListener("drop", function (event) {
+            if (!draggedId || event.target.closest(".dlux-pdf-page-card")) return;
+            event.preventDefault();
+            reorderPages(draggedId, null, true);
+        });
+
+        function selectedPages() {
+            return pages.filter((item) => item.selected);
+        }
+
+        function updateSelectionTools() {
+            const count = selectedPages().length;
+            if (rotateSelectedButton) rotateSelectedButton.disabled = saving || !count;
+            if (fitSelectedButton) fitSelectedButton.disabled = saving || !count;
+            if (selectionCount) selectionCount.textContent = count ? formatLabel(labels.selected, { count: count }) : "";
+        }
+
+        function changePages(targets, change) {
+            if (!targets.length) return;
+            targets.forEach(change);
             shell.dataset.dirty = "1";
             renderGrid();
         }
 
         function renderGrid() {
             saveButton.disabled = saving || pendingSources > 0 || !pages.length || shell.dataset.dirty !== "1";
+            updateSelectionTools();
             grid.innerHTML = "";
             pages.forEach((item, index) => {
                 const li = document.createElement("li");
@@ -115,9 +188,42 @@
                 li.draggable = true;
                 li.dataset.pageId = item.id;
 
+                li.classList.toggle("is-selected", !!item.selected);
                 const thumb = document.createElement("div");
                 thumb.className = "dlux-pdf-thumb";
+                item.canvas.style.transform = item.rotate ? `rotate(${item.rotate}deg)` : "";
                 thumb.appendChild(item.canvas);
+                if (item.fit === "a4") {
+                    const badge = document.createElement("span");
+                    badge.className = "badge text-bg-info dlux-pdf-fit-badge";
+                    badge.textContent = labels.fitBadge;
+                    thumb.appendChild(badge);
+                }
+                thumb.addEventListener("click", function () {
+                    item.selected = !item.selected;
+                    renderGrid();
+                });
+
+                const select = document.createElement("input");
+                select.type = "checkbox";
+                select.className = "form-check-input dlux-pdf-page-select";
+                select.checked = !!item.selected;
+                select.title = labels.selectPage;
+                select.setAttribute("aria-label", labels.selectPage);
+                select.addEventListener("change", function () {
+                    item.selected = select.checked;
+                    renderGrid();
+                });
+
+                const rotateButton = document.createElement("button");
+                rotateButton.type = "button";
+                rotateButton.className = "btn btn-outline-secondary btn-sm";
+                rotateButton.title = labels.rotate;
+                rotateButton.setAttribute("aria-label", labels.rotate);
+                rotateButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                rotateButton.addEventListener("click", function () {
+                    changePages([item], (page) => { page.rotate = ((page.rotate || 0) + 90) % 360; });
+                });
 
                 const footer = document.createElement("div");
                 footer.className = "dlux-pdf-page-card-footer";
@@ -138,7 +244,9 @@
                     }
                 });
 
+                footer.appendChild(select);
                 footer.appendChild(label);
+                footer.appendChild(rotateButton);
                 footer.appendChild(removeButton);
                 li.appendChild(thumb);
                 li.appendChild(footer);
@@ -156,7 +264,8 @@
                 });
                 li.addEventListener("drop", function (event) {
                     event.preventDefault();
-                    reorderPages(draggedId, item.id);
+                    event.stopPropagation();
+                    reorderPages(draggedId, item.id, dropsAfter(li, event));
                 });
 
                 grid.appendChild(li);
@@ -185,12 +294,15 @@
                     page: pageNumber,
                     label: `${label} ${labels.pageShort}${pageNumber}`,
                     canvas: canvas,
+                    rotate: 0,
+                    fit: null,
+                    selected: false,
                 });
                 renderGrid();
             }
         }
 
-        async function addFile(file) {
+        async function addFile(file, displayName) {
             if (saving || shell.dataset.closed === "1") return;
             const source = `upload_${uploadCounter}`;
             uploadCounter += 1;
@@ -204,7 +316,7 @@
                 task = window.pdfjsLib.getDocument({ data: data, isEvalSupported: false });
                 loadingTasks.add(task);
                 const pdfDocument = await task.promise;
-                await addPdfSource(source, file.name, pdfDocument);
+                await addPdfSource(source, displayName || file.name, pdfDocument);
                 shell.dataset.dirty = "1";
             } finally {
                 if (task) {
@@ -220,15 +332,54 @@
             fileInput.click();
         });
 
+        function extensionOf(name) {
+            const match = /\.[^.]+$/.exec(String(name || "").toLowerCase());
+            return match ? match[0] : "";
+        }
+
+        async function asPdfFile(file) {
+            if (extensionOf(file.name) === ".pdf") return file;
+            editorStatus(shell, formatLabel(labels.converting, { name: file.name }), "info");
+            const formData = new FormData();
+            formData.append("file", file, file.name);
+            const response = await fetch(convertUrl, {
+                method: "POST",
+                body: formData,
+                headers: { "X-CSRFToken": csrfToken, "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) {
+                let message = labels.notAccepted;
+                try { message = (await response.json()).error || message; } catch (_) { /* keep default */ }
+                throw new Error(message);
+            }
+            return new File([await response.blob()], `${file.name}.pdf`, { type: "application/pdf" });
+        }
+
         fileInput.addEventListener("change", async function () {
-            for (const file of Array.from(fileInput.files || [])) {
-                if (!file.name.toLowerCase().endsWith(".pdf")) {
-                    editorStatus(shell, labels.onlyPdf, "danger");
+            const chosen = Array.from(fileInput.files || []);
+            fileInput.value = "";
+            for (const file of chosen) {
+                if (!acceptExtensions.includes(extensionOf(file.name)) || (extensionOf(file.name) !== ".pdf" && !convertUrl)) {
+                    editorStatus(shell, labels.notAccepted, "danger");
                     continue;
                 }
-                try { await addFile(file); } catch (error) { editorStatus(shell, error.message || labels.saveFailed, "danger"); }
+                try {
+                    const pdfFile = extensionOf(file.name) === ".pdf" ? file : await asPdfFile(file);
+                    await addFile(pdfFile, file.name);
+                } catch (error) {
+                    editorStatus(shell, error.message || labels.saveFailed, "danger");
+                }
             }
-            fileInput.value = "";
+        });
+
+        if (rotateSelectedButton) rotateSelectedButton.addEventListener("click", function () {
+            changePages(selectedPages(), (page) => { page.rotate = ((page.rotate || 0) + 90) % 360; });
+        });
+
+        if (fitSelectedButton) fitSelectedButton.addEventListener("click", function () {
+            const targets = selectedPages();
+            const fitAll = targets.some((page) => page.fit !== "a4");
+            changePages(targets, (page) => { page.fit = fitAll ? "a4" : null; });
         });
 
         if (scanButton) scanButton.addEventListener("click", async function () {
@@ -236,15 +387,18 @@
             scanButton.disabled = true;
             scanButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${labels.scanning}`;
             try {
-                const response = await fetch("http://localhost:5000/scan", { method: "POST" });
-                if (!response.ok) throw new Error(labels.scannerError);
-                const blob = await response.blob();
+                if (!window.DluxScan) throw new Error(labels.scanLinkUnavailable);
+                const blob = await window.DluxScan.scan({
+                    messages: window.DluxScan.messagesFor(scanButton),
+                    metadata: { path: window.location.pathname, surface: "pdf_editor" },
+                    onProgress: function (text) {
+                        if (shell.dataset.closed !== "1") editorStatus(shell, text, "info");
+                    },
+                });
+                if (shell.dataset.closed === "1") return;
                 await addFile(new File([blob], `scanned_${Date.now()}.pdf`, { type: "application/pdf" }));
             } catch (error) {
-                const message = /failed to fetch|networkerror/i.test(error.message || "")
-                    ? labels.scanLinkUnavailable
-                    : (error.message || labels.scannerError);
-                editorStatus(shell, message, "danger");
+                if (shell.dataset.closed !== "1") editorStatus(shell, error.message || labels.scannerError, "danger");
             } finally {
                 scanButton.disabled = false;
                 scanButton.innerHTML = originalHtml;
@@ -261,14 +415,17 @@
             saving = true;
             addFilesButton.disabled = true;
             if (scanButton) scanButton.disabled = true;
+            updateSelectionTools();
             editorStatus(shell, labels.saving, "info");
             const formData = new FormData();
             formData.append("csrfmiddlewaretoken", csrfToken);
             formData.append("revision", shell.dataset.revision);
-            formData.append("manifest", JSON.stringify(pages.map((item) => ({
-                source: item.source,
-                page: item.page,
-            }))));
+            formData.append("manifest", JSON.stringify(pages.map(function (item) {
+                const entry = { source: item.source, page: item.page };
+                if (item.rotate) entry.rotate = item.rotate;
+                if (item.fit) entry.fit = item.fit;
+                return entry;
+            })));
             Object.keys(sourceFiles).forEach((source) => {
                 formData.append(source, sourceFiles[source], sourceFiles[source].name);
             });

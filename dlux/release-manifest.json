@@ -1,14 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.12.0b1",
+  "version": "1.12.0b2",
   "display": {
-    "summary": "Deleting keeps history: bulk deletes on scoped models are soft, and users that records point at are deactivated instead of erased.",
+    "summary": "Document files: one pipeline for upload, scan, page editing and history, with images as PDF pages.",
     "highlights": [
-      "Bulk delete on scoped models (including the Django admin's \"delete selected\") now soft-deletes; queryset.hard_delete() and queryset.restore() are new.",
-      "The Django admin and Reset data only soft-delete users that any record, log or admin log entry points at; users with no history are still removed.",
-      "Models can opt out of Reset data with dlux_reset = False."
+      "register_document_file(Model, \"pdf_file\") connects the file card, Scan, viewer, page editor, downloads and file history for a field, with permission and scope checks.",
+      "JPG, JPEG, PNG, TIF, TIFF and WebP become PDF pages; pages can be rotated and fitted to A4 in the editor.",
+      "The PDF editor scans through ScanLink like the file card; file history lives in DjangoLux (dlux.FileVersion) and dlux_adopt_file_history moves a project's own rows over.",
+      "Includes 1.12.0b1: deleting keeps history (soft bulk delete, history-safe user deletion)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0b2"
   },
   "requires": {
     "updater_schema": ">=1",

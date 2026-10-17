@@ -8,6 +8,7 @@ from ..system.constants import TABLE_DENSITY_VALUES
 from ..managers import ScopedManager, ScopedQuerySet
 
 from ._shared import logger
+from .soft_delete_signals import restored, soft_deleted
 
 
 class SingletonModel(models.Model):
@@ -352,16 +353,20 @@ class ScopedModel(models.Model):
         if user and hasattr(user, 'is_authenticated') and user.is_authenticated:
             self.deleted_by = user
         self.save(update_fields=['deleted_at', 'deleted_by'])
+        soft_deleted.send(sender=type(self), pks=[self.pk], deleted_at=self.deleted_at, deleted_by_id=self.deleted_by_id)
 
     def soft_delete(self):
         """Explicit soft-delete (delegates to overridden delete)."""
         self.delete()
 
     def restore(self):
-        """Undo soft-delete."""
+        """Undo soft-delete; receivers of `restored` (e.g. file history) undo what they deleted with it."""
+        deleted_at = self.deleted_at
         self.deleted_at = None
         self.deleted_by = None
         self.save(update_fields=['deleted_at', 'deleted_by'])
+        if deleted_at:
+            restored.send(sender=type(self), deleted_at_by_pk={self.pk: deleted_at})
 
     def hard_delete(self, using=None, keep_parents=False):
         """Permanently remove from database (escape hatch)."""
