@@ -2539,6 +2539,7 @@ STRINGS = {
     'pdf_label_action_type': 'Action',
     'pdf_label_archived_file': 'Archived File',
     'pdf_label_created_at': 'Created At',
+    'pdf_label_changed_by': 'Changed by',
     'pdf_label_page_count': 'Pages',
     'pdf_label_version_number': 'Version',
     'pdf_next_page_label': 'Next Page',

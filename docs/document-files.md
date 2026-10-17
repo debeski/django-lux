@@ -70,6 +70,7 @@ The PDF tools settings (System Settings → Extra Features: editing, history, ma
 - `dlux.FileVersion` (migration `0026_file_versions`, additive and inline-safe): generic document link, `field_name`, `version_number`, `action_type` (`replace`, `edit`, `normalize`, `clear`), `archived_file` (`dlux/file_history/<app>_<model>/<id>/<field>/v<n>_<name>`), `active_name_before`/`after`, `page_count`, `metadata`, scope and audit fields. Unique on document + field + version. History rows take the document's scope, never the actor's.
 - `dlux.files.history`: `save_new_version(document, pdf_bytes, field_name, user)` (editor saves), `record_upload(document, previous_name, field_name, user)` (form saves), `archive_previous(...)`, `versions_for(document, field)`, `next_version_number(...)`. The previous file is always copied byte-for-byte before the new one is written under a new storage name; nothing is overwritten. A missing original stops the save.
 - Soft-delete wiring uses `dlux.models.soft_delete_signals` (`soft_deleted`, `restored`). `ScopedModel` and `ScopedQuerySet` gather the arguments only when a receiver is connected for that model, so unregistered models pay nothing.
+- The history table shows **Changed by** from each version's `created_by`: the person who edited, replaced or cleared the file, alongside the timestamp. It displays their full name, falls back to username, and shows `—` when no actor is recorded. The archived PDF is the file from before that change.
 
 ### Moving a project's own history
 

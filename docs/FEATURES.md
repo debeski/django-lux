@@ -64,7 +64,7 @@ See [Getting Started](getting-started.md), [Composer Agent Integration](composer
 
 ## Document files
 
-See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over.
+See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over. The history table identifies who performed each change in its translated **Changed by** column.
 
 ## Optional PDF toolkit
 

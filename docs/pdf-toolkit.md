@@ -54,7 +54,7 @@ The editor uses a DjangoLux file widget, supports reorder/remove/append, page se
 
 Saving is disabled while source pages are loading. Closing or replacing the editor cancels active PDF loads; a late save reply cannot navigate away from a newer modal surface.
 
-`dlux/pdf/history.html` consumes a display `document`, `versions`, `is_modal=True`, and an optional `history_return_url`. Each version provides `version_number`, `action_type`, `page_count`, `file_name`, `download_url`, and `created_at`. Supply permission-checked download URLs, not public file paths. Enforce `history_enabled` in project history/download handlers.
+`dlux/pdf/history.html` consumes a display `document`, `versions`, `is_modal=True`, and an optional `history_return_url`. Each version provides `version_number`, `action_type`, `page_count`, `file_name`, `download_url`, and `created_at`. Optional `created_by` supplies the **Changed by** column (full name, falling back to username; `—` without an actor). This identifies who performed the change that archived the file. Load `created_by` with `select_related()` for queryset-backed rows. Supply permission-checked download URLs, not public file paths. Enforce `history_enabled` in project history/download handlers.
 
 The Archive adapter is a worked example in `documents/pdf.py`. Decrees can adopt the same toolkit later through its own adapter; its models and storage do not need to move into DjangoLux.
 
