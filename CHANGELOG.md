@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.0
+
+- **Stable 1.12.0**: Promotes the implementation from `1.12.0b1` and `1.12.0b2`: history-preserving bulk deletion, registered document files, images as PDF pages, rotate/Fit to A4, shared ScanLink integration, and `dlux.FileVersion` history with adoption tooling. No implementation changes from b2. Migration `0026_file_versions` is additive and rollback-compatible; inline installation requires a baked image `>=1.11.0b7` and migration baseline `>=1.9.3`.
+- **Testbed Acceptance**: Published b2 passed pinned inline installation, rollback and re-apply. A testbed-only registration exercised image conversion, rotate, Fit to A4, save and byte-exact prior-file history on a dedicated record at desktop/mobile widths. The real ScanLink browser client passed scan/add/save and busy recovery against simulated workstation HTTP responses; physical scanner hardware remains unverified. See `docs/release-1.12.0-acceptance.md`.
+
 ## v1.12.0b2
 
 - **Document Files (`register_document_file`)**: `dlux.files.registry.register_document_file(Model, 'pdf_file', accept=..., file_name=..., pdf_metadata=..., can_access=..., queryset=...)` declares a document file. It adds routes under `/sys/files/<app>/<model>/<pk>/<field>/` (`source/`, `download/`, `edit/`, `history/`, `history/<version>/download/`; names `dlux_document_file_*`) checked by `view_`/`change_<model>`, the dynamic-modal scope filter and the optional `can_access` hook; `{% load dlux_files %}{% dlux_document_viewer obj 'pdf_file' %}`; and in dynamic-modal forms the file card with Scan plus a server-side type check. Modal saves of a registered field record the replaced file in history in the same transaction, and an accepted image uploaded through the form becomes the PDF.
