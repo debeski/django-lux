@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.12.0b3
 
 - **File History Actor Column**: The shared PDF history table displays `created_by` as translated “Changed by”, using full name, username fallback, or `—` without an actor. Registered history views fetch actors with `select_related()`.
 
