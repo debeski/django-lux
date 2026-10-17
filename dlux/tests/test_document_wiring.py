@@ -120,6 +120,16 @@ class DocumentFileWiringTests(TestCase):
         html = self.client.get(self.url('dlux_document_file_history'), HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()['html']
         version_url = self.url('dlux_document_file_version', version=1)
         self.assertIn(version_url, html)
+        self.assertIn('files-admin', html)
+        self.admin.first_name = '<Editor>'
+        self.admin.last_name = 'Name'
+        self.admin.save(update_fields=['first_name', 'last_name'])
+        html = self.client.get(self.url('dlux_document_file_history'), HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()['html']
+        self.assertIn('&lt;Editor&gt; Name', html)
+        self.assertNotIn('<Editor>', html)
+        FileVersion.all_objects.update(created_by=None)
+        html = self.client.get(self.url('dlux_document_file_history'), HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()['html']
+        self.assertIn('<td>—</td>', html)
         download = self.client.get(version_url)
         self.assertEqual(b''.join(download.streaming_content), original)
         self.assertEqual(self.client.get(self.url('dlux_document_file_version', version=9)).status_code, 404)
