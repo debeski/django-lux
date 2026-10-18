@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.12.0b3",
+  "version": "1.12.0",
   "display": {
     "summary": "Document files with images as PDF pages and the acting user shown in file history.",
     "highlights": [
@@ -10,7 +10,7 @@
       "The PDF editor scans through ScanLink like the file card; file history lives in DjangoLux (dlux.FileVersion) and dlux_adopt_file_history moves a project's own rows over.",
       "Includes 1.12.0b1: deleting keeps history (soft bulk delete, history-safe user deletion)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0"
   },
   "requires": {
     "updater_schema": ">=1",
