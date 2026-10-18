@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.0
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.0b3; promotes the document-file registry, shared PDF/image editor, ScanLink integration and file-history actor display.
+- **Preserved Document History**: `dlux.FileVersion` keeps exact prior PDF bytes and actor/scope metadata; `dlux_adopt_file_history` explicitly adopts project-owned history without moving archived files or modifying source rows.
+- **History-Safe Deletion**: Scoped bulk delete is soft by default; users with history are preserved. Call `hard_delete()` explicitly where permanent scoped deletion is intended.
+- **Upgrade Contract**: Additive migration `0026_file_versions`, backward-compatible rollback and inline installation retain the image floor `>=1.11.0b7`; project file registration/history adoption remains an explicit integration step.
+- **Beta Acceptance**: b3 passed Python 3.11–3.13 release CI, exact published-package verification, pinned testbed update/backup, desktop/mobile history checks, and unchanged document/media fingerprints. Earlier published-wheel acceptance covered image pages, rotation, Fit to A4, saving, exact history and the simulated ScanLink workstation path.
+
 ## v1.12.0b3
 
 - **File History Actor Column**: The shared PDF history table displays `created_by` as translated “Changed by”, using full name, username fallback, or `—` without an actor. Registered history views fetch actors with `select_related()`.

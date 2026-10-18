@@ -8,6 +8,8 @@ views, templates or history code.
 
 Since 1.12.0b2. Designed and approved 14 October 2026 (decisions in §8).
 
+Stable 1.12.0 promotes the published, accepted 1.12.0b3 implementation without runtime, dependency or migration changes. The additive `0026_file_versions` migration applies through the normal migration flow; registering project fields and adopting legacy history remain explicit project integration steps. Installation does not automatically register fields, copy history rows or rewrite archived files. The inline image floor remains `>=1.11.0b7`; older images must be rebuilt first. See [1.12 release acceptance](release-1.12-acceptance.md).
+
 ## 1. One call
 
 ```python
