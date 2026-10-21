@@ -37,6 +37,7 @@ from dlux.system.constants import (
     SETUP_STEP_SEARCH,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_TABLES,
 )
 from dlux.context_processors import dlux_context
 from dlux.forms import SystemSettingsForm, _build_file_widget
@@ -1895,19 +1896,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
             steps[SETUP_STEP_APPEARANCE],
         )
         self.assertLessEqual(
-            {'default_table_density', 'default_form_density', 'default_modal_size',
-             'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
-             'options_style'},
+            {'default_form_density', 'default_modal_size', 'options_style'},
             steps[SETUP_STEP_LAYOUT],
         )
-        # Record visibility is an access question, not a layout one, so it lives
-        # in Access & Security and must not drift back into Layout.
         self.assertLessEqual(
-            {'show_audit_fields', 'show_soft_deleted'},
-            steps[SETUP_STEP_SECURITY],
+            {'default_table_density', 'row_actions_style',
+             'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
+             'table_accent_edges', 'show_audit_fields', 'show_soft_deleted'},
+            steps[SETUP_STEP_TABLES],
         )
         self.assertTrue(
-            steps[SETUP_STEP_LAYOUT].isdisjoint({'show_audit_fields', 'show_soft_deleted'})
+            steps[SETUP_STEP_SECURITY].isdisjoint({'show_audit_fields', 'show_soft_deleted'})
         )
         self.assertTrue(
             steps[SETUP_STEP_APPEARANCE].isdisjoint({
@@ -3753,7 +3752,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # titlebar action-layout selector's pair of radios.
         # Weather adds fourteen selector radios and four persisted fields.
         # Incremental backups add three persisted policy fields.
-        self.assertLess(len(re.findall(r'\sname=', html)), 304)
+        # Tables adds one persisted JSON transport for column configuration.
+        self.assertEqual(len(re.findall(r'name=[\"\']tables_config[\"\']', html)), 1)
+        self.assertLess(len(re.findall(r'\sname=', html)), 305)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

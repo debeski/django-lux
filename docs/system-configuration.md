@@ -41,7 +41,7 @@ The first three determine system policy. Personal theme, language, sidebar state
 
 `/sys/setup/` is the initial configuration workflow. It first asks for the setup language; that choice affects only the wizard UI. The persisted default language is selected later in **Localization**.
 
-The current wizard has eighteen steps:
+The current wizard has nineteen core steps:
 
 1. **Branding** — localized names, logo, favicon, footer, and configuration import.
 2. **Languages** — language catalog, default language, user overrides, and translation overrides.
@@ -52,16 +52,17 @@ The current wizard has eighteen steps:
 7. **Sidebar** — navigation tree, visibility, toolbar, and personal reordering policy.
 8. **Navbar** — hierarchy/history mode, navigation root, and user override policy.
 9. **Ribbon** — list-page ribbon behavior and tab configuration.
-10. **Components** — tables, forms, modals, Options layout, audit fields, and soft-delete review.
-11. **Home and Public Pages** — authenticated homepage, per-user override, and anonymous public homepage.
-12. **Login Page** — layout, logo treatment, color, and localized hero message.
-13. **Profile Page** — user modules, onboarding, devices, and activity feed.
-14. **Global Search** — titlebar search display and optional record search.
-15. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
-16. **Logging** — activity and audit policy plus retention.
-17. **System Backup** — schedule, storage, retention, retry policy, and incremental chains.
-18. **Extra Features** — opt-in integrations such as ScanLink.
-19. **Project Settings** — only when the project registers settings tiles with `register_app_settings()`: each tile's own form, one section per tile. It is always last, so no Dlux step changes number, and finishing setup saves each section with the rest of the wizard (see `reference.md` → *App settings in first-run setup*).
+10. **Tables** — density, accent edges, resizing, sticky headers, zebra stripes, row actions, audit fields and soft-delete visibility. Flat keys remain unchanged; canonical `tables_config` mirrors legacy `layout_config` values (see [Table columns](table-columns.md)).
+11. **Components** — forms, modals and Options-page layout.
+12. **Home and Public Pages** — authenticated homepage, per-user override, and anonymous public homepage.
+13. **Login Page** — layout, logo treatment, color, and localized hero message.
+14. **Profile Page** — user modules, onboarding, devices, and activity feed.
+15. **Global Search** — titlebar search display and optional record search.
+16. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.
+17. **Logging** — activity and audit policy plus retention.
+18. **System Backup** — schedule, storage, retention, retry policy, and incremental chains.
+19. **Extra Features** — opt-in integrations such as ScanLink.
+20. **Project Settings** — only when the project registers settings tiles with `register_app_settings()`: each tile's own form, one section per tile. It is always last, so no Dlux step changes number, and finishing setup saves each section with the rest of the wizard (see `reference.md` → *App settings in first-run setup*).
 
 System Settings modal editors opened from Options use these same categories but show only the selected category. Setup export/import is intended for reusable development and staging configuration: it exports settings JSON, not uploaded logo/favicon binaries or host-specific email verification state.
 

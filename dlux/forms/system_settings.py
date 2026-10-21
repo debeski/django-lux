@@ -383,6 +383,7 @@ class SystemSettingsForm(
         required=False,
         widget=forms.HiddenInput(),
     )
+    tables_config = forms.JSONField(required=False, widget=forms.HiddenInput())
     sticky_table_headers = forms.BooleanField(
         required=False,
         initial=True,
@@ -917,6 +918,14 @@ class SystemSettingsForm(
     privacy_notice_text = forms.CharField(required=False, max_length=500)
     registration_require_consent = forms.BooleanField(required=False, initial=False)
 
+    def clean_tables_config(self):
+        from ..system.table_columns import normalize_tables_config
+
+        value = self.cleaned_data.get('tables_config')
+        if value is None:
+            value = getattr(self.instance, 'tables_config', None)
+        return normalize_tables_config(value)
+
     def clean_ribbon_config(self):
         """Normalise the builder's JSON before it is stored.
 
@@ -983,6 +992,7 @@ class SystemSettingsForm(
             'translations_override',
             'sidebar_config',
             'ribbon_config',
+            'tables_config',
             'sidebar_show_notification_badges',
             'sidebar_toggle_icon',
             'navbar_config',
@@ -3028,6 +3038,14 @@ class SystemSettingsForm(
             _layout_initial_source,
             hidden_field=False,
         )
+        from ..system.constants import TABLE_CONFIG_KEYS
+
+        self.initial['tables_config'] = self._apply_schema_group_initials(
+            'tables_config',
+            {**{key: self.initial.get(key, config.get(key)) for key in TABLE_CONFIG_KEYS},
+             **(getattr(self.instance, 'tables_config', None) or {})},
+            hidden_field=False,
+        )
         self._apply_schema_group_initials(
             'auth_config',
             getattr(self.instance, 'auth_config', None) or config.get('auth_config') or config
@@ -3838,6 +3856,7 @@ class SystemSettingsForm(
         direct_fields = (
             'system_names',
             'languages',
+            'tables_config',
             'translations_override',
             'home_url',
             'public_root_url',
@@ -4088,6 +4107,11 @@ class SystemSettingsForm(
             fallback_language = 'en' if 'en' in languages else next(iter(languages), 'en')
             cleaned['default_language'] = fallback_language
         layout_config = self._schema_group_from_cleaned('layout_config')
+        tables_config = self._schema_group_from_cleaned(
+            'tables_config', fallback=cleaned.get('tables_config') or getattr(self.instance, 'tables_config', None),
+        )
+        layout_config.update({key: value for key, value in tables_config.items() if key != 'columns'})
+        cleaned['tables_config'] = tables_config
         cleaned['layout_config'] = layout_config
         cleaned.update(layout_config)
         public_root_config = self._schema_group_from_cleaned('public_root_config')
@@ -4503,6 +4527,7 @@ class SystemSettingsForm(
         search_config = self.cleaned_data.get('search_config') or default_search_config()
         registration_config = self.cleaned_data.get('registration_config') or {}
         apply_system_settings_import(instance, {
+            'tables_config': self.cleaned_data.get('tables_config') or {},
             'system_names': self.cleaned_data.get('system_names', {}),
             'languages': self.cleaned_data.get('languages', normalize_language_catalog()),
             'translations_override': self.cleaned_data.get('translations_override', {}),

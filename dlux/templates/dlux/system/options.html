@@ -451,6 +451,7 @@
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step={{ step.index }}"
+                            data-dlux-settings-step="{{ step.slug }}"
                             data-modal-title="{{ step.label }}"
                             data-dlux-tooltip="{{ step.description }}"
                             aria-label="{{ step.label }}. {{ step.description }}">

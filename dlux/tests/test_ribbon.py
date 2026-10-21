@@ -1194,19 +1194,17 @@ class LayoutStepOrderTests(TestCase):
         html = self._html()
         self.assertEqual(
             [name for _i, name in self._headings(self._layout_step(html))],
-            ['Tables', 'Forms', 'Modals', 'Options Page'],
+            ['Forms', 'Modals', 'Options Page'],
         )
         self.assertEqual(
             [name for _i, name in self._headings(self._ribbon_step(html))],
             ['List Page Ribbon', 'Tab Strips'],
         )
 
-    def test_record_visibility_moved_to_access_and_security(self):
-        headings = self._headings(self._html())
-        order = [name for _i, name in headings]
-        self.assertIn('Record Visibility', order)
-        self.assertLess(order.index('Access & Security'), order.index('Record Visibility'))
-        self.assertLess(order.index('Record Visibility'), order.index('List Page Ribbon'))
+    def test_record_visibility_lives_in_tables(self):
+        html = self._html()
+        self._positions(self._panel(html, 'tables'), ['show_audit_fields', 'show_soft_deleted'])
+        self.assertNotIn('name="show_audit_fields"', self._panel(html, 'security'))
 
     def test_ribbon_section_puts_the_toggle_before_the_selectors(self):
         pos = self._positions(self._ribbon_step(self._html()),
@@ -1217,7 +1215,7 @@ class LayoutStepOrderTests(TestCase):
         self.assertLess(pos['ribbon_layout'], pos['ribbon_advanced_trigger'])
 
     def test_tables_section_puts_toggles_first_then_density(self):
-        pos = self._positions(self._layout_step(self._html()),
+        pos = self._positions(self._panel(self._html(), 'tables'),
                               ['sticky_table_headers', 'resizable_table_columns',
                                'zebra_striping', 'default_table_density',
                                'row_actions_style'])

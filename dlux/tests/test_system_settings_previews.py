@@ -33,6 +33,14 @@ SAMPLE_KINDS = ('table', 'form', 'modal', 'components')
 
 
 class PreviewModuleTests(SimpleTestCase):
+    def test_frontend_step_order_matches_the_settings_registry(self):
+        from dlux.system.constants import SETUP_STEP_SLUGS
+
+        source = (SETUP_JS / 'previews.js').read_text()
+        block = re.search(r'const SYSTEM_SETTINGS_STEPS = \[(.*?)\];', source, re.S)
+        self.assertIsNotNone(block)
+        self.assertEqual(tuple(re.findall(r"'([^']+)'", block.group(1))), SETUP_STEP_SLUGS)
+
     def test_preview_script_loads_after_its_dependencies_and_before_main(self):
         template = (PACKAGE_ROOT / 'templates' / 'dlux' / 'base.html').read_text()
         language = template.index("dlux/setup/js/language.js")

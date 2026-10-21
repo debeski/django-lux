@@ -28,7 +28,7 @@ after(async () => {
 async function optionsStep(step) {
   const { ctx, page, errors } = await loggedInPage(browser);
   await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
-  await page.click(`.dlux-system-settings-tile[data-dynamic-modal*="?step=${step}"]`);
+  await page.click(`.dlux-system-settings-tile[data-dlux-settings-step="${step}"]`);
   await page.waitForSelector('#universalDynamicModal.show .dlux-system-setup-form');
   return { ctx, page, errors };
 }
@@ -68,7 +68,7 @@ async function openEye(page, target) {
 
 describe('Options System Settings previews', { concurrency: 1 }, () => {
   test('nonvisual toggles (clipboard, ScanLink) do not replace the background or its sidebar state', async () => {
-    const { ctx, page, errors } = await optionsStep(17);
+    const { ctx, page, errors } = await optionsStep('extras');
     try {
       const before = await page.locator('.sidebar .accordion-collapse').evaluateAll(nodes => nodes.map(node => [node.id, node.classList.contains('show')]));
       const drafts = [];
@@ -87,7 +87,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('non-visual steps expose a clearly disabled Preview action', async () => {
-    const { ctx, page, errors } = await optionsStep(2);
+    const { ctx, page, errors } = await optionsStep('email');
     try {
       const state = await page.$eval(
         '#universalDynamicModalFooter [data-dlux-system-settings-preview]',
@@ -102,7 +102,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('the page behind the modal follows an unsaved titlebar change, and nothing is saved', async () => {
-    const { ctx, page, errors } = await optionsStep(5);
+    const { ctx, page, errors } = await optionsStep('titlebar');
     try {
       await setToggle(page, 'titlebar_show_title', false);
       await backdropWhere(page, "return doc.querySelector('.titlebar')?.dataset.titlebarShowTitle === 'false';");
@@ -123,7 +123,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
       await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
       await page.evaluate(() => { const main = document.getElementById('mainContent'); if (main) main.scrollTop = 400; });
       const scrolled = await page.evaluate(() => document.getElementById('mainContent')?.scrollTop || 0);
-      await page.click('.dlux-system-settings-tile[data-dynamic-modal*="?step=5"]');
+      await page.click('.dlux-system-settings-tile[data-dlux-settings-step="titlebar"]');
       await page.waitForSelector('#universalDynamicModal.show .dlux-system-setup-form');
       await page.waitForTimeout(1500);
       assert.deepEqual(requests, [], 'no copy of the page is loaded just for opening the step');
@@ -145,7 +145,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('glass mode lifts the modal off the draft page, above the real chrome, and restores', async () => {
-    const { ctx, page, errors } = await optionsStep(5);
+    const { ctx, page, errors } = await optionsStep('titlebar');
     try {
       await setToggle(page, 'titlebar_show_logo', false);
       await backdropWhere(page, "return doc.querySelector('.titlebar')?.dataset.titlebarShowLogo === 'false';");
@@ -186,7 +186,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('the tables eye renders a real ribbon list page, in either language', async () => {
-    const { ctx, page, errors } = await optionsStep(9);
+    const { ctx, page, errors } = await optionsStep('tables');
     try {
       const frame = await openEye(page, 'sample_table');
       assert.ok(await frame.$('.dlux-ribbon'), 'a real ribbon');
@@ -205,7 +205,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('table settings reach the sample table before they are saved', async () => {
-    const { ctx, page, errors } = await optionsStep(9);
+    const { ctx, page, errors } = await optionsStep('tables');
     try {
       const chosen = await page.evaluate(() => {
         const form = document.querySelector('#universalDynamicModal .dlux-system-setup-form');
@@ -222,7 +222,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('the modals eye opens the real dynamic modal with a form', async () => {
-    const { ctx, page, errors } = await optionsStep(9);
+    const { ctx, page, errors } = await optionsStep('layout');
     try {
       const frame = await openEye(page, 'sample_modal');
       await frame.waitForSelector('#universalDynamicModal.show form.dlux-form', { timeout: 20000 });
@@ -231,7 +231,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('the login step Preview renders the real login page as a visitor sees it', async () => {
-    const { ctx, page, errors } = await optionsStep(11);
+    const { ctx, page, errors } = await optionsStep('login_page');
     try {
       assert.equal(await page.$('#universalDynamicModal [data-dlux-preview-target="login"]'), null, 'no eye: the step Preview covers it');
       await page.click('#universalDynamicModalFooter [data-dlux-system-settings-preview]');
@@ -243,7 +243,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('a language default font can only be an allowed font', async () => {
-    const { ctx, page, errors } = await optionsStep(4);
+    const { ctx, page, errors } = await optionsStep('appearance');
     try {
       const result = await page.evaluate(() => {
         const form = document.querySelector('#universalDynamicModal .dlux-system-setup-form');
@@ -268,7 +268,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
   });
 
   test('the settings modal takes the draft default font of its language', async () => {
-    const { ctx, page, errors } = await optionsStep(4);
+    const { ctx, page, errors } = await optionsStep('appearance');
     try {
       const family = await page.evaluate(() => {
         const form = document.querySelector('#universalDynamicModal .dlux-system-setup-form');

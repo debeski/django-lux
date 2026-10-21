@@ -15,6 +15,7 @@ from ...system.constants import (
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_TABLES,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
@@ -185,12 +186,7 @@ class SecurityCleanMixin:
         return self._auth_int_clean('inactivity_timeout_minutes', 10)
 
     def clean_show_audit_fields(self):
-        # Anchored to the step these render in — Access & Security > Record
-        # Visibility — not to Components. `_clean_preserved_toggle` restores the
-        # stored value whenever the step being saved is not the anchored one, so
-        # anchoring elsewhere meant saving the page that shows the switch threw the
-        # change away and wrote the old value back: it "turned itself on again".
-        return self._clean_preserved_toggle('show_audit_fields', SETUP_STEP_SECURITY, False)
+        return self._clean_preserved_toggle('show_audit_fields', SETUP_STEP_TABLES, False)
 
     def clean_show_soft_deleted(self):
-        return self._clean_preserved_toggle('show_soft_deleted', SETUP_STEP_SECURITY, False)
+        return self._clean_preserved_toggle('show_soft_deleted', SETUP_STEP_TABLES, False)

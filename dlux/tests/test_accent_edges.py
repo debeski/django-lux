@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
-from dlux.system.constants import SETUP_STEP_LAYOUT, SETUP_STEP_SIDEBAR, SETUP_STEP_TITLEBAR, SYSTEM_SETTINGS_EXPORT_FIELDS
+from dlux.system.constants import SETUP_STEP_TABLES, SETUP_STEP_SIDEBAR, SETUP_STEP_TITLEBAR, SYSTEM_SETTINGS_EXPORT_FIELDS
 from dlux.system.normalizers import normalize_layout_config, normalize_sidebar_behavior, normalize_titlebar_config
 from dlux.utils.config import get_system_config
 from dlux.utils.import_export import apply_system_settings_import, export_system_settings_payload
@@ -97,7 +97,7 @@ class AccentEdgesSettingTests(TestCase):
         cases = (
             (SETUP_STEP_SIDEBAR, {'sidebar_enabled': 'on', 'sidebar_accent_edge': 'on'}, 'sidebar_config'),
             (SETUP_STEP_TITLEBAR, {'titlebar_accent_edge': 'on'}, 'titlebar_config'),
-            (SETUP_STEP_LAYOUT, {'table_accent_edges': 'on'}, 'layout_config'),
+            (SETUP_STEP_TABLES, {'table_accent_edges': 'on'}, 'tables_config'),
         )
         for step, overrides, storage_field in cases:
             with self.subTest(step=step):
@@ -109,7 +109,7 @@ class AccentEdgesSettingTests(TestCase):
                 )
                 self.assertTrue(form.is_valid(), form.errors)
                 saved = form.save(commit=False)
-                key = 'table_accent_edges' if storage_field == 'layout_config' else 'accent_edge'
+                key = 'table_accent_edges' if storage_field == 'tables_config' else 'accent_edge'
                 self.assertIs(getattr(saved, storage_field)[key], True)
                 settings_obj = saved
 
@@ -127,11 +127,11 @@ class AccentEdgesSettingTests(TestCase):
 
         sidebar_step = step_source('sidebar', 'SIDEBAR')
         titlebar_step = step_source('titlebar', 'TITLEBAR')
-        layout_step = step_source('layout', 'LAYOUT')
+        tables_step = step_source('tables', 'TABLES')
 
         self.assertIn("'sidebar_accent_edge'", sidebar_step)
         self.assertIn("'titlebar_accent_edge'", titlebar_step)
-        self.assertIn("'table_accent_edges'", layout_step)
+        self.assertIn("'table_accent_edges'", tables_step)
         self.assertNotIn("'titlebar_accent_edge'", sidebar_step)
         self.assertNotIn("'sidebar_accent_edge'", titlebar_step)
 
@@ -142,8 +142,8 @@ class AccentEdgesSettingTests(TestCase):
 
         self.assertIn("'sidebar_accent_edge'", row_from(sidebar_step, 'sidebar_show_icons'))
         self.assertIn("'titlebar_accent_edge'", row_from(titlebar_step, 'titlebar_show_language_switcher'))
-        self.assertIn("'sticky_table_headers'", row_from(layout_step, 'table_accent_edges'))
-        self.assertIn("'zebra_striping'", row_from(layout_step, 'resizable_table_columns'))
+        self.assertIn("'sticky_table_headers'", row_from(tables_step, 'table_accent_edges'))
+        self.assertIn("'zebra_striping'", row_from(tables_step, 'resizable_table_columns'))
 
         form = SystemSettingsForm(instance=SystemSettings(is_configured=False), mode='setup')
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))

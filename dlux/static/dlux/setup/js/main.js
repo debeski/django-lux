@@ -1864,8 +1864,23 @@
     }
 
     function applyImportedSetupSettings(form, payload) {
-        const settings = extractImportedSettings(payload);
-        if (!form || !settings) return false;
+        const importedSettings = extractImportedSettings(payload);
+        if (!form || !importedSettings) return false;
+        const settings = { ...importedSettings };
+        const tableFlags = ['table_accent_edges', 'sticky_table_headers', 'resizable_table_columns',
+            'zebra_striping', 'show_audit_fields', 'show_soft_deleted'];
+        const tables = settings.tables_config || settings.tables;
+        if (tables && typeof tables === 'object' && !Array.isArray(tables)) {
+            setJsonField(form, 'tables_config', tables);
+            ['default_table_density', 'row_actions_style', ...tableFlags].forEach(name => {
+                if (!Object.prototype.hasOwnProperty.call(settings, name) && Object.prototype.hasOwnProperty.call(tables, name)) {
+                    settings[name] = tables[name];
+                }
+            });
+        }
+        tableFlags.forEach(name => {
+            if (typeof settings[name] === 'string') settings[name] = ['1', 'true', 'yes', 'on'].includes(settings[name].trim().toLowerCase());
+        });
 
         const weather = settings.extra_config && settings.extra_config.weather;
         const clipboardExtraKey = ['extra_config', 'extra', 'custom'].find(key => Object.prototype.hasOwnProperty.call(settings, key));
@@ -1906,14 +1921,14 @@
                 applyTranslationOverridesToMatrix(form, translationOverrides);
             }
 
-        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density', 'default_form_density', 'default_modal_size', 'public_root_theme', 'public_root_title', 'public_root_meta_description'].forEach((name) => {
+        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density', 'row_actions_style', 'default_form_density', 'default_modal_size', 'public_root_theme', 'public_root_title', 'public_root_meta_description'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setNamedFieldValue(form, name, settings[name]);
                 getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'table_accent_edges', 'sticky_table_headers', 'resizable_table_columns', 'zebra_striping', 'footer_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', ...tableFlags, 'footer_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }

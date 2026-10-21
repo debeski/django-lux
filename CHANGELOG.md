@@ -9,7 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
-- **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register a defensive, model-keyed sparse `hidden`/`order` overlay with runtime settings and import/export. Existing table controls and rendering remain unchanged while the Tables step and builder are developed.
+- **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register defensive, model-keyed sparse `hidden`/`order` configuration with runtime settings and import/export.
+- **Tables Settings Step (1.14)**: Place Tables between Ribbon and Components; relocate table density, accent edges, resizing, zebra stripes, sticky headers, row actions and record-visibility controls. Read legacy preferences through into canonical `tables_config` and migrate them on save, preserving flat keys, `layout_config` mirrors, partial imports and settings saved from unrelated sections. Refresh older singleton cache entries and track loaded values so cached canonical defaults cannot override a legacy edit. Column rendering remains unchanged.
+- **Settings Preview Routing**: Add Tables to the frontend step registry and guard its order against the canonical backend registry; select Options tiles by stable step slug in preview tests so later sections keep opening their own previews.
 
 ## v1.13.0b1
 

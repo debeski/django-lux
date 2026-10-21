@@ -605,6 +605,17 @@ def expand_system_config_groups(config):
     for alias, canonical in alias_map.items():
         if canonical not in expanded and isinstance(expanded.get(alias), dict):
             expanded[canonical] = deepcopy(expanded[alias])
+    from ..system.constants import TABLE_CONFIG_KEYS
+
+    legacy_layout = expanded.get('layout_config')
+    if isinstance(legacy_layout, dict):
+        legacy_tables = {key: legacy_layout[key] for key in TABLE_CONFIG_KEYS if key in legacy_layout}
+        if legacy_tables:
+            canonical_tables = expanded.get('tables_config')
+            expanded['tables_config'] = {
+                **legacy_tables,
+                **(canonical_tables if isinstance(canonical_tables, dict) else {}),
+            }
     if 'homepage_config' not in expanded:
         legacy_homepage = {}
         if 'home_url' in expanded:
@@ -674,6 +685,8 @@ def expand_system_config_groups(config):
     ):
         if group_name in expanded:
             expanded[group_name] = _CONFIG_GROUP_NORMALIZERS[group_name](expanded[group_name])
+    if isinstance(expanded.get('layout_config'), dict) and isinstance(expanded.get('tables_config'), dict):
+        expanded['layout_config'].update({key: expanded['tables_config'][key] for key in TABLE_CONFIG_KEYS})
     canonical_aliases = {
         'client_ip_config': 'client_ip',
         'notification_config': 'notifications',

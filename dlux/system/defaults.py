@@ -179,6 +179,13 @@ def default_notification_config():
     }
 
 
+def default_tables_config():
+    from .constants import TABLE_CONFIG_KEYS
+
+    layout = default_layout_config()
+    return {**{key: layout[key] for key in TABLE_CONFIG_KEYS}, 'columns': {}}
+
+
 def default_layout_config():
     return {
         'default_table_density': DEFAULT_TABLE_DENSITY,

@@ -1899,4 +1899,4 @@ See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal 
 
 ## Table column configuration (1.14 development)
 
-`SystemSettings.tables_config` stores sparse model-keyed `hidden`/`order` overlays and participates in runtime configuration and settings import/export. Rendering and the builder UI are pending. See [table-columns.md](table-columns.md).
+`SystemSettings.tables_config` stores table preferences plus sparse model-keyed `hidden`/`order` overlays and participates in runtime configuration and settings import/export. Tables is a dedicated settings step between Ribbon and Components. Existing flat keys and legacy `layout_config` writes remain supported. Column rendering and the builder UI are pending. See [table-columns.md](table-columns.md).
