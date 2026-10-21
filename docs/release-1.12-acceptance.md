@@ -25,3 +25,7 @@ Local stable checks on 2026-10-18 passed: 110 focused release/channel/document/P
 ## 1.12.1
 
 1.12.1b1 (settings persistence repairs, no migrations) was published 2026-10-21 and accepted on `testbed-dlux`: pinned update 1.12.0 -> b1 with pre-update backup, web and Celery byte-identical to the published wheel, settings unchanged across the update, every section re-saved unchanged, partial import and snapshot revert keeping the encrypted SMTP secret, an app-namespace write isolated to its namespace, rollback to 1.12.0 and re-apply, deep check with no errors, unchanged domain and media fingerprints. The owner walked through System Settings. Stable 1.12.1 differs from b1 only in the manifest version and release URL. Evidence: `.xclude/validation/1.12.1b1-2026-10-21/`.
+
+## 1.12.2
+
+1.12.2b1 (locked section saves, enforced database precedence, nonvisual preview controls) and 1.12.2b2 (step-grouped import review, registry-derived aliases and defaults, dead-code removal) were published 2026-10-21. b2 was accepted on `testbed-dlux`: pinned update 1.12.1 -> b2 with pre-update backup, web and Celery byte-identical to the published wheel, settings and domain/media fingerprints unchanged, 27 live settings journeys in a rolled-back transaction, rollback to 1.12.1 and re-apply, deep check with no errors. Stable 1.12.2 differs from b2 only in the manifest version and release URL. Evidence: `.xclude/validation/1.12.2b2-2026-10-21/`.

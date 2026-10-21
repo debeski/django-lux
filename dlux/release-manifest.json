@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.12.2b2",
+  "version": "1.12.2",
   "display": {
     "summary": "Locked section saves, one declared rule for stored-vs-project settings, and ScanLink out of the live preview.",
     "highlights": [
@@ -10,7 +10,7 @@
       "Toggling ScanLink (or any nonvisual control) no longer reloads the page behind the Options modal.",
       "The import review groups changes by the step that edits them; group aliases, defaults and import names are derived from one registry."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.2b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.2"
   },
   "requires": {
     "updater_schema": ">=1",

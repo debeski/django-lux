@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.2
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.2b2 (which includes 1.12.2b1); promotes locked and re-based section saves, the enforced `db_override_policy` with per-entry Extra Features merging, server-declared nonvisual preview controls (ScanLink), the step-grouped import review, registry-derived import aliases and defaults, and the removal of dead normalizer copies and unread schema step metadata.
+- **Upgrade Contract**: No migrations (`migrations.effect: none`), inline-safe, rollback-compatible; `migration_baseline >=1.12.0` and image floor unchanged.
+- **Behaviour Notes**: Pre-setup deployments whose stored sidebar, navbar, email or login group still equals its defaults now resolve the project's `DLUX_CONFIG` values; `DLUX_CONFIG` Extra Features and app namespaces survive next to stored ones. `settings_diff.GROUPS`/`FIELD_GROUP` and `SettingGroup.setup_step`/`admin_section` are gone (internal; no consumer used them).
+- **Beta Acceptance**: b2 passed release CI, exact published-wheel verification, a pinned testbed update from 1.12.1 with pre-update backup, 27 live settings journeys (sections, imports, SMTP secret, stale-save rebase, review grouping, grouped aliases, extras merge, app writers), rollback and re-apply, the deep check and unchanged domain/media fingerprints; branch e2e covered previews and the import review.
+
 ## v1.12.2b2
 
 - **Import Review By Step**: `settings_diff.review_groups()` groups the Options import review by the step whose layout renders each field (`SystemSettingsForm.field_steps`), labelled with the step tiles' `system_settings_<slug>` strings. Ribbon settings now review under Ribbon instead of Layout, the login logo/background and `login_config` under Login Page, table/card edges under Appearance. `settings_diff.GROUPS`/`FIELD_GROUP` are replaced by `review_groups()`/`field_group()`; `UNOWNED_FIELD_STEPS` maps `extra_config` to Extras.
