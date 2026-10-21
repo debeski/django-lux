@@ -238,3 +238,25 @@ class ThemeTokenContractTests(SimpleTestCase):
                 f'{path.name} should declare exactly one ":root.theme-{path.stem}" '
                 f'token block, found {len(blocks)}',
             )
+
+
+class ThemeSelectorsLiveInThemeFilesTests(SimpleTestCase):
+    """A rule for one named theme belongs in that theme's stylesheet.
+
+    Feature CSS styles components for every theme through tokens; a selector
+    such as `:root.theme-dark .x` outside `themes/css/` is a second place a
+    theme's look is decided.
+    """
+
+    THEME_NAMES = 'light|blue|gold|green|red|mono|dark|gothic|retro|neon|prism|aether'
+
+    def test_no_theme_qualified_selectors_outside_theme_files(self):
+        named = re.compile(r'(?:(?<=\s)|(?<=^)|(?<=:root)|(?<=\)))\.theme-(%s)(?![\w-])' % self.THEME_NAMES, re.M)
+        offenders = []
+        for path in sorted((STATIC / 'dlux').rglob('*.css')):
+            if THEME_DIR in path.parents or '.min.' in path.name:
+                continue
+            for prelude in re.findall(r'([^{}]+)\{', _strip_comments(path.read_text(encoding='utf-8'))):
+                if named.search(prelude):
+                    offenders.append(f'{path.relative_to(STATIC)}: {prelude.strip()[:80]}')
+        self.assertEqual(offenders, [])

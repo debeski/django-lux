@@ -163,3 +163,17 @@ class SetupJsModuleContractTests(SimpleTestCase):
                     )
 
         self.assertEqual(problems, [], '\n'.join(problems))
+
+
+class SharedJsonHelperTests(SimpleTestCase):
+    """`base_head.js` defines `window.dluxParseJson` once; feature scripts reuse it."""
+
+    STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
+
+    def test_one_definition_and_no_local_copies(self):
+        head = (self.STATIC / 'base' / 'js' / 'base_head.js').read_text(encoding='utf-8')
+        self.assertIn('window.dluxParseJson = function (text, fallback)', head)
+        for rel in ('navbar/js/main.js', 'setup/js/main.js', 'setup/js/previews.js'):
+            source = (self.STATIC / rel).read_text(encoding='utf-8')
+            self.assertNotIn('function parseJson(', source, rel)
+            self.assertIn('const parseJson = window.dluxParseJson;', source, rel)

@@ -68,3 +68,8 @@
     --tut-next-shadow: rgba(71, 85, 105, 0.3);
     --tut-progress-color: #334155;
 }
+
+/* Component overrides moved from helpers/tooltip/css/main.css. */
+:root.theme-light .sidebar-tooltip {
+    --dlux-tooltip-color: #fff;
+}

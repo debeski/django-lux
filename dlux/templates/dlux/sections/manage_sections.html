@@ -137,19 +137,7 @@
     </form>
 
     {# Section data for JS #}
-    <script type="application/json" id="sectionData">
-    {
-        "model": "{{ active_model }}",
-        "editUrlTemplate": "{% url 'manage_sections' %}?model={{ active_model }}&id={id}",
-        "deleteUrl": "{% url 'delete_section' %}",
-        "detailsUrl": "{% url 'get_section_details' %}",
-        "hasSubsections": {% if has_subsections %}true{% else %}false{% endif %},
-        "formMode": "{{ section_form_mode|default:"add" }}",
-        "formOpen": {% if section_form_open %}true{% else %}false{% endif %},
-        "unsavedMessage": "{{ DLUX_STRINGS.unsaved_changes_confirm|default:'Discard unsaved section changes?'|escapejs }}",
-        "csrf": "{{ csrf_token }}"
-    }
-    </script>
+    {% if section_data %}{{ section_data|json_script:"sectionData" }}{% endif %}
 
 {% endblock %}
 

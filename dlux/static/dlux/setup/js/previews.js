@@ -84,13 +84,7 @@
         return strings[key] || fallback;
     }
 
-    function parseJson(text, fallback) {
-        try {
-            return JSON.parse(text || '');
-        } catch (error) {
-            return fallback;
-        }
-    }
+    const parseJson = window.dluxParseJson;
 
     function readBooleanField(form, selector, fallback) {
         const field = form.querySelector(selector);

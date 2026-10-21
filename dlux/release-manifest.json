@@ -1,16 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.12.2",
+  "version": "1.12.3b1",
   "display": {
-    "summary": "Locked section saves, one declared rule for stored-vs-project settings, and ScanLink out of the live preview.",
+    "summary": "Theme rules move into the theme stylesheets; section data and JSON parsing use one shared path.",
     "highlights": [
-      "Two admins saving different System Settings sections at the same time both keep their changes.",
-      "Stored settings override the project's DLUX_CONFIG by one declared policy; an untouched group never masks it before setup.",
-      "Extra Features and app namespaces merge with the project's per entry instead of replacing them all.",
-      "Toggling ScanLink (or any nonvisual control) no longer reloads the page behind the Options modal.",
-      "The import review groups changes by the step that edits them; group aliases, defaults and import names are derived from one registry."
+      "Every rule for a named theme now lives in that theme's stylesheet; feature CSS no longer names themes.",
+      "The Sections manager passes its page data through json_script.",
+      "One shared window.dluxParseJson replaces three local copies."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.3b1"
   },
   "requires": {
     "updater_schema": ">=1",

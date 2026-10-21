@@ -2267,6 +2267,34 @@ class SecurityHardeningViewTests(TestCase):
         self.assertNotIn('data-dlux-section-add', html)
         self.assertNotIn('data-dlux-section-form-panel', html)
 
+    def test_section_data_reaches_the_page_through_json_script(self):
+        import json
+
+        self._grant_section_permission(self.regular_user, 'view_sections')
+        self.client.login(username='regular', password='regularpass123')
+        from dlux.utils.crud import _build_generic_table_class
+        from dlux.views import sections as section_views
+
+        mock_section = [{
+            'model': Scope, 'model_name': 'scope', 'app_label': 'dlux',
+            'verbose_name': 'Scope', 'verbose_name_plural': 'Scopes',
+            'form_class': section_views.resolve_form_class_for_model(Scope),
+            'table_class': _build_generic_table_class(Scope),
+            'filter_class': None, 'subsections': [],
+        }]
+        with patch('dlux.views.sections.discover_section_models', return_value=mock_section):
+            response = self.client.get(reverse('manage_sections') + '?model=scope')
+
+        html = response.content.decode()
+        match = re.search(r'<script id="sectionData" type="application/json">(.*?)</script>', html, re.S)
+        self.assertIsNotNone(match)
+        data = json.loads(match.group(1))
+        self.assertEqual(data['model'], 'scope')
+        self.assertEqual(data['deleteUrl'], reverse('delete_section'))
+        self.assertEqual(data['detailsUrl'], reverse('get_section_details'))
+        self.assertIs(data['formOpen'], False)
+        self.assertTrue(data['csrf'])
+
     def test_hiding_the_sections_shortcut_leaves_the_page_reachable(self):
         """The toggle hides the sidebar-toolbar shortcut, nothing more.
 

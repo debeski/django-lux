@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.3b1
+
+- **Theme Rules Live In Theme Stylesheets**: 154 theme-qualified rules (`:root.theme-<name> …`) move verbatim from `base/css/buttons.css`, `setup/css/main.css`, `helpers/tooltip/css/main.css`, `system/css/options.css` and `users/css/permissions.css` into the matching `themes/css/<name>.css`, placed to keep the cascade order (top of the theme file for sheets loaded before the themes, end for those loaded after). Selectors and declarations are unchanged; 107/108 theme × page screenshots identical, the remaining one gothic rendering noise that moves between runs. `test_theme_tokens` now fails on any theme-qualified selector outside `themes/css/`.
+- **Section Manager Data Via `json_script`**: the manage-sections page builds its script data (`model`, URLs, form state, unsaved-changes message, CSRF token) in the view and renders it with `json_script` instead of a hand-assembled `<script type="application/json">` block.
+- **Shared `window.dluxParseJson`**: `base_head.js` defines it once; `navbar/js/main.js`, `setup/js/main.js` and `setup/js/previews.js` drop their identical local copies.
+
 ## v1.12.2
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.2b2 (which includes 1.12.2b1); promotes locked and re-based section saves, the enforced `db_override_policy` with per-entry Extra Features merging, server-declared nonvisual preview controls (ScanLink), the step-grouped import review, registry-derived import aliases and defaults, and the removal of dead normalizer copies and unread schema step metadata.

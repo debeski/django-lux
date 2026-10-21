@@ -21,6 +21,15 @@
         });
     }
 
+    // Shared by deferred feature scripts: JSON from a string, or `fallback`.
+    window.dluxParseJson = function (text, fallback) {
+        try {
+            return JSON.parse(text || '');
+        } catch (_error) {
+            return fallback;
+        }
+    };
+
     function parseJsonScript(id, fallback) {
         const element = document.getElementById(id);
         if (!element) {

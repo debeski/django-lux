@@ -1,13 +1,7 @@
 (function () {
     'use strict';
 
-    function parseJson(text, fallback) {
-        try {
-            return JSON.parse(text || '');
-        } catch (err) {
-            return fallback;
-        }
-    }
+    const parseJson = window.dluxParseJson;
 
     // Pure builder/config transforms live in setup/js/builder_model.js so they
     // can be unit tested without a DOM. Destructured here so every call site in

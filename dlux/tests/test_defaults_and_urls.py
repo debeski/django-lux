@@ -2990,11 +2990,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('.dlux-staff-tier-preview .badge.bg-primary {', contents)
         self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
-        self.assertIn(':root.theme-dark .dlux-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-gothic .dlux-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-neon .dlux-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-retro .dlux-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-prism .dlux-staff-tier-preview {', contents)
+        themes = stylesheet.parents[2] / 'themes' / 'css'
+        for theme in ('dark', 'gothic', 'neon', 'retro', 'prism'):
+            theme_css = (themes / f'{theme}.css').read_text(encoding='utf-8')
+            self.assertRegex(theme_css, rf':root\.theme-{theme} \.dlux-staff-tier-preview\s*[,{{]', theme)
 
     def test_tables_css_hardens_staff_tier_badges_for_manage_users(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'tables' / 'css' / 'main.css'
@@ -3474,19 +3473,22 @@ class DluxDefaultRouteTests(SimpleTestCase):
             self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {{', contents)
 
     def test_options_theme_system_settings_tiles_include_aether(self):
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'aether.css'
         contents = css_path.read_text(encoding='utf-8')
 
-        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile,', contents)
-        self.assertIn(':root.theme-aether .dlux-system-settings-tile-icon,', contents)
-        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile i,', contents)
-        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:hover,', contents)
-        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,', contents)
-        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary,', contents)
-        self.assertIn(':root.theme-aether .dlux-options-reset-action,', contents)
-        self.assertIn(':root.theme-aether .dlux-options-reset-action:hover,', contents)
-        self.assertIn(':root.theme-aether .dlux-options-reset-action:focus-visible,', contents)
-        self.assertIn(':root.theme-aether .dlux-options-reset-action i,', contents)
+        for selector in (
+            ':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile',
+            ':root.theme-aether .dlux-system-settings-tile-icon',
+            ':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile i',
+            ':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:hover',
+            ':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible',
+            ':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary',
+            ':root.theme-aether .dlux-options-reset-action',
+            ':root.theme-aether .dlux-options-reset-action:hover',
+            ':root.theme-aether .dlux-options-reset-action:focus-visible',
+            ':root.theme-aether .dlux-options-reset-action i',
+        ):
+            self.assertRegex(contents, re.escape(selector) + r'\s*[,{]', selector)
 
     def test_neon_language_pill_rules_do_not_capture_choice_selectors(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'neon.css'

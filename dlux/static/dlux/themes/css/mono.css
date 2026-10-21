@@ -1,3 +1,12 @@
+/* Component overrides moved from base/css/buttons.css; loaded ahead of this file's own rules. */
+:root.theme-mono .btn-primary > .bi,
+.theme-mono .btn-primary > .bi {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: currentColor !important;
+}
+
 /* --- Monochromatic Theme --- */
 /* Uses various tones, shades, and tints of a single hue (slate gray) */
 /* Clean, sophisticated, and unified look between light and dark */
@@ -1100,4 +1109,9 @@
     :root.theme-mono::before {
         display: none !important;
     }
+}
+
+/* Component overrides moved from helpers/tooltip/css/main.css. */
+:root.theme-mono .sidebar-tooltip {
+    --dlux-tooltip-color: #fff;
 }

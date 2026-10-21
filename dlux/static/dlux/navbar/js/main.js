@@ -4,13 +4,7 @@
     const HISTORY_KEY = 'dlux.navbar.history.v1';
     const HISTORY_LIMIT = 6;
 
-    function parseJson(text, fallback) {
-        try {
-            return JSON.parse(text || '');
-        } catch (error) {
-            return fallback;
-        }
-    }
+    const parseJson = window.dluxParseJson;
 
     function normalizedPath(value) {
         try {

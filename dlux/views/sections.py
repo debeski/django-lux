@@ -11,6 +11,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import ProtectedError
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -679,7 +680,19 @@ def core_models_view(request):
         'subsection_selects': subsection_selects,
         'has_subsections': len(subsection_selects) > 0,
     }
-    
+    # Read by sections/js/manage_sections.js and the context-menu section manager.
+    context['section_data'] = {
+        'model': model_param,
+        'editUrlTemplate': f"{reverse('manage_sections')}?model={model_param}&id={{id}}",
+        'deleteUrl': reverse('delete_section'),
+        'detailsUrl': reverse('get_section_details'),
+        'hasSubsections': context['has_subsections'],
+        'formMode': context['section_form_mode'],
+        'formOpen': bool(section_form_open),
+        'unsavedMessage': ui_strings.get('unsaved_changes_confirm', 'Discard unsaved section changes?'),
+        'csrf': get_token(request),
+    }
+
     return render(request, 'dlux/sections/manage_sections.html', context)
 
 # Section Management — AJAX: adds a new subsection (child model) via modal

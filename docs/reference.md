@@ -346,6 +346,11 @@ prefix. Downstream JS should use `{% url %}` for concrete routes or these
 helpers for Dlux route templates rather than posting directly to
 `/sys/api/...`.
 
+`window.dluxParseJson(text, fallback)` (also from `base_head.js`) parses a JSON
+string and returns `fallback` when it is empty or invalid; feature scripts use it
+instead of defining their own copy. Page data for scripts goes through Django's
+`json_script` filter, never a hand-assembled `<script type="application/json">`.
+
 `localStorage` remains a fine fallback/migration layer — read it if
 `getAppPreference` returns your default, then write through to the namespace so
 the value becomes cross-device.

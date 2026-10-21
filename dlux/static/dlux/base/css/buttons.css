@@ -60,18 +60,6 @@
     color: #fff !important;
 }
 
-:root.theme-mono .btn-primary > .bi,
-:root.theme-dark .btn-primary > .bi,
-:root.theme-retro .btn-primary > .bi,
-:root.theme-gothic .btn-primary > .bi,
-:root.theme-neon .btn-primary > .bi,
-:root.theme-prism .btn-primary > .bi,
-.theme-mono .btn-primary > .bi,
-.theme-dark .btn-primary > .bi,
-.theme-retro .btn-primary > .bi,
-.theme-gothic .btn-primary > .bi,
-.theme-neon .btn-primary > .bi,
-.theme-prism .btn-primary > .bi,
 .btn-primary > .bi {
     background: transparent !important;
     border-color: transparent !important;
@@ -130,28 +118,6 @@
 }
 
 .btn-outline-primary > .bi {
-    color: currentColor !important;
-}
-
-:root.theme-dark .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active),
-:root.theme-gothic .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active),
-:root.theme-retro .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active),
-:root.theme-neon .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active),
-:root.theme-prism .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active),
-:root.theme-aether .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) {
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
-        color-mix(in srgb, var(--hbody, #111827) 88%, transparent) !important;
-    border-color: rgba(var(--primal-rgb, 203, 213, 225), 0.26) !important;
-    color: color-mix(in srgb, var(--title, #e5e7eb) 88%, var(--primal, #cbd5e1)) !important;
-}
-
-.theme-dark .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi,
-.theme-gothic .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi,
-.theme-retro .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi,
-.theme-neon .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi,
-.theme-prism .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi,
-.theme-aether .btn-outline-secondary:not(:hover):not(:focus-visible):not(:active) > .bi {
     color: currentColor !important;
 }
 
