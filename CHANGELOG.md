@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.1
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.1b1; promotes section-owned settings saves, presence-aware partial imports, SMTP credential preservation, atomic app-settings writers, canonical boolean parsing and notification policy preservation.
+- **Upgrade Contract**: No migrations (`migrations.effect: none`), inline-safe, rollback-compatible; `migration_baseline >=1.12.0` and image floor unchanged.
+- **Behaviour Note**: Partial imports and the import review now patch only the keys a file supplies; they no longer remove unsupplied nested keys. Complete form saves and snapshot reverts still replace whole groups.
+- **Beta Acceptance**: b1 passed release CI on Python 3.11–3.13 plus the PostgreSQL 17 settings job, exact published-wheel verification, a pinned testbed update with pre-update backup, live section re-save/partial-import/SMTP-secret/revert/app-writer journeys, rollback and re-apply, the deep check, unchanged domain/media fingerprints, and an owner walk-through of System Settings.
+
 ## v1.12.1b1
 
 - **Section-Owned Settings Saves**: Infer field ownership from the settings layout, protect inactive fields against omitted/stale POST values, and defer template-triggered validation until ownership is established.

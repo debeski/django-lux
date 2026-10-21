@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.12.1b1",
+  "version": "1.12.1",
   "display": {
     "summary": "Preserves system settings across section saves, partial imports, and concurrent app updates.",
     "highlights": [
@@ -9,7 +9,7 @@
       "App settings merge into a locked current row so independent updates do not overwrite each other.",
       "Boolean parsing is consistent across the catalogue; registered regressions cover every section and configuration group."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.1"
   },
   "requires": {
     "updater_schema": ">=1",
