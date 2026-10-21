@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.3
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.3b1; promotes theme-qualified rules living only in the theme stylesheets (guarded by `test_theme_tokens`), the Sections manager's `json_script` page data and the shared `window.dluxParseJson`.
+- **Upgrade Contract**: No migrations (`migrations.effect: none`), inline-safe, rollback-compatible; `migration_baseline >=1.12.0` and image floor unchanged.
+- **Scope Note**: The remaining structural-audit work moves on: the maintenance page leaves the project for the Composer image and the operations centre gains restart/recreate/logs/"update everything" in a separate admin-rail modal, both in 1.13.0 with Composer 1.7.0. Large-module splits are not scheduled.
+- **Beta Acceptance**: b1 passed release CI, exact published-wheel verification, a pre-tag screenshot comparison of 108 theme × page shots (107 identical twice; the remaining gothic diff moved between pages), a pinned testbed update from 1.12.2 with pre-update backup, live Options/Sections checks, proxy-served CSS checks, rollback and re-apply, the deep check and unchanged domain/media fingerprints.
+
 ## v1.12.3b1
 
 - **Theme Rules Live In Theme Stylesheets**: 154 theme-qualified rules (`:root.theme-<name> …`) move verbatim from `base/css/buttons.css`, `setup/css/main.css`, `helpers/tooltip/css/main.css`, `system/css/options.css` and `users/css/permissions.css` into the matching `themes/css/<name>.css`, placed to keep the cascade order (top of the theme file for sheets loaded before the themes, end for those loaded after). Selectors and declarations are unchanged; 107/108 theme × page screenshots identical, the remaining one gothic rendering noise that moves between runs. `test_theme_tokens` now fails on any theme-qualified selector outside `themes/css/`.

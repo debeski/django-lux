@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.12.3b1",
+  "version": "1.12.3",
   "display": {
     "summary": "Theme rules move into the theme stylesheets; section data and JSON parsing use one shared path.",
     "highlights": [
@@ -8,7 +8,7 @@
       "The Sections manager passes its page data through json_script.",
       "One shared window.dluxParseJson replaces three local copies."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.3b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.3"
   },
   "requires": {
     "updater_schema": ">=1",
