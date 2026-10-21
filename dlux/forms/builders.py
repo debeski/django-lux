@@ -156,6 +156,7 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None, *,
     )
     checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
     disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
+    preview_attr = " data-dlux-preview='none'" if getattr(field, 'dlux_preview', True) is False else ''
     # A locked toggle explains itself on hover rather than just being dead.
     lock_reason = str(getattr(field, 'dlux_lock_reason', '') or '').strip()
     lock_attrs = (
@@ -173,7 +174,7 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None, *,
         f"</div>"
         f"<div class='dlux-settings-toggle-field__control form-switch'>"
         f"<input class='form-check-input dlux-settings-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
-        f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
+        f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}{preview_attr}>"
         f"</div>"
         f"</div>"
     )

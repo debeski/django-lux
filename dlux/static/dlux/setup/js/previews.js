@@ -325,14 +325,17 @@
     // opened: until then it is the real page, and loading a copy of it only
     // looks like the page reloading. Changing a value back returns to the real page.
     const baselines = new WeakMap();
-    const NONVISUAL_PREVIEW_FIELDS = new Set([
-        'entry_clipboard_enabled',
-        'pdf_editing_enabled', 'pdf_history_enabled', 'pdf_max_pages', 'pdf_max_source_mb',
-    ]);
+    // The server marks controls that change no page (`NONVISUAL_PREVIEW_FIELDS`).
+    const isNonvisual = control => Boolean(control && control.dataset && control.dataset.dluxPreview === 'none');
+
+    function nonvisualNames(form) {
+        return new Set(Array.from(form.querySelectorAll('[data-dlux-preview="none"]'), control => control.name));
+    }
 
     function serializeForm(form) {
+        const ignored = nonvisualNames(form);
         return JSON.stringify(Array.from(new FormData(form).entries())
-            .filter(([key, value]) => !NONVISUAL_PREVIEW_FIELDS.has(key) && !(value instanceof File))
+            .filter(([key, value]) => !ignored.has(key) && !(value instanceof File))
             .map(([key, value]) => [key, String(value)]));
     }
 
@@ -715,7 +718,7 @@
             if (form.dataset.systemSettingsPreviewBound !== 'true') {
                 form.dataset.systemSettingsPreviewBound = 'true';
                 const refreshVisualChange = event => {
-                    if (!NONVISUAL_PREVIEW_FIELDS.has(event.target.name)) scheduleRefresh(form);
+                    if (!isNonvisual(event.target)) scheduleRefresh(form);
                 };
                 form.addEventListener('input', refreshVisualChange);
                 form.addEventListener('change', refreshVisualChange);

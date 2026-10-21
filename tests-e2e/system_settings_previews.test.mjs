@@ -67,17 +67,19 @@ async function openEye(page, target) {
 }
 
 describe('Options System Settings previews', { concurrency: 1 }, () => {
-  test('clipboard toggles do not replace the background or its sidebar state', async () => {
+  test('nonvisual toggles (clipboard, ScanLink) do not replace the background or its sidebar state', async () => {
     const { ctx, page, errors } = await optionsStep(17);
     try {
       const before = await page.locator('.sidebar .accordion-collapse').evaluateAll(nodes => nodes.map(node => [node.id, node.classList.contains('show')]));
       const drafts = [];
       page.on('request', request => { if (request.url().includes('/settings/preview/draft/')) drafts.push(request.url()); });
-      for (const enabled of [true, false]) {
-        await setToggle(page, 'entry_clipboard_enabled', enabled);
-        await page.waitForTimeout(800);
-        assert.equal(await page.locator('.dlux-preview-backdrop:not([hidden])').count(), 0);
-        assert.deepEqual(await page.locator('.sidebar .accordion-collapse').evaluateAll(nodes => nodes.map(node => [node.id, node.classList.contains('show')])), before);
+      for (const name of ['entry_clipboard_enabled', 'scanlink_enabled']) {
+        for (const enabled of [true, false]) {
+          await setToggle(page, name, enabled);
+          await page.waitForTimeout(800);
+          assert.equal(await page.locator('.dlux-preview-backdrop:not([hidden])').count(), 0, name);
+          assert.deepEqual(await page.locator('.sidebar .accordion-collapse').evaluateAll(nodes => nodes.map(node => [node.id, node.classList.contains('show')])), before);
+        }
       }
       assert.deepEqual(drafts, []);
       assert.deepEqual(errors, []);

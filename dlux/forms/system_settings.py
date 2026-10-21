@@ -20,6 +20,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from ..system.constants import (
+    NONVISUAL_PREVIEW_FIELDS,
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
     SETUP_STEP_HOMEPAGE,
@@ -204,6 +205,17 @@ from .system_settings_groups import (
     BackupCleanMixin,
     LayoutMixin,
 )
+
+
+def _settings_row_signature(instance):
+    """Every stored column, so a save can tell whether another request wrote the row."""
+    if not getattr(instance, 'pk', None):
+        return None
+    return json.dumps(
+        {field.attname: field.value_from_object(instance) for field in instance._meta.concrete_fields},
+        sort_keys=True,
+        default=str,
+    )
 
 
 class SystemSettingsForm(
@@ -1004,6 +1016,7 @@ class SystemSettingsForm(
             bool(scanlink_config.get('enabled', False)) if isinstance(scanlink_config, dict) else False,
         )
         self.fields['allowed_fonts'].choices = get_font_choices()
+        self._row_signature = _settings_row_signature(self.instance)
         self.refresh_parent = True
         self.extra_form_class = 'dlux-system-setup-form'
         # Closing this modal with pending edits prompts before discarding.
@@ -1039,6 +1052,9 @@ class SystemSettingsForm(
             self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS
         )
         self._configure_pdf_fields()
+        for name in NONVISUAL_PREVIEW_FIELDS & set(self.fields):
+            self.fields[name].dlux_preview = False
+            self.fields[name].widget.attrs['data-dlux-preview'] = 'none'
 
         from dlux.discovery import (
             discover_routes_for,
@@ -4446,7 +4462,34 @@ class SystemSettingsForm(
         return cleaned
 
 
+    # The modal view calls save(commit=True) so the row lock below spans the write.
+    handles_save = True
+    _rebased = False
+
     def save(self, commit=True):
+        """Persist this form's sections on top of the row as it stands at write time.
+
+        The form read the row when it was built. If another request wrote it since,
+        the same submission is re-bound to the locked current row: inactive sections
+        then come from that row, and only this form's own section is applied.
+        """
+        if not commit or self.mode == 'setup' or self._rebased or not getattr(self.instance, 'pk', None):
+            return self._save(commit)
+        with transaction.atomic():
+            current = type(self.instance).objects.select_for_update().get(pk=self.instance.pk)
+            if _settings_row_signature(current) == self._row_signature:
+                return self._save(commit)
+            rebased = type(self)(
+                self.data, self.files, instance=current,
+                request=self.request, user=self._user, mode=self.mode,
+            )
+            rebased._rebased = True
+            if not rebased.is_valid():
+                raise ValidationError(rebased.errors.as_text())
+            self.instance = rebased.save(commit)
+            return self.instance
+
+    def _save(self, commit):
         instance = super().save(commit=False)
         self._apply_extra_features(instance)
         from .weather import apply_weather

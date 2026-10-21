@@ -17,7 +17,11 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 - Section-owned settings saves preserve inactive controls, including missing or
   stale hidden inputs. Partial imports merge supplied keys, retain existing SMTP
   credentials, and share boolean parsing with the catalogue normalizers.
-  Single and grouped app settings writers lock the current row before merging.
+  Single and grouped app settings writers lock the current row before merging,
+  and so do ordinary section saves, which re-apply a stale submission on top of
+  a newer write. Stored groups override `DLUX_CONFIG` by one declared policy;
+  Extra Features and app namespaces merge with the project's per entry.
+  Nonvisual controls (ScanLink, clipboard, PDF options) never swap the live preview.
   See [System settings persistence](system-configuration.md#settings-persistence-contracts).
 
 - **Optional weather:** OpenWeather current conditions, searchable saved locations,

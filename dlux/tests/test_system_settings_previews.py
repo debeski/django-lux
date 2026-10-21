@@ -270,3 +270,39 @@ class LanguageFontRuleTests(TestCase):
         )
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['default_fonts'], {'en': allowed, 'ar': allowed})
+
+
+class NonvisualPreviewFieldTests(TestCase):
+    """Controls that change no page must not swap the live preview for a draft."""
+
+    def setUp(self):
+        from unittest.mock import patch
+
+        # Registration is process-global; scope it so later renders are unaffected.
+        registered = patch('dlux.pdf._registered', True)
+        registered.start()
+        self.addCleanup(registered.stop)
+
+    def _form(self):
+        from dlux.forms import SystemSettingsForm
+
+        return SystemSettingsForm(instance=SystemSettings.load())
+
+    def test_nonvisual_toggles_carry_the_preview_mark(self):
+        from dlux.forms.builders import build_settings_toggle_field
+
+        form = self._form()
+        for name in ('scanlink_enabled', 'entry_clipboard_enabled', 'pdf_editing_enabled'):
+            self.assertIn("data-dlux-preview='none'", build_settings_toggle_field(form, name).html, name)
+        self.assertNotIn('data-dlux-preview', build_settings_toggle_field(form, 'zebra_striping').html)
+
+    def test_nonvisual_inputs_carry_the_preview_mark(self):
+        form = self._form()
+        self.assertIn('data-dlux-preview="none"', str(form['pdf_max_pages']))
+        self.assertNotIn('data-dlux-preview', str(form['default_table_density']))
+
+    def test_the_script_reads_the_mark_instead_of_a_field_list(self):
+        source = (SETUP_JS / 'previews.js').read_text()
+        self.assertIn('[data-dlux-preview="none"]', source)
+        for name in ('scanlink_enabled', 'entry_clipboard_enabled', 'pdf_max_pages'):
+            self.assertNotIn(f"'{name}'", source)

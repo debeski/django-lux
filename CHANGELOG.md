@@ -7,6 +7,15 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.2b1
+
+- **Locked Section Saves**: `SystemSettingsForm.save()` (now `handles_save`, so the dynamic modal saves through it) locks the `SystemSettings` row with `select_for_update()`. When another request wrote the row after the form was built, the same submission is re-bound to the locked current row, so concurrent saves of different sections both land. Setup-wizard saves and `commit=False` drafts are unchanged.
+- **Declared Database Precedence**: `SettingGroup.db_override_policy` is now enforced by `dlux.system.registry.db_group_applies()` for every group gate in `get_system_config()`. Sidebar, navbar, email and login no longer override `DLUX_CONFIG` merely because the stored row is non-empty: before setup completes, a stored group wins only where it differs from its defaults; afterwards it wins as before.
+- **Per-Entry Extra Features Merge**: `extra_config` layers merge per feature key and `app` namespaces per namespace. A stored feature or namespace no longer hides the project's other `DLUX_CONFIG['extra']` features or app namespaces.
+- **Nonvisual Preview Controls**: `NONVISUAL_PREVIEW_FIELDS` (`dlux/system/constants.py`) marks controls `data-dlux-preview="none"`; `previews.js` reads the mark instead of a hard-coded list. ScanLink joins the clipboard and PDF options, so toggling it no longer swaps the page behind the Options modal for a draft render.
+- **Settings Audit Record**: `docs/system-settings-audit.md` (2026-10-03 baseline) is committed with a status table of what 1.12.1/1.12.2b1 fixed and what remains open.
+- **Behaviour Note**: Only pre-setup deployments whose stored sidebar, navbar, email or login group still equals its defaults, and projects that supply Extra Features or app namespaces in `DLUX_CONFIG`, see different resolved values. No migrations.
+
 ## v1.12.1
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.1b1; promotes section-owned settings saves, presence-aware partial imports, SMTP credential preservation, atomic app-settings writers, canonical boolean parsing and notification policy preservation.

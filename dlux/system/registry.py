@@ -57,6 +57,26 @@ def get_setting_group(name):
         raise KeyError(f'Unknown Dlux setting group: {name}') from exc
 
 
+DB_OVERRIDE_POLICIES = frozenset({'configured_or_non_default'})
+
+
+def db_group_applies(storage_field, value, *, configured):
+    """Whether a group stored in `SystemSettings` overrides the project's `DLUX_CONFIG`.
+
+    `configured_or_non_default`: once setup has completed the stored group wins;
+    before that it wins only where it differs from the group's defaults, so the
+    row a fresh install creates never masks what the project configured.
+    """
+    group = _GROUPS_BY_STORAGE[storage_field]
+    if group.db_override_policy not in DB_OVERRIDE_POLICIES:
+        raise ValueError(f'Unknown db_override_policy {group.db_override_policy!r} on {storage_field}')
+    if not isinstance(value, dict) or not value:
+        return False
+    if configured:
+        return True
+    return group.normalizer(value) != group.normalizer(group.default_factory())
+
+
 def get_config_default_factory(storage_field):
     return get_setting_group(storage_field).default_factory
 

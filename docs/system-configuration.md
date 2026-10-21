@@ -78,6 +78,8 @@ A preview request:
 
 Only the existing Save action persists anything.
 
+Controls that change no page — ScanLink, the entry clipboard and the PDF tool options — are listed in `NONVISUAL_PREVIEW_FIELDS` and rendered with `data-dlux-preview="none"`. Editing one never swaps the page behind the Options modal for a draft render; the draft still carries its value.
+
 **Behind the Options modal.** On the steps whose subject is page chrome — Branding, Languages, Themes and Fonts, Titlebar, Sidebar, Navbar and Components — the page behind the modal follows the form: once a value differs from how the step opened, a frame of the current page rendered with the draft replaces it (at the same scroll position, still dimmed by the modal backdrop), and it re-renders on every change. Setting a value back returns to the real page. The step's **Preview** lifts the modal off that page (glass mode); click anywhere, Escape or Q returns, and the exit click never reaches the page. The modal itself also takes the draft's default font for the page's language, since fonts are chosen there.
 
 **The popup.** Steps whose subject is not on the Options page open the popup from **Preview**: Ribbon a sample list page, Home and Public Pages the configured home page (with a visitor/signed-in switch when a public page is enabled), Login Page the login page as a visitor sees it, Profile Page the profile page. The popup offers the draft's languages and desktop/tablet/mobile widths.
@@ -169,5 +171,18 @@ prerequisites.
 
 Single and grouped app-namespace writers merge into a row locked with
 `select_for_update()` inside a transaction and write only `extra_config`.
+
+An ordinary section save from the Options modal locks the row the same way. When
+another request has written it since the form was built, the submission is
+re-bound to the current row under that lock, so the other request's sections are
+kept and only the submitting section changes. The first-run setup wizard, which
+saves every step at once, keeps whole-form semantics.
+
+Stored settings override the project's `DLUX_CONFIG` per group by its
+`db_override_policy` (`configured_or_non_default`): after setup always, before
+setup only where the stored group differs from its defaults, and never when the
+group was never saved. Extra Features merge per feature key and app namespaces
+per namespace, so a stored ScanLink or app value does not hide the project's
+other features or namespaces.
 Registered catalogue regressions cover ownership, explicit on/off edits,
 partial imports, import revert, credentials and concurrent namespace updates.

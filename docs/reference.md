@@ -361,7 +361,7 @@ projects store opaque JSON under a reserved key in `SystemSettings.extra_config`
 ```
 
 - **Write** — `POST /sys/api/system-config/app/<namespace>/` with the namespace's new value as the JSON body. **Superuser-only** (non-superusers get 403), POST + CSRF, namespace-scoped (only `extra_config['app'][<ns>]` is touched — it can never reach Dlux's own settings or other keys), size-capped (**HTTP 413**; default 64 KB, override `settings.DLUX_MAX_SYSTEM_APP_CONFIG_BYTES`), **audit-logged**, and cache-refreshed. A `null` body clears the namespace.
-- **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`.
+- **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`, where a stored namespace replaces only that namespace from `DLUX_CONFIG['extra']['app']`; the project's other namespaces stay.
 - **Write programmatically** — `from dlux.options import write_app_system_config`; `write_app_system_config('myproject.settings', {...}, request=None)` for server-side writes (migrations, management commands, signals). It applies the same namespace validation, size cap (raises `AppSystemConfigError`), persistence, and cache refresh as the endpoint, and audit-logs when a `request` is passed. Pass `value=None` to clear the namespace.
 
 Single and grouped writers lock the authoritative settings row and update only

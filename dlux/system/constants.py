@@ -122,6 +122,15 @@ SECURITY_NUDGE_CHOICES = (
 )
 SECURITY_NUDGE_VALUES = {value for value, _label in SECURITY_NUDGE_CHOICES}
 
+#: Settings controls that change no page's appearance. Editing one must not swap
+#: the live preview behind the Options modal for a draft render; the draft that
+#: is submitted still carries their values.
+NONVISUAL_PREVIEW_FIELDS = frozenset({
+    'scanlink_enabled',
+    'entry_clipboard_enabled',
+    'pdf_editing_enabled', 'pdf_history_enabled', 'pdf_max_pages', 'pdf_max_source_mb',
+})
+
 DEFAULT_TABLE_DENSITY = 'balanced'
 DEFAULT_TABLE_PAGE_SIZE = 20
 TABLE_PAGE_SIZE_OPTIONS = (10, 20, 50, 100)

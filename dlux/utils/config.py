@@ -1168,6 +1168,26 @@ def get_system_config():
     return config
 
 
+def _merge_extra_layers(*layers):
+    """Extra Features merge per feature; project app namespaces merge per namespace.
+
+    A stored feature or namespace replaces the project's copy of that one entry,
+    never the project's other features or namespaces.
+    """
+    from ..system.constants import SYSTEM_APP_CONFIG_NAMESPACE
+
+    merged = {}
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        for key, value in layer.items():
+            if key == SYSTEM_APP_CONFIG_NAMESPACE and isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = {**merged[key], **deepcopy(value)}
+            else:
+                merged[key] = deepcopy(value)
+    return merged
+
+
 def _build_system_config():
     default_config = build_default_system_config()
 
@@ -1188,6 +1208,11 @@ def _build_system_config():
         # System Config - Helper decides when DB settings should override file settings.
         def _should_apply_db_override(value, default):
             return system_is_configured or value != default
+
+        from ..system.registry import db_group_applies
+
+        def _group_applies(storage_field, value):
+            return db_group_applies(storage_field, value, configured=system_is_configured)
 
         if (
             isinstance(getattr(sys_settings, 'system_names', None), dict)
@@ -1366,20 +1391,13 @@ def _build_system_config():
         if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:
             db_config['translations_override'] = sys_settings.translations_override
             db_config['translations'] = sys_settings.translations_override
-        if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
+        if _group_applies('sidebar_config', getattr(sys_settings, 'sidebar_config', None)):
             db_config['sidebar'] = sys_settings.sidebar_config
-        if isinstance(getattr(sys_settings, 'navbar_config', None), dict) and sys_settings.navbar_config:
+        if _group_applies('navbar_config', getattr(sys_settings, 'navbar_config', None)):
             db_config['navbar'] = sys_settings.navbar_config
-        if isinstance(getattr(sys_settings, 'email_config', None), dict) and sys_settings.email_config:
+        if _group_applies('email_config', getattr(sys_settings, 'email_config', None)):
             db_config['email_config'] = normalize_email_config(sys_settings.email_config)
-        if (
-            isinstance(getattr(sys_settings, 'titlebar_config', None), dict)
-            and sys_settings.titlebar_config
-            and (
-                system_is_configured
-                or sys_settings.titlebar_config != default_titlebar_config()
-            )
-        ):
+        if _group_applies('titlebar_config', getattr(sys_settings, 'titlebar_config', None)):
             db_config['titlebar'] = sys_settings.titlebar_config
         if hasattr(sys_settings, 'search_config'):
             search_config = normalize_search_config(getattr(sys_settings, 'search_config', None) or {})
@@ -1391,27 +1409,27 @@ def _build_system_config():
                 and legacy_search_config != default_search_config()
             ):
                 search_config = legacy_search_config
-            if _should_apply_db_override(search_config, default_config['search_config']):
+            if _group_applies('search_config', search_config):
                 db_config['search_config'] = search_config
-        if isinstance(getattr(sys_settings, 'login_config', None), dict) and sys_settings.login_config:
+        if _group_applies('login_config', getattr(sys_settings, 'login_config', None)):
             db_config['login'] = sys_settings.login_config
         if hasattr(sys_settings, 'notification_config'):
             notification_config = normalize_notification_config(getattr(sys_settings, 'notification_config', None) or {})
-            if _should_apply_db_override(notification_config, default_config['notifications']):
+            if _group_applies('notification_config', notification_config):
                 db_config['notifications'] = notification_config
         if hasattr(sys_settings, 'log_config'):
             log_config = normalize_log_config(getattr(sys_settings, 'log_config', None) or {})
-            if _should_apply_db_override(log_config, default_config['log_config']):
+            if _group_applies('log_config', log_config):
                 db_config['log_config'] = log_config
                 db_config['log'] = log_config
         if hasattr(sys_settings, 'profile_config'):
             profile_config = normalize_profile_config(getattr(sys_settings, 'profile_config', None) or {})
-            if _should_apply_db_override(profile_config, default_config['profile_config']):
+            if _group_applies('profile_config', profile_config):
                 db_config['profile_config'] = profile_config
                 db_config['profile'] = profile_config
         if hasattr(sys_settings, 'backup_config'):
             backup_config = normalize_backup_config(getattr(sys_settings, 'backup_config', None) or {})
-            if _should_apply_db_override(backup_config, default_config['backup_config']):
+            if _group_applies('backup_config', backup_config):
                 db_config['backup_config'] = backup_config
                 db_config['backup'] = backup_config
         if system_is_configured:
@@ -1550,7 +1568,7 @@ def _build_system_config():
             default_config['allow_user_font_override'],
         ):
             db_config['allow_user_font_override'] = allow_user_font_override
-        if isinstance(getattr(sys_settings, 'extra_config', None), dict) and sys_settings.extra_config:
+        if _group_applies('extra_config', getattr(sys_settings, 'extra_config', None)):
             db_config['extra_config'] = normalize_extra_config(sys_settings.extra_config)
     except Exception as exc:
         if _system_config_db_unavailable_error(exc):
@@ -1614,9 +1632,14 @@ def _build_system_config():
     final_config = deepcopy(default_config)
     for layer in (user_config, db_config):
         for key, value in layer.items():
-            if key in ['system_names', 'languages', 'translations', 'sidebar', 'navbar', 'titlebar', 'notifications', 'notification_config']:
+            if key in ['system_names', 'languages', 'translations', 'sidebar', 'navbar', 'titlebar', 'notifications', 'notification_config', 'extra_config']:
                 continue
             final_config[key] = value
+    final_config['extra_config'] = _merge_extra_layers(
+        default_config.get('extra_config'),
+        user_config.get('extra_config'),
+        db_config.get('extra_config'),
+    )
 
     final_config['system_names'] = normalize_system_names(
         {

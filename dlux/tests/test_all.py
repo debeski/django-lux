@@ -91,6 +91,7 @@ TEST_LABELS = [
     'dlux.tests.test_settings_step_anchors',
     'dlux.tests.test_settings_theme_persistence',
     'dlux.tests.test_settings_persistence',
+    'dlux.tests.test_settings_precedence',
     'dlux.tests.test_setup_js_modules',
     'dlux.tests.test_setup_project_settings',
     'dlux.tests.test_sidebar_discovery',

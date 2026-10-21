@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.12.1",
+  "version": "1.12.2b1",
   "display": {
-    "summary": "Preserves system settings across section saves, partial imports, and concurrent app updates.",
+    "summary": "Locked section saves, one declared rule for stored-vs-project settings, and ScanLink out of the live preview.",
     "highlights": [
-      "Saving one settings section preserves other sections, including stale or omitted hidden controls.",
-      "Partial imports keep unspecified settings and redacted SMTP credentials; full forms and snapshot restores retain explicit replacement semantics.",
-      "App settings merge into a locked current row so independent updates do not overwrite each other.",
-      "Boolean parsing is consistent across the catalogue; registered regressions cover every section and configuration group."
+      "Two admins saving different System Settings sections at the same time both keep their changes.",
+      "Stored settings override the project's DLUX_CONFIG by one declared policy; an untouched group never masks it before setup.",
+      "Extra Features and app namespaces merge with the project's per entry instead of replacing them all.",
+      "Toggling ScanLink (or any nonvisual control) no longer reloads the page behind the Options modal."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.2b1"
   },
   "requires": {
     "updater_schema": ">=1",

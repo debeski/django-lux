@@ -67,6 +67,14 @@ everything else.
   2. `settings.DLUX_CONFIG` (project code)
   3. the `SystemSettings` DB singleton (UI edits)
 
+  Whether a stored group joins layer 3 is its `SettingGroup.db_override_policy`,
+  decided by `dlux.system.registry.db_group_applies()`. The only policy,
+  `configured_or_non_default`, admits a stored group once setup has completed,
+  and before that only where it differs from the group's defaults. An empty
+  group (never saved) never overrides the project. Extra Features merge per
+  feature key and `app` namespaces per namespace, so a stored entry replaces only
+  the project's copy of that one entry.
+
 When replacing an already-shipped field/group, add the canonical representation
 first and keep explicit bidirectional mirrors for one major-version window.
 `homepage_config` and `search_config` are the reference implementations: their
@@ -212,7 +220,14 @@ _field('layout', 'show_audit_fields', field_type='bool', default=False,
 ### Step 6 — Runtime exposure (`utils/config.py`, `get_system_config()`)
 - **`legacy_flat` scalars** (density, footer_text…) are surfaced by the existing
   gated blocks — add one following the `_should_apply_db_override()` pattern so a
-  DB value only wins when configured **or** non-default (Trap 4).
+  DB value only wins when configured **or** non-default (Trap 4). A whole group
+  goes through `_group_applies('<storage_field>', value)` instead, which applies
+  the group's declared `db_override_policy`.
+- **Nonvisual controls** (a toggle or number that changes no page, such as
+  `scanlink_enabled`) belong in `NONVISUAL_PREVIEW_FIELDS`
+  (`dlux/system/constants.py`). The form then marks the control
+  `data-dlux-preview="none"`, and editing it does not swap the live page behind
+  the Options modal for a draft render.
 - **JSON-only opt-in flags** are **not** auto-exposed by a property; read them from
   the stored `layout_config` dict and set the flat key explicitly, as done for
   `show_audit_fields` / `show_soft_deleted` / `options_style`:

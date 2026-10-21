@@ -303,6 +303,29 @@ class SettingsPersistenceContracts(TestCase):
                 self.assertEqual(newer.extra_config['app']['project.one'], {'limit': 42})
                 self.assertEqual(newer.default_language, 'en')
 
+    def test_a_stale_section_save_lands_on_top_of_a_newer_write(self):
+        sidebar, login = SETUP_STEP_SLUGS.index('sidebar'), SETUP_STEP_SLUGS.index('login_page')
+        obj = self.configured(True)
+        stale_form = self.form(obj, sidebar, {'default_language': 'ar'})
+        self.assertTrue(stale_form.is_valid(), stale_form.errors)
+        newer = self.form(SystemSettings.objects.get(pk=obj.pk), login, {'default_language': 'ar'})
+        self.assertTrue(newer.is_valid(), newer.errors)
+        newer.save()
+        stale_form.save()
+        obj.refresh_from_db()
+        self.assertIs(obj.sidebar_config['enabled'], False)
+        self.assertIs(obj.login_config['show_logo'], False)
+        self.assertIs(obj.navbar_config['enabled'], True)
+
+    def test_an_unchallenged_save_is_not_rebuilt(self):
+        obj = self.configured(True)
+        form = self.form(obj, SETUP_STEP_SLUGS.index('sidebar'), {'default_language': 'ar'})
+        self.assertTrue(form.is_valid(), form.errors)
+        with patch.object(SystemSettingsForm, '__init__', side_effect=AssertionError('rebuilt')):
+            form.save()
+        obj.refresh_from_db()
+        self.assertIs(obj.sidebar_config['enabled'], False)
+
     def test_notification_policy_survives_every_unrelated_save(self):
         for step, slug in enumerate(SETUP_STEP_SLUGS):
             with self.subTest(step=slug):
@@ -362,3 +385,52 @@ class ConcurrentSettingsWriterContracts(TransactionTestCase):
         obj.refresh_from_db()
         self.assertEqual(obj.extra_config['app']['concurrent.first'], {'value': 1})
         self.assertEqual(obj.extra_config['app']['concurrent.second'], {'value': 2})
+
+    @skipUnlessDBFeature('has_select_for_update')
+    def test_concurrent_section_saves_both_land(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        from django.db import close_old_connections, connection
+
+        contracts = SettingsPersistenceContracts()
+        contracts.user = get_user_model().objects.create_superuser('race-admin', 'race@example.com', 'test-password')
+        contracts.factory = RequestFactory()
+        obj = contracts.configured(True)
+        sidebar, login = SETUP_STEP_SLUGS.index('sidebar'), SETUP_STEP_SLUGS.index('login_page')
+        first_locked, release_first, second_started, second_finished = (Event() for _ in range(4))
+        original = SystemSettingsForm._save
+
+        def held(form, commit):
+            if form.single_step_index == sidebar:
+                first_locked.set()
+                if not release_first.wait(10):
+                    raise AssertionError('Timed out waiting to release first writer')
+            return original(form, commit)
+
+        def save(step, signal=None, done=None):
+            close_old_connections()
+            try:
+                if signal:
+                    signal.set()
+                form = contracts.form(SystemSettings.objects.get(pk=obj.pk), step, {'default_language': 'ar'})
+                assert form.is_valid(), form.errors
+                form.save()
+                if done:
+                    done.set()
+            finally:
+                connection.close()
+
+        with patch.object(SystemSettingsForm, '_save', autospec=True, side_effect=held), ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(save, sidebar)
+            try:
+                self.assertTrue(first_locked.wait(10))
+                second = pool.submit(save, login, second_started, second_finished)
+                self.assertTrue(second_started.wait(10))
+                self.assertFalse(second_finished.wait(0.5), 'Second section save bypassed the row lock')
+            finally:
+                release_first.set()
+            first.result(timeout=20)
+            second.result(timeout=20)
+        obj.refresh_from_db()
+        self.assertIs(obj.sidebar_config['enabled'], False)
+        self.assertIs(obj.login_config['show_logo'], False)
