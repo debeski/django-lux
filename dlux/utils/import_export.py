@@ -292,6 +292,9 @@ def normalize_system_settings_import_payload(payload):
     if 'extra_config' in normalized:
         from ..system.weather import portable_extra_config
         normalized['extra_config'] = portable_extra_config(normalize_extra_config(normalized['extra_config']))
+    if 'tables_config' in normalized:
+        from ..system.table_columns import normalize_tables_config
+        normalized['tables_config'] = normalize_tables_config(normalized['tables_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:

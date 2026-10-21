@@ -121,6 +121,7 @@ STRINGS = {
     'system_settings_notifications_desc': 'مفتاح عام للإشعارات: التنبيهات المنبثقة ودرج الإشعارات والبريد والإشعارات التلقائية.',
     'system_settings_appearance': 'السمة والخطوط',
     'system_settings_appearance_desc': 'السمات والألوان والخطوط الافتراضية والمتاحة.',
+    'settings_tables': 'الجداول',
     'system_settings_layout': 'المكونات',
     'system_settings_layout_desc': 'تخطيط الجداول والنماذج والنوافذ وصفحة الخيارات وإظهار بيانات السجلات.',
     'system_settings_export_desc': 'تنزيل ملف JSON لإعادة استخدام إعدادات النظام.',

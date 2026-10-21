@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register a defensive, model-keyed sparse `hidden`/`order` overlay with runtime settings and import/export. Existing table controls and rendering remain unchanged while the Tables step and builder are developed.
+
 ## v1.13.0b1
 
 - **Maintenance Page Moves Into Composer (Stack Schema 3)**: `dlux startproject` no longer generates `.proxy/maintenance.html` or bind-mounts it into the proxy. The page ships in the Composer image (1.7.0b1+): `composer-agent` publishes it to `dlux_runtime` at `proxy/maintenance/`, and the scaffolded Caddyfile serves it on 502/503/504 (`root * /opt/dlux-runtime/proxy/maintenance`) plus its CSS/JS through a new `handle /_dlux/maintenance/*` route ahead of `web`; the nginx fallback gets the matching `alias` locations. A project page goes in `.proxy/maintenance/` and is published by `composer check --fix`. `dlux/contracts/stack.json` `schema_version` 2 -> 3; the scaffold template `maintenance.html.tmpl` is retired.

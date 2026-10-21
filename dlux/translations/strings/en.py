@@ -122,6 +122,7 @@ STRINGS = {
     'system_settings_notifications_desc': 'Master switch for notifications: flash notices, titlebar drawer/badge, email, and automatic CRUD events.',
     'system_settings_appearance': 'Themes & Fonts',
     'system_settings_appearance_desc': 'Allowed themes, colours, and font defaults.',
+    'settings_tables': 'Tables',
     'system_settings_layout': 'Components',
     'system_settings_layout_desc': 'Table, form, modal, Options-page, and record-visibility layout defaults.',
     'system_settings_export_desc': 'Download reusable JSON for this system setup.',

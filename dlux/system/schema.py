@@ -58,6 +58,7 @@ from .normalizers import (
     normalize_titlebar_config,
     normalize_typography_config,
 )
+from .table_columns import normalize_tables_config
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,14 @@ def _field(group, name, *, field_type='str', default=None, form_name='', widget=
 
 
 SYSTEM_SETTING_GROUPS = (
+    SettingGroup(
+        key='tables',
+        storage_field='tables_config',
+        default_factory=dict,
+        normalizer=normalize_tables_config,
+        aliases=('tables',),
+        label_key='settings_tables',
+    ),
     SettingGroup(
         key='auth',
         storage_field='auth_config',

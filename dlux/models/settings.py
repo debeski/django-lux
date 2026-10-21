@@ -216,6 +216,7 @@ class SystemSettings(SingletonModel):
     )
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
     ribbon_config = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Ribbon Configuration")
+    tables_config = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Tables Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     log_config = models.JSONField(default=default_log_config, blank=True, verbose_name="Logging Configuration")
     profile_config = models.JSONField(default=default_profile_config, blank=True, verbose_name="Profile Page Configuration")

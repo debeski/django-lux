@@ -110,6 +110,7 @@ TEST_LABELS = [
     'dlux.tests.test_table_edges',
     'dlux.tests.test_table_translation',
     'dlux.tests.test_tables',
+    'dlux.tests.test_table_columns',
     'dlux.tests.test_template_comment_finder',
     'dlux.tests.test_theme_picker_location',
     'dlux.tests.test_theme_toggle',

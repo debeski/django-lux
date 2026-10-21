@@ -78,9 +78,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-21 1.12.1: full suite 2872 OK/5 skipped; PostgreSQL 17 16/16; release CI (b1 + stable) all PASS; published wheels verified against tags; testbed b1 journeys + stable deep check PASS.
+- 2026-10-21 1.14 foundation: full suite2902 OK/6skips; focused68 OK/2skips + model/config rerun49 OK; Django/migration/import-graph/diff checks PASS; isolated PostgreSQL migration0027/runtime/import/export/clear/restore PASS; deep23ok/0errors (local DEBUG warning). Evidence `.xclude/testbed/`.
 ### One-line info about last time edited Docs:
-- 2026-10-20: audit repair status, system-configuration/reference/FEATURES, adding-settings ownership contracts, and RELEASING PostgreSQL gate documented.
+- 2026-10-21: `docs/table-columns.md` records sparse config, remaining plan, isolated testbed and pending release metadata; FEATURES/reference and Unreleased changelog updated.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -91,7 +91,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Worktrees (2026-10-21): `main` (primary) and `../table_builder` (`1.14/table_builder`, no commits yet; plan artifact "Table Column Builder", Phase 1 shipped in 1.8.14). Release order (owner): 1.12.3 done; next 1.13.0 (maintenance page + operations centre, with Composer 1.7.0) on `1.13/<work>` branches; the table column builder follows, likely 1.14.0. Branch naming and retire-after-merge rules are in `AGENTS.md`.
+- 2026-10-21: `1.14/table_builder` fast-forwarded to main50fd75d; owner plan `/Users/debeski/Downloads/Table Column Builder.md`. Phase2 storage foundation implemented (`tables_config`,0027,normalizer,runtime/import/export); controls/rendering unchanged. Separate testbed `.xclude/testbed/`, project `dlux-table-builder`, http://localhost:8094, fresh DB/runtime/media/private credentials; official8088 reserved for Claude1.13. Full2902 + live PostgreSQL checks PASS. Next: Tables step/control relocation, discovery, overlay, builder. Release gate blocks inherited `effect:none`; set additive metadata at integration. See `docs/table-columns.md`.
 - `audit/settings-persistence-audit` (from released 1.12.0 `0b3e4ee`) committed as the 1.12.1b1 candidate (owner asked 2026-10-21 to ship it as 1.12.1 before the table column builder). b1 tagged, published and accepted 2026-10-21; next is stable 1.12.1 (owner OK). `feat/table-column-builder` (`../table-column-builder`) waits on it; it rebases onto 1.12.1.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.

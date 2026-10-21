@@ -1896,3 +1896,7 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 ## Optional PDF toolkit
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
+
+## Table column configuration (1.14 development)
+
+`SystemSettings.tables_config` stores sparse model-keyed `hidden`/`order` overlays and participates in runtime configuration and settings import/export. Rendering and the builder UI are pending. See [table-columns.md](table-columns.md).
