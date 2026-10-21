@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.0b2
+
+- **Operations Panel**: Options > admin rail gains **Operations** (`/sys/operations/`, superuser-only dynamic modal, `operations_panel.html` + `system/js/operations_panel.js`): the deployment check with its findings and the exact `check --fix` diff inline, **Apply repairs**; a **Services** table (state, health) with **Restart** / **Recreate** for allow-listed services; **Logs** showing the last 200 lines of a service as plain text. Every action is a named operation through `/sys/api/dlux-ops/run/`; restart, recreate and apply confirm with the current password via the shared `dluxConfirmPassword` prompt.
+- **New Operations**: `services`, `service-restart`, `service-recreate`, `logs-tail` in `dlux.updater.ops.OPERATIONS` (Composer 1.7.0b2+). The only arguments a request carries are a validated `service` name and a clamped `lines` (1–1000), stored on the run in the new `DluxOpsRun.params` (migration `0027_opsrun_params`, additive with `db_default={}`). Panel operations are `panel: True`: an older Composer disables their buttons with the reason and never flags the deployment as behind.
+- **Updates Card Holds Only Updates**: the Deployment row and its results modal (`#dluxOpsResultModal`) are gone from **Updates and maintenance**; the Composer agent row stays and confirms its update through the shared password prompt. `system/js/ops.js` now drives that row only.
+
 ## v1.13.0b1
 
 - **Maintenance Page Moves Into Composer (Stack Schema 3)**: `dlux startproject` no longer generates `.proxy/maintenance.html` or bind-mounts it into the proxy. The page ships in the Composer image (1.7.0b1+): `composer-agent` publishes it to `dlux_runtime` at `proxy/maintenance/`, and the scaffolded Caddyfile serves it on 502/503/504 (`root * /opt/dlux-runtime/proxy/maintenance`) plus its CSS/JS through a new `handle /_dlux/maintenance/*` route ahead of `web`; the nginx fallback gets the matching `alias` locations. A project page goes in `.proxy/maintenance/` and is published by `composer check --fix`. `dlux/contracts/stack.json` `schema_version` 2 -> 3; the scaffold template `maintenance.html.tmpl` is retired.

@@ -1,13 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.13.0b1",
+  "version": "1.13.0b2",
   "display": {
-    "summary": "The maintenance page moves out of the project and into the Composer image.",
+    "summary": "An Operations panel for the deployment: check and repair it, restart services, read their logs.",
     "highlights": [
-      "New projects no longer carry .proxy/maintenance.html: composer-agent publishes the page on the runtime volume and the proxy serves it (stack schema 3, needs Composer 1.7.0b1+).",
-      "Existing stacks keep working; 'composer check --fix' migrates them and keeps a customised page as the .proxy/maintenance/ override."
+      "Options > admin rail > Operations runs the deployment check and applies its repairs, restarts or recreates allow-listed services and shows recent logs (needs Composer 1.7.0b2+).",
+      "The Updates card keeps only what can be updated; the deployment check moved to the Operations panel.",
+      "Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b2"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -15,10 +16,10 @@
     "services": {
       "composer": ">=1.5.3b1"
     },
-    "migration_baseline": ">=1.12.0"
+    "migration_baseline": ">=1.13.0b2"
   },
   "migrations": {
-    "effect": "none",
+    "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },

@@ -163,17 +163,30 @@ Before 1.8.6 the guard probed locally in every process, so a read-only `web` mou
 
 ## Deployment operations
 
-**Updates and maintenance** carries two more rows beside DjangoLux and the
-application image: **Deployment** and **Composer agent**. They run the things
-that otherwise need a shell on the host, starting with Composer's own deployment
-check — the doctor for the *outside* of the stack, which is what catches a
-resident pair started with a command this Composer rejects, a missing
-`org.dlux.restart` label, or an obsolete service still in the file.
+**Updates and maintenance** carries a **Composer agent** row beside DjangoLux and
+the application image: one icon that checks, a second that appears only when the
+channel publishes a newer Composer, and a tick when it does not. Updating the
+agent confirms with the current password through the shared password prompt.
 
-They are rows and not a panel of buttons because the card already answers this
-shape of question twice: one icon that checks, a second that appears only when
-there is something to install, and a tick when there is not. Findings open in a
-modal, so a check that reports fifteen of them does not resize the card.
+Everything else that otherwise needs a shell on the host lives in the
+**Operations** panel, opened from the admin panel's actions rail (superusers on a
+deployment with inline updates). Since 1.13.0b2 it holds:
+
+* **Deployment check** — Composer's doctor for the *outside* of the stack (a
+  resident pair started with a command this Composer rejects, a missing
+  `org.dlux.restart` label, an obsolete service, a legacy maintenance page). Its
+  findings and the exact diff `check --fix` would apply are shown inline, and
+  **Apply repairs** confirms with the password and may only apply that diff.
+* **Services** — every Compose service with its state and health. Services the
+  stack allow-lists (`COMPOSER_AGENT_RESTART_SERVICES`, never one labelled
+  `org.dlux.restart: "protected"`) offer **Restart** and **Recreate** (recreating
+  runs the service's `pre_start` hooks, which on celery applies migrations), both
+  password-confirmed; every service offers **Logs**.
+* **Logs** — the last 200 lines of the chosen service, redacted by Composer and
+  shown as plain text.
+
+The panel was the Updates card's Deployment row until 1.13.0b1; it moved so the
+card holds only what can be updated.
 
 A fifth row links to Backup & restore with the date of the last backup, which is
 all its own card ever showed. Everything a row *reports* — a version, a digest,
@@ -200,6 +213,17 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 | `agent-check` | no | Composer 1.5.2b1+ |
 | `check-fix-apply` | **yes** | Composer 1.5.2b1+, a check that found repairs, and the current password |
 | `agent-update` | **yes** | Composer 1.5.2b1+, a check that found an update, and the current password |
+| `services` | no | Composer 1.7.0b2+ |
+| `service-restart` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
+| `service-recreate` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
+| `logs-tail` | no | Composer 1.7.0b2+, a `service`, and `lines` (1–1000, default 200) |
+
+The only arguments a request can carry are a service name (letters, digits, `_`
+and `-`, at most 64 characters) and a line count; DjangoLux validates them, stores
+them on the run (`DluxOpsRun.params`), and Composer checks the service against the
+stack again, the executor once more. The panel's operations need Composer
+1.7.0b2+, but an older Composer only disables their buttons with the reason — it
+does not mark the deployment as behind.
 
 Each floor names the release's first prerelease rather than the release: PEP 440
 puts `1.5.2b1` below `1.5.2`, so a floor of `1.5.2` refuses the very beta that

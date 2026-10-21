@@ -58,4 +58,4 @@ ScanLink is disabled until enabled from **Extra Features**. This is intentional:
 
 ## Deployment operations
 
-Use [Deployment Doctor](doctor.md) before and after infrastructure changes. For generated Compose stacks, use `composer check` to report missing or drifted Composer services, and `composer check --fix` only after reviewing its planned changes. [Verified Inline Updates](inline-updater.md) documents the release handoff and recovery boundaries.
+In the app, superusers open **Operations** from the admin panel's actions rail to run the deployment check and apply its repairs, restart or recreate allow-listed services, and read a service's recent logs (Composer 1.7.0b2+). Use [Deployment Doctor](doctor.md) before and after infrastructure changes. For generated Compose stacks, use `composer check` to report missing or drifted Composer services, and `composer check --fix` only after reviewing its planned changes. [Verified Inline Updates](inline-updater.md) documents the release handoff and recovery boundaries.

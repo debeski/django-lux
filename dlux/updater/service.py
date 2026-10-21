@@ -200,7 +200,7 @@ def reconcile_channel_policy(service):
     return chosen
 
 
-def queue_ops_run(operation, username=""):
+def queue_ops_run(operation, username="", params=None):
     """Queue a named deployment operation for Composer. Web side: the row only.
 
     Guarded like ``queue_run``: a usable runtime volume and a live worker, since
@@ -211,6 +211,7 @@ def queue_ops_run(operation, username=""):
     from . import ops
 
     operation = ops.normalize_operation(operation)
+    params = ops.normalize_params(operation, params)
     allowed, reason = ops.supports(operation, ops.resident_composer_version())
     if not allowed:
         raise UpdaterError(reason)
@@ -232,7 +233,7 @@ def queue_ops_run(operation, username=""):
     with transaction.atomic():
         if Ops.objects.select_for_update().filter(is_active=True).exists():
             raise UpdaterError("Another deployment operation is already running.")
-        return Ops.objects.create(operation=operation, requested_by_username=username or "")
+        return Ops.objects.create(operation=operation, requested_by_username=username or "", params=params)
 
 
 def _latest_preview_digest():
@@ -276,6 +277,7 @@ def tick_ops_run(service):
             ops.write_request(
                 store, run.token, run.operation,
                 compose_digest=_latest_preview_digest(),
+                params=run.params,
             )
         except (UpdaterError, OSError) as exc:
             run.finish(Ops.STATUS_FAILED, error=f"Could not hand the operation to Composer: {exc}")
@@ -336,6 +338,9 @@ def serialize_ops_run(run):
         "exit_code": result.get("exit_code"),
         "composer_version": result.get("composer_version", ""),
         "resident": result.get("resident") if isinstance(result.get("resident"), dict) else None,
+        "params": run.params or {},
+        "services": [s for s in result.get("services") or [] if isinstance(s, dict)],
+        "logs": str(result.get("logs") or ""),
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
@@ -394,9 +399,10 @@ def get_ops_state():
         # The rows keep their own last answer: a Composer check must not blank
         # what the deployment check found, and vice versa.
         check = _latest_completed("check", "check-fix-preview")
+        services = _latest_completed("services")
         resident = _resident_status(ops.resident_composer_version())
     except Exception:
-        run, check, resident = None, None, _resident_status("")
+        run, check, services, resident = None, None, None, _resident_status("")
     composer_version = ops.resident_composer_version()
     operations = []
     for name, spec in ops.OPERATIONS.items():
@@ -407,6 +413,7 @@ def get_ops_state():
             "changes_deployment": spec["changes_deployment"],
             "needs_preview": spec["needs_preview"],
             "min_composer": spec["min_composer"],
+            "panel": bool(spec.get("panel")),
             "available": allowed,
             "unavailable_reason": reason,
         })
@@ -414,6 +421,7 @@ def get_ops_state():
         "operations": operations,
         "run": serialize_ops_run(run),
         "check": serialize_ops_run(check),
+        "services": serialize_ops_run(services),
         "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
         "composer_version": composer_version,

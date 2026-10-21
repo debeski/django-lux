@@ -247,6 +247,25 @@ def dlux_update_interval_view(request):
 
 @login_required
 @require_GET
+def dlux_operations_panel_view(request):
+    """The Operations panel (Options > admin rail), rendered into the dynamic modal.
+
+    It only renders: every action it offers goes through ``dlux_ops_run_view``,
+    so the same allow-list, password guard and audit apply.
+    """
+    _require_superuser(request)
+    from django.template.loader import render_to_string
+
+    html = render_to_string(
+        "dlux/system/operations_panel.html",
+        {"updates_enabled": updates_enabled()},
+        request=request,
+    )
+    return JsonResponse({"html": html})
+
+
+@login_required
+@require_GET
 def dlux_ops_state_view(request):
     """What the Operations card renders. Superuser-only, like every operation."""
     _require_superuser(request)
@@ -276,7 +295,11 @@ def dlux_ops_run_view(request):
         if failure := _password_guard(request):
             return failure
     try:
-        run = queue_ops_run(request.POST.get("operation"), username=request.user.get_username())
+        run = queue_ops_run(
+            request.POST.get("operation"),
+            username=request.user.get_username(),
+            params={key: request.POST.get(key) for key in ("service", "lines") if key in request.POST},
+        )
     except UpdaterError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=409)
     log_audit_event(
@@ -284,7 +307,7 @@ def dlux_ops_run_view(request):
         "dlux_ops_run",
         "DLUX_OPS_RUN",
         model_name="DjangoLux operations",
-        details={"operation": run.operation, "token": run.token},
+        details={"operation": run.operation, "token": run.token, **(run.params or {})},
     )
     return JsonResponse({"ok": True, "run": serialize_ops_run(run)})
 

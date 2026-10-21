@@ -1,0 +1,43 @@
+/* Operations panel (Options > admin rail). Findings and diffs reuse the
+   .dlux-ops-* styles from system/css/options.css; theme values come from tokens. */
+.dlux-ops-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.dlux-ops-panel-section {
+    border: 1px solid rgba(var(--primal-rgb), 0.18);
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+}
+
+.dlux-ops-panel-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.dlux-ops-state--ok {
+    color: var(--bs-success);
+}
+
+.dlux-ops-state--warn {
+    color: var(--bs-warning-text-emphasis, var(--bs-warning));
+}
+
+.dlux-ops-logs {
+    max-height: 22rem;
+    overflow: auto;
+    margin: 0;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(var(--primal-rgb), 0.06);
+    color: var(--title);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+}
