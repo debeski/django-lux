@@ -7,6 +7,16 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.1b1
+
+- **Section-Owned Settings Saves**: Infer field ownership from the settings layout, protect inactive fields against omitted/stale POST values, and defer template-triggered validation until ownership is established.
+- **Presence-Aware Imports**: Retain supplied nested/flat keys through normalization; deep-merge partial configuration patches and review the effective result without inventing removals. Complete forms and snapshot reverts use explicit group replacement.
+- **SMTP Credential Preservation**: Keep existing encrypted credentials when an import omits or redacts them, including partial email changes and snapshot reverts.
+- **Atomic App Settings Writers**: Lock and merge the current `SystemSettings` row for single and grouped app namespaces; update only `extra_config` instead of replaying a cached row.
+- **Canonical Boolean Parsing**: Share one parser across catalogue normalizers, imports, and weather; preserve explicit false tokens and default safely for invalid input without weakening immutable audit logging.
+- **Notification Policy Preservation**: Preserve `automatic.include_actor`, `automatic.watchable`, and `actor_flash_actions` across settings saves.
+- **Catalogue Regression Coverage**: Register section-wide ownership, on/off toggle, import/restore, credential, boolean, and real PostgreSQL concurrent-writer contracts; require the PostgreSQL suite in CI and before publishing, and replace stale numeric test steps with canonical constants.
+
 ## v1.12.0
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.0b3; promotes the document-file registry, shared PDF/image editor, ScanLink integration and file-history actor display.

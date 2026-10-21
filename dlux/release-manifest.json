@@ -1,16 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.12.0",
+  "version": "1.12.1b1",
   "display": {
-    "summary": "Document files with images as PDF pages and the acting user shown in file history.",
+    "summary": "Preserves system settings across section saves, partial imports, and concurrent app updates.",
     "highlights": [
-      "File history shows who edited or replaced the PDF, with a full-name or username display and an unknown-actor fallback.",
-      "register_document_file(Model, \"pdf_file\") connects the file card, Scan, viewer, page editor, downloads and file history for a field, with permission and scope checks.",
-      "JPG, JPEG, PNG, TIF, TIFF and WebP become PDF pages; pages can be rotated and fitted to A4 in the editor.",
-      "The PDF editor scans through ScanLink like the file card; file history lives in DjangoLux (dlux.FileVersion) and dlux_adopt_file_history moves a project's own rows over.",
-      "Includes 1.12.0b1: deleting keeps history (soft bulk delete, history-safe user deletion)."
+      "Saving one settings section preserves other sections, including stale or omitted hidden controls.",
+      "Partial imports keep unspecified settings and redacted SMTP credentials; full forms and snapshot restores retain explicit replacement semantics.",
+      "App settings merge into a locked current row so independent updates do not overwrite each other.",
+      "Boolean parsing is consistent across the catalogue; registered regressions cover every section and configuration group."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.1b1"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -18,10 +17,10 @@
     "services": {
       "composer": ">=1.5.3b1"
     },
-    "migration_baseline": ">=1.9.3"
+    "migration_baseline": ">=1.12.0"
   },
   "migrations": {
-    "effect": "additive",
+    "effect": "none",
     "rollback_compatible": true,
     "downtime": "none"
   },

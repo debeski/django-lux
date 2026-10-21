@@ -136,3 +136,38 @@ Extra Features offers **Enable entry clipboard**, off by default. It stores
 namespaces. Enabled deployments load the clipboard only for signed-in users.
 The popover button shares the assisted-entry row with **Reuse my last entry**;
 sticky forms continue to own automatic prefill. See [Entry clipboard](entry-clipboard.md).
+
+## Settings persistence contracts
+
+Focused System Settings editors own only the fields rendered in their section.
+The form derives ownership from its layout, disables inactive fields server-side,
+and ignores their omitted or stale POST/file values. Ownership is established
+before template rendering may trigger validation. Existing capability locks
+(such as verified email requirements) still apply to the active section.
+
+Configuration imports are patches: only supplied keys change; nested objects
+merge and explicit lists replace the previous lists. Normalization retains
+input presence rather than synthesizing neighboring changes from defaults.
+The review shows the effective merged result, while apply retains the original
+patch. Unspecified app namespaces and Extra Features remain intact.
+
+`apply_system_settings_import(instance, payload, replace_groups=False)` uses
+these patch semantics by default. Complete settings forms and snapshot reverts
+pass `replace_groups=True` so explicitly clearing a mapping or restoring an
+older snapshot remains possible. Redacted/omitted SMTP credentials keep the
+current encrypted password; choosing non-DB secret storage clears that DB token.
+The internal `preserve_email_secret=True` path also accepts a newly encrypted
+credential produced by the settings form. Import review/apply/revert share the
+same semantics and apply against a locked current settings row.
+
+All settings normalizers use `dlux.system.booleans.parse_boolean`: booleans,
+numeric 0/1 and the text tokens `true/false`, `yes/no`, `y/n`, `on/off`, and `1/0`
+are recognized case-insensitively after trimming. Empty text is false; missing
+or invalid input uses the caller's explicit default. Derived credential and
+verification markers and mandatory immutable audit logging retain their own
+prerequisites.
+
+Single and grouped app-namespace writers merge into a row locked with
+`select_for_update()` inside a transaction and write only `extra_config`.
+Registered catalogue regressions cover ownership, explicit on/off edits,
+partial imports, import revert, credentials and concurrent namespace updates.

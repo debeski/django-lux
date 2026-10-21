@@ -13,6 +13,9 @@ permissions:
   contents: read
 
 jobs:
+  settings-postgres:
+    uses: ./.github/workflows/settings-postgres.yml
+
   test:
     runs-on: ubuntu-latest
     strategy:

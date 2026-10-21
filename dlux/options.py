@@ -737,37 +737,12 @@ def merge_app_system_config(extra_config, namespace, value):
 
 def write_app_system_config(namespace, value, *, request=None):
     """Persist one app-owned system config namespace and refresh config cache."""
-    from django.apps import apps
-
     try:
         namespace = _validate_namespace(namespace, label='write_app_system_config')
     except ValueError as exc:
         raise AppSystemConfigError(str(exc), status_code=400) from exc
 
-    SystemSettings = apps.get_model('dlux', 'SystemSettings')
-    sys_settings = SystemSettings.load()
-    extra = merge_app_system_config(sys_settings.extra_config, namespace, value)
-    app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE) or {}
-
-    sys_settings.extra_config = extra
-    sys_settings.save()
-
-    if request is not None:
-        try:
-            from .utils import log_user_action
-
-            log_user_action(
-                request,
-                'UPDATE',
-                instance=sys_settings,
-                model_name='systemsettings',
-                details={'app_config_namespace': namespace, 'cleared': value is None},
-                category='audit',
-            )
-        except Exception:
-            logger.debug("Audit logging failed for app system-config write '%s'", namespace, exc_info=True)
-
-    return app_bag.get(namespace)
+    return write_app_system_configs({namespace: value}, request=request).get(namespace)
 
 
 def write_app_system_configs(values, *, request=None):
@@ -780,14 +755,16 @@ def write_app_system_configs(values, *, request=None):
     from django.apps import apps
 
     SystemSettings = apps.get_model('dlux', 'SystemSettings')
-    sys_settings = SystemSettings.load()
-    extra = sys_settings.extra_config
-    for namespace, value in values.items():
-        extra = merge_app_system_config(extra, namespace, value)
-    app_bag = (extra.get(SYSTEM_APP_CONFIG_NAMESPACE) if isinstance(extra, dict) else None) or {}
+    from django.db import transaction
 
-    sys_settings.extra_config = extra
-    sys_settings.save()
+    with transaction.atomic():
+        sys_settings, _ = SystemSettings.objects.select_for_update().get_or_create(pk=1)
+        extra = sys_settings.extra_config
+        for namespace, value in values.items():
+            extra = merge_app_system_config(extra, namespace, value)
+        app_bag = (extra.get(SYSTEM_APP_CONFIG_NAMESPACE) if isinstance(extra, dict) else None) or {}
+        sys_settings.extra_config = extra
+        sys_settings.save(update_fields=['extra_config'])
 
     if request is not None:
         try:

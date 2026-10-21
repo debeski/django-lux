@@ -987,11 +987,15 @@ class SystemSettingsForm(
 
 
     def __init__(self, *args, request=None, user=None, mode='modal', setup_extra_step=None, **kwargs):
+        self._building_settings_form = True
         self.request = request if request is not None else kwargs.pop('request', None)
         self._user = user if user is not None else kwargs.pop('user', None)
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         # Setup only: a callable returning the Project settings step's markup.
         self.setup_extra_step = setup_extra_step
+        instance = kwargs.get('instance')
+        if (args and args[0] is not None or kwargs.get('data') is not None) and self.mode != 'setup' and getattr(instance, 'pk', None):
+            instance.refresh_from_db()
         super().__init__(*args, **kwargs)
         extra_config = getattr(self.instance, 'extra_config', None) or {}
         scanlink_config = extra_config.get('scanlink') if isinstance(extra_config, dict) else None
@@ -1000,20 +1004,6 @@ class SystemSettingsForm(
             bool(scanlink_config.get('enabled', False)) if isinstance(scanlink_config, dict) else False,
         )
         self.fields['allowed_fonts'].choices = get_font_choices()
-        # A bound (POST) settings save must source its data from the AUTHORITATIVE
-        # DB row. Views hand this form ``SystemSettings.load()`` (the cached
-        # singleton), and single-step saves re-serialise the WHOLE config while
-        # preserving non-edited fields from ``self.instance`` (see the
-        # ``clean_*`` preservers below). If that instance is a stale cache, the
-        # save writes stale values back to the DB permanently — the reported bug
-        # where saving one step (e.g. the public theme) silently reverts
-        # ``default_theme`` to 'light'. Refresh from the DB before any
-        # clean/preserve or initial-building reads ``self.instance``.
-        if self.is_bound and self.mode != 'setup' and getattr(self.instance, 'pk', None):
-            try:
-                self.instance.refresh_from_db()
-            except Exception:
-                logger.warning("SystemSettingsForm: could not refresh instance from DB before save.", exc_info=True)
         self.refresh_parent = True
         self.extra_form_class = 'dlux-system-setup-form'
         # Closing this modal with pending edits prompts before discarding.
@@ -3701,6 +3691,18 @@ class SystemSettingsForm(
             email_password_field_class=email_password_field_class,
             field_name=field_name,
         )
+        from .system_settings_groups.ownership import protect_inactive_settings
+        protect_inactive_settings(self)
+        self._building_settings_form = False
+        self._errors = None
+        self._bound_fields_cache.clear()
+
+    def full_clean(self):
+        if self._building_settings_form:
+            from django.forms.utils import ErrorDict
+            self._errors = ErrorDict()
+            return
+        super().full_clean()
 
 
 
@@ -4378,9 +4380,9 @@ class SystemSettingsForm(
                     'create': bool(cleaned.get('notification_auto_create', True)),
                     'update': cleaned.get('notification_auto_update') or 'summary',
                     'delete': bool(cleaned.get('notification_auto_delete', True)),
-                    'actor_flash_actions': ['create', 'delete', 'error'],
-                    'watchable': True,
-                    'include_actor': False,
+                    'actor_flash_actions': (self.instance.notification_config or {}).get('automatic', {}).get('actor_flash_actions', ['create', 'delete', 'error']),
+                    'watchable': (self.instance.notification_config or {}).get('automatic', {}).get('watchable', True),
+                    'include_actor': (self.instance.notification_config or {}).get('automatic', {}).get('include_actor', False),
                 },
             })
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
@@ -4574,7 +4576,7 @@ class SystemSettingsForm(
             'search_config': search_config,
             'notification_config': self.cleaned_data.get('notification_config', default_notification_config()),
             'login_config': self.cleaned_data.get('login_config', default_login_config()),
-        }, commit=False, preserve_email_secret=True)
+        }, commit=False, preserve_email_secret=True, replace_groups=True)
         imported = getattr(self, '_imported_settings', {}) or {}
         imported_assets = {
             field_name: imported[field_name]

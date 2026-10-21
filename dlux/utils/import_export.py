@@ -207,6 +207,7 @@ def normalize_system_settings_import_payload(payload):
     if not isinstance(raw_settings, dict):
         raise ValueError("Setup import is missing a valid settings object.")
     original_keys = set(raw_settings)
+    supplied_settings = deepcopy(raw_settings)
     explicit_homepage_config = any(
         key in raw_settings for key in ('homepage_config', 'homepage', 'public_homepage')
     )
@@ -338,7 +339,8 @@ def normalize_system_settings_import_payload(payload):
     ):
         if bool_field in normalized:
             normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
-    return normalized
+    from ..system.settings_patch import retain_import_presence
+    return retain_import_presence(normalized, supplied_settings)
 
 # System Import Export - Function applies normalized settings payloads to SystemSettings.
 def apply_system_settings_import(
@@ -348,13 +350,19 @@ def apply_system_settings_import(
     mark_configured=True,
     commit=True,
     preserve_email_secret=False,
+    replace_groups=False,
 ):
-    """Apply a normalized System Settings import payload to a SystemSettings instance."""
+    """Apply supplied keys as a patch; complete forms/snapshot restores may replace groups."""
     raw_settings = payload.get('settings') if isinstance(payload, dict) and payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
-    raw_email_config = raw_settings.get('email_config') if isinstance(raw_settings, dict) else None
+    raw_email_config = None
+    if isinstance(raw_settings, dict):
+        raw_email_config = next((raw_settings[name] for name in ('email_config', 'email', 'mail', 'smtp') if name in raw_settings), None)
     normalized = normalize_system_settings_import_payload(payload)
     if not instance:
         raise ValueError("A SystemSettings instance is required.")
+    from ..system.registry import iter_setting_groups
+    from ..system.settings_patch import merge_settings_patch
+    groups = {group.storage_field: group for group in iter_setting_groups()}
 
     for field_name, value in normalized.items():
         if field_name in {'logo', 'favicon', 'login_logo', 'login_background'}:
@@ -376,11 +384,22 @@ def apply_system_settings_import(
         elif field_name == 'extra_config':
             from ..system.weather import normalize_weather_config
             existing = normalize_weather_config((instance.extra_config or {}).get('weather'))
+            if not replace_groups:
+                value = merge_settings_patch(instance.extra_config or {}, value)
             if 'weather' in value:
                 value['weather'] = {**value['weather'], 'encrypted_api_key': existing['encrypted_api_key']}
             instance.extra_config = value
         elif field_name == 'email_config':
-            source = raw_email_config if preserve_email_secret and isinstance(raw_email_config, dict) else value
+            existing = instance.email_config or {}
+            source = value if replace_groups else merge_settings_patch(existing, value)
+            if preserve_email_secret and isinstance(raw_email_config, dict):
+                source['encrypted_password'] = (
+                    raw_email_config.get('encrypted_password') or existing.get('encrypted_password', '')
+                ) if source.get('secret_storage') == 'encrypted_db' else ''
+            elif source.get('secret_storage') != 'encrypted_db':
+                source.pop('encrypted_password', None)
+            else:
+                source.setdefault('encrypted_password', existing.get('encrypted_password', ''))
             email_config = normalize_email_config(source)
             if email_config.get('secret_storage') == 'encrypted_db' and not email_config.get('encrypted_password'):
                 email_config['password_configured'] = False
@@ -423,14 +442,11 @@ def apply_system_settings_import(
             layout = dict(getattr(instance, 'layout_config', None) or {})
             layout[field_name] = value
             instance.layout_config = normalize_layout_config(layout)
-        elif field_name == 'auth_config' and isinstance(value, dict):
-            instance.auth_config = normalize_auth_config(value)
-        elif field_name == 'notification_config' and isinstance(value, dict):
-            instance.notification_config = normalize_notification_config(value)
-        elif field_name == 'homepage_config' and isinstance(value, dict):
-            instance.homepage_config = normalize_homepage_config(value)
-        elif field_name == 'search_config' and isinstance(value, dict):
-            instance.search_config = normalize_search_config(value)
+        elif field_name in groups and isinstance(value, dict):
+            merged = value if replace_groups else merge_settings_patch(getattr(instance, field_name, None) or {}, value)
+            setattr(instance, field_name, groups[field_name].normalizer(merged))
+        elif isinstance(value, dict) and isinstance(getattr(instance, field_name, None), dict):
+            setattr(instance, field_name, value if replace_groups else merge_settings_patch(getattr(instance, field_name), value))
         elif hasattr(instance, field_name):
             setattr(instance, field_name, value)
 

@@ -185,6 +185,7 @@ def build_change_set(current_settings, incoming_settings, source=None):
     `incoming_settings` must already be normalised, and must contain only the
     keys the file actually carried — that is what `leave alone` depends on.
     """
+    from .settings_patch import merge_settings_patch
     labels = field_labels()
     groups = []
     for key, label_key, fields in GROUPS:
@@ -200,13 +201,14 @@ def build_change_set(current_settings, incoming_settings, source=None):
             } and 'homepage_config' in incoming_settings:
                 continue
             current = current_settings.get(field)
-            incoming = incoming_settings[field]
+            incoming_patch = incoming_settings[field]
+            incoming = merge_settings_patch(current, incoming_patch)
             if current == incoming:
                 continue
 
             kind = _kind(field)
             if kind == 'mapping' and isinstance(current, dict) and isinstance(incoming, dict):
-                for sub in sorted(set(current) | set(incoming)):
+                for sub in sorted(incoming_patch):
                     if (
                         field == 'titlebar_config'
                         and 'search_config' in incoming_settings
@@ -223,6 +225,7 @@ def build_change_set(current_settings, incoming_settings, source=None):
                         'kind': 'scalar',
                         'current': deepcopy(cur_v),
                         'incoming': deepcopy(inc_v),
+                        'patch': deepcopy(incoming_patch[sub]),
                     })
                 continue
 
@@ -233,6 +236,7 @@ def build_change_set(current_settings, incoming_settings, source=None):
                 'kind': kind,
                 'current': deepcopy(current),
                 'incoming': deepcopy(incoming),
+                'patch': deepcopy(incoming_patch),
             }
             if kind == 'atomic':
                 entry['summary'] = summarize(current, incoming)
@@ -275,10 +279,11 @@ def selected_settings(change_set, selections, current_settings):
             if token not in chosen:
                 continue
             if sub is None:
-                out[field] = deepcopy(change['incoming'])
+                out[field] = deepcopy(change.get('patch', change['incoming']))
                 continue
             if field not in out:
                 base = current_settings.get(field)
                 out[field] = deepcopy(base) if isinstance(base, dict) else {}
-            out[field][sub] = deepcopy(change['incoming'])
+            from .settings_patch import merge_settings_patch
+            out[field][sub] = merge_settings_patch(out[field].get(sub), change.get('patch', change['incoming']))
     return out

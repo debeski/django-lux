@@ -403,6 +403,15 @@ the curated package Django suite through
 includes `test_defaults_and_urls`, scaffold checks, backup/report coverage,
 notifications, permissions, middleware, and utility tests.
 
+Both CI and the release workflow also call `settings-postgres.yml` to run
+`dlux.tests.test_settings_persistence` against PostgreSQL 17. Distribution builds
+depend on this gate so the concurrent-writer contract cannot silently skip on
+SQLite. The isolated `dlux.tests.settings_postgres` module requires
+`DLUX_TEST_POSTGRES_DB`, `DLUX_TEST_POSTGRES_USER`,
+`DLUX_TEST_POSTGRES_PASSWORD`, and `DLUX_TEST_POSTGRES_HOST`; the optional
+`DLUX_TEST_POSTGRES_PORT` defaults to 5432. Use a disposable database server with
+permission to create test databases. These variables are test-only.
+
 Projects that call `dlux_settings(globals())` automatically replace the default
 cache with a process-local memory cache during `manage.py test` and pytest runs.
 This prevents test `SystemSettings`, sessions, and throttles from leaking into a

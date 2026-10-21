@@ -14,6 +14,12 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 
 ## Platform configuration
 
+- Section-owned settings saves preserve inactive controls, including missing or
+  stale hidden inputs. Partial imports merge supplied keys, retain existing SMTP
+  credentials, and share boolean parsing with the catalogue normalizers.
+  Single and grouped app settings writers lock the current row before merging.
+  See [System settings persistence](system-configuration.md#settings-persistence-contracts).
+
 - **Optional weather:** OpenWeather current conditions, searchable saved locations,
   Celsius/Fahrenheit, four display styles, titlebar/user hub/floating placements,
   and a reusable dashboard card. Controlled from Extra Features; disabled by

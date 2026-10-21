@@ -1,6 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- 2026-10-20: six settings-catalog defects repaired on `audit/settings-persistence-audit` (1.12.1b1 candidate): section ownership, partial imports, SMTP secrets, atomic app writers, booleans, notification policies; 18 sections/21 groups/183 fields covered. Production unchanged.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
 - **v1.11.0b4 (beta, published 2026-10-08, PyPI + GitHub prerelease)**: incremental backup chains, increment header kind `dlux-system-backup-increment` (b3 refuses: verified), DLB viewer chain merge + app-grouped sidebar, General Reports activity view. Inline-updated b3 -> b4 on `testbed-dlux` (CLI and UI paths), CLI rollback to b3 and back. Break-testing found S1 (no pre-update backup since 1.10.0) and S2 (b3 delete of a chain base: FK 500 + lost file); see `testbed_break_scenarios.md`.
@@ -13,7 +14,6 @@
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 - Inline installs need Composer 1.3.10+ AND dlux 1.8.9+: a deployment on 1.8.0-1.8.8 cannot hand off at all, so it must reach 1.8.9 by image rebuild or by `./start.sh dlux-update apply` from the project root.
-
 ### Current Project Adopted Standards:
 - Integrate settings with `from dlux.utils import dlux_settings; dlux_settings(globals())`; mount `dlux.urls` at root.
 - Use Dlux-native UI primitives and feature-first static layout; backend authorization must match UI visibility and mutations are POST-only.
@@ -35,6 +35,7 @@
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 
 ### Current Project's Unsolved Known Bugs:
+- Catalog repairs pass package/regression gates; beta-channel acceptance remains pending before release. Evidence `.xclude/validation/settings-catalog-audit-2026-10-20/`; baseline and repair contracts in `docs/system-settings-catalog-audit.md`.
 - User-reported 2026-10-13: “Skip for now” does not work in the user preference setup on first login. Reproduction/root cause unverified; investigation and fix deferred.
 - Tag rulesets on these remotes CAN be bypassed with the owner's admin rights (the same bypass that lets `main` take a direct push). So when a release job fails BEFORE anything is published — no PyPI upload, no image push, no release page — delete the tag (`git push origin :refs/tags/vX.Y.Z`), fix, and re-cut the SAME version. Burn a version only when artifacts were actually published (as 1.8.14b1 was). Ask the owner before choosing either path.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
@@ -43,6 +44,7 @@
 - e2e on `5ecb2a9` (2026-10-12): the same 10 failures as d362ee7, all stale tests (e.g. `wizard_security` calls `selectOption` on the now-radio `client_ip_mode`); backup page, global search, tutorial, email, security.
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [x] Repair all six catalog findings with registered catalogue-wide regression contracts and PostgreSQL concurrent-writer coverage; require PostgreSQL tests in CI and release builds. Beta acceptance/publication pending separate authorization.
   - [x] **v1.12.0b3 published + testbed-accepted 2026-10-17**: owner merged PR#6; tag on main d9e0ea5; release 39050175125 all eight jobs PASS (CI3.11–3.13). PyPI wheel/sdist + GitHub prerelease seven assets; wheel SHA05c735c5, all658 files match tag. Pinned testbed update b2→b3 took backup DVVSiFkz (40388 rows); web/Celery payloads match. Arabic Changed by/history actor/unknown fallback desktop/mobile PASS, zero page errors; ten domain fingerprints/396 existing media unchanged. Deep checks zero errors, expected DEBUG warning. Evidence `.xclude/validation/1.12.0b3-2026-10-17/acceptance.md`. Archive/production untouched.
   - [ ] **v1.12.0b2 published + testbed-accepted 2026-10-17** (tag `2fad938`; PyPI wheel+sdist, GitHub prerelease 7 assets, all 8 jobs green; local gates: suite 2856 OK, JS 70/70, checks clean). Testbed: composer agent/executor had exited 137 on 10-15, restarted; `dlux check` named b2 inline-safe; pinned update 1.11.0 -> b2 applied (`0026_file_versions` [X], `FileVersion` live, static `?v=1.12.0b2`); rollback took backup `OoSenxG7` (40,374 rows) and landed on **1.11.1b1** (previous volume release, not baked 1.11.0) with 0026 left in place — `rollback_compatible` holds; re-apply clean, `composer check` all green. `dlux_adopt_file_history documents.DocumentFileVersion` dry run: 14 rows, 14 to copy, 0 conflicts (NOT applied). accept attribute covers pdf+jpg/png/tiff/webp. **NOT driven: the document-file UI journeys** (images/rotate/Fit to A4/save) and ScanLink — decrees calls no `register_document_file`, so nothing is registered on this testbed; needs a project-side registration (or the modified decrees copy used pre-release) to exercise them.
   - [x] `feat/document-file-pipeline` merged and published as v1.12.0b2. Published-wheel editor acceptance later passed with temporary testbed registration: images/rotate/Fit A4/save/exact history, mobile; real ScanLink client with simulated workstation endpoints (physical hardware unverified). Overlay/settings restored; dedicated record soft-deleted. Evidence `.xclude/validation/1.12.0-stable-2026-10-17/`.
@@ -75,12 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-18 stable candidate: focused110 PASS; stable classification/beta-first, migration gate, build/twine and exact published-beta runtime/dependency equivalence PASS. Full2856/JS70 beta results reused; PR matrix pending. Stale local build was preserved under evidence before a clean rebuild.
-
+- 2026-10-21 re-run before commit: full suite 2872 OK/5 skipped; PostgreSQL 17 (disposable container) 16/16 PASS; Django check, import cycles, `release_check --base-tag v1.12.0` PASS.
 ### One-line info about last time edited Docs:
-- 2026-10-06: new `stack-schema.md` (stamp locations, doctor check, bump rule, schema 1/2 history); `doctor.md` contract path/schema 2 fixed + `stack.schema`; `reference.md`, `deployment-configuration.md` (`DLUX_STACK_SCHEMA`), `FEATURES.md`, `docs/README.md`, changelog Unreleased. Tags verified through v1.10.2b1.
-- 2026-10-18: document-files/FEATURES/reference + release-1.12-acceptance document stable promotion, unchanged upgrade contract and beta evidence; CHANGELOG v1.12.0 added after verifying tags through b3 and no stable publication.
-- 2026-10-08: `operations.md` backup options/cancel/console/snapshot, `reference.md` routes + `.dlb` format + cancel semantics, `ribbon.md`, `FEATURES.md`, `tools/dlb-viewer/README.md`; changelog `Unreleased` (tags verified through v1.11.0b2).
+- 2026-10-20: audit repair status, system-configuration/reference/FEATURES, adding-settings ownership contracts, and RELEASING PostgreSQL gate documented.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -92,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - Worktrees (2026-10-17) consolidated, one dir per live branch: `main` (primary), `../1.10.x` (`release/1.10.x`, frozen 1.10 line), `../document-file-pipeline` (11 ahead, clean) and `../system-settings-standardization` (`codex/system-settings-standardization`, moved in from `~/.codex/worktrees/`; branch merged, carries 5 uncommitted doc files incl. untracked `docs/system-settings-audit.md`, deferred to 1.12).
-- Primary checkout is on `codex/1.12.0-stable-promotion` from origin/main d9e0ea5 (accepted v1.12.0b3). Include the preserved b3 publication/acceptance tracker notes in the stable PR. Archive checkout has substantial unrelated work; never edit it here.
+- `audit/settings-persistence-audit` (from released 1.12.0 `0b3e4ee`) committed as the 1.12.1b1 candidate (owner asked 2026-10-21 to ship it as 1.12.1 before the table column builder). Next: PR -> merge -> tag b1 (owner OK) -> testbed acceptance -> stable 1.12.1. `feat/table-column-builder` (`../table-column-builder`) waits on it; it rebases onto 1.12.1.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 

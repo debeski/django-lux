@@ -41,7 +41,8 @@ def normalize_locations(value):
 def normalize_weather_config(value):
     cfg = value if isinstance(value, dict) else {}
     result = default_weather_config()
-    result['enabled'] = cfg.get('enabled') in (True, 1, 'true', 'on')
+    from .booleans import parse_boolean
+    result['enabled'] = parse_boolean(cfg.get('enabled'))
     if cfg.get('display') in LEGACY_DISPLAYS:
         cfg = {**cfg, 'display': LEGACY_DISPLAYS[cfg['display']]}
     for key, choices in (('placement', PLACEMENTS), ('display', DISPLAYS),

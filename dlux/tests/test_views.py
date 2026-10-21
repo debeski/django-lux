@@ -678,7 +678,7 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('class="dlux-form dlux-system-setup-form"', payload['html'])
 
-    def test_system_settings_modal_post_preserves_step_six_values_when_omitted(self):
+    def test_system_settings_modal_post_preserves_unrelated_section_values(self):
         settings_obj = SystemSettings.load()
         settings_obj.allowed_themes = ['dark', 'neon']
         settings_obj.default_theme = 'dark'
@@ -686,6 +686,7 @@ class GeneralViewsTests(TestCase):
         settings_obj.default_fonts = {'en': 'cairo', 'ar': 'cairo'}
         settings_obj.default_table_density = 'roomy'
         settings_obj.save()
+        original_home_url = settings_obj.home_url
 
         response = self.client.post(
             reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=0',
@@ -715,7 +716,7 @@ class GeneralViewsTests(TestCase):
 
         settings_obj.refresh_from_db()
         self.assertEqual(settings_obj.system_names, {'en': 'System', 'ar': 'System'})
-        self.assertEqual(settings_obj.home_url, '/dashboard/')
+        self.assertEqual(settings_obj.home_url, original_home_url)
         self.assertEqual(settings_obj.allowed_themes, ['dark', 'neon'])
         self.assertEqual(settings_obj.default_theme, 'dark')
         self.assertEqual(settings_obj.allowed_fonts, ['cairo'])

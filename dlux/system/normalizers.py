@@ -9,6 +9,7 @@ import json
 import re
 from copy import deepcopy
 from urllib.parse import urlsplit
+from .booleans import parse_boolean as _to_bool
 
 from .constants import (
     GROUP_HOME_URLS_KEY,
@@ -120,9 +121,7 @@ _RIBBON_ACTION_LOCAL_URL_ATTRS = {'data-dynamic-modal', 'formaction'}
 
 
 def _coerce_import_bool(value):
-    if isinstance(value, str):
-        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
-    return bool(value)
+    return _to_bool(value)
 
 
 def _to_int(value, default, *, min_value=None, max_value=None):
@@ -135,20 +134,6 @@ def _to_int(value, default, *, min_value=None, max_value=None):
     if max_value is not None:
         parsed = min(max_value, parsed)
     return parsed
-
-
-def _to_bool(value, default=False):
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {'1', 'true', 'yes', 'y', 'on'}:
-            return True
-        if normalized in {'0', 'false', 'no', 'n', 'off'}:
-            return False
-    return bool(value)
 
 
 def _normalize_language_code(code):
@@ -281,7 +266,7 @@ def normalize_email_config(value, *, redact_secret=False):
     normalized['default_from_email'] = str(config.get('default_from_email') or '').strip()
     encrypted_password = str(config.get('encrypted_password') or '').strip()
     normalized['encrypted_password'] = encrypted_password
-    normalized['password_configured'] = bool(encrypted_password or config.get('password_configured'))
+    normalized['password_configured'] = bool(encrypted_password) or _to_bool(config.get('password_configured'))
     normalized['failure_notification_recipients'] = _normalize_email_list(
         config.get('failure_notification_recipients'),
         limit=EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
@@ -356,17 +341,17 @@ def _normalize_email_list(value, *, limit):
 def normalize_auth_config(value):
     cfg = value if isinstance(value, dict) else {}
     return {
-        'email_2fa': bool(cfg.get('email_2fa', False)),
-        'forgot_password_enabled': bool(cfg.get('forgot_password_enabled', False)),
-        'prevent_multiple_active_sessions': bool(cfg.get('prevent_multiple_active_sessions', False)),
-        'login_lockout_enabled': bool(cfg.get('login_lockout_enabled', True)),
+        'email_2fa': _to_bool(cfg.get('email_2fa', False), False),
+        'forgot_password_enabled': _to_bool(cfg.get('forgot_password_enabled', False), False),
+        'prevent_multiple_active_sessions': _to_bool(cfg.get('prevent_multiple_active_sessions', False), False),
+        'login_lockout_enabled': _to_bool(cfg.get('login_lockout_enabled', True), True),
         'login_lockout_threshold': _to_int(cfg.get('login_lockout_threshold', 5), 5, min_value=1, max_value=50),
         'login_lockout_window_minutes': _to_int(cfg.get('login_lockout_window_minutes', 15), 15, min_value=1, max_value=1440),
         'login_lockout_duration_minutes': _to_int(cfg.get('login_lockout_duration_minutes', 15), 15, min_value=1, max_value=1440),
-        'enforce_strong_passwords': bool(cfg.get('enforce_strong_passwords', False)),
+        'enforce_strong_passwords': _to_bool(cfg.get('enforce_strong_passwords', False), False),
         'strong_password_min_length': _to_int(cfg.get('strong_password_min_length', 12), 12, min_value=8, max_value=64),
-        'purge_session_on_exit': bool(cfg.get('purge_session_on_exit', False)),
-        'inactivity_timeout_enabled': bool(cfg.get('inactivity_timeout_enabled', False)),
+        'purge_session_on_exit': _to_bool(cfg.get('purge_session_on_exit', False), False),
+        'inactivity_timeout_enabled': _to_bool(cfg.get('inactivity_timeout_enabled', False), False),
         'inactivity_timeout_minutes': _to_int(cfg.get('inactivity_timeout_minutes', 10), 10, min_value=1, max_value=1440),
     }
 
@@ -377,14 +362,14 @@ def normalize_registration_config(value):
     if activation_mode not in REGISTRATION_ACTIVATION_VALUES:
         activation_mode = REGISTRATION_ACTIVATION_AUTO_LOGIN
     return {
-        'public_registration_enabled': bool(cfg.get('public_registration_enabled', False)),
+        'public_registration_enabled': _to_bool(cfg.get('public_registration_enabled', False), False),
         'registration_activation_mode': activation_mode,
-        'registration_throttle_enabled': bool(cfg.get('registration_throttle_enabled', True)),
-        'honeypot_enabled': bool(cfg.get('honeypot_enabled', True)),
+        'registration_throttle_enabled': _to_bool(cfg.get('registration_throttle_enabled', True), True),
+        'honeypot_enabled': _to_bool(cfg.get('honeypot_enabled', True), True),
         'privacy_policy_url': str(cfg.get('privacy_policy_url') or '').strip(),
         'terms_url': str(cfg.get('terms_url') or '').strip(),
         'privacy_notice_text': str(cfg.get('privacy_notice_text') or '').strip(),
-        'registration_require_consent': bool(cfg.get('registration_require_consent', False)),
+        'registration_require_consent': _to_bool(cfg.get('registration_require_consent', False), False),
     }
 
 
@@ -409,14 +394,14 @@ def normalize_public_root_config(value):
     # Migrate the legacy titlebar-owned hide flag into the centralized show
     # toggle (inverted polarity). The new key wins when both are present.
     if 'show_titlebar_on_public' in cfg:
-        show_titlebar = bool(cfg.get('show_titlebar_on_public', False))
+        show_titlebar = _to_bool(cfg.get('show_titlebar_on_public', False), False)
     elif 'hide_on_public_unauthenticated_index' in cfg:
-        show_titlebar = not bool(cfg.get('hide_on_public_unauthenticated_index', False))
+        show_titlebar = not _to_bool(cfg.get('hide_on_public_unauthenticated_index', False), False)
     else:
         show_titlebar = False
     return {
-        'public_root': bool(cfg.get('public_root', False)),
-        'public_root_split_enabled': bool(cfg.get('public_root_split_enabled', False)),
+        'public_root': _to_bool(cfg.get('public_root', False), False),
+        'public_root_split_enabled': _to_bool(cfg.get('public_root_split_enabled', False), False),
         'public_root_url': str(cfg.get('public_root_url') or '').strip(),
         'public_root_theme': _normalize_public_root_theme(cfg.get('public_root_theme')),
         'public_root_title': _normalize_bounded_text(
@@ -426,7 +411,7 @@ def normalize_public_root_config(value):
             cfg.get('public_root_meta_description'), PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
         ),
         'show_titlebar_on_public': show_titlebar,
-        'show_sidebar_on_public': bool(cfg.get('show_sidebar_on_public', False)),
+        'show_sidebar_on_public': _to_bool(cfg.get('show_sidebar_on_public', False), False),
     }
 
 
@@ -582,22 +567,22 @@ def normalize_layout_config(value):
         'default_table_density': density,
         'table_edges': table_edges,
         'card_edges': card_edges,
-        'table_accent_edges': bool(cfg.get('table_accent_edges', False)),
+        'table_accent_edges': _to_bool(cfg.get('table_accent_edges', False), False),
         'default_form_density': form_density,
         'default_modal_size': modal_size,
-        'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
-        'resizable_table_columns': bool(cfg.get('resizable_table_columns', True)),
-        'zebra_striping': bool(cfg.get('zebra_striping', True)),
-        'show_audit_fields': bool(cfg.get('show_audit_fields', False)),
-        'show_soft_deleted': bool(cfg.get('show_soft_deleted', False)),
+        'sticky_table_headers': _to_bool(cfg.get('sticky_table_headers', True), True),
+        'resizable_table_columns': _to_bool(cfg.get('resizable_table_columns', True), True),
+        'zebra_striping': _to_bool(cfg.get('zebra_striping', True), True),
+        'show_audit_fields': _to_bool(cfg.get('show_audit_fields', False), False),
+        'show_soft_deleted': _to_bool(cfg.get('show_soft_deleted', False), False),
         'options_style': options_style,
         'row_actions_style': row_actions_style,
         'ribbon_layout': ribbon_layout,
         'ribbon_style': ribbon_style,
-        'ribbon_title': bool(cfg.get('ribbon_title', True)),
+        'ribbon_title': _to_bool(cfg.get('ribbon_title', True), True),
         'ribbon_nesting': ribbon_nesting,
         'ribbon_advanced_trigger': advanced_trigger,
-        'footer_enabled': bool(footer_enabled),
+        'footer_enabled': _to_bool(footer_enabled, True),
         'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
         'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),
         'footer_link_url': _normalize_footer_link_url(cfg.get('footer_link_url')),
@@ -626,7 +611,7 @@ def normalize_language_config(value):
     return {
         'languages': normalize_language_catalog(cfg.get('languages', {})),
         'translations_override': cleaned_translations,
-        'allow_user_language_override': bool(cfg.get('allow_user_language_override', True)),
+        'allow_user_language_override': _to_bool(cfg.get('allow_user_language_override', True), True),
     }
 
 
@@ -639,7 +624,7 @@ def normalize_theme_config(value):
     location = str(cfg.get('theme_picker_location', '') or '').strip().lower()
     return {
         'allowed_themes': list(normalize_allowed_themes(cfg.get('allowed_themes'))),
-        'allow_user_theme_override': bool(cfg.get('allow_user_theme_override', True)),
+        'allow_user_theme_override': _to_bool(cfg.get('allow_user_theme_override', True), True),
         'theme_picker_location': (
             location if location in THEME_PICKER_LOCATION_VALUES else DEFAULT_THEME_PICKER_LOCATION
         ),
@@ -652,7 +637,7 @@ def normalize_typography_config(value):
     return {
         'allowed_fonts': allowed_fonts,
         'default_fonts': normalize_default_fonts(cfg.get('default_fonts'), allowed_fonts=allowed_fonts),
-        'allow_user_font_override': bool(cfg.get('allow_user_font_override', True)),
+        'allow_user_font_override': _to_bool(cfg.get('allow_user_font_override', True), True),
     }
 
 
@@ -666,6 +651,8 @@ def normalize_extra_config(value):
     """Normalize framework extras when present; preserve opaque project namespaces."""
     from .weather import normalize_weather_config
     result = dict(value) if isinstance(value, dict) else {}
+    if isinstance(result.get('scanlink'), dict):
+        result['scanlink'] = {**result['scanlink'], 'enabled': _to_bool(result['scanlink'].get('enabled'))}
     if 'entry_clipboard' in result:
         result['entry_clipboard'] = normalize_entry_clipboard_config(result['entry_clipboard'])
     if 'weather' in result:
@@ -721,13 +708,11 @@ def normalize_titlebar_actions_order(value):
 def normalize_titlebar_config(titlebar_config):
     config = titlebar_config if isinstance(titlebar_config, dict) else {}
     normalized = default_titlebar_config()
-    normalized['accent_edge'] = bool(config.get('accent_edge', normalized['accent_edge']))
-    normalized['show_title'] = bool(config.get('show_title', normalized['show_title']))
-    normalized['show_logo'] = bool(config.get('show_logo', normalized['show_logo']))
-    normalized['show_home_button'] = bool(config.get('show_home_button', normalized['show_home_button']))
-    normalized['hide_on_public_unauthenticated_index'] = bool(
-        config.get('hide_on_public_unauthenticated_index', normalized['hide_on_public_unauthenticated_index'])
-    )
+    normalized['accent_edge'] = _to_bool(config.get('accent_edge', normalized['accent_edge']), normalized['accent_edge'])
+    normalized['show_title'] = _to_bool(config.get('show_title', normalized['show_title']), normalized['show_title'])
+    normalized['show_logo'] = _to_bool(config.get('show_logo', normalized['show_logo']), normalized['show_logo'])
+    normalized['show_home_button'] = _to_bool(config.get('show_home_button', normalized['show_home_button']), normalized['show_home_button'])
+    normalized['hide_on_public_unauthenticated_index'] = _to_bool(config.get('hide_on_public_unauthenticated_index', normalized['hide_on_public_unauthenticated_index']), normalized['hide_on_public_unauthenticated_index'])
 
     buttons_shape = config.get('buttons_shape', config.get('home_shape'))
     if buttons_shape in TITLEBAR_HOME_SHAPE_VALUES:
@@ -766,18 +751,14 @@ def normalize_titlebar_config(titlebar_config):
     if actions_layout in TITLEBAR_ACTIONS_LAYOUT_VALUES:
         normalized['actions_layout'] = actions_layout
 
-    normalized['show_language_switcher'] = bool(
-        config.get('show_language_switcher', normalized['show_language_switcher'])
-    )
+    normalized['show_language_switcher'] = _to_bool(config.get('show_language_switcher', normalized['show_language_switcher']), normalized['show_language_switcher'])
 
     normalized['actions_order'] = normalize_titlebar_actions_order(config.get('actions_order'))
 
     global_search_mode = config.get('global_search_mode')
     if global_search_mode in TITLEBAR_GLOBAL_SEARCH_VALUES:
         normalized['global_search_mode'] = global_search_mode
-    normalized['global_search_include_data'] = bool(
-        config.get('global_search_include_data', normalized['global_search_include_data'])
-    )
+    normalized['global_search_include_data'] = _to_bool(config.get('global_search_include_data', normalized['global_search_include_data']), normalized['global_search_include_data'])
     return normalized
 
 
@@ -792,12 +773,10 @@ def normalize_search_config(value):
     return {
         'enabled': enabled,
         'display_mode': display_mode,
-        'include_data': bool(
-            config.get(
+        'include_data': _to_bool(config.get(
                 'include_data',
                 config.get('global_search_include_data', defaults['include_data']),
-            )
-        ),
+            ), config.get('global_search_include_data', defaults['include_data'])),
     }
 
 
@@ -815,7 +794,7 @@ def normalize_login_config(value):
     style = config.get('style')
     if style in LOGIN_STYLE_VALUES:
         normalized['style'] = style
-    normalized['show_logo'] = bool(config.get('show_logo', True))
+    normalized['show_logo'] = _to_bool(config.get('show_logo', True), True)
     banner_color = str(config.get('banner_color') or '').strip()
     if banner_color:
         normalized['banner_color'] = banner_color
@@ -840,21 +819,17 @@ def normalize_login_config(value):
 def normalize_sidebar_behavior(sidebar_config):
     config = sidebar_config if isinstance(sidebar_config, dict) else {}
     normalized = default_sidebar_config()
-    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
-    normalized['accent_edge'] = bool(config.get('accent_edge', normalized['accent_edge']))
+    normalized['enabled'] = _to_bool(config.get('enabled', normalized['enabled']), normalized['enabled'])
+    normalized['accent_edge'] = _to_bool(config.get('accent_edge', normalized['accent_edge']), normalized['accent_edge'])
     normalized['home_url_name'] = config.get('home_url_name') if config.get('home_url_name') else None
     if isinstance(config.get('entries'), list):
         normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
-    normalized['enable_reorder'] = bool(config.get('enable_reorder', normalized['enable_reorder']))
-    normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
-    normalized['show_sections_manager'] = bool(
-        config.get('show_sections_manager', normalized['show_sections_manager'])
-    )
-    normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
-    normalized['show_notification_badges'] = bool(
-        config.get('show_notification_badges', normalized['show_notification_badges'])
-    )
-    normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
+    normalized['enable_reorder'] = _to_bool(config.get('enable_reorder', normalized['enable_reorder']), normalized['enable_reorder'])
+    normalized['show_toolbar'] = _to_bool(config.get('show_toolbar', normalized['show_toolbar']), normalized['show_toolbar'])
+    normalized['show_sections_manager'] = _to_bool(config.get('show_sections_manager', normalized['show_sections_manager']), normalized['show_sections_manager'])
+    normalized['show_icons'] = _to_bool(config.get('show_icons', normalized['show_icons']), normalized['show_icons'])
+    normalized['show_notification_badges'] = _to_bool(config.get('show_notification_badges', normalized['show_notification_badges']), normalized['show_notification_badges'])
+    normalized['allow_user_density'] = _to_bool(config.get('allow_user_density', normalized['allow_user_density']), normalized['allow_user_density'])
 
     density = config.get('density')
     if density in SIDEBAR_DENSITY_VALUES:
@@ -936,13 +911,11 @@ def _normalize_navbar_nodes(value, depth=0):
 def normalize_navbar_config(navbar_config):
     config = navbar_config if isinstance(navbar_config, dict) else {}
     normalized = default_navbar_config()
-    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
+    normalized['enabled'] = _to_bool(config.get('enabled', normalized['enabled']), normalized['enabled'])
     mode = config.get('default_mode')
     if mode in NAVBAR_MODE_VALUES:
         normalized['default_mode'] = mode
-    normalized['allow_user_mode_override'] = bool(
-        config.get('allow_user_mode_override', normalized['allow_user_mode_override'])
-    )
+    normalized['allow_user_mode_override'] = _to_bool(config.get('allow_user_mode_override', normalized['allow_user_mode_override']), normalized['allow_user_mode_override'])
     root = config.get('root')
     root = root if isinstance(root, dict) else {}
     root_mode = str(root.get('mode') or DEFAULT_NAVBAR_ROOT_MODE).strip().lower()
@@ -968,7 +941,7 @@ _LOG_ACTION_KEYS = ('create', 'update', 'delete')
 def _normalize_log_section(value, defaults):
     section = value if isinstance(value, dict) else {}
     out = {
-        'enabled': bool(section.get('enabled', defaults['enabled'])),
+        'enabled': _to_bool(section.get('enabled', defaults['enabled']), defaults['enabled']),
         'default_actions': {},
         'retention_days': 0,
         'models': {},
@@ -976,7 +949,7 @@ def _normalize_log_section(value, defaults):
     base_actions = defaults['default_actions']
     raw_actions = section.get('default_actions') if isinstance(section.get('default_actions'), dict) else {}
     for key in _LOG_ACTION_KEYS:
-        out['default_actions'][key] = bool(raw_actions.get(key, base_actions.get(key, True)))
+        out['default_actions'][key] = _to_bool(raw_actions.get(key, base_actions.get(key, True)), base_actions.get(key, True))
 
     try:
         out['retention_days'] = max(0, int(section.get('retention_days', 0) or 0))
@@ -988,13 +961,13 @@ def _normalize_log_section(value, defaults):
         key = str(raw_key or '').strip().lower()
         if not key or '.' not in key or not isinstance(raw_override, dict):
             continue
-        entry = {'enabled': bool(raw_override.get('enabled', True))}
+        entry = {'enabled': _to_bool(raw_override.get('enabled', True), True)}
         raw_entry_actions = raw_override.get('actions') if isinstance(raw_override.get('actions'), dict) else {}
         actions = {}
         for act_key, act_val in raw_entry_actions.items():
             norm_act = str(act_key or '').strip().lower()
             if norm_act:
-                actions[norm_act] = bool(act_val)
+                actions[norm_act] = _to_bool(act_val, False)
         if actions:
             entry['actions'] = actions
         out['models'][key] = entry
@@ -1005,7 +978,7 @@ def normalize_log_config(value):
     config = value if isinstance(value, dict) else {}
     defaults = default_log_config()
     normalized = {
-        'enabled': bool(config.get('enabled', True)),
+        'enabled': _to_bool(config.get('enabled', True), True),
         'user': _normalize_log_section(config.get('user'), defaults['user']),
         'system': _normalize_log_section(config.get('system'), defaults['system']),
         'audit': {},
@@ -1025,7 +998,7 @@ def normalize_log_config(value):
         audit['retention_days'] = 0
     raw_events = audit_in.get('events') if isinstance(audit_in.get('events'), dict) else {}
     for event_key, default_on in audit_defaults['events'].items():
-        audit['events'][event_key] = bool(raw_events.get(event_key, default_on))
+        audit['events'][event_key] = _to_bool(raw_events.get(event_key, default_on), default_on)
     normalized['audit'] = audit
     return normalized
 
@@ -1115,12 +1088,12 @@ def normalize_profile_config(value):
     config = value if isinstance(value, dict) else {}
     defaults = default_profile_config()
     normalized = {
-        'show_completion_widget': bool(config.get('show_completion_widget', defaults['show_completion_widget'])),
-        'show_session_device_cards': bool(config.get('show_session_device_cards', defaults['show_session_device_cards'])),
-        'show_activity_feed': bool(config.get('show_activity_feed', defaults['show_activity_feed'])),
+        'show_completion_widget': _to_bool(config.get('show_completion_widget', defaults['show_completion_widget']), defaults['show_completion_widget']),
+        'show_session_device_cards': _to_bool(config.get('show_session_device_cards', defaults['show_session_device_cards']), defaults['show_session_device_cards']),
+        'show_activity_feed': _to_bool(config.get('show_activity_feed', defaults['show_activity_feed']), defaults['show_activity_feed']),
         'security_nudges': DEFAULT_SECURITY_NUDGE,
-        'allow_user_home_url': bool(config.get('allow_user_home_url', defaults['allow_user_home_url'])),
-        'onboarding_enabled': bool(config.get('onboarding_enabled', defaults['onboarding_enabled'])),
+        'allow_user_home_url': _to_bool(config.get('allow_user_home_url', defaults['allow_user_home_url']), defaults['allow_user_home_url']),
+        'onboarding_enabled': _to_bool(config.get('onboarding_enabled', defaults['onboarding_enabled']), defaults['onboarding_enabled']),
         'onboarding_options': {},
     }
     nudge = config.get('security_nudges')
@@ -1128,7 +1101,7 @@ def normalize_profile_config(value):
         normalized['security_nudges'] = nudge
     raw_options = config.get('onboarding_options') if isinstance(config.get('onboarding_options'), dict) else {}
     for key, default_on in defaults['onboarding_options'].items():
-        normalized['onboarding_options'][key] = bool(raw_options.get(key, default_on))
+        normalized['onboarding_options'][key] = _to_bool(raw_options.get(key, default_on), default_on)
     return normalized
 
 

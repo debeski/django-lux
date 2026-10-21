@@ -1,0 +1,39 @@
+name: Settings PostgreSQL regressions
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  settings-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dlux_settings_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dlux_settings_tests"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DLUX_TEST_POSTGRES_DB: dlux_settings_tests
+      DLUX_TEST_POSTGRES_USER: postgres
+      DLUX_TEST_POSTGRES_PASSWORD: test-only
+      DLUX_TEST_POSTGRES_HOST: localhost
+      DLUX_TEST_POSTGRES_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install package and PostgreSQL driver
+        run: pip install -e '.[pdf]' psycopg2-binary
+      - name: Run settings contracts with real row locking
+        run: python -m django test dlux.tests.test_settings_persistence --settings=dlux.tests.settings_postgres --noinput

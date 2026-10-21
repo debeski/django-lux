@@ -73,8 +73,12 @@ jobs:
       - name: Run package Django test suite
         run: python dlux/tests/test_all.py
 
+  settings-postgres:
+    needs: classify
+    uses: ./.github/workflows/settings-postgres.yml
+
   build-dist:
-    needs: [classify, test]
+    needs: [classify, test, settings-postgres]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

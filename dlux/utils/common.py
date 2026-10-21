@@ -179,9 +179,8 @@ DEFAULT_LANGUAGE_CATALOG = {
 
 # System Import Export - Helper coerces imported checkbox-like values.
 def _coerce_import_bool(value):
-    if isinstance(value, str):
-        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
-    return bool(value)
+    from ..system.booleans import parse_boolean
+    return parse_boolean(value)
 
 # User Profiles - Function discovers models linked one-to-one to users.
 def get_user_linked_models():

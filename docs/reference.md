@@ -364,6 +364,12 @@ projects store opaque JSON under a reserved key in `SystemSettings.extra_config`
 - **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`.
 - **Write programmatically** — `from dlux.options import write_app_system_config`; `write_app_system_config('myproject.settings', {...}, request=None)` for server-side writes (migrations, management commands, signals). It applies the same namespace validation, size cap (raises `AppSystemConfigError`), persistence, and cache refresh as the endpoint, and audit-logs when a `request` is passed. Pass `value=None` to clear the namespace.
 
+Single and grouped writers lock the authoritative settings row and update only
+`extra_config`, preserving independent namespace and scalar-setting changes.
+Core settings imports use supplied-key patch semantics by default; complete
+forms and snapshot restores explicitly replace their groups. See
+[Settings persistence contracts](system-configuration.md#settings-persistence-contracts).
+
 Because it is opaque JSON written only by superusers into a walled-off key, it
 cannot be used to tamper with security-relevant Dlux configuration. Card
 templates that display this data get Django's auto-escaping — do **not** `|safe`

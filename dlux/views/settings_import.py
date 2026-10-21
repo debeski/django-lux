@@ -48,9 +48,12 @@ def _require_superuser(request):
         raise PermissionDenied
 
 
-def _current_settings():
+def _current_settings(*, for_update=False):
     SystemSettings = apps.get_model('dlux', 'SystemSettings')
-    instance = SystemSettings.load()
+    if for_update:
+        instance, _ = SystemSettings.objects.select_for_update().get_or_create(pk=1)
+    else:
+        instance = SystemSettings.load()
     return instance, export_system_settings_payload(instance)
 
 
@@ -149,6 +152,7 @@ def settings_import_review_view(request):
 
 @login_required
 @require_POST
+@transaction.atomic
 def settings_import_apply_view(request):
     """Apply the ticked changes, after snapshotting what they replace."""
     _require_superuser(request)
@@ -163,7 +167,7 @@ def settings_import_apply_view(request):
         )
 
     selections = request.POST.getlist('apply')
-    instance, current = _current_settings()
+    instance, current = _current_settings(for_update=True)
     chosen = selected_settings(change_set, selections, current['settings'])
     if not chosen:
         return JsonResponse(
@@ -202,13 +206,14 @@ def settings_import_apply_view(request):
 
 @login_required
 @require_POST
+@transaction.atomic
 def settings_import_revert_view(request):
     """Restore the settings captured by a snapshot."""
     _require_superuser(request)
     strings = get_strings(get_current_language_code(request))
 
     Snapshot = apps.get_model('dlux', 'SystemSettingsSnapshot')
-    snapshot = Snapshot.objects.filter(reverted_at__isnull=True).order_by('-created_at').first()
+    snapshot = Snapshot.objects.select_for_update().filter(reverted_at__isnull=True).order_by('-created_at').first()
     if snapshot is None:
         return JsonResponse(
             {'ok': False, 'message': strings.get(
@@ -216,11 +221,11 @@ def settings_import_revert_view(request):
             status=400,
         )
 
-    instance, _ = _current_settings()
+    instance, _ = _current_settings(for_update=True)
     with transaction.atomic():
         apply_system_settings_import(
             instance, snapshot.payload,
-            mark_configured=False, preserve_email_secret=True,
+            mark_configured=False, preserve_email_secret=True, replace_groups=True,
         )
         snapshot.reverted_at = timezone.now()
         snapshot.save(update_fields=['reverted_at'])

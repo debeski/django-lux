@@ -16,6 +16,7 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
+from dlux.system.constants import SETUP_STEP_NAVBAR, SETUP_STEP_NOTIFICATIONS, SETUP_STEP_SIDEBAR
 
 _SETUP_JS_DIR = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
 
@@ -155,7 +156,7 @@ class DependentSettingsPreservedOnDisableTests(TestCase):
 
         # The dependent controls are disabled, so they are absent from POST —
         # exactly what the browser sends once the master toggle is off.
-        saved = self._save(6, {
+        saved = self._save(SETUP_STEP_NAVBAR, {
             'navbar_config': (
                 '{"enabled":false,"default_mode":"history","allow_user_mode_override":false,'
                 '"root":{"mode":"neutral","url_name":""},'
@@ -188,7 +189,7 @@ class DependentSettingsPreservedOnDisableTests(TestCase):
             },
         )
 
-        saved = self._save(8, {'notifications_enabled': ''}, instance)
+        saved = self._save(SETUP_STEP_NOTIFICATIONS, {'notifications_enabled': ''}, instance)
 
         stored = saved.notification_config
         self.assertFalse(stored['enabled'])
@@ -203,7 +204,7 @@ class DependentSettingsPreservedOnDisableTests(TestCase):
         # The preservation branch must not swallow a real edit.
         instance = SystemSettings(is_configured=True, notification_config={'enabled': False})
 
-        saved = self._save(8, {
+        saved = self._save(SETUP_STEP_NOTIFICATIONS, {
             'notifications_enabled': 'on',
             'notification_flash_enabled': 'on',
             'notification_flash_position': 'top_start',
@@ -229,7 +230,7 @@ class DependentSettingsPreservedOnDisableTests(TestCase):
             },
         )
 
-        saved = self._save(5, {
+        saved = self._save(SETUP_STEP_SIDEBAR, {
             'sidebar_config': (
                 '{"enabled":false,"entries":[],"collapse_mode":"hidden","density":"roomy",'
                 '"toggle_icon":"bi-arrow-bar-left","show_icons":false}'

@@ -416,6 +416,22 @@ for the pattern that would have caught the whitelist drop.
 
 ## 8. Related
 
+### Catalogue preservation guard
+
+The form now derives section ownership from the crispy layout's field names
+and named HTML controls. Every editable field must have an owner; transport
+fields for setup-file import are the only explicit exceptions in the catalogue
+regression. A builder that emits its transport input only in the active section
+declares that input in `forms/system_settings_groups/ownership.py`.
+
+Inactive fields are disabled and removed from bound data before validation;
+field-level cleaners must still preserve dependent controls and validate the
+active section. Do not trigger validation during form construction. Run
+`dlux.tests.test_settings_persistence` when adding or moving settings; it is
+registered in `test_all.TEST_LABELS` and exercises every section, group boolean
+leaves, partial imports, credential retention, explicit clears and stale writes.
+The concurrent writer test additionally runs on PostgreSQL (skipped on SQLite).
+
 - `reference.md` — app-owned config namespace (`extra_config['app']`),
   `register_app_settings()`, `DluxSetupPreview.registerAppPreview()`, runtime
   config keys.
