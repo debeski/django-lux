@@ -28,6 +28,13 @@ Project state, tasks and known bugs: see `tracker.md`.
   checkout, and delete the branch locally and on GitHub. Stop and ask only when
   something blocks it (unmerged commits, a conflict, uncommitted work). This
   overrides any personal rule asking for approval before each worktree removal.
+- **Sibling repos stay in step.** `app-composer` (stack contract, manifest
+  `requires` keys, updater/ops protocol, relay operations, maintenance page) and
+  `app-ScanLink` (the ScanLink protocol behind `window.DluxScan`) follow DjangoLux
+  in the same release cycle, under the same branch and retirement rules (each has
+  its own `AGENTS.md`). A DjangoLux change that needs them ships with their paired
+  beta, accepted together on `testbed-dlux`. The DLB viewer (`tools/dlb-viewer`)
+  already ships through this repo's release flow.
 - **Downstream first.** Before moving or renaming a template, static file or public
   symbol, grep the consumer projects (`../project-archive`, `../project-decrees`,
   `../project-dhub`, `../project-dlux-crm`, `../project-dlux-panel`,
