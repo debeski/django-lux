@@ -657,6 +657,8 @@ def _patch_table_init():
     except ImportError:
         return
 
+    if getattr(tables.Table.__init__, '_dlux_table_init_wrapped', False):
+        return
     _original_init = tables.Table.__init__
 
     def _patched_init(self, *args, **kwargs):
@@ -860,6 +862,9 @@ def _patch_table_init():
         config = get_system_config()
         s = get_strings(overrides=config.get('translations'))
 
+        from .utils.table_columns import apply_table_column_overlay
+        apply_table_column_overlay(self, config.get('tables_config'))
+
         # Model-qualified header keys let one table give a column a *distinct*
         # header without disturbing the shared generic key: e.g. the User table's
         # `is_active` reads `tbl_user_is_active` if defined, else falls back to the
@@ -915,6 +920,7 @@ def _patch_table_init():
             except Exception:
                 pass
 
+    _patched_init._dlux_table_init_wrapped = True
     tables.Table.__init__ = _patched_init
 
 

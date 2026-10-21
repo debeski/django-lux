@@ -11,6 +11,278 @@ from dlux.system.table_columns import normalize_tables_config
 from dlux.system.defaults import default_tables_config
 from dlux.utils.import_export import apply_system_settings_import, export_system_settings_payload
 from dlux.utils.config import get_system_config, clear_system_config_cache
+from unittest.mock import patch
+
+import django_tables2 as tables
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
+from django.test import RequestFactory, override_settings
+from django.urls import path
+from django.views import View
+from django.template import Context, Template
+from django.test.utils import CaptureQueriesContext
+from django.db import connection
+
+from dlux.tables import DluxTable
+from dlux.discovery.tables import table_column_catalog
+from dlux.utils.table_columns import baseline_table_columns, configurable_table_columns
+
+
+class ColumnFixtureTable(DluxTable):
+    computed = tables.Column(verbose_name='Computed label', empty_values=())
+    internal = tables.Column(visible=False)
+
+    class Meta:
+        model = get_user_model()
+        fields = ('username', 'email', 'first_name')
+        sequence = ('username', 'email', 'first_name', 'computed', 'internal')
+
+
+class ColumnFixtureView(View):
+    table_class = ColumnFixtureTable
+
+
+class _TableColumnTestSupport:
+    def setUp(self):
+        cache.clear()
+        clear_system_config_cache()
+
+    def tearDown(self):
+        cache.clear()
+        clear_system_config_cache()
+
+    def configure(self, overlay, **preferences):
+        instance = SystemSettings.load()
+        instance.tables_config = {
+            **instance.tables_config, **preferences,
+            'columns': {get_user_model()._meta.label_lower: overlay},
+        }
+        instance.save()
+        clear_system_config_cache()
+
+    def names(self, table):
+        return [column.name for column in table.columns]
+
+
+class TableColumnOverlayTests(_TableColumnTestSupport, TestCase):
+    def test_reapplying_table_patch_keeps_one_wrapper(self):
+        from dlux.patches import _patch_table_init
+
+        original = tables.Table.__init__
+        _patch_table_init()
+        _patch_table_init()
+        self.assertIs(tables.Table.__init__, original)
+
+    def test_handwritten_table_hides_and_reorders_without_mutating_class(self):
+        self.configure({'hidden': ['email'], 'order': ['computed', 'username']})
+        table = ColumnFixtureTable([])
+        self.assertEqual(self.names(table), ['computed', 'username', 'first_name'])
+        self.assertTrue(ColumnFixtureTable.base_columns['email'].visible)
+        with baseline_table_columns():
+            baseline = ColumnFixtureTable([])
+        self.assertEqual(self.names(baseline), ['username', 'email', 'first_name', 'computed'])
+
+    def test_generated_table_uses_same_model_overlay(self):
+        from dlux.utils.crud import _build_generic_table_class
+        self.configure({'hidden': ['email'], 'order': ['first_name', 'username']})
+        table = _build_generic_table_class(get_user_model())([])
+        self.assertNotIn('email', self.names(table))
+        self.assertEqual(self.names(table)[:2], ['first_name', 'username'])
+
+    def test_no_configuration_preserves_rendered_html(self):
+        request = RequestFactory().get('/')
+        request.session = {}
+        request.user = AnonymousUser()
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        def render():
+            return template.render(Context({'table': ColumnFixtureTable([]), 'request': request}))
+        baseline = render()
+        self.configure({'hidden': ['removed'], 'order': ['removed']})
+        self.assertEqual(render(), baseline)
+        self.configure({})
+        self.assertEqual(render(), baseline)
+
+    def test_all_hidden_retains_first_data_column_even_with_actions(self):
+        self.configure({'hidden': ['username', 'email', 'first_name', 'computed']}, row_actions_style='column')
+        self.assertEqual(self.names(ColumnFixtureTable([])), ['username', 'dlux_row_actions'])
+
+    def test_code_hidden_and_excluded_columns_cannot_be_revealed(self):
+        self.configure({'order': ['internal', 'email', 'username']})
+        table = ColumnFixtureTable([], exclude=('email',))
+        self.assertNotIn('internal', self.names(table))
+        self.assertNotIn('email', self.names(table))
+        self.assertEqual(self.names(table), ['username', 'first_name', 'computed'])
+
+    def test_new_and_removed_columns_are_safe_across_variants(self):
+        self.configure({'hidden': ['retired'], 'order': ['retired', 'email', 'email', 'username']})
+        self.assertEqual(self.names(ColumnFixtureTable([])), ['email', 'username', 'first_name', 'computed'])
+
+    def test_opted_out_tables_ignore_overlay(self):
+        class CustomTable(ColumnFixtureTable):
+            class Meta(ColumnFixtureTable.Meta):
+                template_name = 'project/custom-table.html'
+        self.configure({'hidden': ['email'], 'order': ['computed']})
+        self.assertIn('email', self.names(CustomTable([])))
+        self.assertEqual(self.names(CustomTable([]))[0], 'username')
+
+    def test_framework_columns_keep_their_positions_and_visibility(self):
+        class ProtectedTable(ColumnFixtureTable):
+            scope = tables.Column()
+            created_at = tables.Column()
+            deleted_at = tables.Column()
+            class Meta(ColumnFixtureTable.Meta):
+                pass
+        self.configure({'hidden': ['scope', 'dlux_row_actions', 'created_at', 'deleted_at'],
+                        'order': ['dlux_row_actions', 'scope', 'computed']}, row_actions_style='both')
+        table = ProtectedTable([])
+        self.assertEqual(self.names(table), ['computed', 'username', 'email', 'first_name', 'scope', 'dlux_row_actions'])
+        self.assertNotIn('created_at', table.columns.names())
+        self.assertNotIn('deleted_at', table.columns.names())
+
+    def test_discovery_context_restores_after_failure(self):
+        self.configure({'hidden': ['email']})
+        with self.assertRaises(ValueError), baseline_table_columns():
+            raise ValueError('broken table')
+        self.assertNotIn('email', self.names(ColumnFixtureTable([])))
+
+    def test_overlay_cannot_hide_permitted_audit_or_deletion_columns(self):
+        from dlux.models import DluxNotification
+        from dlux.system.constants import record_visibility_column_names
+        from dlux.utils.crud import _build_generic_table_class
+        from dlux.utils.authorization import audit_fields_visible, soft_deleted_visible
+
+        user = get_user_model().objects.create_superuser('column-admin', 'columns@example.com', 'test-password')
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.tables_config = {**instance.tables_config, 'show_audit_fields': True, 'show_soft_deleted': True,
+            'columns': {DluxNotification._meta.label_lower: {
+                'hidden': list(record_visibility_column_names()),
+                'order': list(record_visibility_column_names()),
+            }}}
+        instance.save()
+        clear_system_config_cache()
+        self.assertTrue(audit_fields_visible(user), get_system_config().get('tables_config'))
+        self.assertTrue(soft_deleted_visible(user))
+        request = RequestFactory().get('/')
+        request.user = user
+        table_class = _build_generic_table_class(DluxNotification)
+        with baseline_table_columns():
+            baseline = table_class([], request=request)
+        table = table_class([], request=request)
+        self.assertEqual(self.names(table), self.names(baseline))
+        self.assertIn('created_at', self.names(table))
+        self.assertIn('deleted_at', self.names(table))
+
+    def test_scope_exclusion_cannot_be_overridden_by_saved_order(self):
+        from dlux.models import DluxNotification
+        from dlux.utils.crud import _build_generic_table_class
+        instance = SystemSettings.load()
+        instance.tables_config = {'columns': {DluxNotification._meta.label_lower: {
+            'order': ['scope', 'title'],
+        }}}
+        instance.save()
+        clear_system_config_cache()
+        with patch('dlux.utils.is_scope_enabled', return_value=False):
+            table = _build_generic_table_class(DluxNotification)([])
+        self.assertNotIn('scope', self.names(table))
+
+
+class TableColumnDiscoveryTests(_TableColumnTestSupport, TestCase):
+    def catalog(self, patterns):
+        with patch('dlux.discovery.tables.get_resolver') as resolver, patch(
+            'dlux.utils.sections.discover_section_models', return_value=[]
+        ):
+            resolver.return_value.url_patterns = patterns
+            return table_column_catalog()
+
+    def test_discovers_baseline_and_custom_labels_without_rows(self):
+        self.configure({'hidden': ['email']})
+        get_system_config()
+        self.catalog([path('users/', ColumnFixtureView.as_view(), name='fixture_users')])
+        with CaptureQueriesContext(connection) as queries:
+            result = self.catalog([path('users/', ColumnFixtureView.as_view(), name='fixture_users')])
+        self.assertFalse(any('auth_user' in query['sql'] for query in queries))
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['key'], 'auth.user')
+        self.assertEqual([item['name'] for item in result[0]['columns']], ['username', 'email', 'first_name', 'computed'])
+        self.assertEqual(result[0]['columns'][-1]['label'], 'Computed label')
+
+    def test_merges_variants_and_duplicate_routes_by_model(self):
+        class Variant(ColumnFixtureTable):
+            other = tables.Column(verbose_name='Other')
+            class Meta(ColumnFixtureTable.Meta):
+                pass
+        class VariantView(View):
+            table_class = Variant
+        result = self.catalog([
+            path('first/', ColumnFixtureView.as_view(), name='first'),
+            path('second/', VariantView.as_view(), name='second'),
+        ])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['routes'], ['first', 'second'])
+        names = [item['name'] for item in result[0]['columns']]
+        self.assertEqual(names.count('username'), 1)
+        self.assertIn('other', names)
+
+    def test_dynamic_table_class_receives_request_and_route_kwargs_are_skipped_safely(self):
+        class DynamicView(View):
+            def get_table_class(self):
+                return ColumnFixtureTable
+        result = self.catalog([path('users/<int:pk>/', DynamicView.as_view(), name='dynamic')])
+        self.assertEqual(result[0]['routes'], ['dynamic'])
+
+    def test_broken_host_logs_diagnostic_and_keeps_other_tables(self):
+        class BrokenTable(ColumnFixtureTable):
+            def __init__(self, *args, **kwargs):
+                raise ValueError('missing project dependency')
+        class BrokenView(View):
+            table_class = BrokenTable
+        with self.assertLogs('dlux', level='WARNING') as logs:
+            result = self.catalog([
+                path('broken/', BrokenView.as_view(), name='broken'),
+                path('users/', ColumnFixtureView.as_view(), name='working'),
+            ])
+        self.assertEqual(result[0]['routes'], ['working'])
+        self.assertIn('broken', '\n'.join(logs.output))
+
+    @override_settings(DLUX_AUDIT_COLUMNS=('computed',))
+    def test_project_audit_extensions_stay_out_of_catalog(self):
+        result = self.catalog([path('users/', ColumnFixtureView.as_view(), name='users')])
+        self.assertNotIn('computed', [item['name'] for item in result[0]['columns']])
+
+    def test_generated_manager_and_section_tables_are_discovered(self):
+        from dlux.views.sections import DynamicModalManagerView
+        from dlux.utils.crud import _build_generic_table_class
+        with patch('dlux.utils.sections.discover_section_models', return_value=[{
+            'table_class': _build_generic_table_class(get_user_model()),
+        }]), patch('dlux.discovery.tables.get_resolver') as resolver:
+            resolver.return_value.url_patterns = [path('manage/', DynamicModalManagerView.as_view(
+                model=get_user_model()), name='manager')]
+            result = table_column_catalog()
+        self.assertEqual(result[0]['routes'], ['manager', 'manage_sections'])
+
+    def test_framework_columns_never_appear_as_configurable(self):
+        table = ColumnFixtureTable([])
+        self.assertNotIn('dlux_row_actions', [column.name for column in configurable_table_columns(table)])
+
+    def test_request_language_uses_model_qualified_translation(self):
+        with patch('dlux.translations.get_current_language_code', return_value='ar'), patch(
+            'dlux.translations.get_strings', return_value={
+                'models_user': 'المستخدمون', 'tbl_user_email': 'البريد الإلكتروني',
+            }
+        ):
+            result = self.catalog([path('users/', ColumnFixtureView.as_view(), name='users')])
+        self.assertEqual(result[0]['label'], 'المستخدمون')
+        self.assertEqual(next(item['label'] for item in result[0]['columns'] if item['name'] == 'email'), 'البريد الإلكتروني')
+
+    def test_settings_form_catalog_is_lazy_and_reuses_discovery_result(self):
+        from dlux.forms.system_settings import SystemSettingsForm
+        with patch('dlux.discovery.tables.table_column_catalog', return_value=[{'key': 'auth.user'}]) as discover:
+            form = SystemSettingsForm(instance=SystemSettings.load())
+            discover.assert_not_called()
+            self.assertEqual(form.table_columns_catalog, [{'key': 'auth.user'}])
+            self.assertEqual(form.table_columns_catalog, [{'key': 'auth.user'}])
+            discover.assert_called_once_with(request=form.request)
 
 
 class TableColumnsNormalizationTests(SimpleTestCase):

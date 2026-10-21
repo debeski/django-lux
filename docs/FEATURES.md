@@ -84,4 +84,4 @@ See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal 
 
 ## In development: table column builder
 
-The 1.14 branch adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, and defensive model-keyed column configuration. The column builder and rendering overlay remain pending; see [table-columns.md](table-columns.md).
+The 1.14 branch adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed column discovery, and a runtime visibility/ordering overlay for generated and handwritten tables. Dedicated record-visibility gates remain in control. The interactive column builder remains pending; see [table-columns.md](table-columns.md).

@@ -9,8 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Table Column Discovery and Overlay (1.14)**: Discover model-keyed baseline columns from table views, dynamic managers and sections, with translated headers and skipped-host diagnostics. Apply sparse visibility/order preferences through shared table initialization; ignore stale names, preserve code exclusions and dedicated framework columns, and retain a data column when all would be hidden. Expose discovery lazily on the settings form; interactive builder pending.
+- **Idempotent Table Initialization**: Avoid stacking the table hook when Django rebuilds its app registry; repeated installation previously reran audit/deletion authorization after the request had been consumed, hiding columns permitted by the original request.
 - **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register defensive, model-keyed sparse `hidden`/`order` configuration with runtime settings and import/export.
-- **Tables Settings Step (1.14)**: Place Tables between Ribbon and Components; relocate table density, accent edges, resizing, zebra stripes, sticky headers, row actions and record-visibility controls. Read legacy preferences through into canonical `tables_config` and migrate them on save, preserving flat keys, `layout_config` mirrors, partial imports and settings saved from unrelated sections. Refresh older singleton cache entries and track loaded values so cached canonical defaults cannot override a legacy edit. Column rendering remains unchanged.
+- **Tables Settings Step (1.14)**: Place Tables between Ribbon and Components; relocate table density, accent edges, resizing, zebra stripes, sticky headers, row actions and record-visibility controls. Read legacy preferences through into canonical `tables_config` and migrate them on save, preserving flat keys, `layout_config` mirrors, partial imports and settings saved from unrelated sections. Refresh older singleton cache entries and track loaded values so cached canonical defaults cannot override a legacy edit.
 - **Settings Preview Routing**: Add Tables to the frontend step registry and guard its order against the canonical backend registry; select Options tiles by stable step slug in preview tests so later sections keep opening their own previews.
 
 ## v1.13.0b1

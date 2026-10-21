@@ -18,6 +18,7 @@ from django.db import transaction
 from django.apps import apps
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils.functional import cached_property
 from django.urls import NoReverseMatch, reverse
 from ..system.constants import (
     NONVISUAL_PREVIEW_FIELDS,
@@ -917,6 +918,12 @@ class SystemSettingsForm(
     terms_url = forms.CharField(required=False, max_length=500)
     privacy_notice_text = forms.CharField(required=False, max_length=500)
     registration_require_consent = forms.BooleanField(required=False, initial=False)
+
+    @cached_property
+    def table_columns_catalog(self):
+        from ..discovery.tables import table_column_catalog
+
+        return table_column_catalog(request=self.request)
 
     def clean_tables_config(self):
         from ..system.table_columns import normalize_tables_config
