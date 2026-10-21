@@ -5,13 +5,10 @@ Everything a project needs from the outside world goes through it, over a small,
 typed, audited channel. This page states the rule, the topology it produces, and
 how a project developer asks for an outbound call.
 
-> **Status.** The topology and the rule below describe what the scaffold already
-> does. The relay is **implemented on feature branches and not yet released**: the
-> agent side in Composer (`composer/relay.py`, `composer relay`, needs Composer
-> 1.6.0b1 or newer) and the client in DjangoLux (`dlux.relay`). Until both are
-> released and installed, the only supported route out for project code is the
-> interim in "Until the relay ships". `python manage.py dlux_relay` tells you
-> whether the agent you are running answers.
+> **Status.** Released in DjangoLux 1.10.0 (`dlux.relay`) with Composer 1.6.0
+> (`composer/relay.py`, `composer relay`). A stack still on an older Composer has no
+> relay; the interim in "Until the relay ships" applies there only.
+> `python manage.py dlux_relay` tells you whether the agent you are running answers.
 
 ## The topology
 

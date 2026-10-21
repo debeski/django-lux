@@ -33,8 +33,8 @@ Project state, tasks and known bugs: see `tracker.md`.
 - **Outbound network calls.** Never open a connection to a public host from code
   that runs in `web` or `celery`; route it through the Composer relay
   (`docs/outbound-requests.md`). New features that need the internet ship as relay
-  operations, not as a `celery` `egress` requirement. The relay is designed
-  (`egress_relay_plan.md`, repo root) but not yet implemented.
+  operations, not as a `celery` `egress` requirement. The relay shipped in
+  DjangoLux 1.10.0 (`dlux.relay`) with Composer 1.6.0.
 - **Removed/deprecated APIs** are tracked in `docs/deprecation-countdown.md` with a
   removal target version — keep it current.
 
