@@ -30,7 +30,7 @@ Project state, tasks and known bugs: see `tracker.md`.
   overrides any personal rule asking for approval before each worktree removal.
 - **Sibling repos stay in step.** `app-composer` (stack contract, manifest
   `requires` keys, updater/ops protocol, relay operations, maintenance page) and
-  `app-ScanLink` (the ScanLink protocol behind `window.DluxScan`) follow DjangoLux
+  `app-scanlink` (the ScanLink protocol behind `window.DluxScan`) follow DjangoLux
   in the same release cycle, under the same branch and retirement rules (each has
   its own `AGENTS.md`). A DjangoLux change that needs them ships with their paired
   beta, accepted together on `testbed-dlux`. The DLB viewer (`tools/dlb-viewer`)
