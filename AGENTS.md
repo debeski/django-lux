@@ -18,6 +18,16 @@ Project state, tasks and known bugs: see `tracker.md`.
   do not develop features directly on `main` or reuse another active feature's
   branch. Merge only after that branch's implementation, docs, and tests pass;
   perform shared release versioning and tagging after selecting work for integration.
+- **Branch names.** Name a branch `<release line>/<work>` in snake_case, for
+  example `1.13/operations_panel` or `1.14/table_builder`. Its checkout directory
+  is the last path segment (`../operations_panel`).
+- **Retire merged branches without asking.** Once a branch is merged into `main`
+  and safe to discard, retire it: move its ignored leftovers (`.xclude/`, venv
+  links, e2e state and screenshots) into
+  `main/.xclude/retired-worktrees/<date>/<checkout>/`, `git worktree remove` the
+  checkout, and delete the branch locally and on GitHub. Stop and ask only when
+  something blocks it (unmerged commits, a conflict, uncommitted work). This
+  overrides any personal rule asking for approval before each worktree removal.
 - **Downstream first.** Before moving or renaming a template, static file or public
   symbol, grep the consumer projects (`../project-archive`, `../project-decrees`,
   `../project-dhub`, `../project-dlux-crm`, `../project-dlux-panel`,

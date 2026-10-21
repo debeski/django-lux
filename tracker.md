@@ -90,7 +90,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Worktrees (2026-10-21): `main` (primary) and `../table-column-builder` (`feat/table-column-builder`, no commits yet; plan artifact "Table Column Builder", Phase 1 shipped in 1.8.14). Release order (owner): finish, test and cut 1.12.3 first; then 1.13.0 (maintenance page + operations centre, with Composer 1.7.0); the table column builder follows, likely 1.14.0. All other branches retired (local + GitHub).
+- Worktrees (2026-10-21): `main` (primary) and `../table_builder` (`1.14/table_builder`, no commits yet; plan artifact "Table Column Builder", Phase 1 shipped in 1.8.14). Release order (owner): 1.12.3 done; next 1.13.0 (maintenance page + operations centre, with Composer 1.7.0) on `1.13/<work>` branches; the table column builder follows, likely 1.14.0. Branch naming and retire-after-merge rules are in `AGENTS.md`.
 - `audit/settings-persistence-audit` (from released 1.12.0 `0b3e4ee`) committed as the 1.12.1b1 candidate (owner asked 2026-10-21 to ship it as 1.12.1 before the table column builder). b1 tagged, published and accepted 2026-10-21; next is stable 1.12.1 (owner OK). `feat/table-column-builder` (`../table-column-builder`) waits on it; it rebases onto 1.12.1.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
