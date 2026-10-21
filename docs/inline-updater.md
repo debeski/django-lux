@@ -216,13 +216,13 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 | `services` | no | Composer 1.7.0b2+ |
 | `service-restart` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
 | `service-recreate` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
-| `logs-tail` | no | Composer 1.7.0b2+, a `service`, and `lines` (1–1000, default 200) |
+| `logs-tail` | no | Composer 1.7.0b3+, `lines` (1–1000, default 200), and optionally a `service`; without one, every service merged in time order |
 
 The only arguments a request can carry are a service name (letters, digits, `_`
 and `-`, at most 64 characters) and a line count; DjangoLux validates them, stores
 them on the run (`DluxOpsRun.params`), and Composer checks the service against the
 stack again, the executor once more. The panel's operations need Composer
-1.7.0b2+, but an older Composer only disables their buttons with the reason — it
+1.7.0b2+ (`logs-tail` 1.7.0b3+), but an older Composer only disables their buttons with the reason — it
 does not mark the deployment as behind.
 
 Each floor names the release's first prerelease rather than the release: PEP 440

@@ -1,14 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.13.0b2",
+  "version": "1.13.0b3",
   "display": {
-    "summary": "An Operations panel for the deployment: check and repair it, restart services, read their logs.",
+    "summary": "Operations panel polish: logs of every service, a lighter services table, a one-row admin rail.",
     "highlights": [
-      "Options > admin rail > Operations runs the deployment check and applies its repairs, restarts or recreates allow-listed services and shows recent logs (needs Composer 1.7.0b2+).",
-      "The Updates card keeps only what can be updated; the deployment check moved to the Operations panel.",
-      "Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
+      "Operations panel: services load on open; logs of every service, merged in time order, stay on screen (Composer 1.7.0b3+).",
+      "Services get icon actions with tooltips and an inline note for protected ones; a long deployment check starts as a two-line summary.",
+      "Operations is the first action in the admin rail, and the rail stays on one row while it fits.",
+      "Includes 1.13.0b2: the Operations panel. Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b3"
   },
   "requires": {
     "updater_schema": ">=1",

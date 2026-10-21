@@ -55,7 +55,8 @@
         const diffsEl = root.querySelector('[data-dlux-ops-panel-diffs]');
         const applyButton = root.querySelector('[data-dlux-ops-panel-apply]');
         const servicesEl = root.querySelector('[data-dlux-ops-panel-services]');
-        const logsWrap = root.querySelector('[data-dlux-ops-panel-logs-wrap]');
+        const findingsToggle = root.querySelector('[data-dlux-ops-panel-findings-toggle]');
+        const logsAllButton = root.querySelector('[data-dlux-ops-panel-logs-all]');
         const logsTitle = root.querySelector('[data-dlux-ops-panel-logs-title]');
         const logsEl = root.querySelector('[data-dlux-ops-panel-logs]');
         const runButtons = Array.from(root.querySelectorAll('[data-dlux-ops-panel-run]'));
@@ -65,6 +66,7 @@
         let spinner = null;
         let shownLogsToken = '';
         let refreshAfter = '';
+        let autoLoaded = false;
 
         function spec(name) {
             return (state.operations || []).find((operation) => operation.name === name) || null;
@@ -123,6 +125,14 @@
                     item.appendChild(body);
                     findingsEl.appendChild(item);
                 });
+                const count = findingsEl.children.length;
+                if (findingsToggle) {
+                    findingsToggle.hidden = count <= 2;
+                    const collapsed = findingsEl.classList.contains('is-collapsed');
+                    findingsToggle.textContent = collapsed
+                        ? (labels.labelShowAll || 'Show all ({count})').replace('{count}', String(count))
+                        : (labels.labelShowLess || 'Show less');
+                }
             }
             const repairs = repairsOf(run);
             if (diffsEl) {
@@ -148,10 +158,11 @@
         }
 
         function actionButton(label, icon, onClick, disabled) {
-            const button = element('button', 'btn btn-sm btn-outline-secondary');
+            const button = element('button', 'btn btn-sm dlux-ops-icon');
             button.type = 'button';
+            button.title = label;
+            button.setAttribute('aria-label', label);
             button.appendChild(element('i', `bi ${icon}`));
-            button.appendChild(document.createTextNode(` ${label}`));
             button.disabled = disabled;
             button.addEventListener('click', () => onClick(button));
             return button;
@@ -178,8 +189,11 @@
                     : [service.state, service.health].filter(Boolean).join(' · ');
                 const tone = service.state === 'running' && service.health !== 'unhealthy' ? 'ok' : 'warn';
                 row.appendChild(element('td', `small dlux-ops-state dlux-ops-state--${tone}`, stateText));
-                const actions = element('td', 'text-end');
-                const group = element('div', 'btn-group btn-group-sm');
+                const actions = element('td', 'text-end text-nowrap');
+                if (!service.can_restart) {
+                    actions.appendChild(element('span', 'dlux-ops-note', labels.labelProtected || ''));
+                }
+                const group = element('span', 'dlux-ops-actions');
                 if (service.can_restart) {
                     group.appendChild(actionButton(labels.labelRestart || 'Restart', 'bi-arrow-repeat',
                         (button) => confirmServiceOperation('service-restart', service.name, button),
@@ -192,23 +206,26 @@
                     (button) => start('logs-tail', { service: service.name, lines: 200 }, button),
                     locked || !available('logs-tail')));
                 actions.appendChild(group);
-                if (!service.can_restart) {
-                    actions.appendChild(element('div', 'small text-muted', labels.labelProtected || ''));
-                }
                 row.appendChild(actions);
                 servicesEl.appendChild(row);
             });
         }
 
         function renderLogs() {
-            const run = state.run;
-            if (!run || run.operation !== 'logs-tail' || run.status !== 'completed' || run.token === shownLogsToken) {
+            const run = state.logs;
+            if (!run) {
+                if (logsTitle) { logsTitle.textContent = ''; }
+                if (logsEl && !logsEl.textContent) { logsEl.textContent = labels.labelNoLogs || ''; }
                 return;
             }
+            if (run.token === shownLogsToken) { return; }
             shownLogsToken = run.token;
             const params = run.params || {};
+            const template = params.service
+                ? (labels.labelLogsOf || 'Last {lines} lines of {service}')
+                : (labels.labelLogsAll || 'Last {lines} lines of all services');
             if (logsTitle) {
-                logsTitle.textContent = (labels.labelLogsOf || 'Last {lines} lines of {service}')
+                logsTitle.textContent = template
                     .replace('{lines}', String(params.lines || ''))
                     .replace('{service}', String(params.service || ''));
             }
@@ -216,7 +233,6 @@
                 logsEl.textContent = run.logs || '';
                 logsEl.scrollTop = logsEl.scrollHeight;
             }
-            if (logsWrap) { logsWrap.hidden = false; }
         }
 
         function render(payload) {
@@ -233,6 +249,13 @@
             renderCheck();
             renderServices();
             renderLogs();
+            if (logsAllButton) { logsAllButton.disabled = busy() || !available('logs-tail'); }
+            // The list is what the panel is for; fetch it when it opens rather
+            // than asking for a click, unless something else is already running.
+            if (!autoLoaded && !busy() && available('services')) {
+                autoLoaded = true;
+                start('services').catch(() => {});
+            }
             // A restart or recreate changes what the service list shows.
             if (ours && run.status === 'completed' && refreshAfter === run.token) {
                 refreshAfter = '';
@@ -301,6 +324,13 @@
             button.addEventListener('click', () => {
                 start(button.dataset.dluxOpsPanelRun, {}, button).catch(() => {});
             });
+        });
+        findingsToggle?.addEventListener('click', () => {
+            findingsEl.classList.toggle('is-collapsed');
+            renderCheck();
+        });
+        logsAllButton?.addEventListener('click', () => {
+            start('logs-tail', { lines: 200 }, logsAllButton).catch(() => {});
         });
         applyButton?.addEventListener('click', () => {
             confirmed('check-fix-apply', labels.labelApplyNote || '', applyButton, {});

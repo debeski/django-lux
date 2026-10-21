@@ -611,6 +611,10 @@ class PanelOperationTests(SimpleTestCase):
                          {"service": "celery", "lines": ops.LOG_LINES_MAX})
         self.assertEqual(ops.normalize_params("logs-tail", {"service": "web", "lines": "x"})["lines"],
                          ops.LOG_LINES_DEFAULT)
+        self.assertEqual(ops.normalize_params("logs-tail", {"service": ""}), {"lines": ops.LOG_LINES_DEFAULT},
+                         "no service means every service")
+        with self.assertRaises(UpdaterError):
+            ops.normalize_params("logs-tail", {"service": "web;id"})
         self.assertEqual(ops.normalize_params("check", {"service": "web"}), {}, "check takes no arguments")
         for bad in ("", "web;rm -rf /", "../db", "a" * 65, "ويب"):
             with self.subTest(service=bad), self.assertRaises(UpdaterError):
@@ -622,7 +626,8 @@ class PanelOperationTests(SimpleTestCase):
         allowed, reason = ops.supports("service-restart", "1.6.1")
         self.assertFalse(allowed)
         self.assertIn("1.7.0b2", reason)
-        self.assertTrue(ops.supports("logs-tail", "1.7.0b2")[0])
+        self.assertFalse(ops.supports("logs-tail", "1.7.0b2")[0], "all-services logs arrived in 1.7.0b3")
+        self.assertTrue(ops.supports("logs-tail", "1.7.0b3")[0])
 
     def test_restart_and_recreate_change_the_deployment_logs_do_not(self):
         self.assertTrue(ops.OPERATIONS["service-restart"]["changes_deployment"])
@@ -634,7 +639,7 @@ class PanelOperationTests(SimpleTestCase):
 class PanelRunLifecycleTests(OpsRunLifecycleTests):
     def test_arguments_travel_with_the_request_and_results_come_back(self):
         with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name), \
-                mock.patch("dlux.updater.ops.resident_composer_version", return_value="1.7.0b2"):
+                mock.patch("dlux.updater.ops.resident_composer_version", return_value="1.7.0b3"):
             run = queue_ops_run("logs-tail", username="root", params={"service": "web", "lines": "50"})
         self.assertEqual(run.params, {"service": "web", "lines": 50})
         tick_ops_run(self.service)
@@ -649,6 +654,12 @@ class PanelRunLifecycleTests(OpsRunLifecycleTests):
         payload = serialize_ops_run(run)
         self.assertEqual(payload["logs"], "hello\n")
         self.assertEqual(payload["params"], {"service": "web", "lines": 50})
+        # The panel reads logs from their own slot, so a later run cannot hide them.
+        with mock.patch("dlux.updater.ops.resident_composer_version", return_value="1.7.0b3"):
+            later = queue_ops_run("services", username="root")
+        state = get_ops_state()
+        self.assertEqual(state["run"]["token"], later.token)
+        self.assertEqual(state["logs"]["logs"], "hello\n")
 
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
@@ -673,7 +684,7 @@ class PanelViewTests(FixApplyViewTests):
         self.assertEqual(response.json()["run"]["params"], {"service": "web"})
 
     def test_reading_logs_needs_no_password(self):
-        with mock.patch("dlux.updater.ops.resident_composer_version", return_value="1.7.0b2"):
+        with mock.patch("dlux.updater.ops.resident_composer_version", return_value="1.7.0b3"):
             response = self._post({"operation": "logs-tail", "service": "web", "lines": "20"})
         self.assertEqual(response.status_code, 200)
 

@@ -29,7 +29,7 @@
 }
 
 .dlux-ops-logs {
-    max-height: 22rem;
+    max-height: 13rem;
     overflow: auto;
     margin: 0;
     padding: 0.75rem;
@@ -40,4 +40,39 @@
     white-space: pre-wrap;
     word-break: break-word;
     text-align: left;
+}
+
+/* Findings start as a two-line summary; the toggle shows the rest. */
+.dlux-ops-panel .dlux-ops-findings.is-collapsed {
+    max-height: 3.4rem;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.dlux-ops-icon {
+    padding: 0.15rem 0.4rem;
+    border: 0;
+    background: transparent;
+    color: var(--primal);
+    line-height: 1;
+}
+
+.dlux-ops-icon:hover:not(:disabled),
+.dlux-ops-icon:focus-visible {
+    background: rgba(var(--primal-rgb), 0.12);
+}
+
+.dlux-ops-icon:disabled {
+    opacity: 0.4;
+}
+
+.dlux-ops-actions {
+    display: inline-flex;
+    gap: 0.15rem;
+}
+
+.dlux-ops-note {
+    margin-inline-end: 0.5rem;
+    font-size: 0.72rem;
+    opacity: 0.6;
 }

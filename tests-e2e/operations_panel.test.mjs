@@ -65,6 +65,11 @@ let server;
 let browser;
 let page;
 
+// Opening the panel refreshes the service list by itself; this is what came after.
+const actions = () => page.evaluate(() => window.__posted.filter((body) => body.operation !== 'services'));
+const waitForAction = () => page.waitForFunction(
+  () => window.__posted.some((body) => body.operation !== 'services'));
+
 async function load(state) {
   await page.addInitScript((payload) => {
     window.__posted = [];
@@ -80,11 +85,16 @@ async function load(state) {
         const body = {};
         (options.body || new FormData()).forEach((value, key) => { body[key] = value; });
         window.__posted.push(body);
-        return respond({ ok: true, run: { token: `r${window.__posted.length}`, operation: body.operation, status: 'running', active: true } });
+        // The service list answers at once, as it does on a real stack in a second or two.
+        const quick = body.operation === 'services';
+        return respond({ ok: true, run: {
+          token: `r${window.__posted.length}`, operation: body.operation,
+          status: quick ? 'completed' : 'running', active: !quick,
+        } });
       }
       return respond({ ok: true, ...window.__state });
     };
-  }, { operations: OPERATIONS, run: null, check: null, services: null, has_preview: false, ...state });
+  }, { operations: OPERATIONS, run: null, check: null, services: null, logs: null, has_preview: false, ...state });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel]')?.dataset.bound === 'true');
 }
@@ -128,17 +138,44 @@ describe('deployment check in the panel', () => {
     assert.equal(await page.locator('.dlux-ops-finding-message').textContent(), 'The proxy serves the project page.');
     assert.equal(await page.locator('.dlux-ops-diff').textContent(), '+  handle /_dlux/maintenance/*');
     await page.locator('[data-dlux-ops-panel-apply]').click();
-    await page.waitForFunction(() => window.__posted.length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__posted[0]),
-      { operation: 'check-fix-apply', current_password: 'pw-root-1234' });
+    await waitForAction();
+    assert.deepEqual((await actions())[0], { operation: 'check-fix-apply', current_password: 'pw-root-1234' });
   });
 
   test('running the check asks for no password', async () => {
     await load({});
     await page.locator('[data-dlux-ops-panel-run="check"]').click();
-    await page.waitForFunction(() => window.__posted.length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__posted[0]), { operation: 'check' });
+    await waitForAction();
+    assert.deepEqual((await actions())[0], { operation: 'check' });
     assert.equal(await page.evaluate(() => window.__confirms.length), 0);
+  });
+
+  test('a long check starts as a short summary and expands on request', async () => {
+    const findings = Array.from({ length: 6 }, (_, index) => ({ level: 'ok', name: `n${index}`, message: `fine ${index}` }));
+    await load({ check: { ...REPAIR_CHECK, findings, repairs: [], summary: { total: 6, ok: 6, warn: 0, fail: 0 } } });
+    const list = page.locator('[data-dlux-ops-panel-findings]');
+    const toggle = page.locator('[data-dlux-ops-panel-findings-toggle]');
+    assert.equal(await toggle.textContent(), 'Show all (6)');
+    const collapsed = await list.evaluate((el) => el.clientHeight);
+    assert.ok(collapsed < await list.evaluate((el) => el.scrollHeight), 'collapsed hides the rest');
+    await toggle.click();
+    assert.equal(await toggle.textContent(), 'Show less');
+    assert.ok(await list.evaluate((el) => el.clientHeight) > collapsed);
+  });
+});
+
+describe('opening the panel', () => {
+  test('loads the service list without a click', async () => {
+    await load({});
+    await page.waitForFunction(() => window.__posted.length > 0);
+    assert.deepEqual(await page.evaluate(() => window.__posted[0]), { operation: 'services' });
+    assert.equal(await page.evaluate(() => window.__posted.length), 1, 'once per opening');
+  });
+
+  test('does not interrupt a run already in progress', async () => {
+    await load({ run: { token: 'x', operation: 'check', status: 'running', active: true } });
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__posted.length), 0);
   });
 });
 
@@ -150,16 +187,18 @@ describe('services in the panel', () => {
     assert.equal(await rows.nth(0).locator('td').first().textContent(), 'web');
     assert.match(await rows.nth(0).locator('td').nth(1).textContent(), /running · healthy/);
     assert.equal(await rows.nth(0).locator('button').count(), 3, 'restart, recreate, logs');
+    assert.equal(await rows.nth(0).locator('button').first().textContent(), '', 'actions are icons');
+    assert.equal(await rows.nth(0).locator('button').first().getAttribute('title'), 'Restart');
     assert.equal(await rows.nth(1).locator('button').count(), 1, 'a protected service only offers logs');
-    assert.match(await rows.nth(1).textContent(), /Protected/);
+    assert.match(await rows.nth(1).locator('.dlux-ops-note').textContent(), /Protected/);
     assert.match(await rows.nth(2).textContent(), /not created/);
   });
 
   test('restart confirms with the password and names the service', async () => {
     await load({ services: SERVICES });
     await page.locator('[data-dlux-ops-panel-services] tr').first().getByRole('button', { name: /Restart/ }).click();
-    await page.waitForFunction(() => window.__posted.length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__posted[0]),
+    await waitForAction();
+    assert.deepEqual((await actions())[0],
       { operation: 'service-restart', service: 'web', current_password: 'pw-root-1234' });
     assert.match(await page.evaluate(() => window.__confirms[0].description), /web/);
   });
@@ -167,18 +206,35 @@ describe('services in the panel', () => {
   test('logs need no password and render as text once the run completes', async () => {
     await load({ services: SERVICES });
     await page.locator('[data-dlux-ops-panel-services] tr').nth(1).getByRole('button', { name: /Logs/ }).click();
-    await page.waitForFunction(() => window.__posted.length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__posted[0]), { operation: 'logs-tail', service: 'db', lines: '200' });
+    await waitForAction();
+    assert.deepEqual((await actions())[0], { operation: 'logs-tail', service: 'db', lines: '200' });
     await page.evaluate(() => {
-      window.__state = { ...window.__state, run: {
-        token: 'r1', operation: 'logs-tail', status: 'completed', active: false, error: '',
+      const logs = {
+        token: 'r9', operation: 'logs-tail', status: 'completed', active: false, error: '',
         params: { service: 'db', lines: 200 }, logs: '<b>not html</b>\nready',
-      } };
+      };
+      window.__state = { ...window.__state, run: logs, logs };
     });
-    await page.waitForFunction(() => !document.querySelector('[data-dlux-ops-panel-logs-wrap]').hidden, null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel-logs]').textContent.includes('ready'),
+      null, { timeout: 5000 });
     assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), '<b>not html</b>\nready');
     assert.equal(await page.locator('[data-dlux-ops-panel-logs] b').count(), 0, 'logs are text, never markup');
     assert.equal(await page.locator('[data-dlux-ops-panel-logs-title]').textContent(), 'Last 200 lines of db');
+  });
+
+  test('logs of every service load from the header icon and survive later runs', async () => {
+    const logs = {
+      token: 'l1', operation: 'logs-tail', status: 'completed', active: false, error: '',
+      params: { lines: 200 }, logs: 'web | up\ncelery | up',
+    };
+    await load({ services: SERVICES, logs, run: { ...SERVICES } });
+    assert.equal(await page.locator('[data-dlux-ops-panel-logs-title]').textContent(), 'Last 200 lines of all services');
+    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\ncelery | up');
+    await page.locator('[data-dlux-ops-panel-logs-all]').click();
+    await waitForAction();
+    assert.deepEqual((await actions())[0], { operation: 'logs-tail', lines: '200' });
+    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\ncelery | up',
+      'starting another run keeps the logs on screen');
   });
 
   test('an older Composer leaves the panel buttons disabled with the reason', async () => {

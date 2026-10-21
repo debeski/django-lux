@@ -690,7 +690,7 @@ global default.
 | `/sys/api/dlux-update/interval/` | `POST` | Superuser-only CSRF-protected, audited update check interval (`minutes`: 5, 15, 30, 60, 180, 360, 720 or 1440); published to Composer by the worker |
 | `/sys/api/dlux-ops/state/` | `GET` | Superuser-only deployment-row state: the available operations, the newest run, the last deployment check, the Composer agent's version against its channel, and `composer_behind` (`version`, `required`, `ops_blocked`) when that agent is older than an operation or this release's `requires.services.composer` floor |
 | `/sys/api/dlux-ops/run/` | `POST` | Superuser-only CSRF-protected, audited request for one named deployment operation (`operation`: `check`, `agent-check`, `check-fix-apply`, `agent-update`, `services`, `service-restart`, `service-recreate`, `logs-tail`; `service` and `lines` where the operation takes them); the write operations also re-verify `current_password`, and `check-fix-apply` may only apply what the last check showed |
-| `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, services with restart/recreate, logs; every action goes through `/sys/api/dlux-ops/run/` |
+| `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, services with restart/recreate, logs of one or every service; every action goes through `/sys/api/dlux-ops/run/` |
 | `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,

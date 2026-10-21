@@ -400,9 +400,10 @@ def get_ops_state():
         # what the deployment check found, and vice versa.
         check = _latest_completed("check", "check-fix-preview")
         services = _latest_completed("services")
+        logs = _latest_completed("logs-tail")
         resident = _resident_status(ops.resident_composer_version())
     except Exception:
-        run, check, services, resident = None, None, None, _resident_status("")
+        run, check, services, logs, resident = None, None, None, None, _resident_status("")
     composer_version = ops.resident_composer_version()
     operations = []
     for name, spec in ops.OPERATIONS.items():
@@ -422,6 +423,7 @@ def get_ops_state():
         "run": serialize_ops_run(run),
         "check": serialize_ops_run(check),
         "services": serialize_ops_run(services),
+        "logs": serialize_ops_run(logs),
         "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
         "composer_version": composer_version,

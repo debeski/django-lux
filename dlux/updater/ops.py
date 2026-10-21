@@ -105,11 +105,13 @@ OPERATIONS = {
         "label": "Recreate service",
     },
     "logs-tail": {
-        "min_composer": "1.7.0b2",
+        # 1.7.0b3 merges every service's logs when no service is named.
+        "min_composer": "1.7.0b3",
         "changes_deployment": False,
         "needs_preview": False,
         "panel": True,
-        "params": ("service", "lines"),
+        # No service means every service, merged in time order.
+        "params": ("service?", "lines"),
         "label": "Show logs",
     },
 }
@@ -142,12 +144,13 @@ def normalize_params(operation, raw):
     wanted = OPERATIONS[normalize_operation(operation)].get("params") or ()
     raw = raw or {}
     params = {}
-    if "service" in wanted:
+    if "service" in wanted or "service?" in wanted:
         service = str(raw.get("service") or "").strip()
-        if not service or len(service) > SERVICE_NAME_MAX or not all(c.isalnum() or c in "_-" for c in service) \
-                or not service.isascii():
-            raise UpdaterError("Choose a service from the list.")
-        params["service"] = service
+        if service or "service" in wanted:
+            if not service or len(service) > SERVICE_NAME_MAX or not service.isascii() \
+                    or not all(c.isalnum() or c in "_-" for c in service):
+                raise UpdaterError("Choose a service from the list.")
+            params["service"] = service
     if "lines" in wanted:
         try:
             lines = int(raw.get("lines") or LOG_LINES_DEFAULT)

@@ -26,15 +26,6 @@
                         {% if user.is_superuser %}
                         <div class="dlux-admin-command-launcher" data-admin-command-launcher>
                             <div class="dlux-admin-command-rail" data-admin-command-rail>
-                                <button class="dlux-admin-command-chip"
-                                   type="button"
-                                   data-dynamic-modal="{% url 'manage_assets' %}"
-                                   data-modal-title="{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}"
-                                   data-dlux-tooltip="{{ DLUX_STRINGS.asset_manager_desc|default:'Manage reusable images and fonts.' }}"
-                                   aria-label="{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}">
-                                    <i class="bi bi-images"></i>
-                                    <span>{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}</span>
-                                </button>
                                 {% if can_manage_dlux_updates %}
                                 <button class="dlux-admin-command-chip"
                                    type="button"
@@ -46,6 +37,15 @@
                                     <span>{{ DLUX_STRINGS.dlux_ops_panel_title|default:'Operations' }}</span>
                                 </button>
                                 {% endif %}
+                                <button class="dlux-admin-command-chip"
+                                   type="button"
+                                   data-dynamic-modal="{% url 'manage_assets' %}"
+                                   data-modal-title="{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}"
+                                   data-dlux-tooltip="{{ DLUX_STRINGS.asset_manager_desc|default:'Manage reusable images and fonts.' }}"
+                                   aria-label="{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}">
+                                    <i class="bi bi-images"></i>
+                                    <span>{{ DLUX_STRINGS.asset_manager_title|default:'Asset Manager' }}</span>
+                                </button>
                                 <a class="dlux-admin-command-chip"
                                    href="{% url 'control_panel' %}"
                                    data-control-panel-open

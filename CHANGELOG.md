@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.0b3
+
+- **Logs Of Every Service**: `logs-tail` takes an optional `service` (`params` `("service?", "lines")`); without one, Composer 1.7.0b3+ returns the newest lines of every service merged in time order as `service | message`, and the operation's floor rises to `1.7.0b3`. `get_ops_state()` adds `logs` (the latest completed `logs-tail`), so the panel's **Logs** section keeps its text while other operations run or the page reloads — before, refreshing the service list replaced the shown logs for good. The section is always present, opens on all services, and has a refresh icon (`data-dlux-ops-panel-logs-all`); its height drops to `13rem`.
+- **Panel Loads Services On Open**: `operations_panel.js` runs `services` once when the panel opens and nothing else is running; the **Load services** button becomes a refresh icon.
+- **Lighter Services Table**: restart (`bi-arrow-repeat`), recreate and logs are icon buttons (`.dlux-ops-icon`) with `title`/`aria-label`; a protected service's note sits inline in the actions cell, small and faint (`.dlux-ops-note`).
+- **Collapsed Check Findings**: the findings list starts clamped to about two lines (`.dlux-ops-findings.is-collapsed`) with a **Show all (N)** / **Show less** toggle when there are more than two.
+- **Admin Rail**: **Operations** is the rail's first action, and the open rail uses the full width (`.dlux-admin-command-launcher` `flex: 1 1 auto`), so it no longer wraps to two rows while there is room.
+
 ## v1.13.0b2
 
 - **Operations Panel**: Options > admin rail gains **Operations** (`/sys/operations/`, superuser-only dynamic modal, `operations_panel.html` + `system/js/operations_panel.js`): the deployment check with its findings and the exact `check --fix` diff inline, **Apply repairs**; a **Services** table (state, health) with **Restart** / **Recreate** for allow-listed services; **Logs** showing the last 200 lines of a service as plain text. Every action is a named operation through `/sys/api/dlux-ops/run/`; restart, recreate and apply confirm with the current password via the shared `dluxConfirmPassword` prompt.
