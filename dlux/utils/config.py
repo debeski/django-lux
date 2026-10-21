@@ -193,70 +193,6 @@ def _normalize_client_ip_header_name(value):
         normalized = f'HTTP_{normalized}'
     return normalized
 
-# Client IP - Function validates and clamps stored client IP settings.
-def normalize_client_ip_config(value):
-    normalized = default_client_ip_config()
-    if not isinstance(value, dict):
-        return normalized
-
-    mode = str(value.get('mode') or '').strip().lower()
-    if mode in CLIENT_IP_MODE_VALUES:
-        normalized['mode'] = mode
-
-    try:
-        trusted_proxy_hops = int(value.get('trusted_proxy_hops', normalized['trusted_proxy_hops']))
-    except (TypeError, ValueError):
-        trusted_proxy_hops = normalized['trusted_proxy_hops']
-    normalized['trusted_proxy_hops'] = max(0, min(trusted_proxy_hops, 8))
-
-    normalized['custom_header'] = _normalize_client_ip_header_name(value.get('custom_header'))
-    if normalized['mode'] != CLIENT_IP_MODE_CUSTOM:
-        normalized['custom_header'] = ''
-
-    return normalized
-
-# Email Config - Function validates transport settings and optional secret redaction.
-def normalize_email_config(value, *, redact_secret=False):
-    config = value if isinstance(value, dict) else {}
-    normalized = default_email_config()
-    transport = str(config.get('transport') or '').strip()
-    secret_storage = str(config.get('secret_storage') or '').strip()
-    if transport in EMAIL_CONFIG_TRANSPORTS:
-        normalized['transport'] = transport
-    if secret_storage in EMAIL_CONFIG_SECRET_STORAGES:
-        normalized['secret_storage'] = secret_storage
-    normalized['host'] = str(config.get('host') or '').strip()
-    try:
-        normalized['port'] = int(config.get('port') or normalized['port'])
-    except (TypeError, ValueError):
-        normalized['port'] = 587
-    normalized['use_tls'] = _coerce_import_bool(config.get('use_tls', normalized['use_tls']))
-    normalized['use_ssl'] = _coerce_import_bool(config.get('use_ssl', normalized['use_ssl']))
-    if normalized['use_ssl']:
-        normalized['use_tls'] = False
-    normalized['username'] = str(config.get('username') or '').strip()
-    normalized['default_from_email'] = str(config.get('default_from_email') or '').strip()
-    encrypted_password = str(config.get('encrypted_password') or '').strip()
-    normalized['encrypted_password'] = encrypted_password
-    normalized['password_configured'] = bool(encrypted_password or config.get('password_configured'))
-    if redact_secret:
-        normalized.pop('encrypted_password', None)
-    return normalized
-
-# Typography Config - Function keeps configured font slugs valid and unique.
-def normalize_allowed_fonts(allowed_fonts=None):
-    available = {font['slug'] for font in get_available_fonts()}
-    if allowed_fonts is None:
-        return list(available)
-
-    normalized = []
-    if isinstance(allowed_fonts, (list, tuple, set)):
-        for font in allowed_fonts:
-            if font in available and font not in normalized:
-                normalized.append(font)
-
-    return normalized or list(available)
-
 # Client IP - Function resolves the request IP from the configured proxy strategy.
 def get_client_ip(request):
     """Extract client IP address from request."""
@@ -454,73 +390,6 @@ def build_config_groups(config, current_language=None):
 def default_titlebar_config():
     return _default_titlebar_config()
 
-# Titlebar Config - Function returns a sanitized right-side action order.
-def normalize_titlebar_actions_order(value):
-    if not isinstance(value, (list, tuple)):
-        value = []
-    normalized = []
-    seen = set()
-    for item in value:
-        action_key = str(item or '').strip()
-        if action_key in TITLEBAR_ACTIONS_ORDER_VALUES and action_key not in seen:
-            normalized.append(action_key)
-            seen.add(action_key)
-    for action_key in TITLEBAR_ACTIONS_ORDER:
-        if action_key not in seen:
-            normalized.append(action_key)
-    return normalized
-
-# Titlebar Config - Function validates titlebar display settings.
-def normalize_titlebar_config(titlebar_config):
-    config = titlebar_config if isinstance(titlebar_config, dict) else {}
-    normalized = default_titlebar_config()
-    normalized['show_title'] = bool(config.get('show_title', normalized['show_title']))
-    normalized['show_logo'] = bool(config.get('show_logo', normalized['show_logo']))
-    normalized['show_home_button'] = bool(config.get('show_home_button', normalized['show_home_button']))
-    normalized['hide_on_public_unauthenticated_index'] = bool(
-        config.get(
-            'hide_on_public_unauthenticated_index',
-            normalized['hide_on_public_unauthenticated_index'],
-        )
-    )
-
-    buttons_shape = config.get('buttons_shape', config.get('home_shape'))
-    if buttons_shape in TITLEBAR_HOME_SHAPE_VALUES:
-        normalized['buttons_shape'] = buttons_shape
-        normalized['home_shape'] = buttons_shape
-
-    title_align = config.get('title_align')
-    if title_align in TITLEBAR_ALIGN_VALUES:
-        normalized['title_align'] = title_align
-
-    title_size = config.get('title_size')
-    if title_size in TITLEBAR_SIZE_VALUES:
-        normalized['title_size'] = title_size
-
-    height = config.get('height')
-    if height in TITLEBAR_HEIGHT_VALUES:
-        normalized['height'] = height
-
-    surface = config.get('surface')
-    if surface in TITLEBAR_SURFACE_VALUES:
-        normalized['surface'] = surface
-
-    logo_treatment = config.get('logo_treatment')
-    if logo_treatment in TITLEBAR_LOGO_TREATMENT_VALUES:
-        normalized['logo_treatment'] = logo_treatment
-
-    logo_treatment_shape = config.get('logo_treatment_shape')
-    if logo_treatment_shape in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
-        normalized['logo_treatment_shape'] = logo_treatment_shape
-
-    user_hub_style = config.get('user_hub_style')
-    if user_hub_style in TITLEBAR_USER_HUB_STYLE_VALUES:
-        normalized['user_hub_style'] = user_hub_style
-
-    normalized['actions_order'] = normalize_titlebar_actions_order(config.get('actions_order'))
-
-    return normalized
-
 # Login Config - Function returns default public login/register page settings.
 def default_login_config():
     return _default_login_config()
@@ -535,28 +404,8 @@ def default_backup_config():
     return _default_backup_config()
 
 
-# Auth Config - Function coerces the consolidated auth/session toggles/knobs.
-def normalize_auth_config(value):
-    # Delegate to the schema-owned normalizer so the key set (including the
-    # lockout threshold/window/duration and strong-password minimum length)
-    # can never drift between the two entry points.
-    return _system_normalize_auth_config(value)
-
-
 def default_registration_config():
     return _default_registration_config()
-
-
-def normalize_registration_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    activation_mode = cfg.get('registration_activation_mode') or REGISTRATION_ACTIVATION_AUTO_LOGIN
-    if activation_mode not in REGISTRATION_ACTIVATION_VALUES:
-        activation_mode = REGISTRATION_ACTIVATION_AUTO_LOGIN
-    return {
-        'public_registration_enabled': bool(cfg.get('public_registration_enabled', False)),
-        'registration_activation_mode': activation_mode,
-        'registration_throttle_enabled': bool(cfg.get('registration_throttle_enabled', True)),
-    }
 
 
 def default_public_root_config():
@@ -567,85 +416,20 @@ def default_homepage_config():
     return _default_homepage_config()
 
 
-def normalize_homepage_config(value):
-    return _system_normalize_homepage_config(value)
-
-
-def normalize_public_root_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    public_root = bool(cfg.get('public_root', False))
-    split_enabled = bool(cfg.get('public_root_split_enabled', False))
-    return {
-        'public_root': public_root,
-        'public_root_split_enabled': split_enabled,
-        'public_root_url': str(cfg.get('public_root_url') or '').strip(),
-    }
-
-
 def default_layout_config():
     return _default_layout_config()
-
-
-def normalize_layout_config(value):
-    # Delegate to the schema normalizer (also rebound below at module load) so
-    # layout fields like footer_text stay in one place.
-    return _system_normalize_layout_config(value)
 
 
 def default_language_config():
     return _default_language_config()
 
 
-def normalize_language_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    translations_override = cfg.get('translations_override', {})
-    if not isinstance(translations_override, dict):
-        translations_override = {}
-    cleaned_translations = {}
-    for lang, values in translations_override.items():
-        if not isinstance(values, dict):
-            continue
-        lang_code = _normalize_language_code(lang)
-        if not lang_code:
-            continue
-        lang_values = {
-            str(key): str(text or '').strip()
-            for key, text in values.items()
-            if str(key or '').strip() and str(text or '').strip()
-        }
-        if lang_values:
-            cleaned_translations[lang_code] = lang_values
-    return {
-        'languages': normalize_language_catalog(cfg.get('languages', {})),
-        'translations_override': cleaned_translations,
-        'allow_user_language_override': bool(cfg.get('allow_user_language_override', True)),
-    }
-
-
 def default_theme_config():
     return _default_theme_config()
 
 
-def normalize_theme_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    return {
-        'allowed_themes': list(normalize_allowed_themes(cfg.get('allowed_themes'))),
-        'allow_user_theme_override': bool(cfg.get('allow_user_theme_override', True)),
-    }
-
-
 def default_typography_config():
     return _default_typography_config()
-
-
-def normalize_typography_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    allowed_fonts = list(normalize_allowed_fonts(cfg.get('allowed_fonts')))
-    return {
-        'allowed_fonts': allowed_fonts,
-        'default_fonts': normalize_default_fonts(cfg.get('default_fonts'), allowed_fonts=allowed_fonts),
-        'allow_user_font_override': bool(cfg.get('allow_user_font_override', True)),
-    }
 
 
 def default_extra_config():
@@ -656,45 +440,7 @@ def default_search_config():
     return _default_search_config()
 
 
-def normalize_search_config(value):
-    return _system_normalize_search_config(value)
-
-
-def normalize_extra_config(value):
-    return dict(value) if isinstance(value, dict) else {}
-
-
 _CONFIG_GROUP_FLAT_KEYS = get_flat_config_keys_by_group()
-
-# Login Config - Function validates login page branding and registration settings.
-def normalize_login_config(value):
-    config = value if isinstance(value, dict) else {}
-    normalized = default_login_config()
-    style = config.get('style')
-    if style in LOGIN_STYLE_VALUES:
-        normalized['style'] = style
-    normalized['show_logo'] = bool(config.get('show_logo', True))
-    banner_color = str(config.get('banner_color') or '').strip()
-    if banner_color:
-        normalized['banner_color'] = banner_color
-    logo_treatment = config.get('logo_treatment')
-    if logo_treatment in TITLEBAR_LOGO_TREATMENT_VALUES:
-        normalized['logo_treatment'] = logo_treatment
-    logo_treatment_shape = config.get('logo_treatment_shape')
-    if logo_treatment_shape in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
-        normalized['logo_treatment_shape'] = logo_treatment_shape
-    raw_hero = config.get('hero_message')
-    if isinstance(raw_hero, dict):
-        normalized['hero_message'] = {
-            str(k): str(v or '').strip()
-            for k, v in raw_hero.items()
-            if str(k or '').strip()
-        }
-    else:
-        # Legacy plain string — store as-is for backwards compatibility
-        normalized['hero_message'] = str(raw_hero or '').strip()
-    return normalized
-
 
 def default_log_config():
     return _default_log_config()
@@ -740,62 +486,8 @@ def _normalize_log_section(value, defaults):
     return out
 
 
-# Logging Config - Function validates user/system/audit activity-logging policy.
-def normalize_log_config(value):
-    config = value if isinstance(value, dict) else {}
-    defaults = default_log_config()
-    normalized = {
-        'enabled': bool(config.get('enabled', True)),
-        'user': _normalize_log_section(config.get('user'), defaults['user']),
-        'system': _normalize_log_section(config.get('system'), defaults['system']),
-        'audit': {},
-    }
-
-    audit_in = config.get('audit') if isinstance(config.get('audit'), dict) else {}
-    audit_defaults = defaults['audit']
-    audit = {
-        # Audit is privileged: always enabled and immutable, never silently disabled.
-        'enabled': True,
-        'immutable': True,
-        'retention_days': 0,
-        'events': {},
-    }
-    try:
-        audit['retention_days'] = max(0, int(audit_in.get('retention_days', 0) or 0))
-    except (TypeError, ValueError):
-        audit['retention_days'] = 0
-    raw_events = audit_in.get('events') if isinstance(audit_in.get('events'), dict) else {}
-    for event_key, default_on in audit_defaults['events'].items():
-        audit['events'][event_key] = bool(raw_events.get(event_key, default_on))
-    normalized['audit'] = audit
-    return normalized
-
-
 def default_profile_config():
     return _default_profile_config()
-
-
-# Profile Config - Function validates the profile-page + onboarding experience settings.
-def normalize_profile_config(value):
-    from ..system.constants import DEFAULT_SECURITY_NUDGE, SECURITY_NUDGE_VALUES
-    config = value if isinstance(value, dict) else {}
-    defaults = default_profile_config()
-    normalized = {
-        'show_completion_widget': bool(config.get('show_completion_widget', defaults['show_completion_widget'])),
-        'show_session_device_cards': bool(config.get('show_session_device_cards', defaults['show_session_device_cards'])),
-        'show_activity_feed': bool(config.get('show_activity_feed', defaults['show_activity_feed'])),
-        'security_nudges': DEFAULT_SECURITY_NUDGE,
-        'allow_user_home_url': bool(config.get('allow_user_home_url', defaults['allow_user_home_url'])),
-        'onboarding_enabled': bool(config.get('onboarding_enabled', defaults['onboarding_enabled'])),
-        'onboarding_options': {},
-    }
-    nudge = config.get('security_nudges')
-    if nudge in SECURITY_NUDGE_VALUES:
-        normalized['security_nudges'] = nudge
-    raw_options = config.get('onboarding_options') if isinstance(config.get('onboarding_options'), dict) else {}
-    for key, default_on in defaults['onboarding_options'].items():
-        normalized['onboarding_options'][key] = bool(raw_options.get(key, default_on))
-    return normalized
 
 
 def user_home_override_enabled(config=None):
@@ -1047,23 +739,6 @@ def resolve_user_theme_preference(user_prefs, config, *, scope=None, scopes_enab
     if prefs.get('theme') not in allowed_themes:
         prefs['theme'] = default_theme
     return prefs
-
-# Typography Config - Function validates per-language default font settings.
-def normalize_default_fonts(value=None, *, allowed_fonts=None):
-    """Normalize language-keyed default font settings against available fonts."""
-    if not isinstance(value, dict):
-        return {}
-    allowed = set(normalize_allowed_fonts(allowed_fonts))
-    if not allowed:
-        allowed = {font['slug'] for font in get_available_fonts()}
-    normalized = {}
-    for raw_code, raw_font in value.items():
-        code = _normalize_language_code(raw_code)
-        font = str(raw_font or '').strip()
-        if code and font in allowed:
-            normalized[code] = font
-    return normalized
-
 
 # Canonical settings normalizers live in ``dlux.system.normalizers``. Keep the
 # public names in this module as aliases for existing callers.

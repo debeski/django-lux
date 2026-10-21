@@ -1772,15 +1772,15 @@ class RibbonSettingsFormTests(TestCase):
             Context({'form': self._form()}))
         self.assertIn("id='id_ribbon_title'", html.replace('"', "'"))
 
-    def test_fields_sit_in_the_layout_step(self):
-        """They must be in the Layout step's own field list, not merely present
+    def test_fields_sit_in_the_ribbon_step(self):
+        """They must be in the Ribbon step's own field list, not merely present
         somewhere in the form."""
-        from dlux.system.settings_diff import GROUPS
+        from dlux.system.settings_diff import review_groups
 
-        layout = next(fields for key, _label, fields in GROUPS if key == 'layout')
+        ribbon = next(fields for key, _label, fields in review_groups() if key == 'ribbon')
         for name in ('ribbon_layout', 'ribbon_style', 'ribbon_title',
                      'ribbon_advanced_trigger'):
-            self.assertIn(name, layout)
+            self.assertIn(name, ribbon)
 
 
 class RibbonRenderingTests(TestCase):

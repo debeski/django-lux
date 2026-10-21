@@ -9,7 +9,7 @@ that the runtime has already been standardized.
 
 This report is the 2026-10-03 baseline. A second, test-driven catalogue audit
 (`system-settings-catalog-audit.md`) repeated its high-priority findings, and the
-repairs shipped in 1.12.1 and 1.12.2b1:
+repairs shipped in 1.12.1 and 1.12.2 (b1, b2):
 
 | Finding | Status |
 | --- | --- |
@@ -19,9 +19,9 @@ repairs shipped in 1.12.1 and 1.12.2b1:
 | Inactive-step fields overwritten (ownership) | Fixed in 1.12.1 — ownership derived from the rendered layout |
 | Precedence differs between groups | Fixed in 1.12.2b1 — every group gate uses `db_override_policy` through `db_group_applies()`; Extra Features and app namespaces merge per entry |
 | ScanLink reloads the live preview | Fixed in 1.12.2b1 — `NONVISUAL_PREVIEW_FIELDS` marks nonvisual controls server-side |
-| Obsolete `setup_step`/`admin_section` metadata | Open — nothing reads it |
-| Import review groups Ribbon under Layout | Open — hand-written `GROUPS` table in `settings_diff.py` |
-| Simplifications (dead normalizer copies in `utils/config.py`, duplicate default builder, hand-written import alias table) | Open |
+| Obsolete `setup_step`/`admin_section` metadata | Removed in 1.12.2b2 — ownership is the layout's |
+| Import review groups Ribbon under Layout | Fixed in 1.12.2b2 — `review_groups()` derives sections from layout ownership |
+| Simplifications (dead normalizer copies in `utils/config.py`, duplicate default builder, hand-written import alias table) | Done in 1.12.2b2 — 19 dead bodies removed (public names kept), defaults and import aliases derived from the registry |
 
 ## Decision
 

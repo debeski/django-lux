@@ -84,8 +84,6 @@ class SettingGroup:
     aliases: tuple[str, ...] = ()
     label_key: str = ''
     help_key: str = ''
-    setup_step: str = ''
-    admin_section: str = ''
     db_override_policy: str = 'configured_or_non_default'
     export: bool = True
     import_aliases: tuple[str, ...] = ()
@@ -116,8 +114,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_auth_config,
         normalizer=normalize_auth_config,
         label_key='settings_access_security',
-        setup_step='access_security',
-        admin_section='security',
         fields=(
             _field('auth', 'email_2fa', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'forgot_password_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
@@ -140,8 +136,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_email_config,
         normalizer=normalize_email_config,
         label_key='settings_email',
-        setup_step='access_security',
-        admin_section='security',
         fields=(
             _field('email', 'transport', default='direct', widget='choice'),
             _field('email', 'secret_storage', default='env', widget='choice'),
@@ -162,8 +156,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_registration_config,
         normalizer=normalize_registration_config,
         label_key='settings_registration',
-        setup_step='access_security',
-        admin_section='security',
         fields=(
             _field('registration', 'public_registration_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('registration', 'registration_activation_mode', default='auto_login_after_verify', widget='choice', legacy_flat=True),
@@ -182,8 +174,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_public_root_config,
         normalizer=normalize_public_root_config,
         label_key='settings_public_root',
-        setup_step='homepage',
-        admin_section='routing',
         fields=(
             _field('public_root', 'public_root', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('public_root', 'public_root_split_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
@@ -202,8 +192,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_homepage_config,
         normalizer=normalize_homepage_config,
         label_key='system_settings_homepage',
-        setup_step='homepage',
-        admin_section='routing',
     ),
     SettingGroup(
         key='client_ip',
@@ -212,8 +200,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_client_ip_config,
         normalizer=normalize_client_ip_config,
         label_key='settings_client_ip',
-        setup_step='access_security',
-        admin_section='security',
         fields=(
             _field('client_ip', 'mode', form_name='client_ip_mode', default='x_forwarded_for', widget='choice'),
             _field(
@@ -233,8 +219,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_notification_config,
         normalizer=normalize_notification_config,
         label_key='settings_notifications',
-        setup_step='notifications',
-        admin_section='notifications',
     ),
     SettingGroup(
         key='layout',
@@ -243,8 +227,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_layout_config,
         normalizer=normalize_layout_config,
         label_key='settings_layout',
-        setup_step='appearance',
-        admin_section='appearance',
         fields=(
             _field('layout', 'default_table_density', default='balanced', widget='choice', legacy_flat=True),
             _field('layout', 'table_edges', default=DEFAULT_TABLE_EDGES, widget='choice', legacy_flat=True),
@@ -277,8 +259,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_language_config,
         normalizer=normalize_language_config,
         label_key='settings_languages',
-        setup_step='languages',
-        admin_section='localization',
         fields=(
             _field('language', 'languages', field_type='dict', default={}, widget='json', legacy_flat=True),
             _field('language', 'translations_override', field_type='dict', default={}, widget='json', legacy_flat=True),
@@ -292,8 +272,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_theme_config,
         normalizer=normalize_theme_config,
         label_key='settings_themes',
-        setup_step='appearance',
-        admin_section='appearance',
         fields=(
             _field('theme', 'allowed_themes', field_type='list', default=[], widget='multiselect', legacy_flat=True),
             _field('theme', 'allow_user_theme_override', field_type='bool', default=True, widget='switch', legacy_flat=True),
@@ -308,8 +286,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_typography_config,
         normalizer=normalize_typography_config,
         label_key='settings_typography',
-        setup_step='appearance',
-        admin_section='appearance',
         fields=(
             _field('typography', 'allowed_fonts', field_type='list', default=[], widget='multiselect', legacy_flat=True),
             _field('typography', 'default_fonts', field_type='dict', default={}, widget='json', legacy_flat=True),
@@ -323,8 +299,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_login_config,
         normalizer=normalize_login_config,
         label_key='settings_login_page',
-        setup_step='login',
-        admin_section='login',
     ),
     SettingGroup(
         key='titlebar',
@@ -333,8 +307,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_titlebar_config,
         normalizer=normalize_titlebar_config,
         label_key='settings_titlebar',
-        setup_step='titlebar',
-        admin_section='navigation',
     ),
     SettingGroup(
         key='search',
@@ -343,8 +315,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_search_config,
         normalizer=normalize_search_config,
         label_key='system_settings_search',
-        setup_step='search',
-        admin_section='search',
     ),
     SettingGroup(
         key='ribbon',
@@ -353,8 +323,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=dict,
         normalizer=normalize_ribbon_config,
         label_key='system_settings_ribbon',
-        setup_step='ribbon',
-        admin_section='navigation',
     ),
     SettingGroup(
         key='sidebar',
@@ -363,8 +331,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_sidebar_config,
         normalizer=normalize_sidebar_behavior,
         label_key='settings_sidebar',
-        setup_step='sidebar',
-        admin_section='navigation',
     ),
     SettingGroup(
         key='navbar',
@@ -373,8 +339,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_navbar_config,
         normalizer=normalize_navbar_config,
         label_key='settings_navbar',
-        setup_step='navbar',
-        admin_section='navigation',
     ),
     SettingGroup(
         key='log',
@@ -383,8 +347,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_log_config,
         normalizer=normalize_log_config,
         label_key='settings_logging',
-        setup_step='logging',
-        admin_section='logging',
     ),
     SettingGroup(
         key='profile',
@@ -393,8 +355,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_profile_config,
         normalizer=normalize_profile_config,
         label_key='settings_profile_page',
-        setup_step='profile',
-        admin_section='profile',
     ),
     SettingGroup(
         key='backup',
@@ -403,8 +363,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_backup_config,
         normalizer=normalize_backup_config,
         label_key='settings_backups',
-        setup_step='backups',
-        admin_section='backups',
         fields=(
             _field('backup', 'scheduled_enabled', form_name='backup_scheduled_enabled', field_type='bool', default=False, widget='switch'),
             _field('backup', 'schedule_interval_hours', form_name='backup_schedule_interval_hours', field_type='int', default=24),
@@ -427,8 +385,6 @@ SYSTEM_SETTING_GROUPS = (
         default_factory=default_extra_config,
         normalizer=normalize_extra_config,
         label_key='settings_extra',
-        setup_step='advanced',
-        admin_section='advanced',
     ),
 )
 

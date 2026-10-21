@@ -63,7 +63,9 @@ everything else.
   places (§4, §5) — `options_style` / `show_audit_fields` are JSON-only examples.
 - Runtime code reads the resolved value from **`get_system_config()`**, never from
   the model directly. `get_system_config()` merges three layers, in order:
-  1. package defaults (`build_default_system_config()`)
+  1. package defaults (`build_default_system_config()`, derived from each group's
+     `default_factory`: groups, their flat keys and the runtime group names; only
+     settings outside every group are listed by hand)
   2. `settings.DLUX_CONFIG` (project code)
   3. the `SystemSettings` DB singleton (UI edits)
 
@@ -187,6 +189,12 @@ _field('layout', 'show_audit_fields', field_type='bool', default=False,
 `form_sys_<name>` / `help_sys_<name>` label/help keys. `field_type` ∈
 `str|bool|int|email|dict|list`; `widget` ∈ `switch|choice|multiselect|json|text`.
 
+A group's `aliases=` are the only place group names are listed: runtime expansion
+(`get_config_aliases()`) and import files (`get_import_aliases()`) both read them.
+An alias that is also a flat setting name (`public_root`, `languages`) keeps its
+flat meaning on import. `SettingGroup` carries no step metadata: the step that
+owns a field is wherever the settings layout renders it.
+
 ### Step 5 — Form field (`forms/system_settings.py`, `SystemSettingsForm`) — FIVE edits
 1. **Declare** the field near the other group fields:
    ```python
@@ -260,8 +268,11 @@ toggle hoisted to the top.
 **Put the field in the step it belongs to by subject, not by storage.** Record
 visibility is stored in `layout_config` but lives in *Access & Security*, because
 it answers who may see a record rather than how a page looks. The storage group
-and the wizard step are independent; `settings_diff.GROUPS` mirrors the **step**,
-so move the name there too when you move the field.
+and the wizard step are independent. The import review groups fields by the step
+whose layout renders them (`settings_diff.review_groups()`, from
+`SystemSettingsForm.field_steps`), so moving the field in the layout moves it in the
+review too. Only a storage field that no single control renders needs an entry in
+`settings_diff.UNOWNED_FIELD_STEPS`.
 
 ### Step 7b — Bind a visible widget (choice fields)
 

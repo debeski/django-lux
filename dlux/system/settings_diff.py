@@ -19,85 +19,39 @@ Both sides are normalised through the same pair of functions
 file), so formatting differences cannot show up as false changes.
 """
 from copy import deepcopy
+from functools import lru_cache
 
 from .constants import SYSTEM_SETTINGS_EXPORT_FIELDS
 
-# Ordered to match the setup wizard's steps, and labelled with the same strings,
-# so the review reads in the vocabulary the operator already knows.
-GROUPS = (
-    ('branding', 'system_settings_branding', (
-        'system_names', 'logo', 'favicon', 'login_logo', 'login_background',
-        'footer_enabled', 'footer_text', 'footer_link_text',
-        'footer_link_url',
-    )),
-    ('languages', 'system_settings_languages', (
-        'languages', 'default_language', 'allow_user_language_override',
-        'translations_override',
-    )),
-    ('homepage', 'system_settings_homepage', (
-        'homepage_config', 'home_url', 'public_root',
-        'public_root_split_enabled', 'public_root_url', 'public_root_theme',
-        'public_root_title', 'public_root_meta_description',
-        'show_titlebar_on_public', 'show_sidebar_on_public',
-    )),
-    ('email', 'system_settings_email', (
-        'email_config',
-    )),
-    ('security', 'system_settings_security', (
-        'email_2fa', 'forgot_password_enabled', 'prevent_multiple_active_sessions',
-        'login_lockout_enabled', 'login_lockout_threshold',
-        'login_lockout_window_minutes', 'login_lockout_duration_minutes',
-        'enforce_strong_passwords', 'strong_password_min_length',
-        'purge_session_on_exit', 'inactivity_timeout_enabled',
-        'inactivity_timeout_minutes', 'client_ip_config',
-        'show_audit_fields', 'show_soft_deleted',
-        'public_registration_enabled', 'registration_activation_mode',
-        'registration_throttle_enabled', 'honeypot_enabled', 'privacy_policy_url',
-        'terms_url', 'privacy_notice_text', 'registration_require_consent',
-    )),
-    ('login', 'system_settings_login_page', (
-        'login_config',
-    )),
-    ('sidebar', 'system_settings_sidebar', (
-        'sidebar_config',
-    )),
-    ('navbar', 'system_settings_navbar', (
-        'navbar_config',
-    )),
-    ('titlebar', 'system_settings_titlebar', (
-        'titlebar_config',
-    )),
-    ('search', 'system_settings_search', (
-        'search_config',
-    )),
-    ('notifications', 'system_settings_notifications', (
-        'notification_config',
-    )),
-    ('appearance', 'system_settings_appearance', (
-        'default_theme', 'allowed_themes', 'theme_picker_location',
-        'allow_user_theme_override', 'allowed_fonts', 'default_fonts',
-        'allow_user_font_override',
-    )),
-    ('layout', 'system_settings_layout', (
-        'default_table_density', 'table_edges', 'card_edges', 'table_accent_edges', 'default_form_density', 'default_modal_size',
-        'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
-        'options_style', 'row_actions_style',
-        'ribbon_layout', 'ribbon_style', 'ribbon_title',
-        'ribbon_advanced_trigger', 'ribbon_nesting', 'ribbon_config',
-    )),
-    ('logging', 'system_settings_logging', (
-        'log_config',
-    )),
-    ('profile', 'system_settings_profile', (
-        'profile_config',
-    )),
-    ('backups', 'system_settings_backups', (
-        'backup_config',
-    )),
-    ('extra', 'system_settings_extra', (
-        'extra_config',
-    )),
-)
+# A storage field no single form control renders, mapped to the step that edits it.
+UNOWNED_FIELD_STEPS = {'extra_config': 'extras'}
+
+
+@lru_cache(maxsize=1)
+def review_groups():
+    """Exported fields grouped by the setup step that edits them, in step order.
+
+    Ownership is the settings layout's own (`SystemSettingsForm.field_steps`, the
+    map single-step saves use), so the review reads in the steps the operator
+    knows, labelled with the step tiles' strings.
+    """
+    from ..forms import SystemSettingsForm
+    from .constants import SETUP_STEP_SLUGS
+
+    owners = SystemSettingsForm().field_steps
+    by_step = {}
+    for field in SYSTEM_SETTINGS_EXPORT_FIELDS:
+        slug = SETUP_STEP_SLUGS[owners[field]] if field in owners else UNOWNED_FIELD_STEPS[field]
+        by_step.setdefault(slug, []).append(field)
+    return tuple(
+        (slug, f'system_settings_{slug}', tuple(by_step[slug]))
+        for slug in SETUP_STEP_SLUGS if slug in by_step
+    )
+
+
+def field_group(field):
+    return next(slug for slug, _label, fields in review_groups() if field in fields)
+
 
 # Nested structures with their own builder UI. A two-column value diff of these
 # is unreadable, so they are all-or-nothing with a plain-language summary.
@@ -113,9 +67,6 @@ MAPPING_FIELDS = frozenset({
     'email_config', 'titlebar_config', 'notification_config', 'login_config',
     'backup_config', 'client_ip_config', 'search_config',
 })
-
-FIELD_GROUP = {field: key for key, _, fields in GROUPS for field in fields}
-
 
 def _kind(field):
     if field in ATOMIC_FIELDS:
@@ -188,7 +139,7 @@ def build_change_set(current_settings, incoming_settings, source=None):
     from .settings_patch import merge_settings_patch
     labels = field_labels()
     groups = []
-    for key, label_key, fields in GROUPS:
+    for key, label_key, fields in review_groups():
         changes = []
         for field in fields:
             if field not in incoming_settings:

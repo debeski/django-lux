@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.12.2b2
+
+- **Import Review By Step**: `settings_diff.review_groups()` groups the Options import review by the step whose layout renders each field (`SystemSettingsForm.field_steps`), labelled with the step tiles' `system_settings_<slug>` strings. Ribbon settings now review under Ribbon instead of Layout, the login logo/background and `login_config` under Login Page, table/card edges under Appearance. `settings_diff.GROUPS`/`FIELD_GROUP` are replaced by `review_groups()`/`field_group()`; `UNOWNED_FIELD_STEPS` maps `extra_config` to Extras.
+- **Derived Import Aliases**: `get_import_aliases()` is derived from every group's declared `aliases=` (minus flat-name collisions `public_root`/`languages`) plus `translations`. A grouped import under an alias such as `{"theme": {...}}` now keeps the keys it supplied instead of dropping them.
+- **Derived Defaults**: `build_default_system_config()` builds groups, their flat keys and the runtime group names (`sidebar`, `login`, `notifications`, …) from each group's `default_factory`; only settings outside every group are listed. Expanded output is identical to 1.12.2b1.
+- **Dead Normalizer Copies Removed**: 19 normalizer bodies in `dlux/utils/config.py` that were rebound to the canonical `dlux.system.normalizers` functions at import (never executed) are removed; every public `dlux.utils.config.normalize_*` name still resolves to the canonical function.
+- **Schema Metadata Removed**: `SettingGroup.setup_step` and `SettingGroup.admin_section` (read by nothing, six of them naming steps that no longer exist) are removed from the dataclass and all 21 groups.
+
 ## v1.12.2b1
 
 - **Locked Section Saves**: `SystemSettingsForm.save()` (now `handles_save`, so the dynamic modal saves through it) locks the `SystemSettings` row with `select_for_update()`. When another request wrote the row after the form was built, the same submission is re-bound to the locked current row, so concurrent saves of different sections both land. Setup-wizard saves and `commit=False` drafts are unchanged.

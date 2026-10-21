@@ -9,24 +9,24 @@ from django.test import SimpleTestCase, TestCase
 from dlux.system.constants import SYSTEM_SETTINGS_EXPORT_FIELDS
 from dlux.system.settings_diff import (
     ATOMIC_FIELDS,
-    FIELD_GROUP,
-    GROUPS,
     MAPPING_FIELDS,
     build_change_set,
+    field_group,
     field_labels,
+    review_groups,
     selected_settings,
     summarize,
 )
 
 
-class GroupCoverageTests(SimpleTestCase):
+class GroupCoverageTests(TestCase):
     def test_every_exported_field_belongs_to_exactly_one_group(self):
         """Otherwise a new setting silently never appears in the review.
 
         This is the drift guard: add a field to SYSTEM_SETTINGS_EXPORT_FIELDS
         without grouping it and the import would quietly ignore it.
         """
-        grouped = [field for _, _, fields in GROUPS for field in fields]
+        grouped = [field for _, _, fields in review_groups() for field in fields]
         self.assertEqual(
             sorted(grouped), sorted(set(grouped)),
             'a field is listed in more than one group',
@@ -49,13 +49,29 @@ class GroupCoverageTests(SimpleTestCase):
         )
 
     def test_group_order_follows_the_wizard(self):
-        keys = [key for key, _, _ in GROUPS]
+        from dlux.system.constants import SETUP_STEP_SLUGS
+
+        keys = [key for key, _, _ in review_groups()]
+        self.assertEqual(keys, [slug for slug in SETUP_STEP_SLUGS if slug in keys])
         self.assertEqual(keys[0], 'branding')
-        self.assertIn('security', keys)
-        self.assertEqual(FIELD_GROUP['home_url'], 'homepage')
-        self.assertEqual(FIELD_GROUP['homepage_config'], 'homepage')
-        self.assertEqual(FIELD_GROUP['search_config'], 'search')
-        self.assertEqual(FIELD_GROUP['sidebar_config'], 'sidebar')
+        self.assertEqual(field_group('home_url'), 'homepage')
+        self.assertEqual(field_group('homepage_config'), 'homepage')
+        self.assertEqual(field_group('search_config'), 'search')
+        self.assertEqual(field_group('sidebar_config'), 'sidebar')
+
+    def test_fields_are_reviewed_under_the_step_that_edits_them(self):
+        self.assertEqual(field_group('ribbon_config'), 'ribbon')
+        self.assertEqual(field_group('ribbon_style'), 'ribbon')
+        self.assertEqual(field_group('login_logo'), 'login_page')
+        self.assertEqual(field_group('login_config'), 'login_page')
+        self.assertEqual(field_group('extra_config'), 'extras')
+
+    def test_every_review_heading_is_a_step_label(self):
+        from dlux.translations import get_strings
+
+        strings = get_strings('en')
+        for _key, label_key, _fields in review_groups():
+            self.assertIn(label_key, strings)
 
 
 class ChangeSetTests(SimpleTestCase):

@@ -150,6 +150,23 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertNotIn('public_root', aliases)
         self.assertNotIn('languages', aliases)
 
+    def test_import_aliases_are_every_declared_group_alias(self):
+        from dlux.system.registry import get_flat_config_fields
+
+        flat = get_flat_config_fields()
+        expected = {
+            alias: group.storage_field
+            for group in iter_setting_groups() for alias in group.aliases if alias not in flat
+        }
+        expected['translations'] = 'translations_override'
+        self.assertEqual(get_import_aliases(), expected)
+
+    def test_a_grouped_import_under_an_alias_keeps_its_supplied_keys(self):
+        from dlux.utils.import_export import normalize_system_settings_import_payload
+
+        normalized = normalize_system_settings_import_payload({'theme': {'allow_user_theme_override': False}})
+        self.assertIs(normalized.get('allow_user_theme_override'), False)
+
     def test_old_default_import_paths_match_system_defaults(self):
         from dlux import models as dlux_models
         from dlux.utils import config as utils_config
