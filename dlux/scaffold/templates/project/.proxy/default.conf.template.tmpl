@@ -42,8 +42,13 @@ server {
     set $web_upstream "web:8000";
 
     location = /dlux-maintenance.html {
-        root /usr/share/nginx/html;
+        alias /opt/dlux-runtime/proxy/maintenance/index.html;
         internal;
+    }
+
+    location ^~ /_dlux/maintenance/ {
+        alias /opt/dlux-runtime/proxy/maintenance/;
+        add_header Cache-Control "no-store";
     }
 
     location = /_update/status.json {

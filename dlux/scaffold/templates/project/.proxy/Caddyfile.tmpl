@@ -70,6 +70,16 @@
 			file_server
 		}
 
+		# Maintenance page assets, published by composer-agent on the runtime
+		# volume and served here so they load while web is down.
+		# (nginx: location ^~ /_dlux/maintenance/ { alias /opt/dlux-runtime/proxy/maintenance/; })
+		handle /_dlux/maintenance/* {
+			root * /opt/dlux-runtime/proxy
+			uri strip_prefix /_dlux
+			header Cache-Control "no-store"
+			file_server
+		}
+
 		# Always-200 edge-liveness probe for a front proxy's health check. Never
 		# proxied to web, never gated by the maintenance flag, so the front proxy
 		# keeps this backend UP throughout an image update.
@@ -129,8 +139,8 @@
 	handle_errors {
 		@down expression {http.error.status_code} in [502, 503, 504]
 		handle @down {
-			root * /usr/share/caddy/maintenance
-			rewrite * /maintenance.html
+			root * /opt/dlux-runtime/proxy/maintenance
+			rewrite * /index.html
 			file_server {
 				status 503
 			}

@@ -319,7 +319,8 @@ An image update has two finish lines. Composer writes `ready` to
 `state/deploy-status.json` once the containers are recreated and migrated; the new
 web container's DjangoLux then marks the `DluxImageUpdate` completed (the Celery
 state tick runs `_finalize_image_update`) and lowers the maintenance flag. Until
-then the proxy answers 503 with `.proxy/maintenance.html`.
+then the proxy answers 503 with the maintenance page Composer publishes on the
+runtime volume (`proxy/maintenance/`).
 
 - When the update starts, DjangoLux resets both `deploy-status.json` (to
   `preparing`) and `deploy-log.txt`, so the modal never shows the previous
@@ -337,9 +338,15 @@ then the proxy answers 503 with `.proxy/maintenance.html`.
 
 The modal fix takes effect for updates started from a page running 1.11.0b2 or
 later: the page that starts an update runs the release it was loaded with.
-`.proxy/maintenance.html` is the project's own file, bind-mounted into the proxy,
-so a DjangoLux release does not change it; Composer 1.6.1b2+ `check` reports a
-stock copy from an older DjangoLux and `check --fix` replaces it.
+
+Since stack schema 3 (DjangoLux 1.13.0, Composer 1.7.0) the maintenance page is not
+a project file. It ships in the Composer image; `composer-agent` publishes it on
+every start to `/opt/dlux-runtime/proxy/maintenance/` and the proxy serves it from
+the runtime mount it already has, with its CSS/JS under `/_dlux/maintenance/` so
+they load while `web` is down. A project page goes in `.proxy/maintenance/` and is
+published by `composer check --fix`. Stacks generated earlier serve
+`.proxy/maintenance.html` from a bind mount until `composer check --fix` (resident
+agent 1.7+) migrates them; a customised page is kept as the override.
 
 ## Moving to an image that bakes an older DjangoLux
 

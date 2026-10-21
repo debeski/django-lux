@@ -1,14 +1,13 @@
 {
   "schema_version": 2,
-  "version": "1.12.3",
+  "version": "1.13.0b1",
   "display": {
-    "summary": "Theme rules move into the theme stylesheets; section data and JSON parsing use one shared path.",
+    "summary": "The maintenance page moves out of the project and into the Composer image.",
     "highlights": [
-      "Every rule for a named theme now lives in that theme's stylesheet; feature CSS no longer names themes.",
-      "The Sections manager passes its page data through json_script.",
-      "One shared window.dluxParseJson replaces three local copies."
+      "New projects no longer carry .proxy/maintenance.html: composer-agent publishes the page on the runtime volume and the proxy serves it (stack schema 3, needs Composer 1.7.0b1+).",
+      "Existing stacks keep working; 'composer check --fix' migrates them and keeps a customised page as the .proxy/maintenance/ override."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.12.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b1"
   },
   "requires": {
     "updater_schema": ">=1",

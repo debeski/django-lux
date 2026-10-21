@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.0b1
+
+- **Maintenance Page Moves Into Composer (Stack Schema 3)**: `dlux startproject` no longer generates `.proxy/maintenance.html` or bind-mounts it into the proxy. The page ships in the Composer image (1.7.0b1+): `composer-agent` publishes it to `dlux_runtime` at `proxy/maintenance/`, and the scaffolded Caddyfile serves it on 502/503/504 (`root * /opt/dlux-runtime/proxy/maintenance`) plus its CSS/JS through a new `handle /_dlux/maintenance/*` route ahead of `web`; the nginx fallback gets the matching `alias` locations. A project page goes in `.proxy/maintenance/` and is published by `composer check --fix`. `dlux/contracts/stack.json` `schema_version` 2 -> 3; the scaffold template `maintenance.html.tmpl` is retired.
+- **Existing Stacks**: unchanged until `composer check --fix` (resident agent 1.7.0b1+) migrates them — proxy config and compose rewritten after validation, customised page kept as the override, originals archived, stamps 2 -> 3. Until then `dlux_doctor`'s `stack.schema` check reports the stack as one schema behind (warning only).
+
 ## v1.12.3
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.12.3b1; promotes theme-qualified rules living only in the theme stylesheets (guarded by `test_theme_tokens`), the Sections manager's `json_script` page data and the shared `window.dluxParseJson`.

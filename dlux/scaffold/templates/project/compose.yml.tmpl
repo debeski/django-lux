@@ -104,8 +104,9 @@ services:
 
 
   # ── Reverse proxy ──────────────────────────────────────────────────────────
-  # Two interchangeable proxies share ./.proxy/ (Caddyfile + default.conf.template
-  # + maintenance.html) and are functionally equivalent. Caddy is active; nginx is
+  # Two interchangeable proxies share ./.proxy/ (Caddyfile + default.conf.template)
+  # and are functionally equivalent. Both serve the maintenance page composer-agent
+  # publishes on dlux_runtime (proxy/maintenance/). Caddy is active; nginx is
   # kept fully wired but commented out as a drop-in fallback. To switch back:
   # comment out the `caddy:` service below and uncomment the `nginx:` block.
   #
@@ -135,7 +136,6 @@ services:
   #     - static:/app/staticfiles:ro
   #     - ./media/:/app/media:ro
   #     - dlux_runtime:/opt/dlux-runtime:ro
-  #     - ./.proxy/maintenance.html:/usr/share/nginx/html/dlux-maintenance.html:ro
   #   depends_on:
   #     web:
   #       condition: service_started
@@ -173,7 +173,6 @@ services:
       - static:/app/staticfiles:ro
       - ./media/:/app/media:ro
       - dlux_runtime:/opt/dlux-runtime:ro
-      - ./.proxy/maintenance.html:/usr/share/caddy/maintenance/maintenance.html:ro
     depends_on:
       web:
         condition: service_started

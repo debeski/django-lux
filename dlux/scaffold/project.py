@@ -85,15 +85,15 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "project/tools/validate_project_release_manifest.py.tmpl": (
             target_root / "tools" / "validate_project_release_manifest.py"
         ),
-        # Reverse proxy configs live in .proxy/ (proxy-agnostic) alongside the
-        # shared maintenance.html. Caddy is the active proxy; nginx is a
+        # Reverse proxy configs live in .proxy/ (proxy-agnostic). The maintenance
+        # page ships in the Composer image, which publishes it on the runtime
+        # volume (stack schema 3). Caddy is the active proxy; nginx is a
         # commented-out fallback in compose.yml. The nginx `default.conf.template`
         # relies on the official nginx image's envsubst startup rendering
         # (${NGINX_*} → /etc/nginx/conf.d/), so it carries both suffixes —
         # `.template` (nginx) inside `.tmpl` (scaffold).
         "project/.proxy/Caddyfile.tmpl": target_root / ".proxy" / "Caddyfile",
         "project/.proxy/default.conf.template.tmpl": target_root / ".proxy" / "default.conf.template",
-        "project/.proxy/maintenance.html.tmpl": target_root / ".proxy" / "maintenance.html",
         "project/start.sh.tmpl": target_root / "start.sh",
         "project/start.ps1.tmpl": target_root / "start.ps1",
         "project/README.md.tmpl": target_root / "README.md",

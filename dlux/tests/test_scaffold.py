@@ -67,7 +67,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue((target / "requirements.txt").exists())
             self.assertTrue((target / ".proxy" / "Caddyfile").exists())
             self.assertTrue((target / ".proxy" / "default.conf.template").exists())
-            self.assertTrue((target / ".proxy" / "maintenance.html").exists())
+            # The maintenance page ships in the Composer image (stack schema 3).
+            self.assertFalse((target / ".proxy" / "maintenance.html").exists())
             # The runtime supervisor now ships inside the dlux package
             # (python -m dlux.updater.supervisor), not as a scaffold file.
             self.assertFalse((target / "tools" / "dlux_runtime_supervisor.py").exists())
@@ -88,7 +89,6 @@ class ScaffoldTests(unittest.TestCase):
             compose_dev_contents = (target / "compose.dev.yml").read_text(encoding="utf-8")
             nginx_contents = (target / ".proxy" / "default.conf.template").read_text(encoding="utf-8")
             caddy_contents = (target / ".proxy" / "Caddyfile").read_text(encoding="utf-8")
-            maintenance_contents = (target / ".proxy" / "maintenance.html").read_text(encoding="utf-8")
             requirements_contents = (target / "requirements.txt").read_text(encoding="utf-8")
             readme_contents = (target / "README.md").read_text(encoding="utf-8")
             entrypoint_mode = (target / "entrypoint.sh").stat().st_mode
@@ -297,6 +297,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("location = /_update/status.json", nginx_contents)
             self.assertIn("location = /_edge-alive", nginx_contents)
             self.assertIn("dlux-maintenance.html", nginx_contents)
+            self.assertIn("alias /opt/dlux-runtime/proxy/maintenance/index.html;", nginx_contents)
+            self.assertIn("location ^~ /_dlux/maintenance/", nginx_contents)
             self.assertIn("/opt/dlux-runtime/state/maintenance", nginx_contents)
             # Front-proxy header handling: nginx passes an incoming
             # X-Forwarded-Proto through and appends to X-Forwarded-For.
@@ -310,12 +312,12 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("handle_errors", caddy_contents)
             # Caddy equivalent of the front-proxy header handling.
             self.assertIn("trusted_proxies static private_ranges", caddy_contents)
-            self.assertIn("scheduleRecoveryProbe", maintenance_contents)
-            # End states probe and return to the page the visitor was on, not "/",
-            # and never wait for a progress phase the page may not have seen.
-            self.assertIn("var target = window.location.href;", maintenance_contents)
-            self.assertIn("window.location.replace(target)", maintenance_contents)
-            self.assertNotIn("sawProgress", maintenance_contents)
+            # composer-agent publishes the page on dlux_runtime; Caddy serves it
+            # and its assets from there, never from a project bind mount.
+            self.assertIn("root * /opt/dlux-runtime/proxy/maintenance", caddy_contents)
+            self.assertIn("handle /_dlux/maintenance/*", caddy_contents)
+            self.assertNotIn("/usr/share/caddy/maintenance", caddy_contents)
+            self.assertNotIn("maintenance.html:", compose_contents)
             self.assertIn("celery", requirements_contents)
             self.assertIn(f"django-lux[updater]=={__version__}", requirements_contents)
             self.assertIn("django-cors-headers", requirements_contents)
@@ -781,7 +783,7 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
         root = Path(self._tmp.name) / "demo_project"
         stamped = [
             "compose.yml", "compose.dev.yml", "Dockerfile", "entrypoint.sh", "gunicorn.py",
-            ".secrets/.env", ".proxy/Caddyfile", ".proxy/default.conf.template", ".proxy/maintenance.html",
+            ".secrets/.env", ".proxy/Caddyfile", ".proxy/default.conf.template",
         ]
         for relative in stamped:
             text = (root / relative).read_text(encoding="utf-8")
@@ -808,9 +810,10 @@ class StackContractTests(unittest.TestCase):
         from dlux import __version__
 
         self.assertEqual(self.contract["dlux_version"], __version__)
-        # Bumped to 2 when service command_module / retired_command_modules were
-        # added so Composer can check and fix retired entrypoints.
-        self.assertEqual(self.contract["schema_version"], 2)
+        # 2: service command_module / retired_command_modules, so Composer can
+        # check and fix retired entrypoints. 3: the maintenance page moved into
+        # the Composer image (no .proxy/maintenance.html bind mount).
+        self.assertEqual(self.contract["schema_version"], 3)
 
     def test_read_stamp_spellings(self):
         read = self.stack_contract.read_stamp

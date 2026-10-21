@@ -18,7 +18,6 @@ version that wrote them (`Generated with django-lux X.Y.Z.`).
 | `compose.yml` | `DLUX_STACK_SCHEMA: "N"` in the shared `x-environment` block, so it also reaches `web`, `celery`, `db` and `smtp-relay` |
 | `Dockerfile` | `LABEL org.dlux.stack-schema="N"` (readable with `docker image inspect`) |
 | `compose.dev.yml`, `entrypoint.sh`, `gunicorn.py`, `.secrets/.env`, `.proxy/Caddyfile`, `.proxy/default.conf.template` | `# dlux stack schema N` header comment |
-| `.proxy/maintenance.html` | `<!-- dlux stack schema N -->` |
 
 Not stamped: `start.sh` / `start.ps1`, which Composer owns and versions with its
 own `# composer-wrapper: N` marker, and `.gitignore`, `.dockerignore` and
@@ -64,9 +63,10 @@ on the current number, and each bump adds a row below.
 
 | Schema | Since | Change to existing stacks |
 | --- | --- | --- |
+| 3 | 1.13.0 | The maintenance page leaves the project: `.proxy/maintenance.html` and its proxy bind mount go, the proxy serves the page Composer publishes on `dlux_runtime` (`proxy/maintenance/`, assets under `/_dlux/maintenance/`). `composer check --fix` (Composer 1.7.0+) migrates the proxy config and compose, keeps a customised page as `.proxy/maintenance/`, and restamps a schema-2 stack to 3. |
 | 2 | 1.7.0 | Each DjangoLux-owned service's command module is part of the contract; the retired `tools.smtp_relay` and `tools.dlux_runtime_supervisor` entrypoints must be replaced (`composer check --fix` does this). |
 | 1 | — | Initial contract: services, networks, single ingress, Docker socket rule, `dlux_runtime` read/write split. |
 
 Stacks generated before stamping carry no number. Their `compose.yml` is still
 compared with the contract by `composer check`. To stamp one by hand, add
-`DLUX_STACK_SCHEMA: "2"` to its `x-environment` block once it passes that check.
+`DLUX_STACK_SCHEMA: "3"` to its `x-environment` block once it passes that check.
