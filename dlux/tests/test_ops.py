@@ -311,6 +311,34 @@ class FixApplyGuardTests(TestCase):
         self._completed_preview()
         self.assertTrue(get_ops_state()["has_preview"])
 
+    def _finished_apply(self, status):
+        run = DluxOpsRun.objects.create(operation="check-fix-apply", requested_by_username="root")
+        run.finish(status, result={
+            "findings": [{"level": "ok", "name": "maintenance-page", "message": "Served from the runtime volume."}],
+            "repairs": [{"name": "fix:maintenance-page", "files": [], "diff": "", "note": "Migrated."}],
+        })
+        run.save()
+        return run
+
+    def test_a_completed_apply_consumes_the_preview_and_becomes_the_check(self):
+        self._completed_preview()
+        applied = self._finished_apply(DluxOpsRun.STATUS_COMPLETED)
+        state = get_ops_state()
+        self.assertFalse(state["has_preview"], "what the preview showed is on disk now")
+        self.assertEqual(state["check"]["token"], applied.token, "the panel shows the result, not the old preview")
+        self.assertEqual([r["diff"] for r in state["check"]["repairs"]], [""], "nothing left to apply")
+        with self.assertRaises(UpdaterError):
+            self._queue("check-fix-apply")
+        self._completed_preview()
+        self.assertTrue(get_ops_state()["has_preview"], "a new check makes a new preview")
+
+    def test_a_failed_apply_leaves_the_preview_to_retry(self):
+        preview = self._completed_preview()
+        self._finished_apply(DluxOpsRun.STATUS_FAILED)
+        state = get_ops_state()
+        self.assertTrue(state["has_preview"])
+        self.assertEqual(state["check"]["token"], preview.token)
+
     def test_a_previews_repairs_reach_the_card(self):
         run = self._completed_preview()
         serialized = serialize_ops_run(run)

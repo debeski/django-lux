@@ -248,10 +248,12 @@ def _latest_preview_digest():
     # The check carries the dry-run repairs and their digest, so it IS the
     # preview. `check-fix-preview` is still read for a deployment updated from
     # 1.9.2, whose card asked for it separately.
+    # A completed apply consumes the preview before it: what it showed is now on
+    # disk, so a second apply needs a new check. A failed apply leaves it usable.
     preview = Ops.objects.filter(
-        operation__in=("check", "check-fix-preview"), status=Ops.STATUS_COMPLETED,
-    ).order_by("-created_at").first()
-    if preview is None:
+        operation__in=("check", "check-fix-preview", "check-fix-apply"), status=Ops.STATUS_COMPLETED,
+    ).order_by("-created_at", "-pk").first()
+    if preview is None or preview.operation == "check-fix-apply":
         return ""
     try:
         return ops.normalize_digest((preview.result or {}).get(ops.DIGEST_FIELD))
@@ -350,7 +352,7 @@ def _latest_completed(*operations):
     Ops = _ops_model()
     return Ops.objects.filter(
         operation__in=operations, status=Ops.STATUS_COMPLETED,
-    ).order_by("-created_at").first()
+    ).order_by("-created_at", "-pk").first()
 
 
 def _resident_status(composer_version):
@@ -398,7 +400,9 @@ def get_ops_state():
         run = _ops_model().objects.order_by("-created_at").first()
         # The rows keep their own last answer: a Composer check must not blank
         # what the deployment check found, and vice versa.
-        check = _latest_completed("check", "check-fix-preview")
+        # An apply answers with the findings after the repair, so it is the
+        # newest word on the deployment until the next check.
+        check = _latest_completed("check", "check-fix-preview", "check-fix-apply")
         services = _latest_completed("services")
         logs = _latest_completed("logs-tail")
         resident = _resident_status(ops.resident_composer_version())

@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.0b5
+
+- **Panel Shows The Apply's Result**: after **Apply repairs** the panel kept showing the pre-apply findings, proposed changes and the Apply button (found accepting 1.13.0b4). `get_ops_state()['check']` now includes completed `check-fix-apply` runs, whose findings describe the deployment after the repair, and a completed apply consumes the preview (`_latest_preview_digest()` returns nothing until the next check), so DjangoLux itself refuses a second apply of the same diff. A failed apply leaves the preview usable for a retry.
+- **Stack-Schema Warning After A Migration**: `dlux_doctor`'s `stack.schema` read `DLUX_STACK_SCHEMA` from the container environment but reported it as what compose.yml declares, and told the operator to set the value compose.yml already had after `composer check --fix` restamped it (web keeps the old environment until recreated). An older stamp now says "This service runs with stack schema N" and names recreating web and celery first (Operations panel **Recreate**, or `./start.sh`), then the migration notes; a newer stamp asks for a newer DjangoLux. `docs/stack-schema.md` explains.
+
+
 ## v1.13.0b4
 
 - **Password Prompt Over A Modal**: `window.dluxConfirmPassword` opened from inside another modal rendered *under* it — `#dluxConfirmModal` has Bootstrap's shared z-index and comes earlier in `base.html` than `#universalDynamicModal` — so **Restart** and **Recreate** in the Operations panel seemed to do nothing (found accepting 1.13.0b3 on `testbed-dlux`). When another modal is open, the prompt now takes `.dlux-modal-stacked` and sets `body.dlux-modal-stacked-open` (the unsaved-changes prompt's rules in `base/css/main.css`), and on close restores `modal-open` for the modal still underneath. Covered by `tests-e2e/confirm_stacking.test.mjs`.
