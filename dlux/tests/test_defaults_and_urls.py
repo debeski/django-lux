@@ -3754,7 +3754,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         # Incremental backups add three persisted policy fields.
         # Tables adds one persisted JSON transport for column configuration.
         self.assertEqual(len(re.findall(r'name=[\"\']tables_config[\"\']', html)), 1)
-        self.assertLess(len(re.findall(r'\sname=', html)), 305)
+        # The table inspector uses the shared icon picker's ignored scratch field.
+        self.assertEqual(len(re.findall(r'name=[\"\']table_builder_entry_icon[\"\']', html)), 1)
+        self.assertLess(len(re.findall(r'\sname=', html)), 306)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

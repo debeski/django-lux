@@ -45,13 +45,13 @@ test('system tables are opt-in and filtering never edits or discards their confi
     await page.locator('#universalDynamicModal .modal-header .btn-close').click();
     await page.waitForSelector('#universalDynamicModal.show', {state:'hidden'});
     model = await openTables(page);
-    await model.locator('[data-column-toggle][data-column-name="email"]').click();
+    await setShown(page, model, 'email', false);
     const edited = await hidden.inputValue();
     await root.locator('[data-table-columns-system-toggle]').uncheck();
     assert.equal(await hidden.inputValue(), edited);
     await root.locator('[data-table-columns-system-toggle]').check();
-    assert.equal(await model.locator('[data-column-toggle][data-column-name="email"]').getAttribute('aria-checked'), 'false');
-    await model.locator('[data-table-columns-reset]').click();
+    assert.equal(await model.locator('[data-column-header="email"]').getAttribute('data-column-enabled'), 'false');
+    await resetTable(page, model);
     await save(page);
     await openTables(page, {showSystem:false});
     assert.equal(await root.locator('[data-table-columns-system-toggle]').isChecked(), false);
@@ -60,7 +60,32 @@ test('system tables are opt-in and filtering never edits or discards their confi
 });
 
 function headers(model) {
-  return model.locator('[data-column-header]').evaluateAll(nodes => nodes.map(node => node.dataset.columnHeader));
+  return model.locator('[data-column-header][data-column-enabled="true"]').evaluateAll(nodes => nodes.map(node => node.dataset.columnHeader));
+}
+
+const inspector = page => page.locator('#universalDynamicModal [data-table-column-inspector]');
+async function selectHeader(page, model, name) {
+  await model.locator(`[data-column-handle][data-column-name="${name}"]`).click();
+  await inspector(page).locator('[data-inspector-action="shown"]').waitFor({state:'visible'});
+}
+async function setShown(page, model, name, shown) {
+  await selectHeader(page, model, name);
+  await inspector(page).locator('[data-inspector-action="shown"] input').evaluate((input, value) => {
+    input.checked = value;
+    input.dispatchEvent(new Event('change', {bubbles:true}));
+  }, shown);
+  await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+}
+async function resetTable(page, model) {
+  const clear = inspector(page).locator('[data-inspector-action="clear-selection"]');
+  if (await clear.isVisible()) await clear.click();
+  await model.locator('[data-table-select]').click();
+  const reset = inspector(page).locator('[data-inspector-action="reset-table"]');
+  await reset.waitFor({state:'visible'});
+  assert.equal(await reset.locator('.bi-arrow-counterclockwise').count(), 1);
+  await reset.click();
+  await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+  assert.equal(await model.locator('[data-table-select]').evaluate(node => node === document.activeElement), true);
 }
 
 async function save(page) {
@@ -72,7 +97,7 @@ async function save(page) {
   await page.waitForSelector('#universalDynamicModal.show', {state: 'hidden'});
 }
 
-test('chips, drag and reopening update the real users table', async () => {
+test('inspector visibility, drag and reopening update the real users table', async () => {
   const {ctx, page, errors} = await loggedInPage(browser);
   try {
     let model = await openTables(page);
@@ -83,7 +108,7 @@ test('chips, drag and reopening update the real users table', async () => {
     model = await openTables(page);
     assert.equal(await hidden.inputValue(), original, 'opening must not rewrite JSON');
     const baseline = await headers(model);
-    await model.locator('[data-column-toggle][data-column-name="email"]').click();
+    await setShown(page, model, 'email', false);
     assert.equal((await headers(model)).includes('email'), false);
     await model.locator('[data-column-header="full_name"]').dragTo(model.locator('[data-column-header]').first());
     assert.equal((await headers(model))[0], 'full_name');
@@ -95,9 +120,9 @@ test('chips, drag and reopening update the real users table', async () => {
     assert.equal(actual.includes('email'), false);
     model = await openTables(page);
     assert.deepEqual(await headers(model), expected);
-    await model.locator('[data-column-toggle][data-column-name="email"]').click();
+    await setShown(page, model, 'email', true);
     assert.equal((await headers(model)).at(-1), 'email', 're-enabled columns append to the header strip');
-    await model.locator('[data-table-columns-reset]').click();
+    await resetTable(page, model);
     assert.deepEqual(await headers(model), baseline);
     await save(page);
     assert.deepEqual(errors, []);
@@ -127,11 +152,13 @@ test('keyboard order, sparse preservation, imported changes and last-column guar
     assert.ok(value.columns['auth.user'].hidden.includes('retired'));
     assert.ok(value.columns['auth.user'].order.includes('future_column'));
     for (const name of baseline.slice(1)) {
-      await model.locator(`[data-column-toggle][data-column-name="${name}"]`).click();
+      await setShown(page, model, name, false);
     }
     assert.deepEqual(await headers(model), [first]);
-    assert.equal(await model.locator(`[data-column-toggle][data-column-name="${first}"]`).isDisabled(), true);
-    await model.locator('[data-table-columns-reset]').click();
+    await selectHeader(page, model, first);
+    assert.equal(await inspector(page).locator('[data-inspector-action="shown"] input').isDisabled(), true);
+    assert.equal(await inspector(page).locator('[data-inspector-action="remove-column"]').isDisabled(), true);
+    await resetTable(page, model);
     const reset = JSON.parse(await hidden.inputValue());
     assert.equal(Object.hasOwn(reset.columns, 'auth.user'), false);
     assert.deepEqual(reset.columns['future.model'], {hidden: ['other']});
@@ -158,26 +185,71 @@ test('mobile tap controls reorder without overflowing the dialog', async () => {
     assert.equal((await headers(model))[1], baseline[0]);
     const geometry = await page.locator('#universalDynamicModal .modal-body').evaluate(node => ({width:node.clientWidth, scroll:node.scrollWidth}));
     assert.ok(geometry.scroll <= geometry.width + 2, JSON.stringify(geometry));
-    await model.locator('[data-table-columns-reset]').click();
+    await resetTable(page, model);
     await save(page);
     assert.deepEqual(errors, []);
   } finally { await ctx.close(); }
 });
 
-test('discarding chip edits keeps the saved table unchanged', async () => {
+test('discarding inspector edits keeps the saved table unchanged', async () => {
   const {ctx, page, errors} = await loggedInPage(browser);
   try {
     let model = await openTables(page);
-    await model.locator('[data-column-toggle][data-column-name="email"]').click();
+    await setShown(page, model, 'email', false);
     await page.keyboard.press('Escape');
     await page.waitForSelector('#dluxUnsavedModal.show');
     assert.equal(await model.isVisible(), true);
     await page.locator('[data-dlux-unsaved-discard]').click();
     await page.waitForSelector('#universalDynamicModal.show', {state:'hidden'});
     model = await openTables(page);
-    assert.equal(await model.locator('[data-column-toggle][data-column-name="email"]').getAttribute('aria-checked'), 'true');
+    assert.equal(await model.locator('[data-column-header="email"]').getAttribute('data-column-enabled'), 'true');
     await page.locator('#universalDynamicModal .modal-header .btn-close').click();
     await page.waitForSelector('#universalDynamicModal.show', {state:'hidden'});
     assert.deepEqual(errors, []);
+  } finally { await ctx.close(); }
+});
+
+test('column inspector persists localized text, icons, two sorts and independent resets', async () => {
+  const {ctx, page, errors} = await loggedInPage(browser);
+  try {
+    let model = await openTables(page);
+    assert.equal(await model.locator('[data-column-toggle]').count(), 0);
+    await selectHeader(page, model, 'email');
+    await inspector(page).locator('[data-inspector-field="labels-en"] input').fill('Contact email');
+    await inspector(page).locator('[data-inspector-field="labels-ar"] input').fill('البريد المخصص');
+    await inspector(page).locator('[data-icon-toggle]').click();
+    await inspector(page).locator('[data-icon-search]').fill('bi-envelope');
+    await inspector(page).locator('[data-icon-suggestions] button[title="bi-envelope"]').click();
+    await inspector(page).locator('[data-inspector-field="sort-priority"] select').selectOption('0');
+    await inspector(page).locator('[data-inspector-field="sort-direction"] select').selectOption('desc');
+    await selectHeader(page, model, 'username');
+    await inspector(page).locator('[data-inspector-field="sort-priority"] select').selectOption('1');
+    const config = JSON.parse(await page.locator('#universalDynamicModal [name="tables_config"]').inputValue());
+    assert.deepEqual(config.columns['auth.user'].sorting, ['-email','username']);
+    assert.deepEqual(config.columns['auth.user'].headers.email.labels, {en:'Contact email',ar:'البريد المخصص'});
+    await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+    await save(page);
+    await page.goto(`${BASE}/sys/users/`,{waitUntil:'networkidle'});
+    const email = page.locator('.dlux-data-table th[data-dlux-table-col="email"]');
+    const expectedLabel = await page.locator('html').getAttribute('lang') === 'ar' ? 'البريد المخصص' : 'Contact email';
+    assert.ok((await email.textContent()).includes(expectedLabel));
+    assert.equal(await email.locator('.bi-envelope').count(),1);
+    assert.equal(await email.locator('.is-ordered.is-desc').count(),1);
+    assert.equal(await page.locator('.dlux-data-table th[data-dlux-table-col="username"] .is-ordered').count(),1);
+    model = await openTables(page);
+    await selectHeader(page, model, 'email');
+    assert.equal(await inspector(page).locator('[data-inspector-field="labels-ar"] input').inputValue(),'البريد المخصص');
+    await inspector(page).locator('[data-inspector-action="remove-column"]').click();
+    assert.equal(await model.locator('[data-column-header="email"]').getAttribute('data-column-enabled'),'false');
+    const reset = inspector(page).locator('[data-inspector-action="reset-column"]');
+    assert.equal(await reset.locator('.bi-arrow-counterclockwise').count(),1);
+    await reset.click();
+    assert.equal(await model.locator('[data-column-header="email"]').getAttribute('data-column-enabled'),'true');
+    const restored = JSON.parse(await page.locator('#universalDynamicModal [name="tables_config"]').inputValue());
+    assert.equal(restored.columns['auth.user'].headers?.email,undefined);
+    assert.deepEqual(restored.columns['auth.user'].sorting,['username']);
+    await resetTable(page,model);
+    await save(page);
+    assert.deepEqual(errors,[]);
   } finally { await ctx.close(); }
 });

@@ -862,9 +862,6 @@ def _patch_table_init():
         config = get_system_config()
         s = get_strings(overrides=config.get('translations'))
 
-        from .utils.table_columns import apply_table_column_overlay
-        apply_table_column_overlay(self, config.get('tables_config'))
-
         # Model-qualified header keys let one table give a column a *distinct*
         # header without disturbing the shared generic key: e.g. the User table's
         # `is_active` reads `tbl_user_is_active` if defined, else falls back to the
@@ -893,6 +890,9 @@ def _patch_table_init():
                     # Found a valid translation key. Wrap it in a lazy translator and attach to the underlying column.
                     column.column.verbose_name = lazy_translator(k, raw_vname)
                     break
+
+        from .utils.table_columns import apply_table_column_overlay
+        apply_table_column_overlay(self, config.get('tables_config'))
 
         # django-tables2: Translate context menu actions inside row_attrs
         if hasattr(self, 'row_attrs') and 'data-dlux-actions' in self.row_attrs:

@@ -24,11 +24,11 @@
                             href="{% dlux_querystring table.prefixed_order_by_field column.order_by_alias.next %}"
                             class="dlux-table-sort-link{% if column.is_ordered %} is-ordered{% endif %}{% if column.order_by_alias.is_descending %} is-desc{% else %} is-asc{% endif %}"
                         >
-                            <span>{{ column.header }}</span>
+                            <span>{% if column.column.dlux_header_icon %}<i class="bi {{ column.column.dlux_header_icon }} me-1" aria-hidden="true"></i>{% endif %}{% firstof column.column.dlux_header_label column.header %}</span>
                             <i class="bi bi-arrow-down-up dlux-table-sort-icon" aria-hidden="true"></i>
                         </a>
                         {% else %}
-                        <span class="dlux-table-head-label">{{ column.header }}</span>
+                        <span class="dlux-table-head-label">{% if column.column.dlux_header_icon %}<i class="bi {{ column.column.dlux_header_icon }} me-1" aria-hidden="true"></i>{% endif %}{% firstof column.column.dlux_header_label column.header %}</span>
                         {% endif %}
                         </span>
                         {% if table.dlux_resizable_columns %}

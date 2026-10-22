@@ -58,7 +58,7 @@ def table_column_catalog(request=None, urlconf=None):
                         f'tbl_{name}', f'label_{name}', f'tbl_{raw}', f'label_{raw}', raw,
                     )
                     label = next((str(strings[key]) for key in label_keys if key in strings), raw)
-                    entry['columns'].append({'name': name, 'label': label})
+                    entry['columns'].append({'name': name, 'label': label, 'orderable': bool(column.orderable)})
                     known.add(column.name)
         except Exception:
             logger.warning('Table catalog skipped %s (%r).', route, table_class, exc_info=True)

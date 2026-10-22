@@ -37,6 +37,13 @@
         let showSystemItems = false;
         let writing = false;
         let dragging = null;
+        let selected = null;
+        const languages = object(parse(root.dataset.languages, {}));
+        const language = root.dataset.language || document.documentElement.lang;
+        const iconHolder = root.querySelector('[data-table-column-icon-holder]');
+        const iconPicker = iconHolder.querySelector('[data-dlux-icon-picker]');
+        const iconValue = root.querySelector('[data-table-column-icon-value]');
+        let iconTarget = null;
 
         function config() { return object(parse(hidden.value, {})); }
 
@@ -49,6 +56,48 @@
             let visible = all.filter(name => !hiddenNames.includes(name));
             if (!visible.length && names.length) visible = [names[0]];
             return {entry, names, visible};
+        }
+
+        function write(value, refreshInspector = true) {
+            hidden.value = JSON.stringify(value);
+            writing = true;
+            hidden.dispatchEvent(new Event('input', {bubbles: true}));
+            hidden.dispatchEvent(new Event('change', {bubbles: true}));
+            writing = false;
+            render(refreshInspector);
+        }
+
+        function edit(model, change, refreshInspector = true) {
+            const value = config();
+            const columns = {...object(value.columns)};
+            const entry = {...object(columns[model.key])};
+            change(entry);
+            if (Object.keys(entry).length) columns[model.key] = entry;
+            else delete columns[model.key];
+            value.columns = columns;
+            write(value, refreshInspector);
+        }
+
+        function headerSettings(model, name) { return object(object(state(model).entry.headers)[name]); }
+        function sortingOf(model) {
+            const sorting = state(model).entry.sorting;
+            return Array.isArray(sorting) ? sorting.filter(alias => typeof alias === 'string') : [];
+        }
+
+        function updateHeader(model, name, change, refreshInspector = true) {
+            edit(model, entry => {
+                const headers = {...object(entry.headers)};
+                const header = {...object(headers[name])};
+                change(header);
+                if (Object.keys(header).length) headers[name] = header; else delete headers[name];
+                if (Object.keys(headers).length) entry.headers = headers; else delete entry.headers;
+            }, refreshInspector);
+        }
+
+        function label(model, name) {
+            const column = model.columns.find(column => column.name === name);
+            const labels = object(headerSettings(model, name).labels);
+            return labels[language] || labels[language.split('-')[0]] || column.label;
         }
 
         function commit(model, visible, reset) {
@@ -69,12 +118,7 @@
                 if (Object.keys(next).length) columns[model.key] = next; else delete columns[model.key];
             }
             value.columns = columns;
-            hidden.value = JSON.stringify(value);
-            writing = true;
-            hidden.dispatchEvent(new Event('input', {bubbles: true}));
-            hidden.dispatchEvent(new Event('change', {bubbles: true}));
-            writing = false;
-            render();
+            write(value);
             root.querySelector('[data-table-columns-status]').textContent = model.label + ': ' + visible.map(name =>
                 model.columns.find(column => column.name === name)?.label || name).join(', ');
         }
@@ -96,42 +140,51 @@
             focus(model, name, '[data-column-handle]');
         }
 
-        function render() {
+        function render(refreshInspector = true) {
             host.replaceChildren();
             const visibleCatalog = catalog.filter(model => showSystemItems || !model.is_system);
+            if (selected && !visibleCatalog.some(model => model.key === selected.modelKey)) selected = null;
             empty.hidden = visibleCatalog.length > 0;
             empty.textContent = catalog.length ? root.dataset.emptyProjectLabel : emptyMessage;
             visibleCatalog.forEach(model => {
                 const {names, visible} = state(model);
-                const labels = new Map(model.columns.map(column => [column.name, column.label]));
+                const labels = new Map(model.columns.map(column => [column.name, label(model, column.name)]));
                 const section = element('section', 'dlux-ribbon-builder__model');
                 section.dataset.tableModel = model.key;
                 const head = element('header', 'dlux-ribbon-builder__model-head');
-                head.appendChild(element('strong', 'dlux-ribbon-builder__model-name', model.label));
-                const reset = button('btn btn-sm btn-outline-secondary rounded-pill', strings.reset);
-                reset.dataset.tableColumnsReset = '';
-                reset.disabled = hidden.disabled || !Object.hasOwn(object(config().columns), model.key);
-                reset.addEventListener('click', () => {
-                    commit(model, names, true);
-                    [...host.children].find(node => node.dataset.tableModel === model.key)
-                        ?.querySelector('[data-column-handle]')?.focus({preventScroll: true});
-                });
-                head.appendChild(reset);
+                const title = button('btn p-0 fw-semibold dlux-ribbon-builder__model-name', model.label);
+                title.dataset.tableSelect = '';
+                title.addEventListener('click', () => { selected = {modelKey:model.key}; render(); });
+                head.appendChild(title);
                 section.appendChild(head);
                 const strip = element('div', 'dlux-table-columns__headers');
                 strip.setAttribute('role', 'group');
                 strip.setAttribute('aria-label', strings.headers + ': ' + model.label);
-                visible.forEach((name, index) => {
+                const rawOrder = state(model).entry.order;
+                const ordered = Array.isArray(rawOrder) ? rawOrder : [];
+                [...new Set([...ordered.filter(name => names.includes(name)), ...names])].forEach(name => {
+                    const index = visible.indexOf(name);
+                    const enabled = index !== -1;
                     const cell = element('div', 'dlux-table-columns__header');
                     cell.dataset.columnHeader = name;
-                    cell.draggable = !hidden.disabled;
+                    cell.dataset.columnEnabled = String(enabled);
+                    cell.classList.toggle('is-removed', !enabled);
+                    cell.classList.toggle('is-active', selected?.modelKey === model.key && selected.name === name);
+                    cell.draggable = !hidden.disabled && enabled;
                     const handle = button('btn btn-sm dlux-table-columns__handle', labels.get(name));
-                    handle.title = strings.reorder;
+                    handle.title = enabled ? strings.reorder : strings.removed;
+                    const icon = headerSettings(model, name).icon;
+                    if (/^bi-[a-z0-9-]+$/.test(icon || '')) {
+                        const glyph = element('i', 'bi ' + icon + ' me-1');
+                        glyph.setAttribute('aria-hidden', 'true');
+                        handle.prepend(glyph);
+                    }
                     handle.dataset.columnHandle = '';
                     handle.dataset.columnName = name;
                     handle.disabled = hidden.disabled;
+                    handle.addEventListener('click', () => { selected = {modelKey:model.key,name}; render(); });
                     handle.addEventListener('keydown', event => {
-                        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+                        if (!enabled || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
                         event.preventDefault();
                         const rtl = getComputedStyle(root).direction === 'rtl';
                         move(model, name, (event.key === 'ArrowRight' ? 1 : -1) * (rtl ? -1 : 1));
@@ -145,7 +198,7 @@
                         arrow.appendChild(icon);
                         arrow.title = label;
                         arrow.dataset.columnMove = String(offset);
-                        arrow.disabled = hidden.disabled || (offset < 0 ? index === 0 : index === visible.length - 1);
+                        arrow.disabled = hidden.disabled || !enabled || (offset < 0 ? index === 0 : index === visible.length - 1);
                         arrow.addEventListener('click', () => move(model, name, offset));
                         cell.appendChild(arrow);
                     });
@@ -161,14 +214,14 @@
                             node.classList.remove('is-dragging', 'is-drop-target'));
                     });
                     cell.addEventListener('dragover', event => {
-                        if (!dragging || dragging.model !== model.key || dragging.name === name) return;
+                        if (!enabled || !dragging || dragging.model !== model.key || dragging.name === name) return;
                         event.preventDefault();
                         cell.classList.add('is-drop-target');
                     });
                     cell.addEventListener('dragleave', () => cell.classList.remove('is-drop-target'));
                     cell.addEventListener('drop', event => {
                         event.preventDefault();
-                        if (!dragging || dragging.model !== model.key || dragging.name === name) return;
+                        if (!enabled || !dragging || dragging.model !== model.key || dragging.name === name) return;
                         const source = dragging.name;
                         const ordered = state(model).visible;
                         const from = ordered.indexOf(source);
@@ -182,33 +235,136 @@
                     strip.appendChild(cell);
                 });
                 section.appendChild(strip);
-                const chips = element('div', 'dlux-ribbon-builder__pills');
-                chips.setAttribute('role', 'group');
-                chips.setAttribute('aria-label', strings.available + ': ' + model.label);
-                model.columns.forEach(column => {
-                    const checked = visible.includes(column.name);
-                    const chip = button('dlux-ribbon-builder__pill dlux-table-columns__chip');
-                    chip.setAttribute('role', 'checkbox');
-                    chip.setAttribute('aria-checked', String(checked));
-                    chip.dataset.columnToggle = '';
-                    chip.dataset.columnName = column.name;
-                    const icon = element('i', 'bi bi-' + (checked ? 'check-square' : 'square'));
-                    icon.setAttribute('aria-hidden', 'true');
-                    chip.append(icon, document.createTextNode(column.label));
-                    chip.disabled = hidden.disabled || (checked && visible.length === 1);
-                    if (checked && visible.length === 1) chip.title = strings.keepOne;
-                    chip.addEventListener('click', () => {
-                        const next = checked ? visible.filter(name => name !== column.name) : [...visible, column.name];
-                        if (!next.length) return;
-                        commit(model, next);
-                        focus(model, column.name, '[data-column-toggle]');
-                    });
-                    chips.appendChild(chip);
-                });
-                section.appendChild(chips);
                 host.appendChild(section);
             });
+            if (refreshInspector) inspector.render(selected);
+            else inspector.reposition();
         }
+
+        function selection() {
+            const model = selected && catalog.find(model => model.key === selected.modelKey);
+            if (!model) return null;
+            return {model, column: model.columns.find(column => column.name === selected.name)};
+        }
+
+        function setShown(model, name, shown) {
+            const visible = state(model).visible;
+            const next = shown ? [...new Set([...visible, name])] : visible.filter(item => item !== name);
+            if (!next.length) return;
+            commit(model, next);
+        }
+
+        function resetColumn(model, name) {
+            edit(model, entry => {
+                const headers = {...object(entry.headers)};
+                delete headers[name];
+                if (Object.keys(headers).length) entry.headers = headers; else delete entry.headers;
+                ['hidden', 'sorting'].forEach(key => {
+                    const next = (Array.isArray(entry[key]) ? entry[key] : []).filter(item =>
+                        typeof item === 'string' && item.replace(/^-/, '') !== name);
+                    if (next.length) entry[key] = next; else delete entry[key];
+                });
+            });
+        }
+
+        iconValue.addEventListener('input', () => { if (iconTarget) iconTarget(iconValue.value.trim()); });
+
+        const inspector = window.DluxInspectorShell.create(root.querySelector('[data-table-column-inspector]'), {
+            presentation: 'popover', actionsPlacement: 'panel', dismissOnOutsideClick: true,
+            dismissIgnoreSelector: '.dlux-table-columns__header, [data-table-select]',
+            strings: {empty: strings.empty_inspector, clearSelection: strings.clear},
+            adapter: {
+                getTitle: () => {
+                    const found = selection();
+                    return found ? (found.column ? label(found.model, found.column.name) : found.model.label) : '';
+                },
+                getActions: () => {
+                    const found = selection();
+                    if (!found) return [];
+                    const {model, column} = found;
+                    if (!column) return [{id:'reset-table', label:strings.reset, icon:'bi bi-arrow-counterclockwise',
+                        disabled:hidden.disabled || !Object.hasOwn(object(config().columns), model.key),
+                        onClick:() => commit(model, state(model).names, true)}];
+                    const shown = state(model).visible.includes(column.name);
+                    const last = shown && state(model).visible.length === 1;
+                    return [
+                        {id:'reset-column', label:strings.column_reset, icon:'bi bi-arrow-counterclockwise',
+                            disabled:hidden.disabled, onClick:() => resetColumn(model, column.name)},
+                        {id:'remove-column', label:strings.remove, icon:'bi bi-trash3', variant:'outline-danger',
+                            disabled:hidden.disabled || !shown || last,
+                            onClick:() => setShown(model, column.name, false)},
+                        {id:'shown', type:'toggle', label:strings.shown, checked:shown,
+                            title:last ? strings.keepOne : '', disabled:hidden.disabled || last,
+                            onChange:context => setShown(model, column.name, context.value)},
+                    ];
+                },
+                getFields: () => {
+                    const found = selection();
+                    if (!found?.column) return [];
+                    const {model, column} = found;
+                    const header = headerSettings(model, column.name);
+                    const sorting = sortingOf(model);
+                    const rank = sorting.findIndex(alias => alias.replace(/^-/, '') === column.name);
+                    const sortable = column.orderable && state(model).visible.includes(column.name) && !hidden.disabled;
+                    return [
+                        {id:'labels', type:'localized-text', label:strings.labels,
+                            languages:Object.entries(languages).map(([code, info]) => ({code, label:info.name || info.label || code})),
+                            values:object(header.labels), disabled:hidden.disabled, commitOn:'input',
+                            onInput:context => updateHeader(model, column.name, value => {
+                                const labels = {...object(value.labels)};
+                                if (context.value.trim()) labels[context.language] = context.value.trim();
+                                else delete labels[context.language];
+                                if (Object.keys(labels).length) value.labels = labels; else delete value.labels;
+                            }, false)},
+                        {id:'icon', type:'custom', render:() => {
+                            const value = headerSettings(model, column.name).icon || '';
+                            iconValue.value = value;
+                            iconPicker.querySelector('[data-icon-input]').value = value;
+                            const preview = iconPicker.querySelector('[data-icon-preview]');
+                            preview.className = 'bi ' + (value || 'bi-table');
+                            preview.classList.toggle('dlux-icon-picker-preview--empty', !value);
+                            iconTarget = value => updateHeader(model, column.name, header => {
+                                if (value) header.icon = value; else delete header.icon;
+                            }, false);
+                            return {node:iconPicker, cleanup:() => { iconTarget = null; iconHolder.appendChild(iconPicker); }};
+                        }},
+                        {id:'sort-priority', type:'select', label:strings.priority, disabled:!sortable,
+                            value:rank === -1 ? '' : String(rank), options:[
+                                {value:'',label:strings.none}, {value:'0',label:strings.primary},
+                                {value:'1',label:strings.secondary,disabled:!sorting.some(alias => alias.replace(/^-/, '') !== column.name)},
+                            ], onChange:context => edit(model, entry => {
+                                const existing = sortingOf(model);
+                                const alias = existing.find(alias => alias.replace(/^-/, '') === column.name) || column.name;
+                                let next = existing.filter(alias => alias.replace(/^-/, '') !== column.name);
+                                if (context.value === '0') next = [alias, ...next].slice(0,2);
+                                if (context.value === '1' && next.length) next = [next[0], alias];
+                                if (next.length) entry.sorting = next; else delete entry.sorting;
+                            })},
+                        {id:'sort-direction', type:'select', label:strings.direction, disabled:!sortable || rank === -1,
+                            value:sorting[rank]?.startsWith('-') ? 'desc' : 'asc',
+                            options:[{value:'asc',label:strings.ascending},{value:'desc',label:strings.descending}],
+                            onChange:context => edit(model, entry => {
+                                entry.sorting = sortingOf(model).map(alias => alias.replace(/^-/, '') === column.name
+                                    ? (context.value === 'desc' ? '-' : '') + column.name : alias);
+                            })},
+                    ];
+                },
+                getAnchor: () => {
+                    if (!selected) return null;
+                    const section = [...host.children].find(node => node.dataset.tableModel === selected.modelKey);
+                    return selected.name ? [...(section?.querySelectorAll('[data-column-header]') || [])]
+                        .find(node => node.dataset.columnHeader === selected.name) : section?.querySelector('[data-table-select]');
+                },
+                clearSelection: () => {
+                    const previous = selection();
+                    selected = null;
+                    render(false);
+                    if (previous?.column) focus(previous.model, previous.column.name, '[data-column-handle]');
+                    else if (previous) [...host.children].find(node => node.dataset.tableModel === previous.model.key)
+                        ?.querySelector('[data-table-select]')?.focus({preventScroll:true});
+                },
+            },
+        });
 
         hidden.addEventListener('change', () => { if (!writing) render(); });
         systemToggle.checked = false;

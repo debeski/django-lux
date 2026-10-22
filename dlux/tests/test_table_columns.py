@@ -65,6 +65,62 @@ class _TableColumnTestSupport:
 
 
 class TableColumnOverlayTests(_TableColumnTestSupport, TestCase):
+    def test_localized_headers_and_icons_render_escaped_and_do_not_leak_between_instances(self):
+        self.configure({'headers': {'email': {'labels': {'en': '<script>mail</script>', 'ar': 'بريد خاص'}, 'icon': 'bi-envelope'}}})
+        request = RequestFactory().get('/')
+        request.session = {}
+        request.user = AnonymousUser()
+        request.dlux_preview_language = 'en'
+        table = ColumnFixtureTable([], request=request)
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': request}))
+        self.assertIn('&lt;script&gt;mail&lt;/script&gt;', html)
+        self.assertNotIn('<script>mail</script>', html)
+        self.assertIn('bi-envelope', html)
+        request.dlux_preview_language = 'ar'
+        arabic = ColumnFixtureTable([], request=request)
+        self.assertEqual(arabic.columns['email'].column.dlux_header_label, 'بريد خاص')
+        with baseline_table_columns():
+            baseline = ColumnFixtureTable([])
+        self.assertFalse(hasattr(baseline.columns['email'].column, 'dlux_header_label'))
+        self.assertFalse(hasattr(ColumnFixtureTable.base_columns['email'], 'dlux_header_icon'))
+
+    def test_primary_secondary_sorting_orders_real_rows_and_request_sort_wins(self):
+        User = get_user_model()
+        User.objects.create(username='zeta', email='b@example.com')
+        User.objects.create(username='alpha', email='b@example.com')
+        User.objects.create(username='omega', email='a@example.com')
+        self.configure({'sorting': ['email', '-username']})
+        table = ColumnFixtureTable(User.objects.all())
+        self.assertEqual([record.username for record in table.data], ['omega', 'zeta', 'alpha'])
+        request = RequestFactory().get('/', {'sort': 'username'})
+        request.user = AnonymousUser()
+        requested = ColumnFixtureTable(User.objects.all(), request=request)
+        self.assertEqual(tuple(requested.order_by), ('username',))
+        self.assertEqual([record.username for record in requested.data], ['alpha', 'omega', 'zeta'])
+
+    def test_headers_and_sorting_cannot_target_protected_or_code_hidden_columns(self):
+        self.configure({'headers': {'internal': {'labels': {'en': 'Leaked'}}, 'created_at': {'icon': 'bi-lock'}},
+                        'sorting': ['internal', 'created_at']})
+        table = ColumnFixtureTable([])
+        self.assertFalse(hasattr(table.columns['internal'].column, 'dlux_header_label'))
+        self.assertNotIn('internal', self.names(table))
+        self.assertFalse(table.order_by)
+
+    def test_non_orderable_and_stale_sort_columns_are_ignored(self):
+        class NonOrderable(ColumnFixtureTable):
+            computed = tables.Column(orderable=False)
+            class Meta(ColumnFixtureTable.Meta):
+                pass
+        self.configure({'sorting': ['computed', 'retired']})
+        self.assertFalse(NonOrderable([]).order_by)
+
+    def test_unsupported_computed_default_sort_keeps_developer_order(self):
+        self.configure({'sorting': ['computed']})
+        with self.assertLogs('dlux', level='WARNING'):
+            table = ColumnFixtureTable(get_user_model().objects.all(), order_by='username')
+        self.assertEqual(tuple(table.order_by), ('username',))
+
     def test_reapplying_table_patch_keeps_one_wrapper(self):
         from dlux.patches import _patch_table_init
 
@@ -356,6 +412,20 @@ class TableColumnDiscoveryTests(_TableColumnTestSupport, TestCase):
 
 
 class TableColumnsNormalizationTests(SimpleTestCase):
+    def test_header_and_sorting_preferences_are_defensive_and_sparse(self):
+        overlay = {'headers': {
+            'email': {'labels': {'en': ' Email ', 'ar': 'البريد', 'bad key': 'bad', 'de': 7}, 'icon': 'bi-envelope'},
+            'invalid-name': {'icon': 'bi-lock'},
+            'username': {'icon': 'bi-foo" onclick="bad'},
+            'first_name': {'labels': {}, 'icon': ''},
+        }, 'sorting': ['email', '-email', None, '-username', 'first_name']}
+        result = normalize_tables_config({'columns': {'auth.user': overlay}})['columns']['auth.user']
+        self.assertEqual(result, {'headers': {
+            'email': {'labels': {'en': 'Email', 'ar': 'البريد'}, 'icon': 'bi-envelope'},
+            'first_name': {'labels': {}, 'icon': ''},
+        }, 'sorting': ['email', '-username']})
+        self.assertEqual(normalize_tables_config({'columns': {'auth.user': {'headers': [], 'sorting': 'email'}}})['columns'], {})
+
     def test_malformed_containers_are_empty(self):
         for value in (None, [], 'bad', 1, {'columns': []}):
             with self.subTest(value=value):
@@ -414,7 +484,10 @@ class TableColumnsStorageTests(TestCase):
         instance.default_table_density = 'dense'
         instance.show_audit_fields = True
         instance.save()
-        value = {'columns': {'auth.user': {'hidden': ['email'], 'order': ['username']}}}
+        value = {'columns': {'auth.user': {
+            'hidden': ['email'], 'order': ['username'], 'sorting': ['-username', 'email'],
+            'headers': {'email': {'labels': {'en': 'Contact', 'ar': 'التواصل'}, 'icon': 'bi-envelope'}},
+        }}}
         apply_system_settings_import(instance, {'tables_config': value})
         instance.save()
         instance.refresh_from_db()
@@ -616,7 +689,10 @@ class TableStepTests(TestCase):
         obj = SystemSettings.load()
         obj.is_configured = True
         obj.save()
-        columns = {'auth.user': {'hidden': ['email'], 'order': ['username']}}
+        columns = {'auth.user': {
+            'hidden': ['email'], 'order': ['username'], 'sorting': ['-username'],
+            'headers': {'email': {'labels': {'en': 'Contact', 'ar': 'التواصل'}, 'icon': 'bi-envelope'}},
+        }}
         form = self.form(obj, SETUP_STEP_TABLES, {
             'tables_config': json.dumps({'columns': columns}),
             'default_table_density': 'dense', 'row_actions_style': 'both',

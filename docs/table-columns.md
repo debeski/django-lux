@@ -17,13 +17,15 @@ The Tables form owns a hidden `tables_config` JSON transport, including during f
   "columns": {
     "documents.record": {
       "hidden": ["description"],
-      "order": ["number", "title", "date"]
+      "order": ["number", "title", "date"],
+      "headers": {"title": {"labels": {"en": "Document", "ar": "المستند"}, "icon": "bi-file-text"}},
+      "sorting": ["-date", "number"]
     }
   }
 }
 ```
 
-Keys are lower-case Django model labels (`app_label.model_name`); column names are table column identifiers. Store only changed visibility and explicit ordering, never a snapshot of all columns.
+Keys are lower-case Django model labels (`app_label.model_name`); column names are table column identifiers. Store only changed preferences, never a snapshot of all columns. Optional `headers` entries hold language-keyed plain-text labels (up to 200 characters) and one validated `bi-*` icon class. `sorting` contains at most two distinct column aliases; prefix an alias with `-` for descending order. Explicit empty values can clear preferences in partial imports.
 
 ## Column discovery and runtime behavior
 
@@ -37,17 +39,19 @@ Installing the table hook is idempotent. Rebuilding Django's app registry cannot
 
 Column preferences control presentation. They do not change queryset filtering, permissions or export authorization. Keep sensitive data protection in the backend.
 
+Header labels use the current Dlux language and fall back to code labels when no override exists for it. Icons and labels render through the shared table template with escaping. Default sorting applies only to visible, orderable, configurable columns; stale, protected and excluded names are ignored. Unsupported computed sorts log a warning and retain the table's code ordering. A request's explicit sort takes precedence through the normal django-tables2 request configuration.
+
 ## Using the builder
 
-Open **Options → Tables**. Each discovered model uses the ribbon builder's existing card shell, with a horizontal preview of its shown headers and a wrapping row of checkable column chips. Checking a chip appends that column; unchecking removes it. The last shown column cannot be unchecked. Audit/deletion, scope and row actions retain their dedicated settings and never appear as chips. There is no inspector or per-column label editor.
+Open **Options → Tables**. Each discovered model uses the ribbon builder's existing card shell and the shared element inspector. Select a header to edit its labels in the configured languages, choose an optional icon with the shared picker, show/remove it, reset it or assign primary/secondary default sorting and direction. There is no separate selection grid. Removed developer columns remain muted, selectable placeholders in the header strip so they can be restored. The last shown column cannot be removed. Audit/deletion, scope, row actions and code-hidden columns retain their dedicated controls and are absent from the inspector. Admin-created columns are outside this iteration's scope.
 
 Like Ribbon, Sidebar and Navbar, the builder starts with **Show system items** off. Users, activity logs and other framework tables appear only when it is enabled. Catalog entries carry `is_system`: framework/Django infrastructure models, the configured user model and tables supplied by a `dlux` module are system items. If a model has several table variants, any supplied system variant makes that model a system item. Project tables generated through Dlux's shared manager/section views remain project items; inheriting `DluxTable` alone does not make a table a system item. A translated empty state explains the filter when an installation has only system tables.
 
 This switch filters the builder only. It is not persisted in `tables_config`, does not dirty the form, resets to off when the builder reopens, and neither drops hidden system-table overlays nor disables their runtime application. Existing backend permissions continue to control access.
 
-Drag headers within their own strip to reorder. The focused header also accepts Left/Right arrow keys in the current reading direction; the adjacent earlier/later buttons provide tap controls on phones. The strip scrolls horizontally within its card, while the dialog and chips fit narrow screens. **Use table defaults** removes only that model's overlay. Save the normal settings form to apply changes to actual tables; closing without saving follows the existing discard guard.
+Drag shown headers within their own strip to reorder. The focused header also accepts Left/Right arrow keys in the current reading direction; the adjacent earlier/later buttons provide tap controls on phones. The strip scrolls horizontally within its card. Select the table title to access **Use table defaults**, with the ribbon's rewind icon; this removes only that model's overlay. The per-column rewind restores its labels/icon/visibility and removes its sort assignment, while preserving other columns and header order. Dismiss the inspector with its clear-selection action before selecting a covered header. Save the normal settings form to apply changes to actual tables; closing without saving follows the existing discard guard.
 
-Opening the builder does not rewrite JSON or dirty the form. Edits retain unrelated table preferences, other models' overlays and stale column names. First-launch file imports refresh the chips and header strip immediately. Only an explicit model reset removes that model's stale preferences. Labels, status announcements and controls use the dlux translation framework; assets are external, CSP compliant and theme/RTL aware.
+Opening the builder or inspecting a header does not rewrite JSON or dirty the form. Edits retain unrelated table preferences, other models' overlays and stale column names. First-launch file imports refresh the header strip and inspector immediately. Only an explicit model reset removes that model's stale preferences. Labels, status announcements and controls use the dlux translation framework; assets are external, CSP compliant and theme/RTL aware.
 
 ## Remaining release work
 
@@ -75,6 +79,8 @@ Integrate after 1.13, declare the additive migration in the release manifest, ru
 - The candidate wheel matches the builder sources/assets. Deep checks: 23 OK, zero errors, one local DEBUG warning and three skips. Temporary table preferences and legacy mirrors were restored. Evidence: `.xclude/testbed/table-builder-*` and `column-overlay-restore.log`.
 
 System-item filter follow-up: full Django suite 2,941 tests OK/six skips; 58 focused checks, five builder browser tests and nine wizard tests passed. Classification covers users/activity, generated project managers and mixed table variants. Browser tests verify default exclusion, explicit reveal, reset on reopening, clean form state and retained pending edits. The rebuilt `8094` candidate passed English/Arabic desktop/mobile journeys, zero page errors, no dialog overflow and deep 23 OK/zero errors; original preferences were restored. Django checks, migration consistency, import-graph, translation, syntax and whitespace guards passed. Evidence: `.xclude/testbed/table-system-toggle-*`.
+
+Inspector follow-up (2026-10-22, owner-approved scope superseding the plan's earlier no-inspector restriction): full Django suite 2,947 tests OK/six skips; focused table/tables/import-graph/translation checks 94 passed, plus 55 table checks after extending form/import/export round trips. JavaScript unit suite 70 passed; browser suites six builder, nine wizard and twelve settings-preview tests passed. Tests cover localized escaped labels, safe icons, protected columns, primary/secondary ordering with real rows, explicit request precedence, unsupported computed sorting, shared icon browsing, removal/restoration, reset, saved state and discard behavior. The isolated PostgreSQL testbed passed the inspector in English/Arabic at 1440px and 390px, including icon browsing, labels, both sort priorities, save/reopen and independent resets. Panels fit their modal bounds with no horizontal overflow or page errors; original settings and legacy mirrors were restored. Deep checks: 23 OK, one local DEBUG warning, zero errors, three skips. No screenshots were taken. Evidence: `.xclude/testbed/table-inspector-*`.
 
 Release metadata is intentionally inherited from the branch base until release integration. The migration gate currently refuses publication because that manifest declares `migrations.effect: none`; 1.14 integration must declare the additive migration and verify rollback compatibility before any beta is tagged. This branch is not release-ready.
 

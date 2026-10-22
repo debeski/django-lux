@@ -3,6 +3,10 @@
     min-inline-size: 0;
 }
 
+.dlux-table-columns {
+    --dlux-inspector-field-min: 8rem;
+}
+
 .dlux-table-columns .dlux-ribbon-builder__model-name {
     overflow-wrap: anywhere;
     min-inline-size: 0;
@@ -39,15 +43,6 @@
 .dlux-table-columns__header:dir(rtl) .dlux-table-columns__arrow { transform: rotate(180deg); }
 .dlux-table-columns [data-column-move] { min-inline-size: 2rem; min-block-size: 2rem; }
 
-.dlux-table-columns__chip {
-    cursor: pointer;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    max-inline-size: 100%;
-}
-
-.dlux-table-columns__chip[aria-checked="true"] {
-    color: var(--bs-primary-text-emphasis);
-    background: var(--bs-primary-bg-subtle);
-    border-color: var(--bs-primary-border-subtle);
-}
+.dlux-table-columns__header.is-removed { opacity: .55; }
+.dlux-table-columns__header.is-removed .dlux-table-columns__handle { text-decoration: line-through; }
+.dlux-table-columns__header.is-active { outline: 2px solid var(--bs-primary); }

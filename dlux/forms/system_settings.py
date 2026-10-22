@@ -3558,9 +3558,19 @@ class SystemSettingsForm(
                         'previous': table_strings.get('table_columns_previous', 'Move earlier'),
                         'next': table_strings.get('table_columns_next', 'Move later'),
                         'keepOne': table_strings.get('table_columns_keep_one', 'Keep at least one column visible.'),
+                        **{key: table_strings.get('table_columns_' + key, fallback) for key, fallback in {
+                            'column_reset': 'Restore column defaults', 'remove': 'Remove column',
+                            'shown': 'Shown', 'labels': 'Header text', 'priority': 'Default sorting',
+                            'none': 'Use table default', 'primary': 'Primary', 'secondary': 'Secondary',
+                            'direction': 'Sort direction', 'ascending': 'Ascending', 'descending': 'Descending',
+                            'empty_inspector': 'Select a header to edit it, or a table title to reset its settings.',
+                            'removed': 'Removed — select to restore.', 'clear': 'Clear selection',
+                        }.items()},
                     }, ensure_ascii=False),
                     'DLUX_STRINGS': table_strings,
                     'mode': self.mode,
+                    'languages_json': _json_dump(current_languages, ensure_ascii=False),
+                    'catalog_language': catalog_lang,
                 })
 
         self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,

@@ -76,8 +76,8 @@ describe('setup wizard', { concurrency: 1 }, () => {
         toggle.checked = true;
         toggle.dispatchEvent(new Event('change', {bubbles: true}));
       });
-      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-toggle][data-column-name="email"]').getAttribute('aria-checked'), 'false');
-      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-header="email"]').count(), 0);
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-header="email"]').getAttribute('data-column-enabled'), 'false');
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-toggle]').count(), 0);
       assert.equal(await page.locator('[name="default_table_density"]:checked').inputValue(), 'dense');
       assert.equal(await page.locator('[name="row_actions_style"]:checked').inputValue(), 'both');
       assert.equal(await page.locator('[name="show_audit_fields"]').isChecked(), false);
