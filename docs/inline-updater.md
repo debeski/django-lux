@@ -175,8 +175,11 @@ deployment with inline updates). Since 1.13.0b2 it holds:
 * **Deployment check** — Composer's doctor for the *outside* of the stack (a
   resident pair started with a command this Composer rejects, a missing
   `org.dlux.restart` label, an obsolete service, a legacy maintenance page). Its
-  findings and the exact diff `check --fix` would apply are shown inline, and
-  **Apply repairs** confirms with the password and may only apply that diff.
+  findings and the exact diff `check --fix` would apply are shown inline (with
+  Composer 1.7.0b4+ that includes the maintenance-page move to stack schema 3;
+  earlier agents applied it without listing it), and **Apply repairs** confirms
+  with the password and may only apply that diff — Composer refuses if any
+  previewed file, the `.proxy/` files included, changed in between.
 * **Services** — every Compose service with its state and health. Services the
   stack allow-lists (`COMPOSER_AGENT_RESTART_SERVICES`, never one labelled
   `org.dlux.restart: "protected"`) offer **Restart** and **Recreate** (recreating

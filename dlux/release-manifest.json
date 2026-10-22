@@ -6,6 +6,7 @@
     "highlights": [
       "The shared password prompt stacks above any open modal; in 1.13.0b3 it opened under the Operations panel.",
       "Operation names in the Operations panel and the Updates card follow the interface language.",
+      "With Composer 1.7.0b4 the repair preview lists the maintenance-page migration before you apply it.",
       "Includes 1.13.0b3: services load on open, logs of every service, icon actions, one-row admin rail (Composer 1.7.0b3+).",
       "Includes 1.13.0b2: the Operations panel. Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
     ],
