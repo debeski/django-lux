@@ -1,6 +1,6 @@
 # Configurable table columns — development status
 
-The 1.14 table-builder work follows the owner-approved “Table Column Builder” plan. Phase 1 (canonical audit/deletion sets and symmetric audit visibility) already shipped. The branch implements the Tables step, canonical storage, column discovery and runtime visibility/ordering overlay (Phases 2–4). The interactive builder remains pending.
+The 1.14 table-builder work follows the owner-approved “Table Column Builder” plan. Phase 1 (canonical audit/deletion sets and symmetric audit visibility) already shipped. The branch implements the Tables step, canonical storage, discovery, runtime overlay and interactive builder (Phases 2–5). Release integration remains pending.
 
 ## Sparse column configuration
 
@@ -10,7 +10,7 @@ The flat settings keys remain public and unchanged. `tables_config` is canonical
 
 The defensive normalizer validates table preferences, drops malformed model entries and malformed column lists, removes duplicate names, and retains unknown column names for later runtime resolution. Missing table preferences use existing defaults. An explicit empty `hidden` or `order` list clears that preference in a partial import. Unrelated section saves preserve table settings and column overlays.
 
-The Tables form owns a hidden `tables_config` JSON transport, including during first-launch file imports. Inactive sections preserve its native JSON initial value; a missing transport does not discard an existing overlay. The visible column builder will use this same transport in Phase 5.
+The Tables form owns a hidden `tables_config` JSON transport, including during first-launch file imports. Inactive sections preserve its native JSON initial value; a missing transport does not discard an existing overlay. The column builder uses this same transport.
 
 ```json
 {
@@ -29,7 +29,7 @@ Keys are lower-case Django model labels (`app_label.model_name`); column names a
 
 `dlux.discovery.tables.table_column_catalog(request=None, urlconf=None)` walks named routes, inspecting declared table classes and `get_table_class()` results. It also resolves model-backed dynamic managers through the same model-class resolver as their runtime and includes section tables. It constructs tables with empty data rather than querying their rows or rendering pages. Configuration/scope helpers and project constructors may still read settings. Columns shared by table variants are merged under the model key; display labels use model-qualified table translations and the request language. Audit/deletion columns (including project extensions), scope, row actions and code-hidden/excluded columns are omitted.
 
-`SystemSettingsForm.table_columns_catalog` supplies this catalog lazily and caches it for that form instance. Discovery suppresses only the saved presentation overlay, so hidden columns remain available to re-enable. A failed constructor, URL walk or request-dependent table-class resolver logs a diagnostic and degrades safely. Function views other than the built-in section manager, tables created only inside page execution, and columns added after the common initialization hook cannot be fully inferred. Those columns remain usable at runtime but may not appear in the catalog.
+`SystemSettingsForm.table_columns_catalog` supplies this catalog lazily and caches it for that form instance. The builder renders it only in Tables or the full setup wizard. Discovery suppresses only the saved presentation overlay, so hidden columns remain available to re-enable. Intentionally blank headers get builder-only labels from `table_columns_<column_name>` translations, falling back to a readable column name; their runtime headers remain unchanged. A failed constructor, URL walk or request-dependent table-class resolver logs a diagnostic and degrades safely. Function views other than the built-in section manager, tables created only inside page execution, and columns added after the common initialization hook cannot be fully inferred. Those columns remain usable at runtime but may not appear in the catalog.
 
 The shared table initialization hook applies each model's overlay to both generated and handwritten Dlux-managed tables. Unknown or removed names are ignored; newly introduced columns retain their default visibility and follow explicitly ordered columns. The overlay never reveals a column hidden/excluded by code and leaves tables with no matching configuration unchanged. If configuration would hide every data column, the first baseline data column remains visible. Audit, deletion, scope and row-action columns retain their existing gates and positions; this overlay cannot hide, reveal or reorder them. Tables using an explicit custom template or opting out of Dlux rendering ignore the overlay.
 
@@ -37,10 +37,17 @@ Installing the table hook is idempotent. Rebuilding Django's app registry cannot
 
 Column preferences control presentation. They do not change queryset filtering, permissions or export authorization. Keep sensitive data protection in the backend.
 
-## Remaining implementation
+## Using the builder
 
-1. Add horizontal reorderable header previews and wrapping checkbox chips using the ribbon builder shell. No inspector.
-2. Complete interactive builder and release validation.
+Open **Options → Tables**. Each discovered model uses the ribbon builder's existing card shell, with a horizontal preview of its shown headers and a wrapping row of checkable column chips. Checking a chip appends that column; unchecking removes it. The last shown column cannot be unchecked. Audit/deletion, scope and row actions retain their dedicated settings and never appear as chips. There is no inspector or per-column label editor.
+
+Drag headers within their own strip to reorder. The focused header also accepts Left/Right arrow keys in the current reading direction; the adjacent earlier/later buttons provide tap controls on phones. The strip scrolls horizontally within its card, while the dialog and chips fit narrow screens. **Use table defaults** removes only that model's overlay. Save the normal settings form to apply changes to actual tables; closing without saving follows the existing discard guard.
+
+Opening the builder does not rewrite JSON or dirty the form. Edits retain unrelated table preferences, other models' overlays and stale column names. First-launch file imports refresh the chips and header strip immediately. Only an explicit model reset removes that model's stale preferences. Labels, status announcements and controls use the dlux translation framework; assets are external, CSP compliant and theme/RTL aware.
+
+## Remaining release work
+
+Integrate after 1.13, declare the additive migration in the release manifest, run release checks, and obtain owner approval before tagging or pushing a beta. Other 1.14 updater-card work remains separate from this table-builder feature.
 
 ## Phase 2 validation — 2026-10-21
 
@@ -56,6 +63,12 @@ Column preferences control presentation. They do not change queryset filtering, 
 - Repeated hook installation retains one wrapper. Live generated-table checks confirm permitted audit/deletion columns survive a hostile presentation overlay while anonymous requests cannot reveal them; original settings were restored.
 - Live settings-form saves and the real users page passed in English/LTR and Arabic/RTL at 1440px and 390px: email hiding, explicit header order, ignored removed names, all-hidden fallback and clearing the overlay back to baseline. There was no page overflow or JavaScript page error. Original table preferences, overlays and legacy mirrors were restored exactly. No screenshots were taken.
 - Deep testbed checks: 23 OK, zero errors, one expected local DEBUG warning and three skipped checks. Evidence: `.xclude/testbed/column-overlay-*`.
+
+## Phase 5 validation — 2026-10-22
+
+- Full Django suite: 2,938 tests, OK with six skips. Focused discovery/form/translation/import-graph checks: 55 passed; partial-translation compatibility checks: 47 passed. JavaScript unit suite: 70 passed. Browser suites: four builder tests, nine wizard tests and twelve preview tests passed. They cover persistence into the real users table, drag/keyboard/tap order, sparse/stale preference preservation, first-launch import refresh, last-column protection, reset, clean opens and discarding edits. Django checks, migration consistency, JavaScript syntax and whitespace checks passed.
+- The isolated PostgreSQL testbed passed the visible builder in English/LTR and Arabic/RTL at 1440px and 390px, including translated online-status labels, RTL keyboard direction, mobile tap controls, saved/reopened state, actual table rendering, reset and last-column protection. Dialog widths matched their scroll widths (1138px/388px); there were no JavaScript page errors. No screenshots were taken.
+- The candidate wheel matches the builder sources/assets. Deep checks: 23 OK, zero errors, one local DEBUG warning and three skips. Temporary table preferences and legacy mirrors were restored. Evidence: `.xclude/testbed/table-builder-*` and `column-overlay-restore.log`.
 
 Release metadata is intentionally inherited from the branch base until release integration. The migration gate currently refuses publication because that manifest declares `migrations.effect: none`; 1.14 integration must declare the additive migration and verify rollback compatibility before any beta is tagged. This branch is not release-ready.
 

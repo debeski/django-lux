@@ -42,7 +42,9 @@ def table_column_catalog(request=None, urlconf=None):
             for column in columns:
                 if column.name not in known:
                     name = column.name
-                    raw = str(column.header)
+                    raw = str(column.header).strip() or str(
+                        strings.get(f'table_columns_{name}') or name.replace('_', ' ').title()
+                    )
                     label_keys = (
                         f'tbl_{model._meta.model_name}_{name}', f'label_{model._meta.model_name}_{name}',
                         f'tbl_{name}', f'label_{name}', f'tbl_{raw}', f'label_{raw}', raw,

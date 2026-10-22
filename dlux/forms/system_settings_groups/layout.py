@@ -714,6 +714,7 @@ class LayoutMixin:
                             css_class='mb-3'
                         ),
                         Field('tables_config'),
+                        HTML(self.table_columns_builder_html),
                         css_class=self._step_css_class(SETUP_STEP_TABLES),
                     ),
                     Div(

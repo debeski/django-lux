@@ -265,6 +265,18 @@ class TableColumnDiscoveryTests(_TableColumnTestSupport, TestCase):
         table = ColumnFixtureTable([])
         self.assertNotIn('dlux_row_actions', [column.name for column in configurable_table_columns(table)])
 
+    def test_blank_headers_get_translated_builder_labels_without_changing_table_headers(self):
+        class BlankHeaderTable(ColumnFixtureTable):
+            status_icon = tables.Column(verbose_name='')
+            class Meta(ColumnFixtureTable.Meta):
+                pass
+        class BlankHeaderView(View):
+            table_class = BlankHeaderTable
+        with patch('dlux.translations.get_strings', return_value={'table_columns_status_icon': 'حالة الاتصال'}):
+            result = self.catalog([path('users/', BlankHeaderView.as_view(), name='users')])
+        self.assertEqual(next(item['label'] for item in result[0]['columns'] if item['name'] == 'status_icon'), 'حالة الاتصال')
+        self.assertEqual(BlankHeaderTable([]).columns['status_icon'].header, '')
+
     def test_request_language_uses_model_qualified_translation(self):
         with patch('dlux.translations.get_current_language_code', return_value='ar'), patch(
             'dlux.translations.get_strings', return_value={
@@ -277,12 +289,29 @@ class TableColumnDiscoveryTests(_TableColumnTestSupport, TestCase):
 
     def test_settings_form_catalog_is_lazy_and_reuses_discovery_result(self):
         from dlux.forms.system_settings import SystemSettingsForm
+        from dlux.system.constants import SETUP_STEP_APPEARANCE
+        request = RequestFactory().get('/', {'step': SETUP_STEP_APPEARANCE})
         with patch('dlux.discovery.tables.table_column_catalog', return_value=[{'key': 'auth.user'}]) as discover:
-            form = SystemSettingsForm(instance=SystemSettings.load())
+            form = SystemSettingsForm(instance=SystemSettings.load(), request=request, mode='edit')
             discover.assert_not_called()
             self.assertEqual(form.table_columns_catalog, [{'key': 'auth.user'}])
             self.assertEqual(form.table_columns_catalog, [{'key': 'auth.user'}])
             discover.assert_called_once_with(request=form.request)
+
+    def test_builder_catalog_is_escaped_and_rendered_only_on_its_step(self):
+        from dlux.forms.system_settings import SystemSettingsForm
+        from dlux.system.constants import SETUP_STEP_TABLES, SETUP_STEP_APPEARANCE
+        catalog = [{'key': 'auth.user', 'label': '<unsafe>\'"', 'columns': [{'name': 'email', 'label': '<b>Email</b>'}]}]
+        with patch('dlux.discovery.tables.table_column_catalog', return_value=catalog):
+            request = RequestFactory().get('/', {'step': SETUP_STEP_TABLES})
+            form = SystemSettingsForm(instance=SystemSettings.load(), request=request, mode='edit')
+            self.assertIn('data-table-column-builder', form.table_columns_builder_html)
+            self.assertIn('&lt;unsafe&gt;', form.table_columns_builder_html)
+            self.assertNotIn('<unsafe>', form.table_columns_builder_html)
+            self.assertNotIn('<script', form.table_columns_builder_html)
+            request = RequestFactory().get('/', {'step': SETUP_STEP_APPEARANCE})
+            form = SystemSettingsForm(instance=SystemSettings.load(), request=request, mode='edit')
+            self.assertEqual(form.table_columns_builder_html, '')
 
 
 class TableColumnsNormalizationTests(SimpleTestCase):

@@ -31,6 +31,7 @@ from ..system.constants import (
     SETUP_STEP_SIDEBAR,
     SETUP_STEP_NAVBAR,
     SETUP_STEP_RIBBON,
+    SETUP_STEP_TABLES,
     SETUP_STEP_TITLEBAR,
     SETUP_STEP_SEARCH,
     SETUP_STEP_NOTIFICATIONS,
@@ -3542,6 +3543,24 @@ class SystemSettingsForm(
             },
         )
         from ..ribbon.catalog import ribbon_destination_catalog, ribbon_tab_catalog
+
+        self.table_columns_builder_html = ''
+        if not self.single_step_mode or self.single_step_index == SETUP_STEP_TABLES:
+            table_strings = {**get_strings('en'), **s}
+            self.table_columns_builder_html = self._step_render(SETUP_STEP_TABLES,
+                'dlux/setup/table_columns_builder.html', {
+                    'table_columns_catalog_json': _json_dump(self.table_columns_catalog, ensure_ascii=False),
+                    'table_columns_strings_json': _json_dump({
+                        'reset': table_strings.get('table_columns_reset', 'Use table defaults'),
+                        'headers': table_strings.get('table_columns_headers', 'Shown columns'),
+                        'available': table_strings.get('table_columns_available', 'Available columns'),
+                        'reorder': table_strings.get('table_columns_reorder', 'Drag to reorder, or use the left and right arrow keys.'),
+                        'previous': table_strings.get('table_columns_previous', 'Move earlier'),
+                        'next': table_strings.get('table_columns_next', 'Move later'),
+                        'keepOne': table_strings.get('table_columns_keep_one', 'Keep at least one column visible.'),
+                    }, ensure_ascii=False),
+                    'DLUX_STRINGS': table_strings,
+                })
 
         self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,
             'dlux/setup/ribbon_builder.html',

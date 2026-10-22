@@ -72,6 +72,8 @@ describe('setup wizard', { concurrency: 1 }, () => {
       });
       await page.waitForFunction(() => JSON.parse(document.querySelector('[name="tables_config"]').value).columns?.['auth.user']);
       assert.deepEqual(await page.locator('[name="tables_config"]').evaluate(el => JSON.parse(el.value).columns), columns);
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-toggle][data-column-name="email"]').getAttribute('aria-checked'), 'false');
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-header="email"]').count(), 0);
       assert.equal(await page.locator('[name="default_table_density"]:checked').inputValue(), 'dense');
       assert.equal(await page.locator('[name="row_actions_style"]:checked').inputValue(), 'both');
       assert.equal(await page.locator('[name="show_audit_fields"]').isChecked(), false);
