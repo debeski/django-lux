@@ -660,6 +660,13 @@ class PanelOperationTests(SimpleTestCase):
     def test_restart_and_recreate_change_the_deployment_logs_do_not(self):
         self.assertTrue(ops.OPERATIONS["service-restart"]["changes_deployment"])
         self.assertTrue(ops.OPERATIONS["service-recreate"]["changes_deployment"])
+
+    def test_recreate_needs_the_composer_that_keeps_the_secrets(self):
+        # Composer 1.7.0b2–b4 recreated a service without the deployment's
+        # secrets, so the panel must not offer Recreate against them.
+        self.assertFalse(ops.supports("service-recreate", "1.7.0b4")[0])
+        self.assertTrue(ops.supports("service-recreate", "1.7.0b5")[0])
+        self.assertTrue(ops.supports("service-restart", "1.7.0b2")[0], "restart reuses the container")
         self.assertFalse(ops.OPERATIONS["logs-tail"]["changes_deployment"])
         self.assertFalse(ops.OPERATIONS["services"]["changes_deployment"])
 

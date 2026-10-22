@@ -97,7 +97,8 @@ OPERATIONS = {
     "service-recreate": {
         # Recreating runs the service's pre_start hooks, which is what applies
         # migrations on celery; only allow-listed services, as for a restart.
-        "min_composer": "1.7.0b2",
+        # 1.7.0b2–b4 recreated on compose defaults (no secrets): web could not start.
+        "min_composer": "1.7.0b5",
         "changes_deployment": True,
         "needs_preview": False,
         "panel": True,

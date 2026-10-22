@@ -218,7 +218,7 @@ operations named in `dlux.updater.ops.OPERATIONS`, and nothing else exists:
 | `agent-update` | **yes** | Composer 1.5.2b1+, a check that found an update, and the current password |
 | `services` | no | Composer 1.7.0b2+ |
 | `service-restart` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
-| `service-recreate` | **yes** | Composer 1.7.0b2+, an allow-listed `service`, and the current password |
+| `service-recreate` | **yes** | Composer 1.7.0b5+ (earlier agents recreated without the deployment's secrets), an allow-listed `service`, and the current password |
 | `logs-tail` | no | Composer 1.7.0b3+, `lines` (1–1000, default 200), and optionally a `service`; without one, every service merged in time order |
 
 The only arguments a request can carry are a service name (letters, digits, `_`
