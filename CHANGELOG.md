@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **PDF Viewer Zoom Works**: `.dlux-pdf-stage canvas` was capped at `max-width: 100%`, so in a column narrower than the page (the record detail modal) every zoom step re-rendered a larger canvas that CSS shrank back. `pdf/js/viewer.js` now zooms relative to the stage's fitted width (50–300% in 25% steps, limits disable the buttons), sizes the canvas in CSS pixels and draws it at `devicePixelRatio`, re-fits on resize (`ResizeObserver`) and queues a click that arrives mid-render instead of dropping it. The stage centres with `margin: auto` instead of `justify-content: center`, so a zoomed page scrolls to its start edge.
+- **PDF Viewer Fullscreen Toggles**: the fullscreen button only entered fullscreen. It now exits too, swaps to `bi-fullscreen-exit` with the new `pdf_exit_fullscreen_label` (EN/AR) and `aria-pressed`, and tracks `fullscreenchange` so leaving with Esc resets it; `.dlux-pdf-viewer:fullscreen` lets the page area fill the screen.
+- **PDF Viewer In RTL And Without pdf.js**: the canvas is `direction: ltr` (project-archive carried this rule locally; pdf.js positions text itself). When pdf.js is unavailable, print and fullscreen are still wired (the early return skipped them) and page/zoom buttons are disabled. Covered by `tests-e2e/pdf_viewer.test.mjs` with a two-page fixture PDF.
+
 ## v1.13.0b1
 
 - **Maintenance Page Moves Into Composer (Stack Schema 3)**: `dlux startproject` no longer generates `.proxy/maintenance.html` or bind-mounts it into the proxy. The page ships in the Composer image (1.7.0b1+): `composer-agent` publishes it to `dlux_runtime` at `proxy/maintenance/`, and the scaffolded Caddyfile serves it on 502/503/504 (`root * /opt/dlux-runtime/proxy/maintenance`) plus its CSS/JS through a new `handle /_dlux/maintenance/*` route ahead of `web`; the nginx fallback gets the matching `alias` locations. A project page goes in `.proxy/maintenance/` and is published by `composer check --fix`. `dlux/contracts/stack.json` `schema_version` 2 -> 3; the scaffold template `maintenance.html.tmpl` is retired.

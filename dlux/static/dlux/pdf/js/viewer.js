@@ -17,33 +17,63 @@
         let pdfDocument = null;
         let loadingTask = null;
         let disposed = false;
+        let resizeObserver = null;
         const modalRoot = viewer.closest(".modal");
         viewer.disposePdf = () => {
             disposed = true;
+            resizeObserver?.disconnect();
+            document.removeEventListener("fullscreenchange", onFullscreenChange);
             modalRoot?.removeEventListener("hidden.bs.modal", viewer.disposePdf);
             if (loadingTask) loadingTask.destroy().catch(() => {});
         };
         modalRoot?.addEventListener("hidden.bs.modal", viewer.disposePdf);
+        const stage = viewer.querySelector(".dlux-pdf-stage");
+        const fullscreenIcon = fullscreenButton.querySelector("i");
         let pageNumber = 1;
-        let scale = 1.2;
+        // 1 = the page fits the stage's width; zooming multiplies that.
+        let zoom = 1;
+        const ZOOM_MIN = 0.5;
+        const ZOOM_MAX = 3;
+        const ZOOM_STEP = 0.25;
         let rendering = false;
+        let renderAgain = false;
 
         function useFallback() {
             if (disposed) return;
             viewer.classList.add("is-fallback");
+            // The browser's own viewer has its own controls; these would do nothing.
+            [previousButton, nextButton, zoomInButton, zoomOutButton].forEach((button) => { button.disabled = true; });
             if (fallback) {
                 fallback.src = `${pdfUrl}#toolbar=0&navpanes=0`;
             }
         }
 
+        function stageWidth() {
+            const styles = window.getComputedStyle(stage);
+            const padding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+            return Math.max(stage.clientWidth - padding, 120);
+        }
+
         function renderPage() {
-            if (disposed || !pdfDocument || rendering) return;
+            if (disposed || !pdfDocument) return;
+            // A click while a page is drawing is not dropped: draw again after.
+            if (rendering) {
+                renderAgain = true;
+                return;
+            }
             rendering = true;
             pdfDocument.getPage(pageNumber).then(function (page) {
-                const viewport = page.getViewport({ scale: scale });
+                const fitWidth = stageWidth() / page.getViewport({ scale: 1 }).width;
+                const cssScale = fitWidth * zoom;
+                // Draw at the screen's pixel density so the page stays sharp,
+                // and size the canvas in CSS pixels: that size is the zoom.
+                const ratio = window.devicePixelRatio || 1;
+                const viewport = page.getViewport({ scale: cssScale * ratio });
                 const context = canvas.getContext("2d");
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+                canvas.height = Math.floor(viewport.height);
+                canvas.width = Math.floor(viewport.width);
+                canvas.style.width = `${Math.floor(viewport.width / ratio)}px`;
+                canvas.style.height = `${Math.floor(viewport.height / ratio)}px`;
                 return page.render({ canvasContext: context, viewport: viewport }).promise;
             }).then(function () {
                 rendering = false;
@@ -51,24 +81,32 @@
                 pagesLabel.textContent = pdfDocument.numPages;
                 previousButton.disabled = pageNumber <= 1;
                 nextButton.disabled = pageNumber >= pdfDocument.numPages;
+                zoomOutButton.disabled = zoom <= ZOOM_MIN;
+                zoomInButton.disabled = zoom >= ZOOM_MAX;
+                viewer.dataset.pdfZoom = String(zoom);
+                if (renderAgain) {
+                    renderAgain = false;
+                    renderPage();
+                }
             }).catch(function () {
                 rendering = false;
                 useFallback();
             });
         }
 
+        // Print and fullscreen work in the fallback too, so their handlers are
+        // wired whether or not pdf.js can draw the file.
         if (!window.pdfjsLib || !pdfUrl) {
             useFallback();
-            return;
+        } else {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+            loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false });
+            loadingTask.promise.then(function (loadedPdf) {
+                pdfDocument = loadedPdf;
+                pagesLabel.textContent = pdfDocument.numPages;
+                renderPage();
+            }).catch(useFallback);
         }
-
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-        loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false });
-        loadingTask.promise.then(function (loadedPdf) {
-            pdfDocument = loadedPdf;
-            pagesLabel.textContent = pdfDocument.numPages;
-            renderPage();
-        }).catch(useFallback);
 
         previousButton.addEventListener("click", function () {
             if (pageNumber > 1) {
@@ -85,14 +123,24 @@
         });
 
         zoomInButton.addEventListener("click", function () {
-            scale = Math.min(scale + 0.2, 2.8);
+            zoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX);
             renderPage();
         });
 
         zoomOutButton.addEventListener("click", function () {
-            scale = Math.max(scale - 0.2, 0.6);
+            zoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN);
             renderPage();
         });
+
+        // The fit width changes with the modal, the window and fullscreen.
+        let lastWidth = 0;
+        resizeObserver = new ResizeObserver(function () {
+            const width = Math.round(stageWidth());
+            if (width === lastWidth) return;
+            lastWidth = width;
+            renderPage();
+        });
+        resizeObserver.observe(stage);
 
         printButton.addEventListener("click", function () {
             const frame = document.createElement("iframe");
@@ -113,11 +161,27 @@
             }, 60000);
         });
 
+        const enterLabel = fullscreenButton.title;
+        const exitLabel = fullscreenButton.dataset.exitLabel || enterLabel;
+
         fullscreenButton.addEventListener("click", function () {
-            if (viewer.requestFullscreen) {
-                viewer.requestFullscreen();
+            if (document.fullscreenElement === viewer) {
+                document.exitFullscreen().catch(() => {});
+            } else if (viewer.requestFullscreen) {
+                viewer.requestFullscreen().catch(() => {});
             }
         });
+
+        // Esc leaves fullscreen too, so the button follows the document, not its own clicks.
+        function onFullscreenChange() {
+            const active = document.fullscreenElement === viewer;
+            viewer.classList.toggle("is-fullscreen", active);
+            fullscreenIcon.className = active ? "bi bi-fullscreen-exit" : "bi bi-arrows-fullscreen";
+            fullscreenButton.title = active ? exitLabel : enterLabel;
+            fullscreenButton.setAttribute("aria-label", fullscreenButton.title);
+            fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+        document.addEventListener("fullscreenchange", onFullscreenChange);
     }
 
     function initializeAll(root) {
