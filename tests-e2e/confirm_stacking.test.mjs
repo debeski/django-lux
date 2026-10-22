@@ -87,6 +87,8 @@ test('the prompt opened over a modal is on top and can be typed into', async () 
     return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === input;
   });
   assert.equal(onTop, true, 'the password field is not covered by the panel or its backdrop');
+  assert.equal(await page.evaluate(() => document.activeElement === document.querySelector('[data-dlux-confirm-password]')), true,
+    'the password field has the focus, so the operator can type at once');
   await page.locator('[data-dlux-confirm-password]').fill('pw');
   assert.equal(await page.locator('[data-dlux-confirm-password]').inputValue(), 'pw');
 

@@ -137,6 +137,8 @@ describe('deployment check in the panel', () => {
     assert.equal(await page.locator('[data-dlux-ops-panel-summary]').textContent(), '1 problem(s), 0 warning(s)');
     assert.equal(await page.locator('.dlux-ops-finding-message').textContent(), 'The proxy serves the project page.');
     assert.equal(await page.locator('.dlux-ops-diff').textContent(), '+  handle /_dlux/maintenance/*');
+    assert.equal(await page.locator('.dlux-ops-diff').getAttribute('dir'), 'ltr', 'a diff reads left to right in Arabic too');
+    assert.equal(await page.locator('.dlux-ops-finding-message').getAttribute('dir'), 'auto');
     await page.locator('[data-dlux-ops-panel-apply]').click();
     await waitForAction();
     assert.deepEqual((await actions())[0], { operation: 'check-fix-apply', current_password: 'pw-root-1234' });

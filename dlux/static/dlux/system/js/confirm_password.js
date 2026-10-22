@@ -145,10 +145,15 @@
             });
         }
 
-        modal.show();
         if (requirePassword && passwordEl) {
-            window.setTimeout(function () { passwordEl.focus(); }, 150);
+            // On `shown`: Bootstrap focuses the dialog itself when its transition
+            // ends, which took the focus back from a field focused any earlier.
+            modalEl.addEventListener('shown.bs.modal', function focusPassword() {
+                modalEl.removeEventListener('shown.bs.modal', focusPassword);
+                passwordEl.focus();
+            });
         }
+        modal.show();
         return modal;
     }
 
