@@ -2564,6 +2564,7 @@ STRINGS = {
     'pdf_editor_pdfjs_failed': 'PDF.js failed to load. Reload the page and try again.',
     'pdf_empty_save_label': 'Select at least one page before saving.',
     'pdf_fullscreen_label': 'Fullscreen',
+    'pdf_exit_fullscreen_label': 'Exit fullscreen',
     'pdf_label_action_type': 'Action',
     'pdf_label_archived_file': 'Archived File',
     'pdf_label_created_at': 'Created At',

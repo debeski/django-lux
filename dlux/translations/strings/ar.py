@@ -2564,6 +2564,7 @@ STRINGS = {
     'pdf_editor_pdfjs_failed': 'تعذر تحميل PDF.js. أعد تحميل الصفحة وحاول مرة أخرى.',
     'pdf_empty_save_label': 'اختر صفحة واحدة على الأقل قبل الحفظ.',
     'pdf_fullscreen_label': 'ملء الشاشة',
+    'pdf_exit_fullscreen_label': 'الخروج من ملء الشاشة',
     'pdf_label_action_type': 'الإجراء',
     'pdf_label_archived_file': 'الملف المؤرشف',
     'pdf_label_created_at': 'تاريخ الإنشاء',

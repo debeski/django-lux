@@ -50,7 +50,10 @@
                 <i class="bi bi-clock-history"></i>
             </a>
             {% endif %}
-            <button type="button" class="btn btn-outline-dark btn-sm" data-pdf-fullscreen title="{{ DLUX_STRINGS.pdf_fullscreen_label|default:'Fullscreen' }}">
+            <button type="button" class="btn btn-outline-dark btn-sm" data-pdf-fullscreen aria-pressed="false"
+                    title="{{ DLUX_STRINGS.pdf_fullscreen_label|default:'Fullscreen' }}"
+                    aria-label="{{ DLUX_STRINGS.pdf_fullscreen_label|default:'Fullscreen' }}"
+                    data-exit-label="{{ DLUX_STRINGS.pdf_exit_fullscreen_label|default:'Exit fullscreen' }}">
                 <i class="bi bi-arrows-fullscreen"></i>
             </button>
         </div>

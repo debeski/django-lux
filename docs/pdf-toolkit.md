@@ -50,6 +50,8 @@ Editing-disabled requests receive 403 before adapter lookup. Authentication and 
 
 Render `dlux/pdf/viewer.html` with `source_url`, `file_name`, `download_url`, `edit_url`, `history_url`, `can_edit`, and `pdf_features`. No model field name is assumed. The viewer initializes on dynamically inserted content and releases its PDF worker when removed/closed.
 
+The page opens fitted to the viewer's width; **Zoom in / Zoom out** step by 25% between 50% and 300% of that fit, and the page is drawn at the screen's pixel density so it stays sharp. The fit follows the viewer's size (modal, window, fullscreen). **Fullscreen** toggles: the button switches to an exit icon and label (`pdf_exit_fullscreen_label`) and follows the document, so leaving with Esc resets it too. The canvas is always `direction: ltr`, since pdf.js positions text itself. When pdf.js cannot draw the file, the browser's own viewer shows it in an iframe; page and zoom buttons are disabled there, print and fullscreen still work.
+
 The editor uses a DjangoLux file widget, supports reorder/remove/append, page selection, Rotate and Fit to A4, guards unsaved page edits, releases thumbnail workers, and avoids submitting an untouched current PDF. Its Scan button uses the shared ScanLink client (`window.DluxScan.scan()` from `scan_button.js`), the same routine as the file card: health check, scanner selection, progress and translated errors.
 
 Saving is disabled while source pages are loading. Closing or replacing the editor cancels active PDF loads; a late save reply cannot navigate away from a newer modal surface.
