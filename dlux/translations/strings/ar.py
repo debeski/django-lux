@@ -2324,6 +2324,8 @@ STRINGS = {
     'tut_options_backups_desc': 'راجع سياسة النسخ الاحتياطي وافتح مساحة الاستعادة الكاملة.',
     'tut_options_system_settings_title': 'إعدادات النظام',
     'tut_options_system_settings_desc': 'افتح محررات مخصصة للهوية والأمان والتخطيط والتكاملات واستيراد الإعدادات أو تصديرها.',
+    'tut_options_tabs_title': 'أقسام الخيارات',
+    'tut_options_tabs_desc': 'يفتح كل تبويب مجموعة من الإعدادات؛ اختر تبويبًا لعرضها وتعديلها.',
     'tut_options_card_order_title': 'ترتيب الخيارات',
     'tut_options_card_order_desc': 'اسحب بطاقات الخيارات إلى الترتيب الأنسب لك.',
     'tut_options_landing_title': 'صفحة البداية',

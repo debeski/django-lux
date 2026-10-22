@@ -567,9 +567,10 @@ Keep these invariants when extending the framework tour:
 - define every new `tut_*` key in every shipped language; `test_translation_coverage.py` scans the tutorial JavaScript and enforces this
 - target stable component classes or `data-*` hooks; candidates are resolved when the tour starts and only rendered elements become steps
 - avoid assigning two descriptions to the same target; the resolver collapses duplicate elements
+- a target inside a hidden container never becomes a step: Options defaults to the tabbed layout, where only the active pane renders, so the tour introduces the tab strip (`.dlux-options-tabs`) instead of each hidden card
 - keep Driver.js positioning LTR internally, but derive popover content, control direction, and alignment from the document `dir`
 
-The browser regression in `tests-e2e/tutorial.test.mjs` changes a real user preference to Arabic, reloads Options, starts the real tour, and verifies Arabic step text, translated controls, RTL presentation, and current component coverage.
+The browser regression in `tests-e2e/tutorial.test.mjs` changes a real user preference to Arabic, reloads Options, starts the real tour, and verifies Arabic step text, translated controls, RTL presentation, and current component coverage, including the Options tab-strip step.
 
 ## Audit, Interaction, and Utility Subsystems
 

@@ -46,11 +46,22 @@ async function setToggle(page, name, on) {
   await page.waitForTimeout(200);
 }
 
+// Delivery path, secret storage and provider preset are Dlux choice selectors:
+// a group of radios sharing one name. Writing `.value` on the first radio
+// rewrites that option instead of choosing one, so a radio group is set by
+// checking the radio that carries the value.
 async function setField(page, name, value) {
   await page.evaluate(([n, v]) => {
-    const el = document.querySelector(`.dlux-system-setup-form [name="${n}"]`);
-    if (!el) throw new Error(`field ${n} not found`);
-    el.value = v;
+    const els = [...document.querySelectorAll(`.dlux-system-setup-form [name="${n}"]`)];
+    if (!els.length) throw new Error(`field ${n} not found`);
+    let el = els[0];
+    if (el.type === 'radio') {
+      el = els.find((r) => r.value === v);
+      if (!el) throw new Error(`field ${n} has no option ${v}`);
+      el.checked = true;
+    } else {
+      el.value = v;
+    }
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }, [name, value]);
   await page.waitForTimeout(200);
@@ -69,7 +80,13 @@ async function stepContaining(page, selector) {
   await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
 }
 
-const disabled = (page, name) => page.isDisabled(`.dlux-system-setup-form [name="${name}"]`);
+// A choice selector is locked only when every option is: one option can be
+// greyed out on its own (the `relay` transport when no relay answers).
+const disabled = (page, name) => page.evaluate((n) => {
+  const els = [...document.querySelectorAll(`.dlux-system-setup-form [name="${n}"]`)];
+  if (!els.length) throw new Error(`field ${n} not found`);
+  return els.every((el) => el.disabled);
+}, name);
 const value = (page, name) => page.inputValue(`.dlux-system-setup-form [name="${name}"]`);
 
 describe('wizard email cluster', { concurrency: 1 }, () => {
@@ -110,11 +127,10 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       assert.equal(await disabled(page, 'email_config_password'), false,
         'encrypted_db storage must allow entering the password');
 
-      const other = await page.evaluate((sel) => {
-        const el = document.querySelector(sel);
-        const opt = [...el.options].map((o) => o.value).find((v) => v !== 'encrypted_db');
-        return opt || null;
-      }, storage);
+      const other = await page.evaluate((sel) => (
+        [...document.querySelectorAll(sel)].map((el) => el.value).find((v) => v !== 'encrypted_db') || null
+      ), storage);
+      assert.ok(other, 'secret storage offers no mode besides encrypted_db');
       if (other) {
         await setField(page, 'email_config_secret_storage', other);
         assert.equal(await disabled(page, 'email_config_password'), true,

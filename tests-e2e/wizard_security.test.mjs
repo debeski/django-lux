@@ -371,12 +371,20 @@ describe('wizard security cluster', { concurrency: 1 }, () => {
       assert.ok(await page.$(mode), 'client_ip_mode control missing');
       await stepContaining(page, '[data-client-ip-mode-input]');
 
-      await page.selectOption(mode, 'custom');
+      // client_ip_mode is a Dlux choice selector (a radio group), not a <select>.
+      const pickMode = (value) => page.evaluate(([sel, v]) => {
+        const el = document.querySelector(`${sel}[value="${v}"]`);
+        if (!el) throw new Error(`client_ip_mode=${v} not found`);
+        el.checked = true;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, [mode, value]);
+
+      await pickMode('custom');
       await page.waitForTimeout(200);
       assert.equal(await disabled(page, 'client_ip_custom_header'), false,
         'custom mode must allow editing the header name');
 
-      await page.selectOption(mode, 'x_forwarded_for');
+      await pickMode('x_forwarded_for');
       await page.waitForTimeout(200);
       assert.equal(await disabled(page, 'client_ip_custom_header'), true,
         'the header name must lock outside custom mode');

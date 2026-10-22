@@ -2324,6 +2324,8 @@ STRINGS = {
     'tut_options_backups_desc': 'See backup policy and open the full recovery workspace.',
     'tut_options_system_settings_title': 'System Settings',
     'tut_options_system_settings_desc': 'Open focused editors for branding, security, layout, integrations, and configuration import or export.',
+    'tut_options_tabs_title': 'Options Sections',
+    'tut_options_tabs_desc': 'Each tab opens one group of settings; choose a tab to see and change them.',
     'tut_options_card_order_title': 'Reorder Options',
     'tut_options_card_order_desc': 'Drag option cards into the order that works best for you.',
     'tut_options_landing_title': 'Landing Page',

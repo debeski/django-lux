@@ -1,11 +1,12 @@
-// An image update's end, from both pages that see it.
+// An image update's end, as the update modal sees it.
 //
 // Composer writes `ready` before the new web container's DjangoLux has marked the
 // update completed and lowered the maintenance flag. The update modal used to
-// reload on `ready` and land on the maintenance page; that page only redirected
-// if it had seen a progress phase first, so a first read of `ready` left it there
-// for good. Here a stub server plays both: the deploy status reaches `ready`
-// while the app still answers 503.
+// reload on `ready` and land on the maintenance page. Here a stub server plays
+// Composer: the deploy status reaches `ready` while the app still answers 503.
+//
+// The maintenance page itself left this repo for the Composer image in 1.13.0b1
+// (stack schema 3), so its "first read of `ready`" case belongs to Composer now.
 //
 // Run:  node --test --test-concurrency=1 'tests-e2e/*.test.mjs'
 
@@ -19,7 +20,6 @@ import { chromium } from 'playwright';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC = path.join(HERE, '..', 'dlux', 'static');
-const MAINTENANCE = path.join(HERE, '..', 'dlux', 'scaffold', 'templates', 'project', '.proxy', 'maintenance.html.tmpl');
 const PORT = 8744;
 const BASE = `http://localhost:${PORT}`;
 
@@ -72,29 +72,20 @@ let server;
 let browser;
 let page;
 let loads = {};
-let maintenance = { appAnswers: false };
 
 before(async () => {
-  const maintenanceHtml = fs.readFileSync(MAINTENANCE, 'utf-8').replaceAll('{{ stack_schema }}', '2');
   server = http.createServer((req, res) => {
     const url = req.url.split('?')[0];
     loads[url] = (loads[url] || 0) + 1;
     if (url === '/updater') { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(PAGE); return; }
     if (url === '/_update/status.json') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      // The modal is opened on a real update: a progress phase, then `ready`. The
-      // maintenance page is loaded straight onto `ready`.
-      const status = maintenance.appAnswers === null && loads[url] <= 2 ? 'pulling' : 'ready';
+      // The modal is opened on a real update: a progress phase, then `ready`.
+      const status = loads[url] <= 2 ? 'pulling' : 'ready';
       res.end(JSON.stringify({ status, updated_at: '2026-10-06T10:00:00Z' }));
       return;
     }
     if (url === '/_update/log.txt') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('pulled; recreated'); return; }
-    if (url === '/records/42/') {
-      if (maintenance.appAnswers) { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<!doctype html><title>app</title><p id="app">record 42</p>'); return; }
-      res.writeHead(503, { 'Content-Type': 'text/html' });
-      res.end(maintenanceHtml);
-      return;
-    }
     const file = path.join(STATIC, url);
     if (!file.startsWith(STATIC) || !fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
     res.writeHead(200, { 'Content-Type': 'application/javascript' });
@@ -113,7 +104,6 @@ after(async () => {
 // still behind maintenance); /_update/* and the page itself come from the server.
 async function openUpdater(outcome) {
   loads = {};
-  maintenance.appAnswers = null;
   page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -195,21 +185,6 @@ describe('the update modal at the end of an image update', () => {
     await page.waitForTimeout(500);
     assert.equal(loads['/updater'], 1);
     assert.deepEqual(errors, []);
-    await page.close();
-  });
-});
-
-describe('the maintenance page', () => {
-  test('a first read of `ready` returns to the page the visitor was on once the app answers', async () => {
-    maintenance.appAnswers = false;
-    page = await browser.newPage();
-    await page.goto(`${BASE}/records/42/`);
-    assert.match(await page.content(), /Update in progress/);
-    await page.waitForTimeout(2500);
-    assert.equal(page.url(), `${BASE}/records/42/`, 'still waiting while the app answers 503');
-    maintenance.appAnswers = true;
-    await page.waitForSelector('#app', { timeout: 15000 });
-    assert.equal(page.url(), `${BASE}/records/42/`, 'back on the same page, not /');
     await page.close();
   });
 });

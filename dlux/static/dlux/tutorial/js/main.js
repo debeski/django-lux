@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (path.includes('/sys/options/')) {
             return [
                 step('.dlux-options-grid', 'tut_options_overview_title', 'Options workspace', 'tut_options_overview_desc', 'Personal preferences and permitted system controls are collected here.'),
+                step('.dlux-options-tabs', 'tut_options_tabs_title', 'Options sections', 'tut_options_tabs_desc', 'Each tab opens one group of settings; choose a tab to see and change them.'),
                 step('.dlux-admin-panel-heading', 'tut_options_admin_title', 'Admin panel', 'tut_options_admin_desc', 'System health, updates, backups, configuration, and protected commands live together here.'),
                 step('[data-admin-command-launcher]', 'tut_options_admin_commands_title', 'Admin commands', 'tut_options_admin_commands_desc', 'Open the command rail for assets, control-panel pairing, password enforcement, and data reset.'),
                 step('.dlux-admin-tile--status', 'tut_options_info_title', 'System information', 'tut_options_info_desc', 'Review storage, runtime versions, and service health.'),

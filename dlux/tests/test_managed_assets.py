@@ -300,6 +300,22 @@ class ManagedAssetTests(TestCase):
         asset_id = response.json()['assets'][0]['id']
         self.assertTrue(ManagedAsset.objects.filter(pk=asset_id, title='during-setup').exists())
 
+    def test_general_picker_upload_is_not_redirected_during_setup(self):
+        # The wizard's pickers post here; the setup gate used to bounce the
+        # upload back to /sys/setup/ with a 302, so nothing was ever stored.
+        self.client.force_login(self.user)
+        system_settings = SystemSettings.load()
+        system_settings.is_configured = False
+        system_settings.save()
+
+        response = self.client.post(reverse('managed_asset_picker_upload'), {
+            'file': image_upload('wizard-logo.png'),
+        })
+
+        self.assertEqual(response.status_code, 200)
+        asset_id = response.json()['assets'][0]['id']
+        self.assertTrue(ManagedAsset.objects.filter(pk=asset_id, title='wizard-logo').exists())
+
     def test_selected_asset_picker_uses_active_language_copy(self):
         asset, _created = create_managed_asset(image_upload(), kind='image', title='Brand')
         settings_obj = SystemSettings.load()
