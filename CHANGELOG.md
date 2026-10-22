@@ -7,7 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.14.0b1
+
+- **First Table Builder Beta**: Integrates published 1.13.0b3 Operations code. The table-settings field migration is `0028_tables_config`, following published `0027_opsrun_params`; both additions have database defaults and remain compatible with pointer rollback. The other planned 1.14 Updates-card features remain pending for later betas.
 
 - **Builder Restore and Reverted Edits**: Shorten table column Restore, disable it at defaults and update it while editing. Preserve hidden-column positions and the original JSON when edits are reverted so unchanged Tables forms close without an unsaved-changes prompt.
 - **Ribbon Button Ordering**: Add drag ordering for destination buttons, persist per-host `action_order` lists and apply them to declared/custom buttons through `RibbonMixin` and function-host rendering; preserve raw HTML positions and existing permission checks.
@@ -19,6 +21,20 @@ This file owns the release history for `django-lux`.
 - **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register defensive, model-keyed sparse `hidden`/`order` configuration with runtime settings and import/export.
 - **Tables Settings Step (1.14)**: Place Tables between Ribbon and Components; relocate table density, accent edges, resizing, zebra stripes, sticky headers, row actions and record-visibility controls. Read legacy preferences through into canonical `tables_config` and migrate them on save, preserving flat keys, `layout_config` mirrors, partial imports and settings saved from unrelated sections. Refresh older singleton cache entries and track loaded values so cached canonical defaults cannot override a legacy edit.
 - **Settings Preview Routing**: Add Tables to the frontend step registry and guard its order against the canonical backend registry; select Options tiles by stable step slug in preview tests so later sections keep opening their own previews.
+
+## v1.13.0b3
+
+- **Logs Of Every Service**: `logs-tail` takes an optional `service` (`params` `("service?", "lines")`); without one, Composer 1.7.0b3+ returns the newest lines of every service merged in time order as `service | message`, and the operation's floor rises to `1.7.0b3`. `get_ops_state()` adds `logs` (the latest completed `logs-tail`), so the panel's **Logs** section keeps its text while other operations run or the page reloads — before, refreshing the service list replaced the shown logs for good. The section is always present, opens on all services, and has a refresh icon (`data-dlux-ops-panel-logs-all`); its height drops to `13rem`.
+- **Panel Loads Services On Open**: `operations_panel.js` runs `services` once when the panel opens and nothing else is running; the **Load services** button becomes a refresh icon.
+- **Lighter Services Table**: restart (`bi-arrow-repeat`), recreate and logs are icon buttons (`.dlux-ops-icon`) with `title`/`aria-label`; a protected service's note sits inline in the actions cell, small and faint (`.dlux-ops-note`).
+- **Collapsed Check Findings**: the findings list starts clamped to about two lines (`.dlux-ops-findings.is-collapsed`) with a **Show all (N)** / **Show less** toggle when there are more than two.
+- **Admin Rail**: **Operations** is the rail's first action, and the open rail uses the full width (`.dlux-admin-command-launcher` `flex: 1 1 auto`), so it no longer wraps to two rows while there is room.
+
+## v1.13.0b2
+
+- **Operations Panel**: Options > admin rail gains **Operations** (`/sys/operations/`, superuser-only dynamic modal, `operations_panel.html` + `system/js/operations_panel.js`): the deployment check with its findings and the exact `check --fix` diff inline, **Apply repairs**; a **Services** table (state, health) with **Restart** / **Recreate** for allow-listed services; **Logs** showing the last 200 lines of a service as plain text. Every action is a named operation through `/sys/api/dlux-ops/run/`; restart, recreate and apply confirm with the current password via the shared `dluxConfirmPassword` prompt.
+- **New Operations**: `services`, `service-restart`, `service-recreate`, `logs-tail` in `dlux.updater.ops.OPERATIONS` (Composer 1.7.0b2+). The only arguments a request carries are a validated `service` name and a clamped `lines` (1–1000), stored on the run in the new `DluxOpsRun.params` (migration `0027_opsrun_params`, additive with `db_default={}`). Panel operations are `panel: True`: an older Composer disables their buttons with the reason and never flags the deployment as behind.
+- **Updates Card Holds Only Updates**: the Deployment row and its results modal (`#dluxOpsResultModal`) are gone from **Updates and maintenance**; the Composer agent row stays and confirms its update through the shared password prompt. `system/js/ops.js` now drives that row only.
 
 ## v1.13.0b1
 

@@ -2,7 +2,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [('dlux', '0026_file_versions')]
+    dependencies = [('dlux', '0027_opsrun_params')]
 
     operations = [
         migrations.AddField(

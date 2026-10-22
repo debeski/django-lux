@@ -201,6 +201,7 @@ urlpatterns = [
     path('sys/api/dlux-update/interval/', views.dlux_update_interval_view, name='dlux_update_interval'),
     path('sys/api/dlux-ops/state/', views.dlux_ops_state_view, name='dlux_ops_state'),
     path('sys/api/dlux-ops/run/', views.dlux_ops_run_view, name='dlux_ops_run'),
+    path('sys/operations/', views.dlux_operations_panel_view, name='dlux_operations_panel'),
     path('sys/api/dlux-update/apply/', views.dlux_update_apply_view, name='dlux_update_apply'),
     path('sys/api/dlux-update/image/', views.dlux_update_image_view, name='dlux_update_image'),
     path('sys/api/dlux-update/rollback/', views.dlux_update_rollback_view, name='dlux_update_rollback'),

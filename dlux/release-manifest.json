@@ -1,13 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.13.0b1",
+  "version": "1.14.0b1",
   "display": {
-    "summary": "The maintenance page moves out of the project and into the Composer image.",
+    "summary": "Configurable table columns with a shared inspector, plus ribbon button ordering.",
     "highlights": [
-      "New projects no longer carry .proxy/maintenance.html: composer-agent publishes the page on the runtime volume and the proxy serves it (stack schema 3, needs Composer 1.7.0b1+).",
-      "Existing stacks keep working; 'composer check --fix' migrates them and keeps a customised page as the .proxy/maintenance/ override."
+      "Tables settings: reorder and restore columns, edit translated labels and icons, and choose primary/secondary sorting through the shared inspector.",
+      "The shared inspector uses conditional Restore actions; reverted edits close without a false unsaved-changes prompt. Dlux tables stay behind Show system items.",
+      "Ribbon destination buttons support drag ordering that persists into real pages, including project export buttons.",
+      "Includes the published 1.13.0b3 Operations panel. The remaining planned 1.14 Updates-card features will follow in later betas."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0b1"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -15,10 +17,10 @@
     "services": {
       "composer": ">=1.5.3b1"
     },
-    "migration_baseline": ">=1.12.0"
+    "migration_baseline": ">=1.13.0b2"
   },
   "migrations": {
-    "effect": "none",
+    "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },

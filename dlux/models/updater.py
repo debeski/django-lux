@@ -399,6 +399,9 @@ class DluxOpsRun(models.Model):
     is_active = models.BooleanField(default=True, db_index=True, verbose_name="Active")
     requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
     result = models.JSONField(default=dict, blank=True, verbose_name="Result")
+    # The validated arguments an operation takes (a service name, a line count);
+    # empty for the operations that take none. Never a command or a path.
+    params = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Parameters")
     error = models.TextField(blank=True, verbose_name="Error")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     requested_at = models.DateTimeField(blank=True, null=True, verbose_name="Requested At")
