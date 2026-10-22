@@ -405,12 +405,14 @@ def get_ops_state():
     except Exception:
         run, check, services, logs, resident = None, None, None, None, _resident_status("")
     composer_version = ops.resident_composer_version()
+    from dlux.translations import get_strings
+    strings = get_strings()
     operations = []
     for name, spec in ops.OPERATIONS.items():
         allowed, reason = ops.supports(name, composer_version)
         operations.append({
             "name": name,
-            "label": spec["label"],
+            "label": strings.get(ops.OPERATION_LABEL_KEYS.get(name, "")) or spec["label"],
             "changes_deployment": spec["changes_deployment"],
             "needs_preview": spec["needs_preview"],
             "min_composer": spec["min_composer"],

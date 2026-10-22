@@ -142,6 +142,25 @@ describe('deployment check in the panel', () => {
     assert.deepEqual((await actions())[0], { operation: 'check-fix-apply', current_password: 'pw-root-1234' });
   });
 
+  test('warnings with no repair say so and offer nothing to apply', async () => {
+    const warn = { ...REPAIR_CHECK, findings: [{ level: 'warn', name: 'versions', message: 'Version drift.' }],
+      repairs: [], summary: { total: 1, ok: 0, warn: 1, fail: 0 } };
+    await load({ check: warn, has_preview: true });
+    assert.equal(await page.locator('[data-dlux-ops-panel-norepair]').textContent(),
+      'No automatic repair is available for these findings.');
+    assert.equal(await page.locator('[data-dlux-ops-panel-norepair]').isVisible(), true);
+    assert.equal(await page.locator('[data-dlux-ops-panel-apply]').isVisible(), false);
+  });
+
+  test('a clean check says so and offers nothing', async () => {
+    const clean = { ...REPAIR_CHECK, findings: [{ level: 'ok', name: 'docker', message: 'Docker daemon reachable.' }],
+      repairs: [], summary: { total: 1, ok: 1, warn: 0, fail: 0 } };
+    await load({ check: clean, has_preview: true });
+    assert.equal(await page.locator('[data-dlux-ops-panel-summary]').textContent(), 'No problems found');
+    assert.equal(await page.locator('[data-dlux-ops-panel-norepair]').isVisible(), false, 'nothing to repair, nothing to say');
+    assert.equal(await page.locator('[data-dlux-ops-panel-apply]').isVisible(), false);
+  });
+
   test('running the check asks for no password', async () => {
     await load({});
     await page.locator('[data-dlux-ops-panel-run="check"]').click();

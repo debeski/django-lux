@@ -636,6 +636,18 @@ class PanelOperationTests(SimpleTestCase):
         self.assertFalse(ops.OPERATIONS["services"]["changes_deployment"])
 
 
+class OperationLabelTests(TestCase):
+    def test_every_operation_label_is_translated(self):
+        from dlux.translations import DLUX_STRINGS
+        self.assertEqual(set(ops.OPERATION_LABEL_KEYS), set(ops.OPERATIONS))
+        for key in ops.OPERATION_LABEL_KEYS.values():
+            self.assertIn(key, DLUX_STRINGS["en"], key)
+            self.assertIn(key, DLUX_STRINGS["ar"], key)
+        with mock.patch("dlux.translations.runtime.get_current_language_code", return_value="ar"):
+            labels = {op["name"]: op["label"] for op in get_ops_state()["operations"]}
+        self.assertEqual(labels["service-restart"], DLUX_STRINGS["ar"]["dlux_ops_op_restart"])
+
+
 class PanelRunLifecycleTests(OpsRunLifecycleTests):
     def test_arguments_travel_with_the_request_and_results_come_back(self):
         with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name), \

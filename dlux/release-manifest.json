@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.13.0b3",
+  "version": "1.13.0b4",
   "display": {
-    "summary": "Operations panel polish: logs of every service, a lighter services table, a one-row admin rail.",
+    "summary": "The password prompt opens above the Operations panel, so restart and recreate can be confirmed.",
     "highlights": [
-      "Operations panel: services load on open; logs of every service, merged in time order, stay on screen (Composer 1.7.0b3+).",
-      "Services get icon actions with tooltips and an inline note for protected ones; a long deployment check starts as a two-line summary.",
-      "Operations is the first action in the admin rail, and the rail stays on one row while it fits.",
+      "The shared password prompt stacks above any open modal; in 1.13.0b3 it opened under the Operations panel.",
+      "Operation names in the Operations panel and the Updates card follow the interface language.",
+      "Includes 1.13.0b3: services load on open, logs of every service, icon actions, one-row admin rail (Composer 1.7.0b3+).",
       "Includes 1.13.0b2: the Operations panel. Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b4"
   },
   "requires": {
     "updater_schema": ">=1",

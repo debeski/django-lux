@@ -116,6 +116,18 @@ OPERATIONS = {
     },
 }
 
+# Translation keys for each operation's ``label`` (the English fallback).
+OPERATION_LABEL_KEYS = {
+    "check": "dlux_ops_check",
+    "agent-check": "dlux_ops_agent_check",
+    "agent-update": "dlux_ops_agent_update",
+    "check-fix-apply": "dlux_ops_apply",
+    "services": "dlux_ops_op_services",
+    "service-restart": "dlux_ops_op_restart",
+    "service-recreate": "dlux_ops_op_recreate",
+    "logs-tail": "dlux_ops_op_logs",
+}
+
 #: Names Compose accepts for a service; Composer re-validates against the stack.
 SERVICE_NAME_MAX = 64
 LOG_LINES_DEFAULT = 200
