@@ -120,8 +120,9 @@ test('inspector visibility, drag and reopening update the real users table', asy
     assert.equal(actual.includes('email'), false);
     model = await openTables(page);
     assert.deepEqual(await headers(model), expected);
+    const restoredOrder = await model.locator('[data-column-header]').evaluateAll(nodes => nodes.map(node => node.dataset.columnHeader));
     await setShown(page, model, 'email', true);
-    assert.equal((await headers(model)).at(-1), 'email', 're-enabled columns append to the header strip');
+    assert.deepEqual(await headers(model), restoredOrder, 're-enabled columns retain their original position');
     await resetTable(page, model);
     assert.deepEqual(await headers(model), baseline);
     await save(page);
@@ -249,6 +250,95 @@ test('column inspector persists localized text, icons, two sorts and independent
     assert.equal(restored.columns['auth.user'].headers?.email,undefined);
     assert.deepEqual(restored.columns['auth.user'].sorting,['username']);
     await resetTable(page,model);
+    await save(page);
+    assert.deepEqual(errors,[]);
+  } finally { await ctx.close(); }
+});
+
+test('Restore follows pending column overrides and reverted edits close cleanly', async () => {
+  const {ctx,page,errors}=await loggedInPage(browser);
+  try {
+    const model=await openTables(page);
+    const hidden=page.locator('#universalDynamicModal [name="tables_config"]');
+    const original=await hidden.inputValue();
+    await selectHeader(page,model,'email');
+    const restore=inspector(page).locator('[data-inspector-action="reset-column"]');
+    assert.equal((await restore.innerText()).trim(),'Restore');
+    assert.equal(await restore.isDisabled(),true);
+    const label=inspector(page).locator('[data-inspector-field="labels-en"] input');
+    await label.fill('Temporary header');
+    assert.equal(await restore.isEnabled(),true);
+    await label.fill('');
+    assert.equal(await restore.isDisabled(),true);
+    assert.equal(await hidden.inputValue(),original);
+    await label.fill('Temporary again');
+    await restore.click();
+    assert.equal(await restore.isDisabled(),true);
+    await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+    await setShown(page,model,'email',false);
+    await setShown(page,model,'email',true);
+    assert.equal(await hidden.inputValue(),original);
+    await model.locator('[data-column-handle][data-column-name="username"]').press('ArrowRight');
+    await model.locator('[data-column-handle][data-column-name="username"]').press('ArrowLeft');
+    assert.equal(await hidden.inputValue(),original);
+    await page.locator('#universalDynamicModal .modal-header .btn-close').click();
+    await page.waitForSelector('#universalDynamicModal.show',{state:'hidden'});
+    assert.equal(await page.locator('#dluxUnsavedModal.show').count(),0);
+    let savedModel=await openTables(page);
+    await selectHeader(page,savedModel,'email');
+    await inspector(page).locator('[data-inspector-field="labels-en"] input').fill('Saved header');
+    await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+    await save(page);
+    savedModel=await openTables(page);
+    const saved=await hidden.inputValue();
+    await selectHeader(page,savedModel,'email');
+    const savedLabel=inspector(page).locator('[data-inspector-field="labels-en"] input');
+    await savedLabel.fill('Changed saved header');
+    await savedLabel.fill('Saved header');
+    assert.equal(await hidden.inputValue(),saved);
+    assert.equal(await inspector(page).locator('[data-inspector-action="reset-column"]').isEnabled(),true);
+    await inspector(page).locator('[data-inspector-action="clear-selection"]').click();
+    await page.locator('#universalDynamicModal .modal-header .btn-close').click();
+    await page.waitForSelector('#universalDynamicModal.show',{state:'hidden'});
+    assert.equal(await page.locator('#dluxUnsavedModal.show').count(),0);
+    savedModel=await openTables(page);
+    await resetTable(page,savedModel);
+    await save(page);
+    assert.deepEqual(errors,[]);
+  } finally { await ctx.close(); }
+});
+
+test('ribbon buttons drag, save and reopen in their configured order', async () => {
+  const {ctx,page,errors}=await loggedInPage(browser);
+  try {
+    async function openRibbon() {
+      await page.goto(`${BASE}/sys/options/`,{waitUntil:'networkidle'});
+      await page.locator('[data-dlux-settings-step="ribbon"]').click();
+      const root=page.locator('#universalDynamicModal [data-ribbon-builder]');
+      await root.locator('[data-ribbon-system-toggle]').check();
+      return root;
+    }
+    const root=await openRibbon();
+    const catalog=await root.evaluate(node=>JSON.parse(node.dataset.catalog));
+    const host=catalog.find(entry=>entry.url && entry.actions.filter(action=>action.key).length>=2);
+    assert.ok(host,'a real ribbon host supplies at least two destination buttons');
+    const model=()=>page.locator('#universalDynamicModal [data-model]').filter({has:page.locator('[data-model-key]',{hasText:host.route_name})}).first();
+    const buttons=()=>model().locator('[data-action-key]');
+    const original=await buttons().evaluateAll(nodes=>nodes.map(node=>node.dataset.actionKey));
+    await buttons().nth(1).dragTo(buttons().nth(0));
+    const ordered=[original[1],original[0],...original.slice(2)];
+    assert.deepEqual(await buttons().evaluateAll(nodes=>nodes.map(node=>node.dataset.actionKey)),ordered);
+    await save(page);
+    await page.goto(new URL(host.url,BASE).href,{waitUntil:'networkidle'});
+    const actual=await page.locator('.dlux-ribbon-actions').first().evaluate(node=>[...node.querySelectorAll('a,button')].map(button=>{
+      const endpoint=button.getAttribute('data-dynamic-modal')||button.getAttribute('formaction')||button.getAttribute('data-url')||button.getAttribute('data-start-url')||button.getAttribute('href');
+      return endpoint?'dest:'+endpoint:'';
+    }));
+    assert.deepEqual(actual.filter(key=>ordered.includes(key)),ordered);
+    await openRibbon();
+    assert.deepEqual(await buttons().evaluateAll(nodes=>nodes.map(node=>node.dataset.actionKey)),ordered);
+    await buttons().nth(1).dragTo(buttons().nth(0));
+    assert.deepEqual(await buttons().evaluateAll(nodes=>nodes.map(node=>node.dataset.actionKey)),original);
     await save(page);
     assert.deepEqual(errors,[]);
   } finally { await ctx.close(); }

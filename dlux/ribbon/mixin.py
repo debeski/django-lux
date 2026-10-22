@@ -243,12 +243,15 @@ class RibbonMixin:
 
     def get_ribbon(self, context=None):
         from .build import build_ribbon
+        from .tabs import configured_action_order_for_key
 
         filterset = (context or {}).get('filter') if context else None
         if filterset is None:
             filterset = self.get_ribbon_filterset()
         actions = list(self.get_ribbon_actions() or [])
         actions.extend(self.get_custom_ribbon_actions())
+        model = getattr(self, 'model', None) or getattr(getattr(self, 'queryset', None), 'model', None)
+        order = configured_action_order_for_key(model._meta.label, self.get_ribbon_host_key()) if model else []
         return build_ribbon(
             filterset,
             request=self.request,
@@ -258,6 +261,7 @@ class RibbonMixin:
             primary=self.ribbon_primary,
             advanced=self.ribbon_advanced,
             actions=actions,
+            action_order=order,
             tabs=self.visible_ribbon_strips(),
             preserve_keys=self.get_ribbon_preserve_keys(),
             clear_url=self.get_ribbon_clear_url(),

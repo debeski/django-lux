@@ -557,6 +557,12 @@ def configured_action_overlays_for_key(key):
     return stored if isinstance(stored, dict) else {}
 
 
+def configured_action_order_for_key(key, host_key):
+    stored = _stored_ribbon_entry_key(key).get('action_order') or {}
+    order = stored.get(str(host_key)) if isinstance(stored, dict) else None
+    return list(order) if isinstance(order, (list, tuple)) else []
+
+
 def configured_strip_for(model, param=None, index=0):
     """The stored overlay/removal for one declared strip."""
     strips = configured_strips_for(model)

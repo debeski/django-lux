@@ -1307,8 +1307,17 @@ def normalize_ribbon_config(value):
 
         custom_actions = _normalize_ribbon_custom_actions(entry.get('custom_actions'))
         action_overlays = _normalize_ribbon_action_overlays(entry.get('actions'))
+        action_order = {}
+        raw_order = entry.get('action_order')
+        if isinstance(raw_order, dict):
+            for host, keys in raw_order.items():
+                if isinstance(host, str) and host.strip() and isinstance(keys, (list, tuple)):
+                    ordered = list(dict.fromkeys(key for key in keys
+                        if isinstance(key, str) and key.startswith('dest:') and key[5:].strip()))
+                    if ordered:
+                        action_order[host] = ordered
 
-        if declared or extra or custom_actions or action_overlays:
+        if declared or extra or custom_actions or action_overlays or action_order:
             model_entry = {}
             if declared:
                 model_entry['strips'] = declared
@@ -1318,6 +1327,8 @@ def normalize_ribbon_config(value):
                 model_entry['custom_actions'] = custom_actions
             if action_overlays:
                 model_entry['actions'] = action_overlays
+            if action_order:
+                model_entry['action_order'] = action_order
             cleaned[model_key] = model_entry
 
     return cleaned

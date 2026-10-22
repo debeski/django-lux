@@ -3559,7 +3559,7 @@ class SystemSettingsForm(
                         'next': table_strings.get('table_columns_next', 'Move later'),
                         'keepOne': table_strings.get('table_columns_keep_one', 'Keep at least one column visible.'),
                         **{key: table_strings.get('table_columns_' + key, fallback) for key, fallback in {
-                            'column_reset': 'Restore column defaults', 'remove': 'Remove column',
+                            'column_reset': 'Restore', 'remove': 'Remove column',
                             'shown': 'Shown', 'labels': 'Header text', 'priority': 'Default sorting',
                             'none': 'Use table default', 'primary': 'Primary', 'secondary': 'Secondary',
                             'direction': 'Sort direction', 'ascending': 'Ascending', 'descending': 'Descending',

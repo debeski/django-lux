@@ -437,6 +437,8 @@ per language, `icon` re-glyphs it, and dropping the entry restores it — the sa
 overlay model the declared tab strips use. A button that is raw `html` has no
 destination, so it can be neither deduped nor edited.
 
+Drag destination buttons within a host's Buttons row to reorder developer and administrator buttons together. The sparse `action_order` map under the model/route storage entry records one destination-key list per host route, for example `{"action_order": {"reports_overview": ["dest:/reports/export/", "dest:/reports/create/"]}}`. Returning to code order removes that host's ordering preference. Unknown destinations are ignored and new buttons retain their relative code order after the configured destinations. Raw HTML controls stay fixed in their original slots. Ordering does not add buttons or change their permission gates. Both `RibbonMixin` and function hosts using `build_ribbon(custom_actions_key=..., custom_actions_host=...)` apply saved order; direct callers can pass an `action_order` destination list. Catalog discovery uses a request copy with an empty query string, preserving the reader's permissions without inheriting settings-step parameters. Saved query-only button destinations also match when the runtime URL adds page filters, so export buttons retain their configured position.
+
 The builder gets a class-based host's buttons by asking it — `get_ribbon_actions()`
 is where a real view builds them, since which buttons it shows usually depends on
 the reader's permissions. That runs the view's own code, so it happens inside a

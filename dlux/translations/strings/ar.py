@@ -448,7 +448,7 @@ STRINGS = {
     'system_settings_ribbon_desc': 'شريط الصفحة أعلى صفحة القوائم: عنوانها وتبويباتها وعوامل التصفية والإجراءات.',
     'ribbon_tabs_settings_title': 'شرائط التبويبات',
     'table_columns_intro': 'اختر رأس عمود لتعديل نصه وأيقونته وظهوره وفرزه. اسحب الرؤوس أو استخدم الأسهم لترتيبها. اختر عنوان الجدول لاستعادة إعداداته الافتراضية.',
-    'table_columns_column_reset': 'استعادة إعدادات العمود الافتراضية',
+    'table_columns_column_reset': 'استعادة',
     'table_columns_remove': 'إزالة العمود',
     'table_columns_shown': 'ظاهر',
     'table_columns_labels': 'نص رأس العمود',

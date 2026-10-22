@@ -9,6 +9,14 @@
         try { return JSON.parse(value); } catch (_) { return fallback; }
     }
 
+    function canonical(value) {
+        if (Array.isArray(value)) return value.map(canonical);
+        if (value && typeof value === 'object') return Object.fromEntries(
+            Object.keys(value).sort().map(key => [key, canonical(value[key])])
+        );
+        return value;
+    }
+
     function element(tag, className, text) {
         const node = document.createElement(tag);
         node.className = className;
@@ -27,6 +35,8 @@
         if (root.dataset.tableColumnsReady) return;
         const hidden = root.closest('form')?.querySelector('[name="tables_config"]');
         if (!hidden) return;
+        let initialValue;
+        let initialConfig;
         root.dataset.tableColumnsReady = '1';
         const catalog = parse(root.dataset.catalog, []);
         const strings = object(parse(root.dataset.strings, {}));
@@ -59,7 +69,11 @@
         }
 
         function write(value, refreshInspector = true) {
-            hidden.value = JSON.stringify(value);
+            if (initialValue === undefined) {
+                initialValue = hidden.value;
+                initialConfig = JSON.stringify(canonical(parse(initialValue, {})));
+            }
+            hidden.value = JSON.stringify(canonical(value)) === initialConfig ? initialValue : JSON.stringify(value);
             writing = true;
             hidden.dispatchEvent(new Event('input', {bubbles: true}));
             hidden.dispatchEvent(new Event('change', {bubbles: true}));
@@ -79,6 +93,12 @@
         }
 
         function headerSettings(model, name) { return object(object(state(model).entry.headers)[name]); }
+        function columnChanged(model, name) {
+            const header = headerSettings(model, name);
+            return Boolean(header.icon || Object.values(object(header.labels)).some(Boolean))
+                || !state(model).visible.includes(name)
+                || sortingOf(model).some(alias => alias.replace(/^-/, '') === name);
+        }
         function sortingOf(model) {
             const sorting = state(model).entry.sorting;
             return Array.isArray(sorting) ? sorting.filter(alias => typeof alias === 'string') : [];
@@ -111,8 +131,12 @@
                 const staleHidden = (Array.isArray(entry.hidden) ? entry.hidden : []).filter(name => !names.includes(name));
                 const staleOrder = (Array.isArray(entry.order) ? entry.order : []).filter(name => !names.includes(name));
                 const hiddenNames = [...staleHidden, ...names.filter(name => !visible.includes(name))];
-                const natural = names.filter(name => visible.includes(name));
-                const order = JSON.stringify(natural) === JSON.stringify(visible) ? staleOrder : [...staleOrder, ...visible];
+                const previousOrder = [...new Set([
+                    ...(Array.isArray(entry.order) ? entry.order : []).filter(name => names.includes(name)), ...names,
+                ])];
+                const replacements = visible[Symbol.iterator]();
+                const fullOrder = previousOrder.map(name => visible.includes(name) ? replacements.next().value : name);
+                const order = JSON.stringify(names) === JSON.stringify(fullOrder) ? staleOrder : [...staleOrder, ...fullOrder];
                 if (hiddenNames.length) next.hidden = hiddenNames; else delete next.hidden;
                 if (order.length) next.order = order; else delete next.order;
                 if (Object.keys(next).length) columns[model.key] = next; else delete columns[model.key];
@@ -238,7 +262,12 @@
                 host.appendChild(section);
             });
             if (refreshInspector) inspector.render(selected);
-            else inspector.reposition();
+            else {
+                const found = selection();
+                const restore = root.querySelector('[data-inspector-action="reset-column"]');
+                if (restore && found?.column) restore.disabled = hidden.disabled || !columnChanged(found.model, found.column.name);
+                inspector.reposition();
+            }
         }
 
         function selection() {
@@ -249,7 +278,9 @@
 
         function setShown(model, name, shown) {
             const visible = state(model).visible;
-            const next = shown ? [...new Set([...visible, name])] : visible.filter(item => item !== name);
+            const {entry, names} = state(model);
+            const all = [...new Set([...(Array.isArray(entry.order) ? entry.order : []).filter(item => names.includes(item)), ...names])];
+            const next = shown ? all.filter(item => item === name || visible.includes(item)) : visible.filter(item => item !== name);
             if (!next.length) return;
             commit(model, next);
         }
@@ -289,7 +320,7 @@
                     const last = shown && state(model).visible.length === 1;
                     return [
                         {id:'reset-column', label:strings.column_reset, icon:'bi bi-arrow-counterclockwise',
-                            disabled:hidden.disabled, onClick:() => resetColumn(model, column.name)},
+                            disabled:hidden.disabled || !columnChanged(model, column.name), onClick:() => resetColumn(model, column.name)},
                         {id:'remove-column', label:strings.remove, icon:'bi bi-trash3', variant:'outline-danger',
                             disabled:hidden.disabled || !shown || last,
                             onClick:() => setShown(model, column.name, false)},

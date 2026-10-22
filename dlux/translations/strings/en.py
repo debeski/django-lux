@@ -451,7 +451,7 @@ STRINGS = {
     'system_settings_ribbon_desc': 'The band at the top of a list page: its title, tab strips, filters and actions.',
     'ribbon_tabs_settings_title': 'Tab Strips',
     'table_columns_intro': 'Select a header to edit its text, icon, visibility and sorting. Drag headers or use the arrows to reorder them. Select a table title to restore its defaults.',
-    'table_columns_column_reset': 'Restore column defaults',
+    'table_columns_column_reset': 'Restore',
     'table_columns_remove': 'Remove column',
     'table_columns_shown': 'Shown',
     'table_columns_labels': 'Header text',

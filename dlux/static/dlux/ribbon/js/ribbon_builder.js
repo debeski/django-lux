@@ -72,6 +72,13 @@
         // Administrator edits to buttons a view declared in code, keyed by
         // destination — the same overlay model the declared tab strips use.
         const actionOverlayState = {};
+        const actionOrderState = {};
+        Object.keys(stored).forEach(modelKey => {
+            const orders = stored[modelKey] && stored[modelKey].action_order;
+            if (orders && typeof orders === 'object' && !Array.isArray(orders)) {
+                actionOrderState[modelKey] = JSON.parse(JSON.stringify(orders));
+            }
+        });
         let nextExtraId = 1;
         let nextActionId = 1;
 
@@ -355,7 +362,8 @@
                 Object.keys(declaredState).concat(
                     Object.keys(extraState),
                     Object.keys(customActionState),
-                    Object.keys(actionOverlayState)
+                    Object.keys(actionOverlayState),
+                    Object.keys(actionOrderState)
                 )
             );
             modelKeys.forEach(function (modelKey) {
@@ -410,8 +418,10 @@
                     overlays[key] = out;
                 });
                 if (Object.keys(overlays).length) modelEntry.actions = overlays;
+                const orders = actionOrderState[modelKey] || {};
+                if (Object.keys(orders).length) modelEntry.action_order = orders;
                 if (declared.length || extra.length || Object.keys(customOut).length
-                    || Object.keys(overlays).length) {
+                    || Object.keys(overlays).length || Object.keys(orders).length) {
                     out[modelKey] = modelEntry;
                 }
             });
@@ -659,6 +669,12 @@
             host.appendChild(node);
         }
 
+        function baselineActionKeys(modelKey) {
+            const model = hostFor(modelKey);
+            return [...new Set((model.actions || []).map(action => String(action.key || ''))
+                .concat(customActionsFor(modelKey).map(customActionDestinationKey)).filter(Boolean))];
+        }
+
         function renderActionPill(modelKey, action, host, locked) {
             if (!templates.action || !host) return;
             const node = templates.action.content.firstElementChild.cloneNode(true);
@@ -694,6 +710,43 @@
                 : (selected && selected.type === 'action'
                     && selected.modelKey === modelKey && selected.actionId === action._id);
             if (matches) node.classList.add('is-active');
+            const destinationKey = locked ? overlayKey : customActionDestinationKey(action);
+            node.dataset.actionKey = destinationKey;
+            node.draggable = Boolean(destinationKey);
+            node.addEventListener('dragstart', function (event) {
+                dragging = {type:'action', modelKey:modelKey, actionKey:destinationKey};
+                event.dataTransfer.setData('text/plain', destinationKey);
+                event.dataTransfer.effectAllowed = 'move';
+                node.classList.add('is-dragging');
+            });
+            node.addEventListener('dragend', function () {
+                dragging = null;
+                root.querySelectorAll('.is-dragging, .is-drop-target').forEach(item => item.classList.remove('is-dragging', 'is-drop-target'));
+            });
+            node.addEventListener('dragover', function (event) {
+                if (dragging?.type !== 'action' || dragging.modelKey !== modelKey || dragging.actionKey === destinationKey) return;
+                event.preventDefault();
+                node.classList.add('is-drop-target');
+            });
+            node.addEventListener('dragleave', () => node.classList.remove('is-drop-target'));
+            node.addEventListener('drop', function (event) {
+                node.classList.remove('is-drop-target');
+                if (dragging?.type !== 'action' || dragging.modelKey !== modelKey) return;
+                event.preventDefault();
+                const keys = [...host.querySelectorAll('[data-action-key]')].map(item => item.dataset.actionKey).filter(Boolean);
+                const from = keys.indexOf(dragging.actionKey);
+                const to = keys.indexOf(destinationKey);
+                if (from < 0 || to < 0 || from === to) return;
+                keys.splice(to, 0, keys.splice(from, 1)[0]);
+                const storageKey = modelStateKey(modelKey);
+                actionOrderState[storageKey] = actionOrderState[storageKey] || {};
+                const defaults = baselineActionKeys(modelKey);
+                if (JSON.stringify(keys) === JSON.stringify(defaults)) delete actionOrderState[storageKey][modelKey];
+                else actionOrderState[storageKey][modelKey] = keys;
+                dragging = null;
+                commit();
+                renderAll();
+            });
             node.addEventListener('click', function () {
                 selected = locked
                     ? { type: type, modelKey: modelKey, key: overlayKey, label: action.label,
@@ -784,13 +837,18 @@
                     seenDestinations.add(key);
                     return true;
                 }
-                devActions.forEach(function (action) {
-                    if (!withoutDuplicates(action, String(action.key || ''))) return;
-                    renderActionPill(model.key, action, actionHost, true);
+                const entries = devActions.map(action => ({action, locked:true, key:String(action.key || '')}))
+                    .concat(customActions.map(action => ({action, locked:false, key:customActionDestinationKey(action)})))
+                    .filter(entry => withoutDuplicates(entry.action, entry.key));
+                const order = (actionOrderState[modelStateKey(model.key)] || {})[model.key] || [];
+                const movable = entries.filter(entry => entry.key).sort((a,b) => {
+                    const rank = key => order.includes(key) ? order.indexOf(key) : order.length;
+                    return rank(a.key) - rank(b.key);
                 });
-                customActions.forEach(function (action) {
-                    if (!withoutDuplicates(action, customActionDestinationKey(action))) return;
-                    renderActionPill(model.key, action, actionHost, false);
+                const sorted = movable[Symbol.iterator]();
+                entries.forEach(entry => {
+                    const item = entry.key ? sorted.next().value : entry;
+                    renderActionPill(model.key, item.action, actionHost, item.locked);
                 });
                 if (actionSection) actionSection.hidden = !(devActions.length || customActions.length);
                 const addAction = node.querySelector('[data-model-add-action]');
