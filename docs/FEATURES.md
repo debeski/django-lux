@@ -84,4 +84,4 @@ See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal 
 
 ## In development: table column builder
 
-The 1.14 branch adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed discovery and a visibility/ordering overlay for generated and handwritten tables. The builder uses the ribbon shell with wrapping column chips, draggable headers, keyboard/tap ordering and per-model reset. Dedicated record-visibility gates remain in control. Release integration is pending; see [table-columns.md](table-columns.md).
+The 1.14 branch adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed discovery and a visibility/ordering overlay for generated and handwritten tables. The builder uses the ribbon shell with wrapping column chips, draggable headers, keyboard/tap ordering and per-model reset. Dlux-supplied tables are hidden behind the default-off **Show system items** filter. Dedicated record-visibility gates remain in control. Release integration is pending; see [table-columns.md](table-columns.md).

@@ -449,6 +449,7 @@ STRINGS = {
     'ribbon_tabs_settings_title': 'شرائط التبويبات',
     'table_columns_intro': 'اختر الأعمدة من الأزرار أدناه. اسحب رؤوس الأعمدة أو استخدم الأسهم لتغيير ترتيبها. تبقى أعمدة التدقيق والحذف والنطاق خاضعة لإعداداتها الخاصة.',
     'table_columns_empty': 'لم يُعثر على جداول قابلة للتخصيص.',
+    'table_columns_no_project_tables': 'لم يُعثر على جداول للمشروع. فعّل إظهار عناصر النظام لعرض جداول Dlux.',
     'table_columns_reset': 'استخدام أعمدة الجدول الافتراضية',
     'table_columns_headers': 'الأعمدة الظاهرة',
     'table_columns_available': 'الأعمدة المتاحة',

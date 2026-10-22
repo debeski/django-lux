@@ -31,6 +31,10 @@
         const catalog = parse(root.dataset.catalog, []);
         const strings = object(parse(root.dataset.strings, {}));
         const host = root.querySelector('[data-table-column-models]');
+        const systemToggle = root.querySelector('[data-table-columns-system-toggle]');
+        const empty = root.querySelector('[data-table-columns-empty]');
+        const emptyMessage = empty.textContent;
+        let showSystemItems = false;
         let writing = false;
         let dragging = null;
 
@@ -94,8 +98,10 @@
 
         function render() {
             host.replaceChildren();
-            root.querySelector('[data-table-columns-empty]').hidden = catalog.length > 0;
-            catalog.forEach(model => {
+            const visibleCatalog = catalog.filter(model => showSystemItems || !model.is_system);
+            empty.hidden = visibleCatalog.length > 0;
+            empty.textContent = catalog.length ? root.dataset.emptyProjectLabel : emptyMessage;
+            visibleCatalog.forEach(model => {
                 const {names, visible} = state(model);
                 const labels = new Map(model.columns.map(column => [column.name, column.label]));
                 const section = element('section', 'dlux-ribbon-builder__model');
@@ -205,6 +211,12 @@
         }
 
         hidden.addEventListener('change', () => { if (!writing) render(); });
+        systemToggle.checked = false;
+        systemToggle.addEventListener('change', () => {
+            showSystemItems = systemToggle.checked;
+            dragging = null;
+            render();
+        });
         render();
     }
 

@@ -188,6 +188,47 @@ class TableColumnOverlayTests(_TableColumnTestSupport, TestCase):
 
 
 class TableColumnDiscoveryTests(_TableColumnTestSupport, TestCase):
+    def test_supplied_users_and_activity_tables_are_system_items(self):
+        from dlux.tables import UserTable, UserActivityLogTable
+        class Users(View):
+            table_class = UserTable
+        class Activity(View):
+            table_class = UserActivityLogTable
+        catalog = self.catalog([
+            path('users/', Users.as_view(), name='users'),
+            path('activity/', Activity.as_view(), name='activity'),
+        ])
+        self.assertEqual(len(catalog), 2)
+        self.assertTrue(all(entry['is_system'] for entry in catalog))
+
+    def test_generated_project_manager_remains_a_project_table(self):
+        from dlux.tests.document_files_app.models import Paper
+        from dlux.views.sections import DynamicModalManagerView
+        catalog = self.catalog([path('papers/', DynamicModalManagerView.as_view(model=Paper), name='papers')])
+        self.assertEqual(catalog[0]['key'], 'document_files_app.paper')
+        self.assertFalse(catalog[0]['is_system'])
+
+    def test_any_supplied_table_variant_marks_the_model_as_system(self):
+        from dlux.tests.document_files_app.models import Paper
+        class ProjectTable(DluxTable):
+            __module__ = 'project.tables'
+            class Meta(DluxTable.Meta):
+                model = Paper
+                fields = ('title',)
+        class SuppliedTable(ProjectTable):
+            __module__ = 'dlux.example.tables'
+            class Meta(ProjectTable.Meta):
+                pass
+        class Project(View):
+            table_class = ProjectTable
+        class Supplied(View):
+            table_class = SuppliedTable
+        project = path('project/', Project.as_view(), name='project')
+        supplied = path('supplied/', Supplied.as_view(), name='supplied')
+        self.assertFalse(self.catalog([project])[0]['is_system'])
+        for patterns in ([project, supplied], [supplied, project]):
+            self.assertTrue(self.catalog(patterns)[0]['is_system'])
+
     def catalog(self, patterns):
         with patch('dlux.discovery.tables.get_resolver') as resolver, patch(
             'dlux.utils.sections.discover_section_models', return_value=[]

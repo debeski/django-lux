@@ -452,6 +452,7 @@ STRINGS = {
     'ribbon_tabs_settings_title': 'Tab Strips',
     'table_columns_intro': 'Choose columns with the chips. Drag headers or use the arrows to reorder them. Audit, deletion and scope columns keep their own controls.',
     'table_columns_empty': 'No configurable tables were discovered.',
+    'table_columns_no_project_tables': 'No project tables were discovered. Turn on Show system items to see Dlux tables.',
     'table_columns_reset': 'Use table defaults',
     'table_columns_headers': 'Shown columns',
     'table_columns_available': 'Available columns',

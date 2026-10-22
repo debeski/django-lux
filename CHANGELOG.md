@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Table Builder System Items Filter**: Hide users, activity logs and other Dlux-supplied tables behind the default-off Show system items switch, matching Ribbon/Sidebar/Navbar. Preserve system-table overlays and pending edits when filtering; keep generated project tables visible and explain the filtered empty state in English/Arabic.
 - **Interactive Table Column Builder (1.14)**: Add translated column chips and a reorderable header strip to Tables and first-run setup, using the ribbon builder shell. Support drag, RTL-aware keyboard and tap ordering, per-model defaults, last-column protection and immediate import refresh. Preserve sparse overlays and leave untouched forms clean; provide builder-only labels for intentionally blank runtime headers.
 - **Table Column Discovery and Overlay (1.14)**: Discover model-keyed baseline columns from table views, dynamic managers and sections, with translated headers and skipped-host diagnostics. Apply sparse visibility/order preferences through shared table initialization; ignore stale names, preserve code exclusions and dedicated framework columns, and retain a data column when all would be hidden. Expose discovery lazily on the settings form.
 - **Idempotent Table Initialization**: Avoid stacking the table hook when Django rebuilds its app registry; repeated installation previously reran audit/deletion authorization after the request had been consumed, hiding columns permitted by the original request.

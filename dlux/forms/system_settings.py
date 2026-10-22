@@ -3560,6 +3560,7 @@ class SystemSettingsForm(
                         'keepOne': table_strings.get('table_columns_keep_one', 'Keep at least one column visible.'),
                     }, ensure_ascii=False),
                     'DLUX_STRINGS': table_strings,
+                    'mode': self.mode,
                 })
 
         self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,

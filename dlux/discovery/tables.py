@@ -32,10 +32,18 @@ def table_column_catalog(request=None, urlconf=None):
             if not columns:
                 return
             key = model._meta.label_lower
+            from django.contrib.auth import get_user_model
+            module = type(table).__module__
+            is_system = (
+                model._meta.app_label in {'dlux', 'auth', 'admin', 'contenttypes', 'sessions'}
+                or model is get_user_model()
+                or module == 'dlux' or module.startswith('dlux.')
+            )
             entry = found.setdefault(key, {
                 'key': key, 'label': str(resolve_model_label(model, strings=strings)),
-                'columns': [], 'routes': [],
+                'columns': [], 'routes': [], 'is_system': False,
             })
+            entry['is_system'] = entry['is_system'] or is_system
             if route not in entry['routes']:
                 entry['routes'].append(route)
             known = {item['name'] for item in entry['columns']}
