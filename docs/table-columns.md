@@ -1,4 +1,4 @@
-# Configurable table columns — development status
+# Configurable table columns — 1.14.0b1 beta
 
 The 1.14.0b1 table-builder beta follows the owner-approved “Table Column Builder” plan. Phase 1 (canonical audit/deletion sets and symmetric audit visibility) already shipped. This beta implements the Tables step, canonical storage, discovery, runtime overlay and interactive builder (Phases 2–5), and integrates published 1.13.0b3. The remaining 1.14 Updates-card scope is reserved for later betas.
 
@@ -57,7 +57,7 @@ Hiding and showing a column retains its position. Reverting labels, icons, sorti
 
 ## Remaining release work
 
-The owner authorized pushing the branch and publishing the first 1.14 beta on 2026-10-22. The candidate integrates published 1.13.0b3 and declares additive migrations, inline installation and pointer rollback compatibility. Other 1.14 updater-card work remains separate and is required before stable promotion.
+The owner authorized pushing the branch and publishing the first 1.14 beta on 2026-10-22. Beta 1.14.0b1 is published on PyPI and GitHub as a prerelease, integrating published 1.13.0b3 with additive migrations, inline installation and verified pointer rollback compatibility. Other 1.14 updater-card work remains separate and is required before stable promotion.
 
 ## Phase 2 validation — 2026-10-21
 
@@ -92,4 +92,14 @@ Final builder polish (2026-10-22): **Restore** is short, disabled at defaults an
 
 The branch testbed lives at `.xclude/testbed/` in the `table_builder` checkout. Compose project `dlux-table-builder` uses port `8094`, separate named database/runtime/static/Redis/Composer volumes, separate media/log directories and fresh private credentials in `.secrets/.env`. It does not share the official testbed's database or runtime volume. It uses a branch wheel baked into uniquely tagged `dlux-table-builder:dev` and pins its deployer/resident Composer pair to `dlux-table-builder-composer:baseline`; it does not retag shared Composer or official app images.
 
-Use `./run.sh` in that directory: it exports the local Composer image pin and delegates to the unchanged, integrity-checked `start.sh` wrapper. Rebuild the wheel and branch image after source changes, then restart through `./run.sh`. Never publish this development image or represent its inherited package version as a released 1.14 beta.
+Use `./run.sh` in that directory: it exports the local Composer image pin and delegates to the unchanged, integrity-checked `start.sh` wrapper. The original 8094 stack retains the unpublished draft's `0027_tables_config` migration history and old development image. Do not rebuild it onto the renamed 0028 migration without a deliberate database transition.
+
+Published-beta acceptance uses `.xclude/beta-testbed/`, Compose project `dlux-table-builder-beta`, port `8095`, fresh credentials and independent volumes. Its image bakes published 1.13.0b3, and the runtime volume now runs 1.14.0b1 through the normal Composer inline updater. Run its commands through its own `./run.sh`. Neither this stack nor the older draft shares the official 8088 stack's database/runtime.
+
+## Published beta acceptance — 2026-10-22
+
+- Branch `1.14/table_builder` and tag `v1.14.0b1` pushed; release code commit `e98259b`. [Release CI](https://github.com/debeski/django-lux/actions/runs/39832459767): all nine jobs passed, including Python 3.11/3.12/3.13 and PostgreSQL. PyPI and GitHub prerelease have the same wheel; all 671 package files match the tested source. Seven GitHub assets; prerelease is not Latest.
+- Integrated local suite: 2,974 tests OK/six skips; JavaScript 70; browser checks eight builder/ribbon, eleven Operations, nine wizard and twelve previews passed. Additive migration and beta-classification gates, clean wheel/sdist and twine checks passed.
+- Normal pinned inline upgrade from 1.13.0b3 on 8095 took pre-update backup `BlNZwlxm` and applied `0028_tables_config`. Web and Celery match the published wheel exactly. English/Arabic journeys at 1440px and 390px passed labels/icons/sorting, save/reopen, per-column/table resets, restorable removal, clean reverted edits and saved/runtime ribbon ordering, with no page errors or horizontal overflow.
+- Normal rollback returned to image code 1.13.0b3 with the new column retained; old code remained healthy. Re-apply returned to 1.14.0b1. Four seeded users' fingerprint and original table/layout/ribbon settings were unchanged. Deep checks: 23 OK, zero errors, the local DEBUG warning and three skips. No screenshots were taken.
+- Evidence: `.xclude/release-1.14.0b1/` (CI/artifact validation) and `.xclude/beta-testbed/` (upgrade, UI, rollback/re-apply and final checks). The beta remains active on 8095; 8094 and official 8088 were untouched.

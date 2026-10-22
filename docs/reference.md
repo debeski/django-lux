@@ -1898,7 +1898,7 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
 
-## Table column configuration (1.14 development)
+## Table column configuration (1.14.0b1 beta)
 
 Column **Restore** is disabled at defaults and follows pending label/icon/visibility/sort overrides immediately. Reverted table edits restore the form's original JSON so they do not trigger the unsaved-changes dialog. Ribbon button ordering is stored separately as `ribbon_config[<storage key>].action_order[<host route>]`, a list of `dest:<endpoint>` identities; it works across declared/custom buttons, preserves fixed HTML slots and applies through `RibbonMixin` or `build_ribbon(..., action_order=[...])`. See [ribbon.md](ribbon.md).
 
