@@ -2051,6 +2051,7 @@ STRINGS = {
     'sysbackup_base_hint': 'نسخة كاملة يمكن أن تُبنى عليها نسخ تزايدية',
     'sysbackup_download_chain': 'تنزيل السلسلة',
     'sysbackup_download_chain_hint': 'كل النسخ من الكاملة حتى هذه النقطة في ملف ZIP واحد',
+    'sysbackup_delete_confirm': 'حذف النسخة الاحتياطية المؤرخة {label}؟ لا يمكن التراجع عن ذلك.',
     'sysbackup_delete_chain_confirm': 'تعتمد على هذه النسخة نسخ تزايدية لاحقة في السلسلة وستُحذف معها. هل تريد المتابعة؟',
     'sysrestore_stage_increment': 'جاري تطبيق الزيادة {done} من {total}...',
     'backup_settings_incremental_title': 'النسخ التزايدية',

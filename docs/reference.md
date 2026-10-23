@@ -203,7 +203,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
 | `/sys/reports/` | Activity reports overview; its user buttons open `/sys/users/<pk>/report/` in the activity view (`user_report_access()`) for report viewers without user-directory/activity-log access |
 | `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
-| `/sys/backup/` | Superuser-only full system backup and restore page |
+| `/sys/backup/` | Superuser-only full system backup and restore page. Its two histories paginate with `backups-page` and `restores-page` (fixed sizes 10 and 5) |
 | `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |
 | `/sys/backup/<token>/status/` | Backup status JSON, including `log` (console history), `elapsed`, `eta`, `encryption`, `system_data_included` |
 | `/sys/backup/<token>/download-chain/` | ZIP of every chain member from the full backup up to this increment |

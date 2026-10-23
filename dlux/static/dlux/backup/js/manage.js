@@ -269,21 +269,19 @@
             });
     }
 
-    function bindDetailsButtons(root) {
+    // Row actions come from the shared Dlux context menu (or its three-dot
+    // column), which dispatches these events on the row; see
+    // system_backup_row_actions() in dlux/tables.py.
+    function openDetails(data) {
         if (!detailsModal || !window.bootstrap) return;
-        root.querySelectorAll('.sysbackup-details-open:not([data-dlux-backup-bound])').forEach(function (btn) {
-            btn.dataset.dluxBackupBound = 'true';
-            btn.addEventListener('click', function () {
-                const label = detailsModal.querySelector('[data-details-label]');
-                if (label) label.textContent = btn.dataset.backupLabel || '';
-                const consoleEl = detailsModal.querySelector('[data-details-console]');
-                if (consoleEl) consoleEl.textContent = '';
-                if (detailsTimer) window.clearTimeout(detailsTimer);
-                detailsUrl = btn.dataset.statusUrl || '';
-                window.bootstrap.Modal.getOrCreateInstance(detailsModal).show();
-                pollDetails();
-            });
-        });
+        const label = detailsModal.querySelector('[data-details-label]');
+        if (label) label.textContent = data.label || '';
+        const consoleEl = detailsModal.querySelector('[data-details-console]');
+        if (consoleEl) consoleEl.textContent = '';
+        if (detailsTimer) window.clearTimeout(detailsTimer);
+        detailsUrl = data.url || '';
+        window.bootstrap.Modal.getOrCreateInstance(detailsModal).show();
+        pollDetails();
     }
 
     if (detailsModal) {
@@ -293,44 +291,56 @@
         });
     }
 
-    function bindChainDeletes(root) {
-        root.querySelectorAll('form[data-chain-delete]:not([data-dlux-backup-bound])').forEach(function (deleteForm) {
-            deleteForm.dataset.dluxBackupBound = 'true';
-            deleteForm.addEventListener('submit', function (event) {
-                const chain = deleteForm.dataset.chainId;
-                const sequence = Number(deleteForm.dataset.chainSequence || 0);
-                const later = Array.prototype.some.call(
-                    document.querySelectorAll('form[data-chain-id]'),
-                    function (other) {
-                        return other.dataset.chainId === chain && Number(other.dataset.chainSequence || 0) > sequence;
-                    },
-                );
-                if (later && !window.confirm(deleteForm.dataset.chainDelete)) event.preventDefault();
-            });
-        });
+    function csrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
+        const input = document.querySelector('[name="csrfmiddlewaretoken"]');
+        return input ? input.value : '';
     }
 
-    function bindCancelForms(root) {
-        root.querySelectorAll('.sysbackup-cancel-form:not([data-dlux-backup-bound])').forEach(function (cancelForm) {
-            cancelForm.dataset.dluxBackupBound = 'true';
-            cancelForm.addEventListener('submit', function (event) {
-                event.preventDefault();
-                const button = cancelForm.querySelector('button');
-                if (button) button.disabled = true;
-                const csrfInput = cancelForm.querySelector('[name="csrfmiddlewaretoken"]');
-                fetch(cancelForm.action, {
-                    method: 'POST',
-                    body: new FormData(cancelForm),
-                    headers: {
-                        'X-CSRFToken': csrfInput ? csrfInput.value : '',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                })
-                    .then(function (resp) { return resp.json(); })
-                    .then(function (data) { setNote(data.message || ''); })
-                    .catch(function () { if (button) button.disabled = false; })
-                    .finally(function () { refreshBackupList(true); });
-            });
+    function cancelBackup(data) {
+        if (!data.url) return;
+        fetch(data.url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (result) { setNote(result.message || ''); })
+            .catch(function () {})
+            .finally(function () { refreshBackupList(true); });
+    }
+
+    // A plain POST, as the per-row form used to send: the view redirects back
+    // here with its message.
+    function postForm(url) {
+        const deleteForm = document.createElement('form');
+        deleteForm.method = 'post';
+        deleteForm.action = url;
+        const token = document.createElement('input');
+        token.type = 'hidden';
+        token.name = 'csrfmiddlewaretoken';
+        token.value = csrfToken();
+        deleteForm.appendChild(token);
+        document.body.appendChild(deleteForm);
+        deleteForm.submit();
+    }
+
+    function deleteBackup(data) {
+        if (!data.url) return;
+        // The server says whether later incremental backups depend on this one:
+        // with pagination they are often not on this page.
+        const description = data.chainConfirm || data.confirm || '';
+        if (typeof window.dluxConfirmPassword !== 'function') {
+            if (window.confirm(description)) postForm(data.url);
+            return;
+        }
+        window.dluxConfirmPassword({
+            title: data.label || '',
+            description: description,
+            requirePassword: false,
+            danger: true,
+            icon: 'bi-trash',
+            onConfirm: function () { postForm(data.url); return false; },
         });
     }
 
@@ -345,37 +355,37 @@
     const resumePassphraseWrap = document.getElementById('sysbackup-resume-passphrase-wrap');
     const resumePassphrase = document.getElementById('sysbackup-resume-passphrase');
 
-    function bindResumeButtons(root) {
-        root.querySelectorAll('.sysbackup-resume-open:not([data-dlux-backup-bound])').forEach(function (btn) {
-            btn.dataset.dluxBackupBound = 'true';
-            btn.addEventListener('click', function () {
-                if (!resumePanel || !resumeForm || !resumeLabel) return;
-                resumeForm.action = btn.dataset.resumeUrl || '';
-                resumeLabel.textContent = btn.dataset.backupLabel || '';
-                const needsPassphrase = btn.dataset.needsPassphrase === '1';
-                if (resumePassphraseWrap) {
-                    resumePassphraseWrap.classList.toggle('d-none', !needsPassphrase);
-                }
-                if (resumePassphrase) {
-                    resumePassphrase.value = '';
-                    resumePassphrase.required = needsPassphrase;
-                }
-                resumePanel.classList.remove('d-none');
-                resumePanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-        });
+    function openResume(data) {
+        if (!resumePanel || !resumeForm || !resumeLabel) return;
+        resumeForm.action = data.url || '';
+        resumeLabel.textContent = data.label || '';
+        const needsPassphrase = Boolean(data.needsPassphrase);
+        if (resumePassphraseWrap) {
+            resumePassphraseWrap.classList.toggle('d-none', !needsPassphrase);
+        }
+        if (resumePassphrase) {
+            resumePassphrase.value = '';
+            resumePassphrase.required = needsPassphrase;
+        }
+        resumePanel.classList.remove('d-none');
+        resumePanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    function openRestore(token, file, label) {
+        if (!panel || !tokenInput || !fileInput || !labelSpan) return;
+        tokenInput.value = token || '';
+        fileInput.value = file || '';
+        labelSpan.textContent = label || '';
+        panel.classList.remove('d-none');
+        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // External .dlb files are a plain table with their own Restore buttons.
     function bindRestoreButtons(root) {
         root.querySelectorAll('.sysrestore-open:not([data-dlux-backup-bound])').forEach(function (btn) {
             btn.dataset.dluxBackupBound = 'true';
             btn.addEventListener('click', function () {
-                if (!panel || !tokenInput || !fileInput || !labelSpan) return;
-                tokenInput.value = btn.dataset.backupToken || '';
-                fileInput.value = btn.dataset.backupFile || '';
-                labelSpan.textContent = btn.dataset.backupLabel || '';
-                panel.classList.remove('d-none');
-                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                openRestore(btn.dataset.backupToken, btn.dataset.backupFile, btn.dataset.backupLabel);
             });
         });
     }
@@ -441,7 +451,7 @@
         }
         listRequestActive = true;
         const previousStatuses = tableStatuses();
-        fetch(tableBody.dataset.statusUrl, {
+        fetch(tableBody.dataset.statusUrl + window.location.search, {
             cache: 'no-store',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
@@ -453,11 +463,6 @@
                 if (forceRender || data.revision !== tableBody.dataset.revision) {
                     tableBody.innerHTML = data.html || '';
                     tableBody.dataset.revision = data.revision || '';
-                    bindRestoreButtons(tableBody);
-                    bindResumeButtons(tableBody);
-                    bindDetailsButtons(tableBody);
-                    bindCancelForms(tableBody);
-                    bindChainDeletes(tableBody);
                     announceStatusChanges(previousStatuses, data.items);
                 }
                 if (typeof data.busy === 'boolean') setBusy(data.busy);
@@ -497,7 +502,7 @@
             return;
         }
         restoreRequestActive = true;
-        fetch(restoreTableBody.dataset.statusUrl, {
+        fetch(restoreTableBody.dataset.statusUrl + window.location.search, {
             cache: 'no-store',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
@@ -529,10 +534,14 @@
     }
 
     bindRestoreButtons(document);
-    bindResumeButtons(document);
-    bindDetailsButtons(document);
-    bindCancelForms(document);
-    bindChainDeletes(document);
+    document.addEventListener('dlux:backup:details', function (event) { openDetails(event.detail.data || {}); });
+    document.addEventListener('dlux:backup:restore', function (event) {
+        const data = event.detail.data || {};
+        openRestore(data.token, '', data.label);
+    });
+    document.addEventListener('dlux:backup:resume', function (event) { openResume(event.detail.data || {}); });
+    document.addEventListener('dlux:backup:cancel', function (event) { cancelBackup(event.detail.data || {}); });
+    document.addEventListener('dlux:backup:delete', function (event) { deleteBackup(event.detail.data || {}); });
     const resumeCancel = document.getElementById('sysbackup-resume-cancel');
     if (resumeCancel && resumePanel) {
         resumeCancel.addEventListener('click', function () { resumePanel.classList.add('d-none'); });

@@ -492,7 +492,7 @@ class SystemBackupViewTests(TestCase):
                 completed.token: SystemBackup.STATUS_COMPLETED,
             },
         )
-        self.assertIn('<td>3000</td>', payload['html'])
+        self.assertRegex(payload['html'], r'<td[^>]*>\s*3000\s*</td>')
         self.assertIn('4.0\xa0KB', payload['html'])
         self.assertIn(reverse('system_backup_download', args=[completed.token]), payload['html'])
 
@@ -809,15 +809,13 @@ class ProgressCellLayoutTests(TestCase):
         return html[start:html.index('</small>', start)]
 
     def test_backup_row_keeps_percent_and_message_as_flex_siblings(self):
-        from dlux.views.backup import _backup_rows_context
+        from dlux.tables import SystemBackupTable
 
         backup = self.SystemBackup.objects.create(
             requested_by_username='x', status='running',
             progress_percent=0, progress_message=self.LONG_MESSAGE,
         )
-        html = render_to_string(
-            'dlux/backup/_backup_rows.html', _backup_rows_context([backup]),
-        )
+        html = SystemBackupTable([backup]).render_progress(record=backup)
         cell = self._cell(html)
         self.assertIn('dlux-backup-progress-percent">0%<', cell)
         self.assertIn(f'dlux-backup-progress-note">{self.LONG_MESSAGE}<', cell)
@@ -825,15 +823,13 @@ class ProgressCellLayoutTests(TestCase):
         self.assertNotIn('·', cell)
 
     def test_restore_row_keeps_percent_and_message_as_flex_siblings(self):
-        from dlux.views.backup import _restore_rows_context
+        from dlux.tables import SystemRestoreTable
 
         restore = self.SystemRestore.objects.create(
             requested_by_username='x', backup_file_path='x.dlb', status='running',
             progress_percent=0, progress_message=self.LONG_MESSAGE, stage='decrypting',
         )
-        html = render_to_string(
-            'dlux/backup/_restore_rows.html', _restore_rows_context([restore]),
-        )
+        html = SystemRestoreTable([restore]).render_progress(record=restore)
         cell = self._cell(html)
         self.assertIn('dlux-backup-progress-percent">0%<', cell)
         self.assertIn(f'dlux-backup-progress-note">{self.LONG_MESSAGE}<', cell)
@@ -843,7 +839,7 @@ class ProgressCellLayoutTests(TestCase):
         """A finished run's last progress message is history, not status."""
         from datetime import timedelta
 
-        from dlux.views.backup import _backup_rows_context
+        from dlux.tables import SystemBackupTable
 
         started = timezone.now() - timedelta(minutes=3, seconds=10)
         backup = self.SystemBackup.objects.create(
@@ -851,7 +847,7 @@ class ProgressCellLayoutTests(TestCase):
             progress_percent=100, progress_message='Backup ready.',
             started_at=started, completed_at=started + timedelta(minutes=3, seconds=10),
         )
-        html = render_to_string('dlux/backup/_backup_rows.html', _backup_rows_context([backup]))
+        html = SystemBackupTable([backup]).render_progress(record=backup)
         self.assertNotIn('dlux-backup-progress-status', html)
         self.assertNotIn('Backup ready.', html)
         self.assertIn('3m 10s', html)

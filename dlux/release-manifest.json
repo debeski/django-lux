@@ -2,9 +2,9 @@
   "schema_version": 2,
   "version": "1.13.2b1",
   "display": {
-    "summary": "The backup page fits beside the open sidebar, and the tour no longer runs under the user menu.",
+    "summary": "Backup and restore histories are paginated DluxTables with row actions in the context menu; the page fits beside the sidebar.",
     "highlights": [
-      "Backup and restore: the page fits beside the open sidebar, and history tables scroll inside their cards with sticky headers.",
+      "Backup and restore: paginated histories (10 and 5 per page), row actions in the context menu, tables that stay inside their cards.",
       "Starting the guided tour from the user menu closes the menu, so it no longer covers the steps.",
       "Includes 1.13.1: setup uploads, the always-visible search and the Options tour tabs."
     ],

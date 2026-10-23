@@ -238,7 +238,7 @@ a scrollable modal there is usually screen below the modal and none inside it.
 
 ## Tables, filters, and row actions
 
-Prefer `DluxTable` for handwritten tables. It supplies the standard responsive shell, density handling, pagination, empty state, and row-action contract. `Table.Meta` can opt out with `dlux_table = False`, force density with `dlux_density`, set `dlux_per_page`, disable actions with `dlux_actions = False`, or drop the footer toolbar with `dlux_show_footer = False` (which also stops pagination, so every row renders).
+Prefer `DluxTable` for handwritten tables. It supplies the standard responsive shell, density handling, pagination, empty state, and row-action contract. `Table.Meta` can opt out with `dlux_table = False`, force density with `dlux_density`, set `dlux_per_page` (with a single `dlux_per_page_options` value the footer shows no page-size picker), disable actions with `dlux_actions = False`, or drop the footer toolbar with `dlux_show_footer = False` (which also stops pagination, so every row renders).
 
 New list pages should use the [Ribbon](ribbon.md) (`{% dlux_ribbon %}`), which derives the filter band from the FilterSet and is configurable by the administrator. `setup_filter_helper()` remains for pages not yet migrated; `advanced_filter_helper()` was removed in v1.10.0.
 
