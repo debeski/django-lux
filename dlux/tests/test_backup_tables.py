@@ -73,6 +73,7 @@ class BackupTablePageTests(TestCase):
         restore_part = page[page.index('id="sysrestore-table-body"'):]
         backup_part = page[page.index('id="sysbackup-table-body"'):page.index('id="sysrestore-table-body"')]
         self.assertNotIn('data-dlux-table-density-inline', restore_part)
+        self.assertIn('data-dlux-table-density="dense"', restore_part)
         self.assertIn('data-dlux-table-density-inline', backup_part, 'the backup history keeps its picker')
 
     def test_the_page_size_cannot_be_raised_from_the_query(self):

@@ -215,8 +215,8 @@ class SystemRestoreTable(_FixedPageSizeTable):
         sequence = fields
         orderable = False
         dlux_actions = False
-        # Five short rows: a fixed density, so the footer offers no density picker.
-        dlux_density = 'balanced'
+        # Five short rows: fixed dense, so the footer offers no density picker.
+        dlux_density = 'dense'
         dlux_per_page = 5
         dlux_per_page_options = (5,)
         dlux_resizable_columns = False
