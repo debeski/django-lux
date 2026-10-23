@@ -86,3 +86,22 @@ test('the tutorial follows the active Arabic display language and current Option
     await ctx.close();
   }
 });
+
+// Help lives in the user hub, and the hub ignores clicks on the tour's own
+// controls, so starting the tour left the hub open over the page for the whole
+// tour — covering the Options tab strip the tour points at — and after it
+// (found on testbed-dlux, 1.13.1). Starting the tour from the hub closes it.
+test('starting the tour from the user hub closes the hub', async () => {
+  const { ctx, page } = await loggedInPage(browser);
+  try {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
+    const card = page.locator('#dlux-user-dropdown-card');
+    await page.locator('#dlux-user-dropdown-trigger').click();
+    await page.waitForFunction(() => document.getElementById('dlux-user-dropdown-card').classList.contains('show'));
+    await card.locator('[data-dlux-start-tour]').click();
+    await page.waitForSelector('.driver-popover', { timeout: 5000 });
+    assert.equal(await card.evaluate((el) => el.classList.contains('show')), false, 'the hub stayed open over the tour');
+    assert.equal(await page.locator('#dlux-user-dropdown-trigger').evaluate((el) => el.classList.contains('active')), false);
+  } finally { await ctx.close(); }
+});

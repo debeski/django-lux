@@ -32,6 +32,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Help starts the tour from inside the hub. The outside-click rule above
+        // ignores the tour's controls, so without this the hub stayed open over
+        // every step. No step targets the card itself, so closing it is safe.
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('[data-dlux-start-tour]')) {
+                setOpen(false);
+            }
+        });
+
         // Close on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && card.classList.contains('show')) {

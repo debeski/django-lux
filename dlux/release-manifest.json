@@ -1,15 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.13.1",
+  "version": "1.13.2b1",
   "display": {
-    "summary": "First-run setup uploads work again; the always-visible search hides its icon; the Options tour shows the tab strip.",
+    "summary": "The backup page fits beside the open sidebar, and the tour no longer runs under the user menu.",
     "highlights": [
-      "The setup wizard's logo and font pickers upload again (the setup gate had bounced them).",
-      "With search set to always visible, the desktop titlebar no longer shows a search icon beside the field.",
-      "The Options tour introduces the section tabs instead of skipping the cards hidden behind them.",
-      "Eleven stale browser tests repaired; the whole e2e suite passes again."
+      "Backup and restore: the page no longer hangs off its start edge when the sidebar is open; long histories scroll in their tables.",
+      "Starting the guided tour from the user menu closes the menu, so it no longer covers the steps.",
+      "Includes 1.13.1: setup uploads, the always-visible search and the Options tour tabs."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.2b1"
   },
   "requires": {
     "updater_schema": ">=1",

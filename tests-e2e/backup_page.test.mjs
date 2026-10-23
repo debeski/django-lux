@@ -117,4 +117,40 @@ describe('backup page layout', { concurrency: 1 }, () => {
       } finally { await ctx.close(); }
     });
   }
+
+  // The grid had no column template, so its one implicit track grew to the
+  // widest child's min-content — the history tables, wider than the page once
+  // the sidebar took its share. The page then hung off its start edge (found on
+  // testbed-dlux in Arabic with the sidebar open). The tables already scroll in
+  // their own `.dlux-table-scroll`; the track must never outgrow the page.
+  for (const dir of ['ltr', 'rtl']) {
+    for (const width of [1024, 800, 576]) {
+      test(`no section hangs outside the page at ${width}px in ${dir}`, async () => {
+        const { ctx, page } = await loggedInPage(browser);
+        try {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(`${BASE}/sys/backup/`, { waitUntil: 'networkidle' });
+          await page.evaluate((d) => document.documentElement.setAttribute('dir', d), dir);
+          const outside = await page.evaluate(() => {
+            // This server has no backups, so its tables are short. Give one the
+            // width a real history reaches (testbed: ~1070px of rows).
+            document.querySelector('.dlux-backup-page .dlux-table-scroll table').style.minWidth = '1400px';
+            const grid = document.querySelector('.dlux-backup-page');
+            const box = grid.getBoundingClientRect();
+            // A Bootstrap `.row` and its columns' gutter padding hang out by half
+            // a gutter on purpose; the cards inside the columns must stay inside.
+            return [...grid.children]
+              .flatMap((child) => (child.classList.contains('row')
+                ? [...child.children].flatMap((col) => [...col.children])
+                : [child]))
+              .filter((child) => child.getBoundingClientRect().width > 0)
+              .map((child) => ({ name: String(child.className).slice(0, 40), r: child.getBoundingClientRect() }))
+              .filter(({ r }) => r.left < box.left - 1 || r.right > box.right + 1)
+              .map(({ name, r }) => `${name} [${Math.round(r.left)}, ${Math.round(r.right)}] in [${Math.round(box.left)}, ${Math.round(box.right)}]`);
+          });
+          assert.deepEqual(outside, [], 'sections stick out of the page');
+        } finally { await ctx.close(); }
+      });
+    }
+  }
 });

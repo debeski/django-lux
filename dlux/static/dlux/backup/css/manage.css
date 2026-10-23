@@ -3,6 +3,11 @@
     --dlux-backup-surface: color-mix(in srgb, var(--bs-body-bg, #ffffff) 84%, rgba(255, 255, 255, 0.86));
     contain: layout;
     display: grid;
+    /* One column that never outgrows the page. An implicit track sizes to its
+       widest child's min-content — the history tables — and pushed the page off
+       its start edge whenever the sidebar narrowed it; the tables scroll inside
+       their own `.dlux-table-scroll`. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.35rem;
 }
 

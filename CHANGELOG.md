@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.2b1
+
+- **Backup Page Fits Beside The Sidebar**: `.dlux-backup-page` is a CSS grid with no column template, so its implicit track grew to its widest child's min-content — the backup and restore history tables — and with the sidebar open the whole page hung off its start edge, clipping the Back link, the create button and the tables (found on testbed-dlux in Arabic). `grid-template-columns: minmax(0, 1fr)` keeps the track to the page; the tables already scroll in their `.dlux-table-scroll`. `backup_page.test.mjs` checks every section stays inside the page at 1024/800/576 px in LTR and RTL with a history table wider than the page.
+- **Tour Started From The User Menu Closes It**: Help sits in the user hub, whose outside-click rule ignores the tour's own controls, so the hub stayed open over every step (covering the Options tabs step) and after the tour. `titlebar/js/user_hub.js` closes the hub when `[data-dlux-start-tour]` inside it is clicked; no tour step targets the card. Covered in `tutorial.test.mjs`.
+
 ## v1.13.1
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.1b1: the first-run setup gate lets the asset picker's upload through (the view still requires login and the field's permission; anonymous and ordinary users stay refused), the always-visible titlebar search no longer shows its icon beside the field, the Options tour introduces the section tabs, and 11 stale browser tests are repaired (e2e 198/198).
