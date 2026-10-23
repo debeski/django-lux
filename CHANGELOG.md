@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.2
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.2b1: the backup page fits beside the open sidebar; starting the tour from the user menu closes it; backup and restore histories are paginated DluxTables (10 and 5 per page, fixed) whose row actions open from the shared context menu or three-dot column, with a confirmed Delete and a server-side chain warning; history tables stay in their cards with sticky headers; the restore history is fixed dense; fixed-size tables show no page-size picker.
+- **Upgrade Contract**: No migrations (`migrations.effect: none`), inline-safe, rollback-compatible; `migration_baseline >=1.13.0`, image floor unchanged.
+- **Beta Acceptance**: b1 was accepted pre-publish in three rounds on testbed-dlux with real clicks in Arabic on real data (75+ backups); the rounds found and fixed a sticky-header spill below 1480px, a leaked template comment and UTC labels, and the guards caught an import coupling and an unregistered test module. Published b1: release CI green first time, exact published-wheel check, a post-publish testbed install with pre-update backups, the deep check (0 errors) and unchanged domain/media fingerprints.
+
 ## v1.13.2b1
 
 - **Backup Page Fits Beside The Sidebar**: `.dlux-backup-page` is a CSS grid with no column template, so its implicit track grew to its widest child's min-content — the backup and restore history tables — and with the sidebar open the whole page hung off its start edge, clipping the Back link, the create button and the tables (found on testbed-dlux in Arabic). `grid-template-columns: minmax(0, 1fr)` keeps the track to the page; the tables already scroll in their `.dlux-table-scroll`. `backup_page.test.mjs` checks every section stays inside the page at 1024/800/576 px in LTR and RTL with a history table wider than the page.

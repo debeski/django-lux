@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.13.2b1",
+  "version": "1.13.2",
   "display": {
     "summary": "Backup and restore histories are paginated DluxTables with row actions in the context menu; the page fits beside the sidebar.",
     "highlights": [
@@ -8,7 +8,7 @@
       "Starting the guided tour from the user menu closes the menu, so it no longer covers the steps.",
       "Includes 1.13.1: setup uploads, the always-visible search and the Options tour tabs."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.2b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.2"
   },
   "requires": {
     "updater_schema": ">=1",
