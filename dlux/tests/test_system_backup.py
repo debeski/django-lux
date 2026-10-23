@@ -809,7 +809,7 @@ class ProgressCellLayoutTests(TestCase):
         return html[start:html.index('</small>', start)]
 
     def test_backup_row_keeps_percent_and_message_as_flex_siblings(self):
-        from dlux.tables import SystemBackupTable
+        from dlux.views.backup_tables import SystemBackupTable
 
         backup = self.SystemBackup.objects.create(
             requested_by_username='x', status='running',
@@ -823,7 +823,7 @@ class ProgressCellLayoutTests(TestCase):
         self.assertNotIn('·', cell)
 
     def test_restore_row_keeps_percent_and_message_as_flex_siblings(self):
-        from dlux.tables import SystemRestoreTable
+        from dlux.views.backup_tables import SystemRestoreTable
 
         restore = self.SystemRestore.objects.create(
             requested_by_username='x', backup_file_path='x.dlb', status='running',
@@ -839,7 +839,7 @@ class ProgressCellLayoutTests(TestCase):
         """A finished run's last progress message is history, not status."""
         from datetime import timedelta
 
-        from dlux.tables import SystemBackupTable
+        from dlux.views.backup_tables import SystemBackupTable
 
         started = timezone.now() - timedelta(minutes=3, seconds=10)
         backup = self.SystemBackup.objects.create(

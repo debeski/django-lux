@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from dlux.tables import system_backup_row_actions
+from dlux.views.backup_tables import system_backup_row_actions
 
 User = get_user_model()
 

@@ -77,7 +77,7 @@ def _system_backup_table(request, *, reap=True):
     without a trace has to stop pretending it is still alive. The poller passes
     the page's own query string, so it re-renders the page the operator is on.
     """
-    from ..tables import SystemBackupTable
+    from .backup_tables import SystemBackupTable
 
     if reap:
         try:
@@ -91,7 +91,7 @@ def _system_backup_table(request, *, reap=True):
 
 
 def _system_restore_table(request):
-    from ..tables import SystemRestoreTable
+    from .backup_tables import SystemRestoreTable
 
     return SystemRestoreTable(_system_restore_model().objects.all(), request=request, prefix='restores-')
 

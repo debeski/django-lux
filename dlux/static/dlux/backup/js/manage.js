@@ -271,7 +271,7 @@
 
     // Row actions come from the shared Dlux context menu (or its three-dot
     // column), which dispatches these events on the row; see
-    // system_backup_row_actions() in dlux/tables.py.
+    // system_backup_row_actions() in dlux/views/backup_tables.py.
     function openDetails(data) {
         if (!detailsModal || !window.bootstrap) return;
         const label = detailsModal.querySelector('[data-details-label]');
