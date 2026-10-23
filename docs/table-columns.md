@@ -57,7 +57,7 @@ Hiding and showing a column retains its position. Reverting labels, icons, sorti
 
 ## Remaining release work
 
-The owner authorized pushing the branch and publishing the first 1.14 beta on 2026-10-22. Beta 1.14.0b1 is published on PyPI and GitHub as a prerelease, integrating published 1.13.0b3 with additive migrations, inline installation and verified pointer rollback compatibility. Other 1.14 updater-card work remains separate and is required before stable promotion.
+The owner authorized pushing the branch and publishing the first 1.14 beta on 2026-10-22. Beta 1.14.0b1 is published on PyPI and GitHub as a prerelease, integrating published 1.13.0b3 with additive migrations, inline installation and verified pointer rollback compatibility. Beta 1.14.0b2 subsequently merged published 1.13.2b1 and stable 1.13.1 and is published on both registries. Other 1.14 updater-card work and the recorded backup Details dialog issue remain before stable promotion.
 
 ## Phase 2 validation — 2026-10-21
 
@@ -94,7 +94,7 @@ The branch testbed lives at `.xclude/testbed/` in the `table_builder` checkout. 
 
 Use `./run.sh` in that directory: it exports the local Composer image pin and delegates to the unchanged, integrity-checked `start.sh` wrapper. The original 8094 stack retains the unpublished draft's `0027_tables_config` migration history and old development image. Do not rebuild it onto the renamed 0028 migration without a deliberate database transition.
 
-Published-beta acceptance uses `.xclude/beta-testbed/`, Compose project `dlux-table-builder-beta`, port `8095`, fresh credentials and independent volumes. Its image bakes published 1.13.0b3, and the runtime volume now runs 1.14.0b1 through the normal Composer inline updater. Run its commands through its own `./run.sh`. Neither this stack nor the older draft shares the official 8088 stack's database/runtime.
+Published-beta acceptance uses `.xclude/beta-testbed/`, Compose project `dlux-table-builder-beta`, port `8095`, fresh credentials and independent volumes. Its image bakes published 1.13.0b3, and the runtime volume now runs 1.14.0b2 through the normal Composer inline updater. Run its commands through its own `./run.sh`. Neither this stack nor the older draft shares the official 8088 stack's database/runtime.
 
 ## Published beta acceptance — 2026-10-22
 
@@ -103,3 +103,13 @@ Published-beta acceptance uses `.xclude/beta-testbed/`, Compose project `dlux-ta
 - Normal pinned inline upgrade from 1.13.0b3 on 8095 took pre-update backup `BlNZwlxm` and applied `0028_tables_config`. Web and Celery match the published wheel exactly. English/Arabic journeys at 1440px and 390px passed labels/icons/sorting, save/reopen, per-column/table resets, restorable removal, clean reverted edits and saved/runtime ribbon ordering, with no page errors or horizontal overflow.
 - Normal rollback returned to image code 1.13.0b3 with the new column retained; old code remained healthy. Re-apply returned to 1.14.0b1. Four seeded users' fingerprint and original table/layout/ribbon settings were unchanged. Deep checks: 23 OK, zero errors, the local DEBUG warning and three skips. No screenshots were taken.
 - Evidence: `.xclude/release-1.14.0b1/` (CI/artifact validation) and `.xclude/beta-testbed/` (upgrade, UI, rollback/re-apply and final checks). The beta remains active on 8095; 8094 and official 8088 were untouched.
+
+
+## Published beta 2 validation — 2026-10-24
+
+- Merge commit `868221a` retains published b1 and integrates `v1.13.2b1` (with stable 1.13.1 already merged). Branch and `v1.14.0b2` tag pushed; [release CI](https://github.com/debeski/django-lux/actions/runs/40029170988) passed all nine jobs, including Python 3.11–3.13 and PostgreSQL. PyPI and GitHub prerelease wheels are identical; all 675 package files match the tested source. Seven release assets. No additional migrations; compatibility floor is 1.13.0.
+- Local validation: 2,995 Django tests OK/six skips, 70 JavaScript tests, eight table-builder/ribbon, twelve backup-page, two tour, nine wizard and twelve preview browser checks passed. Bare and explicit `--base-tag v1.13.1` release gates, migration consistency, Django check, clean build, twine and beta classification passed.
+- Normal inline b1 → b2 upgrade on isolated port 8095 took backup `NMz_TTvK`. Web/Celery match the published wheel. English/Arabic at 1440px/390px passed the inspector and ribbon journeys, conditional Restore, reverted edits, sorting/labels/icons, saved/runtime ordering and reopening without page errors. Original table/layout/ribbon settings were restored exactly.
+- Normal rollback returned to published b1 (backup `thH7vA0L`); re-apply returned to b2 (backup `7eRvFL-m`). Web/Celery payload and four-user fingerprint checks passed at both versions; original settings remained unchanged after re-apply. Deep checks: 23 OK, zero errors, one local DEBUG warning and three skips. Official 8088 and older draft 8094 were untouched. No screenshots were taken.
+- **Open beta bug:** the real backup Details modal opens from the shared context menu, but its backdrop intercepts its close button. Reproduced in English/Arabic at both widths. `.dlux-backup-page { contain: layout; }` creates a stacking context around the nested modal; removing containment in the browser alone allows the button to work. That rule also exists in published b1. This diagnosis is not a shipped fix or a passing end-to-end Details result. Shared history tables, fixed page sizes and dense restore rendering were verified. Resolve the modal placement/stacking before stable promotion while retaining the page-scroll boundary.
+- Evidence: `.xclude/release-1.14.0b2/` and `.xclude/beta-testbed/`. Published b2 remains active on 8095.
