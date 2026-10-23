@@ -1,16 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.13.0b5",
+  "version": "1.13.0",
   "display": {
-    "summary": "After Apply, the Operations panel shows the result; clearer stack-schema warning; PDF viewer zoom and fullscreen fixed.",
+    "summary": "An Operations panel for the deployment, and the maintenance page moves into the Composer image.",
     "highlights": [
-      "After Apply repairs the panel shows the repaired deployment instead of the old proposal, and the same diff cannot be applied twice.",
-      "The stack-schema warning names recreating web and celery when compose.yml is already current.",
-      "Recreate in the Operations panel needs Composer 1.7.0b5, which keeps the deployment's secrets.",
+      "Options > admin rail > Operations: review and apply deployment repairs, restart or recreate services, read the logs of one or all.",
+      "The maintenance page ships in the Composer image (stack schema 3); composer check --fix migrates stacks, previewed first.",
       "PDF viewer: zoom works in the record modal, fullscreen toggles back, pages read correctly in Arabic.",
-      "Includes 1.13.0b2–b4: the Operations panel. Includes 1.13.0b1: the maintenance page moves into the Composer image (stack schema 3)."
+      "Needs Composer 1.7.0 for the panel's service operations and the page move."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0b5"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.0"
   },
   "requires": {
     "updater_schema": ">=1",

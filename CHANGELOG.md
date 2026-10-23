@@ -7,6 +7,14 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.0
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.0b5, which carries b1–b4: the maintenance page moves into the Composer image (stack schema 3, migrated by `composer check --fix`); the **Operations** panel in the Options admin rail (deployment check with the exact repair diff and password-confirmed apply, services with restart/recreate for allow-listed ones, logs of one or every service); the Updates card keeps only updates; PDF viewer zoom, fullscreen and RTL fixes.
+- **Pairs With Composer 1.7.0**: the page move, the service operations and the repair preview need it; Recreate needs 1.7.0b5+ (earlier betas recreated without the deployment's secrets) and the panel disables it against older agents. A stack on Composer 1.6 keeps working; `dlux_doctor` warns its stack schema is one behind until `composer check --fix` runs, then asks for web and celery to be recreated.
+- **Upgrade Contract**: One additive migration (`0027_opsrun_params`, `db_default={}`), inline-safe, rollback-compatible; `migration_baseline >=1.13.0b2`, image floor unchanged (`>=1.11.0b7`).
+- **Scope Note**: "Update everything" moves to a later release. The e2e repairs found during acceptance (first-run setup lets the asset picker upload through, global-search titlebar CSS, an Options tabs tutorial step, and fixes to 11 stale browser tests) ship in 1.13.1 after their own beta.
+- **Beta Acceptance**: b1–b5 each passed release CI and exact published-artifact checks against their tags, then a testbed update with a pre-update backup, the deep check (0 errors) and unchanged domain/media fingerprints. b4 and b5 were also accepted pre-publish from local builds, including a full legacy-stack migration through the panel with real clicks in Arabic; acceptance found and fixed the password prompt opening under the panel, untranslated operation names, RTL diffs, an unfocused password field, a stale preview after apply, a false maintenance-page warning inside the agent and a Recreate that dropped the deployment's secrets.
+
 ## v1.13.0b5
 
 - **Panel Shows The Apply's Result**: after **Apply repairs** the panel kept showing the pre-apply findings, proposed changes and the Apply button (found accepting 1.13.0b4). `get_ops_state()['check']` now includes completed `check-fix-apply` runs, whose findings describe the deployment after the repair, and a completed apply consumes the preview (`_latest_preview_digest()` returns nothing until the next check), so DjangoLux itself refuses a second apply of the same diff. A failed apply leaves the preview usable for a retry.
