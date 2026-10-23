@@ -153,4 +153,46 @@ describe('backup page layout', { concurrency: 1 }, () => {
       });
     }
   }
+
+  // Sticky headers (a per-user layout option, on by default) set `overflow:
+  // visible` on every table shell and scroller above 992px so the header can pin
+  // to the page — and a history table wider than its card then painted straight
+  // out of it (found on testbed-dlux below ~1480px). On this page the tables
+  // scroll inside their cards and the header sticks to the table's own pane.
+  for (const width of [1024, 1200]) {
+    test(`with sticky headers a wide history table stays in its card at ${width}px`, async () => {
+      const { ctx, page } = await loggedInPage(browser);
+      try {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`${BASE}/sys/backup/`, { waitUntil: 'networkidle' });
+        const result = await page.evaluate(async () => {
+          document.body.dataset.dluxStickyHeader = 'on';
+          document.documentElement.setAttribute('dir', 'rtl');
+          const card = document.querySelector('.dlux-backup-page .dlux-backup-card');
+          const scroller = card.querySelector('.dlux-table-scroll');
+          const table = scroller.querySelector('table');
+          table.style.minWidth = '1600px';
+          const body = table.tBodies[0] || table.createTBody();
+          for (let i = 0; i < 40; i += 1) body.insertRow().insertCell().textContent = `row ${i}`;
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const c = card.getBoundingClientRect();
+          const s = scroller.getBoundingClientRect();
+          const style = getComputedStyle(scroller);
+          scroller.scrollTop = 400;
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const th = table.querySelector('thead th').getBoundingClientRect();
+          return {
+            overflowX: style.overflowX,
+            scrollsSideways: scroller.scrollWidth > scroller.clientWidth,
+            insideCard: s.left >= c.left - 1 && s.right <= c.right + 1,
+            headerPinnedToPane: Math.abs(th.top - scroller.getBoundingClientRect().top) <= 2,
+          };
+        });
+        assert.notEqual(result.overflowX, 'visible', 'the scroller lets the table paint outside the card');
+        assert.equal(result.scrollsSideways, true);
+        assert.equal(result.insideCard, true, 'the scroller left the card');
+        assert.equal(result.headerPinnedToPane, true, 'the sticky header does not pin to the table pane');
+      } finally { await ctx.close(); }
+    });
+  }
 });
