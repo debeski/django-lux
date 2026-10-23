@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.13.1b1",
+  "version": "1.13.1",
   "display": {
     "summary": "First-run setup uploads work again; the always-visible search hides its icon; the Options tour shows the tab strip.",
     "highlights": [
@@ -9,7 +9,7 @@
       "The Options tour introduces the section tabs instead of skipping the cards hidden behind them.",
       "Eleven stale browser tests repaired; the whole e2e suite passes again."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.1"
   },
   "requires": {
     "updater_schema": ">=1",

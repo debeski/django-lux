@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.13.1
+
+- **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.1b1: the first-run setup gate lets the asset picker's upload through (the view still requires login and the field's permission; anonymous and ordinary users stay refused), the always-visible titlebar search no longer shows its icon beside the field, the Options tour introduces the section tabs, and 11 stale browser tests are repaired (e2e 198/198).
+- **Upgrade Contract**: No migrations (`migrations.effect: none`), inline-safe, rollback-compatible; `migration_baseline >=1.13.0`, image floor unchanged.
+- **Beta Acceptance**: b1's first tag failed the release build on a stale `migration_baseline` before anything was published and was re-cut on the fix; the re-cut passed release CI and an exact published-wheel check, a pre-publish and a post-publish testbed install with pre-update backups, the deep check (0 errors) and unchanged domain/media fingerprints.
+
 ## v1.13.1b1
 
 - **Setup Wizard Pickers Upload Again**: since 1.8.4 the asset pickers post to `managed_asset_picker_upload` (`/sys/assets/upload/`), but the first-run setup gate in `DluxMiddleware` only let `/sys/setup/…` through, so a logo or font uploaded during setup got a 302 back to the wizard and was never stored. The endpoint is now an allowed path while the system is unconfigured; the view still authorizes against the field declaration, exactly as the old `/sys/setup/assets/upload/` alias already did. Covered by `test_general_picker_upload_is_not_redirected_during_setup` and `tests-e2e/wizard_security.test.mjs`. The gate only lets the request reach the view: anonymous visitors still get the login redirect and a non-superuser is still refused (`test_the_open_setup_gate_still_refuses_anonymous_and_ordinary_users`).
