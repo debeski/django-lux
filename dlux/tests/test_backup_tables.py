@@ -10,8 +10,9 @@ setup_test_environment()
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from dlux.views.backup_tables import system_backup_row_actions
 
@@ -57,6 +58,13 @@ class BackupTablePageTests(TestCase):
         second = self.client.get(reverse('system_backup_page'), {'backups-page': 2, 'restores-page': 2}).content.decode()
         self.assertEqual(len(_rows(second, 'data-system-backup-row')), 2)
         self.assertEqual(len(_rows(second, 'data-system-restore-row')), 2)
+
+    def test_no_template_comment_leaks_onto_the_page(self):
+        # A `{# #}` comment ends at the line break; the multi-line one showed as text.
+        self._backups(1)
+        page = self.client.get(reverse('system_backup_page')).content.decode()
+        self.assertNotIn('SystemBackupTable', page)
+        self.assertNotIn('{#', page)
 
     def test_the_page_size_cannot_be_raised_from_the_query(self):
         self._backups(12)
@@ -105,6 +113,14 @@ class BackupRowActionTests(TestCase):
 
     def _names(self, backup):
         return [action.get('event') or action.get('type') for action in system_backup_row_actions(backup)]
+
+    @override_settings(USE_TZ=True, TIME_ZONE='Africa/Tripoli')
+    def test_action_labels_use_the_local_time_the_table_shows(self):
+        backup = self.SystemBackup.objects.create(requested_by_username='x', status='completed')
+        expected = timezone.localtime(backup.created_at).strftime('%Y-%m-%d %H:%M')
+        details = system_backup_row_actions(backup)[0]
+        self.assertEqual(details['data']['label'], expected)
+        self.assertNotEqual(expected, backup.created_at.strftime('%Y-%m-%d %H:%M'), 'the zone must differ from UTC here')
 
     def test_a_running_backup_offers_cancel_and_never_delete(self):
         running = self.SystemBackup.objects.create(requested_by_username='x', status='running')

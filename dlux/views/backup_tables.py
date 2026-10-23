@@ -13,6 +13,7 @@ from django.apps import apps
 from django.template.defaultfilters import filesizeformat
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 
 from ..backup import backup_retry_policy
@@ -43,7 +44,8 @@ def system_backup_row_actions(backup):
     a hidden or shown action is never the authorization.
     """
     s = get_strings()
-    label = backup.created_at.strftime('%Y-%m-%d %H:%M') if backup.created_at else backup.token
+    # Local time, as the table's own column shows it: the stored value is UTC.
+    label = timezone.localtime(backup.created_at).strftime('%Y-%m-%d %H:%M') if backup.created_at else backup.token
     actions = [{
         'label': s.get('sysbackup_details', 'Details'),
         'icon': 'bi bi-terminal',
