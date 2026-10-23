@@ -50,8 +50,6 @@
         <div class="col-12">
             <section class="glass-container dlux-backup-card">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysbackup_existing }}</h5>
-                {% comment %}A DluxTable (SystemBackupTable): ten per page, row actions per the Layout setting.
-                   The id stays for the tour; the poller replaces this element's content.{% endcomment %}
                 <div id="sysbackup-table-body"
                      data-status-url="{% url 'system_backup_list_status' %}"
                      data-revision="{{ backup_revision }}">
@@ -103,7 +101,6 @@
         <div class="col-lg-6">
             <section class="glass-container dlux-backup-card h-100">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysrestore_history }}</h5>
-                {# A DluxTable (SystemRestoreTable): five per page. #}
                 <div id="sysrestore-table-body"
                      data-status-url="{% url 'system_restore_list_status' %}"
                      data-revision="{{ restore_revision }}">

@@ -66,6 +66,15 @@ class BackupTablePageTests(TestCase):
         self.assertNotIn('SystemBackupTable', page)
         self.assertNotIn('{#', page)
 
+    def test_the_restore_table_offers_no_density_picker(self):
+        self.SystemRestore.objects.create(requested_by_username='boss', backup_file_path='x.dlb', status='completed')
+        self._backups(1)
+        page = self.client.get(reverse('system_backup_page')).content.decode()
+        restore_part = page[page.index('id="sysrestore-table-body"'):]
+        backup_part = page[page.index('id="sysbackup-table-body"'):page.index('id="sysrestore-table-body"')]
+        self.assertNotIn('data-dlux-table-density-inline', restore_part)
+        self.assertIn('data-dlux-table-density-inline', backup_part, 'the backup history keeps its picker')
+
     def test_the_page_size_cannot_be_raised_from_the_query(self):
         self._backups(12)
         page = self.client.get(reverse('system_backup_page'), {'backups-per_page': 50}).content.decode()
