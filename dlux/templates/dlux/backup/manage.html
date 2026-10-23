@@ -1,5 +1,5 @@
 {% extends 'dlux/base.html' %}
-{% load static %}
+{% load django_tables2 static %}
 {% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.sysbackup_title }}{% endblock %}
@@ -50,28 +50,11 @@
         <div class="col-12">
             <section class="glass-container dlux-backup-card">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysbackup_existing }}</h5>
-                {% dlux_table_shell %}
-                    <table class="table table-hover align-middle dlux-data-table">
-                        <thead>
-                            <tr>
-                                <th>{{ DLUX_STRINGS.user_report_timestamp }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_requested_by }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_trigger|default:'Trigger' }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_status }}</th>
-                                <th>{{ DLUX_STRINGS.backup_progress }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_rows }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_files }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_size }}</th>
-                                <th class="text-end"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="sysbackup-table-body"
-                               data-status-url="{% url 'system_backup_list_status' %}"
-                               data-revision="{{ backup_revision }}">
-                            {% include 'dlux/backup/_backup_rows.html' %}
-                        </tbody>
-                    </table>
-                {% enddlux_table_shell %}
+                <div id="sysbackup-table-body"
+                     data-status-url="{% url 'system_backup_list_status' %}"
+                     data-revision="{{ backup_revision }}">
+                    {% render_table backup_table %}
+                </div>
             </section>
         </div>
 
@@ -118,23 +101,11 @@
         <div class="col-lg-6">
             <section class="glass-container dlux-backup-card h-100">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysrestore_history }}</h5>
-                {% dlux_table_shell %}
-                    <table class="table table-hover align-middle dlux-data-table">
-                        <thead>
-                            <tr>
-                                <th>{{ DLUX_STRINGS.user_report_timestamp }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_requested_by }}</th>
-                                <th>{{ DLUX_STRINGS.sysbackup_status }}</th>
-                                <th>{{ DLUX_STRINGS.sysrestore_progress }}</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sysrestore-table-body"
-                               data-status-url="{% url 'system_restore_list_status' %}"
-                               data-revision="{{ restore_revision }}">
-                            {% include 'dlux/backup/_restore_rows.html' %}
-                        </tbody>
-                    </table>
-                {% enddlux_table_shell %}
+                <div id="sysrestore-table-body"
+                     data-status-url="{% url 'system_restore_list_status' %}"
+                     data-revision="{{ restore_revision }}">
+                    {% render_table restore_table %}
+                </div>
             </section>
         </div>
     </div>

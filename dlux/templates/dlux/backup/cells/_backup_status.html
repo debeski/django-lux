@@ -1,0 +1,16 @@
+{% load dlux_tags %}
+{# One cell of SystemBackupTable; context: backup, backup_policy, backup_stall_warn_seconds, quiet_for, DLUX_STRINGS. #}
+{% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
+{% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
+{% elif backup.status == 'cancelled' %}<span class="badge bg-secondary">{{ DLUX_STRINGS.sysbackup_status_cancelled|default:'Cancelled' }}</span>
+{% elif backup.next_attempt_at %}<span class="badge bg-warning text-dark" title="{{ backup.error }}">{{ DLUX_STRINGS.sysbackup_status_retrying|default:'Retrying' }}</span>
+{% elif backup.is_active and quiet_for > backup_stall_warn_seconds %}<span class="badge bg-warning text-dark">{{ DLUX_STRINGS.sysbackup_status_no_progress|default:'No progress' }}</span>
+{% else %}<span class="badge bg-secondary">{{ backup.get_status_display }}</span>{% endif %}
+{% if backup.encryption == 'none' %}
+    <span class="badge bg-danger-subtle text-danger-emphasis">{{ DLUX_STRINGS.sysbackup_unencrypted_badge|default:'Not encrypted' }}</span>
+{% elif backup.passphrase_required %}
+    <span class="badge bg-dark">{{ DLUX_STRINGS.sysbackup_passphrase_badge }}</span>
+{% endif %}
+{% if backup.attempt_count > 1 %}
+    <span class="badge bg-light text-dark border" title="{{ DLUX_STRINGS.sysbackup_attempt_hint|default:'Attempts made for this backup' }}">{{ DLUX_STRINGS.sysbackup_attempt_short|default:'Try' }} {{ backup.attempt_count }}/{{ backup_policy.max_attempts }}</span>
+{% endif %}

@@ -1,6 +1,6 @@
-# Configurable table columns — 1.14.0b1 beta
+# Configurable table columns — 1.14 beta
 
-The 1.14.0b1 table-builder beta follows the owner-approved “Table Column Builder” plan. Phase 1 (canonical audit/deletion sets and symmetric audit visibility) already shipped. This beta implements the Tables step, canonical storage, discovery, runtime overlay and interactive builder (Phases 2–5), and integrates published 1.13.0b3. The remaining 1.14 Updates-card scope is reserved for later betas.
+The 1.14 table-builder beta follows the owner-approved “Table Column Builder” plan. Phase 1 (canonical audit/deletion sets and symmetric audit visibility) already shipped. It implements the Tables step, canonical storage, discovery, runtime overlay and interactive builder (Phases 2–5). Beta 1.14.0b2 merges published 1.13.2b1, including the 1.13.1 setup/search/tour fixes and paginated backup/restore DluxTables with row actions. The existing table inspector, ribbon ordering and migration0028 remain intact; b2 introduces no additional migration. The remaining 1.14 Updates-card scope is reserved for later betas.
 
 ## Sparse column configuration
 

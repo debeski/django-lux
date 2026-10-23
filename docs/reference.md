@@ -203,7 +203,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
 | `/sys/reports/` | Activity reports overview; its user buttons open `/sys/users/<pk>/report/` in the activity view (`user_report_access()`) for report viewers without user-directory/activity-log access |
 | `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
-| `/sys/backup/` | Superuser-only full system backup and restore page |
+| `/sys/backup/` | Superuser-only full system backup and restore page. Its two histories paginate with `backups-page` and `restores-page` (fixed sizes 10 and 5) |
 | `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |
 | `/sys/backup/<token>/status/` | Backup status JSON, including `log` (console history), `elapsed`, `eta`, `encryption`, `system_data_included` |
 | `/sys/backup/<token>/download-chain/` | ZIP of every chain member from the full backup up to this increment |
@@ -1898,7 +1898,9 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
 
-## Table column configuration (1.14.0b1 beta)
+## Table column configuration (1.14 beta)
+
+Beta 1.14.0b2 incorporates published 1.13.2b1 without changing the table-column API or migration0028. Backup and restore histories use the shared DluxTable template, retaining the inspector's header overrides and the fixed-size footer behavior.
 
 Column **Restore** is disabled at defaults and follows pending label/icon/visibility/sort overrides immediately. Reverted table edits restore the form's original JSON so they do not trigger the unsaved-changes dialog. Ribbon button ordering is stored separately as `ribbon_config[<storage key>].action_order[<host route>]`, a list of `dest:<endpoint>` identities; it works across declared/custom buttons, preserves fixed HTML slots and applies through `RibbonMixin` or `build_ribbon(..., action_order=[...])`. See [ribbon.md](ribbon.md).
 

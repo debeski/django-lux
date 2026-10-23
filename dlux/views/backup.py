@@ -69,13 +69,16 @@ def _system_restore_model():
     return apps.get_model('dlux', 'SystemRestore')
 
 
-def _recent_system_backups(*, reap=True):
-    """Recent backup rows, after retiring any whose worker is demonstrably gone.
+def _system_backup_table(request, *, reap=True):
+    """The paginated backup history, after retiring any run whose worker is gone.
 
     The reap runs on the read path on purpose: this page (and its poller) is
     where an operator watches a backup, so it is also where a run that died
-    without a trace has to stop pretending it is still alive.
+    without a trace has to stop pretending it is still alive. The poller passes
+    the page's own query string, so it re-renders the page the operator is on.
     """
+    from .backup_tables import SystemBackupTable
+
     if reap:
         try:
             # allow_inline=False: a retry from here must go to a worker. Building
@@ -84,11 +87,22 @@ def _recent_system_backups(*, reap=True):
             reap_stalled_system_backups(allow_inline=False)
         except Exception:
             logger.warning('Could not reap stalled system backups', exc_info=True)
-    return list(_system_backup_model().objects.all()[:20])
+    return SystemBackupTable(_system_backup_model().objects.all(), request=request, prefix='backups-')
 
 
-def _recent_system_restores():
-    return list(_system_restore_model().objects.all()[:10])
+def _system_restore_table(request):
+    from .backup_tables import SystemRestoreTable
+
+    return SystemRestoreTable(_system_restore_model().objects.all(), request=request, prefix='restores-')
+
+
+def _page_rows(table):
+    """The records on the table's current page (what the revision and items cover)."""
+    page = getattr(table, 'page', None)
+    if page is None:
+        return []
+    # django-tables2 pages hold BoundRows; the revision and items read the records.
+    return [getattr(row, 'record', row) for row in page.object_list]
 
 
 def _stall_seconds(backup):
@@ -192,15 +206,32 @@ def _chain_payload(request):
     }
 
 
-def _backup_rows_context(backups):
-    policy = backup_retry_policy()
+def _backup_list_payload(request, table):
+    """The backup poller's answer: the current page's table and per-row state."""
+    backups = _page_rows(table)
     return {
-        'backups': backups,
-        'DLUX_STRINGS': get_strings(),
-        'backup_policy': policy,
-        # Warn well before the row is actually reaped, so a genuinely slow stage
-        # is visible as "quiet" rather than silently looking identical to a hang.
-        'backup_stall_warn_seconds': max(60, policy['stall_timeout_minutes'] * 60 // 3),
+        'revision': _system_backup_revision(backups),
+        'active': any(backup.is_active for backup in backups),
+        'busy': _active_backup() is not None,
+        'chain': _chain_payload(request),
+        'items': [
+            {
+                'token': backup.token,
+                'status': backup.status,
+                'progress_percent': backup.progress_percent,
+                'progress_message': backup.progress_message,
+                'stage': backup.stage,
+                'attempt_count': backup.attempt_count,
+                'seconds_since_progress': _stall_seconds(backup),
+                'eta_seconds': backup.eta_seconds(),
+                'stalled': bool(
+                    backup.is_active
+                    and _stall_seconds(backup) > table.backup_stall_warn_seconds
+                ),
+            }
+            for backup in backups
+        ],
+        'html': table.as_html(request),
     }
 
 
@@ -247,13 +278,14 @@ def system_backup_page(request):
     _require_superuser(request)
     from ..forms.backup import BackupUploadForm
 
-    backups = _recent_system_backups()
-    restores = _recent_system_restores()
+    backup_table = _system_backup_table(request)
+    restore_table = _system_restore_table(request)
     context = {
-        **_backup_rows_context(backups),
-        'backup_revision': _system_backup_revision(backups),
-        **_restore_rows_context(restores),
-        'restore_revision': _system_restore_revision(restores),
+        'backup_table': backup_table,
+        'backup_policy': backup_table.backup_policy,
+        'backup_revision': _system_backup_revision(_page_rows(backup_table)),
+        'restore_table': restore_table,
+        'restore_revision': _system_restore_revision(_page_rows(restore_table)),
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
@@ -419,32 +451,7 @@ def _get_backup_or_404(request, token):
 def system_backup_list_status_view(request):
     """Return the current backup-table fragment for live background updates."""
     _require_superuser(request)
-    backups = _recent_system_backups()
-    context = _backup_rows_context(backups)
-    return JsonResponse({
-        'revision': _system_backup_revision(backups),
-        'active': any(backup.is_active for backup in backups),
-        'busy': _active_backup() is not None,
-        'chain': _chain_payload(request),
-        'items': [
-            {
-                'token': backup.token,
-                'status': backup.status,
-                'progress_percent': backup.progress_percent,
-                'progress_message': backup.progress_message,
-                'stage': backup.stage,
-                'attempt_count': backup.attempt_count,
-                'seconds_since_progress': _stall_seconds(backup),
-                'eta_seconds': backup.eta_seconds(),
-                'stalled': bool(
-                    backup.is_active
-                    and _stall_seconds(backup) > context['backup_stall_warn_seconds']
-                ),
-            }
-            for backup in backups
-        ],
-        'html': render_to_string('dlux/backup/_backup_rows.html', context, request=request),
-    })
+    return JsonResponse(_backup_list_payload(request, _system_backup_table(request)))
 
 
 @login_required
@@ -711,13 +718,6 @@ def _attach_restore_progress(restores):
     return restores
 
 
-def _restore_rows_context(restores):
-    return {
-        'restores': _attach_restore_progress(restores),
-        'DLUX_STRINGS': get_strings(),
-    }
-
-
 def _system_restore_revision(restores):
     """Stable marker for every field rendered in the live restore table."""
     rendered_state = '\x1f'.join(
@@ -741,15 +741,12 @@ def _system_restore_revision(restores):
 @login_required
 @never_cache
 def system_restore_list_status_view(request):
-    """Return the current restore-table fragment for live background updates."""
+    """Return the current page of the restore table for live background updates."""
     _require_superuser(request)
-    restores = _recent_system_restores()
+    table = _system_restore_table(request)
+    restores = _attach_restore_progress(_page_rows(table))
     return JsonResponse({
         'revision': _system_restore_revision(restores),
         'active': any(restore.is_active for restore in restores),
-        'html': render_to_string(
-            'dlux/backup/_restore_rows.html',
-            _restore_rows_context(restores),
-            request=request,
-        ),
+        'html': table.as_html(request),
     })

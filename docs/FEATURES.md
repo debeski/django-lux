@@ -84,7 +84,9 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
 
-## 1.14.0b1 beta: table column builder
+## 1.14 beta: table column builder
+
+Beta 1.14.0b2 merges the published 1.13.2b1 fixes into the table-builder line: paginated backup/restore histories with Dlux row actions and fixed restore density, user-menu tour closing, and the preceding 1.13.1 setup-upload/search/tour fixes. It preserves the shared inspector and adds no migrations beyond b1.
 
 Finishing controls use the short **Restore** label and enable it only while a column override exists. Reverted table edits leave the form clean, including visibility toggles that now retain column position. Ribbon buttons also support drag ordering alongside the existing draggable tabs, with saved per-host order applied to actual pages.
 

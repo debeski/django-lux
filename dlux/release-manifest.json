@@ -1,15 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.14.0b1",
+  "version": "1.14.0b2",
   "display": {
-    "summary": "Configurable table columns with a shared inspector, plus ribbon button ordering.",
+    "summary": "The table builder now includes the published 1.13.2b1 backup-table and user-interface fixes.",
     "highlights": [
       "Tables settings: reorder and restore columns, edit translated labels and icons, and choose primary/secondary sorting through the shared inspector.",
       "The shared inspector uses conditional Restore actions; reverted edits close without a false unsaved-changes prompt. Dlux tables stay behind Show system items.",
       "Ribbon destination buttons support drag ordering that persists into real pages, including project export buttons.",
-      "Includes the published 1.13.0b3 Operations panel. The remaining planned 1.14 Updates-card features will follow in later betas."
+      "Includes 1.13.2b1: paginated backup/restore histories, context-menu row actions, fixed restore density and closing the user menu for tours.",
+      "Includes 1.13.1 setup-upload, search and tour fixes. The remaining planned 1.14 Updates-card features will follow in later betas."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0b2"
   },
   "requires": {
     "updater_schema": ">=1",

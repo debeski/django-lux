@@ -1,0 +1,5 @@
+{% load dlux_tags %}
+{# One cell of SystemRestoreTable; context: restore, DLUX_STRINGS. #}
+{% if restore.status == 'completed' %}<span class="badge bg-success">{{ restore.get_status_display }}</span>
+{% elif restore.status == 'failed' %}<span class="badge bg-danger" title="{{ restore.error }}">{{ restore.get_status_display }}</span>
+{% else %}<span class="badge bg-secondary">{{ restore.get_status_display }}</span>{% endif %}

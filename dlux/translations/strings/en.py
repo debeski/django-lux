@@ -2082,6 +2082,7 @@ STRINGS = {
     'sysbackup_base_hint': 'Full backup; incremental backups can continue from it',
     'sysbackup_download_chain': 'Download chain',
     'sysbackup_download_chain_hint': 'Every backup from the full one up to this point, in one ZIP',
+    'sysbackup_delete_confirm': 'Delete the backup from {label}? This cannot be undone.',
     'sysbackup_delete_chain_confirm': 'Later incremental backups of this chain depend on this one and will be deleted with it. Continue?',
     'sysrestore_stage_increment': 'Applying increment {done} of {total}...',
     'backup_settings_incremental_title': 'Incremental Backups',
