@@ -60,6 +60,10 @@ class DluxMiddleware:
                 # The wizard previews its unsaved values before anything is configured.
                 reverse('system_settings_preview_draft'),
                 reverse('weather_locations'),
+                # Pickers upload instantly to the general endpoint (1.8.4+); the
+                # wizard's own logo and font pickers use it before setup is done.
+                # The view authorizes each upload against the field's declaration.
+                reverse('managed_asset_picker_upload'),
             })
             allowed_prefixes.extend([
                 reverse('system_setup'),
@@ -71,6 +75,7 @@ class DluxMiddleware:
                 '/accounts/login/',
                 '/accounts/logout/',
                 '/sys/api/dlux-update/runtime-health/',
+                '/sys/assets/upload/',
             })
             allowed_prefixes.extend([
                 '/sys/setup/',

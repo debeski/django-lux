@@ -571,8 +571,16 @@
     display: inline-flex;
 }
 
+/* Above the mobile breakpoint the always-visible field is never an icon: the
+   toggle's `.dlux-titlebar-btn` display must not bring it back beside the field,
+   and focusing the field keeps it in flow instead of re-anchoring it. */
 @media (min-width: 768px) {
-    .titlebar__actions .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
+    :is(.titlebar__actions, .dlux-titlebar-rail) .dlux-global-search[data-global-search-mode="always"]:not(.dlux-global-search--open) .dlux-global-search__toggle,
+    .titlebar__actions .dlux-global-search[data-global-search-mode="always"].dlux-global-search--open .dlux-global-search__toggle {
+        display: none;
+    }
+
+    .titlebar__actions .dlux-global-search[data-global-search-mode="icon"].dlux-global-search--open .dlux-global-search__box {
         position: absolute;
         inset-block-start: 50%;
         inset-inline-end: calc(100% + 0.4rem);

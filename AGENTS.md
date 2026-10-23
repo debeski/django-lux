@@ -73,6 +73,7 @@ Project state, tasks and known bugs: see `tracker.md`.
 - Work that isn't released yet goes under `## Unreleased` in `CHANGELOG.md`.
 - Set the manifest's migration and inline-install fields as RELEASING.md describes.
 - For updater or migration changes, run `python -m dlux.updater.release_check --base-tag <last stable tag>`.
+- Before tagging, also run `python -m dlux.updater.release_check` with no arguments, then `python -m build` and `twine check`: that is what the release's build step runs, and only the bare form validates the manifest's image and migration baselines.
 
 ## Checks
 

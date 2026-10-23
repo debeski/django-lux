@@ -125,10 +125,35 @@
             });
         }
 
-        modal.show();
-        if (requirePassword && passwordEl) {
-            window.setTimeout(function () { passwordEl.focus(); }, 150);
+        // Opened from inside another modal (the Operations panel, a dynamic
+        // modal), the prompt would render under it: same z-index, earlier in the
+        // DOM. Raise it and its backdrop as .dlux-modal-stacked in main.css does
+        // for the unsaved-changes prompt.
+        var stacked = Boolean(document.querySelector('.modal.show:not([data-dlux-confirm-modal])'));
+        modalEl.classList.toggle('dlux-modal-stacked', stacked);
+        if (stacked) {
+            document.body.classList.add('dlux-modal-stacked-open');
+            modalEl.addEventListener('hidden.bs.modal', function unstack() {
+                modalEl.removeEventListener('hidden.bs.modal', unstack);
+                modalEl.classList.remove('dlux-modal-stacked');
+                document.body.classList.remove('dlux-modal-stacked-open');
+                // Bootstrap drops `modal-open` when any modal hides; the one
+                // underneath is still open.
+                if (document.querySelector('.modal.show')) {
+                    document.body.classList.add('modal-open');
+                }
+            });
         }
+
+        if (requirePassword && passwordEl) {
+            // On `shown`: Bootstrap focuses the dialog itself when its transition
+            // ends, which took the focus back from a field focused any earlier.
+            modalEl.addEventListener('shown.bs.modal', function focusPassword() {
+                modalEl.removeEventListener('shown.bs.modal', focusPassword);
+                passwordEl.focus();
+            });
+        }
+        modal.show();
         return modal;
     }
 

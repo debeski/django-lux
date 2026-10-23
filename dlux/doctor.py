@@ -450,12 +450,21 @@ def _check_stack_schema(ctx):
                     f'Set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml\'s x-environment block.')
     if declared == expected:
         return ok(f'compose.yml declares stack schema {declared}.')
-    direction = 'older' if declared < expected else 'newer'
+    # The value is this container's environment, fixed when it was created: a
+    # stack migrated since (composer check --fix restamps compose.yml) still
+    # shows the old number until the service is recreated.
+    if declared < expected:
+        return warn(
+            f'This service runs with stack schema {declared}; this DjangoLux expects {expected}.',
+            f'If compose.yml already sets {STACK_SCHEMA_ENV}: "{expected}" (composer check --fix '
+            'updates it), recreate web and celery to pick it up: Recreate in the Operations panel, '
+            'or ./start.sh. Otherwise apply the changes docs/stack-schema.md lists between the two '
+            f'schemas, then set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
+        )
     return warn(
-        f'compose.yml declares stack schema {declared}; this DjangoLux expects {expected} '
-        f'(the stack files are {direction}).',
-        'Apply the changes docs/stack-schema.md lists between the two schemas, '
-        f'then set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
+        f'This service runs with stack schema {declared}; this DjangoLux expects {expected} '
+        '(the stack files are newer).',
+        'Update DjangoLux to a release that supports this stack schema.',
     )
 
 

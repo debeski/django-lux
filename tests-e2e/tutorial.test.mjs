@@ -69,6 +69,18 @@ test('the tutorial follows the active Arabic display language and current Option
     assert.equal(tutorial.textDirection, 'rtl');
     assert.equal(tutorial.textAlign, 'right');
     assert.equal(tutorial.controlsInsideViewport, true);
+
+    // Options opens as tabs by default, so only the active pane's cards resolve;
+    // the tour must still show where the other sections are.
+    const total = Number(tutorial.progress.split(' ').at(-1));
+    const titles = [tutorial.title];
+    for (let i = 1; i < total; i += 1) {
+      await page.click('#tut-next');
+      await page.waitForFunction((n) => document.querySelector('#tut-progress')?.textContent.trim().startsWith(`${n} `), i + 1);
+      titles.push(await page.textContent('.driver-popover-title').then((t) => t.trim()));
+    }
+    assert.equal(await page.getAttribute('#dluxOptionsGrid', 'data-options-style'), 'tabs');
+    assert.ok(titles.includes('أقسام الخيارات'), `the tour skipped the Options tab strip: ${titles.join(' | ')}`);
     assert.deepEqual(errors, []);
   } finally {
     await ctx.close();

@@ -43,6 +43,13 @@
         return node;
     }
 
+    // Composer reports in English; `auto` keeps that text readable in an RTL page.
+    function composerText(tag, className, text) {
+        const node = element(tag, className, text);
+        node.dir = 'auto';
+        return node;
+    }
+
     function init(root) {
         if (root.dataset.bound === 'true' || root.dataset.enabled !== 'true') { return; }
         root.dataset.bound = 'true';
@@ -119,9 +126,9 @@
                     const item = element('li', `dlux-ops-finding dlux-ops-finding--${level}`);
                     item.appendChild(element('i', `bi ${ICONS[level] || ICONS.ok}`));
                     const body = element('div');
-                    body.appendChild(element('span', 'dlux-ops-finding-name', finding.name || ''));
-                    body.appendChild(element('span', 'dlux-ops-finding-message', finding.message || ''));
-                    if (finding.fix) { body.appendChild(element('span', 'dlux-ops-finding-fix small text-muted', finding.fix)); }
+                    body.appendChild(composerText('span', 'dlux-ops-finding-name', finding.name || ''));
+                    body.appendChild(composerText('span', 'dlux-ops-finding-message', finding.message || ''));
+                    if (finding.fix) { body.appendChild(composerText('span', 'dlux-ops-finding-fix small text-muted', finding.fix)); }
                     item.appendChild(body);
                     findingsEl.appendChild(item);
                 });
@@ -139,10 +146,12 @@
                 diffsEl.replaceChildren();
                 repairs.forEach((repair) => {
                     const block = element('div', 'dlux-ops-repair');
-                    block.appendChild(element('div', 'small fw-semibold',
+                    block.appendChild(composerText('div', 'small fw-semibold',
                         [repair.name, (repair.files || []).join(', ')].filter(Boolean).join(' — ')));
-                    block.appendChild(element('pre', 'dlux-ops-diff', repair.diff));
-                    if (repair.note) { block.appendChild(element('div', 'small text-muted', repair.note)); }
+                    const diff = element('pre', 'dlux-ops-diff', repair.diff);
+                    diff.dir = 'ltr';
+                    block.appendChild(diff);
+                    if (repair.note) { block.appendChild(composerText('div', 'small text-muted', repair.note)); }
                     diffsEl.appendChild(block);
                 });
             }

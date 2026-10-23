@@ -6,7 +6,8 @@
 // the viewport and shoved the footer up over the content while scrolling.
 //
 // The lesson is structural, so the test is structural: the link belongs inside
-// an existing cell. The grid also needs a layout boundary: without one, its
+// an existing cell. Since 1.8.3 it is the page's Ribbon action (a
+// `.dlux-back-link` to Options), not a `.dlux-backup-back` element of its own. The grid also needs a layout boundary: without one, its
 // overflow can make the document scroller taller while `body.scrollHeight`
 // remains viewport-sized. A final wheel gesture then scrolls the whole shell.
 //
@@ -29,6 +30,8 @@ after(async () => {
   if (server) await server.stop();
 });
 
+const BACK_LINK = '.dlux-backup-page .dlux-back-link[href$="/options/"]';
+
 async function backupPage(dir = 'ltr') {
   const { ctx, page } = await loggedInPage(browser);
   await page.setViewportSize({ width: 1400, height: 900 });
@@ -44,8 +47,8 @@ describe('backup page layout', { concurrency: 1 }, () => {
     // a grid row. What matters is that it sits inside the Ribbon cell.
     const { ctx, page } = await backupPage();
     try {
-      const placement = await page.evaluate(() => {
-        const link = document.querySelector('.dlux-backup-back');
+      const placement = await page.evaluate((selector) => {
+        const link = document.querySelector(selector);
         const grid = document.querySelector('.dlux-backup-page');
         if (!link || !grid) return { missing: true };
         // Which direct child of the grid contains it?
@@ -55,7 +58,7 @@ describe('backup page layout', { concurrency: 1 }, () => {
           cellIsRibbon: !!cell && cell.classList.contains('dlux-ribbon-header'),
           gridRows: grid.children.length,
         };
-      });
+      }, BACK_LINK);
       assert.equal(placement.missing, undefined, 'the Back link is not on the page');
       assert.equal(placement.insideRibbon, true, 'the Back link is outside the Ribbon');
       assert.equal(
@@ -106,10 +109,10 @@ describe('backup page layout', { concurrency: 1 }, () => {
     test(`the Back link sits at the inline end in ${dir}`, async () => {
       const { ctx, page } = await backupPage(dir);
       try {
-        const side = await page.evaluate(() => {
-          const box = document.querySelector('.dlux-backup-back').getBoundingClientRect();
+        const side = await page.evaluate((selector) => {
+          const box = document.querySelector(selector).getBoundingClientRect();
           return (box.left + box.width / 2) < window.innerWidth / 2 ? 'left' : 'right';
-        });
+        }, BACK_LINK);
         assert.equal(side, dir === 'rtl' ? 'left' : 'right', `wrong side in ${dir}`);
       } finally { await ctx.close(); }
     });

@@ -97,7 +97,8 @@ OPERATIONS = {
     "service-recreate": {
         # Recreating runs the service's pre_start hooks, which is what applies
         # migrations on celery; only allow-listed services, as for a restart.
-        "min_composer": "1.7.0b2",
+        # 1.7.0b2–b4 recreated on compose defaults (no secrets): web could not start.
+        "min_composer": "1.7.0b5",
         "changes_deployment": True,
         "needs_preview": False,
         "panel": True,
@@ -114,6 +115,18 @@ OPERATIONS = {
         "params": ("service?", "lines"),
         "label": "Show logs",
     },
+}
+
+# Translation keys for each operation's ``label`` (the English fallback).
+OPERATION_LABEL_KEYS = {
+    "check": "dlux_ops_check",
+    "agent-check": "dlux_ops_agent_check",
+    "agent-update": "dlux_ops_agent_update",
+    "check-fix-apply": "dlux_ops_apply",
+    "services": "dlux_ops_op_services",
+    "service-restart": "dlux_ops_op_restart",
+    "service-recreate": "dlux_ops_op_recreate",
+    "logs-tail": "dlux_ops_op_logs",
 }
 
 #: Names Compose accepts for a service; Composer re-validates against the stack.

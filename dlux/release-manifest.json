@@ -17,7 +17,7 @@
     "services": {
       "composer": ">=1.5.3b1"
     },
-    "migration_baseline": ">=1.13.0b2"
+    "migration_baseline": ">=1.13.0"
   },
   "migrations": {
     "effect": "additive",

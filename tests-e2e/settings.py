@@ -31,3 +31,10 @@ MEDIA_ROOT = str(BASE_DIR / 'state' / 'media')
 # Screenshots must be byte-identical across runs, so nothing may vary on wall
 # time. The session cookie is the only such input the pages read.
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 365
+
+# The email step probes the internal SMTP relay and greys out the `relay`
+# transport when nothing answers. The default host `smtp-relay` resolves (or
+# times out) differently per network, which made the email tests flaky. A closed
+# loopback port answers "not running" immediately, on every machine.
+DLUX_SMTP_RELAY_HOST = '127.0.0.1'
+DLUX_SMTP_RELAY_PORT = 1

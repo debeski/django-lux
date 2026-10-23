@@ -311,6 +311,34 @@ class FixApplyGuardTests(TestCase):
         self._completed_preview()
         self.assertTrue(get_ops_state()["has_preview"])
 
+    def _finished_apply(self, status):
+        run = DluxOpsRun.objects.create(operation="check-fix-apply", requested_by_username="root")
+        run.finish(status, result={
+            "findings": [{"level": "ok", "name": "maintenance-page", "message": "Served from the runtime volume."}],
+            "repairs": [{"name": "fix:maintenance-page", "files": [], "diff": "", "note": "Migrated."}],
+        })
+        run.save()
+        return run
+
+    def test_a_completed_apply_consumes_the_preview_and_becomes_the_check(self):
+        self._completed_preview()
+        applied = self._finished_apply(DluxOpsRun.STATUS_COMPLETED)
+        state = get_ops_state()
+        self.assertFalse(state["has_preview"], "what the preview showed is on disk now")
+        self.assertEqual(state["check"]["token"], applied.token, "the panel shows the result, not the old preview")
+        self.assertEqual([r["diff"] for r in state["check"]["repairs"]], [""], "nothing left to apply")
+        with self.assertRaises(UpdaterError):
+            self._queue("check-fix-apply")
+        self._completed_preview()
+        self.assertTrue(get_ops_state()["has_preview"], "a new check makes a new preview")
+
+    def test_a_failed_apply_leaves_the_preview_to_retry(self):
+        preview = self._completed_preview()
+        self._finished_apply(DluxOpsRun.STATUS_FAILED)
+        state = get_ops_state()
+        self.assertTrue(state["has_preview"])
+        self.assertEqual(state["check"]["token"], preview.token)
+
     def test_a_previews_repairs_reach_the_card(self):
         run = self._completed_preview()
         serialized = serialize_ops_run(run)
@@ -632,8 +660,27 @@ class PanelOperationTests(SimpleTestCase):
     def test_restart_and_recreate_change_the_deployment_logs_do_not(self):
         self.assertTrue(ops.OPERATIONS["service-restart"]["changes_deployment"])
         self.assertTrue(ops.OPERATIONS["service-recreate"]["changes_deployment"])
+
+    def test_recreate_needs_the_composer_that_keeps_the_secrets(self):
+        # Composer 1.7.0b2–b4 recreated a service without the deployment's
+        # secrets, so the panel must not offer Recreate against them.
+        self.assertFalse(ops.supports("service-recreate", "1.7.0b4")[0])
+        self.assertTrue(ops.supports("service-recreate", "1.7.0b5")[0])
+        self.assertTrue(ops.supports("service-restart", "1.7.0b2")[0], "restart reuses the container")
         self.assertFalse(ops.OPERATIONS["logs-tail"]["changes_deployment"])
         self.assertFalse(ops.OPERATIONS["services"]["changes_deployment"])
+
+
+class OperationLabelTests(TestCase):
+    def test_every_operation_label_is_translated(self):
+        from dlux.translations import DLUX_STRINGS
+        self.assertEqual(set(ops.OPERATION_LABEL_KEYS), set(ops.OPERATIONS))
+        for key in ops.OPERATION_LABEL_KEYS.values():
+            self.assertIn(key, DLUX_STRINGS["en"], key)
+            self.assertIn(key, DLUX_STRINGS["ar"], key)
+        with mock.patch("dlux.translations.runtime.get_current_language_code", return_value="ar"):
+            labels = {op["name"]: op["label"] for op in get_ops_state()["operations"]}
+        self.assertEqual(labels["service-restart"], DLUX_STRINGS["ar"]["dlux_ops_op_restart"])
 
 
 class PanelRunLifecycleTests(OpsRunLifecycleTests):
