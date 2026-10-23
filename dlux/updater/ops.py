@@ -75,7 +75,64 @@ OPERATIONS = {
         "needs_preview": True,
         "label": "Apply repairs",
     },
+    # The Operations panel (Options > admin rail). ``panel`` operations are
+    # offered there only, so an older Composer just disables their buttons
+    # instead of flagging the whole deployment as behind.
+    "services": {
+        "min_composer": "1.7.0b2",
+        "changes_deployment": False,
+        "needs_preview": False,
+        "panel": True,
+        "params": (),
+        "label": "List services",
+    },
+    "service-restart": {
+        "min_composer": "1.7.0b2",
+        "changes_deployment": True,
+        "needs_preview": False,
+        "panel": True,
+        "params": ("service",),
+        "label": "Restart service",
+    },
+    "service-recreate": {
+        # Recreating runs the service's pre_start hooks, which is what applies
+        # migrations on celery; only allow-listed services, as for a restart.
+        # 1.7.0b2–b4 recreated on compose defaults (no secrets): web could not start.
+        "min_composer": "1.7.0b5",
+        "changes_deployment": True,
+        "needs_preview": False,
+        "panel": True,
+        "params": ("service",),
+        "label": "Recreate service",
+    },
+    "logs-tail": {
+        # 1.7.0b3 merges every service's logs when no service is named.
+        "min_composer": "1.7.0b3",
+        "changes_deployment": False,
+        "needs_preview": False,
+        "panel": True,
+        # No service means every service, merged in time order.
+        "params": ("service?", "lines"),
+        "label": "Show logs",
+    },
 }
+
+# Translation keys for each operation's ``label`` (the English fallback).
+OPERATION_LABEL_KEYS = {
+    "check": "dlux_ops_check",
+    "agent-check": "dlux_ops_agent_check",
+    "agent-update": "dlux_ops_agent_update",
+    "check-fix-apply": "dlux_ops_apply",
+    "services": "dlux_ops_op_services",
+    "service-restart": "dlux_ops_op_restart",
+    "service-recreate": "dlux_ops_op_recreate",
+    "logs-tail": "dlux_ops_op_logs",
+}
+
+#: Names Compose accepts for a service; Composer re-validates against the stack.
+SERVICE_NAME_MAX = 64
+LOG_LINES_DEFAULT = 200
+LOG_LINES_MAX = 1000
 
 #: The only value a request may carry besides the operation name, and it is
 #: read from the preview's own result — never from the browser.
@@ -92,7 +149,28 @@ LONG_REQUEST_TIMEOUT_SECONDS = 900
 
 
 def timeout_for(operation):
-    return LONG_REQUEST_TIMEOUT_SECONDS if operation == "agent-update" else REQUEST_TIMEOUT_SECONDS
+    return LONG_REQUEST_TIMEOUT_SECONDS if operation in ("agent-update", "service-recreate") else REQUEST_TIMEOUT_SECONDS
+
+
+def normalize_params(operation, raw):
+    """The arguments ``operation`` takes, validated, or raise ``UpdaterError``."""
+    wanted = OPERATIONS[normalize_operation(operation)].get("params") or ()
+    raw = raw or {}
+    params = {}
+    if "service" in wanted or "service?" in wanted:
+        service = str(raw.get("service") or "").strip()
+        if service or "service" in wanted:
+            if not service or len(service) > SERVICE_NAME_MAX or not service.isascii() \
+                    or not all(c.isalnum() or c in "_-" for c in service):
+                raise UpdaterError("Choose a service from the list.")
+            params["service"] = service
+    if "lines" in wanted:
+        try:
+            lines = int(raw.get("lines") or LOG_LINES_DEFAULT)
+        except (TypeError, ValueError):
+            lines = LOG_LINES_DEFAULT
+        params["lines"] = max(1, min(LOG_LINES_MAX, lines))
+    return params
 
 
 def resident_composer_version(store=None):
@@ -181,6 +259,8 @@ def composer_behind(composer_version, package_root=None):
     missed = []
     ops_blocked = False
     for spec in OPERATIONS.values():
+        if spec.get("panel"):
+            continue
         if current < Version(spec["min_composer"]):
             missed.append(spec["min_composer"])
             ops_blocked = True
@@ -227,7 +307,7 @@ def normalize_digest(value):
     return digest
 
 
-def write_request(store, token, operation, *, compose_digest=""):
+def write_request(store, token, operation, *, compose_digest="", params=None):
     """Ask Composer to perform ``operation``. Celery only — ``store`` required."""
     if store is None:
         raise UpdaterError("Requesting a deployment operation requires the runtime store.")
@@ -240,6 +320,7 @@ def write_request(store, token, operation, *, compose_digest=""):
     }
     if OPERATIONS[operation]["needs_preview"]:
         payload[DIGEST_FIELD] = normalize_digest(compose_digest)
+    payload.update(normalize_params(operation, params))
     _atomic_json(request_path(store), payload)
 
 

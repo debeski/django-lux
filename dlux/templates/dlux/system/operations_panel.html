@@ -1,0 +1,88 @@
+{% load dlux_tags %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/system/css/operations_panel.css' %}">
+<div class="dlux-ops-panel"
+     data-dlux-ops-panel
+     data-state-url="{% url 'dlux_ops_state' %}"
+     data-run-url="{% url 'dlux_ops_run' %}"
+     data-enabled="{% if updates_enabled %}true{% else %}false{% endif %}"
+     data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not checked yet' }}"
+     data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found' }}"
+     data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
+     data-label-no-repair="{{ DLUX_STRINGS.dlux_ops_no_repair|default:'No automatic repair is available for these findings.' }}"
+     data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
+     data-label-apply-note="{{ DLUX_STRINGS.dlux_ops_apply_note|default:'Applies exactly the changes above. Composer validates the result and keeps a backup under .xclude/.' }}"
+     data-label-restart="{{ DLUX_STRINGS.dlux_ops_restart|default:'Restart' }}"
+     data-label-restart-note="{{ DLUX_STRINGS.dlux_ops_restart_note|default:'Restarts {service}. Requests to it fail for a few seconds.' }}"
+     data-label-recreate="{{ DLUX_STRINGS.dlux_ops_recreate|default:'Recreate' }}"
+     data-label-recreate-note="{{ DLUX_STRINGS.dlux_ops_recreate_note|default:'Recreates {service} from its image and runs its start-up hooks (on celery, that applies migrations).' }}"
+     data-label-logs="{{ DLUX_STRINGS.dlux_ops_logs|default:'Logs' }}"
+     data-label-logs-of="{{ DLUX_STRINGS.dlux_ops_logs_of|default:'Last {lines} lines of {service}' }}"
+     data-label-logs-all="{{ DLUX_STRINGS.dlux_ops_logs_all|default:'Last {lines} lines of all services' }}"
+     data-label-no-logs="{{ DLUX_STRINGS.dlux_ops_no_logs|default:'No logs loaded yet.' }}"
+     data-label-show-all="{{ DLUX_STRINGS.dlux_ops_show_all|default:'Show all ({count})' }}"
+     data-label-show-less="{{ DLUX_STRINGS.dlux_ops_show_less|default:'Show less' }}"
+     data-label-no-services="{{ DLUX_STRINGS.dlux_ops_no_services|default:'Loading the service list…' }}"
+     data-label-protected="{{ DLUX_STRINGS.dlux_ops_protected|default:'Protected: restart it on the host.' }}"
+     data-label-absent="{{ DLUX_STRINGS.dlux_ops_absent|default:'not created' }}"
+     data-label-failed="{{ DLUX_STRINGS.dlux_ops_failed|default:'The operation failed.' }}">
+
+    {% if not updates_enabled %}
+    <div class="alert alert-secondary small mb-0">{{ DLUX_STRINGS.dlux_ops_panel_disabled|default:'This deployment has no Composer agent, so operations cannot run from here.' }}</div>
+    {% else %}
+    <div class="text-danger small" data-dlux-ops-panel-error hidden aria-live="polite"></div>
+
+    <section class="dlux-ops-panel-section" aria-labelledby="dluxOpsPanelCheck">
+        <div class="dlux-ops-panel-head">
+            <h6 id="dluxOpsPanelCheck" class="mb-0">{{ DLUX_STRINGS.dlux_ops_results_title|default:'Deployment check' }}</h6>
+            <span class="small text-muted" data-dlux-ops-panel-summary></span>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" data-dlux-ops-panel-run="check">
+                <i class="bi bi-arrow-clockwise"></i> {{ DLUX_STRINGS.dlux_ops_check|default:'Run deployment check' }}
+            </button>
+        </div>
+        <p class="small text-muted mb-2">{{ DLUX_STRINGS.dlux_ops_intro|default:'Checks the deployment itself — Compose, topology, the Composer agent — and offers the repairs it finds.' }}</p>
+        <ul class="dlux-ops-findings list-unstyled mb-0 is-collapsed" data-dlux-ops-panel-findings></ul>
+        <button type="button" class="btn btn-link btn-sm px-0" data-dlux-ops-panel-findings-toggle hidden></button>
+        <p class="text-muted small mt-2 mb-0" data-dlux-ops-panel-norepair hidden></p>
+        <div class="dlux-ops-repairs mt-3" data-dlux-ops-panel-repairs hidden>
+            <div class="small fw-semibold">{{ DLUX_STRINGS.dlux_ops_repairs_title|default:'Proposed changes' }}</div>
+            <div data-dlux-ops-panel-diffs></div>
+            <button type="button" class="btn btn-sm btn-warning mt-2" data-dlux-ops-panel-apply>
+                {{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}
+            </button>
+        </div>
+    </section>
+
+    <section class="dlux-ops-panel-section" aria-labelledby="dluxOpsPanelServices">
+        <div class="dlux-ops-panel-head">
+            <h6 id="dluxOpsPanelServices" class="mb-0">{{ DLUX_STRINGS.dlux_ops_services|default:'Services' }}</h6>
+            <button type="button" class="btn btn-sm dlux-ops-icon ms-auto" data-dlux-ops-panel-run="services"
+                    title="{{ DLUX_STRINGS.dlux_ops_services_refresh|default:'Refresh the service list' }}"
+                    aria-label="{{ DLUX_STRINGS.dlux_ops_services_refresh|default:'Refresh the service list' }}"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 dlux-ops-services">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ DLUX_STRINGS.dlux_ops_service|default:'Service' }}</th>
+                        <th scope="col">{{ DLUX_STRINGS.dlux_ops_state|default:'State' }}</th>
+                        <th scope="col" class="text-end">{{ DLUX_STRINGS.dlux_ops_actions|default:'Actions' }}</th>
+                    </tr>
+                </thead>
+                <tbody data-dlux-ops-panel-services></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="dlux-ops-panel-section" aria-labelledby="dluxOpsPanelLogs">
+        <div class="dlux-ops-panel-head">
+            <h6 id="dluxOpsPanelLogs" class="mb-0">{{ DLUX_STRINGS.dlux_ops_logs|default:'Logs' }}</h6>
+            <span class="small text-muted" data-dlux-ops-panel-logs-title></span>
+            <button type="button" class="btn btn-sm dlux-ops-icon ms-auto" data-dlux-ops-panel-logs-all
+                    title="{{ DLUX_STRINGS.dlux_ops_logs_refresh|default:'Load the latest logs of all services' }}"
+                    aria-label="{{ DLUX_STRINGS.dlux_ops_logs_refresh|default:'Load the latest logs of all services' }}"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <pre class="dlux-ops-logs" data-dlux-ops-panel-logs dir="ltr"></pre>
+    </section>
+    {% endif %}
+</div>
+<script src="{% dlux_static 'dlux/system/js/operations_panel.js' %}" nonce="{{ request.csp_nonce }}"></script>

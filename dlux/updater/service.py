@@ -200,7 +200,7 @@ def reconcile_channel_policy(service):
     return chosen
 
 
-def queue_ops_run(operation, username=""):
+def queue_ops_run(operation, username="", params=None):
     """Queue a named deployment operation for Composer. Web side: the row only.
 
     Guarded like ``queue_run``: a usable runtime volume and a live worker, since
@@ -211,6 +211,7 @@ def queue_ops_run(operation, username=""):
     from . import ops
 
     operation = ops.normalize_operation(operation)
+    params = ops.normalize_params(operation, params)
     allowed, reason = ops.supports(operation, ops.resident_composer_version())
     if not allowed:
         raise UpdaterError(reason)
@@ -232,7 +233,7 @@ def queue_ops_run(operation, username=""):
     with transaction.atomic():
         if Ops.objects.select_for_update().filter(is_active=True).exists():
             raise UpdaterError("Another deployment operation is already running.")
-        return Ops.objects.create(operation=operation, requested_by_username=username or "")
+        return Ops.objects.create(operation=operation, requested_by_username=username or "", params=params)
 
 
 def _latest_preview_digest():
@@ -247,10 +248,12 @@ def _latest_preview_digest():
     # The check carries the dry-run repairs and their digest, so it IS the
     # preview. `check-fix-preview` is still read for a deployment updated from
     # 1.9.2, whose card asked for it separately.
+    # A completed apply consumes the preview before it: what it showed is now on
+    # disk, so a second apply needs a new check. A failed apply leaves it usable.
     preview = Ops.objects.filter(
-        operation__in=("check", "check-fix-preview"), status=Ops.STATUS_COMPLETED,
-    ).order_by("-created_at").first()
-    if preview is None:
+        operation__in=("check", "check-fix-preview", "check-fix-apply"), status=Ops.STATUS_COMPLETED,
+    ).order_by("-created_at", "-pk").first()
+    if preview is None or preview.operation == "check-fix-apply":
         return ""
     try:
         return ops.normalize_digest((preview.result or {}).get(ops.DIGEST_FIELD))
@@ -276,6 +279,7 @@ def tick_ops_run(service):
             ops.write_request(
                 store, run.token, run.operation,
                 compose_digest=_latest_preview_digest(),
+                params=run.params,
             )
         except (UpdaterError, OSError) as exc:
             run.finish(Ops.STATUS_FAILED, error=f"Could not hand the operation to Composer: {exc}")
@@ -336,6 +340,9 @@ def serialize_ops_run(run):
         "exit_code": result.get("exit_code"),
         "composer_version": result.get("composer_version", ""),
         "resident": result.get("resident") if isinstance(result.get("resident"), dict) else None,
+        "params": run.params or {},
+        "services": [s for s in result.get("services") or [] if isinstance(s, dict)],
+        "logs": str(result.get("logs") or ""),
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
@@ -345,7 +352,7 @@ def _latest_completed(*operations):
     Ops = _ops_model()
     return Ops.objects.filter(
         operation__in=operations, status=Ops.STATUS_COMPLETED,
-    ).order_by("-created_at").first()
+    ).order_by("-created_at", "-pk").first()
 
 
 def _resident_status(composer_version):
@@ -393,20 +400,27 @@ def get_ops_state():
         run = _ops_model().objects.order_by("-created_at").first()
         # The rows keep their own last answer: a Composer check must not blank
         # what the deployment check found, and vice versa.
-        check = _latest_completed("check", "check-fix-preview")
+        # An apply answers with the findings after the repair, so it is the
+        # newest word on the deployment until the next check.
+        check = _latest_completed("check", "check-fix-preview", "check-fix-apply")
+        services = _latest_completed("services")
+        logs = _latest_completed("logs-tail")
         resident = _resident_status(ops.resident_composer_version())
     except Exception:
-        run, check, resident = None, None, _resident_status("")
+        run, check, services, logs, resident = None, None, None, None, _resident_status("")
     composer_version = ops.resident_composer_version()
+    from dlux.translations import get_strings
+    strings = get_strings()
     operations = []
     for name, spec in ops.OPERATIONS.items():
         allowed, reason = ops.supports(name, composer_version)
         operations.append({
             "name": name,
-            "label": spec["label"],
+            "label": strings.get(ops.OPERATION_LABEL_KEYS.get(name, "")) or spec["label"],
             "changes_deployment": spec["changes_deployment"],
             "needs_preview": spec["needs_preview"],
             "min_composer": spec["min_composer"],
+            "panel": bool(spec.get("panel")),
             "available": allowed,
             "unavailable_reason": reason,
         })
@@ -414,6 +428,8 @@ def get_ops_state():
         "operations": operations,
         "run": serialize_ops_run(run),
         "check": serialize_ops_run(check),
+        "services": serialize_ops_run(services),
+        "logs": serialize_ops_run(logs),
         "resident": resident,
         "has_preview": bool(_latest_preview_digest()),
         "composer_version": composer_version,

@@ -203,9 +203,23 @@ class DoctorStackSchemaTests(TestCase):
 
         current = stack_schema()
         for value in (current - 1, current + 1):
-            finding = self._run(str(value))
-            self.assertEqual(finding.status, doctor.WARNING)
-            self.assertIn('docs/stack-schema.md', finding.remedy)
+            self.assertEqual(self._run(str(value)).status, doctor.WARNING)
+
+    def test_an_older_stamp_names_the_recreate_first(self):
+        # The number is this container's environment: after composer check --fix
+        # restamps compose.yml, a service not yet recreated still reports the old
+        # one, and telling the operator to edit compose.yml would be wrong.
+        from dlux.contracts.stack import stack_schema
+
+        finding = self._run(str(stack_schema() - 1))
+        self.assertIn('This service runs with stack schema', finding.detail)
+        self.assertIn('recreate web and celery', finding.remedy)
+        self.assertIn('docs/stack-schema.md', finding.remedy)
+
+    def test_a_newer_stamp_asks_for_a_newer_djangolux(self):
+        from dlux.contracts.stack import stack_schema
+
+        self.assertIn('Update DjangoLux', self._run(str(stack_schema() + 1)).remedy)
 
     def test_garbage_stamp_warns(self):
         self.assertEqual(self._run('two').status, doctor.WARNING)

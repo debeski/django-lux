@@ -645,6 +645,9 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     align-items: center;
     justify-content: flex-end;
     gap: 0.45rem;
+    /* Take whatever the heading row leaves beside the title, so the open rail
+       uses the real free width instead of a fixed cap. */
+    flex: 1 1 auto;
     min-width: 2.55rem;
 }
 
@@ -705,15 +708,14 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 }
 
 .dlux-admin-command-launcher.is-open .dlux-admin-command-rail {
-    max-width: min(82vw, 42rem);
+    max-width: 100%;
     opacity: 1;
     pointer-events: auto;
     transform: translateX(0);
-    /* Wrap rather than clip. The rail caps at 42rem, which holds about five
-       chips; a sixth used to disappear behind `overflow: hidden` with no sign it
-       existed. Wrapping grows the heading row instead, so adding an action can
-       never silently hide one. Only applied while open — the closed rail must
-       stay a single collapsed line. */
+    /* One row while the heading has room for every chip; wrap rather than clip
+       only when it genuinely does not, so an added action is never hidden behind
+       `overflow: hidden`. Only applied while open — the closed rail must stay a
+       single collapsed line. */
     flex-wrap: wrap;
     row-gap: 0.42rem;
 }
@@ -1379,6 +1381,8 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     line-height: 1.3;
     border-radius: var(--bs-border-radius, 0.375rem);
     background: var(--dlux-surface-2, rgba(127, 127, 127, 0.12));
+    /* A diff is code: left to right in every interface language. */
+    text-align: left;
 }
 
 /* The interval scale: the tick labels are what make the numbers readable. */

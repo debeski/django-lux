@@ -40,14 +40,19 @@
     max-height: calc(100vh - 210px);
     overflow: auto;
     display: flex;
-    justify-content: center;
     align-items: flex-start;
     padding: 1rem;
     background: #e9ecef;
 }
 
+/* Sized by viewer.js in CSS pixels: that size is the zoom, so nothing here may
+   cap it. `margin: auto` centres a page narrower than the stage and, unlike
+   `justify-content: center`, leaves a wider one scrollable to its start edge. */
 .dlux-pdf-stage canvas {
-    max-width: 100%;
+    flex: none;
+    margin: 0 auto;
+    /* pdf.js positions text itself; an RTL page must not mirror it again. */
+    direction: ltr;
     background: #fff;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
@@ -172,3 +177,17 @@
 }
 
 .dlux-pdf-empty { min-height: 18rem; }
+
+/* Fullscreen: the stage takes the whole screen below the toolbar. */
+.dlux-pdf-viewer:fullscreen {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 0;
+}
+
+.dlux-pdf-viewer:fullscreen .dlux-pdf-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}

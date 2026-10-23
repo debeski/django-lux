@@ -37,7 +37,15 @@ from the app container's environment, which comes from `compose.yml`:
 | --- | --- |
 | No `DLUX_STACK_SCHEMA` (stack generated before stamping) | `skipped`, informational |
 | Matches the running contract | `ok` |
-| Older or newer than the running contract, or not a number | `warning`, pointing here |
+| Older than the running contract | `warning`: recreate web and celery if compose.yml is already current, otherwise apply the changes listed here |
+| Newer than the running contract | `warning`: update DjangoLux |
+| Not a number | `warning`, pointing here |
+
+The value is the container's environment, fixed when the container was created.
+After `composer check --fix` restamps compose.yml (the schema 3 maintenance-page
+move, for one), `web` keeps reporting the old number until it is recreated —
+from the Operations panel's **Recreate**, or `./start.sh` — which is why the
+warning names that first.
 
 It never reports `error`. A mismatch means the stack files need the changes
 below, not that the site is down. The doctor cannot read the other stamped files

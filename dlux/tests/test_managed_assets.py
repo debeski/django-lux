@@ -316,6 +316,24 @@ class ManagedAssetTests(TestCase):
         asset_id = response.json()['assets'][0]['id']
         self.assertTrue(ManagedAsset.objects.filter(pk=asset_id, title='wizard-logo').exists())
 
+    def test_the_open_setup_gate_still_refuses_anonymous_and_ordinary_users(self):
+        # The gate lets the endpoint through before setup; the view's own checks
+        # (login, then superuser for the settings path) must still hold (DSRP-1).
+        system_settings = SystemSettings.load()
+        system_settings.is_configured = False
+        system_settings.save()
+        url = reverse('managed_asset_picker_upload')
+
+        anonymous = self.client.post(url, {'file': image_upload('anon.png')})
+        self.assertEqual(anonymous.status_code, 302)
+        self.assertIn('/accounts/login/', anonymous['Location'])
+
+        ordinary = get_user_model().objects.create_user('asset-user', 'user@example.com', 'pw')
+        self.client.force_login(ordinary)
+        refused = self.client.post(url, {'file': image_upload('user.png')})
+        self.assertNotEqual(refused.status_code, 200)
+        self.assertFalse(ManagedAsset.objects.filter(title__in=['anon', 'user']).exists())
+
     def test_selected_asset_picker_uses_active_language_copy(self):
         asset, _created = create_managed_asset(image_upload(), kind='image', title='Brand')
         settings_obj = SystemSettings.load()
