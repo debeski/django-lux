@@ -7,7 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.14.0b4
+
+- **Final 1.14 Beta Scope**: Retain the accepted 1.14.0b3 table builder, pagination, backup parent selection and service controls; add the Operations dev-mode correction. OCR and Updates-card manifests/history are deferred.
 
 - **Operations In Development Mode**: Keep the superuser Operations launcher visible and gate its panel on the resident Composer agent instead of `DLUX_INLINE_UPDATES_ENABLED`, so development stacks retain service controls while inline package updates remain disabled.
 
