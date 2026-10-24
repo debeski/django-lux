@@ -1,7 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- 2026-10-20: six settings-catalog defects repaired on `audit/settings-persistence-audit` (1.12.1b1 candidate): section ownership, partial imports, SMTP secrets, atomic app writers, booleans, notification policies; 18 sections/21 groups/183 fields covered. Production unchanged.
+- 2026-10-24 **Unreleased service controls** on `1.14/service_controls` from verifiedmain0dfe149: Start/Stop typed operations, translated state-aware controls, password/POST/CSRF/superuser/audit gates. Composer1.8.0b1+ on paired `app-composer/1.8/service_controls`; owner chose protected Web/Celery (also standard workers/proxies/data/control services). Unit/browser checks pass; independent8096 candidate acceptance in progress. No version/tag/push.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
 - **v1.11.0b4 (beta, published 2026-10-08, PyPI + GitHub prerelease)**: incremental backup chains, increment header kind `dlux-system-backup-increment` (b3 refuses: verified), DLB viewer chain merge + app-grouped sidebar, General Reports activity view. Inline-updated b3 -> b4 on `testbed-dlux` (CLI and UI paths), CLI rollback to b3 and back. Break-testing found S1 (no pre-update backup since 1.10.0) and S2 (b3 delete of a chain base: FK 500 + lost file); see `testbed_break_scenarios.md`.
@@ -77,9 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-21 1.12.1: full suite 2872 OK/5 skipped; PostgreSQL 17 16/16; release CI (b1 + stable) all PASS; published wheels verified against tags; testbed b1 journeys + stable deep check PASS.
+- 2026-10-24 service controls: full2936 OK/6skips; ops85 PASS; browser16 PASS incl EN/AR desktop/mobile; paired Composer861 OK/4skips and candidate image smoke PASS. Live8096 candidate pending; evidence `.xclude/validation/service-controls/`.
 ### One-line info about last time edited Docs:
-- 2026-10-20: audit repair status, system-configuration/reference/FEATURES, adding-settings ownership contracts, and RELEASING PostgreSQL gate documented.
+- 2026-10-24: Unreleased changelog, FEATURES/reference/operations document lifecycle controls, Composer1.8.0b1 floor, protected control path and existing-container semantics.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -90,7 +90,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Worktrees (2026-10-21): `main` (primary) and `../table_builder` (`1.14/table_builder`, no commits yet; plan artifact "Table Column Builder", Phase 1 shipped in 1.8.14). Release order (owner): 1.12.3 done; next 1.13.0 (maintenance page + operations centre, with Composer 1.7.0) on `1.13/<work>` branches; the table column builder follows, likely 1.14.0. Branch naming and retire-after-merge rules are in `AGENTS.md`.
+- 2026-10-24: service controls on own1.14/service_controls; paired Composer1.8/service_controls. Do not tag/push without owner OK; integrate tested pagination/browser fixes from1.14/table_hardening (f6ce7fb) into1.14/table_builder after checks. Official8088 and publishedbeta8095 untouched; devcandidate8096 has separate credentials/volumes. No published migration changes.
 - `audit/settings-persistence-audit` (from released 1.12.0 `0b3e4ee`) committed as the 1.12.1b1 candidate (owner asked 2026-10-21 to ship it as 1.12.1 before the table column builder). b1 tagged, published and accepted 2026-10-21; next is stable 1.12.1 (owner OK). `feat/table-column-builder` (`../table-column-builder`) waits on it; it rebases onto 1.12.1.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.

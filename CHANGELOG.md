@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Operations Service Start/Stop**: Add password-confirmed, audited `service-start`/`service-stop` requests and state-aware English/Arabic controls. Composer 1.8.0b1+ independently checks allowlists, labels and current container state; Web/Celery, proxies and data/control services remain protected.
+
 ## v1.13.2
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.2b1: the backup page fits beside the open sidebar; starting the tour from the user menu closes it; backup and restore histories are paginated DluxTables (10 and 5 per page, fixed) whose row actions open from the shared context menu or three-dot column, with a confirmed Delete and a server-side chain warning; history tables stay in their cards with sticky headers; the restore history is fixed dense; fixed-size tables show no page-size picker.

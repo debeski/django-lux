@@ -60,4 +60,8 @@ ScanLink is disabled until enabled from **Extra Features**. This is intentional:
 
 ## Deployment operations
 
+Unreleased 1.14 adds **Start** and **Stop** for auxiliary services approved by `COMPOSER_AGENT_RESTART_SERVICES` (paired Composer 1.8.0b1+). Both require a superuser, CSRF-protected POST, current password and audit event. Composer and its executor independently enforce the allowlist, protected labels and current state. Web/Celery, standard worker/beat/proxy names, data stores and Composer services remain protected so a later Start stays reachable. Existing Restart/Recreate permissions are unchanged.
+
+Start operates on an existing stopped/created container without recreation or migrations; use Recreate for absent services. Stop keeps containers and volumes. Controls follow the reported state and refresh after completion; old Composer versions disable them. Accept the paired beta before promotion.
+
 In the app, superusers open **Operations** from the admin panel's actions rail to run the deployment check and apply its repairs, restart or recreate allow-listed services, and read a service's recent logs (Composer 1.7.0b2+). Use [Deployment Doctor](doctor.md) before and after infrastructure changes. For generated Compose stacks, use `composer check` to report missing or drifted Composer services, and `composer check --fix` only after reviewing its planned changes. [Verified Inline Updates](inline-updater.md) documents the release handoff and recovery boundaries.

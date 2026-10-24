@@ -12,6 +12,10 @@
      data-label-apply="{{ DLUX_STRINGS.dlux_ops_apply|default:'Apply repairs' }}"
      data-label-apply-note="{{ DLUX_STRINGS.dlux_ops_apply_note|default:'Applies exactly the changes above. Composer validates the result and keeps a backup under .xclude/.' }}"
      data-label-restart="{{ DLUX_STRINGS.dlux_ops_restart|default:'Restart' }}"
+     data-label-start="{{ DLUX_STRINGS.dlux_ops_start }}"
+     data-label-start-note="{{ DLUX_STRINGS.dlux_ops_start_note }}"
+     data-label-stop="{{ DLUX_STRINGS.dlux_ops_stop }}"
+     data-label-stop-note="{{ DLUX_STRINGS.dlux_ops_stop_note }}"
      data-label-restart-note="{{ DLUX_STRINGS.dlux_ops_restart_note|default:'Restarts {service}. Requests to it fail for a few seconds.' }}"
      data-label-recreate="{{ DLUX_STRINGS.dlux_ops_recreate|default:'Recreate' }}"
      data-label-recreate-note="{{ DLUX_STRINGS.dlux_ops_recreate_note|default:'Recreates {service} from its image and runs its start-up hooks (on celery, that applies migrations).' }}"
@@ -71,6 +75,7 @@
                 <tbody data-dlux-ops-panel-services></tbody>
             </table>
         </div>
+        <p class="small text-muted mt-2 mb-0">{{ DLUX_STRINGS.dlux_ops_lifecycle_note }}</p>
     </section>
 
     <section class="dlux-ops-panel-section" aria-labelledby="dluxOpsPanelLogs">
