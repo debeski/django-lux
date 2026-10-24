@@ -91,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - 2026-10-24: published1.14.0b3/Composer1.8.0b1 accepted on isolated8096 (owner requested separation); official8088 remains stable1.13.2. Runtime at `main/.xclude/validation/service-controls/testbed/`, env `.secrets/.env`; all feature branches retired with evidence archived. Next: remaining1.14 Updates-card manifests/history on new branches from main, then final acceptance before stable. Never alter tagged0027/0028 or bypass main review.
-- Release records and guide tidying are on `1.14/release_records`; PR creation via signed-in Chrome and owner main review remain. GitHub connector refuses PR writes (403). Published code and testbed acceptance are complete; the primary checkout tracker mirrors these pushed facts locally until the reviewed records merge. Preserve that metadata-only local change.
+- Release records and guide tidying are pushed on `1.14/release_records`; PR #9 is open for required owner main review: https://github.com/debeski/django-lux/pull/9 (created via signed-in Chrome after connector403). Docs whitespace/relative links pass; tracker99lines. Published code and acceptance are complete; the primary checkout tracker mirrors these facts locally until reviewed records merge. Preserve that metadata-only local change.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
