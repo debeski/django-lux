@@ -222,6 +222,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 Section security contract:
 
 - `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/`, and subsection CRUD endpoints require the existing section permissions
+- Section Manager uses a framework-owned `keyword` field against the currently selected model, with no Advanced controls. It preserves the discovered FilterSet's unbound queryset restrictions and model-manager scope; project-specific filter fields apply only on their own list surfaces.
 - section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Dlux section or discovered section child model
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
 - `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.

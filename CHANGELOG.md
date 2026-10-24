@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Section Manager Keyword Search**: Always render one framework-owned keyword field with no Advanced controls, search the selected model, and preserve discovered FilterSet base restrictions and scoped querysets.
+
 - **Backup Parent Selection**: Add translated manual incremental parent choices among eligible chain heads, preserve Automatic selection and inherited scope/encryption, and revalidate under the shared creation lock to reject stale parents and forks.
 - **Clickable Backup Details**: Render the Details modal in the body-level `page_modals` template block, above Bootstrap's backdrop while preserving backup-page layout containment.
 
