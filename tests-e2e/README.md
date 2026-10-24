@@ -1,5 +1,9 @@
 # Browser test harness
 
+Seeding runs migrations with `run_syncdb=True` so registered fixture apps without
+migrations have real tables. Backup tests create full archives and continue a
+chosen chain rather than mocking successful backup creation.
+
 Versioned dev tooling. `prune tests-e2e` in `MANIFEST.in` keeps it out of the wheel
 and sdist, and only machine-local artefacts (`node_modules/`, `state/`, `shots/`,
 `noise.json`) are gitignored,

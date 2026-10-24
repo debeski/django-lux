@@ -46,6 +46,7 @@ See [System Configuration](system-configuration.md) and [Deployment Configuratio
 - Centralized client-IP resolution, privacy/consent presentation, audit logging, scope-aware permissions, and POST-only security mutations.
 - Permission visibility filters: optional features hide their permissions from the group/user editors while disabled, and saves keep the existing grants.
 - Users, staff tiers, groups/presets, scopes, activity logs, printable/XLSX reports, full/data-only/portable and incremental (chained) backups (server-key, passphrase or unencrypted; snapshot-consistent on PostgreSQL; cancellable, with a live details console and time estimates), restore controls, and the offline DLB viewer.
+- Manual incrementals let superusers choose an eligible chain head or keep Automatic; scope/encryption follow the parent, with locked eligibility checks and no chain forks. Backup Details uses a body-level modal so its backdrop cannot block its controls.
 - Managed images, WOFF2 fonts, protected installer assets, and opt-in ScanLink releases.
 
 See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed Assets](managed-assets.md).

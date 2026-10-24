@@ -189,6 +189,7 @@
     {% endblock %}
 
     {% if request.user.is_authenticated %}{% include 'dlux/system/confirm_password_modal.html' %}{% include 'dlux/system/unsaved_changes_modal.html' %}{% endif %}
+    {% block page_modals %}{% endblock %}
 
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
     

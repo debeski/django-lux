@@ -31,7 +31,7 @@ def main():
     django.setup()
 
     from django.core.management import call_command
-    call_command('migrate', verbosity=0, interactive=False)
+    call_command('migrate', verbosity=0, interactive=False, run_syncdb=True)
 
     from django.contrib.auth import get_user_model
     from dlux.models import SystemSettings

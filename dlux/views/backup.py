@@ -32,6 +32,7 @@ from ..backup import (
     run_system_backup,
     run_system_restore,
 )
+from ..backup.chain import eligible_chain_heads
 from ..utils.backup_progress import format_duration, read_restore_progress
 from ..guards import require_current_password
 from ..notifications import notify
@@ -175,9 +176,9 @@ def _backup_estimates():
     return estimates
 
 
-def _open_chain_context():
+def _open_chain_context(parent_token=None):
     """What an incremental would continue, for the create form."""
-    head, reason = open_chain_head()
+    head, reason = open_chain_head(parent_token=parent_token)
     if head is None:
         return {'available': False, 'reason': reason}
     base = _system_backup_model().objects.filter(token=head.chain_id).first()
@@ -193,11 +194,21 @@ def _open_chain_context():
 
 
 def _chain_payload(request):
-    chain = _open_chain_context()
+    parent_token = str(request.GET.get('backup_parent') or '').strip()
+    chain = _open_chain_context(parent_token or None)
+    parents = eligible_chain_heads()
+    if parent_token and not any(parent.token == parent_token for parent in parents):
+        chain = {'available': False, 'reason': 'not_chain_head'}
     return {
         'available': chain['available'],
         'next_sequence': chain.get('next_sequence'),
         'encryption': chain.get('encryption', ''),
+        'parent_token': parent_token,
+        'has_choices': bool(parents),
+        'parents_html': render_to_string('dlux/backup/_parent_options.html', {
+            'chain_parents': parents, 'selected_parent': parent_token, 'DLUX_STRINGS': get_strings(),
+            'parent_unavailable': bool(parent_token) and not chain['available'],
+        }, request=request),
         'html': render_to_string(
             'dlux/backup/_chain_status.html',
             {'open_chain': chain, 'DLUX_STRINGS': get_strings()},
@@ -291,6 +302,7 @@ def system_backup_page(request):
         'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
         'active_backup': _active_backup(),
         'open_chain': _open_chain_context(),
+        'chain_parents': eligible_chain_heads(),
         'backup_estimates': _backup_estimates(),
     }
     context['ribbon'] = _backup_ribbon(request)
@@ -370,12 +382,15 @@ def system_backup_create_view(request):
     passphrase = _posted_passphrase(request)
     incremental = str(request.POST.get('backup_kind') or '').strip().lower() == SystemBackup.KIND_INCREMENTAL
     head = None
+    parent_token = str(request.POST.get('backup_parent') or '').strip() or None
     if incremental:
-        head, _reason = open_chain_head()
+        head, _reason = open_chain_head(parent_token=parent_token)
         if head is None:
             return JsonResponse({
                 'ok': False,
-                'error': s.get('sysbackup_incremental_unavailable', 'There is no backup chain to continue. Take a full backup first.'),
+                'error': s.get('sysbackup_parent_unavailable') if parent_token else s.get(
+                    'sysbackup_incremental_unavailable', 'There is no backup chain to continue. Take a full backup first.',
+                ),
             }, status=400)
         encryption = head.encryption
     else:
@@ -409,6 +424,11 @@ def system_backup_create_view(request):
                 'token': active.token,
             }, status=409)
         if head is not None:
+            # Recheck under the same lock the scheduler takes: a submitted
+            # parent may have advanced or closed since the form was rendered.
+            current_head, _reason = open_chain_head(parent_token=parent_token)
+            if current_head is None or current_head.pk != head.pk:
+                return JsonResponse({'ok': False, 'error': s.get('sysbackup_parent_unavailable')}, status=400)
             backup = incremental_backup_row(
                 head, requested_by=request.user.get_username(), trigger=SystemBackup.TRIGGER_MANUAL,
             )

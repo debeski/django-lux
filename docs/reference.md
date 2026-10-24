@@ -1181,7 +1181,7 @@ maintenance, aborts if it fails, and protects the new backup while retention run
 
 A full backup is the base of a chain (`kind=full`, `sequence=0`,
 `chain_id` = its own token); an increment (`kind=incremental`) continues the
-newest completed member (`parent`) and stores only:
+newest completed member (`parent`) by default and stores only:
 
 - rows whose digest changed — every row's serialized JSON is hashed (BLAKE2b-64)
   while it is written, so detection needs no timestamps and covers every model;
@@ -1204,6 +1204,19 @@ migrations differ from the chain's (`migration_digest`), or the head lost its
 sidecar. Increments inherit the chain's scope and encryption; a passphrase chain
 keeps one passphrase (the increment must open its parent's sidecar). Scheduled
 runs continue only a full-scope, server-key chain.
+
+For manual incrementals, the **Parent backup** selector defaults to Automatic
+(the newest completed indexed backup). A superuser can instead choose the latest
+eligible member of another chain. Older members within a continued chain cannot
+be selected, so a chain stays linear. Choices exclude chains closed by age,
+length, schema changes or missing indexes. Automatic keeps its existing behavior:
+if the newest chain is closed, it does not silently fall back to an older one.
+The selected chain determines scope and encryption; passphrase chains still
+require their passphrase. Eligibility is checked again under the creation lock.
+`POST sys/backup/create/` accepts optional `backup_parent=<token>` for an
+incremental; omission or an empty value selects Automatic. The list-status GET
+accepts the same parameter and returns selection-aware `chain` availability and
+translated parent options. Scheduled selection is unchanged.
 
 Restoring a member resolves base → member from the cleartext headers of the
 `.dlb` files in the backup folder (so uploaded chains work too), follows
