@@ -26,7 +26,6 @@
                         {% if user.is_superuser %}
                         <div class="dlux-admin-command-launcher" data-admin-command-launcher>
                             <div class="dlux-admin-command-rail" data-admin-command-rail>
-                                {% if can_manage_dlux_updates %}
                                 <button class="dlux-admin-command-chip"
                                    type="button"
                                    data-dynamic-modal="{% url 'dlux_operations_panel' %}"
@@ -36,7 +35,6 @@
                                     <i class="bi bi-tools"></i>
                                     <span>{{ DLUX_STRINGS.dlux_ops_panel_title|default:'Operations' }}</span>
                                 </button>
-                                {% endif %}
                                 <button class="dlux-admin-command-chip"
                                    type="button"
                                    data-dynamic-modal="{% url 'manage_assets' %}"

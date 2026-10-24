@@ -4,7 +4,7 @@
      data-dlux-ops-panel
      data-state-url="{% url 'dlux_ops_state' %}"
      data-run-url="{% url 'dlux_ops_run' %}"
-     data-enabled="{% if updates_enabled %}true{% else %}false{% endif %}"
+     data-enabled="{% if operations_enabled %}true{% else %}false{% endif %}"
      data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not checked yet' }}"
      data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found' }}"
      data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
@@ -30,7 +30,7 @@
      data-label-absent="{{ DLUX_STRINGS.dlux_ops_absent|default:'not created' }}"
      data-label-failed="{{ DLUX_STRINGS.dlux_ops_failed|default:'The operation failed.' }}">
 
-    {% if not updates_enabled %}
+    {% if not operations_enabled %}
     <div class="alert alert-secondary small mb-0">{{ DLUX_STRINGS.dlux_ops_panel_disabled|default:'This deployment has no Composer agent, so operations cannot run from here.' }}</div>
     {% else %}
     <div class="text-danger small" data-dlux-ops-panel-error hidden aria-live="polite"></div>

@@ -255,10 +255,11 @@ def dlux_operations_panel_view(request):
     """
     _require_superuser(request)
     from django.template.loader import render_to_string
+    from ..updater.ops import resident_composer_version
 
     html = render_to_string(
         "dlux/system/operations_panel.html",
-        {"updates_enabled": updates_enabled()},
+        {"operations_enabled": bool(resident_composer_version())},
         request=request,
     )
     return JsonResponse({"html": html})
