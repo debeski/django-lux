@@ -1557,6 +1557,7 @@ Dlux now owns the default table chrome for standard `django_tables2` tables.
 - the per-user override lives in `Profile.preferences["table_density"]`
 - the per-user page-size preference lives in `Profile.preferences["table_page_size"]`
 - built-in pagination and page-size controls are rendered by `dlux/tables/table.html`
+- the paginator enforces `dlux_per_page_options` and fixed `dlux_per_page` values even when the URL supplies another size; invalid sizes fall back to the saved/default value, including prefixed and custom `Meta.per_page_field` query parameters
 - the recommended handwritten-table base class is `dlux.tables.DluxTable`
 - the framework list-screen arrangement is `dlux/list_page.html` (Ribbon over table, no card); blocks `list_before_table`, `list_body`, `list_after_table`, `list_modals`, `list_page_attrs`
 

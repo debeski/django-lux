@@ -384,6 +384,47 @@ class TableRenderingTests(TestCase):
 
         self.assertEqual(table.dlux_per_page, 50)
 
+    def test_request_config_cannot_bypass_validated_page_size(self):
+        for value in ('1000000000', '15', '0', '-1', 'invalid'):
+            for table_class in (AutoCapturedHostTable, UserTable):
+                with self.subTest(value=value, table=table_class.__name__):
+                    request = self._request(f'per_page={value}&sort=username')
+                    original_query = request.GET.copy()
+                    table = table_class(User.objects.order_by('username'), request=request)
+                    config = tables.RequestConfig(request)
+                    config.configure(table)
+                    self.assertEqual(table.paginator.per_page, table.dlux_per_page)
+                    self.assertEqual(table.paginator.per_page, DEFAULT_TABLE_PAGE_SIZE)
+                    self.assertEqual(request.GET, original_query)
+                    self.assertIs(table.request, request)
+                    self.assertIs(config.request, request)
+                    self.assertEqual(tuple(table.order_by), ('username',))
+
+    def test_fixed_page_size_reaches_actual_paginator(self):
+        request = self._request('per_page=1000000000')
+        table = FixedPageSizeTable(User.objects.order_by('username'), request=request)
+        self.assertEqual(table.paginator.per_page, 50)
+
+    def test_prefixed_page_size_and_shared_request_remain_independent(self):
+        request = self._request('a-per_page=1000000000&b-per_page=50')
+        first = AutoCapturedHostTable(User.objects.all(), request=request, prefix='a-')
+        second = AutoCapturedHostTable(User.objects.all(), request=request, prefix='b-')
+        self.assertEqual(first.paginator.per_page, DEFAULT_TABLE_PAGE_SIZE)
+        self.assertEqual(second.paginator.per_page, 50)
+        self.assertEqual(request.GET['a-per_page'], '1000000000')
+
+    def test_custom_page_size_field_is_validated(self):
+        class CustomPageSizeFieldTable(AutoCapturedHostTable):
+            class Meta(AutoCapturedHostTable.Meta):
+                per_page_field = 'rows'
+
+        for value, expected in (('1000000000', DEFAULT_TABLE_PAGE_SIZE), ('50', 50)):
+            with self.subTest(value=value):
+                table = CustomPageSizeFieldTable(
+                    User.objects.all(), request=self._request(f'users-rows={value}'), prefix='users-',
+                )
+                self.assertEqual(table.paginator.per_page, expected)
+
     def test_table_meta_per_page_override_beats_request_and_saved_preference(self):
         self.user.profile.preferences = {'table_page_size': 100}
         self.user.profile.save(update_fields=['preferences'])

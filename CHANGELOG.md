@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Validated Table Pagination**: Prevent django-tables2 from overriding validated page sizes through URL parameters; preserve fixed sizes, saved preferences, prefixes and custom query-field names without mutating shared requests.
+- **Stable Browser Step Selectors**: Follow the named Extra Features step and actual final setup step instead of hard-coded indices after adding Tables.
+
 ## v1.14.0b2
 
 - **Integrate Published 1.13.2b1**: Preserve the table builder and ribbon ordering while incorporating 1.13.1 setup-upload, search and tour fixes plus 1.13.2b1's paginated backup/restore DluxTables, context-menu row actions, fixed restore-history density and user-menu tour closing. No new migrations beyond 1.14.0b1's additive `0028_tables_config`.

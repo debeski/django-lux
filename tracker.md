@@ -36,7 +36,7 @@
 
 ### Current Project's Unsolved Known Bugs:
 - [ ] Backup Details modal close blocked by backdrop on8095 publishedb2 (EN/AR,1440/390). Nested modal is trapped by `.dlux-backup-page { contain: layout; }` (also in b1); browser-only removal enables close. Fix placement/stacking while retaining scroll containment before stable. Evidence `.xclude/release-1.14.0b2/backup-diagnosis.log`.
-  - [ ] **1.14 branch e2e (pre-existing before the 2026-10-23 main merge, verified on 14f4af1)**: `setup_project_step` expects "Step 19: Project Settings" but the new Tables step makes it 20 (2 tests); `weather` "Extra Features … real save path" and "titlebar and user hub placements … mobile viewport" time out waiting for a locator. main (1.13.1) passes 198/198; merged tree Python 2982 OK, e2e 204/207.
+- 2026-10-24: all three reported1.14 browser failures reproduced and repaired on `1.14/table_hardening`: setup last-step number is derived; weather opens named `extras` tile. Full2999 OK/6skips, setup4/weather2 PASS. Shared table paginator enforces validated sizes, fixed metadata, prefixes/custom fields; invalid values cannot bypass controls. Unreleased, no tags/push.
 - User-reported 2026-10-13: “Skip for now” does not work in the user preference setup on first login. Reproduction/root cause unverified; investigation and fix deferred.
 - Tag rulesets on these remotes CAN be bypassed with the owner's admin rights (the same bypass that lets `main` take a direct push). So when a release job fails BEFORE anything is published — no PyPI upload, no image push, no release page — delete the tag (`git push origin :refs/tags/vX.Y.Z`), fix, and re-cut the SAME version. Burn a version only when artifacts were actually published (as 1.8.14b1 was). Ask the owner before choosing either path.
 - Release notes have cited tests that were not running: 3 modules were never in `test_all.TEST_LABELS` (61 tests). Registered, and `test_suite_registration` now guards it — but treat any "N new tests" claim in an older entry as unverified.
@@ -78,9 +78,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-24 b2: full2995 OK/6skips; JS70 + builder8/backup12/tour2/wizard9/preview12 PASS; gates/build/twine/check PASS; CI9green,675-file published payload match;8095 upgrade/rollback/re-apply/users/settings and inspector/ribbon PASS, deep23ok/0errors. Backup Details close FAIL (recorded); evidence `.xclude/release-1.14.0b2/`.
+- 2026-10-24 hardening: full2999 OK/6skips, pagination/backup47 PASS; setup4/weather2 browser PASS (three failures reproduced before fix). Existing mobile weather screenshots shown. Evidence `.xclude/validation/1.14-hardening/`; b2 publication results retained in docs/table-columns.md.
 ### One-line info about last time edited Docs:
-- 2026-10-24: b2 changelog/manifest + table-columns/FEATURES/reference cover integration; table-columns records publication, CI/payload/8095 validation and open Details stacking bug. Later-beta Updates-card scope retained.
+- 2026-10-24: Unreleased pagination/browser fixes + developer-guide/reference/FEATURES/table-columns document enforced limits and validation. Start/Stop work is separate on1.14/service_controls with paired Composer1.8/service_controls; owner chose protected Web/Celery.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

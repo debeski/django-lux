@@ -97,7 +97,7 @@ test('Extra Features uses disabled tooltips, location search and the real save p
   const { ctx, page, errors } = await pageWithWeather();
   try {
     await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
-    const tile = page.locator('[data-dynamic-modal*="step=17"]').first();
+    const tile = page.locator('[data-dlux-settings-step="extras"]');
     await tile.click();
     const root = page.locator('[data-weather-settings]');
     await root.waitFor({ state: 'visible' });
@@ -152,7 +152,7 @@ test('titlebar and user hub placements open inside the mobile viewport', async (
   try {
     for (const placement of ['titlebar', 'user_hub']) {
       await page.goto(`${BASE}/sys/options/`, { waitUntil: 'networkidle' });
-      await page.locator('[data-dynamic-modal*="step=17"]').first().click();
+      await page.locator('[data-dlux-settings-step="extras"]').click();
       const root = page.locator('[data-weather-settings]');
       await root.waitFor({ state: 'visible' });
       await root.locator(`[name="weather_placement"][value="${placement}"]`).check({ force: true });

@@ -603,6 +603,7 @@ The current table contract is:
 - explicit non-stock custom templates are left alone unless you point them at the Dlux template yourself
 - density precedence is `Table.Meta.dlux_density` -> `Profile.preferences["table_density"]` -> `SystemSettings.default_table_density` -> `balanced`
 - page-size precedence is `Table.Meta.dlux_per_page` -> request `per_page` -> `Profile.preferences["table_page_size"]` -> `20`
+- only sizes in `Meta.dlux_per_page_options` reach the paginator; invalid or oversized URL values fall back through that precedence. Prefixes and a custom `Meta.per_page_field` are supported; a fixed `Meta.dlux_per_page` wins over the URL.
 - built-in per-page controls and the density switcher live in the framework-owned footer
 - tables with forced `dlux_density` intentionally hide the footer density switcher
 - `Meta.dlux_show_footer = False` (or the `dlux_show_footer=False` constructor kwarg) removes the footer entirely and renders every row, because the footer owns the paging controls

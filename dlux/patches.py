@@ -176,8 +176,7 @@ def _resolve_table_page_size_options(table_meta):
 
 
 def _resolve_table_per_page_field(table):
-    prefix = getattr(table, 'prefix', '') or ''
-    return f"{prefix}per_page"
+    return table.prefixed_per_page_field
 
 
 def _get_table_page_size_preference(request):
@@ -967,10 +966,18 @@ def _patch_requestconfig_configure():
 
         self.paginate = paginate
         table._dlux_request_configured = True
+        # RequestConfig rereads per_page after its defaults; pass the validated
+        # size without changing the request shared with other tables or views.
+        original_request = self.request
+        self.request = copy.copy(request)
+        self.request.GET = request.GET.copy()
+        self.request.GET[table.prefixed_per_page_field] = str(table.dlux_per_page)
         try:
             return _original_configure(self, table)
         finally:
             self.paginate = original_paginate
+            self.request = original_request
+            table.request = original_request
 
     tables.RequestConfig.configure = _patched_configure
 

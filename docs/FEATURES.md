@@ -86,6 +86,8 @@ See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal 
 
 ## 1.14 beta: table column builder
 
+Unreleased hardening enforces the configured page-size choices at the actual paginator boundary, preventing arbitrary `?per_page=` sizes. Browser coverage for Extra Features and the final project setup step follows named steps instead of fixed indices.
+
 Beta 1.14.0b2 merges the published 1.13.2b1 fixes into the table-builder line: paginated backup/restore histories with Dlux row actions and fixed restore density, user-menu tour closing, and the preceding 1.13.1 setup-upload/search/tour fixes. It preserves the shared inspector and adds no migrations beyond b1.
 
 Finishing controls use the short **Restore** label and enable it only while a column override exists. Reverted table edits leave the form clean, including visibility toggles that now retain column position. Ribbon buttons also support drag ordering alongside the existing draggable tabs, with saved per-host order applied to actual pages.
