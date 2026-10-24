@@ -649,8 +649,9 @@ class PanelOperationTests(SimpleTestCase):
                 ops.normalize_params("service-recreate", {"service": bad})
 
     def test_panel_operations_never_mark_the_deployment_behind(self):
-        # A Composer that predates the panel just disables its buttons.
-        self.assertIsNone(ops.composer_behind("1.6.1"))
+        # Isolate optional panel floors from the package's release requirement.
+        with mock.patch('dlux.updater.ops.required_composer', return_value='1.5.3b1'):
+            self.assertIsNone(ops.composer_behind("1.6.1"))
         allowed, reason = ops.supports("service-restart", "1.6.1")
         self.assertFalse(allowed)
         self.assertIn("1.7.0b2", reason)

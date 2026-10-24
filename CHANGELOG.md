@@ -7,7 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.14.0b3
+
+- **Paired Beta Contract**: Require Composer `>=1.8.0b1` for the new service controls; retain the additive `0028_tables_config` migration, `>=1.13.0` migration baseline and rollback-compatible inline installation.
 
 - **Section Manager Keyword Search**: Always render one framework-owned keyword field with no Advanced controls, search the selected model, and preserve discovered FilterSet base restrictions and scoped querysets.
 
