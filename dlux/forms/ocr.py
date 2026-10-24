@@ -62,10 +62,13 @@ def clean_ocr(form, cleaned):
     """A changed Enable OCR switch needs the current password: saving it starts or stops the ocr service."""
     from ..translations import get_strings
     from ..ocr.control import operation_for
+    from ..ocr import valid_service_url
 
     form._ocr_service_operation = ''
     if form.single_step_mode and form.single_step_index != SETUP_STEP_EXTRAS:
         return
+    if cleaned.get('ocr_service_url') and not valid_service_url(cleaned['ocr_service_url']):
+        form.add_error('ocr_service_url', get_strings().get('ocr_service_internal_only', 'Use an internal service name or a private LAN address.'))
     if 'ocr_enabled' not in cleaned or bool(cleaned.get('ocr_enabled')) == _stored_enabled(form):
         return
     strings = get_strings()
@@ -145,7 +148,12 @@ def ocr_settings_layout(form, strings):
                 "</div>"
             ),
         ),
-        **{'data-ocr-settings': ''},
+        **{
+            'data-ocr-settings': '',
+            'data-ocr-initial-enabled': 'true' if _stored_enabled(form) else 'false',
+            'data-ocr-confirm-title': strings.get('ocr_settings_title', 'OCR text extraction'),
+            'data-ocr-confirm-description': strings.get('help_sys_ocr_current_password', 'Needed only when you turn OCR on or off: saving then starts or stops the ocr service through Composer.'),
+        },
     )
 
 

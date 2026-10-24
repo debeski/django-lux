@@ -1,8 +1,9 @@
-"""OCR engine adapters.
+"""OCR engine adapters for ``python -m dlux.ocr.serve``.
 
 DjangoLux only sees the JSON contract produced by ``Engine.convert``; replacing
 Indra OCR with Tesseract or another engine means adding an adapter here and
-selecting it with ``OCR_ENGINE``.
+selecting it with ``OCR_ENGINE``. Engines import their packages lazily: they come
+from the optional ``django-lux[ocr]`` extra, and only the ``ocr`` service loads them.
 """
 
 import os

@@ -80,6 +80,16 @@ dlux = "dlux.cli:main"
 
 [project.optional-dependencies]
 pdf = ["pypdf>=6.13.0"]
+# The `ocr` service's engine (python -m dlux.ocr.serve). Exact pins: changing them
+# changes the dependency contract, which needs a project image rebuild.
+ocr = [
+    "indra-ocr==1.1.2",
+    "onnxruntime==1.31.0",
+    "opencv-python-headless==5.0.0.93",
+    "numpy==2.5.4",
+    "pypdfium2==5.14.0",
+    "huggingface_hub==2.3.0",
+]
 updater = [
     "pypi-attestations>=0.0.29",
 ]

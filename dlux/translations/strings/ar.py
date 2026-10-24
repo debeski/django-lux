@@ -2673,6 +2673,7 @@ STRINGS = {
     'ocr_service_connected': 'الخدمة متصلة: {engine} {version}',
     'ocr_service_unreachable': 'خدمة OCR لا تستجيب على العنوان المحدد.',
     'ocr_settings_title': 'استخراج النص (OCR)',
+    'ocr_service_internal_only': 'استخدم اسم خدمة داخلية أو عنوان شبكة محلية خاصاً.',
     'ocr_status_done': 'مكتمل',
     'ocr_status_failed': 'فشل',
     'ocr_status_pending': 'في قائمة الانتظار',

@@ -1,4 +1,4 @@
-"""HTTP client for the stack's ``ocr`` service (``docker/ocr/server.py``).
+"""HTTP client for the stack's ``ocr`` service (``dlux.ocr.serve``).
 
 The service is on the internal Compose network only; this never reaches a
 public host, and ignores proxy environment variables on purpose.
@@ -8,14 +8,19 @@ import json
 import socket
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from django.core.cache import cache
 
 from . import config
 
 HEALTH_CACHE_KEY = 'dlux:ocr:health'
-_opener = build_opener(ProxyHandler({}))
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file, code, message, headers, new_url):
+        return None
+
+
+_opener = build_opener(ProxyHandler({}), _NoRedirect())
 
 
 class OCRUnavailable(Exception):

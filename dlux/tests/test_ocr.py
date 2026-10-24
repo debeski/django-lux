@@ -100,6 +100,14 @@ class OCRTestCase(TestCase):
 
 
 class ConfigTests(OCRTestCase):
+    def test_service_address_cannot_send_documents_to_public_or_metadata_hosts(self):
+        for address in ['https://example.com', 'http://8.8.8.8', 'http://169.254.169.254', 'http://localhost', 'http://127.0.0.1', 'http://ocr@public.example', 'http://ocr/path']:
+            with self.subTest(address=address):
+                self.assertFalse(ocr.valid_service_url(address))
+                self.assertEqual(ocr.normalize_ocr_config({'service_url': address})['service_url'], ocr.DEFAULTS['service_url'])
+        self.assertTrue(ocr.valid_service_url('http://ocr:8080'))
+        self.assertTrue(ocr.valid_service_url('http://192.168.1.9:8080'))
+
     def test_options_win_then_environment_strings_then_defaults(self):
         record = SystemSettings.load()
         record.extra_config = {**(record.extra_config or {}), 'ocr': {}}
@@ -122,6 +130,32 @@ class ConfigTests(OCRTestCase):
 
 
 class SchedulingTests(OCRTestCase):
+    def test_replacing_a_file_never_leaves_earlier_text_current_when_reads_are_off(self):
+        for options in ({'enabled': False}, {'auto_on_save': False}, {'max_file_mb': 1}):
+            with self.subTest(options=options):
+                configure()
+                paper = self.paper()
+                row = self.rows(paper).get()
+                self.read(row)
+                configure(**options)
+                content = PDF + b'changed' if 'max_file_mb' not in options else PDF + b'x' * (1024 * 1024)
+                with self.captureOnCommitCallbacks(execute=True):
+                    paper.pdf_file.save('replacement.pdf', ContentFile(content))
+                self.assertIsNone(service.current_result(paper))
+
+    def test_queued_work_does_not_contact_the_engine_while_disabled(self):
+        paper = self.paper()
+        row = self.rows(paper).get()
+        configure(enabled=False)
+        with patch('dlux.ocr.service.call_service') as call, self.assertRaises(service.OCRUnavailable):
+            service.run(row.pk)
+        call.assert_not_called()
+        row.refresh_from_db()
+        self.assertEqual(row.status, 'pending')
+        configure(enabled=True)
+        self.read(row)
+        self.assertEqual(row.status, 'done')
+
     def test_saved_file_is_queued_once_per_hash_at_automatic_priority(self):
         paper = self.paper()
         row = self.rows(paper).get()
@@ -347,6 +381,16 @@ class ServiceSwitchTests(OCRTestCase):
         configure(enabled=True)
         self.assertEqual(self.form(False, 'right-pass')[0]._ocr_service_operation, 'service-stop')
 
+    def test_enabling_an_already_healthy_service_does_not_queue_an_invalid_start(self):
+        from dlux.ocr.control import request_service, service_status
+
+        with patch('dlux.ocr.client.service_health', return_value={'status': 'ok'}) as health, \
+                patch('dlux.updater.service.queue_ops_run') as queue:
+            self.assertIsNone(request_service(self.request, 'service-start'))
+        health.assert_called_once_with(refresh=True)
+        queue.assert_not_called()
+        self.assertEqual(service_status()['state'], 'completed')
+
     def test_an_unchanged_switch_or_non_superuser_never_reaches_composer(self):
         form, errors = self.form(False)
         self.assertEqual((errors, form._ocr_service_operation), ({}, ''))
@@ -469,6 +513,8 @@ class ContractTests(TestCase):
         contract = load_contract()
         spec = contract['services']['ocr']
         self.assertEqual((spec['networks'], spec['restart'], spec['optional']), (['internal'], 'safe', True))
+        self.assertEqual(spec['command_module'], 'dlux.ocr.serve')
+        self.assertNotIn('image', spec)
         self.assertIn('ocr', contract['invariants']['internal_only_services'])
         self.assertIn('ocr', contract['invariants']['restart']['lifecycle'])
         attachments = {name: set(s['networks']) for name, s in contract['services'].items() if name != 'ocr'}
@@ -480,7 +526,49 @@ class ContractTests(TestCase):
         from dlux.scaffold import __file__ as scaffold_init
 
         template = (Path(scaffold_init).parent / 'templates' / 'project' / 'compose.yml.tmpl').read_text()
-        self.assertIn('image: ${OCR_IMAGE:-debeski/dlux-ocr:latest}', template)
+        ocr_block = template[template.index('  ocr:\n'):template.index('  # DjangoLux Composer agent start')]
+        self.assertIn('image: ${WEB_IMAGE:-', ocr_block)
+        self.assertIn('command: ["python", "-m", "dlux.ocr.serve"]', ocr_block)
+        root = Path(scaffold_init).parent / 'templates' / 'project'
+        self.assertIn('django-lux[updater,ocr]==', (root / 'requirements.txt.tmpl').read_text())
+        self.assertIn('RUN python -m dlux.ocr.fetch_models --if-installed', (root / 'Dockerfile.tmpl').read_text())
+        self.assertIn('  ocr:\n    build: .\n    image: !reset null\n', (root / 'compose.dev.yml.tmpl').read_text())
         self.assertEqual(template.count('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"'), 2)
         launcher = (Path(scaffold_init).parent / 'templates' / 'project' / 'start.ps1.tmpl').read_bytes()
         self.assertTrue(all(byte < 128 for byte in launcher))
+
+
+class ServeTests(TestCase):
+    """The ocr service's HTTP side, without the engine installed."""
+
+    def test_file_kinds_come_from_the_bytes(self):
+        from dlux.ocr.serve import detect_kind
+
+        self.assertEqual(detect_kind(PDF[:16]), 'pdf')
+        self.assertEqual(detect_kind(b'\x89PNG\r\n\x1a\n' + b'0' * 8), 'png')
+        self.assertEqual(detect_kind(b'RIFF0000WEBPVP8 '), 'webp')
+        self.assertIsNone(detect_kind(b'<html>'))
+
+    def test_without_the_engine_health_and_reads_say_why(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from urllib.request import Request, urlopen
+
+        from dlux.ocr import serve
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), serve.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        base = f'http://127.0.0.1:{server.server_port}'
+        with patch.object(serve, 'ENGINE', None), patch.dict(serve.UNAVAILABLE, {'reason': 'Install django-lux[ocr]'}):
+            for request in (f'{base}/health', Request(f'{base}/v1/ocr', data=PDF, method='POST')):
+                with self.assertRaises(HTTPError) as caught:
+                    urlopen(request, timeout=5)
+                self.assertEqual(caught.exception.code, 503)
+                self.assertIn('django-lux[ocr]', caught.exception.read().decode())
+
+    def test_fetch_models_is_a_no_op_without_the_extra(self):
+        from dlux.ocr.fetch_models import main
+
+        with patch.dict('sys.modules', {'huggingface_hub': None}):
+            self.assertEqual(main(['--if-installed']), 0)

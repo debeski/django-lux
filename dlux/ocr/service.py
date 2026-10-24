@@ -65,6 +65,17 @@ def current_result(document, field_name='pdf_file'):
     return _rows(document, field_name)[1].filter(is_current=True, deleted_at__isnull=True).first()
 
 
+def invalidate_changed_file(document, field_name):
+    rows = _rows(document, field_name)[1].filter(is_current=True)
+    if not rows.exists():
+        return
+    file_field = _active_file(document, field_name)
+    if file_field is None or file_field.size > config()['max_file_mb'] * 1024 * 1024:
+        rows.update(is_current=False)
+    else:
+        rows.exclude(file_sha256=file_sha256(file_field)).update(is_current=False)
+
+
 def _stale(result):
     """A running row whose worker died, or a queued row whose message was lost."""
     reference = result.started_at if result.status == 'running' else result.updated_at
@@ -88,6 +99,7 @@ def schedule(document, field_name='pdf_file', *, source='auto', user=None, force
         rows.filter(is_current=True).update(is_current=False)
         return None, False
     if file_field.size > config()['max_file_mb'] * 1024 * 1024:
+        rows.filter(is_current=True).update(is_current=False)
         log.info('OCR skipped for %s #%s: file exceeds the OCR size limit.', document.__class__.__name__, document.pk)
         return None, False
     digest = file_sha256(file_field)
@@ -150,6 +162,8 @@ def run(result_id):
         result = FileText.all_objects.select_for_update().filter(pk=result_id).first()
         if result is None or result.status == 'done' or (result.status == 'running' and not _stale(result)):
             return result
+        if not config()['enabled']:
+            raise OCRUnavailable('OCR is disabled; queued work will retry after it is enabled.')
         document = result.document
         alive = document is not None and not getattr(document, 'deleted_at', None)
         file_field = _active_file(document, result.field_name) if alive else None
@@ -211,9 +225,6 @@ def document_saved(sender, instance, created=False, raw=False, update_fields=Non
     """post_save: queue automatic OCR for each OCR field after the surrounding transaction commits."""
     if raw or not ocr_specs(sender):
         return
-    options = config()
-    if not (options['enabled'] and options['auto_on_save']):
-        return
     fields = [spec.field_name for spec in ocr_specs(sender)
               if update_fields is None or spec.field_name in update_fields]
     if not fields:
@@ -225,7 +236,11 @@ def document_saved(sender, instance, created=False, raw=False, update_fields=Non
         try:
             document = manager.filter(pk=pk).first()
             for field_name in fields if document is not None else ():
-                schedule(document, field_name, source='auto')
+                options = config()
+                if options['enabled'] and options['auto_on_save']:
+                    schedule(document, field_name, source='auto')
+                else:
+                    invalidate_changed_file(document, field_name)
         except Exception:
             log.warning('Automatic OCR scheduling failed for %s #%s.', model.__name__, pk, exc_info=True)
 

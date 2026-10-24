@@ -9,6 +9,10 @@ services:
     build: .
     image: !reset null
 
+  ocr:
+    build: .
+    image: !reset null
+
   caddy:
     ports: !override
       - target: 80

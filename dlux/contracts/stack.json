@@ -64,8 +64,7 @@
       ],
       "restart": "safe",
       "optional": true,
-      "image_env": "OCR_IMAGE",
-      "image": "debeski/dlux-ocr"
+      "command_module": "dlux.ocr.serve"
     },
     "docker-socket-proxy": {
       "networks": [

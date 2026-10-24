@@ -33,8 +33,15 @@ def request_service(request, operation):
     strings = get_strings()
     user = getattr(request, 'user', None)
     try:
+        if operation == 'service-start':
+            from .client import service_health
+
+            health = service_health(refresh=True)
+            if health and health.get('status') == 'ok':
+                cache.set(NOTE_CACHE_KEY, {'state': 'completed', 'operation': operation, 'message': ''}, 86400)
+                return None
         run = queue_ops_run(operation, username=user.get_username() if user else '', params={'service': SERVICE_NAME})
-    except (UpdaterError, Exception) as exc:
+    except Exception as exc:
         reason = str(exc) if isinstance(exc, UpdaterError) else exc.__class__.__name__
         if not isinstance(exc, UpdaterError):
             log.warning('Could not queue %s for the ocr service.', operation, exc_info=True)
@@ -64,7 +71,7 @@ def service_status():
     note = cache.get(NOTE_CACHE_KEY)
     if note:
         # Set when the last request could not be queued; a queued request clears it.
-        return {'state': 'unavailable', 'operation': note.get('operation', ''), 'message': note.get('message', '')}
+        return {'state': note.get('state', 'unavailable'), 'operation': note.get('operation', ''), 'message': note.get('message', '')}
     run = DluxOpsRun.objects.filter(operation__in=OPERATIONS, params__service=SERVICE_NAME).order_by('-created_at', '-pk').first()
     if run is None:
         return None

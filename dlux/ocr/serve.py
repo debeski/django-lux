@@ -1,4 +1,7 @@
-"""Internal OCR HTTP API for DjangoLux (dlux.ocr).
+"""Internal OCR HTTP API for DjangoLux (dlux.ocr): ``python -m dlux.ocr.serve``.
+
+Runs as the stack's ``ocr`` service on the project image, like ``smtp-relay``;
+no Django is loaded.
 
 POST /v1/ocr   raw PDF or image bytes in the body; optional query mode=auto|ocr
                and max_pages=N. Returns markdown, text and per-page JSON.
@@ -22,7 +25,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-import engines
+from . import engine as engines
 
 SERVICE_VERSION = '1.0.0'
 MAX_BYTES = int(os.environ.get('OCR_MAX_BYTES', str(64 * 1024 * 1024)))
@@ -43,6 +46,7 @@ SIGNATURES = (
 
 log = logging.getLogger('ocr')
 ENGINE = None
+UNAVAILABLE = {}
 SLOTS = threading.BoundedSemaphore(WORKERS)
 
 
@@ -104,6 +108,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if urlparse(self.path).path != '/health':
             return self.error(HTTPStatus.NOT_FOUND, 'Not found.')
+        if ENGINE is None:
+            return self.reply(HTTPStatus.SERVICE_UNAVAILABLE, {'status': 'unavailable', 'error': UNAVAILABLE.get('reason', '')})
         self.reply(HTTPStatus.OK, {
             'status': 'ok', 'engine': ENGINE.name, 'engine_version': ENGINE.version,
             'model_version': ENGINE.model_version, 'service_version': SERVICE_VERSION,
@@ -114,12 +120,14 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         if url.path != '/v1/ocr':
             return self.error(HTTPStatus.NOT_FOUND, 'Not found.')
+        if ENGINE is None:
+            return self.error(HTTPStatus.SERVICE_UNAVAILABLE, UNAVAILABLE.get('reason', 'The OCR engine is not available.'))
         query = parse_qs(url.query)
         mode = query.get('mode', ['auto'])[0]
         if mode not in MODES:
             return self.error(HTTPStatus.BAD_REQUEST, f'mode must be one of {sorted(MODES)}.')
         try:
-            max_pages = min(int(query.get('max_pages', [MAX_PAGES])[0]), MAX_PAGES)
+            max_pages = min(max(int(query.get('max_pages', [MAX_PAGES])[0]), 1), MAX_PAGES)
             threads = min(max(int(query.get('threads', [DEFAULT_THREADS])[0]), 1), MAX_THREADS)
             length = int(self.headers.get('Content-Length', ''))
         except ValueError:
@@ -155,8 +163,16 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     global ENGINE
     logging.basicConfig(level=os.environ.get('OCR_LOG_LEVEL', 'INFO'), format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    ENGINE = engines.load()
-    log.info('%s %s (models %s) ready; models load on first use', ENGINE.name, ENGINE.version, ENGINE.model_version)
+    try:
+        ENGINE = engines.load()
+    except ImportError as exc:
+        UNAVAILABLE['reason'] = (
+            f'The OCR engine is not installed in this image ({exc.name or exc}). Install django-lux[ocr] '
+            'and rebuild the project image (python -m dlux.ocr.fetch_models downloads the models at build time).'
+        )
+        log.error('%s', UNAVAILABLE['reason'])
+    else:
+        log.info('%s %s (models %s) ready; models load on first use', ENGINE.name, ENGINE.version, ENGINE.model_version)
     server = ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('OCR_PORT', '8080'))), Handler)
     server.daemon_threads = True
     # PID 1 ignores SIGTERM by default; without this `docker stop` waits out its timeout and kills.

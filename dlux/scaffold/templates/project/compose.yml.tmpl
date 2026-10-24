@@ -294,16 +294,19 @@ services:
     networks:
       - internal
 
-  # OCR engine (Indra OCR) for dlux.ocr, behind an internal HTTP API. Switched on
-  # and configured in System Settings > Extra Features; started and stopped from
-  # the Operations panel. Models load on the first request, so it idles small
-  # while OCR is off. No published ports and no internet: its models are baked
-  # into the image. The app keeps working when it is stopped or missing.
+  # OCR engine (Indra OCR) for dlux.ocr: the project image with another command,
+  # like smtp-relay, behind an internal HTTP API (no Django loaded). Switched on and
+  # configured in System Settings > Extra Features, which also starts/stops it.
+  # Models are baked into the image (django-lux[ocr]) and load on the first
+  # request, so it idles small while OCR is off. No published ports, no internet.
+  # The app keeps working when it is stopped or missing.
   ocr:
-    image: ${OCR_IMAGE:-debeski/dlux-ocr:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
     labels:
       org.dlux.restart: "safe"
+    entrypoint: []
+    command: ["python", "-m", "dlux.ocr.serve"]
     read_only: true
     tmpfs:
       - /tmp
@@ -313,6 +316,7 @@ services:
       - ALL
     # Container limits only; mode, threads, size and time come from Options with each request.
     environment:
+      HF_HUB_OFFLINE: "1"
       OCR_WORKERS: "${OCR_WORKERS:-1}"
       OCR_MAX_THREADS: "${OCR_MAX_THREADS:-4}"
       OCR_MAX_BYTES: "${OCR_MAX_BYTES:-536870912}"
@@ -322,7 +326,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 30s
     networks:
       - internal
 

@@ -3,12 +3,15 @@
 Settings live in Options > System Settings > Extra Features
 (``SystemSettings.extra_config['ocr']``). ``OCR_*`` environment strings only
 fill options that were never saved there; built-in defaults fill the rest.
-The engine runs in the stack's ``ocr`` service (``docker/ocr/``), reachable
+The engine runs from the project image in the stack's ``ocr`` service, reachable
 only on the internal network. Everything here tolerates that service being
 off, missing or down: a document save never fails because of OCR.
 """
 
 import os
+import ipaddress
+import re
+from urllib.parse import urlsplit
 
 CONFIG_KEY = 'ocr'
 SERVICE_NAME = 'ocr'
@@ -38,6 +41,26 @@ _TRUE = ('true', '1', 'yes', 'on')
 _FALSE = ('false', '0', 'no', 'off')
 
 
+def valid_service_url(value):
+    """Only an internal service name or private LAN address; never public egress."""
+    if not isinstance(value, str):
+        return False
+    try:
+        url = urlsplit(value.strip())
+        host = url.hostname or ''
+        if url.scheme not in ('http', 'https') or url.username or url.password or url.query or url.fragment or url.path not in ('', '/'):
+            return False
+        if url.port is not None and not 1 <= url.port <= 65535:
+            return False
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            return host.lower() != 'localhost' and bool(re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_-]*', host))
+        return address.is_private and not (address.is_loopback or address.is_link_local or address.is_unspecified or address.is_multicast)
+    except ValueError:
+        return False
+
+
 def merge(values, raw):
     """Overlay the valid entries of ``raw`` on ``values``; anything invalid is ignored."""
     raw = raw if isinstance(raw, dict) else {}
@@ -51,7 +74,7 @@ def merge(values, raw):
     if raw.get('mode') in MODES:
         values['mode'] = raw['mode']
     url = raw.get('service_url')
-    if isinstance(url, str) and url.strip().startswith(('http://', 'https://')):
+    if valid_service_url(url):
         values['service_url'] = url.strip().rstrip('/')
     return values
 

@@ -319,7 +319,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertNotIn("/usr/share/caddy/maintenance", caddy_contents)
             self.assertNotIn("maintenance.html:", compose_contents)
             self.assertIn("celery", requirements_contents)
-            self.assertIn(f"django-lux[updater]=={__version__}", requirements_contents)
+            self.assertIn(f"django-lux[updater,ocr]=={__version__}", requirements_contents)
             self.assertIn("django-cors-headers", requirements_contents)
             self.assertIn("django-csp", requirements_contents)
             self.assertIn("django-health-check==3.20.0", requirements_contents)
@@ -939,8 +939,9 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
             compose = (target / "compose.yml").read_text(encoding="utf-8")
             self.assertNotIn("demo_project:latest", compose)
             # +1 vs pre-executor: composer-executor also carries a WEB_IMAGE default.
-            # 7, not 8: the dlux-updater service was retired into celery.
-            self.assertEqual(compose.count("acme/demo:stable"), 7)
+            # The dlux-updater service was retired into celery; the ocr service
+            # (1.15) runs on the project image like smtp-relay, so it counts too.
+            self.assertEqual(compose.count("acme/demo:stable"), 8)
             workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
             self.assertIn("${{ env.IMAGE }}:stable", workflow)
 

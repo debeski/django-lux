@@ -2673,6 +2673,7 @@ STRINGS = {
     'ocr_service_connected': 'Service connected: {engine} {version}',
     'ocr_service_unreachable': 'The OCR service does not answer at the configured address.',
     'ocr_settings_title': 'OCR text extraction',
+    'ocr_service_internal_only': 'Use an internal service name or a private LAN address.',
     'ocr_status_done': 'Done',
     'ocr_status_failed': 'Failed',
     'ocr_status_pending': 'Queued',
