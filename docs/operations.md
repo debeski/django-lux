@@ -60,6 +60,8 @@ ScanLink is disabled until enabled from **Extra Features**. This is intentional:
 
 ## Deployment operations
 
+Operations is available to superusers from the admin command rail even when inline DjangoLux updates are disabled, including Composer development mode. The panel uses the resident Composer agent's availability; each action retains its backend permission, password, version and runtime checks. Without a detected agent the panel explains why operations cannot run.
+
 1.14.0b3 adds **Start** and **Stop** for auxiliary services approved by `COMPOSER_AGENT_RESTART_SERVICES` (paired Composer 1.8.0b1+, also the release manifest's floor). Both require a superuser, CSRF-protected POST, current password and audit event. Composer and its executor independently enforce the allowlist, protected labels and current state. Web/Celery, standard worker/beat/proxy names, data stores and Composer services remain protected so a later Start stays reachable. Existing Restart/Recreate permissions are unchanged.
 
 Start operates on an existing stopped/created container without recreation; use Recreate for absent services. Stop keeps containers and volumes. Controls follow the reported state and refresh after completion; old Composer versions disable them. Accept the paired beta before promotion.

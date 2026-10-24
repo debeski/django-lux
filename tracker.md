@@ -91,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - 2026-10-24: published1.14.0b3/Composer1.8.0b1 accepted on isolated8096 (owner requested separation); official8088 remains stable1.13.2. Runtime now `depy/testbed-dlux-dev` on8096 via `./run.sh` (always Composer `--dev`), env `.secrets/.env`; old3 stacks removed, data/evidence preserved; official8088 untouched. Next: remaining1.14 Updates-card manifests/history on new branches from main, then final acceptance before stable. Never alter tagged0027/0028 or bypass main review.
-- Release records and guide tidying are pushed on `1.14/release_records`; PR #9 is open for required owner main review: https://github.com/debeski/django-lux/pull/9 (created via signed-in Chrome after connector403). Docs checks pass; tracker99lines; dev stack source path verified, HTTP200, deep22ok/1DEBUGwarn/0errors/4skips. Published code and acceptance are complete; the primary checkout tracker mirrors these facts locally until reviewed records merge. Preserve that metadata-only local change.
+- Operations dev-mode correction on `1.14/operations_dev_gate`: panel visibility no longer depends on inline updates; resident Composer gates availability. PR #9 already merged as d226c03. Focused ops87 PASS; next merge this fix into OCR and verify the real panel on :8097. Keep main review requirements; no push/tag authorized.
 - Test stacks live only at `~/Desktop/depy/testbed-*` and use Composer wrappers in dev mode; official `testbed-dlux` is protected unless owner directs otherwise. Accept published betas there before promoting.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 

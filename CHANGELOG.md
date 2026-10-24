@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Operations In Development Mode**: Keep the superuser Operations launcher visible and gate its panel on the resident Composer agent instead of `DLUX_INLINE_UPDATES_ENABLED`, so development stacks retain service controls while inline package updates remain disabled.
+
 ## v1.14.0b3
 
 - **Paired Beta Contract**: Require Composer `>=1.8.0b1` for the new service controls; retain the additive `0028_tables_config` migration, `>=1.13.0` migration baseline and rollback-compatible inline installation.

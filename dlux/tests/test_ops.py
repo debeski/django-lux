@@ -722,6 +722,25 @@ class PanelRunLifecycleTests(OpsRunLifecycleTests):
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class PanelViewTests(FixApplyViewTests):
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=False)
+    def test_operations_remain_available_when_inline_updates_are_disabled(self):
+        client = Client()
+        client.force_login(self.superuser)
+        with mock.patch('dlux.updater.ops.resident_composer_version', return_value='1.8.0b1'):
+            panel = client.get(reverse('dlux_operations_panel')).json()['html']
+            self.assertIn('data-enabled="true"', panel)
+            self.assertIn('data-dlux-ops-panel-run="check"', panel)
+            self.assertContains(client.get(reverse('options_view')), 'data-dynamic-modal="/sys/operations/"')
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=False)
+    def test_operations_explain_when_no_composer_agent_is_present(self):
+        client = Client()
+        client.force_login(self.superuser)
+        with mock.patch('dlux.updater.ops.resident_composer_version', return_value=''):
+            panel = client.get(reverse('dlux_operations_panel')).json()['html']
+        self.assertIn('data-enabled="false"', panel)
+        self.assertNotIn('data-dlux-ops-panel-run="check"', panel)
+
     def test_start_stop_require_superuser_post_password_and_audit(self):
         for operation in ('service-start', 'service-stop'):
             with self.subTest(operation=operation), \
