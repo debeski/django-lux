@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.14.0b4",
+  "version": "1.14.0",
   "display": {
     "summary": "Table customization, safe pagination, selectable incremental chains and auxiliary service controls.",
     "highlights": [
@@ -13,7 +13,7 @@
       "Password-confirmed Start/Stop for approved auxiliary services (Composer 1.8.0b1+). Web/Celery stay protected; restart, recreate and updates are unchanged.",
       "Table URL parameters cannot override validated page-size limits."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0"
   },
   "requires": {
     "updater_schema": ">=1",
