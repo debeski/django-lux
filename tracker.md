@@ -91,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - 2026-10-24: published1.14.0b3/Composer1.8.0b1 accepted on isolated8096 (owner requested separation); official8088 remains stable1.13.2. Runtime now `depy/testbed-dlux-dev` on8096 via `./run.sh` (always Composer `--dev`), env `.secrets/.env`; old3 stacks removed, data/evidence preserved; official8088 untouched. Next: remaining1.14 Updates-card manifests/history on new branches from main, then final acceptance before stable. Never alter tagged0027/0028 or bypass main review.
-- Operations dev-mode correction on `1.14/operations_dev_gate`: panel visibility no longer depends on inline updates; resident Composer gates availability. PR #9 already merged as d226c03. Focused ops87 PASS; next merge this fix into OCR and verify the real panel on :8097. Keep main review requirements; no push/tag authorized.
+- Operations dev-mode fix760e71d on `1.14/operations_dev_gate`, integrated into OCR as307e8b5. Panel/launcher independent of inline updates, resident Composer gates availability. Ops87 and merged ops+OCR121 PASS; live panel/service list8096 and OCR Stop/Start EN1440/AR390 on8097 PASS. Dev8096 mounts this checkout; dev8097 mounts OCR. Both inline-off; official8088 untouched. No push/tag; required main review remains.
 - Test stacks live only at `~/Desktop/depy/testbed-*` and use Composer wrappers in dev mode; official `testbed-dlux` is protected unless owner directs otherwise. Accept published betas there before promoting.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
