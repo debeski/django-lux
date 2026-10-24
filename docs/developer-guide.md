@@ -2,6 +2,10 @@
 
 This page explains how DjangoLux fits into a Django project and how to think about its moving parts before you start extending it.
 
+## Local test deployments
+
+Keep local test stacks in `~/Desktop/depy/testbed-*`, named for their subject (for example `testbed-dlux`, `testbed-archive`, or `testbed-crm-gov`). Run them through the generated Composer wrapper in development mode: `./start.sh --dev`, or a local `run.sh` that always delegates with `--dev`. Put development overrides in `compose.dev.yml`; keep inline updates disabled when testing bind-mounted source. Keep deployment directories outside source checkouts and `.xclude/` evidence archives. Preserve the official `testbed-dlux` deployment unless the owner explicitly requests changing it.
+
 ## The Core Mental Model
 
 DjangoLux is a Django app that combines seven layers:
