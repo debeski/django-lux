@@ -79,7 +79,7 @@
 ### One-line info about last verified Tests:
 - 2026-10-24: full3005 OK/6skips, release147 OK/2skips, chains22/browser17; CI Python3.11/3.12/3.13+PostgreSQL PASS. Composer861 OK/4skips+published smoke; published b2→b3 acceptance+post-relocation service cycle and exact payload/fingerprint PASS; deep23ok/1DEBUGwarn/0errors. Evidence `.xclude/validation/1.14.0b3-paired-2026-10-24/`.
 ### One-line info about last time edited Docs:
-- 2026-10-24: b3 feature docs cover parent selection, body-level modals, Section Manager search and paired1.8.0b1 floor; docs/operations.md records published acceptance, preserved data, runtime location and remaining stable scope.
+- 2026-10-24: b3 feature docs cover parent selection, body-level modals, Section Manager search and paired1.8.0b1 floor; user docs describe published b3 controls and table behavior; validation/runtime records remain here and in ignored evidence. Historical guide logs preserved in `release_records/.xclude/docs-before-tidying-2026-10-24/`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -91,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - 2026-10-24: published1.14.0b3/Composer1.8.0b1 accepted on isolated8096 (owner requested separation); official8088 remains stable1.13.2. Runtime at `main/.xclude/validation/service-controls/testbed/`, env `.secrets/.env`; all feature branches retired with evidence archived. Next: remaining1.14 Updates-card manifests/history on new branches from main, then final acceptance before stable. Never alter tagged0027/0028 or bypass main review.
-- Release records are committed/pushed on `1.14/release_records`; owner main review remains. GitHub connector refuses PR writes (403), and signed-in Chrome is locked. Published code and testbed acceptance are complete; the primary checkout tracker mirrors these pushed facts locally until the reviewed records merge. Preserve that metadata-only local change.
+- Release records and guide tidying are on `1.14/release_records`; PR creation via signed-in Chrome and owner main review remain. GitHub connector refuses PR writes (403). Published code and testbed acceptance are complete; the primary checkout tracker mirrors these pushed facts locally until the reviewed records merge. Preserve that metadata-only local change.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 

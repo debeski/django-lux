@@ -694,7 +694,7 @@ global default.
 | `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, service controls, logs of one or every service; every action goes through `/sys/api/dlux-ops/run/` |
 | `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
 
-Unreleased 1.14 adds POST operations `service-start` and `service-stop`, with required `service` and current-password confirmation. Composer 1.8.0b1+ publishes `can_start`, `can_stop` and `can_lifecycle` beside `can_restart`. These affect existing, approved auxiliary containers only; Web/Celery, worker/beat/proxy names, data services and Composer remain protected. Agent and executor independently validate targets. See [Operations](operations.md).
+Published beta 1.14.0b3 adds POST operations `service-start` and `service-stop`, with required `service` and current-password confirmation. Composer 1.8.0b1+ publishes `can_start`, `can_stop` and `can_lifecycle` beside `can_restart`. These affect existing, approved auxiliary containers only; Web/Celery, worker/beat/proxy names, data services and Composer remain protected. Agent and executor independently validate targets. See [Operations](operations.md).
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,
 `DLUX_UPDATE_CHECK_INTERVAL=86400`, and
