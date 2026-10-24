@@ -176,8 +176,7 @@ def _resolve_table_page_size_options(table_meta):
 
 
 def _resolve_table_per_page_field(table):
-    prefix = getattr(table, 'prefix', '') or ''
-    return f"{prefix}per_page"
+    return table.prefixed_per_page_field
 
 
 def _get_table_page_size_preference(request):
@@ -657,6 +656,8 @@ def _patch_table_init():
     except ImportError:
         return
 
+    if getattr(tables.Table.__init__, '_dlux_table_init_wrapped', False):
+        return
     _original_init = tables.Table.__init__
 
     def _patched_init(self, *args, **kwargs):
@@ -889,6 +890,9 @@ def _patch_table_init():
                     column.column.verbose_name = lazy_translator(k, raw_vname)
                     break
 
+        from .utils.table_columns import apply_table_column_overlay
+        apply_table_column_overlay(self, config.get('tables_config'))
+
         # django-tables2: Translate context menu actions inside row_attrs
         if hasattr(self, 'row_attrs') and 'data-dlux-actions' in self.row_attrs:
             orig_actions = self.row_attrs['data-dlux-actions']
@@ -915,6 +919,7 @@ def _patch_table_init():
             except Exception:
                 pass
 
+    _patched_init._dlux_table_init_wrapped = True
     tables.Table.__init__ = _patched_init
 
 
@@ -961,10 +966,18 @@ def _patch_requestconfig_configure():
 
         self.paginate = paginate
         table._dlux_request_configured = True
+        # RequestConfig rereads per_page after its defaults; pass the validated
+        # size without changing the request shared with other tables or views.
+        original_request = self.request
+        self.request = copy.copy(request)
+        self.request.GET = request.GET.copy()
+        self.request.GET[table.prefixed_per_page_field] = str(table.dlux_per_page)
         try:
             return _original_configure(self, table)
         finally:
             self.paginate = original_paginate
+            self.request = original_request
+            table.request = original_request
 
     tables.RequestConfig.configure = _patched_configure
 

@@ -146,6 +146,7 @@ def build_ribbon(
     panel_id='dlux-ribbon-advanced',
     custom_actions_key='',
     custom_actions_host='',
+    action_order=None,
 ):
     """Build a `Ribbon` from a FilterSet, honouring any explicit overrides.
 
@@ -197,6 +198,10 @@ def build_ribbon(
             if action is not None
         )
     resolved_actions = _dedupe_actions_by_destination(resolved_actions)
+    if action_order is None and custom_actions_key:
+        from .tabs import configured_action_order_for_key
+        action_order = configured_action_order_for_key(custom_actions_key, custom_actions_host)
+    resolved_actions = _order_actions(resolved_actions, action_order or [])
 
     ribbon = Ribbon(
         form=form,
@@ -378,6 +383,27 @@ def action_destination_key(action):
         if endpoint:
             return f'dest:{endpoint}'
     return ''
+
+
+def _order_actions(actions, order):
+    from urllib.parse import parse_qsl
+
+    ranks = {key: index for index, key in enumerate(order)}
+    query_orders = [(set(parse_qsl(key[6:])), index) for key, index in ranks.items() if key.startswith('dest:?')]
+    def rank(action):
+        key = action_destination_key(action)
+        if key in ranks:
+            return ranks[key]
+        if key.startswith('dest:?'):
+            query = set(parse_qsl(key[6:]))
+            matches = [(len(pairs), index) for pairs, index in query_orders if pairs and pairs <= query]
+            if matches:
+                return max(matches, key=lambda match: match[0])[1]
+        return len(ranks)
+    movable = [action for action in actions if action_destination_key(action)]
+    movable.sort(key=rank)
+    ordered = iter(movable)
+    return [next(ordered) if action_destination_key(action) else action for action in actions]
 
 
 def _apply_action_overlays(actions, overlays, request=None):

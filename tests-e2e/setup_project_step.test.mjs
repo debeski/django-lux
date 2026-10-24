@@ -2,7 +2,7 @@
 // tiles, as one extra step after Dlux's own.
 //
 // The Python tests prove the server renders and saves it. Only a browser shows
-// the wizard's JS treating a nineteenth panel like the others: the nav opening
+// the wizard's JS treating the project panel like the others: the nav opening
 // it, Save appearing on it, and a rejected value bringing the operator back to
 // it rather than to step one.
 //
@@ -68,10 +68,10 @@ describe('setup wizard project settings step', { concurrency: 1 }, () => {
   test('the project step is last, carries the tile, and offers Save', async () => {
     const { ctx, page, errors } = await wizard();
     try {
-      await openLastStep(page);
+      const last = await openLastStep(page);
       const step = page.locator('.wizard-step:not(.d-none)');
       assert.equal(await step.getAttribute('data-dlux-project-settings-step'), '');
-      assert.match(await step.locator('.dlux-setup-step-badge').innerText(), /Step 19: Project Settings/);
+      assert.equal(await step.locator('.dlux-setup-step-badge').innerText(), `Step ${last + 1}: Project Settings`);
       assert.match(await step.innerText(), /E2E Project/);
       assert.equal(await page.inputValue(`input[name="${LIMIT}"]`), '5', 'the tile default is the initial value');
       assert.equal(await page.isVisible('.dlux-btn-submit'), true);

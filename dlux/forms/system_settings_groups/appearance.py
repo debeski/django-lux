@@ -17,6 +17,7 @@ from ...system.constants import (
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_TABLES,
     SETUP_STEP_RIBBON,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
@@ -226,13 +227,13 @@ class AppearanceCleanMixin:
         return self._clean_preserved_choice('default_form_density', SETUP_STEP_LAYOUT, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
 
     def clean_table_edges(self):
-        return self._clean_preserved_choice('table_edges', SETUP_STEP_LAYOUT, TABLE_EDGES_VALUES, DEFAULT_TABLE_EDGES)
+        return self._clean_preserved_choice('table_edges', SETUP_STEP_APPEARANCE, TABLE_EDGES_VALUES, DEFAULT_TABLE_EDGES)
 
     def clean_card_edges(self):
         return self._clean_preserved_choice('card_edges', SETUP_STEP_LAYOUT, CARD_EDGES_VALUES, DEFAULT_CARD_EDGES)
 
     def clean_table_accent_edges(self):
-        return self._clean_preserved_toggle('table_accent_edges', SETUP_STEP_LAYOUT, False)
+        return self._clean_preserved_toggle('table_accent_edges', SETUP_STEP_TABLES, False)
 
     def clean_default_modal_size(self):
         return self._clean_preserved_choice('default_modal_size', SETUP_STEP_LAYOUT, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
@@ -241,7 +242,7 @@ class AppearanceCleanMixin:
         return self._clean_preserved_choice('options_style', SETUP_STEP_LAYOUT, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
 
     def clean_row_actions_style(self):
-        return self._clean_preserved_choice('row_actions_style', SETUP_STEP_LAYOUT, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
+        return self._clean_preserved_choice('row_actions_style', SETUP_STEP_TABLES, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
 
     def clean_ribbon_layout(self):
         return self._clean_preserved_choice('ribbon_layout', SETUP_STEP_LAYOUT, RIBBON_LAYOUT_VALUES, DEFAULT_RIBBON_LAYOUT)
@@ -261,10 +262,10 @@ class AppearanceCleanMixin:
         return self._clean_preserved_toggle('ribbon_title', SETUP_STEP_RIBBON, True)
 
     def clean_sticky_table_headers(self):
-        return self._clean_preserved_toggle('sticky_table_headers', SETUP_STEP_LAYOUT, True)
+        return self._clean_preserved_toggle('sticky_table_headers', SETUP_STEP_TABLES, True)
 
     def clean_resizable_table_columns(self):
-        return self._clean_preserved_toggle('resizable_table_columns', SETUP_STEP_LAYOUT, True)
+        return self._clean_preserved_toggle('resizable_table_columns', SETUP_STEP_TABLES, True)
 
     def clean_zebra_striping(self):
-        return self._clean_preserved_toggle('zebra_striping', SETUP_STEP_LAYOUT, True)
+        return self._clean_preserved_toggle('zebra_striping', SETUP_STEP_TABLES, True)

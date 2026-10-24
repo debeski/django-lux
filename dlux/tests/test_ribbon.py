@@ -431,6 +431,71 @@ class RibbonActionIdentityTests(TestCase):
 
         return RibbonAction(**kwargs)
 
+    def test_button_order_round_trips_and_reorders_declared_and_custom_actions(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+        from dlux.utils.import_export import export_system_settings_payload
+
+        config = {'route.buttons': {
+            'action_order': {'buttons': ['dest:/custom/', 'dest:/second/', 'dest:/custom/', None]},
+            'custom_actions': {'buttons': [{'id': 'extra', 'label': 'Custom', 'url': '/custom/'}]},
+        }}
+        settings = SystemSettings.load()
+        apply_system_settings_import(settings, {'ribbon_config': config})
+        settings.save()
+        expected = normalize_ribbon_config(config)
+        self.assertEqual(export_system_settings_payload(settings)['settings']['ribbon_config'], expected)
+        self.assertEqual(expected['route.buttons']['action_order']['buttons'], ['dest:/custom/', 'dest:/second/'])
+        actions = [self._action(label='First', url='/first/'), self._action(label='Fixed', html='<span>Fixed</span>'),
+                   self._action(label='Second', url='/second/')]
+        ribbon = build_ribbon(actions=actions, layout=DEFAULT_LAYOUT, strings={},
+                              custom_actions_key='route.buttons', custom_actions_host='buttons')
+        self.assertEqual([action.label for action in ribbon.actions], ['Custom', 'Fixed', 'Second', 'First'])
+        other = build_ribbon(actions=actions, layout=DEFAULT_LAYOUT, strings={},
+                             custom_actions_key='route.buttons', custom_actions_host='other')
+        self.assertEqual([action.label for action in other.actions], ['First', 'Fixed', 'Second'])
+
+    def test_model_mixin_applies_saved_host_order(self):
+        from django.test import RequestFactory
+
+        settings = SystemSettings.load()
+        settings.ribbon_config = {'auth.User': {'action_order': {'users': ['dest:/second/', 'dest:/first/']}}}
+        settings.save()
+        class View(RibbonMixin):
+            model = User
+            def get_ribbon_filterset(self): return None
+            def visible_ribbon_strips(self): return []
+            def get_ribbon_actions(inner):
+                return [self._action(label='First', url='/first/'), self._action(label='Second', url='/second/')]
+        view = View()
+        view.request = RequestFactory().get('/')
+        view.request.resolver_match = SimpleNamespace(view_name='users')
+        self.assertEqual([action.label for action in view.get_ribbon().actions], ['Second', 'First'])
+
+    def test_malformed_button_order_is_ignored(self):
+        from dlux.system.normalizers import normalize_ribbon_config
+        self.assertEqual(normalize_ribbon_config({'route.x': {'action_order': {'x': 'bad', 'y': [None, 1, 'bad']}}}), {})
+
+    def test_query_only_export_buttons_keep_order_with_page_filters(self):
+        from dlux.ribbon.build import _order_actions
+        actions = [self._action(label='Add', url='/add/'),
+                   self._action(label='ZIP', url='?q=report&downloadzip=1'),
+                   self._action(label='Excel', url='?q=report&downloadexcel=1')]
+        self.assertEqual([action.label for action in _order_actions(actions, ['dest:?downloadzip=1', 'dest:/add/'])],
+                         ['ZIP', 'Add', 'Excel'])
+
+    def test_action_catalog_does_not_inherit_settings_query_parameters(self):
+        from django.test import RequestFactory
+        from dlux.ribbon.catalog import _view_built_actions
+
+        class View(RibbonMixin):
+            def get_ribbon_actions(inner):
+                return [self._action(label='ZIP', url='?' + inner.request.GET.urlencode() + 'downloadzip=1')]
+        request = RequestFactory().get('/sys/modals/', {'step': '8'})
+        built = _view_built_actions(View, request)
+        self.assertEqual(built[0].url, '?downloadzip=1')
+        self.assertEqual(request.GET['step'], '8')
+        self.assertEqual(request.META['QUERY_STRING'], 'step=8')
+
     def test_the_key_is_the_endpoint_whichever_attribute_carries_it(self):
         """dlux's own manager buttons open a modal from `data-url` through their own
         handler rather than the dynamic-modal contract. Keying on the attribute
@@ -1194,19 +1259,17 @@ class LayoutStepOrderTests(TestCase):
         html = self._html()
         self.assertEqual(
             [name for _i, name in self._headings(self._layout_step(html))],
-            ['Tables', 'Forms', 'Modals', 'Options Page'],
+            ['Forms', 'Modals', 'Options Page'],
         )
         self.assertEqual(
             [name for _i, name in self._headings(self._ribbon_step(html))],
             ['List Page Ribbon', 'Tab Strips'],
         )
 
-    def test_record_visibility_moved_to_access_and_security(self):
-        headings = self._headings(self._html())
-        order = [name for _i, name in headings]
-        self.assertIn('Record Visibility', order)
-        self.assertLess(order.index('Access & Security'), order.index('Record Visibility'))
-        self.assertLess(order.index('Record Visibility'), order.index('List Page Ribbon'))
+    def test_record_visibility_lives_in_tables(self):
+        html = self._html()
+        self._positions(self._panel(html, 'tables'), ['show_audit_fields', 'show_soft_deleted'])
+        self.assertNotIn('name="show_audit_fields"', self._panel(html, 'security'))
 
     def test_ribbon_section_puts_the_toggle_before_the_selectors(self):
         pos = self._positions(self._ribbon_step(self._html()),
@@ -1217,7 +1280,7 @@ class LayoutStepOrderTests(TestCase):
         self.assertLess(pos['ribbon_layout'], pos['ribbon_advanced_trigger'])
 
     def test_tables_section_puts_toggles_first_then_density(self):
-        pos = self._positions(self._layout_step(self._html()),
+        pos = self._positions(self._panel(self._html(), 'tables'),
                               ['sticky_table_headers', 'resizable_table_columns',
                                'zebra_striping', 'default_table_density',
                                'row_actions_style'])

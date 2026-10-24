@@ -11,6 +11,10 @@
     const encryptionSelect = document.getElementById('sysbackup-encryption');
     const scopeSelect = document.getElementById('sysbackup-scope');
     const kindSelect = document.getElementById('sysbackup-kind');
+    const parentSelect = document.getElementById('sysbackup-parent');
+    const parentField = document.getElementById('sysbackup-parent-field');
+    let chainAvailable = !!form && form.dataset.chainAvailable === '1';
+    let chainLoading = false;
     let chainNote = document.getElementById('sysbackup-chain-note');
     const passphraseInputs = [
         document.getElementById('sysbackup-passphrase'),
@@ -25,6 +29,7 @@
     const STALL_WARN_SECONDS = 120;
     let listPollTimer = null;
     let listRequestActive = false;
+    let listRefreshQueued = false;
     let restorePollTimer = null;
     let restoreRequestActive = false;
 
@@ -58,6 +63,12 @@
         form.dataset.busy = busy ? '1' : '0';
         if (fields) fields.disabled = !!busy;
         if (busyNote) busyNote.hidden = !busy;
+        syncCreateButton();
+    }
+
+    function syncCreateButton() {
+        if (createBtn && form) createBtn.disabled = form.dataset.busy === '1' ||
+            (isIncremental() && (chainLoading || !chainAvailable));
     }
 
     function isIncremental() {
@@ -72,17 +83,26 @@
             field.hidden = incremental;
         });
         if (chainNote) chainNote.hidden = !incremental;
+        if (parentField) parentField.hidden = !incremental;
         syncEncryption();
         syncEstimate();
+        syncCreateButton();
     }
 
     // A finished backup can open, extend, or close a chain; keep the Type
     // option and its note in step without reloading the page.
     function syncChain(chain) {
         if (!form || !kindSelect) return;
+        if (parentSelect && parentSelect.value !== (chain.parent_token || '')) {
+            listRefreshQueued = true;
+            return;
+        }
+        chainAvailable = !!chain.available;
+        chainLoading = false;
+        if (parentSelect && typeof chain.parents_html === 'string') parentSelect.innerHTML = chain.parents_html;
         const option = kindSelect.querySelector('option[value="incremental"]');
         if (option) {
-            option.disabled = !chain.available;
+            option.disabled = !(chain.has_choices || chain.available);
             option.textContent = option.textContent.replace(/\s*#\d+$/, '') +
                 (chain.available && chain.next_sequence ? ' #' + chain.next_sequence : '');
         }
@@ -90,7 +110,7 @@
         const status = document.getElementById('sysbackup-chain-status');
         if (status && typeof chain.html === 'string') status.innerHTML = chain.html;
         chainNote = document.getElementById('sysbackup-chain-note');
-        if (!chain.available && isIncremental()) kindSelect.value = 'full';
+        if (!chain.available && !chain.has_choices && !parentSelect?.value && isIncremental()) kindSelect.value = 'full';
         syncKind();
     }
 
@@ -170,10 +190,16 @@
         if (encryptionSelect) encryptionSelect.addEventListener('change', syncEncryption);
         if (scopeSelect) scopeSelect.addEventListener('change', syncEstimate);
         if (kindSelect) kindSelect.addEventListener('change', syncKind);
+    if (parentSelect) parentSelect.addEventListener('change', function () {
+        clearPassphrases();
+        chainLoading = true;
+        syncCreateButton();
+        refreshBackupList(true);
+    });
         syncKind();
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            if (form.dataset.busy === '1') return;
+            if (form.dataset.busy === '1' || (isIncremental() && (chainLoading || !chainAvailable))) return;
             setNote(form.dataset.msgPreparing);
             const formData = new FormData(form);
             // The passphrase lives only in this request; never leave it typed
@@ -444,14 +470,21 @@
     }
 
     function refreshBackupList(forceRender) {
-        if (!tableBody || !tableBody.dataset.statusUrl || listRequestActive) return;
+        if (!tableBody || !tableBody.dataset.statusUrl) return;
+        if (listRequestActive) {
+            if (forceRender) listRefreshQueued = true;
+            return;
+        }
         if (document.hidden) {
             scheduleListPoll(IDLE_LIST_POLL_MS);
             return;
         }
         listRequestActive = true;
         const previousStatuses = tableStatuses();
-        fetch(tableBody.dataset.statusUrl + window.location.search, {
+        const query = new URLSearchParams(window.location.search);
+        if (parentSelect?.value) query.set('backup_parent', parentSelect.value);
+        else query.delete('backup_parent');
+        fetch(tableBody.dataset.statusUrl + '?' + query.toString(), {
             cache: 'no-store',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
@@ -475,6 +508,10 @@
             })
             .finally(function () {
                 listRequestActive = false;
+                if (listRefreshQueued) {
+                    listRefreshQueued = false;
+                    refreshBackupList(true);
+                }
             });
     }
 

@@ -41,7 +41,7 @@ class OperationTableTests(SimpleTestCase):
     def test_the_write_operations_are_the_apply_and_the_composer_update(self):
         self.assertEqual(
             sorted(n for n, spec in ops.OPERATIONS.items() if spec["changes_deployment"]),
-            ["agent-update", "check-fix-apply", "service-recreate", "service-restart"],
+            ["agent-update", "check-fix-apply", "service-recreate", "service-restart", "service-start", "service-stop"],
         )
 
     def test_the_read_only_operations_are_the_two_checks(self):
@@ -649,13 +649,24 @@ class PanelOperationTests(SimpleTestCase):
                 ops.normalize_params("service-recreate", {"service": bad})
 
     def test_panel_operations_never_mark_the_deployment_behind(self):
-        # A Composer that predates the panel just disables its buttons.
-        self.assertIsNone(ops.composer_behind("1.6.1"))
+        # Isolate optional panel floors from the package's release requirement.
+        with mock.patch('dlux.updater.ops.required_composer', return_value='1.5.3b1'):
+            self.assertIsNone(ops.composer_behind("1.6.1"))
         allowed, reason = ops.supports("service-restart", "1.6.1")
         self.assertFalse(allowed)
         self.assertIn("1.7.0b2", reason)
         self.assertFalse(ops.supports("logs-tail", "1.7.0b2")[0], "all-services logs arrived in 1.7.0b3")
         self.assertTrue(ops.supports("logs-tail", "1.7.0b3")[0])
+
+    def test_lifecycle_operations_require_paired_composer_and_validate_names(self):
+        for operation in ('service-start', 'service-stop'):
+            self.assertTrue(ops.OPERATIONS[operation]['changes_deployment'])
+            self.assertFalse(ops.supports(operation, '1.7.0')[0])
+            self.assertTrue(ops.supports(operation, '1.8.0b1')[0])
+            self.assertEqual(ops.normalize_params(operation, {'service': 'metrics'}), {'service': 'metrics'})
+            for value in ('', '../web', 'metrics;id'):
+                with self.subTest(operation=operation, value=value), self.assertRaises(UpdaterError):
+                    ops.normalize_params(operation, {'service': value})
 
     def test_restart_and_recreate_change_the_deployment_logs_do_not(self):
         self.assertTrue(ops.OPERATIONS["service-restart"]["changes_deployment"])
@@ -711,6 +722,28 @@ class PanelRunLifecycleTests(OpsRunLifecycleTests):
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class PanelViewTests(FixApplyViewTests):
+    def test_start_stop_require_superuser_post_password_and_audit(self):
+        for operation in ('service-start', 'service-stop'):
+            with self.subTest(operation=operation), \
+                    mock.patch('dlux.updater.ops.resident_composer_version', return_value='1.8.0b1'):
+                self.assertNotEqual(self._post({'operation': operation, 'service': 'metrics'}).status_code, 200)
+                self.assertNotEqual(self._post({'operation': operation, 'service': 'metrics', 'current_password': 'wrong'}).status_code, 200)
+                self.assertFalse(DluxOpsRun.objects.filter(operation=operation).exists())
+                client = Client()
+                client.force_login(self.superuser)
+                self.assertEqual(client.get(reverse('dlux_ops_run')).status_code, 405)
+                staff = get_user_model().objects.create_user(username=operation, password='pw', is_staff=True)
+                client.force_login(staff)
+                self.assertEqual(client.post(reverse('dlux_ops_run'), {
+                    'operation': operation, 'service': 'metrics', 'current_password': 'pw',
+                }).status_code, 403)
+                with mock.patch('dlux.views.updater.log_audit_event') as audit:
+                    response = self._post({'operation': operation, 'service': 'metrics', 'current_password': self.password})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()['run']['params'], {'service': 'metrics'})
+                audit.assert_called_once()
+                DluxOpsRun.objects.filter(token=response.json()['run']['token']).update(is_active=False, status=DluxOpsRun.STATUS_COMPLETED)
+
     def test_the_panel_renders_for_a_superuser_only(self):
         client = Client()
         client.force_login(self.superuser)

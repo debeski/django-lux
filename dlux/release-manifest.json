@@ -1,25 +1,30 @@
 {
   "schema_version": 2,
-  "version": "1.13.2",
+  "version": "1.14.0b3",
   "display": {
-    "summary": "Backup and restore histories are paginated DluxTables with row actions in the context menu; the page fits beside the sidebar.",
+    "summary": "Table customization, safe pagination, selectable incremental chains and auxiliary service controls.",
     "highlights": [
-      "Backup and restore: paginated histories (10 and 5 per page), row actions in the context menu, tables that stay inside their cards.",
-      "Starting the guided tour from the user menu closes the menu, so it no longer covers the steps.",
-      "Includes 1.13.1: setup uploads, the always-visible search and the Options tour tabs."
+      "Tables settings: reorder and restore columns, edit translated labels and icons, and choose primary/secondary sorting through the shared inspector.",
+      "The shared inspector uses conditional Restore actions; reverted edits close without a false unsaved-changes prompt. Dlux tables stay behind Show system items.",
+      "Ribbon destination buttons support drag ordering that persists into real pages, including project export buttons.",
+      "Includes 1.13.2b1: paginated backup/restore histories, context-menu row actions, fixed restore density and closing the user menu for tours.",
+      "Manual incremental backups can continue an eligible chain chosen by the administrator; Details closes correctly above its backdrop.",
+      "Section Manager has one keyword search for the selected model, without Advanced filters.",
+      "Password-confirmed Start/Stop for approved auxiliary services (Composer 1.8.0b1+). Web/Celery stay protected; restart, recreate and updates are unchanged.",
+      "Table URL parameters cannot override validated page-size limits."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.13.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0b3"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.11.0b7",
     "services": {
-      "composer": ">=1.5.3b1"
+      "composer": ">=1.8.0b1"
     },
     "migration_baseline": ">=1.13.0"
   },
   "migrations": {
-    "effect": "none",
+    "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },

@@ -18,6 +18,7 @@ from django.db import transaction
 from django.apps import apps
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils.functional import cached_property
 from django.urls import NoReverseMatch, reverse
 from ..system.constants import (
     NONVISUAL_PREVIEW_FIELDS,
@@ -30,6 +31,7 @@ from ..system.constants import (
     SETUP_STEP_SIDEBAR,
     SETUP_STEP_NAVBAR,
     SETUP_STEP_RIBBON,
+    SETUP_STEP_TABLES,
     SETUP_STEP_TITLEBAR,
     SETUP_STEP_SEARCH,
     SETUP_STEP_NOTIFICATIONS,
@@ -383,6 +385,7 @@ class SystemSettingsForm(
         required=False,
         widget=forms.HiddenInput(),
     )
+    tables_config = forms.JSONField(required=False, widget=forms.HiddenInput())
     sticky_table_headers = forms.BooleanField(
         required=False,
         initial=True,
@@ -917,6 +920,20 @@ class SystemSettingsForm(
     privacy_notice_text = forms.CharField(required=False, max_length=500)
     registration_require_consent = forms.BooleanField(required=False, initial=False)
 
+    @cached_property
+    def table_columns_catalog(self):
+        from ..discovery.tables import table_column_catalog
+
+        return table_column_catalog(request=self.request)
+
+    def clean_tables_config(self):
+        from ..system.table_columns import normalize_tables_config
+
+        value = self.cleaned_data.get('tables_config')
+        if value is None:
+            value = getattr(self.instance, 'tables_config', None)
+        return normalize_tables_config(value)
+
     def clean_ribbon_config(self):
         """Normalise the builder's JSON before it is stored.
 
@@ -983,6 +1000,7 @@ class SystemSettingsForm(
             'translations_override',
             'sidebar_config',
             'ribbon_config',
+            'tables_config',
             'sidebar_show_notification_badges',
             'sidebar_toggle_icon',
             'navbar_config',
@@ -3028,6 +3046,14 @@ class SystemSettingsForm(
             _layout_initial_source,
             hidden_field=False,
         )
+        from ..system.constants import TABLE_CONFIG_KEYS
+
+        self.initial['tables_config'] = self._apply_schema_group_initials(
+            'tables_config',
+            {**{key: self.initial.get(key, config.get(key)) for key in TABLE_CONFIG_KEYS},
+             **(getattr(self.instance, 'tables_config', None) or {})},
+            hidden_field=False,
+        )
         self._apply_schema_group_initials(
             'auth_config',
             getattr(self.instance, 'auth_config', None) or config.get('auth_config') or config
@@ -3518,6 +3544,35 @@ class SystemSettingsForm(
         )
         from ..ribbon.catalog import ribbon_destination_catalog, ribbon_tab_catalog
 
+        self.table_columns_builder_html = ''
+        if not self.single_step_mode or self.single_step_index == SETUP_STEP_TABLES:
+            table_strings = {**get_strings('en'), **s}
+            self.table_columns_builder_html = self._step_render(SETUP_STEP_TABLES,
+                'dlux/setup/table_columns_builder.html', {
+                    'table_columns_catalog_json': _json_dump(self.table_columns_catalog, ensure_ascii=False),
+                    'table_columns_strings_json': _json_dump({
+                        'reset': table_strings.get('table_columns_reset', 'Use table defaults'),
+                        'headers': table_strings.get('table_columns_headers', 'Shown columns'),
+                        'available': table_strings.get('table_columns_available', 'Available columns'),
+                        'reorder': table_strings.get('table_columns_reorder', 'Drag to reorder, or use the left and right arrow keys.'),
+                        'previous': table_strings.get('table_columns_previous', 'Move earlier'),
+                        'next': table_strings.get('table_columns_next', 'Move later'),
+                        'keepOne': table_strings.get('table_columns_keep_one', 'Keep at least one column visible.'),
+                        **{key: table_strings.get('table_columns_' + key, fallback) for key, fallback in {
+                            'column_reset': 'Restore', 'remove': 'Remove column',
+                            'shown': 'Shown', 'labels': 'Header text', 'priority': 'Default sorting',
+                            'none': 'Use table default', 'primary': 'Primary', 'secondary': 'Secondary',
+                            'direction': 'Sort direction', 'ascending': 'Ascending', 'descending': 'Descending',
+                            'empty_inspector': 'Select a header to edit it, or a table title to reset its settings.',
+                            'removed': 'Removed — select to restore.', 'clear': 'Clear selection',
+                        }.items()},
+                    }, ensure_ascii=False),
+                    'DLUX_STRINGS': table_strings,
+                    'mode': self.mode,
+                    'languages_json': _json_dump(current_languages, ensure_ascii=False),
+                    'catalog_language': catalog_lang,
+                })
+
         self.ribbon_builder_html = self._step_render(SETUP_STEP_RIBBON,
             'dlux/setup/ribbon_builder.html',
             {
@@ -3838,6 +3893,7 @@ class SystemSettingsForm(
         direct_fields = (
             'system_names',
             'languages',
+            'tables_config',
             'translations_override',
             'home_url',
             'public_root_url',
@@ -4088,6 +4144,11 @@ class SystemSettingsForm(
             fallback_language = 'en' if 'en' in languages else next(iter(languages), 'en')
             cleaned['default_language'] = fallback_language
         layout_config = self._schema_group_from_cleaned('layout_config')
+        tables_config = self._schema_group_from_cleaned(
+            'tables_config', fallback=cleaned.get('tables_config') or getattr(self.instance, 'tables_config', None),
+        )
+        layout_config.update({key: value for key, value in tables_config.items() if key != 'columns'})
+        cleaned['tables_config'] = tables_config
         cleaned['layout_config'] = layout_config
         cleaned.update(layout_config)
         public_root_config = self._schema_group_from_cleaned('public_root_config')
@@ -4503,6 +4564,7 @@ class SystemSettingsForm(
         search_config = self.cleaned_data.get('search_config') or default_search_config()
         registration_config = self.cleaned_data.get('registration_config') or {}
         apply_system_settings_import(instance, {
+            'tables_config': self.cleaned_data.get('tables_config') or {},
             'system_names': self.cleaned_data.get('system_names', {}),
             'languages': self.cleaned_data.get('languages', normalize_language_catalog()),
             'translations_override': self.cleaned_data.get('translations_override', {}),

@@ -273,6 +273,8 @@ def _view_built_actions(view, request):
     if view.get_ribbon_actions is RibbonMixin.get_ribbon_actions:
         return None
     from django.db import transaction
+    from django.http import QueryDict
+    from copy import copy
 
     try:
         # Asking a view for its buttons runs the view's own code, which reads —
@@ -281,7 +283,10 @@ def _view_built_actions(view, request):
         # anything, so whatever the view does here is rolled back.
         with transaction.atomic():
             instance = view()
-            instance.request = request
+            catalog_request = copy(request)
+            catalog_request.GET = QueryDict()
+            catalog_request.META = {**request.META, 'QUERY_STRING': ''}
+            instance.request = catalog_request
             actions = list(instance.get_ribbon_actions() or [])
             transaction.set_rollback(True)
         return actions

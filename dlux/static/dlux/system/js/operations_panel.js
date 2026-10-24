@@ -11,7 +11,7 @@
     const TERMINAL = new Set(['completed', 'failed']);
     const ICONS = { ok: 'bi-check-circle', warn: 'bi-exclamation-triangle', fail: 'bi-x-circle' };
     const PANEL_OPERATIONS = new Set([
-        'check', 'check-fix-apply', 'services', 'service-restart', 'service-recreate', 'logs-tail',
+        'check', 'check-fix-apply', 'services', 'service-start', 'service-stop', 'service-restart', 'service-recreate', 'logs-tail',
     ]);
 
     function csrfToken() {
@@ -204,6 +204,12 @@
                 }
                 const group = element('span', 'dlux-ops-actions');
                 if (service.can_restart) {
+                    group.appendChild(actionButton(labels.labelStart, 'bi-play-fill',
+                        (button) => confirmServiceOperation('service-start', service.name, button),
+                        locked || !service.can_start || !available('service-start')));
+                    group.appendChild(actionButton(labels.labelStop, 'bi-stop-fill',
+                        (button) => confirmServiceOperation('service-stop', service.name, button),
+                        locked || !service.can_stop || !available('service-stop')));
                     group.appendChild(actionButton(labels.labelRestart || 'Restart', 'bi-arrow-repeat',
                         (button) => confirmServiceOperation('service-restart', service.name, button),
                         locked || !available('service-restart')));
@@ -296,7 +302,7 @@
             startSpinner(button);
             try {
                 const data = await jsonRequest(root.dataset.runUrl, { method: 'POST', body });
-                if (operation === 'service-restart' || operation === 'service-recreate') {
+                if (['service-start', 'service-stop', 'service-restart', 'service-recreate'].includes(operation)) {
                     refreshAfter = data.run.token;
                 }
                 render({ run: data.run });
@@ -316,7 +322,7 @@
                 description,
                 confirmLabel: (spec(operation) || {}).label || operation,
                 requirePassword: true,
-                danger: operation === 'service-recreate',
+                danger: operation === 'service-recreate' || operation === 'service-stop',
                 icon: 'bi-tools',
                 onConfirm: (password, { showError }) => start(operation, { ...extra, current_password: password }, button)
                     .then(() => true)
@@ -325,7 +331,12 @@
         }
 
         function confirmServiceOperation(operation, service, button) {
-            const note = operation === 'service-recreate' ? labels.labelRecreateNote : labels.labelRestartNote;
+            const note = {
+                'service-start': labels.labelStartNote,
+                'service-stop': labels.labelStopNote,
+                'service-recreate': labels.labelRecreateNote,
+                'service-restart': labels.labelRestartNote,
+            }[operation];
             confirmed(operation, String(note || '').replace('{service}', service), button, { service });
         }
 

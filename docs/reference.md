@@ -222,6 +222,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 Section security contract:
 
 - `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/`, and subsection CRUD endpoints require the existing section permissions
+- Section Manager uses a framework-owned `keyword` field against the currently selected model, with no Advanced controls. It preserves the discovered FilterSet's unbound queryset restrictions and model-manager scope; project-specific filter fields apply only on their own list surfaces.
 - section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Dlux section or discovered section child model
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
 - `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
@@ -690,8 +691,10 @@ global default.
 | `/sys/api/dlux-update/interval/` | `POST` | Superuser-only CSRF-protected, audited update check interval (`minutes`: 5, 15, 30, 60, 180, 360, 720 or 1440); published to Composer by the worker |
 | `/sys/api/dlux-ops/state/` | `GET` | Superuser-only deployment-row state: the available operations, the newest run, the last deployment check, the Composer agent's version against its channel, and `composer_behind` (`version`, `required`, `ops_blocked`) when that agent is older than an operation or this release's `requires.services.composer` floor |
 | `/sys/api/dlux-ops/run/` | `POST` | Superuser-only CSRF-protected, audited request for one named deployment operation (`operation`: `check`, `agent-check`, `check-fix-apply`, `agent-update`, `services`, `service-restart`, `service-recreate`, `logs-tail`; `service` and `lines` where the operation takes them); the write operations also re-verify `current_password`, and `check-fix-apply` may only apply what the last check showed |
-| `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, services with restart/recreate, logs of one or every service; every action goes through `/sys/api/dlux-ops/run/` |
+| `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, service controls, logs of one or every service; every action goes through `/sys/api/dlux-ops/run/` |
 | `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
+
+Unreleased 1.14 adds POST operations `service-start` and `service-stop`, with required `service` and current-password confirmation. Composer 1.8.0b1+ publishes `can_start`, `can_stop` and `can_lifecycle` beside `can_restart`. These affect existing, approved auxiliary containers only; Web/Celery, worker/beat/proxy names, data services and Composer remain protected. Agent and executor independently validate targets. See [Operations](operations.md).
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,
 `DLUX_UPDATE_CHECK_INTERVAL=86400`, and
@@ -1179,7 +1182,7 @@ maintenance, aborts if it fails, and protects the new backup while retention run
 
 A full backup is the base of a chain (`kind=full`, `sequence=0`,
 `chain_id` = its own token); an increment (`kind=incremental`) continues the
-newest completed member (`parent`) and stores only:
+newest completed member (`parent`) by default and stores only:
 
 - rows whose digest changed — every row's serialized JSON is hashed (BLAKE2b-64)
   while it is written, so detection needs no timestamps and covers every model;
@@ -1202,6 +1205,19 @@ migrations differ from the chain's (`migration_digest`), or the head lost its
 sidecar. Increments inherit the chain's scope and encryption; a passphrase chain
 keeps one passphrase (the increment must open its parent's sidecar). Scheduled
 runs continue only a full-scope, server-key chain.
+
+For manual incrementals, the **Parent backup** selector defaults to Automatic
+(the newest completed indexed backup). A superuser can instead choose the latest
+eligible member of another chain. Older members within a continued chain cannot
+be selected, so a chain stays linear. Choices exclude chains closed by age,
+length, schema changes or missing indexes. Automatic keeps its existing behavior:
+if the newest chain is closed, it does not silently fall back to an older one.
+The selected chain determines scope and encryption; passphrase chains still
+require their passphrase. Eligibility is checked again under the creation lock.
+`POST sys/backup/create/` accepts optional `backup_parent=<token>` for an
+incremental; omission or an empty value selects Automatic. The list-status GET
+accepts the same parameter and returns selection-aware `chain` availability and
+translated parent options. Scheduled selection is unchanged.
 
 Restoring a member resolves base → member from the cleartext headers of the
 `.dlb` files in the backup folder (so uploaded chains work too), follows
@@ -1557,6 +1573,7 @@ Dlux now owns the default table chrome for standard `django_tables2` tables.
 - the per-user override lives in `Profile.preferences["table_density"]`
 - the per-user page-size preference lives in `Profile.preferences["table_page_size"]`
 - built-in pagination and page-size controls are rendered by `dlux/tables/table.html`
+- the paginator enforces `dlux_per_page_options` and fixed `dlux_per_page` values even when the URL supplies another size; invalid sizes fall back to the saved/default value, including prefixed and custom `Meta.per_page_field` query parameters
 - the recommended handwritten-table base class is `dlux.tables.DluxTable`
 - the framework list-screen arrangement is `dlux/list_page.html` (Ribbon over table, no card); blocks `list_before_table`, `list_body`, `list_after_table`, `list_modals`, `list_page_attrs`
 
@@ -1897,3 +1914,11 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 ## Optional PDF toolkit
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
+
+## Table column configuration (1.14 beta)
+
+Beta 1.14.0b2 incorporates published 1.13.2b1 without changing the table-column API or migration0028. Backup and restore histories use the shared DluxTable template, retaining the inspector's header overrides and the fixed-size footer behavior.
+
+Column **Restore** is disabled at defaults and follows pending label/icon/visibility/sort overrides immediately. Reverted table edits restore the form's original JSON so they do not trigger the unsaved-changes dialog. Ribbon button ordering is stored separately as `ribbon_config[<storage key>].action_order[<host route>]`, a list of `dest:<endpoint>` identities; it works across declared/custom buttons, preserves fixed HTML slots and applies through `RibbonMixin` or `build_ribbon(..., action_order=[...])`. See [ribbon.md](ribbon.md).
+
+`SystemSettings.tables_config` stores table preferences plus sparse model-keyed `hidden`, `order`, `headers` and `sorting` overlays and participates in runtime configuration and settings import/export. Tables is a dedicated settings step between Ribbon and Components. Existing flat keys and legacy `layout_config` writes remain supported. Generated and handwritten Dlux-managed tables apply the overlay at initialization, ignoring stale names and retaining a data column if all would be hidden. Audit/deletion, scope and row-action gates remain independent. `dlux.discovery.tables.table_column_catalog()` returns model keys, translated labels, column names/labels/orderability, route names and an `is_system` classification; `SystemSettingsForm.table_columns_catalog` exposes it lazily to the Tables builder. **Show system items** defaults off and reveals Dlux-supplied tables without changing configuration or permissions. The shared element inspector replaces the visibility grid: select a header to edit language-specific labels, an optional icon, visibility and up to two default sort columns/directions. Removed developer columns remain selectable for restoration. Per-column and per-model resets use the rewind icon; select the table title for the latter. The header strip retains drag, RTL-aware keyboard and tap ordering. Sorting ignores hidden/protected/non-orderable columns, falls back on unsupported computed sorts and yields to explicit request sorting. The builder preserves other models and stale names during ordinary edits and shares the existing settings save/import/discard flow. Admin-created columns are deferred. See [table-columns.md](table-columns.md).

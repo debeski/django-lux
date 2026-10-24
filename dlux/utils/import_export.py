@@ -111,6 +111,7 @@ def export_system_settings_payload(instance=None):
     data = {}
     auth_export = normalize_auth_config(getattr(instance, 'auth_config', None) or {})
     layout_export = normalize_layout_config(getattr(instance, 'layout_config', None) or {})
+    from ..system.constants import TABLE_CONFIG_KEYS
     asset_fields = {
         'logo': 'logo_asset',
         'favicon': 'favicon_asset',
@@ -136,6 +137,8 @@ def export_system_settings_payload(instance=None):
             # field; keep exporting them as flat keys for backward-compatible
             # import files.
             value = auth_export.get(field_name)
+        elif field_name in TABLE_CONFIG_KEYS:
+            value = getattr(instance, field_name)
         elif field_name in JSON_ONLY_LAYOUT_KEYS:
             # No legacy column for these: export them from layout_config.
             value = layout_export.get(field_name)
@@ -292,6 +295,9 @@ def normalize_system_settings_import_payload(payload):
     if 'extra_config' in normalized:
         from ..system.weather import portable_extra_config
         normalized['extra_config'] = portable_extra_config(normalize_extra_config(normalized['extra_config']))
+    if 'tables_config' in normalized:
+        from ..system.table_columns import normalize_tables_config
+        normalized['tables_config'] = normalize_tables_config(normalized['tables_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:
@@ -363,6 +369,7 @@ def apply_system_settings_import(
     from ..system.registry import iter_setting_groups
     from ..system.settings_patch import merge_settings_patch
     groups = {group.storage_field: group for group in iter_setting_groups()}
+    from ..system.constants import TABLE_CONFIG_KEYS
 
     for field_name, value in normalized.items():
         if field_name in {'logo', 'favicon', 'login_logo', 'login_background'}:
@@ -436,6 +443,8 @@ def apply_system_settings_import(
             auth = dict(getattr(instance, 'auth_config', None) or {})
             auth[field_name] = value
             instance.auth_config = normalize_auth_config(auth)
+        elif field_name in TABLE_CONFIG_KEYS:
+            setattr(instance, field_name, value)
         elif field_name in JSON_ONLY_LAYOUT_KEYS:
             # No legacy column for these: route into layout_config, where the
             # normalizer validates the value.

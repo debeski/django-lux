@@ -564,4 +564,3 @@ def _build_scope_row_actions(record):
             "data": {"url": reverse('delete_scope', args=[record.pk])},
         },
     ]
-

@@ -46,6 +46,7 @@ See [System Configuration](system-configuration.md) and [Deployment Configuratio
 - Centralized client-IP resolution, privacy/consent presentation, audit logging, scope-aware permissions, and POST-only security mutations.
 - Permission visibility filters: optional features hide their permissions from the group/user editors while disabled, and saves keep the existing grants.
 - Users, staff tiers, groups/presets, scopes, activity logs, printable/XLSX reports, full/data-only/portable and incremental (chained) backups (server-key, passphrase or unencrypted; snapshot-consistent on PostgreSQL; cancellable, with a live details console and time estimates), restore controls, and the offline DLB viewer.
+- Manual incrementals let superusers choose an eligible chain head or keep Automatic; scope/encryption follow the parent, with locked eligibility checks and no chain forks. Backup Details uses a body-level modal so its backdrop cannot block its controls.
 - Managed images, WOFF2 fonts, protected installer assets, and opt-in ScanLink releases.
 
 See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed Assets](managed-assets.md).
@@ -55,6 +56,7 @@ See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed
 - `dlux_settings(globals())`, root `dlux.urls`, configuration normalization, and project-owned `extra_config['app']` namespaces.
 - `ScopedModel`, audit fields, soft-delete, actor/scope injection, discovery, and generated app scaffolds.
 - `DluxTable`, filter helpers, sections, dynamic modals, context-menu actions, fetch/export helpers, tutorials, and activity APIs.
+- Section Manager provides one general keyword search for its selected model, preserving project queryset restrictions without importing project-specific filter controls.
 - Dlux-owned inputs, choice selectors, toggles, loading buttons, the **Dlux icon picker** (`dlux/helpers/icon_picker.html`, initialized by `initIconPickers()`), and the adapter-driven **Dlux inspector shell** (`window.DluxInspectorShell.create(...)`).
 - Translation dictionaries, database-backed override entries, language catalogs, and RTL-aware template behavior.
 - `dlux_translations` audit command: missing, undefined, permission-label, duplicate and untranslated keys, with paste-ready stubs and a CI `--fail` mode.
@@ -70,6 +72,7 @@ See [Developer Guide](developer-guide.md), [Project Configuration](project-confi
 - Stable and beta release channels: stable is the default and excludes every prerelease, beta is an explicit per-deployment opt-in, and opting out never downgrades an installed release.
 - The maintenance page ships in the Composer image and is published on the runtime volume (stack schema 3); a project keeps its own page in `.proxy/maintenance/`.
 - An Operations panel (Options admin rail) runs the deployment check and its repairs, restarts or recreates allow-listed services, and shows recent logs of one service or all of them merged — each a named, audited Composer operation; the write ones confirm with the current password.
+- Unreleased 1.14: password-confirmed Start/Stop for approved auxiliary services with Composer 1.8.0b1+. Web/Celery, proxies and data/control services remain protected; stopped existing containers can be started without recreation. Older Composer versions disable these controls.
 
 See [Getting Started](getting-started.md), [Composer Agent Integration](composer-agent.md), [Verified Inline Updates](inline-updater.md), and [Deployment Doctor](doctor.md).
 
@@ -83,3 +86,13 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 ## Optional PDF toolkit
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
+
+## 1.14 beta: table column builder
+
+Unreleased hardening enforces the configured page-size choices at the actual paginator boundary, preventing arbitrary `?per_page=` sizes. Browser coverage for Extra Features and the final project setup step follows named steps instead of fixed indices.
+
+Beta 1.14.0b2 merges the published 1.13.2b1 fixes into the table-builder line: paginated backup/restore histories with Dlux row actions and fixed restore density, user-menu tour closing, and the preceding 1.13.1 setup-upload/search/tour fixes. It preserves the shared inspector and adds no migrations beyond b1.
+
+Finishing controls use the short **Restore** label and enable it only while a column override exists. Reverted table edits leave the form clean, including visibility toggles that now retain column position. Ribbon buttons also support drag ordering alongside the existing draggable tabs, with saved per-host order applied to actual pages.
+
+Published beta 1.14.0b1 adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed discovery and presentation overlays for generated and handwritten tables. The ribbon shell and shared element inspector support localized header labels, optional icons, visibility, primary/secondary default sorting, per-column reset and per-table reset with the rewind icon. Removed developer columns remain restorable; shown headers support drag and keyboard/tap ordering. Dlux-supplied tables are hidden behind the default-off **Show system items** filter. Dedicated record-visibility gates remain in control. Admin-created columns are deferred. Published-wheel upgrade, rollback and re-apply acceptance passed on the isolated beta testbed; see [table-columns.md](table-columns.md).

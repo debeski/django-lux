@@ -8,7 +8,7 @@ from django.test import RequestFactory, TestCase
 
 from dlux import middleware
 from dlux.models import DluxNotification, SystemSettings
-from dlux.system.constants import SETUP_STEP_LAYOUT, SETUP_STEP_SECURITY
+from dlux.system.constants import SETUP_STEP_LAYOUT, SETUP_STEP_TABLES
 from dlux.system.normalizers import normalize_layout_config
 from dlux.utils.authorization import audit_fields_visible, soft_deleted_visible, user_can_view_audit_fields
 from dlux.utils.crud import _build_generic_table_class
@@ -305,7 +305,7 @@ class AuditToggleCanBeTurnedBackOffTests(TestCase):
             username='audit-toggle-admin', email='a@example.com', password='x'
         )
 
-    def _save_security_step(self, settings_obj, **overrides):
+    def _save_tables_step(self, settings_obj, **overrides):
         from dlux.forms import SystemSettingsForm
 
         data = {
@@ -329,7 +329,7 @@ class AuditToggleCanBeTurnedBackOffTests(TestCase):
         }
         data.update(overrides)
         request = RequestFactory().get(
-            f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={SETUP_STEP_SECURITY}'
+            f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={SETUP_STEP_TABLES}'
         )
         request.user = self.admin
         form = SystemSettingsForm(data=data, instance=settings_obj, request=request)
@@ -344,14 +344,14 @@ class AuditToggleCanBeTurnedBackOffTests(TestCase):
         settings_obj.save()
 
         # On: the checkbox is present in the POST.
-        settings_obj = self._save_security_step(settings_obj, show_audit_fields='on')
+        settings_obj = self._save_tables_step(settings_obj, show_audit_fields='on')
         self.assertIs(
             settings_obj.layout_config.get('show_audit_fields'), True,
             'turning the audit toggle on did not store True',
         )
 
         # Off: an unchecked checkbox is simply absent from the POST.
-        settings_obj = self._save_security_step(settings_obj)
+        settings_obj = self._save_tables_step(settings_obj)
         self.assertIs(
             settings_obj.layout_config.get('show_audit_fields'), False,
             'the audit toggle could be turned on but never off — the stored value '
@@ -374,22 +374,18 @@ class AuditToggleCanBeTurnedBackOffTests(TestCase):
         settings_obj.is_configured = True
         settings_obj.save()
 
-        settings_obj = self._save_security_step(settings_obj, show_soft_deleted='on')
+        settings_obj = self._save_tables_step(settings_obj, show_soft_deleted='on')
         self.assertIs(settings_obj.layout_config.get('show_soft_deleted'), True)
 
-        settings_obj = self._save_security_step(settings_obj)
+        settings_obj = self._save_tables_step(settings_obj)
         self.assertIs(settings_obj.layout_config.get('show_soft_deleted'), False)
 
 
 class RecordVisibilityTogglesSaveFromTheirOwnStepTests(TestCase):
     """The audit/soft-delete toggles must save from the step that shows them.
 
-    They render under Access & Security ("Record Visibility"), but their clean
-    methods anchored them to the Components step. `_clean_preserved_toggle`
-    restores the stored value whenever the step being saved is not the anchored
-    one — so saving Access & Security, the only place these switches appear,
-    silently discarded the change. They could be turned on by a first-launch
-    config.json and then never turned off from the UI again.
+    They now render in Tables. Their preservation anchors must move with them,
+    while saving an unrelated step must retain their stored values.
     """
 
     def setUp(self):
@@ -431,19 +427,18 @@ class RecordVisibilityTogglesSaveFromTheirOwnStepTests(TestCase):
         s.save()
         return s
 
-    def test_audit_fields_can_be_turned_off_from_access_and_security(self):
+    def test_audit_fields_can_be_turned_off_from_tables(self):
         s = self._configured(show_audit_fields=True)
         # Unchecked switch = absent from the POST, saved from the step it renders in.
-        s = self._save_step(s, SETUP_STEP_SECURITY)
+        s = self._save_step(s, SETUP_STEP_TABLES)
         self.assertIs(
             s.layout_config.get('show_audit_fields'), False,
-            'saving Access & Security discarded the change: the toggle renders there '
-            'but is anchored to the Components step, so it can never be turned off',
+            'saving Tables must accept an unchecked audit switch',
         )
 
-    def test_soft_deleted_can_be_turned_off_from_access_and_security(self):
+    def test_soft_deleted_can_be_turned_off_from_tables(self):
         s = self._configured(show_soft_deleted=True)
-        s = self._save_step(s, SETUP_STEP_SECURITY)
+        s = self._save_step(s, SETUP_STEP_TABLES)
         self.assertIs(s.layout_config.get('show_soft_deleted'), False)
 
     def test_saving_an_unrelated_step_still_preserves_them(self):

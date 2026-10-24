@@ -52,6 +52,7 @@ class SystemSettingsTests(TestCase):
             'search_config',
             'sidebar_config',
         'ribbon_config',
+            'tables_config',
             'navbar_config',
             'log_config',
             'profile_config',

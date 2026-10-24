@@ -28,6 +28,14 @@ def retain_import_presence(normalized, raw):
     for alias, name in get_import_aliases().items():
         if name not in canonical and alias in raw:
             canonical[name] = raw[alias]
+    from .constants import TABLE_CONFIG_KEYS
+
+    legacy_layout = canonical.get('layout_config')
+    if isinstance(legacy_layout, dict):
+        legacy_tables = {key: legacy_layout[key] for key in TABLE_CONFIG_KEYS if key in legacy_layout}
+        if legacy_tables:
+            tables = canonical.get('tables_config')
+            canonical['tables_config'] = {**legacy_tables, **(tables if isinstance(tables, dict) else {})}
     flat_fields = get_flat_config_fields()
     present = {}
     for name, value in normalized.items():

@@ -45,6 +45,7 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/buttons.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/titlebar/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/ribbon/css/ribbon.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/table_columns/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/notifications/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/tables/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/dropdowns.css' %}">
@@ -121,6 +122,7 @@
     <script src="{% dlux_static 'dlux/weather/js/settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon_settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/table_columns/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/lookup/js/lookup.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/wizard/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -187,6 +189,7 @@
     {% endblock %}
 
     {% if request.user.is_authenticated %}{% include 'dlux/system/confirm_password_modal.html' %}{% include 'dlux/system/unsaved_changes_modal.html' %}{% endif %}
+    {% block page_modals %}{% endblock %}
 
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
     

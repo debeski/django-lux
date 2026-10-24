@@ -1,7 +1,10 @@
 """The SystemSettings singleton and its config-group plumbing."""
 
+from copy import deepcopy
+
 from django.db import models
-from ..system.constants import DEFAULT_HOME_URL
+from ..system.constants import DEFAULT_HOME_URL, TABLE_CONFIG_KEYS
+from ..system.table_columns import normalize_tables_config
 from ..system.defaults import (
     default_auth_config as _default_auth_config,
     default_backup_config as _default_backup_config,
@@ -131,6 +134,9 @@ def _system_settings_config_get(instance, config_field, key):
         config = {}
     default_factory = _SYSTEM_SETTINGS_CONFIG_DEFAULTS.get(config_field, dict)
     defaults = default_factory()
+    if config_field == 'tables_config' and key not in config:
+        legacy = instance.layout_config if isinstance(instance.layout_config, dict) else {}
+        return legacy.get(key, defaults.get(key))
     return config.get(key, defaults.get(key))
 
 
@@ -141,6 +147,9 @@ def _system_settings_config_set(instance, config_field, key, value):
     config = dict(config)
     config[key] = value
     setattr(instance, config_field, config)
+    if config_field == 'tables_config':
+        legacy = dict(instance.layout_config) if isinstance(instance.layout_config, dict) else {}
+        instance.layout_config = {**legacy, key: value}
 
 
 def _system_settings_config_property(config_field, key):
@@ -151,6 +160,33 @@ def _system_settings_config_property(config_field, key):
 
 
 class SystemSettings(SingletonModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._remember_table_configs()
+
+    def _remember_table_configs(self):
+        self._table_config_snapshot = {
+            name: deepcopy(self.__dict__[name])
+            for name in ('tables_config', 'layout_config') if name in self.__dict__
+        }
+
+    @classmethod
+    def load(cls):
+        instance = super().load()
+        stale_cache = not hasattr(instance, '_table_config_snapshot')
+        if stale_cache:
+            instance.refresh_from_db()
+        legacy = instance.layout_config if isinstance(instance.layout_config, dict) else {}
+        canonical = instance.tables_config if isinstance(instance.tables_config, dict) else {}
+        instance.tables_config = normalize_tables_config({
+            **{key: legacy[key] for key in TABLE_CONFIG_KEYS if key in legacy}, **canonical,
+        })
+        instance.layout_config = {**legacy, **{key: instance.tables_config[key] for key in TABLE_CONFIG_KEYS}}
+        instance._remember_table_configs()
+        if stale_cache:
+            instance.refresh_cache()
+        return instance
+
     system_names = models.JSONField(default=dict, blank=True, verbose_name="System Names by Language")
     logo = models.ImageField(upload_to='dlux/branding/', null=True, blank=True, verbose_name="System Logo (Logo)")
     favicon = models.ImageField(upload_to='dlux/branding/', null=True, blank=True, verbose_name="Site Icon (Favicon)")
@@ -216,6 +252,7 @@ class SystemSettings(SingletonModel):
     )
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
     ribbon_config = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Ribbon Configuration")
+    tables_config = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Tables Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     log_config = models.JSONField(default=default_log_config, blank=True, verbose_name="Logging Configuration")
     profile_config = models.JSONField(default=default_profile_config, blank=True, verbose_name="Profile Page Configuration")
@@ -266,7 +303,21 @@ class SystemSettings(SingletonModel):
             previous = type(self).objects.filter(pk=self.pk).values(
                 'homepage_config', 'home_url', 'public_root_config', 'profile_config',
                 'search_config', 'titlebar_config',
+                'tables_config', 'layout_config',
             ).first()
+
+        tables = dict(self.tables_config) if isinstance(self.tables_config, dict) else {}
+        layout = dict(self.layout_config) if isinstance(self.layout_config, dict) else {}
+        snapshot = getattr(self, '_table_config_snapshot', {})
+        old_tables = snapshot.get('tables_config', (previous or {}).get('tables_config')) or {}
+        old_layout = snapshot.get('layout_config', (previous or {}).get('layout_config')) or {}
+        canonical_changed = tables != old_tables or 'tables_config' in requested
+        for key in TABLE_CONFIG_KEYS:
+            legacy_changed = layout.get(key) != old_layout.get(key) or 'layout_config' in requested
+            if key in layout and (key not in tables or (legacy_changed and not canonical_changed)):
+                tables[key] = layout[key]
+        self.tables_config = normalize_tables_config(tables)
+        self.layout_config = {**layout, **{key: self.tables_config[key] for key in TABLE_CONFIG_KEYS}}
 
         canonical_home = normalize_homepage_config(self.homepage_config)
         legacy_home = self._legacy_homepage_config()
@@ -318,12 +369,15 @@ class SystemSettings(SingletonModel):
                 update_fields.extend(('homepage_config', 'home_url', 'public_root_config', 'profile_config'))
             if requested_storage.intersection({'search_config', 'titlebar_config'}):
                 update_fields.extend(('search_config', 'titlebar_config'))
+            if requested_storage.intersection({'tables_config', 'layout_config'}):
+                update_fields.extend(('tables_config', 'layout_config'))
             normalized_update_fields = []
             for field_name in update_fields:
                 config_field = _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS.get(field_name, (field_name, None))[0]
                 if config_field not in normalized_update_fields:
                     normalized_update_fields.append(config_field)
             kwargs['update_fields'] = normalized_update_fields
+        self._remember_table_configs()
         super().save(*args, **kwargs)
 
 

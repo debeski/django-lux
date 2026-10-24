@@ -550,10 +550,11 @@ SETUP_STEPS = (
      ('navbar', 'nav bar', 'breadcrumb', 'hierarchy')),
     ('ribbon', 'bi-menu-button-wide-fill',
      ('ribbon', 'tabs', 'tab strip', 'filters', 'list header', 'page ribbon')),
+    ('tables', 'bi-table',
+     ('tables', 'columns', 'table density', 'zebra', 'sticky headers',
+      'resizable columns', 'audit fields', 'soft deleted', 'row actions')),
     ('layout', 'bi-grid-1x2-fill',
-     ('components', 'layout', 'table density', 'form density', 'modal size',
-      'zebra', 'sticky headers', 'resizable columns', 'audit fields',
-      'soft deleted', 'options page', 'row actions')),
+     ('components', 'layout', 'form density', 'modal size', 'options page')),
     ('homepage', 'bi-house-gear-fill',
      ('homepage', 'home url', 'landing page', 'public homepage', 'public page',
       'public theme')),
@@ -587,6 +588,7 @@ SETUP_STEP_TITLEBAR = SETUP_STEP_INDEX['titlebar']
 SETUP_STEP_SIDEBAR = SETUP_STEP_INDEX['sidebar']
 SETUP_STEP_NAVBAR = SETUP_STEP_INDEX['navbar']
 SETUP_STEP_RIBBON = SETUP_STEP_INDEX['ribbon']
+SETUP_STEP_TABLES = SETUP_STEP_INDEX['tables']
 SETUP_STEP_LAYOUT = SETUP_STEP_INDEX['layout']
 SETUP_STEP_HOMEPAGE = SETUP_STEP_INDEX['homepage']
 SETUP_STEP_LOGIN = SETUP_STEP_INDEX['login_page']
@@ -657,6 +659,12 @@ NOTIFICATION_FLASH_SIZES = {'compact', 'balanced', 'prominent'}
 NOTIFICATION_FLASH_TEXT_SIZES = {'sm', 'md', 'lg'}
 NOTIFICATION_UPDATE_MODES = {'off', 'summary', 'full'}
 
+TABLE_CONFIG_KEYS = (
+    'default_table_density', 'table_accent_edges',
+    'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
+    'row_actions_style', 'show_audit_fields', 'show_soft_deleted',
+)
+
 SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'auth_config',
     'email_config',
@@ -674,6 +682,7 @@ SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'search_config',
     'sidebar_config',
     'ribbon_config',
+    'tables_config',
     'navbar_config',
     'log_config',
     'profile_config',
@@ -754,6 +763,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'translations_override',
     'sidebar_config',
     'ribbon_config',
+    'tables_config',
     'navbar_config',
     'log_config',
     'profile_config',

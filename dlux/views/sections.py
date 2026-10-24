@@ -36,6 +36,7 @@ from ..utils import (
     can_manage_target_user,
     get_user_scope,
     setup_filter_helper,
+    _build_generic_filter_class,
     set_field_attrs,
     has_submit_button,
     user_has_model_permission,
@@ -404,7 +405,11 @@ def core_models_view(request):
     # the context and the ribbon read this either way.
     filter_obj = None
     if FilterClass:
-        filter_obj = FilterClass(request.GET or None, queryset=queryset)
+        # Retain project-defined base restrictions without adopting its fields.
+        queryset = FilterClass(None, queryset=queryset).qs
+    SearchFilter = _build_generic_filter_class(selected_model, keyword_only=True)
+    if SearchFilter:
+        filter_obj = SearchFilter(request.GET or None, queryset=queryset)
         setup_filter_helper(filter_obj, request)
         queryset = filter_obj.qs
     
@@ -628,6 +633,8 @@ def core_models_view(request):
         request=request,
         title=ui_strings.get('manage_sections', 'Section Management'),
         title_icon='bi bi-diagram-3',
+        primary=['keyword'],
+        advanced=[],
         tabs=ribbon_tabs,
         actions=[
             RibbonAction(

@@ -2267,6 +2267,50 @@ class SecurityHardeningViewTests(TestCase):
         self.assertNotIn('data-dlux-section-add', html)
         self.assertNotIn('data-dlux-section-form-panel', html)
 
+    def test_sections_own_one_keyword_field_with_or_without_project_filters(self):
+        import django_filters
+        from dlux.utils.crud import _build_generic_filter_class, _build_generic_table_class
+        from dlux.views import sections as section_views
+
+        class ProjectFilter(django_filters.FilterSet):
+            name = django_filters.CharFilter(lookup_expr='icontains')
+
+            class Meta:
+                model = Scope
+                fields = ['name']
+
+            @property
+            def qs(self):
+                return super().qs.exclude(name='Hidden Needle')
+
+        self._grant_section_permission(self.regular_user, 'view_sections')
+        self.client.login(username='regular', password='regularpass123')
+        match = Scope.objects.create(name='Different name', description='Unique Needle')
+        Scope.objects.create(name='Not matching', description='Unrelated')
+        hidden = Scope.objects.create(name='Hidden Needle')
+        for filter_class in (None, ProjectFilter, _build_generic_filter_class(Scope)):
+            with self.subTest(filter_class=filter_class):
+                section = [{
+                    'model': Scope, 'model_name': 'scope', 'app_label': 'dlux',
+                    'verbose_name': 'Scope', 'verbose_name_plural': 'Scopes',
+                    'form_class': section_views.resolve_form_class_for_model(Scope),
+                    'table_class': _build_generic_table_class(Scope),
+                    'filter_class': filter_class, 'subsections': [],
+                }]
+                with patch('dlux.views.sections.discover_section_models', return_value=section):
+                    response = self.client.get(reverse('manage_sections'), {
+                        'model': 'scope', 'keyword': 'Needle', 'name': 'Not matching',
+                    })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(list(response.context['filter'].form.fields), ['keyword'])
+                self.assertEqual([slot.names for slot in response.context['ribbon'].primary], [('keyword',)])
+                self.assertFalse(response.context['ribbon'].advanced)
+                records = {row.pk for row in response.context['table'].data}
+                self.assertIn(match.pk, records)
+                if filter_class is ProjectFilter:
+                    self.assertNotIn(hidden.pk, records, 'project base restrictions remain enforced')
+                self.assertNotIn('data-bs-target="#dlux-ribbon-advanced"', response.content.decode())
+
     def test_section_data_reaches_the_page_through_json_script(self):
         import json
 

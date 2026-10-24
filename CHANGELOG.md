@@ -7,6 +7,40 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.14.0b3
+
+- **Paired Beta Contract**: Require Composer `>=1.8.0b1` for the new service controls; retain the additive `0028_tables_config` migration, `>=1.13.0` migration baseline and rollback-compatible inline installation.
+
+- **Section Manager Keyword Search**: Always render one framework-owned keyword field with no Advanced controls, search the selected model, and preserve discovered FilterSet base restrictions and scoped querysets.
+
+- **Backup Parent Selection**: Add translated manual incremental parent choices among eligible chain heads, preserve Automatic selection and inherited scope/encryption, and revalidate under the shared creation lock to reject stale parents and forks.
+- **Clickable Backup Details**: Render the Details modal in the body-level `page_modals` template block, above Bootstrap's backdrop while preserving backup-page layout containment.
+
+- **Operations Service Start/Stop**: Add password-confirmed, audited `service-start`/`service-stop` requests and state-aware English/Arabic controls. Composer 1.8.0b1+ independently checks allowlists, labels and current container state; Web/Celery, proxies and data/control services remain protected.
+
+- **Validated Table Pagination**: Prevent django-tables2 from overriding validated page sizes through URL parameters; preserve fixed sizes, saved preferences, prefixes and custom query-field names without mutating shared requests.
+- **Stable Browser Step Selectors**: Follow the named Extra Features step and actual final setup step instead of hard-coded indices after adding Tables; wait for the preview iframe document during language reloads.
+
+## v1.14.0b2
+
+- **Integrate Published 1.13.2b1**: Preserve the table builder and ribbon ordering while incorporating 1.13.1 setup-upload, search and tour fixes plus 1.13.2b1's paginated backup/restore DluxTables, context-menu row actions, fixed restore-history density and user-menu tour closing. No new migrations beyond 1.14.0b1's additive `0028_tables_config`.
+- **Upgrade Baseline**: Retain `migration_baseline >=1.13.0`, additive migration policy and pointer rollback compatibility; validate the complete release span against latest stable 1.13.1 and the bare release gate.
+
+## v1.14.0b1
+
+- **First Table Builder Beta**: Integrates published 1.13.0b3 Operations code. The table-settings field migration is `0028_tables_config`, following published `0027_opsrun_params`; both additions have database defaults and remain compatible with pointer rollback. The other planned 1.14 Updates-card features remain pending for later betas.
+
+- **Builder Restore and Reverted Edits**: Shorten table column Restore, disable it at defaults and update it while editing. Preserve hidden-column positions and the original JSON when edits are reverted so unchanged Tables forms close without an unsaved-changes prompt.
+- **Ribbon Button Ordering**: Add drag ordering for destination buttons, persist per-host `action_order` lists and apply them to declared/custom buttons through `RibbonMixin` and function-host rendering; preserve raw HTML positions and existing permission checks.
+- **Table Column Inspector**: Replace the visibility chip grid with the shared element inspector for existing developer columns. Add language-specific labels, optional Bootstrap icons, primary/secondary default sorting, restorable removal and per-column defaults; use the ribbon rewind icon for resets. Normalize and round-trip `headers`/`sorting` overlays, preserve protected columns and let explicit request sorting override defaults.
+- **Table Builder System Items Filter**: Hide users, activity logs and other Dlux-supplied tables behind the default-off Show system items switch, matching Ribbon/Sidebar/Navbar. Preserve system-table overlays and pending edits when filtering; keep generated project tables visible and explain the filtered empty state in English/Arabic.
+- **Interactive Table Column Builder (1.14)**: Add translated column chips and a reorderable header strip to Tables and first-run setup, using the ribbon builder shell. Support drag, RTL-aware keyboard and tap ordering, per-model defaults, last-column protection and immediate import refresh. Preserve sparse overlays and leave untouched forms clean; provide builder-only labels for intentionally blank runtime headers.
+- **Table Column Discovery and Overlay (1.14)**: Discover model-keyed baseline columns from table views, dynamic managers and sections, with translated headers and skipped-host diagnostics. Apply sparse visibility/order preferences through shared table initialization; ignore stale names, preserve code exclusions and dedicated framework columns, and retain a data column when all would be hidden. Expose discovery lazily on the settings form.
+- **Idempotent Table Initialization**: Avoid stacking the table hook when Django rebuilds its app registry; repeated installation previously reran audit/deletion authorization after the request had been consumed, hiding columns permitted by the original request.
+- **Table Column Configuration Foundation (1.14)**: Add additive `SystemSettings.tables_config` storage and register defensive, model-keyed sparse `hidden`/`order` configuration with runtime settings and import/export.
+- **Tables Settings Step (1.14)**: Place Tables between Ribbon and Components; relocate table density, accent edges, resizing, zebra stripes, sticky headers, row actions and record-visibility controls. Read legacy preferences through into canonical `tables_config` and migrate them on save, preserving flat keys, `layout_config` mirrors, partial imports and settings saved from unrelated sections. Refresh older singleton cache entries and track loaded values so cached canonical defaults cannot override a legacy edit.
+- **Settings Preview Routing**: Add Tables to the frontend step registry and guard its order against the canonical backend registry; select Options tiles by stable step slug in preview tests so later sections keep opening their own previews.
+
 ## v1.13.2
 
 - **Stable Promotion**: Same runtime code, assets, dependencies and migrations as published, testbed-accepted 1.13.2b1: the backup page fits beside the open sidebar; starting the tour from the user menu closes it; backup and restore histories are paginated DluxTables (10 and 5 per page, fixed) whose row actions open from the shared context menu or three-dot column, with a confirmed Delete and a server-side chain warning; history tables stay in their cards with sticky headers; the restore history is fixed dense; fixed-size tables show no page-size picker.

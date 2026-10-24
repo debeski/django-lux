@@ -365,7 +365,7 @@ def _build_generic_table_class(model):
     return type(f"{model.__name__}AutoTable", (DluxTable,), table_attrs)
 
 # Generic Filters - Helper creates fallback django-filter FilterSet classes.
-def _build_generic_filter_class(model):
+def _build_generic_filter_class(model, *, keyword_only=False):
     """
     Build a minimal django-filters FilterSet:
     - keyword search across text fields (and numeric fields if value is numeric)
@@ -453,7 +453,7 @@ def _build_generic_filter_class(model):
         "filter_keyword": _filter_keyword,
         "keyword": django_filters.CharFilter(method='filter_keyword', label=''),
     }
-    if date_field:
+    if date_field and not keyword_only:
         from django import forms as dj_forms
         attrs["date_gte"] = django_filters.DateFilter(
             field_name=date_field,

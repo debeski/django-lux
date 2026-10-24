@@ -24,7 +24,7 @@ from functools import lru_cache
 from .constants import SYSTEM_SETTINGS_EXPORT_FIELDS
 
 # A storage field no single form control renders, mapped to the step that edits it.
-UNOWNED_FIELD_STEPS = {'extra_config': 'extras'}
+UNOWNED_FIELD_STEPS = {'extra_config': 'extras', 'tables_config': 'tables'}
 
 
 @lru_cache(maxsize=1)

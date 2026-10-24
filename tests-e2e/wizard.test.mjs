@@ -58,6 +58,33 @@ async function setToggle(page, name, on) {
 }
 
 describe('setup wizard', { concurrency: 1 }, () => {
+  test('table config import populates the hidden overlay and canonical controls', async () => {
+    const { ctx, page, errors } = await wizard();
+    try {
+      const columns = { 'auth.user': { hidden: ['email'], order: ['username'] } };
+      await setToggle(page, 'show_audit_fields', true);
+      await page.setInputFiles('[data-settings-import-file]', {
+        name: 'config.json', mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify({ tables_config: {
+          columns, default_table_density: 'dense', row_actions_style: 'both',
+          show_audit_fields: 'false', show_soft_deleted: 'true',
+        } })),
+      });
+      await page.waitForFunction(() => JSON.parse(document.querySelector('[name="tables_config"]').value).columns?.['auth.user']);
+      assert.deepEqual(await page.locator('[name="tables_config"]').evaluate(el => JSON.parse(el.value).columns), columns);
+      await page.locator('[data-table-columns-system-toggle]').evaluate(toggle => {
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change', {bubbles: true}));
+      });
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-header="email"]').getAttribute('data-column-enabled'), 'false');
+      assert.equal(await page.locator('[data-table-model="auth.user"] [data-column-toggle]').count(), 0);
+      assert.equal(await page.locator('[name="default_table_density"]:checked').inputValue(), 'dense');
+      assert.equal(await page.locator('[name="row_actions_style"]:checked').inputValue(), 'both');
+      assert.equal(await page.locator('[name="show_audit_fields"]').isChecked(), false);
+      assert.equal(await page.locator('[name="show_soft_deleted"]').isChecked(), true);
+      assert.deepEqual(errors, []);
+    } finally { await ctx.close(); }
+  });
   test('clipboard import honors extra aliases, boolean strings and absent flags', async () => {
     const { ctx, page, errors } = await wizard();
     try {

@@ -33,6 +33,12 @@ For a submit rail outside a form, use the opt-in `form_content` and `form_footer
 
 The footer is page-local at desktop width and returns to normal flow below 768px. Existing templates that override `content` remain compatible.
 
+Place page-specific Bootstrap modals in `dlux/base.html`'s `page_modals` block,
+preserving `{{ block.super }}`. It renders directly under `body`, outside content
+containers whose containment, transforms or stacking contexts can trap a modal
+below Bootstrap's backdrop. Backup Details uses this block while retaining the
+backup page's layout containment and inner scrolling.
+
 ## Forms and filters
 
 Use `DluxFileInput` or `AssetPickerField` for files, not a raw file input. The shared base already wires the file, scan-link, double-submit, and form styles. For filters, see [UI Integration](ui-integration.md#tables-filters-and-row-actions).

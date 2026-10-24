@@ -22,6 +22,7 @@ from ...system.constants import (
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
     SETUP_STEP_RIBBON,
+    SETUP_STEP_TABLES,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
@@ -377,12 +378,6 @@ class LayoutMixin:
                             data_auth_conditional_fields='true',
                         ),
                         Field('auth_config'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('record_visibility_settings_title', 'Record Visibility')}</h6>"),
-                        Row(
-                            build_settings_toggle_field(self, 'show_audit_fields', css_class='col-12 col-lg-6'),
-                            build_settings_toggle_field(self, 'show_soft_deleted', css_class='col-12 col-lg-6'),
-                            css_class='g-3 mb-3',
-                        ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
                         HTML(
                             f"<p class='small text-muted mb-3'>"
@@ -693,8 +688,8 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_RIBBON),
                     ),
                     Div(
-                        self._step_badge(s, 'layout', 'Layout'),
-                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('tables_settings_title', 'Tables and Cards')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
+                        self._step_badge(s, 'tables', 'Tables'),
+                        HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('settings_tables', 'Tables')}</span>{self._preview_eye(s, 'sample_table')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'table_accent_edges', css_class='col-12 col-lg-6'),
                             build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
@@ -706,6 +701,11 @@ class LayoutMixin:
                             css_class='g-3 mb-3',
                         ),
                         Row(
+                            build_settings_toggle_field(self, 'show_audit_fields', css_class='col-12 col-lg-6'),
+                            build_settings_toggle_field(self, 'show_soft_deleted', css_class='col-12 col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
                             Div(Field('default_table_density'), css_class='col'),
                             css_class='mb-3'
                         ),
@@ -713,6 +713,12 @@ class LayoutMixin:
                             Div(Field('row_actions_style'), css_class='col'),
                             css_class='mb-3'
                         ),
+                        Field('tables_config'),
+                        HTML(self.table_columns_builder_html),
+                        css_class=self._step_css_class(SETUP_STEP_TABLES),
+                    ),
+                    Div(
+                        self._step_badge(s, 'layout', 'Layout'),
                         HTML(f"<h6 class='fw-bold my-3 dlux-settings-section-title'><span>{s.get('forms_settings_title', 'Forms')}</span>{self._preview_eye(s, 'sample_form')}</h6>"),
                         Row(
                             Div(Field('default_form_density'), css_class='col'),

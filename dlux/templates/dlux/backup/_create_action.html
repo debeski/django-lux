@@ -8,6 +8,7 @@
               data-estimate-data="{{ backup_estimates.data|default:'' }}"
               data-estimate-incremental="{{ backup_estimates.incremental|default:'' }}"
               data-chain-encryption="{{ open_chain.encryption|default:'' }}"
+              data-chain-available="{% if open_chain.available %}1{% else %}0{% endif %}"
               data-msg-preparing="{{ DLUX_STRINGS.sysbackup_preparing }}"
               data-msg-ready="{{ DLUX_STRINGS.sysbackup_ready }}"
               data-msg-failed="{{ DLUX_STRINGS.sysbackup_failed }}"
@@ -25,8 +26,13 @@
                     <label class="form-label small mb-1" for="sysbackup-kind">{{ DLUX_STRINGS.sysbackup_kind_label|default:'Type' }}</label>
                     <select id="sysbackup-kind" name="backup_kind" class="form-select form-select-sm glass-input">
                         <option value="full">{{ DLUX_STRINGS.sysbackup_kind_full|default:'Full' }}</option>
-                        <option value="incremental"{% if not open_chain.available %} disabled{% endif %}>{{ DLUX_STRINGS.sysbackup_kind_incremental|default:'Incremental (changes only)' }}{% if open_chain.available %} #{{ open_chain.next_sequence }}{% endif %}</option>
+                        <option value="incremental"{% if not chain_parents %} disabled{% endif %}>{{ DLUX_STRINGS.sysbackup_kind_incremental|default:'Incremental (changes only)' }}{% if open_chain.available %} #{{ open_chain.next_sequence }}{% endif %}</option>
                     </select>
+                </div>
+                <div id="sysbackup-parent-field" hidden>
+                    <label class="form-label small mb-1" for="sysbackup-parent">{{ DLUX_STRINGS.sysbackup_parent_label }}</label>
+                    <select id="sysbackup-parent" name="backup_parent" class="form-select form-select-sm glass-input">{% include 'dlux/backup/_parent_options.html' %}</select>
+                    <small class="text-muted d-block">{{ DLUX_STRINGS.sysbackup_parent_help }}</small>
                 </div>
                 <div class="dlux-backup-full-only">
                     <label class="form-label small mb-1" for="sysbackup-encryption">{{ DLUX_STRINGS.sysbackup_encryption_label|default:'Encryption' }}</label>
