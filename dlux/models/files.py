@@ -1,7 +1,8 @@
-"""File history: earlier versions of document files (PDF tools, document files)."""
+"""File history and file text: earlier versions of document files, and their OCR text."""
 
 import os
 
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -66,3 +67,75 @@ class FileVersion(ScopedModel):
 
     def __str__(self):
         return f'{self.document_model} #{self.object_id} {self.field_name} V{self.version_number}'
+
+
+class FileText(ScopedModel):
+    """Text read from one exact file (by SHA-256) of a registered document file, by OCR.
+
+    Generic like ``FileVersion``: every model registered with
+    ``register_document_file()`` uses this one table. A row is kept per file
+    content, so an unchanged file is never read twice; ``is_current`` marks the
+    row for the file the document holds now. Scope follows the document.
+    """
+
+    dlux_report = False
+    dlux_seed = False
+    dlux_notify = False
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_DONE = 'done'
+    STATUS_FAILED = 'failed'
+    STATUS_SKIPPED = 'skipped'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Queued'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_DONE, 'Done'),
+        (STATUS_FAILED, 'Failed'),
+        (STATUS_SKIPPED, 'Skipped'),
+    ]
+    SOURCE_CHOICES = [('auto', 'Automatic'), ('manual', 'On demand'), ('backfill', 'Backfill')]
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveBigIntegerField()
+    document = GenericForeignKey('content_type', 'object_id')
+    document_model = models.CharField(max_length=64)
+    field_name = models.CharField(max_length=64, default='pdf_file')
+    file_version = models.ForeignKey(FileVersion, on_delete=models.SET_NULL, null=True, blank=True, related_name='texts')
+    file_name = models.CharField(max_length=500, blank=True)
+    file_sha256 = models.CharField(max_length=64)
+    is_current = models.BooleanField(default=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default='auto')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    engine = models.CharField(max_length=64, blank=True)
+    engine_version = models.CharField(max_length=64, blank=True)
+    model_version = models.CharField(max_length=64, blank=True)
+    markdown = models.TextField(blank=True)
+    text = models.TextField(blank=True)
+    pages = models.JSONField(default=list, blank=True)
+    page_count = models.PositiveIntegerField(default=0)
+    mean_confidence = models.FloatField(null=True, blank=True)
+    timings = models.JSONField(default=dict, blank=True)
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    error = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=['content_type', 'object_id', 'field_name', 'file_sha256'],
+                name='dlux_file_text_unique',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['content_type', 'object_id', 'field_name', 'is_current'], name='dlux_file_text_current_idx'),
+            models.Index(fields=['status'], name='dlux_file_text_status_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.document_model} #{self.object_id} {self.field_name} text {self.status}'

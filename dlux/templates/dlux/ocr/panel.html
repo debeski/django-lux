@@ -1,0 +1,50 @@
+{% load dlux_tags %}
+<section class="dlux-ocr-panel" data-dlux-ocr data-ocr-url="{{ ocr_url }}" data-ocr-error="{{ DLUX_STRINGS.ocr_request_failed|default:'Could not request OCR.' }}"{% if ocr_active %} data-ocr-active{% endif %} aria-labelledby="dlux-ocr-title-{{ ocr_dom_id }}">
+    <div class="dlux-ocr-header d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h2 class="h6 mb-0 me-auto" id="dlux-ocr-title-{{ ocr_dom_id }}"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> {{ DLUX_STRINGS.ocr_title|default:'Extracted text (OCR)' }}</h2>
+        {% if ocr_result %}
+        <span class="badge {% if ocr_result.status == 'done' %}text-bg-success{% elif ocr_result.status == 'failed' %}text-bg-danger{% elif ocr_result.status == 'running' %}text-bg-primary{% else %}text-bg-secondary{% endif %}" data-dlux-ocr-status="{{ ocr_result.status }}">
+            {% if ocr_active %}<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>{% endif %}
+            {% if ocr_result.status == 'done' %}{{ DLUX_STRINGS.ocr_status_done|default:'Done' }}{% elif ocr_result.status == 'failed' %}{{ DLUX_STRINGS.ocr_status_failed|default:'Failed' }}{% elif ocr_result.status == 'running' %}{{ DLUX_STRINGS.ocr_status_running|default:'Running' }}{% elif ocr_result.status == 'skipped' %}{{ DLUX_STRINGS.ocr_status_skipped|default:'Skipped' }}{% else %}{{ DLUX_STRINGS.ocr_status_pending|default:'Queued' }}{% endif %}
+        </span>
+        {% endif %}
+        {% if ocr_can_run %}
+        {% csrf_token %}
+        <button type="button" class="btn btn-sm btn-outline-primary" data-dlux-ocr-run{% if ocr_active %} disabled{% endif %}>
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+            {% if ocr_result %}{{ DLUX_STRINGS.ocr_rerun|default:'Run OCR again' }}{% else %}{{ DLUX_STRINGS.ocr_run|default:'Run OCR' }}{% endif %}
+        </button>
+        {% endif %}
+    </div>
+    <div class="small mb-2" data-dlux-ocr-message role="status" aria-live="polite" hidden></div>
+    {% if not ocr_enabled %}<p class="text-muted small mb-2">{{ DLUX_STRINGS.ocr_disabled|default:'OCR is not enabled.' }}</p>{% endif %}
+    {% if not ocr_result %}
+    <p class="text-muted mb-0">{{ DLUX_STRINGS.ocr_none|default:'No text has been read from this file yet.' }}</p>
+    {% else %}
+    {% if ocr_result.status == 'pending' and ocr_result.error %}<p class="text-warning-emphasis small">{{ DLUX_STRINGS.ocr_unavailable|default:'The OCR service is unavailable right now; it will retry automatically.' }}</p>{% endif %}
+    {% if ocr_result.status == 'failed' or ocr_result.status == 'skipped' %}<p class="text-danger small" dir="auto">{{ ocr_result.error }}</p>{% endif %}
+    {% if ocr_result.status == 'done' %}
+    <dl class="dlux-ocr-meta small text-muted">
+        <div><dt>{{ DLUX_STRINGS.ocr_engine|default:'Engine' }}</dt><dd><bdi dir="ltr">{{ ocr_result.engine }} {{ ocr_result.engine_version }}{% if ocr_result.model_version %} · {{ ocr_result.model_version }}{% endif %}</bdi></dd></div>
+        <div><dt>{{ DLUX_STRINGS.ocr_pages|default:'Pages' }}</dt><dd>{{ ocr_result.page_count }}</dd></div>
+        <div><dt>{{ DLUX_STRINGS.ocr_duration|default:'Duration' }}</dt><dd><bdi dir="ltr">{{ ocr_result.duration_ms|default:0 }} ms</bdi></dd></div>
+        {% if ocr_result.mean_confidence is not None %}<div><dt>{{ DLUX_STRINGS.ocr_confidence|default:'Mean confidence' }}</dt><dd>{% widthratio ocr_result.mean_confidence 1 100 %}%</dd></div>{% endif %}
+        <div><dt>{{ DLUX_STRINGS.ocr_finished|default:'Finished' }}</dt><dd><bdi dir="ltr">{{ ocr_result.finished_at|date:'Y-m-d H:i' }}</bdi></dd></div>
+    </dl>
+    {% if ocr_result.error %}<p class="text-warning-emphasis small" dir="auto">{{ ocr_result.error }}</p>{% endif %}
+    {% if ocr_result.text %}
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" id="dlux-ocr-text-tab-{{ ocr_dom_id }}" data-bs-toggle="tab" data-bs-target="#dlux-ocr-text-{{ ocr_dom_id }}" type="button" role="tab" aria-controls="dlux-ocr-text-{{ ocr_dom_id }}" aria-selected="true">{{ DLUX_STRINGS.ocr_tab_text|default:'Text' }}</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="dlux-ocr-markdown-tab-{{ ocr_dom_id }}" data-bs-toggle="tab" data-bs-target="#dlux-ocr-markdown-{{ ocr_dom_id }}" type="button" role="tab" aria-controls="dlux-ocr-markdown-{{ ocr_dom_id }}" aria-selected="false">{{ DLUX_STRINGS.ocr_tab_markdown|default:'Markdown' }}</button></li>
+    </ul>
+    <div class="tab-content border border-top-0 rounded-bottom">
+        <div class="tab-pane fade show active" id="dlux-ocr-text-{{ ocr_dom_id }}" role="tabpanel" aria-labelledby="dlux-ocr-text-tab-{{ ocr_dom_id }}" tabindex="0"><pre class="dlux-ocr-text" dir="auto">{{ ocr_result.text }}</pre></div>
+        <div class="tab-pane fade" id="dlux-ocr-markdown-{{ ocr_dom_id }}" role="tabpanel" aria-labelledby="dlux-ocr-markdown-tab-{{ ocr_dom_id }}" tabindex="0"><pre class="dlux-ocr-text" dir="auto">{{ ocr_result.markdown }}</pre></div>
+    </div>
+    <p class="text-muted small mt-2 mb-0">{{ DLUX_STRINGS.ocr_machine_note|default:'Machine-read text may contain errors; check the original file.' }}</p>
+    {% else %}
+    <p class="text-muted mb-0">{{ DLUX_STRINGS.ocr_empty_text|default:'No text was found in the file.' }}</p>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+</section>

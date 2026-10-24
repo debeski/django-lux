@@ -23,8 +23,12 @@ Typical FilterSet usage::
 
     def filter_keyword(self, queryset, name, value):
         return queryset.filter(
-            arabic_search_q(value, ["title", "keywords", "category__name"])
+            arabic_search_q(value, ["title", "keywords", "category__name"], model=queryset.model)
         )
+
+Passing ``model`` also matches text kept outside the model's own fields that a
+feature registered with ``register_model_text_search()`` — the OCR text of its
+registered document files, when OCR and its search option are on (``dlux.ocr``).
 """
 import re
 
@@ -101,12 +105,13 @@ def arabic_search_pattern(term, *, groups=None):
     return _IGNORABLE_SKIP.join(parts)
 
 
-def arabic_search_q(term, fields, *, groups=None):
+def arabic_search_q(term, fields, *, groups=None, model=None):
     """Build an OR'd ``Q`` matching *term* (and its variants) in *fields*.
 
     Uses ``__iregex`` per field, so it behaves like a variant-aware
     ``icontains``. An empty term yields an empty ``Q`` (matches everything),
-    mirroring how django-filter skips blank filter values.
+    mirroring how django-filter skips blank filter values. With ``model``, rows
+    whose current OCR text matches are included too.
     """
     pattern = arabic_search_pattern(term, groups=groups)
     condition = Q()
@@ -114,4 +119,25 @@ def arabic_search_q(term, fields, *, groups=None):
         return condition
     for field in fields:
         condition |= Q(**{f"{field}__iregex": pattern})
+    if model is not None:
+        condition |= model_text_q(model, term)
+    return condition
+
+
+_MODEL_TEXT_SEARCHES = []
+
+
+def register_model_text_search(builder):
+    """Add ``builder(model, term) -> Q | None`` to ``model_text_q`` (once per builder)."""
+    if builder not in _MODEL_TEXT_SEARCHES:
+        _MODEL_TEXT_SEARCHES.append(builder)
+
+
+def model_text_q(model, term):
+    """OR of the registered text searches for ``model``; an empty ``Q`` when none applies."""
+    condition = Q()
+    for builder in _MODEL_TEXT_SEARCHES:
+        extra = builder(model, term)
+        if extra is not None:
+            condition |= extra
     return condition

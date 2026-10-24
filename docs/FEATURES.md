@@ -83,6 +83,10 @@ Stable 1.12.0 promotes the accepted 1.12.0b3 implementation; see [release accept
 
 See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over. The history table identifies who performed each change in its translated **Changed by** column.
 
+## OCR text
+
+See [OCR text](ocr.md) (1.15, unreleased): `dlux.ocr` reads registered document files with the stack's optional `ocr` service (`debeski/dlux-ocr`, Indra OCR, internal network only). Every `register_document_file()` field takes part unless it passes `ocr=False`. Options live in System Settings > Extra Features (`extra_config['ocr']`, `OCR_*` environment strings only as fallbacks); the service is started/stopped from the Operations panel. Text is stored per file SHA-256 in `dlux.FileText` (migration `0029`, additive), shown from the viewer's **Extracted text (OCR)** button with Run OCR, searchable through global search and `arabic_search_q(..., model=...)`. `dlux_ocr_backfill` (batched, resumable) and `dlux_adopt_ocr_text` cover existing files and a project's own OCR rows.
+
 ## Optional PDF toolkit
 
 See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.

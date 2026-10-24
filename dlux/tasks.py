@@ -146,6 +146,24 @@ if shared_task is not None:
         finally:
             cache.delete('dlux.state_tick.lock')
 
+    OCR_RETRY_DELAYS = (30, 60, 120, 300, 600, 900, 1800, 3600)
+
+    @shared_task(name='dlux.tasks.ocr_file', bind=True, acks_late=True, ignore_result=True,
+                 max_retries=len(OCR_RETRY_DELAYS))
+    def ocr_file(self, result_id):
+        """Read one ``FileText`` row's file; waits out a busy or unavailable service with growing delays."""
+        from .ocr.client import OCRUnavailable
+        from .ocr.service import give_up, run
+
+        try:
+            run(result_id)
+        except OCRUnavailable as exc:
+            if self.request.retries >= self.max_retries:
+                give_up(result_id, f'{exc} (gave up after {self.request.retries} retries)')
+                return
+            priority = (self.request.delivery_info or {}).get('priority')
+            raise self.retry(exc=exc, countdown=OCR_RETRY_DELAYS[self.request.retries], priority=priority)
+
     @shared_task(name='dlux.tasks.reap_stalled_system_backups', ignore_result=True)
     def reap_stalled_system_backups_task():
         from .backup import reap_stalled_system_backups
@@ -181,3 +199,4 @@ else:  # pragma: no cover - celery not installed
     run_scheduled_system_backup_task = None
     dlux_update_check_task = None
     reap_stalled_system_backups_task = None
+    ocr_file = None

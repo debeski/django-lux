@@ -57,6 +57,9 @@ class DluxConfig(AppConfig):
         # Dismissible-dialog registry (Options → reset dialog prompts).
         from dlux.dialogs import register_builtin_dialogs
         register_builtin_dialogs()
+        # OCR text for registered document files: save listener + search hook.
+        from dlux.ocr.service import connect as connect_ocr
+        connect_ocr()
         try:
             import dlux.updater.celery_control
         except ImportError:

@@ -24,6 +24,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
 
 from .system.constants import SETUP_STEPS
+from .utils.arabic import model_text_q
 
 logger = logging.getLogger('dlux')
 
@@ -437,6 +438,10 @@ def search_data(user, query, lang_code=None, limit=DATA_TOTAL_LIMIT):
             condition |= Q(**{f'{field_name}__icontains': q})
         if q.isdigit():
             condition |= Q(pk=int(q))
+        try:
+            condition |= model_text_q(model, q)
+        except Exception:
+            logger.debug('Registered text search skipped for %s', model._meta.label, exc_info=True)
         if not condition:
             continue
         try:

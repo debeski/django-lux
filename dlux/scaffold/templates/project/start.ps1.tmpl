@@ -1,4 +1,4 @@
-# composer-wrapper: 3
+# composer-wrapper: 4
 Set-StrictMode -Version Latest
 
 # The wrapper resolves its own image before any composer code can run, so the
@@ -87,7 +87,7 @@ foreach ($candidate in @(".env", "secrets/.env", ".secrets/.env")) {
 # unnamed image while the command appears to hang.
 docker image inspect $composerSelfImage 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Composer image not installed locally — fetching $composerSelfImage..."
+  Write-Host "Composer image not installed locally - fetching $composerSelfImage..."
   docker pull $composerSelfImage
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   Write-Host ""

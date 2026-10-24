@@ -7,7 +7,9 @@ register = template.Library()
 def dlux_document_viewer(context, document, field_name='pdf_file'):
     """The PDF viewer of a registered document file, with edit/history/download wired to DjangoLux routes."""
     from dlux.files.views import document_file_context
+    from dlux.ocr.views import viewer_context
 
     values = dict(context.flatten())
     values.update(document_file_context(context['request'], document, field_name))
+    values.update(viewer_context(document, field_name))
     return values

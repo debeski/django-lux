@@ -245,7 +245,7 @@ class ScaffoldTests(unittest.TestCase):
             # Composer <=1.5.3 heals any executor body lacking this substring by
             # inserting a second cap_add key; the template's comment satisfies it.
             self.assertIn("DAC_READ_SEARCH", executor_block)
-            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
+            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
             self.assertNotIn("db-backup:", compose_contents)
@@ -367,7 +367,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 3
+        expected = 4
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):

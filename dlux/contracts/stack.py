@@ -68,13 +68,16 @@ def diff_attachments(contract, attachments):
     matches). Kept dependency-free and pure so both the scaffold tests and an
     external consumer (Composer) can share the exact comparison. Only the
     contract's own services are checked; extra services a deployment adds are not
-    flagged (a project may run its own sidecars).
+    flagged (a project may run its own sidecars), and an ``optional`` service
+    (``ocr``) is checked only when the deployment has it.
     """
     drift = []
     expected = _service_networks(contract)
+    optional = {name for name, spec in contract["services"].items() if spec.get("optional")}
     for service, want in sorted(expected.items()):
         if service not in attachments:
-            drift.append(f"missing service '{service}'")
+            if service not in optional:
+                drift.append(f"missing service '{service}'")
             continue
         have = attachments[service]
         if have != want:

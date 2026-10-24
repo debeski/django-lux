@@ -43,6 +43,14 @@ In the repo: **Settings → Environments → New environment → name it `pypi`*
 pauses for your approval before the PyPI upload.) The name must match the
 `environment: pypi` in `release.yml` and the trusted-publisher form above.
 
+### 3. Docker Hub secrets (OCR image)
+
+The `publish-ocr-image` job pushes `debeski/dlux-ocr` (built from `docker/ocr/`).
+Add repository secrets **`DOCKERHUB_USERNAME`** (`debeski`) and **`DOCKERHUB_TOKEN`**
+(a Docker Hub access token with read/write on `debeski/dlux-ocr`; the repository is
+created by the first push when the token may create repositories). PyPI publishing
+waits for this job, so a failed image push stops the release before anything ships.
+
 ---
 
 ## Cutting a release (the ~30-second ritual)

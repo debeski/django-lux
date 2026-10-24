@@ -41,6 +41,15 @@
                 <i class="bi bi-file-earmark-pdf"></i>
             </a>
             {% endif %}
+            {% if text_url %}
+            <a class="btn btn-outline-secondary btn-sm"
+               href="{{ text_url }}"
+               data-dynamic-modal="{{ text_url }}"
+               data-modal-title="{{ DLUX_STRINGS.ocr_title|default:'Extracted text (OCR)' }}"
+               title="{{ DLUX_STRINGS.ocr_title|default:'Extracted text (OCR)' }}">
+                <i class="bi bi-file-earmark-text"></i>
+            </a>
+            {% endif %}
             {% if pdf_features.history_enabled %}
             <a class="btn btn-outline-secondary btn-sm"
                href="{{ history_url }}"

@@ -294,6 +294,38 @@ services:
     networks:
       - internal
 
+  # OCR engine (Indra OCR) for dlux.ocr, behind an internal HTTP API. Switched on
+  # and configured in System Settings > Extra Features; started and stopped from
+  # the Operations panel. Models load on the first request, so it idles small
+  # while OCR is off. No published ports and no internet: its models are baked
+  # into the image. The app keeps working when it is stopped or missing.
+  ocr:
+    image: ${OCR_IMAGE:-debeski/dlux-ocr:latest}
+    restart: always
+    labels:
+      org.dlux.restart: "safe"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Container limits only; mode, threads, size and time come from Options with each request.
+    environment:
+      OCR_WORKERS: "${OCR_WORKERS:-1}"
+      OCR_MAX_THREADS: "${OCR_MAX_THREADS:-4}"
+      OCR_MAX_BYTES: "${OCR_MAX_BYTES:-536870912}"
+    mem_limit: "${OCR_MEMORY_LIMIT:-3g}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - internal
+
   # DjangoLux Composer agent start
   # Read-only Docker gateway (POST=0, EXEC=0): the agent reads container/image
   # state through it but can never mutate. Writes go through composer-executor.
@@ -362,7 +394,7 @@ services:
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
       COMPOSER_WATCH_SELF_SERVICE: "composer-executor"
       COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
-      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"
     volumes:
       - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw
@@ -415,7 +447,7 @@ services:
       COMPOSER_WATCH_SELF_SERVICE: "composer-agent"
       COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
       COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
-      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"
     volumes:
       - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw

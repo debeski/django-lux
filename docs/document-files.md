@@ -23,6 +23,7 @@ register_document_file(
     pdf_metadata=decree_pdf_metadata,   # optional: document -> {'/Title': ..., ...}
     can_access=reviewer_access,         # optional: (request, document, action) -> True / False / None
     queryset=archive_queryset,          # optional: (request, model) -> QuerySet to look documents up in
+    ocr=True,                           # optional: False keeps this field out of OCR text (docs/ocr.md)
 )
 ```
 
@@ -32,6 +33,7 @@ register_document_file(
 | `file_name` | the field's `upload_to` applied to `<model>_<pk>.pdf`; a name containing `/` is used as is. The storage never overwrites; a taken name gets a suffix. |
 | `pdf_metadata` | `{'/Title': str(document), '/Subject': <verbose name>}`; existing info keys are kept unless replaced. |
 | `can_access` | `None` for every action, i.e. the standard check below. `True` grants, `False` refuses. Actions: `view`, `download`, `history`, `edit`. |
+| `ocr` | `True`: the field's text is read when OCR is enabled in Extra Features, and the viewer offers **Extracted text (OCR)**. `False` opts the field out. See [OCR text](ocr.md). |
 | `queryset` | the dynamic modal's scope- and access-filtered set (`_scope_filtered_modal_queryset`). A project whose central users see `scope IS NULL` rows supplies its own. |
 
 The standard check is `view_<model>` for `view`/`download`/`history` and `change_<model>` for `edit`, on a document found in the lookup set (scope applied, soft-deleted rows hidden). Backend checks match what the UI offers (DSRP-1).

@@ -7,6 +7,17 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **OCR Text For Document Files**: New `dlux.ocr` reads every `register_document_file()` field (opt out with `ocr=False`) through the stack's `ocr` service. `dlux.FileText` (additive migration `0029_file_text`) stores one row per document/field/file SHA-256 with text, markdown, per-page boxes/confidence, engine/model versions and timings; unchanged files are never read twice. Automatic reads run on commit after saves that change the file; Celery task `dlux.tasks.ocr_file` uses Redis priorities 6 (automatic), 0 (Run OCR) and 9 (backfill) and retries an unavailable service for about two hours.
+- **OCR Settings In Extra Features**: System Settings > Extra Features adds OCR text extraction (`extra_config['ocr']`): enable, automatic reads, search inclusion, reading mode, service address, per-file time and size limits and CPU threads, with live service status and a link to the Operations panel for Start/Stop. `OCR_*` environment strings only fill options never saved; settings import/export carries them.
+- **Viewer Text Panel**: The document viewer's toolbar opens **Extracted text (OCR)** (`dlux_document_file_text`, GET view access / POST edit access through `resolve_document`) with escaped text and markdown, engine, pages, duration, confidence and a self-refreshing **Run OCR**. CSP-safe static `dlux/ocr/{js,css}/main.*`, loaded with the PDF assets; English and Arabic strings.
+- **OCR Search**: `arabic_search_q(term, fields, model=...)` also matches current OCR text; global search's data provider includes OCR matches for registered models. Calls without `model` are unchanged.
+- **OCR Bookkeeping Stays Out Of Logs And Search**: `dlux.filetext` joins the never-logged models, so machine-read rows write no activity log and global search lists the document, not its text row. The service exits cleanly on SIGTERM, so Stop from the Operations panel is immediate.
+- **OCR Commands**: `dlux_ocr_backfill` (batched, resumable checkpoint, `--enqueue`, `--retry-failed`, `--dry-run`) and `dlux_adopt_ocr_text` (dry-run-first, idempotent copy of a project's own OCR rows, e.g. Archive's `documents.DocumentOCR`).
+- **OCR Service In The Stack**: `docker/ocr/` builds `debeski/dlux-ocr` (Indra OCR 1.1.2, models v1.1.0 baked in, lazy model loading, per-request threads). The stack contract adds `ocr` as an optional `internal`-only, restart-safe lifecycle service (no schema bump; drift skips it when absent); the scaffold compose runs it and allow-lists it for Composer. The release workflow publishes the image before PyPI (`DOCKERHUB_*` secrets).
+- **ASCII Windows Launcher**: The scaffold's `start.ps1` (wrapper version 4, mirroring Composer 1.9) replaces an em dash that Windows PowerShell 5.1 misread as a string terminator; `start.sh` moves to version 4 with no other change.
+
 ## v1.14.0b3
 
 - **Paired Beta Contract**: Require Composer `>=1.8.0b1` for the new service controls; retain the additive `0028_tables_config` migration, `>=1.13.0` migration baseline and rollback-compatible inline installation.

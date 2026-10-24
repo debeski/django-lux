@@ -58,6 +58,15 @@
       "publishes_ports": true,
       "restart": "safe"
     },
+    "ocr": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "safe",
+      "optional": true,
+      "image_env": "OCR_IMAGE",
+      "image": "debeski/dlux-ocr"
+    },
     "docker-socket-proxy": {
       "networks": [
         "docker_proxy"
@@ -89,6 +98,7 @@
     "internal_only_services": [
       "celery",
       "db",
+      "ocr",
       "redis",
       "web"
     ],
@@ -122,7 +132,8 @@
         "web",
         "celery",
         "smtp-relay",
-        "caddy"
+        "caddy",
+        "ocr"
       ],
       "protected": [
         "db",
@@ -130,6 +141,10 @@
         "docker-socket-proxy",
         "composer-executor",
         "composer-agent"
+      ],
+      "lifecycle": [
+        "smtp-relay",
+        "ocr"
       ]
     },
     "retired_command_modules": {
@@ -158,7 +173,10 @@
       },
       "runner": "compose",
       "note": "Compose runs the reconcile and migrator steps as init containers before celery starts; each must exit 0. They are declared on celery, not web, because a pre_start step inherits its service's mounts and dlux_reconcile writes the runtime pointer, which is read-only on web. A step also inherits the entrypoint, so DLUX_BOOT_GATE=off keeps it from waiting on the migrations it applies. The entrypoint gate remains the net for paths Compose skips pre_start on: a container restarting under its restart policy, i.e. a host reboot."
-    }
+    },
+    "optional_services": [
+      "ocr"
+    ]
   },
   "removed_services": {
     "db-backup": {

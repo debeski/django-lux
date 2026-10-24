@@ -26,6 +26,8 @@ class DocumentFileSpec:
     #: ``queryset(request, model) -> QuerySet`` the document is looked up in;
     #: defaults to the dynamic modal's scope- and access-filtered set.
     queryset: Optional[Callable] = None
+    #: Read the file's text with OCR when OCR is enabled in Options (``False`` opts out).
+    ocr: bool = True
 
     @property
     def key(self):
