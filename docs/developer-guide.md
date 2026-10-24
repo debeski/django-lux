@@ -398,6 +398,12 @@ Use dynamic modals when:
 
 In both cases, the discovery system is the same. What changes is the entry point and the surrounding UI.
 
+Section Manager always renders one `keyword` search field for the selected
+model, without Advanced filters. It searches concrete text fields and, for a
+numeric query, numeric fields. Discovered project FilterSets still supply their
+unbound base queryset restrictions, but their fields and submitted filter values
+do not control this surface. Standalone project lists keep their own filters.
+
 ### The stacked manager modal
 
 `DynamicModalManagerView.as_view(model=Warehouse, manager=True)` turns one route

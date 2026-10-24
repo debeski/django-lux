@@ -55,6 +55,7 @@ See [Operations](operations.md), [Data & Privacy](data-privacy.md), and [Managed
 - `dlux_settings(globals())`, root `dlux.urls`, configuration normalization, and project-owned `extra_config['app']` namespaces.
 - `ScopedModel`, audit fields, soft-delete, actor/scope injection, discovery, and generated app scaffolds.
 - `DluxTable`, filter helpers, sections, dynamic modals, context-menu actions, fetch/export helpers, tutorials, and activity APIs.
+- Section Manager provides one general keyword search for its selected model, preserving project queryset restrictions without importing project-specific filter controls.
 - Dlux-owned inputs, choice selectors, toggles, loading buttons, the **Dlux icon picker** (`dlux/helpers/icon_picker.html`, initialized by `initIconPickers()`), and the adapter-driven **Dlux inspector shell** (`window.DluxInspectorShell.create(...)`).
 - Translation dictionaries, database-backed override entries, language catalogs, and RTL-aware template behavior.
 - `dlux_translations` audit command: missing, undefined, permission-label, duplicate and untranslated keys, with paste-ready stubs and a CI `--fail` mode.
