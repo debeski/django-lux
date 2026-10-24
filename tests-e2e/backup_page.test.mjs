@@ -41,6 +41,61 @@ async function backupPage(dir = 'ltr') {
 }
 
 describe('backup page layout', { concurrency: 1 }, () => {
+  test('manual parent selection refreshes and continues the chosen chain', async () => {
+    const { ctx, page } = await backupPage();
+    try {
+      const url = await page.locator('#sysbackup-create-form').getAttribute('data-create-url');
+      const csrf = await page.locator('#sysbackup-create-form [name=csrfmiddlewaretoken]').inputValue();
+      const full = async (scope) => {
+        const response = await page.request.post(`${BASE}${url}`, { form: {
+          csrfmiddlewaretoken: csrf, backup_kind: 'full', backup_encryption: 'none', backup_scope: scope,
+        } });
+        assert.equal(response.status(), 200, await response.text());
+        const result = await response.json();
+        assert.equal(result.status, 'completed', JSON.stringify(result));
+        return result;
+      };
+      const first = await full('data');
+      await full('full');
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.locator('#sysbackup-kind').selectOption('incremental');
+      assert.equal(await page.locator('#sysbackup-parent-field').isVisible(), true);
+      const refresh = page.waitForResponse((response) =>
+        response.url().includes('backup_parent=' + first.token));
+      await page.locator('#sysbackup-parent').selectOption(first.token);
+      assert.equal((await (await refresh).json()).chain.available, true);
+      await page.waitForFunction(() => !document.getElementById('sysbackup-create-btn').disabled);
+      assert.equal(await page.locator('#sysbackup-parent').inputValue(), first.token);
+      const submitted = page.waitForResponse((response) => response.url() === `${BASE}${url}` &&
+        response.request().method() === 'POST');
+      await page.locator('#sysbackup-create-btn').click();
+      const response = await submitted;
+      assert.equal(response.status(), 200, await response.text());
+      assert.equal((await response.json()).status, 'completed');
+      await page.waitForFunction((token) =>
+        document.querySelector('#sysbackup-parent option:checked')?.value === token &&
+        document.getElementById('sysbackup-create-btn').disabled, first.token);
+    } finally { await ctx.close(); }
+  });
+
+  for (const dir of ['ltr', 'rtl']) {
+    for (const width of [1400, 390]) {
+      test(`Details closes above its backdrop at ${width}px in ${dir}`, async () => {
+        const { ctx, page } = await backupPage(dir);
+        try {
+          await page.setViewportSize({ width, height: 900 });
+          await page.evaluate(() => bootstrap.Modal.getOrCreateInstance(
+            document.getElementById('sysbackup-details-modal'),
+          ).show());
+          const close = page.locator('#sysbackup-details-modal .btn-close');
+          await close.click();
+          await page.waitForFunction(() => !document.querySelector('.modal-backdrop'));
+          assert.equal(await page.locator('#sysbackup-details-modal').isVisible(), false);
+        } finally { await ctx.close(); }
+      });
+    }
+  }
+
   test('the Back link lives inside an existing grid cell', async () => {
     // The regression, stated exactly. Checking the link's own parent is not
     // enough — wrapping it in a div moves it one level down while still adding

@@ -1,0 +1,7 @@
+<option value="">{{ DLUX_STRINGS.sysbackup_parent_auto }}</option>
+{% if parent_unavailable %}<option value="{{ selected_parent }}" selected>{{ DLUX_STRINGS.sysbackup_parent_unavailable }}</option>{% endif %}
+{% for parent in chain_parents %}
+<option value="{{ parent.token }}"{% if parent.token == selected_parent %} selected{% endif %}>
+    {{ parent.created_at|date:'Y-m-d H:i' }} · #{{ parent.sequence }} · {% if parent.media_included %}{{ DLUX_STRINGS.sysbackup_scope_full }}{% else %}{{ DLUX_STRINGS.sysbackup_scope_data }}{% endif %}{% if not parent.system_data_included %} · {{ DLUX_STRINGS.sysbackup_portable_badge }}{% endif %}
+</option>
+{% endfor %}

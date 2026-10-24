@@ -115,7 +115,38 @@ def chain_policy():
     }
 
 
-def open_chain_head(*, media_included=None, system_data_included=None, encryption=None, now=None):
+def _chain_head_reason(head, base, policy, now, digest):
+    if base is None:
+        return "base_missing"
+    if base.completed_at and base.completed_at < now - timedelta(days=policy["full_every_days"]):
+        return "base_too_old"
+    if head.sequence >= policy["max_chain_length"]:
+        return "chain_full"
+    if head.migration_digest != digest:
+        return "schema_changed"
+    if not head.index_path or not default_storage.exists(head.index_path):
+        return "index_missing"
+    return ""
+
+
+def eligible_chain_heads():
+    """Recent-first, policy-valid parents, one current member per linear chain."""
+    from django.db.models import Exists, OuterRef
+
+    Backup = apps.get_model("dlux", "SystemBackup")
+    later = Backup.objects.filter(
+        chain_id=OuterRef('chain_id'), status=Backup.STATUS_COMPLETED, sequence__gt=OuterRef('sequence'),
+    )
+    heads = list(Backup.objects.filter(status=Backup.STATUS_COMPLETED).exclude(index_root='')
+                 .annotate(has_later=Exists(later)).filter(has_later=False).order_by('-completed_at', '-pk'))
+    bases = {row.token: row for row in Backup.objects.filter(
+        token__in={head.chain_id for head in heads}, status=Backup.STATUS_COMPLETED,
+    )}
+    policy, now, digest = chain_policy(), timezone.now(), migration_digest()
+    return [head for head in heads if not _chain_head_reason(head, bases.get(head.chain_id), policy, now, digest)]
+
+
+def open_chain_head(*, media_included=None, system_data_included=None, encryption=None, now=None, parent_token=None):
     """The member a new incremental would continue, or ``(None, reason)``.
 
     A chain is closed — the next backup must be full — when its base is gone or
@@ -134,22 +165,21 @@ def open_chain_head(*, media_included=None, system_data_included=None, encryptio
         heads = heads.filter(system_data_included=system_data_included)
     if encryption is not None:
         heads = heads.filter(encryption=encryption)
+    if parent_token is not None:
+        heads = heads.filter(token=parent_token)
     head = heads.order_by("-completed_at", "-pk").first()
     if head is None:
         return None, "no_base"
+    if parent_token is not None and SystemBackup.objects.filter(
+        chain_id=head.chain_id, status=SystemBackup.STATUS_COMPLETED, sequence__gt=head.sequence,
+    ).exists():
+        return None, "not_chain_head"
     base = SystemBackup.objects.filter(
         token=head.chain_id, status=SystemBackup.STATUS_COMPLETED,
     ).first()
-    if base is None:
-        return None, "base_missing"
-    if base.completed_at and base.completed_at < now - timedelta(days=policy["full_every_days"]):
-        return None, "base_too_old"
-    if head.sequence >= policy["max_chain_length"]:
-        return None, "chain_full"
-    if head.migration_digest != migration_digest():
-        return None, "schema_changed"
-    if not head.index_path or not default_storage.exists(head.index_path):
-        return None, "index_missing"
+    reason = _chain_head_reason(head, base, policy, now, migration_digest())
+    if reason:
+        return None, reason
     return head, ""
 
 

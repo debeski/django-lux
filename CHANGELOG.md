@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Backup Parent Selection**: Add translated manual incremental parent choices among eligible chain heads, preserve Automatic selection and inherited scope/encryption, and revalidate under the shared creation lock to reject stale parents and forks.
+- **Clickable Backup Details**: Render the Details modal in the body-level `page_modals` template block, above Bootstrap's backdrop while preserving backup-page layout containment.
+
 - **Operations Service Start/Stop**: Add password-confirmed, audited `service-start`/`service-stop` requests and state-aware English/Arabic controls. Composer 1.8.0b1+ independently checks allowlists, labels and current container state; Web/Celery, proxies and data/control services remain protected.
 
 - **Validated Table Pagination**: Prevent django-tables2 from overriding validated page sizes through URL parameters; preserve fixed sizes, saved preferences, prefixes and custom query-field names without mutating shared requests.

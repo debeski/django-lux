@@ -31,7 +31,7 @@ from dlux.backup import (
     run_system_backup,
     run_system_restore,
 )
-from dlux.backup.chain import index_root, read_index_sidecar
+from dlux.backup.chain import eligible_chain_heads, index_root, read_index_sidecar
 from dlux.system.defaults import default_backup_config
 from dlux.system.normalizers import normalize_backup_config
 
@@ -285,6 +285,21 @@ class OlderReleaseCompatibilityTests(ChainTestCase):
 
 
 class ChainPolicyTests(ChainTestCase):
+    def test_explicit_parent_selects_another_chain_without_forking(self):
+        first = self._full(media_included=False)
+        increment = self._increment()
+        newest = self._full()
+        self.assertEqual(open_chain_head()[0], newest)
+        self.assertEqual(eligible_chain_heads(), [newest, increment])
+        self.assertEqual(open_chain_head(parent_token=increment.token), (increment, ''))
+        self.assertEqual(open_chain_head(parent_token=first.token), (None, 'not_chain_head'))
+        self.assertEqual(open_chain_head(parent_token='missing'), (None, 'no_base'))
+        with mock.patch('dlux.backup.chain.migration_digest', return_value='changed'):
+            self.assertEqual(eligible_chain_heads(), [])
+            self.assertEqual(open_chain_head(parent_token=increment.token), (None, 'schema_changed'))
+        with mock.patch('dlux.backup.chain.default_storage.exists', return_value=False):
+            self.assertEqual(eligible_chain_heads(), [])
+
     def test_no_chain_without_an_indexed_full_backup(self):
         self.assertEqual(open_chain_head(), (None, 'no_base'))
 
@@ -334,6 +349,43 @@ class ChainViewTests(ChainTestCase):
     def test_incremental_needs_a_chain(self):
         response = self.client.post(reverse('system_backup_create'), {'backup_kind': 'incremental'})
         self.assertEqual(response.status_code, 400)
+
+    def test_chosen_parent_inherits_scope_and_cannot_reuse_a_stale_member(self):
+        selected = self._full(media_included=False, system_data_included=False, encryption='none')
+        newest = self._full()
+        status = self.client.get(reverse('system_backup_list_status'), {'backup_parent': selected.token}).json()['chain']
+        self.assertEqual((status['available'], status['parent_token']), (True, selected.token))
+        self.assertIn(f'value="{selected.token}" selected', status['parents_html'])
+        with mock.patch('dlux.views.backup.dispatch_system_backup', return_value=True):
+            response = self.client.post(reverse('system_backup_create'), {
+                'backup_kind': 'incremental', 'backup_parent': selected.token,
+                'backup_encryption': 'server_key', 'backup_scope': 'full',
+            })
+        self.assertEqual(response.status_code, 200, response.content)
+        row = self.SystemBackup.objects.get(token=response.json()['token'])
+        self.assertEqual(row.parent_id, selected.pk)
+        self.assertEqual((row.media_included, row.system_data_included, row.encryption), (False, False, 'none'))
+        run_system_backup(row.pk)
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.chain_id, row.sequence), ('completed', selected.chain_id, 1))
+        response = self.client.post(reverse('system_backup_create'), {
+            'backup_kind': 'incremental', 'backup_parent': selected.token,
+        })
+        self.assertEqual(response.status_code, 400)
+        status = self.client.get(reverse('system_backup_list_status'), {'backup_parent': selected.token}).json()['chain']
+        self.assertFalse(status['available'])
+        self.assertEqual(self.SystemBackup.objects.filter(parent=newest).count(), 0)
+
+    def test_selected_parent_is_revalidated_under_creation_lock(self):
+        selected = self._full()
+        with mock.patch('dlux.views.backup.open_chain_head', side_effect=[(selected, ''), (None, 'not_chain_head')]), \
+                mock.patch('dlux.views.backup.dispatch_system_backup') as dispatch:
+            response = self.client.post(reverse('system_backup_create'), {
+                'backup_kind': 'incremental', 'backup_parent': selected.token,
+            })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.SystemBackup.objects.count(), 1)
+        dispatch.assert_not_called()
 
     def test_incremental_create_inherits_the_chain(self):
         base = self._full(media_included=False, encryption='none')
