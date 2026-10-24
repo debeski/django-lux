@@ -9,8 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Operations Service Start/Stop**: Add password-confirmed, audited `service-start`/`service-stop` requests and state-aware English/Arabic controls. Composer 1.8.0b1+ independently checks allowlists, labels and current container state; Web/Celery, proxies and data/control services remain protected.
+
 - **Validated Table Pagination**: Prevent django-tables2 from overriding validated page sizes through URL parameters; preserve fixed sizes, saved preferences, prefixes and custom query-field names without mutating shared requests.
-- **Stable Browser Step Selectors**: Follow the named Extra Features step and actual final setup step instead of hard-coded indices after adding Tables.
+- **Stable Browser Step Selectors**: Follow the named Extra Features step and actual final setup step instead of hard-coded indices after adding Tables; wait for the preview iframe document during language reloads.
 
 ## v1.14.0b2
 

@@ -70,6 +70,7 @@ See [Developer Guide](developer-guide.md), [Project Configuration](project-confi
 - Stable and beta release channels: stable is the default and excludes every prerelease, beta is an explicit per-deployment opt-in, and opting out never downgrades an installed release.
 - The maintenance page ships in the Composer image and is published on the runtime volume (stack schema 3); a project keeps its own page in `.proxy/maintenance/`.
 - An Operations panel (Options admin rail) runs the deployment check and its repairs, restarts or recreates allow-listed services, and shows recent logs of one service or all of them merged — each a named, audited Composer operation; the write ones confirm with the current password.
+- Unreleased 1.14: password-confirmed Start/Stop for approved auxiliary services with Composer 1.8.0b1+. Web/Celery, proxies and data/control services remain protected; stopped existing containers can be started without recreation. Older Composer versions disable these controls.
 
 See [Getting Started](getting-started.md), [Composer Agent Integration](composer-agent.md), [Verified Inline Updates](inline-updater.md), and [Deployment Doctor](doctor.md).
 

@@ -94,6 +94,22 @@ OPERATIONS = {
         "params": ("service",),
         "label": "Restart service",
     },
+    "service-start": {
+        "min_composer": "1.8.0b1",
+        "changes_deployment": True,
+        "needs_preview": False,
+        "panel": True,
+        "params": ("service",),
+        "label": "Start service",
+    },
+    "service-stop": {
+        "min_composer": "1.8.0b1",
+        "changes_deployment": True,
+        "needs_preview": False,
+        "panel": True,
+        "params": ("service",),
+        "label": "Stop service",
+    },
     "service-recreate": {
         # Recreating runs the service's pre_start hooks, which is what applies
         # migrations on celery; only allow-listed services, as for a restart.
@@ -125,6 +141,8 @@ OPERATION_LABEL_KEYS = {
     "check-fix-apply": "dlux_ops_apply",
     "services": "dlux_ops_op_services",
     "service-restart": "dlux_ops_op_restart",
+    "service-start": "dlux_ops_op_start",
+    "service-stop": "dlux_ops_op_stop",
     "service-recreate": "dlux_ops_op_recreate",
     "logs-tail": "dlux_ops_op_logs",
 }

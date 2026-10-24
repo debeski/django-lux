@@ -23,22 +23,26 @@ const PY = path.join(ROOT, '.venv', 'bin', 'python');
 const PORT = 8743;
 const BASE = `http://localhost:${PORT}`;
 
-const PANEL = execFileSync(PY, ['-c', `
-import django; django.setup()
+const PANELS = JSON.parse(execFileSync(PY, ['-c', `
+import django, json; django.setup()
 from types import SimpleNamespace
 from django.template.loader import render_to_string
-print(render_to_string('dlux/system/operations_panel.html',
-      {'updates_enabled': True, 'request': SimpleNamespace(csp_nonce='n')}))
-`], { cwd: ROOT, env: { ...process.env, DJANGO_SETTINGS_MODULE: 'dlux.tests.settings', PYTHONPATH: ROOT } }).toString();
+from dlux.translations import get_strings
+print(json.dumps({lang: render_to_string('dlux/system/operations_panel.html',
+      {'updates_enabled': True, 'request': SimpleNamespace(csp_nonce='n'), 'DLUX_STRINGS': get_strings(lang)}) for lang in ('en', 'ar')}))
+`], { cwd: ROOT, env: { ...process.env, DJANGO_SETTINGS_MODULE: 'dlux.tests.settings', PYTHONPATH: ROOT } }).toString());
 
-const PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="csrf-token" content="tok"></head>
-<body>${PANEL}</body></html>`;
+const PAGE = (lang) => `<!doctype html><html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="csrf-token" content="tok">
+<link rel="stylesheet" href="/static/bootstrap/bootstrap${lang === 'ar' ? '.rtl' : ''}.min.css"></head>
+<body>${PANELS[lang]}</body></html>`;
 
 const OPERATIONS = [
   ['check', 'Run deployment check', false],
   ['check-fix-apply', 'Apply repairs', true],
   ['services', 'List services', false],
   ['service-restart', 'Restart service', true],
+  ['service-start', 'Start service', true],
+  ['service-stop', 'Stop service', true],
   ['service-recreate', 'Recreate service', true],
   ['logs-tail', 'Show logs', false],
 ].map(([name, label, changes]) => ({
@@ -70,7 +74,7 @@ const actions = () => page.evaluate(() => window.__posted.filter((body) => body.
 const waitForAction = () => page.waitForFunction(
   () => window.__posted.some((body) => body.operation !== 'services'));
 
-async function load(state) {
+async function load(state, language = 'en') {
   await page.addInitScript((payload) => {
     window.__posted = [];
     window.__confirms = [];
@@ -95,15 +99,15 @@ async function load(state) {
       return respond({ ok: true, ...window.__state });
     };
   }, { operations: OPERATIONS, run: null, check: null, services: null, logs: null, has_preview: false, ...state });
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.goto(BASE + '/?lang=' + language, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel]')?.dataset.bound === 'true');
 }
 
 before(async () => {
   server = http.createServer((req, res) => {
-    if (req.url === '/') {
+    if (req.url === '/' || req.url.startsWith('/?lang=')) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(PAGE);
+      res.end(PAGE(new URL(req.url, BASE).searchParams.get('lang') === 'ar' ? 'ar' : 'en'));
       return;
     }
     const file = path.join(STATIC, req.url.split('?')[0].replace(/^\/static\//, '/'));
@@ -207,9 +211,9 @@ describe('services in the panel', () => {
     assert.equal(await rows.count(), 3);
     assert.equal(await rows.nth(0).locator('td').first().textContent(), 'web');
     assert.match(await rows.nth(0).locator('td').nth(1).textContent(), /running · healthy/);
-    assert.equal(await rows.nth(0).locator('button').count(), 3, 'restart, recreate, logs');
+    assert.equal(await rows.nth(0).locator('button').count(), 5, 'start, stop, restart, recreate, logs');
     assert.equal(await rows.nth(0).locator('button').first().textContent(), '', 'actions are icons');
-    assert.equal(await rows.nth(0).locator('button').first().getAttribute('title'), 'Restart');
+    assert.equal(await rows.nth(0).locator('button').first().getAttribute('title'), 'Start');
     assert.equal(await rows.nth(1).locator('button').count(), 1, 'a protected service only offers logs');
     assert.match(await rows.nth(1).locator('.dlux-ops-note').textContent(), /Protected/);
     assert.match(await rows.nth(2).textContent(), /not created/);
@@ -222,6 +226,57 @@ describe('services in the panel', () => {
     assert.deepEqual((await actions())[0],
       { operation: 'service-restart', service: 'web', current_password: 'pw-root-1234' });
     assert.match(await page.evaluate(() => window.__confirms[0].description), /web/);
+  });
+
+  test('start and stop follow service state, confirm, submit and refresh the list', async () => {
+    for (const [operation, state, canStart, canStop] of [
+      ['service-start', 'exited', true, false], ['service-stop', 'running', false, true],
+    ]) {
+      await load({ services: { ...SERVICES, services: [
+        { name: 'metrics', state, can_restart: true, can_start: canStart, can_stop: canStop },
+      ] } });
+      const row = page.locator('[data-dlux-ops-panel-services] tr').first();
+      assert.equal(await row.getByRole('button', { name: 'Start', exact: true }).isEnabled(), canStart);
+      assert.equal(await row.getByRole('button', { name: 'Stop', exact: true }).isEnabled(), canStop);
+      await row.getByRole('button', { name: canStart ? 'Start' : 'Stop', exact: true }).click();
+      await waitForAction();
+      assert.deepEqual((await actions())[0], { operation, service: 'metrics', current_password: 'pw-root-1234' });
+      assert.match(await page.evaluate(() => window.__confirms[0].description), /metrics/);
+      await page.evaluate(() => {
+        window.__state.run = { token: 'r2', operation: window.__posted.at(-1).operation, status: 'completed', active: false };
+      });
+      await page.waitForFunction(() => window.__posted.filter(body => body.operation === 'services').length >= 2);
+    }
+  });
+
+  test('control-path and absent services cannot be started or stopped, including on older Composer', async () => {
+    await load({ services: SERVICES });
+    for (const row of await page.locator('[data-dlux-ops-panel-services] tr').all()) {
+      for (const name of ['Start', 'Stop']) {
+        const button = row.getByRole('button', { name, exact: true });
+        if (await button.count()) assert.equal(await button.isEnabled(), false);
+      }
+    }
+    await load({ operations: OPERATIONS.map(op => op.name === 'service-stop' ? { ...op, available: false } : op),
+      services: { ...SERVICES, services: [{ name: 'metrics', state: 'running', can_restart: true, can_stop: true }] } });
+    assert.equal(await page.getByRole('button', { name: 'Stop', exact: true }).isEnabled(), false);
+  });
+
+  test('lifecycle controls stay translated and contained on English/Arabic desktop/mobile', async () => {
+    try {
+      for (const language of ['en', 'ar']) for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await load({ services: { ...SERVICES, services: [
+          { name: 'metrics', state: 'running', can_restart: true, can_start: false, can_stop: true },
+        ] } }, language);
+        const stop = language === 'ar' ? 'إيقاف' : 'Stop';
+        assert.equal(await page.getByRole('button', { name: stop, exact: true }).isEnabled(), true);
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        await page.getByRole('button', { name: stop, exact: true }).click();
+        await waitForAction();
+        assert.equal((await actions())[0].operation, 'service-stop');
+      }
+    } finally { await page.setViewportSize({ width: 1280, height: 720 }); }
   });
 
   test('logs need no password and render as text once the run completes', async () => {

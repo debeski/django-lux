@@ -57,6 +57,8 @@ Hiding and showing a column retains its position. Reverting labels, icons, sorti
 
 ## Remaining release work
 
+The integrated candidate also passes 3,001 Django tests/six skips and eight builder browser tests. The preview suite passes twelve checks after guarding its iframe document during language reloads. The paired Operations Start/Stop work and independent 8096 development acceptance are recorded in [Operations](operations.md); publication and other 1.14 scope remain pending.
+
 Unreleased hardening (2026-10-24): URL page sizes cannot override the validated table size when django-tables2 configures the paginator. Invalid/oversized values fall back to allowed saved/default values; fixed metadata sizes, table prefixes and custom page-size fields remain supported. Shared request objects are unchanged. All three reported 1.14 browser failures reproduced on the b2/stable-1.13.2 integration; they were stale step indices, repaired using the `extras` slug and the actual last setup step. Regression checks: 2,999 Django tests OK/six skips, all four project-setup tests and both affected weather tests pass. The existing mobile weather screenshots were displayed in chat. Evidence: `.xclude/validation/1.14-hardening/`.
 
 The owner authorized pushing the branch and publishing the first 1.14 beta on 2026-10-22. Beta 1.14.0b1 is published on PyPI and GitHub as a prerelease, integrating published 1.13.0b3 with additive migrations, inline installation and verified pointer rollback compatibility. Beta 1.14.0b2 subsequently merged published 1.13.2b1 and stable 1.13.1 and is published on both registries. Other 1.14 updater-card work and the recorded backup Details dialog issue remain before stable promotion.

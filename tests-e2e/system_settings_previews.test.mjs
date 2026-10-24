@@ -194,7 +194,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
       assert.ok(await frame.$('html[data-dlux-preview]'), 'the frame is an inert preview');
 
       await page.selectOption('.dlux-preview-popup [data-preview-language]', 'ar');
-      await page.waitForFunction(() => document.querySelector('.dlux-preview-popup iframe')?.contentDocument?.documentElement.lang === 'ar', null, { timeout: 20000 });
+      await page.waitForFunction(() => document.querySelector('.dlux-preview-popup iframe')?.contentDocument?.documentElement?.lang === 'ar', null, { timeout: 20000 });
       const dir = await page.evaluate(() => document.querySelector('.dlux-preview-popup iframe').contentDocument.documentElement.dir);
       assert.equal(dir, 'rtl');
 
