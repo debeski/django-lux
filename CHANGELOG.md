@@ -18,6 +18,7 @@ This file owns the release history for `django-lux`.
 - **OCR Commands**: `dlux_ocr_backfill` (batched, resumable checkpoint, `--enqueue`, `--retry-failed`, `--dry-run`) and `dlux_adopt_ocr_text` (dry-run-first, idempotent copy of a project's own OCR rows, e.g. Archive's `documents.DocumentOCR`).
 - **OCR Service In The Project Image**: Optional `django-lux[ocr]` installs the pinned engine dependencies; scaffold builds bake models with `python -m dlux.ocr.fetch_models --if-installed`. The internal-only `ocr` service runs `python -m dlux.ocr.serve` from `WEB_IMAGE`, with offline model loading, resource limits and Composer lifecycle controls. No separate image or registry credentials. Adding/changing engine dependencies requires a project image rebuild.
 - **ASCII Windows Launcher**: The scaffold's `start.ps1` (wrapper version 4, mirroring Composer 1.9) replaces an em dash that Windows PowerShell 5.1 misread as a string terminator; `start.sh` moves to version 4 with no other change.
+- **Operations In Development Mode**: Keep the superuser Operations launcher visible and gate its panel on the resident Composer agent instead of `DLUX_INLINE_UPDATES_ENABLED`, so development stacks retain service controls while inline package updates remain disabled.
 
 ## v1.14.0b3
 
