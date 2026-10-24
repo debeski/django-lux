@@ -91,7 +91,7 @@
 
 ### Agent Handoff Rules:
 - 2026-10-24: published1.14.0b3/Composer1.8.0b1 accepted on isolated8096 (owner requested separation); official8088 remains stable1.13.2. Runtime at `main/.xclude/validation/service-controls/testbed/`, env `.secrets/.env`; all feature branches retired with evidence archived. Next: remaining1.14 Updates-card manifests/history on new branches from main, then final acceptance before stable. Never alter tagged0027/0028 or bypass main review.
-- `audit/settings-persistence-audit` (from released 1.12.0 `0b3e4ee`) committed as the 1.12.1b1 candidate (owner asked 2026-10-21 to ship it as 1.12.1 before the table column builder). b1 tagged, published and accepted 2026-10-21; next is stable 1.12.1 (owner OK). `feat/table-column-builder` (`../table-column-builder`) waits on it; it rebases onto 1.12.1.
+- Release records are committed/pushed on `1.14/release_records`; owner main review remains. GitHub connector refuses PR writes (403), and signed-in Chrome is locked. Published code and testbed acceptance are complete; the primary checkout tracker mirrors these pushed facts locally until the reviewed records merge. Preserve that metadata-only local change.
 - Accept every beta on `~/Desktop/depy/testbed-dlux` (README there) before promoting; the decrees `beta-channel-test` checkout is retired.
 - Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
