@@ -43,28 +43,80 @@ def configure_ocr_fields(form, strings):
     )
     form.fields['ocr_enabled'].help_text = strings.get(
         'help_sys_ocr_enabled',
-        "Reads the text of registered document files with the stack's ocr service. Start or stop that service from the Operations panel.",
+        "Reads the text of registered document files with the stack's ocr service. Saving a change here also starts or stops that service (current password required).",
     )
     form.fields['ocr_threads'].help_text = strings.get('help_sys_ocr_threads', 'CPU threads used for each file.')
+    form.fields['ocr_current_password'].label = strings.get('form_sys_ocr_current_password', 'Current password')
+    form.fields['ocr_current_password'].help_text = strings.get(
+        'help_sys_ocr_current_password',
+        'Needed only when you turn OCR on or off: saving then starts or stops the ocr service through Composer.',
+    )
+    form.fields['ocr_current_password'].disabled = not active_step
 
 
-def _service_status(strings):
-    from ..ocr.client import service_health
+def _stored_enabled(form):
+    return normalize_ocr_config((form.instance.extra_config or {}).get(CONFIG_KEY))['enabled']
 
-    health = service_health()
-    if health:
-        text = strings.get('ocr_service_connected', 'Service connected: {engine} {version}').format(
-            engine=health.get('engine', ''), version=health.get('engine_version', ''))
-        css = 'text-success'
+
+def clean_ocr(form, cleaned):
+    """A changed Enable OCR switch needs the current password: saving it starts or stops the ocr service."""
+    from ..translations import get_strings
+    from ..ocr.control import operation_for
+
+    form._ocr_service_operation = ''
+    if form.single_step_mode and form.single_step_index != SETUP_STEP_EXTRAS:
+        return
+    if 'ocr_enabled' not in cleaned or bool(cleaned.get('ocr_enabled')) == _stored_enabled(form):
+        return
+    strings = get_strings()
+    request = getattr(form, 'request', None)
+    user = getattr(request, 'user', None) or getattr(form, '_user', None)
+    password = cleaned.get('ocr_current_password') or ''
+    if not user or not getattr(user, 'is_superuser', False):
+        form.add_error('ocr_enabled', strings.get('permission_denied', 'Permission denied.'))
+    elif not password:
+        form.add_error('ocr_current_password', strings.get('current_password_required', 'Please enter your current password.'))
+    elif not user.check_password(password):
+        form.add_error('ocr_current_password', strings.get('current_password_incorrect', 'Current password is incorrect.'))
+        if request is not None:
+            from ..utils import log_audit_event
+            log_audit_event(request, 'permission_denied', 'PERMISSION_DENIED', instance=user, model_name='password')
     else:
-        text = strings.get('ocr_service_unreachable', 'The OCR service does not answer at the configured address.')
-        css = 'text-warning-emphasis'
-    return f"<p class='small {css} mb-2' role='status'>{escape(text)}</p>"
+        form._ocr_service_operation = operation_for(bool(cleaned.get('ocr_enabled')))
+
+
+def _service_status(strings, enabled):
+    from ..ocr.client import service_health
+    from ..ocr.control import service_status
+
+    lines = []
+    if enabled:
+        health = service_health()
+        if health:
+            text = strings.get('ocr_service_connected', 'Service connected: {engine} {version}').format(
+                engine=health.get('engine', ''), version=health.get('engine_version', ''))
+            lines.append(('text-success', text))
+        else:
+            lines.append(('text-warning-emphasis', strings.get('ocr_service_unreachable', 'The OCR service does not answer at the configured address.')))
+    status = service_status()
+    if status:
+        start = status['operation'] == 'service-start'
+        if status['state'] == 'unavailable':
+            lines.append(('text-warning-emphasis', status['message']))
+        elif status['state'] in ('queued', 'running'):
+            lines.append(('text-body-secondary', strings.get('ocr_service_start_requested', 'Starting the ocr service through Composer.') if start
+                          else strings.get('ocr_service_stop_requested', 'Stopping the ocr service through Composer.')))
+        elif status['state'] == 'completed':
+            lines.append(('text-success', strings.get('ocr_service_started', 'Composer started the ocr service.') if start
+                          else strings.get('ocr_service_stopped', 'Composer stopped the ocr service.')))
+        else:
+            lines.append(('text-danger', strings.get('ocr_service_request_failed', 'Composer could not change the ocr service: {error}').format(error=status['message'])))
+    return ''.join(f"<p class='small {css} mb-2' role='status'>{escape(text)}</p>" for css, text in lines)
 
 
 def ocr_settings_layout(form, strings):
     panel_url = reverse('dlux_operations_panel')
-    status = _service_status(strings) if normalize_ocr_config((form.instance.extra_config or {}).get(CONFIG_KEY))['enabled'] else ''
+    status = _service_status(strings, _stored_enabled(form))
     return Div(
         HTML('<h6 class="fw-bold my-3">' + escape(strings.get('ocr_settings_title', 'OCR text extraction')) + '</h6>'),
         build_settings_toggle_field(form, 'ocr_enabled', css_class='col-12'),
@@ -83,11 +135,12 @@ def ocr_settings_layout(form, strings):
                 Div(Field('ocr_threads'), css_class='col-12 col-md-4'),
                 css_class='g-3 mb-3',
             ),
+            Field('ocr_current_password'),
             HTML(
                 "<div class='mt-2'>"
                 f"<button type='button' class='btn btn-outline-primary rounded-pill px-4' data-dynamic-modal='{panel_url}'"
                 f" data-modal-title=\"{escape(strings.get('dlux_ops_panel_title', 'Operations'))}\">"
-                f"<i class='bi bi-hdd-stack me-1'></i> {escape(strings.get('ocr_manage_service', 'Start or stop the OCR service'))}</button>"
+                f"<i class='bi bi-hdd-stack me-1'></i> {escape(strings.get('ocr_manage_service', 'Open the Operations panel'))}</button>"
                 f"<div class='form-text'>{escape(strings.get('ocr_manage_service_help', 'The ocr service is listed in the Operations panel with the other auxiliary services.'))}</div>"
                 "</div>"
             ),
@@ -112,3 +165,9 @@ def apply_ocr(form, instance):
         config[key] = bool(form.cleaned_data.get('ocr_' + key))
     extra[CONFIG_KEY] = normalize_ocr_config(config)
     instance.extra_config = extra
+    operation = getattr(form, '_ocr_service_operation', '')
+    request = getattr(form, 'request', None)
+    if operation and request is not None:
+        # Sent by dlux.ocr.control.settings_saved only when this row is really
+        # written: Preview builds the same instance and never saves it.
+        instance._dlux_ocr_service_request = (request, operation)

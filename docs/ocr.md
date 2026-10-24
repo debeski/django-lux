@@ -21,7 +21,7 @@ The engine runs in the stack's `ocr` service (image `debeski/dlux-ocr`, source `
 
 Saved values win; an environment string fills an option never saved (or saved invalid); built-in defaults fill the rest. The section shows whether the service answers.
 
-**Starting and stopping the service.** The `ocr` service is listed in the **Operations panel** (Options > admin rail) with Start, Stop, Restart and Recreate, behind the panel's current-password confirmation and audit like every other deployment change (Composer 1.9.0b1+). Enabling OCR does not start the container by itself; the settings section links to the panel.
+**Starting and stopping the service.** Saving a *change* of Enable OCR asks for the current password (the same check as the Operations panel; superusers only, POST through the settings save) and then queues `service-start` (on) or `service-stop` (off) for the `ocr` service through Composer, audited as `DLUX_OPS_RUN` exactly like a panel action. The section shows the request's progress and result. When Composer is too old, unreachable or busy with another operation, the setting is still saved and the section and a notification say why, pointing to the **Operations panel** (Options > admin rail), which also lists `ocr` with Start, Stop, Restart and Recreate. Saves that do not change the switch never touch the service.
 
 **Reading the text.** The document viewer's toolbar has an **Extracted text (OCR)** button next to History. It opens the text and markdown (escaped, `dir="auto"`), the engine, page count, duration and confidence, and — for users who may edit the document — **Run OCR** / **Run OCR again**, queued ahead of automatic and backfill work. The panel refreshes itself while the file is queued or running.
 

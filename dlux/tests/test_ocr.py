@@ -310,6 +310,95 @@ class SettingsFormTests(OCRTestCase):
             form.fields['ocr_service_url'].clean('file:///etc/passwd')
 
 
+class ServiceSwitchTests(OCRTestCase):
+    """Saving a changed Enable OCR switch starts/stops the ocr service, password-confirmed and audited."""
+
+    def setUp(self):
+        super().setUp()
+        configure(enabled=False)
+        self.admin = get_user_model().objects.create_superuser('switch-admin', password='right-pass')
+        from django.contrib.sessions.backends.cache import SessionStore
+        from django.test import RequestFactory
+
+        self.request = RequestFactory().post('/sys/settings/')
+        self.request.user = self.admin
+        self.request.session = SessionStore()
+
+    def form(self, enabled, password=''):
+        from dlux.forms.ocr import clean_ocr
+
+        errors = {}
+        form = type('Form', (), {'single_step_mode': False, 'single_step_index': 0, 'instance': SystemSettings.load(),
+                                 'request': self.request, '_user': self.admin,
+                                 'add_error': lambda self_, field, message: errors.setdefault(field, message)})()
+        clean_ocr(form, {'ocr_enabled': enabled, 'ocr_current_password': password})
+        return form, errors
+
+    def test_a_changed_switch_needs_the_current_password(self):
+        form, errors = self.form(True)
+        self.assertIn('ocr_current_password', errors)
+        self.assertEqual(form._ocr_service_operation, '')
+        with patch('dlux.utils.log_audit_event') as audit:
+            form, errors = self.form(True, 'wrong')
+        self.assertIn('ocr_current_password', errors)
+        audit.assert_called_once()
+        form, errors = self.form(True, 'right-pass')
+        self.assertEqual((errors, form._ocr_service_operation), ({}, 'service-start'))
+        configure(enabled=True)
+        self.assertEqual(self.form(False, 'right-pass')[0]._ocr_service_operation, 'service-stop')
+
+    def test_an_unchanged_switch_or_non_superuser_never_reaches_composer(self):
+        form, errors = self.form(False)
+        self.assertEqual((errors, form._ocr_service_operation), ({}, ''))
+        self.request.user = self.admin = get_user_model().objects.create_user('plain', password='right-pass')
+        form, errors = self.form(True, 'right-pass')
+        self.assertIn('ocr_enabled', errors)
+        self.assertEqual(form._ocr_service_operation, '')
+
+    def test_saving_queues_the_audited_operation_after_commit(self):
+        from dlux.forms.ocr import apply_ocr
+
+        form, _ = self.form(True, 'right-pass')
+        form.cleaned_data = {'ocr_enabled': True}
+        run = type('Run', (), {'operation': 'service-start', 'token': 't1', 'params': {'service': 'ocr'}})()
+        with patch('dlux.updater.service.queue_ops_run', return_value=run) as queue, \
+                patch('dlux.utils.log_audit_event') as audit, self.captureOnCommitCallbacks(execute=True):
+            apply_ocr(form, form.instance)
+            queue.assert_not_called()
+            form.instance.save()
+            form.instance.save()
+        queue.assert_called_once_with('service-start', username='switch-admin', params={'service': 'ocr'})
+        self.assertEqual(audit.call_args.args[1:3], ('dlux_ops_run', 'DLUX_OPS_RUN'))
+        self.assertTrue(form.instance.extra_config['ocr']['enabled'])
+
+    def test_unreachable_composer_still_saves_and_reports_operations(self):
+        from dlux.forms.ocr import apply_ocr
+        from dlux.ocr.control import service_status
+        from dlux.updater import UpdaterError
+
+        form, _ = self.form(True, 'right-pass')
+        form.cleaned_data = {'ocr_enabled': True}
+        with patch('dlux.updater.service.queue_ops_run', side_effect=UpdaterError('Composer 1.8.0b1 or later is required.')), \
+                self.captureOnCommitCallbacks(execute=True):
+            apply_ocr(form, form.instance)
+            form.instance.save()
+        self.assertTrue(form.instance.extra_config['ocr']['enabled'])
+        status = service_status()
+        self.assertEqual(status['state'], 'unavailable')
+        self.assertIn('Composer 1.8.0b1 or later is required.', status['message'])
+        self.assertIn('Operations panel', status['message'])
+
+    def test_status_follows_the_latest_ops_run(self):
+        from dlux.models import DluxOpsRun
+        from dlux.ocr.control import service_status
+
+        self.assertIsNone(service_status())
+        DluxOpsRun.objects.create(operation='service-stop', params={'service': 'ocr'}, status='completed', is_active=False)
+        DluxOpsRun.objects.create(operation='service-stop', params={'service': 'smtp-relay'}, status='failed', is_active=False)
+        self.assertEqual(service_status()['state'], 'completed')
+        self.assertEqual(service_status()['operation'], 'service-stop')
+
+
 class CommandTests(OCRTestCase):
     def setUp(self):
         super().setUp()

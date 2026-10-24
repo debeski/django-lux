@@ -534,6 +534,8 @@ class SystemSettingsForm(
     ocr_timeout = forms.IntegerField(required=False, min_value=30, max_value=7200)
     ocr_max_file_mb = forms.IntegerField(required=False, min_value=1, max_value=512)
     ocr_threads = forms.IntegerField(required=False, min_value=1, max_value=16)
+    # Confirms a change of `ocr_enabled`, which starts/stops the ocr service; never stored.
+    ocr_current_password = forms.CharField(required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={'autocomplete': 'current-password'}))
     backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)
     backup_schedule_interval_hours = forms.IntegerField(required=False, min_value=1, max_value=8760, initial=24)
     backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
@@ -4141,6 +4143,8 @@ class SystemSettingsForm(
         self._apply_imported_settings(cleaned, self._imported_settings)
         from .weather import clean_weather
         clean_weather(self, cleaned)
+        from .ocr import clean_ocr
+        clean_ocr(self, cleaned)
         allowed_themes = cleaned.get('allowed_themes') or []
         default_theme = cleaned.get('default_theme') or 'light'
         if allowed_themes and default_theme not in allowed_themes:
