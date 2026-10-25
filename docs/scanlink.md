@@ -7,7 +7,7 @@ prompt. They do not run commands or import certificates.
 
 ## Compatible versions
 
-This unreleased DjangoLux 1.15.1b1 patch pairs with ScanLink 0.7.5b1. It retains
+The DjangoLux 1.15.1b1 beta pairs with ScanLink 0.7.5b1. It retains
 health/status/result compatibility with ScanLink 0.7.4; older helpers do not
 report certificate setup progress.
 
@@ -60,3 +60,24 @@ for the same numeric release, while a newer release beta outranks an older
 stable. Only active installer rows are advertised; enabling a beta on a testbed
 is explicit. The DjangoLux patch allows inline installation only on images
 already baked with >=1.15.0b1; older images still require rebuilding.
+
+## Server preparation and acceptance
+
+The reverse proxy must accept the installer upload size. The generated Caddy
+configuration defaults to 10 MB; the 0.7.5b1 installers are about 28–31 MB.
+Set the existing `CADDY_MAX_SIZE` environment value above the larger installer
+plus multipart overhead (64MB was accepted on the development testbed).
+This is a deployment setting for the operator publishing installers.
+
+Projects using the PDF editor must install `django-lux[pdf]`; its optional
+`pypdf` dependency is needed to assemble and save scanned pages. The ScanLink
+file-field button does not require the PDF editor to be enabled.
+
+Published-pair acceptance on 2026-10-25 verified Windows x64/x86 first-launch
+consent, normally trusted HTTPS, 120 HTTPS requests per architecture and restart
+reuse. The development testbed on port 8097 verified the published DjangoLux
+wheel's 694 package files, rollback/reapply through Composer, real installer
+upload/download checksums, file-field scanning, PDF append/save, Arabic error
+messages, busy/disconnect handling and concurrent request loads. Local scanner
+endpoints were simulated; real scanner hardware remains a manual acceptance
+step.
