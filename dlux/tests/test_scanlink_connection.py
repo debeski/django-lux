@@ -18,4 +18,4 @@ class ScanLinkConnectionTests(SimpleTestCase):
             capture_output=True, text=True, timeout=30, cwd=root,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["passed"], 8)
+        self.assertEqual(json.loads(result.stdout)["passed"], 12)

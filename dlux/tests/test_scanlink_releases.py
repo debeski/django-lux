@@ -108,6 +108,13 @@ class UploadTests(ScanLinkTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(ScanLinkRelease.objects.count(), 0)
 
+    def test_beta_and_release_candidate_versions_can_be_published(self):
+        for version in ('0.7.5b1', '0.7.5rc1'):
+            with self.subTest(version=version):
+                response = self._publish(version=version, content=b'MZ ' + version.encode())
+                self.assertEqual(response.status_code, 200)
+        self.assertEqual(ScanLinkRelease.objects.count(), 2)
+
     def test_the_same_version_and_arch_cannot_be_published_twice(self):
         self._publish(version='1.0', arch='x64')
         response = self._publish(version='1.0', arch='x64')
@@ -145,6 +152,18 @@ class ManifestTests(ScanLinkTestCase):
             self.client.get(reverse('scanlink_update_manifest')).json()['latest_version'],
             '0.10',
         )
+
+    def test_stable_outranks_its_beta_and_rc(self):
+        for version in ('0.7.5b10', '0.7.5rc1', '0.7.5'):
+            self._publish(version=version, content=b'MZ ' + version.encode())
+        self.client.force_login(self.plain)
+        self.assertEqual(self.client.get(reverse('scanlink_update_manifest')).json()['latest_version'], '0.7.5')
+
+    def test_newer_beta_outranks_previous_stable(self):
+        for version in ('0.7.4', '0.7.5b2', '0.7.5b10'):
+            self._publish(version=version, content=b'MZ ' + version.encode())
+        self.client.force_login(self.plain)
+        self.assertEqual(self.client.get(reverse('scanlink_update_manifest')).json()['latest_version'], '0.7.5b10')
 
     def test_an_inactive_release_is_not_advertised(self):
         self._publish(version='1.0', is_active='')

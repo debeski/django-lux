@@ -4,7 +4,7 @@
   "display": {
     "summary": "ScanLink connection fixes: automatic workstation HTTPS setup and clearer browser connection guidance.",
     "highlights": [
-      "ScanLink 0.7.5 provisions and renews its trusted localhost certificate automatically on Windows; no certificate commands or imports are required.",
+      "ScanLink 0.7.5b1 provisions and renews its trusted localhost certificate automatically on Windows; no certificate commands or imports are required.",
       "The ScanLink panel checks both loopback transports, bounds connection checks and follows first-run setup progress.",
       "Scanning reports insecure application addresses separately from connection failures, with English and Arabic guidance.",
       "Includes the document OCR features and deployment requirements from DjangoLux 1.15."
@@ -25,7 +25,7 @@
     "downtime": "none"
   },
   "install": {
-    "inline": "forbidden"
+    "inline": "allowed"
   },
   "rollback": {
     "supported": true

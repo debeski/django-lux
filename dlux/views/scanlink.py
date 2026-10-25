@@ -18,6 +18,8 @@ Every one of them refuses to do anything while the ScanLink integration is off.
 """
 import os
 
+from packaging.version import InvalidVersion, Version
+
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -38,17 +40,11 @@ def _strings():
 
 
 def _parse_version_key(value):
-    """Sort key for a dotted version, tolerant of junk.
-
-    ``0.10.0`` must outrank ``0.9.0``; a string compare gets that backwards, and
-    a release that never appears is worse than one that sorts oddly, so an
-    unparsable segment becomes 0 rather than raising.
-    """
-    parts = []
-    for chunk in str(value or '').split('.'):
-        digits = ''.join(ch for ch in chunk if ch.isdigit())
-        parts.append(int(digits) if digits else 0)
-    return tuple(parts)
+    """Order beta/RC/stable versions consistently with package updates."""
+    try:
+        return Version(str(value or '0'))
+    except InvalidVersion:
+        return Version('0')
 
 
 @login_required

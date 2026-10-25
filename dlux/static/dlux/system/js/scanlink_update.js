@@ -36,12 +36,12 @@
             return (typeof strings[key] === 'string' && strings[key]) || fallback;
         }
 
-        // Numeric-segment compare, so 0.10.0 sorts above 0.9.0. A lexical
-        // compare gets that backwards and would report an upgrade as a
-        // downgrade.
         function parseKey(value) {
-            const matched = String(value == null ? '' : value).match(/\d+/g);
-            return matched ? matched.map(Number) : [-1];
+            const matched = String(value == null ? '' : value).match(/^(\d+(?:\.\d+){0,3})(?:(b|rc)(\d+))?$/);
+            if (!matched) return [-1];
+            const release = matched[1].split('.').map(Number);
+            while (release.length < 4) release.push(0);
+            return release.concat([matched[2] === 'b' ? 0 : matched[2] === 'rc' ? 1 : 2, Number(matched[3] || 0)]);
         }
 
         function compareVersions(a, b) {

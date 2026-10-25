@@ -7,13 +7,13 @@ prompt. They do not run commands or import certificates.
 
 ## Compatible versions
 
-This unreleased DjangoLux 1.15.1b1 patch pairs with ScanLink 0.7.5. It retains
+This unreleased DjangoLux 1.15.1b1 patch pairs with ScanLink 0.7.5b1. It retains
 health/status/result compatibility with ScanLink 0.7.4; older helpers do not
 report certificate setup progress.
 
 ## Automatic secure connection
 
-ScanLink 0.7.5 starts HTTP on 127.0.0.1:5000, then provisions HTTPS on
+ScanLink 0.7.5b1 starts HTTP on 127.0.0.1:5000, then provisions HTTPS on
 127.0.0.1:5443 in its server thread. A per-user self-signed server certificate
 covers localhost, 127.0.0.1 and ::1. ScanLink installs that specific certificate
 in the current Windows user's trusted roots; it does not install a general
@@ -51,3 +51,12 @@ appropriate application address in browsers enforcing this restriction.
 
 English and Arabic guidance is shared by file-field and PDF-editor scanning.
 No endpoint or browser security policy is weakened by this patch.
+
+## Beta distribution
+
+Publish the `0.7.5b1` x64/x86 installers through Options → ScanLink. Upload
+validation and version ordering accept beta and RC suffixes: beta < RC < stable
+for the same numeric release, while a newer release beta outranks an older
+stable. Only active installer rows are advertised; enabling a beta on a testbed
+is explicit. The DjangoLux patch allows inline installation only on images
+already baked with >=1.15.0b1; older images still require rebuilding.

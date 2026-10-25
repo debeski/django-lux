@@ -13,8 +13,11 @@ This file owns the release history for `django-lux`.
 
 ## v1.15.1b1
 
+- **ScanLink Beta Installers**: Accept and correctly order beta/RC/stable installer versions in the upload form, update manifest and workstation update panel; keep stable helpers ahead of their own betas.
+- **1.15 Patch Inline Installation**: Allow inline installation on project images baked with DjangoLux >=1.15.0b1 while retaining the OCR migration and Composer floors.
+
 - **ScanLink Loopback Connections**: Probe HTTP loopback from HTTPS pages instead of filtering it out; bound health requests, follow automatic certificate setup, and retain compatibility with ScanLink 0.7.4.
-- **ScanLink Setup Guidance**: Pair with ScanLink 0.7.5 automatic Windows HTTPS provisioning; show translated secure-address, browser permission, and setup-retry instructions across file fields, PDF scanning, and the installer panel.
+- **ScanLink Setup Guidance**: Pair with ScanLink 0.7.5b1 automatic Windows HTTPS provisioning; show translated secure-address, browser permission, and setup-retry instructions across file fields, PDF scanning, and the installer panel.
 
 ## v1.15.0b1
 

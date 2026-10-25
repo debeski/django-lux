@@ -67,7 +67,7 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     passed++;
 }
 
-async function updateScenario(secure, health, failed = false) {
+async function updateScenario(secure, health, failed = false, latest = '0.7.5') {
     const calls = [];
     const nodes = new Map();
     for (const name of ['connection', 'local-version', 'latest-version', 'status', 'actions', 'notice']) {
@@ -83,7 +83,7 @@ async function updateScenario(secure, health, failed = false) {
     };
     runtime(updatePath, async (url) => {
         calls.push(url);
-        if (url === '/manifest') return response({ latest_version: '0.7.5', downloads: { x64: '/installer' } });
+        if (url === '/manifest') return response({ latest_version: latest, downloads: { x64: '/installer' } });
         if (failed || url.startsWith('https:')) throw new TypeError('not reachable');
         return response(health);
     }, secure, { document });
@@ -103,4 +103,14 @@ result = await updateScenario(false, null, true);
 assert.match(result.nodes.get('[data-scanlink-notice]').textContent, /secure address/);
 assert.equal(result.nodes.get('[data-scanlink-actions]').children.length, 1);
 passed++;
+for (const [installed, latest, expected] of [
+    ['0.7.5', '0.7.5b1', 'ScanLink is up to date.'],
+    ['0.7.5b10', '0.7.5b2', 'ScanLink is up to date.'],
+    ['0.7.5b1', '0.7.5b2', 'A newer ScanLink version is available.'],
+    ['0.7.5rc1', '0.7.5', 'A newer ScanLink version is available.'],
+]) {
+    result = await updateScenario(true, { version: installed, https_setup: 'ready' }, false, latest);
+    assert.equal(result.nodes.get('[data-scanlink-status]').textContent, expected);
+    passed++;
+}
 console.log(JSON.stringify({ passed }));
