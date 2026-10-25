@@ -6,10 +6,11 @@ from django.utils.html import escape
 
 from ..ocr import CONFIG_KEY, MODES, normalize_ocr_config
 from ..system.constants import SETUP_STEP_EXTRAS
-from ..widgets import DluxChoiceSelectorWidget
+from ..widgets import DluxChoiceSelectorWidget, DluxMultipleChoiceSelectorWidget
 from .builders import _bind_choice_selector_widget, build_settings_toggle_field
 
-FIELDS = ('enabled', 'auto_on_save', 'search', 'mode', 'service_url', 'timeout', 'max_file_mb', 'threads')
+FIELDS = ('enabled', 'auto_on_save', 'search', 'mode', 'service_url', 'timeout', 'max_file_mb', 'threads',
+          'background_enabled', 'background_interval', 'background_batch_size', 'background_queue_limit', 'automatic_models')
 MODE_ICONS = {'auto': 'bi-layers-half', 'ocr': 'bi-eye'}
 LABELS = {
     'enabled': ('form_sys_ocr_enabled', 'Enable OCR'),
@@ -20,6 +21,11 @@ LABELS = {
     'timeout': ('form_sys_ocr_timeout', 'Time limit per file (seconds)'),
     'max_file_mb': ('form_sys_ocr_max_file_mb', 'Largest file (MB)'),
     'threads': ('form_sys_ocr_threads', 'CPU threads per file'),
+    'background_enabled': ('form_sys_ocr_background_enabled', 'Read older files in the background'),
+    'background_interval': ('form_sys_ocr_background_interval', 'Background scan interval (seconds)'),
+    'background_batch_size': ('form_sys_ocr_background_batch_size', 'Files queued per background scan'),
+    'background_queue_limit': ('form_sys_ocr_background_queue_limit', 'Pause catch-up at this many active files'),
+    'automatic_models': ('form_sys_ocr_automatic_models', 'Models included in automatic OCR'),
 }
 MODE_LABELS = {
     'auto': ('ocr_mode_auto', 'Use the PDF text layer when sound, OCR the rest'),
@@ -46,6 +52,18 @@ def configure_ocr_fields(form, strings):
         "Reads the text of registered document files with the stack's ocr service. Saving a change here also starts or stops that service (current password required).",
     )
     form.fields['ocr_threads'].help_text = strings.get('help_sys_ocr_threads', 'CPU threads used for each file.')
+    from ..files.specs import registered_document_files
+    from ..utils.activity_log import translate_activity_log_model_name
+    models = {spec.model._meta.label_lower: spec.model for spec in registered_document_files() if spec.ocr}
+    choices = []
+    for key, model in sorted(models.items()):
+        label = translate_activity_log_model_name(key, strings)
+        choices.append((key, str(model._meta.verbose_name_plural) if label == key else label))
+    form.fields['ocr_automatic_models'].choices = choices
+    form.initial['ocr_automatic_models'] = list(models) if config['automatic_models'] is None else config['automatic_models']
+    _bind_choice_selector_widget(form.fields['ocr_automatic_models'], DluxMultipleChoiceSelectorWidget(choices=choices, variant='card', searchable=True))
+    form.fields['ocr_automatic_models'].help_text = strings.get('help_sys_ocr_automatic_models', 'Excluded models receive no automatic or background OCR. Manual Run OCR remains available.')
+    form.fields['ocr_background_enabled'].help_text = strings.get('help_sys_ocr_background_enabled', 'Catch up on older files that have no OCR result. Finished and failed files are skipped; manual reads take priority.')
     form.fields['ocr_current_password'].label = strings.get('form_sys_ocr_current_password', 'Current password')
     form.fields['ocr_current_password'].help_text = strings.get(
         'help_sys_ocr_current_password',
@@ -120,6 +138,20 @@ def _service_status(strings, enabled):
 def ocr_settings_layout(form, strings):
     panel_url = reverse('dlux_operations_panel')
     status = _service_status(strings, _stored_enabled(form))
+    from django.core.cache import cache
+    from ..ocr.background import STATE_KEY
+    background = cache.get(STATE_KEY)
+    if background and normalize_ocr_config((form.instance.extra_config or {}).get(CONFIG_KEY))['background_enabled']:
+        states = {
+            'idle': strings.get('ocr_background_state_idle', 'Idle'),
+            'queued': strings.get('ocr_background_state_queued', 'Files queued'),
+            'paused_queue': strings.get('ocr_background_state_paused_queue', 'Paused: OCR queue is busy'),
+            'paused_service': strings.get('ocr_background_state_paused_service', 'Paused: OCR service is unavailable'),
+        }
+        label = states.get(background.get('state'), states['idle'])
+        text = strings.get('ocr_background_progress', 'Background: {state}. Last scan: {scanned} checked, {queued} queued.').format(
+            state=label, scanned=background.get('scanned', 0), queued=background.get('queued', 0))
+        status += f"<p class='small text-body-secondary mb-2' role='status'>{escape(text)}</p>"
     return Div(
         HTML('<h6 class="fw-bold my-3">' + escape(strings.get('ocr_settings_title', 'OCR text extraction')) + '</h6>'),
         build_settings_toggle_field(form, 'ocr_enabled', css_class='col-12'),
@@ -131,6 +163,14 @@ def ocr_settings_layout(form, strings):
                 css_class='g-3 mb-3',
             ),
             Field('ocr_mode'),
+            Field('ocr_automatic_models'),
+            build_settings_toggle_field(form, 'ocr_background_enabled', css_class='col-12'),
+            Row(
+                Div(Field('ocr_background_interval'), css_class='col-12 col-lg-4'),
+                Div(Field('ocr_background_batch_size'), css_class='col-12 col-lg-4'),
+                Div(Field('ocr_background_queue_limit'), css_class='col-12 col-lg-4'),
+                css_class='g-3 mb-3',
+            ),
             Row(
                 Div(Field('ocr_service_url'), css_class='col-12'),
                 Div(Field('ocr_timeout'), css_class='col-12 col-md-4'),
@@ -169,7 +209,7 @@ def apply_ocr(form, instance):
         if value not in (None, ''):
             config[key] = value
     config['enabled'] = bool(form.cleaned_data.get('ocr_enabled'))
-    for key in ('auto_on_save', 'search'):
+    for key in ('auto_on_save', 'search', 'background_enabled'):
         config[key] = bool(form.cleaned_data.get('ocr_' + key))
     extra[CONFIG_KEY] = normalize_ocr_config(config)
     instance.extra_config = extra

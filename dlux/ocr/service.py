@@ -13,7 +13,7 @@ from datetime import timedelta
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from . import config
+from . import RETRY_DELAYS, automatic_model_allowed, config
 from .client import OCRRejected, OCRUnavailable, call_service
 
 log = logging.getLogger('dlux')
@@ -79,7 +79,10 @@ def invalidate_changed_file(document, field_name):
 def _stale(result):
     """A running row whose worker died, or a queued row whose message was lost."""
     reference = result.started_at if result.status == 'running' else result.updated_at
-    return reference is None or reference < timezone.now() - timedelta(seconds=config()['timeout'] + 120)
+    grace = config()['timeout'] + 120
+    if result.status == 'pending':
+        grace = max(grace, max(RETRY_DELAYS) + 120)
+    return reference is None or reference < timezone.now() - timedelta(seconds=grace)
 
 
 def schedule(document, field_name='pdf_file', *, source='auto', user=None, force=False, enqueue=True):
@@ -92,6 +95,8 @@ def schedule(document, field_name='pdf_file', *, source='auto', user=None, force
     from dlux.models import FileVersion
 
     if not config()['enabled'] or ocr_spec(document, field_name) is None or getattr(document, 'deleted_at', None):
+        return None, False
+    if source != 'manual' and not automatic_model_allowed(document):
         return None, False
     content_type, rows = _rows(document, field_name)
     file_field = _active_file(document, field_name)
@@ -112,6 +117,9 @@ def schedule(document, field_name='pdf_file', *, source='auto', user=None, force
         'file_name': file_field.name, 'file_version': version, 'source': source, 'requested_by': user,
     }
     with transaction.atomic():
+        current_name = document.__class__._base_manager.select_for_update().filter(pk=document.pk).values_list(field_name, flat=True).first()
+        if current_name != file_field.name:
+            return None, False
         try:
             with transaction.atomic():
                 result, created = rows.get_or_create(**keys, defaults=defaults)
@@ -123,6 +131,8 @@ def schedule(document, field_name='pdf_file', *, source='auto', user=None, force
         if not created:
             busy = result.status in ACTIVE_STATUSES and not _stale(result)
             queue = (force and not busy) or (result.status in ACTIVE_STATUSES and _stale(result))
+            if source == 'manual' and force and result.source != 'manual' and result.status == 'pending' and not automatic_model_allowed(document):
+                queue = True
             result.is_current = True
             result.file_name = file_field.name
             result.file_version = version or result.file_version
@@ -165,6 +175,9 @@ def run(result_id):
         if not config()['enabled']:
             raise OCRUnavailable('OCR is disabled; queued work will retry after it is enabled.')
         document = result.document
+        if document is not None and result.source != 'manual' and not automatic_model_allowed(document):
+            from dlux.translations import get_strings
+            return _finish(result, 'skipped', error=get_strings().get('ocr_automatic_model_excluded', 'Automatic OCR is disabled for this model.'))
         alive = document is not None and not getattr(document, 'deleted_at', None)
         file_field = _active_file(document, result.field_name) if alive else None
         if file_field is None:
@@ -241,7 +254,7 @@ def document_saved(sender, instance, created=False, raw=False, update_fields=Non
             document = manager.filter(pk=pk).first()
             for field_name in fields if document is not None else ():
                 options = config()
-                if options['enabled'] and options['auto_on_save']:
+                if options['enabled'] and options['auto_on_save'] and automatic_model_allowed(document, options):
                     schedule(document, field_name, source='auto')
                 else:
                     invalidate_changed_file(document, field_name)

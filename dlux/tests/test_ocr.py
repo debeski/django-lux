@@ -348,7 +348,7 @@ class SettingsFormTests(OCRTestCase):
             'ocr_service_url': 'http://ocr:8081', 'ocr_timeout': 300, 'ocr_max_file_mb': 20, 'ocr_threads': 3}})()
         apply_ocr(form, record)
         self.assertEqual(record.extra_config['app'], {'project': {'keep': 1}})
-        self.assertEqual(record.extra_config['ocr'], {'enabled': True, 'auto_on_save': False, 'search': True,
+        self.assertEqual(record.extra_config['ocr'], {**ocr.DEFAULTS, 'enabled': True, 'auto_on_save': False, 'search': True,
                          'service_url': 'http://ocr:8081', 'mode': 'ocr', 'timeout': 300, 'max_file_mb': 20, 'threads': 3})
 
     def test_system_settings_form_renders_the_ocr_section(self):

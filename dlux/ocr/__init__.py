@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 CONFIG_KEY = 'ocr'
 SERVICE_NAME = 'ocr'
 MODES = ('auto', 'ocr')
+RETRY_DELAYS = (30, 60, 120, 300, 600, 900, 1800, 3600)
 DEFAULTS = {
     'enabled': False,
     'auto_on_save': True,
@@ -25,6 +26,11 @@ DEFAULTS = {
     'timeout': 900,
     'max_file_mb': 64,
     'threads': 2,
+    'background_enabled': False,
+    'background_interval': 300,
+    'background_batch_size': 5,
+    'background_queue_limit': 10,
+    'automatic_models': None,
 }
 ENV_FALLBACKS = {
     'enabled': 'OCR_ENABLED',
@@ -36,7 +42,9 @@ ENV_FALLBACKS = {
     'max_file_mb': 'OCR_MAX_FILE_MB',
     'threads': 'OCR_THREADS',
 }
-LIMITS = {'timeout': (30, 7200), 'max_file_mb': (1, 512), 'threads': (1, 16)}
+LIMITS = {'timeout': (30, 7200), 'max_file_mb': (1, 512), 'threads': (1, 16),
+          'background_interval': (60, 86400), 'background_batch_size': (1, 100),
+          'background_queue_limit': (1, 1000)}
 _TRUE = ('true', '1', 'yes', 'on')
 _FALSE = ('false', '0', 'no', 'off')
 
@@ -64,7 +72,7 @@ def valid_service_url(value):
 def merge(values, raw):
     """Overlay the valid entries of ``raw`` on ``values``; anything invalid is ignored."""
     raw = raw if isinstance(raw, dict) else {}
-    for name in ('enabled', 'auto_on_save', 'search'):
+    for name in ('enabled', 'auto_on_save', 'search', 'background_enabled'):
         if isinstance(raw.get(name), bool):
             values[name] = raw[name]
     for name, (low, high) in LIMITS.items():
@@ -73,6 +81,14 @@ def merge(values, raw):
             values[name] = value
     if raw.get('mode') in MODES:
         values['mode'] = raw['mode']
+    if 'automatic_models' in raw:
+        models = raw['automatic_models']
+        if models is None:
+            values['automatic_models'] = None
+        elif isinstance(models, list) and all(isinstance(value, str) and re.fullmatch(r'[a-zA-Z_][\w]*\.[a-zA-Z_][\w]*', value) for value in models):
+            values['automatic_models'] = sorted(set(value.lower() for value in models))
+        else:
+            values['automatic_models'] = []
     url = raw.get('service_url')
     if valid_service_url(url):
         values['service_url'] = url.strip().rstrip('/')
@@ -116,3 +132,8 @@ def config():
 
 def enabled():
     return config()['enabled']
+
+
+def automatic_model_allowed(model_or_instance, options=None):
+    selected = (options if options is not None else config())['automatic_models']
+    return selected is None or model_or_instance._meta.label_lower in selected

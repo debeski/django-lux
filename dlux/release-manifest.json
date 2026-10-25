@@ -8,6 +8,7 @@
       "System Settings controls OCR and starts/stops its internal service through Composer after current-password confirmation.",
       "The OCR service runs from the project image with optional engine dependencies and offline model files; this first OCR release requires an image rebuild.",
       "Bounded upload and extraction queues retry overload; results from replaced files remain historical.",
+      "Background catch-up finds older unread files with batch, interval and queue limits; model exclusions retain manual OCR.",
       "Includes verified DjangoLux 1.14 stable behavior and Composer wrapper 4 compatibility."
     ],
     "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.0b1"

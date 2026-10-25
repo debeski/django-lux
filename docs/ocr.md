@@ -27,6 +27,16 @@ Saved values win; an environment string fills an option never saved (or saved in
 
 ## For developers
 
+### Background catch-up and model selection
+
+Extra Features > OCR includes **Read older files in the background** (off by default). With OCR enabled, it finds registered files with no finished result, including entries created before OCR was installed. Defaults: up to **5 files every 300 seconds**, pausing catch-up when **10 pending/running files** already exist. These three controls set background intensity; CPU/RAM thresholds are not used. Manual requests retain priority over automatic/background work. The settings section shows the last scan's checked/queued counts and pause reason.
+
+**Models included in automatic OCR** governs save-triggered reads and background/CLI backfill. An empty selection disables all automatic reads. Manual **Run OCR** from the entry viewer remains available for excluded models, subject to normal edit permission; developer `ocr=False` still disables OCR for that field entirely. Excluding a model also prevents its already-queued automatic jobs from starting. A job already extracting may finish. Existing text stays readable/searchable, and replacing excluded files still invalidates stale current text.
+
+The scanner is `dlux.tasks.ocr_background`, polled by Celery Beat once per minute and gated by the configured interval. It rotates across registered fields, uses a shared-cache lock and checkpoints, limits scan work, and sends `backfill` tasks at priority 9. Existing completed/failed/skipped results are not repeatedly re-read; failed files can be retried manually or with the existing CLI retry option for included models. Stale lost queue messages can be recovered without overriding normal retry delays. Clearing the cache restarts the metadata scan safely; persisted `FileText` results prevent re-extraction. Pausing background catch-up stops new scans; already-queued jobs may finish. OCR off pauses extraction/retries; missing service and queue pressure pause catch-up.
+
+Settings in `extra_config['ocr']`: `background_enabled`, `background_interval` (60–86400 seconds), `background_batch_size` (1–100), `background_queue_limit` (1–1000), and `automatic_models` (registered model labels, e.g. `documents.decree`). Legacy settings without `automatic_models` include all registered models; saving an explicit selection fixes that set, so newly registered models need selection too. No new database migration or Composer protocol is required.
+
 The first beta pair is DjangoLux `1.15.0b1` with Composer `1.9.0b1`. Install it through a project image rebuild, including `django-lux[ocr]`, offline models, and the service/allow-list configuration below; the first OCR beta is deliberately unavailable as an inline package upgrade.
 
 ```python

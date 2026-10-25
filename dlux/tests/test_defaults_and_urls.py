@@ -3758,7 +3758,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(len(re.findall(r'name=[\"\']tables_config[\"\']', html)), 1)
         # The table inspector uses the shared icon picker's ignored scratch field.
         self.assertEqual(len(re.findall(r'name=[\"\']table_builder_entry_icon[\"\']', html)), 1)
-        self.assertLess(len(re.findall(r'\sname=', html)), 316)
+        # Background OCR adds four persisted controls and its model selector.
+        self.assertLess(len(re.findall(r'\sname=', html)), 321)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'

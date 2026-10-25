@@ -146,7 +146,12 @@ if shared_task is not None:
         finally:
             cache.delete('dlux.state_tick.lock')
 
-    OCR_RETRY_DELAYS = (30, 60, 120, 300, 600, 900, 1800, 3600)
+    from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
+
+    @shared_task(name='dlux.tasks.ocr_background', ignore_result=True)
+    def ocr_background():
+        from .ocr.background import tick
+        return tick()
 
     @shared_task(name='dlux.tasks.ocr_file', bind=True, acks_late=True, ignore_result=True,
                  max_retries=len(OCR_RETRY_DELAYS))
@@ -200,3 +205,4 @@ else:  # pragma: no cover - celery not installed
     dlux_update_check_task = None
     reap_stalled_system_backups_task = None
     ocr_file = None
+    ocr_background = None
