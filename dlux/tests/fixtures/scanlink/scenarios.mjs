@@ -53,15 +53,60 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     assert.equal((await client.checkHealth()).status, 'ok');
     assert.match(client.baseUrl, /^http:/);
     passed++;
+
+    const submitted = [];
+    context = runtime(file, async (url, options) => {
+        if (options.method === 'GET') return response({ status: 'ok' });
+        submitted.push(url);
+        throw new TypeError('accepted by server; response lost');
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    client.preferredUrl = 'https://localhost:5443';
+    await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
+    assert.equal(submitted.length, 1);
+    assert.equal(client.currentJobId, null);
+    passed++;
+
+    const negotiated = [];
+    context = runtime(file, async (url, options) => {
+        negotiated.push([url, options.method]);
+        if (url.startsWith('https:')) throw new TypeError('TLS unavailable');
+        return response(options.method === 'POST' ? { job_id: 'only-job', status: 'queued' } : { status: 'ok' });
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    assert.equal((await client.startScan()).job_id, 'only-job');
+    assert.deepEqual(negotiated.map(x => x[1]), ['GET', 'GET', 'POST']);
+    assert.match(negotiated[2][0], /^http:/);
+    passed++;
+
+    const blocked = [];
+    context = runtime(file, async (url, options) => { blocked.push(options.method); throw new TypeError('offline'); });
+    client = vm.runInContext('new ScanLink()', context);
+    await assert.rejects(client.startScan(), (error) => error.code === 'helper_unavailable');
+    assert.ok(blocked.every(method => method === 'GET'));
+    passed++;
+
+    let bodyPosts = 0;
+    context = runtime(file, async (url, options) => {
+        if (options.method === 'GET') return response({ status: 'ok' });
+        bodyPosts++;
+        return { ok: true, json: async () => { throw new TypeError('response body lost'); } };
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
+    assert.equal(bodyPosts, 1);
+    passed++;
 }
 
 {
     const error = Object.assign(new Error('internal failure'), { code: 'insecure_origin' });
     const document = { querySelectorAll: () => [], addEventListener() {} };
     const context = runtime(clientPath, async () => { throw new TypeError('failed'); }, false, { document });
+    context.window.DLUX_STRINGS.scan_request_uncertain_message = 'تحقق من ScanLink قبل بدء مسح آخر';
     context.window.DLUX_STRINGS.scan_insecure_origin_message = 'افتح العنوان الآمن';
     vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
     const messages = context.window.DluxScan.messagesFor(null);
+    assert.equal(context.window.DluxScan.errorMessage(messages, { code: 'scan_request_uncertain' }), 'تحقق من ScanLink قبل بدء مسح آخر');
     assert.equal(context.window.DluxScan.errorMessage(messages, error), 'افتح العنوان الآمن');
     await assert.rejects(context.window.DluxScan.scan({ messages }), (err) => err.code === 'insecure_origin' && err.message === 'افتح العنوان الآمن');
     passed++;

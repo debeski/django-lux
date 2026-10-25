@@ -165,6 +165,7 @@ STRINGS = {
     'scanlink_update': 'تنزيل التحديث',
     'scanlink_up_to_date': 'ScanLink محدّث.',
     'scanlink_no_release': 'لم يُنشر أي ملف تثبيت على الخادم بعد.',
+    'scan_request_uncertain_message': 'انقطع الاتصال أثناء طلب المسح. تحقق من ScanLink قبل بدء مسح آخر.',
     'scan_insecure_origin_message': 'افتح هذا التطبيق باستخدام عنوانه الآمن، أو تواصل مع فريق الدعم لتفعيل المسح الضوئي.',
     'scanlink_secure_preparing': 'يُعدّ ScanLink الاتصال الآمن. وافق على أي طلب من Windows؛ ستتحقق هذه الصفحة مجددًا تلقائيًا.',
     'scanlink_secure_failed': 'افتح ScanLink واختر إعادة محاولة إعداد الاتصال الآمن. وافق على أي طلب من Windows. إذا تعذّر الإعداد، تواصل مع فريق الدعم.',

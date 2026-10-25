@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
-  "version": "1.15.1b1",
+  "version": "1.15.1b2",
   "display": {
-    "summary": "ScanLink connection fixes: automatic workstation HTTPS setup and clearer browser connection guidance.",
+    "summary": "ScanLink stress fixes: single scan submission and clear guidance after a lost response.",
     "highlights": [
-      "ScanLink 0.7.5b1 provisions and renews its trusted localhost certificate automatically on Windows; no certificate commands or imports are required.",
-      "The ScanLink panel checks both loopback transports, bounds connection checks and follows first-run setup progress.",
-      "Scanning reports insecure application addresses separately from connection failures, with English and Arabic guidance.",
-      "Includes the document OCR features and deployment requirements from DjangoLux 1.15."
+      "Send each scan request once on a healthy transport; a lost response never triggers another scanner request.",
+      "Shared English and Arabic recovery guidance covers uncertain scan requests in file fields and the PDF editor.",
+      "Paired ScanLink 0.8.0b1 fixes PDF completion, parent deadlines, malformed requests and result download races.",
+      "Includes automatic workstation HTTPS setup and the document OCR features from DjangoLux 1.15."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.1b2"
   },
   "requires": {
     "updater_schema": ">=1",

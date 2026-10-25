@@ -17,6 +17,7 @@
             completed: data.scanCompleted || "Scanned",
             helperUnavailable: data.scanHelperUnavailable || strings.scan_helper_unavailable_message || "Start ScanLink on this computer and try again. If your browser asks to connect to this computer, choose Allow.",
             insecureOrigin: data.scanInsecureOrigin || strings.scan_insecure_origin_message || "Open this application using its secure address, or contact your support team to enable scanning.",
+            requestUncertain: data.scanRequestUncertain || strings.scan_request_uncertain_message || "The scan request lost its connection. Check ScanLink before starting another scan.",
             busy: data.scanBusy || "Another scan is already running.",
             cancelled: data.scanCancelled || "The scan was cancelled.",
             timeout: data.scanTimeout || "The scan took too long to finish.",
@@ -32,6 +33,8 @@
                 return messages.insecureOrigin;
             case "helper_unavailable":
                 return messages.helperUnavailable;
+            case "scan_request_uncertain":
+                return messages.requestUncertain;
             case "busy":
                 return messages.busy;
             case "scanner_selection_cancelled":
