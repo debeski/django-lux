@@ -85,6 +85,8 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 
 ## OCR text
 
+Core-only imports work without optional Celery; queued viewer, automatic and background processing require a configured worker.
+
 Background catch-up reads older files in bounded batches, with interval/queue controls and model selection. Excluded models retain manual viewer OCR.
 
 Extraction uses bounded upload/worker queues, retries overload, and keeps an older in-flight result historical after file replacement.

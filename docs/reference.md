@@ -1913,6 +1913,8 @@ See [Document files](document-files.md) for `register_document_file()`: one call
 
 ## OCR text
 
+Without optional Celery, OCR task entrypoints are disabled while core/PDF imports and saved-text access remain available. Configure a worker for queued OCR, or use synchronous CLI backfill.
+
 `extra_config['ocr']` also controls background catch-up (`background_enabled`, `background_interval`, `background_batch_size`, `background_queue_limit`) and `automatic_models`. Model exclusions affect automatic work, including jobs waiting to start; manual viewer OCR remains available. Celery Beat runs `dlux.tasks.ocr_background` each minute, subject to the stored interval and queue limits.
 
 Service resource controls include `OCR_WORKERS`, `OCR_QUEUE_SIZE`, `OCR_QUEUE_WAIT`, `OCR_READ_TIMEOUT`, `OCR_MAX_BYTES`, `OCR_MAX_PAGES` and `OCR_MAX_THREADS`; see the [resource limits](ocr.md#resource-planning). Finishing a historical OCR job never changes the current-file selection.

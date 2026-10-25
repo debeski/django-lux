@@ -29,6 +29,8 @@ Saved values win; an environment string fills an option never saved (or saved in
 
 ### Background catch-up and model selection
 
+Celery is optional for importing the core/PDF package and reading saved text. Viewer-triggered, automatic and background OCR need a configured Celery worker; their task entrypoints are disabled when Celery is absent. Synchronous CLI backfill can still run without it.
+
 Extra Features > OCR includes **Read older files in the background** (off by default). With OCR enabled, it finds registered files with no finished result, including entries created before OCR was installed. Defaults: up to **5 files every 300 seconds**, pausing catch-up when **10 pending/running files** already exist. These three controls set background intensity; CPU/RAM thresholds are not used. Manual requests retain priority over automatic/background work. The settings section shows the last scan's checked/queued counts and pause reason.
 
 **Models included in automatic OCR** governs save-triggered reads and background/CLI backfill. An empty selection disables all automatic reads. Manual **Run OCR** from the entry viewer remains available for excluded models, subject to normal edit permission; developer `ocr=False` still disables OCR for that field entirely. Excluding a model also prevents its already-queued automatic jobs from starting. A job already extracting may finish. Existing text stays readable/searchable, and replacing excluded files still invalidates stale current text.
