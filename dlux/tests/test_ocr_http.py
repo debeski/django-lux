@@ -2,7 +2,7 @@ import json
 import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from http.client import HTTPConnection
+from http.client import HTTPConnection, RemoteDisconnected
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -143,9 +143,15 @@ class OCRHTTPTests(TestCase):
         self.assertEqual(self.request()[0], 200)
 
     def test_concurrent_requests_respect_engine_limit(self):
+        def request_or_rejection(_):
+            try:
+                return self.request()[0]
+            except (BrokenPipeError, ConnectionResetError, RemoteDisconnected):
+                return 'closed'
+
         with ThreadPoolExecutor(max_workers=8) as executor:
-            results = list(executor.map(lambda _: self.request()[0], range(24)))
-        self.assertTrue(set(results) <= {200, 503}, results)
+            results = list(executor.map(request_or_rejection, range(24)))
+        self.assertTrue(set(results) <= {200, 503, 'closed'}, results)
         self.assertIn(200, results)
         self.assertEqual(self.engine.peak, 1)
         self.assertEqual(self.request()[0], 200)

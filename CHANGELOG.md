@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **OCR Overload Test**: Accept early connection closure during rejected uploads in the concurrency test, while retaining successful-request, single-engine and recovery assertions. Runtime behavior is unchanged.
+
 ## v1.15.0b1
 
 - **Optional Celery Compatibility**: Expose the shared OCR retry policy for core-only installs and keep OCR task entrypoints safely disabled when Celery is absent; verify both optional-dependency paths.
