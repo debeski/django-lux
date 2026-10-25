@@ -5,12 +5,13 @@ from .specs import DocumentFileSpec, _specs, document_file_fields, get_document_
 
 
 def register_document_file(model, field_name='pdf_file', *, accept=DEFAULT_ACCEPT, file_name=None, pdf_metadata=None,
-                           can_access=None, queryset=None):
+                           can_access=None, queryset=None, ocr=True):
     """Declare ``model.field_name`` a document file.
 
     One call connects the file card, the viewer, the page editor, file history,
-    downloads and Scan for that field. Call it once, from the app's
-    ``dlux_options.py`` or ``AppConfig.ready()``.
+    downloads, Scan and OCR text for that field. ``ocr=False`` keeps this field
+    out of OCR. Call it once, from the app's ``dlux_options.py`` or
+    ``AppConfig.ready()``.
     """
     from django.db import models as django_models
 
@@ -21,7 +22,7 @@ def register_document_file(model, field_name='pdf_file', *, accept=DEFAULT_ACCEP
         get_file_type(name)
     spec = DocumentFileSpec(
         model=model, field_name=field_name, accept=tuple(accept), file_name=file_name,
-        pdf_metadata=pdf_metadata, can_access=can_access, queryset=queryset,
+        pdf_metadata=pdf_metadata, can_access=can_access, queryset=queryset, ocr=bool(ocr),
     )
     _specs[(model._meta.label_lower, field_name)] = spec
     _connect_history(model)

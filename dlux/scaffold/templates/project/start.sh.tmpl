@@ -1,5 +1,5 @@
 #!/bin/bash
-# composer-wrapper: 3
+# composer-wrapper: 4
 set -euo pipefail
 
 # Closing the terminal must not abort a run in flight. The ignored disposition

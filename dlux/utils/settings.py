@@ -316,6 +316,10 @@ def dlux_settings(scope):
             "schedule": 5.0,
         },
     )
+    beat_schedule.setdefault("dlux-ocr-background", {
+        "task": "dlux.tasks.ocr_background", "schedule": 60.0,
+        "options": {"priority": 9},
+    })
     scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
 
     message_tags = scope.get("MESSAGE_TAGS")

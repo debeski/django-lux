@@ -176,7 +176,8 @@ LOG_NEVER_LOGGED_MODEL_NAMES = frozenset({'testmodel'})
 
 # dlux models that produce no meaningful activity log: the unified identity Profile, the log
 # model itself, the fieldless Section permission placeholder, high-churn device/presence/
-# notification state, backup-run rows, and updater bookkeeping. Never logged and never offered as toggles.
+# notification state, backup-run rows, updater bookkeeping and machine-read OCR text (shown
+# through its document instead). Never logged and never offered as toggles.
 LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
     'dlux.profile',
     'dlux.section',
@@ -192,6 +193,7 @@ LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
     'dlux.systemrestore',
     'dlux.dluxupdatestate',
     'dlux.dluxupdaterun',
+    'dlux.filetext',
 }
 
 

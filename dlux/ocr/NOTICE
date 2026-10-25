@@ -1,0 +1,6 @@
+django-lux[ocr] (dlux.ocr) uses third-party software:
+
+Indra OCR (https://github.com/datalab-to/indra), by Datalab.
+  Code: Apache License 2.0.
+  Model weights (https://huggingface.co/datalab-to/indra-ocr, revision v1.1.0):
+  modified OpenRAIL-M license; its text is downloaded with the models into INDRA_OCR_MODEL_DIR (LICENSE).

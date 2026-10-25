@@ -27,6 +27,11 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# OCR models for the stack's `ocr` service (django-lux[ocr]), baked in so it runs
+# offline. Does nothing when requirements.txt leaves the `ocr` extra out.
+ENV INDRA_OCR_MODEL_DIR=/opt/indra/models
+RUN python -m dlux.ocr.fetch_models --if-installed
+
 # Surface the baked DjangoLux version as an image label so an external updater
 # (composer's preflight version gate) can refuse to recreate onto an image
 # older than the deployment's active runtime version. Passed at build time

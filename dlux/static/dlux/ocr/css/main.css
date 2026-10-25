@@ -1,0 +1,24 @@
+.dlux-ocr-text {
+    max-height: 26rem;
+    margin: 0;
+    padding: .75rem 1rem;
+    overflow: auto;
+    font-family: inherit;
+    font-size: .95rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    unicode-bidi: plaintext;
+}
+
+.dlux-ocr-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1.5rem;
+    margin-block-end: .75rem;
+}
+
+.dlux-ocr-meta > div { display: flex; gap: .35rem; }
+.dlux-ocr-meta dt { font-weight: 600; }
+.dlux-ocr-meta dd { margin: 0; }
+.dlux-ocr-meta dd[dir="ltr"] { unicode-bidi: isolate; }

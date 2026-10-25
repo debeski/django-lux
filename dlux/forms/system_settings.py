@@ -525,6 +525,22 @@ class SystemSettingsForm(
     }))
     weather_locations = forms.CharField(required=False, widget=forms.HiddenInput())
     weather_default_location = forms.CharField(required=False, widget=forms.HiddenInput())
+    # OCR: stored in `extra_config['ocr']` (dlux.ocr); OCR_* env strings are only fallbacks.
+    ocr_enabled = forms.BooleanField(required=False)
+    ocr_auto_on_save = forms.BooleanField(required=False)
+    ocr_search = forms.BooleanField(required=False)
+    ocr_background_enabled = forms.BooleanField(required=False)
+    ocr_background_interval = forms.IntegerField(required=False, min_value=60, max_value=86400)
+    ocr_background_batch_size = forms.IntegerField(required=False, min_value=1, max_value=100)
+    ocr_background_queue_limit = forms.IntegerField(required=False, min_value=1, max_value=1000)
+    ocr_automatic_models = forms.MultipleChoiceField(required=False)
+    ocr_mode = forms.ChoiceField(required=False)
+    ocr_service_url = forms.RegexField(required=False, max_length=200, regex=r'^https?://[^\s/]+(:\d+)?/?$', widget=forms.TextInput(attrs={'dir': 'ltr', 'spellcheck': 'false'}))
+    ocr_timeout = forms.IntegerField(required=False, min_value=30, max_value=7200)
+    ocr_max_file_mb = forms.IntegerField(required=False, min_value=1, max_value=512)
+    ocr_threads = forms.IntegerField(required=False, min_value=1, max_value=16)
+    # Confirms a change of `ocr_enabled`, which starts/stops the ocr service; never stored.
+    ocr_current_password = forms.CharField(required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={'autocomplete': 'current-password'}))
     backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)
     backup_schedule_interval_hours = forms.IntegerField(required=False, min_value=1, max_value=8760, initial=24)
     backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
@@ -1063,6 +1079,8 @@ class SystemSettingsForm(
 
         from .weather import configure_weather_fields
         configure_weather_fields(self, s)
+        from .ocr import configure_ocr_fields
+        configure_ocr_fields(self, s)
         from ..system.normalizers import normalize_entry_clipboard_config
         clipboard = normalize_entry_clipboard_config((self.instance.extra_config or {}).get('entry_clipboard'))
         self.initial.setdefault('entry_clipboard_enabled', clipboard['enabled'])
@@ -3949,6 +3967,11 @@ class SystemSettingsForm(
             for key in ('enabled', 'placement', 'display', 'units', 'corner', 'default_location'):
                 cleaned['weather_' + key] = weather[key]
             cleaned['weather_locations'] = json.dumps(weather['locations'])
+        ocr = (imported.get('extra_config') or {}).get('ocr')
+        if isinstance(ocr, dict):
+            from ..ocr import normalize_ocr_config
+            for key, value in normalize_ocr_config(ocr).items():
+                cleaned['ocr_' + key] = value
 
         email_config = imported.get('email_config')
         if isinstance(email_config, dict):
@@ -4125,6 +4148,8 @@ class SystemSettingsForm(
         self._apply_imported_settings(cleaned, self._imported_settings)
         from .weather import clean_weather
         clean_weather(self, cleaned)
+        from .ocr import clean_ocr
+        clean_ocr(self, cleaned)
         allowed_themes = cleaned.get('allowed_themes') or []
         default_theme = cleaned.get('default_theme') or 'light'
         if allowed_themes and default_theme not in allowed_themes:
@@ -4555,6 +4580,8 @@ class SystemSettingsForm(
         self._apply_extra_features(instance)
         from .weather import apply_weather
         apply_weather(self, instance)
+        from .ocr import apply_ocr
+        apply_ocr(self, instance)
         project_homepage = normalize_homepage_config(getattr(settings, 'DLUX_CONFIG', {}))
         fallback_home = project_homepage['default_url']
         auth_config = self.cleaned_data.get('auth_config') or default_auth_config()
@@ -4745,6 +4772,10 @@ class SystemSettingsForm(
     def _weather_settings_layout(self, strings):
         from .weather import weather_settings_layout
         return weather_settings_layout(self, strings)
+
+    def _ocr_settings_layout(self, strings):
+        from .ocr import ocr_settings_layout
+        return ocr_settings_layout(self, strings)
 
     def _pdf_settings_layout(self, strings):
         if 'pdf_editing_enabled' not in self.fields:

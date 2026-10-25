@@ -69,6 +69,7 @@ from .assets import (  # noqa: F401
     ScanLinkRelease,
 )
 from .files import (  # noqa: F401
+    FileText,
     FileVersion,
     file_version_upload_to,
 )

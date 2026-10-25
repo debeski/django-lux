@@ -245,7 +245,7 @@ class ScaffoldTests(unittest.TestCase):
             # Composer <=1.5.3 heals any executor body lacking this substring by
             # inserting a second cap_add key; the template's comment satisfies it.
             self.assertIn("DAC_READ_SEARCH", executor_block)
-            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
+            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
             self.assertNotIn("db-backup:", compose_contents)
@@ -319,7 +319,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertNotIn("/usr/share/caddy/maintenance", caddy_contents)
             self.assertNotIn("maintenance.html:", compose_contents)
             self.assertIn("celery", requirements_contents)
-            self.assertIn(f"django-lux[updater]=={__version__}", requirements_contents)
+            self.assertIn(f"django-lux[updater,ocr]=={__version__}", requirements_contents)
             self.assertIn("django-cors-headers", requirements_contents)
             self.assertIn("django-csp", requirements_contents)
             self.assertIn("django-health-check==3.20.0", requirements_contents)
@@ -367,7 +367,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 3
+        expected = 4
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):
@@ -939,8 +939,9 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
             compose = (target / "compose.yml").read_text(encoding="utf-8")
             self.assertNotIn("demo_project:latest", compose)
             # +1 vs pre-executor: composer-executor also carries a WEB_IMAGE default.
-            # 7, not 8: the dlux-updater service was retired into celery.
-            self.assertEqual(compose.count("acme/demo:stable"), 7)
+            # The dlux-updater service was retired into celery; the ocr service
+            # (1.15) runs on the project image like smtp-relay, so it counts too.
+            self.assertEqual(compose.count("acme/demo:stable"), 8)
             workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
             self.assertIn("${{ env.IMAGE }}:stable", workflow)
 
