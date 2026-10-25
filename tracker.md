@@ -1,6 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
+- 2026-10-25: ScanLink patch candidate 1.15.1b1 on `1.15/scanlink_https` (checkout scanlink_https), paired ScanLink0.7.5b1 `0.7/automatic_https`: automatic Windows localhost trust/renewal, HTTP fallback, setup progress, EN/AR recovery. Local checks pass; native Windows acceptance pending. Open1.15 release, primary checkouts and stacks untouched; no push/tag.
 - 2026-10-25: PR12/Composer PR4 merged. Composer1.9.0b1 published;64-file payload and beta/stable aliases verified. Dlux v1.15.0b1 tag8b4e958 release40177716270 failed only Python3.11 HTTP-overload test (early-close BrokenPipe); no PyPI/GitHub artifacts. Retry cancelled after local reproduction. Branch1.15/ocr_http_guard corrects test expectations;600 guard checks pass. Failed-tag recovery requires owner decision; no retag. Stable8096/official8088 untouched.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
@@ -20,7 +21,6 @@
 - Project images and fonts go through `ManagedAssetField`, never a raw `ImageField`/`FileField`; namespace isolates each pool and the field's own permission gates upload.
 - `dlux.system` owns settings defaults/schema/normalizers; migration-history wrappers remain in `dlux.models`.
 - Settings steps order controls per section: toggles, then selectors, then fields, then builders; a field sits in the step its subject belongs to, not its storage group. Builder catalogs hide Dlux-supplied system items behind a default-off Show system items switch (Tables, Ribbon, Sidebar, Navbar).
-
 ### Adopted Standards' rules and policies:
 - Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work. Repo agent rules live in committed `AGENTS.md` (union of the two divergent copies, 2026-10-17); `CLAUDE.md` only imports it, and both are no longer gitignored so fresh clones and cloud sessions see them.
 - Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
@@ -28,7 +28,6 @@
 - **One release line (2026-10-21)**: `release/1.10.x` retired (tip kept as tag `archive/release-1.10.x`: v1.10.3 + 2 docs commits); no 1.11.x line. Fixes ship on `main` only; consumers upgrade to the current stable instead of receiving backports.
 - Never delete files; move superseded material into `.xclude/` with its relative path.
 - New feature releases/workstreams start from verified `main` on separate one-feature branches; merge only after branch-local implementation, docs, and tests pass.
-
 ### Cross-Cutting Audits if any:
 - 2026-10-21 structural audit on main b27d86a:5 CSS files contain theme overrides outside themes; helpers outside utils, stale plans (archived to `.xclude/plans/` 2026-10-21), settings/setup monoliths, base inline CSS + maintenance inline JS/CSS confirmed. Report `.xclude/validation/code-structure-audit-2026-10-21.md`; no implementation edits. Import-cycle guards remain active.
 - Generated deployment docs must reflect Compose 5.3+ `pre_start`, Composer external execution, and the retired updater service.
@@ -43,6 +42,7 @@
 - e2e on `5ecb2a9` (2026-10-12): the same 10 failures as d362ee7, all stale tests (e.g. `wizard_security` calls `selectOption` on the now-radio `client_ip_mode`); backup page, global search, tutorial, email, security.
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] ScanLink patch: accept installed ScanLink0.7.5b1 x86/x64 with real Windows/browser/TWAIN and DjangoLux1.15.1b1; rebase around the open1.15 release before integration/publication.
   - [ ] OCR1.15 b1: owner authorizes push/paired beta publication2026-10-25; open PRs and satisfy required main review, publish Composer first, then DjangoLux, then stress-test published pair8097. Background/model expansion validated locally; first install needs rebuilt image and Composer>=1.9.0b1. Archive adoption/removal separate.
   - [x] **Stable 1.12.1 published + accepted 2026-10-21** (settings persistence repairs, via b1 `73f7f64`): tag/main `3d9a110`; release 39579057857 all 9 jobs PASS; PyPI latest + GitHub latest (7 assets); wheel 661 files = tag. b1 accepted on testbed (pinned update, backup `Hs5_jFpe`, live section/import/SMTP/revert/app-writer journeys rolled back, rollback/re-apply, owner UI walk-through); stable installed on the stable channel, deep 23 ok/0 errors, `v=1.12.1`. Evidence `.xclude/validation/1.12.1b1-2026-10-21/`, `1.12.1-stable-2026-10-21/`.
   - [ ] **v1.12.0b2 published + testbed-accepted 2026-10-17** (tag `2fad938`; PyPI wheel+sdist, GitHub prerelease 7 assets, all 8 jobs green; local gates: suite 2856 OK, JS 70/70, checks clean). Testbed: composer agent/executor had exited 137 on 10-15, restarted; `dlux check` named b2 inline-safe; pinned update 1.11.0 -> b2 applied (`0026_file_versions` [X], `FileVersion` live, static `?v=1.12.0b2`); rollback took backup `OoSenxG7` (40,374 rows) and landed on **1.11.1b1** (previous volume release, not baked 1.11.0) with 0026 left in place — `rollback_compatible` holds; re-apply clean, `composer check` all green. `dlux_adopt_file_history documents.DocumentFileVersion` dry run: 14 rows, 14 to copy, 0 conflicts (NOT applied). accept attribute covers pdf+jpg/png/tiff/webp. **NOT driven: the document-file UI journeys** (images/rotate/Fit to A4/save) and ScanLink — decrees calls no `register_document_file`, so nothing is registered on this testbed; needs a project-side registration (or the modified decrees copy used pre-release) to exercise them.
@@ -77,9 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-25 background: full3059 OK/7skips, focused57 PASS; check/no migration drift, release/classifier/build/twine PASS. Installed694-file Web/Celery/OCR verified; real Beat3 legacy files, cadence/batch/queue controls and Arabic390 model-exclusion/manual OCR PASS, original settings restored; deep22ok/0errors/0fixes. Evidence .xclude/validation/ocr-background-2026-10-25/ + testbed ocr-background-*. Earlier stress/Composer865 evidence remains in ocr-2026-10-25/.
+- 2026-10-25 ScanLink patch: full suite3061 OK/7skips; focused59 PASS; paired JS12 scenarios; Chrome155 with strict CSP verifies HTTPS/local HTTP -> HTTP loopback after permission, insecure LAN -> insecure_origin. Django check clean; ScanLink36 OK/1 Windows skip. Evidence .xclude/validation/; native Windows acceptance pending.
 ### One-line info about last time edited Docs:
-- 2026-10-25: OCR guide/FEATURES/reference/changelog and EN/AR strings cover background batch/interval/queue limits, model selection/manual override, Beat/cache checkpoint/retry behavior and failed-file handling; prior b1 image/Composer pairing retained.
+- 2026-10-25: docs/scanlink.md + FEATURES/reference, EN/AR guidance, CHANGELOG v1.15.1b1 and candidate manifest cover automatic workstation setup, health progress, compatibility and browser restrictions; existing1.15 deployment requirements retained.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -90,6 +90,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
+- ScanLink patch branches are isolated and owner-authorized from app-mock-pdf; preserve its unrelated changes. Owner authorized beta publication and testbed stress testing2026-10-25; require Windows gates, keep stable latest/testbed-dlux untouched.
 - Stable1.14.0+Composer1.8.0 accepted on8096. :8097 depy/testbed-dlux-ocr uses Composer wrapper --dev, .secrets/.env, standard admin credentials; updated b1 wheel in dlux-ocr-1.15-b1-background:acceptance, no source mounts, inline-off. Background test settings restored/off; controls available. Updates-card deferred; Archive adoption separate.
 - 1.15/OCR polish/stress testing authorized2026-10-25. Preserve0029 and OCR work while integrating stable; no main bypass or tag until beta candidate validated. Legacy S5/privacy cleanup remain separate. Never alter tagged migrations.
 - Test stacks live only at `~/Desktop/depy/testbed-*` and use Composer wrappers in dev mode; official `testbed-dlux` is protected unless owner directs otherwise. Accept published betas there before promoting.

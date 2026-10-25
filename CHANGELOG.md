@@ -11,6 +11,14 @@ This file owns the release history for `django-lux`.
 
 - **OCR Overload Test**: Accept early connection closure during rejected uploads in the concurrency test, while retaining successful-request, single-engine and recovery assertions. Runtime behavior is unchanged.
 
+## v1.15.1b1
+
+- **ScanLink Beta Installers**: Accept and correctly order beta/RC/stable installer versions in the upload form, update manifest and workstation update panel; keep stable helpers ahead of their own betas.
+- **1.15 Patch Inline Installation**: Allow inline installation on project images baked with DjangoLux >=1.15.0b1 while retaining the OCR migration and Composer floors.
+
+- **ScanLink Loopback Connections**: Probe HTTP loopback from HTTPS pages instead of filtering it out; bound health requests, follow automatic certificate setup, and retain compatibility with ScanLink 0.7.4.
+- **ScanLink Setup Guidance**: Pair with ScanLink 0.7.5b1 automatic Windows HTTPS provisioning; show translated secure-address, browser permission, and setup-retry instructions across file fields, PDF scanning, and the installer panel.
+
 ## v1.15.0b1
 
 - **Optional Celery Compatibility**: Expose the shared OCR retry policy for core-only installs and keep OCR task entrypoints safely disabled when Celery is absent; verify both optional-dependency paths.

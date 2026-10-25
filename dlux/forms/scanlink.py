@@ -21,7 +21,7 @@ from .builders import (
     build_settings_toggle_field,
 )
 
-VERSION_RE = re.compile(r'^\d+(\.\d+){0,3}$')
+VERSION_RE = re.compile(r'^\d+(\.\d+){0,3}(?:(?:b|rc)\d+)?$')
 
 
 def _s():
@@ -44,7 +44,7 @@ class ScanLinkReleaseForm(forms.ModelForm):
         s = _s()
         self.fields['version'].label = s.get('scanlink_field_version', 'Version')
         self.fields['version'].help_text = s.get(
-            'scanlink_field_version_help', 'Dotted version, for example 0.7.2.')
+            'scanlink_field_version_help', 'Version, for example 0.7.5 or 0.7.5b1.')
         self.fields['arch'].label = s.get('scanlink_field_arch', 'Architecture')
         self.fields['is_active'].label = s.get('scanlink_field_is_active', 'Advertise this release')
         self.fields['notes'].label = s.get('scanlink_field_notes', 'Notes')
@@ -107,7 +107,7 @@ class ScanLinkReleaseForm(forms.ModelForm):
         version = str(self.cleaned_data.get('version') or '').strip()
         if not VERSION_RE.match(version):
             raise forms.ValidationError(
-                _s().get('scanlink_version_invalid', 'Use a dotted numeric version, for example 0.7.2.')
+                _s().get('scanlink_version_invalid', 'Use a version such as 0.7.5 or 0.7.5b1.')
             )
         return version
 

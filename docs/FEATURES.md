@@ -4,6 +4,11 @@
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
 
+- **ScanLink setup fixes:** ScanLink 0.7.5 provisions trusted Windows localhost
+  HTTPS and renews it automatically. The shared scanner and installer panel
+  retain HTTP loopback fallback and explain connection failures in English and
+  Arabic. See [ScanLink workstation setup](scanlink.md).
+
 - **Entry clipboard:** Extra Features enables tab-local snippets through a
   popover opened by a clipboard icon beside the sticky-form header switch, with compact control rows, snippet insert/replace actions and full-content viewing; ribbons and Dlux reports are excluded and eligible entry fields use explicit opt-out. Sticky forms retain ownership of prefill. See
   [Entry clipboard](entry-clipboard.md).

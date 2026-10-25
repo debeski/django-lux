@@ -2,7 +2,7 @@
      data-origins="{{ scanlink_connect_origins_json }}"
      data-manifest-url="{% url 'scanlink_update_manifest' %}">
     <p class="text-muted" data-scanlink-card-intro>
-        {{ DLUX_STRINGS.scanlink_page_intro|default:'This computer checks its locally installed ScanLink version against the latest release published on the server.' }}
+        {{ DLUX_STRINGS.scanlink_page_intro|default:'Install and open ScanLink on this computer. Secure connection setup is automatic; approve any Windows or browser prompt. This page checks for updates published by your application.' }}
     </p>
     <div class="row g-3 mb-3" data-scanlink-metrics>
         <div class="col-md-4">

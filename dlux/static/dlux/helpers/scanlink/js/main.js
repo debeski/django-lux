@@ -17,6 +17,8 @@ var ScanLink = window.ScanLink || class ScanLink {
         this.httpUrl = options.httpUrl || "http://localhost:5000";
         this.httpsUrl = options.httpsUrl || "https://localhost:5443";
         this.protocol = options.protocol || "scanlink";
+        this.healthTimeoutMs = options.healthTimeoutMs || 3000;
+        this.connectionError = null;
 
         this.onStatus = options.onStatus || (() => {});
         this.onPageScanned = options.onPageScanned || (() => {});
@@ -45,16 +47,10 @@ var ScanLink = window.ScanLink || class ScanLink {
 
         for (const baseUrl of candidates) {
             try {
-                const response = await fetch(`${baseUrl}/health`, {
-                    method: "GET",
-                    mode: "cors",
-                });
-                if (!response.ok) {
-                    continue;
-                }
-
-                const health = await response.json();
+                const health = await this._healthAt(baseUrl);
+                if (!health) continue;
                 this._setPreferredUrl(baseUrl);
+                this.connectionError = null;
                 this.onConnectionChange(true);
                 return health;
             } catch (error) {
@@ -62,8 +58,30 @@ var ScanLink = window.ScanLink || class ScanLink {
             }
         }
 
+        this.connectionError = this._connectionFailure();
         this.onConnectionChange(false);
         return null;
+    }
+
+    async _healthAt(baseUrl) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), this.healthTimeoutMs);
+        try {
+            const response = await fetch(`${baseUrl}/health`, {
+                method: "GET", mode: "cors", signal: controller.signal,
+            });
+            // Read the body before clearing the timeout, including stalled responses.
+            return response.ok ? await response.json() : null;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    _connectionFailure(cause) {
+        if (window.isSecureContext === false) {
+            return new ScanLinkError("Open this application using its secure address, or contact your support team to enable scanning.", "insecure_origin", { cause });
+        }
+        return new ScanLinkError("Start ScanLink on this computer and try again. If your browser asks to connect to this computer, choose Allow.", "helper_unavailable", { cause });
     }
 
     async startScan(options = {}) {
@@ -218,11 +236,8 @@ var ScanLink = window.ScanLink || class ScanLink {
         }
 
         this.onConnectionChange(false);
-        throw new ScanLinkError(
-            "ScanLink is not available on this computer.",
-            "helper_unavailable",
-            { cause: lastError }
-        );
+        this.connectionError = this._connectionFailure(lastError);
+        throw this.connectionError;
     }
 
     _candidateUrls(force = false) {

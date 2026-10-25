@@ -4,6 +4,16 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
 see [Deployment Configuration](deployment-configuration.md).
 
+## ScanLink
+
+`window.DluxScan.scan()` is shared by file fields and the PDF editor. Its
+`window.ScanLink` client tries localhost HTTPS :5443 and HTTP :5000, with a
+three-second timeout per health attempt. `connectionError.code` is
+`insecure_origin` only after both transports fail from an insecure context;
+other connection failures use `helper_unavailable`. ScanLink 0.7.5 adds optional
+`/health.https_setup` (`preparing`, `ready`, `failed`) for automatic certificate
+setup guidance. See [ScanLink workstation setup](scanlink.md).
+
 ## Entry clipboard
 
 Enable the deployment-wide **Entry clipboard** switch in Extra Features
