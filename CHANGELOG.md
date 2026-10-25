@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## v1.15.0b1
 
+- **Optional Celery Compatibility**: Expose the shared OCR retry policy for core-only installs and keep OCR task entrypoints safely disabled when Celery is absent; verify both optional-dependency paths.
 - **Background OCR Catch-Up And Model Selection**: Extra Features can scan older unread files in bounded low-priority batches, with configurable intervals and queue backpressure. Select models for automatic saves/background scans while retaining manual viewer OCR for excluded models. Enforce exclusions when queued jobs start, preserve existing text/search, and keep long retry delays from being rescheduled prematurely.
 - **Paired OCR Beta**: Require Composer `>=1.9.0b1` and a project image rebuilt with DjangoLux `>=1.15.0b1` for the optional OCR engine/model dependencies and additive `0029_file_text` migration. First OCR installation is image-required; existing inline-updater baselines cannot supply the engine.
 - **OCR Load And Replacement Safety**: Preserve current-file selection when an older OCR job finishes after file replacement. Bound HTTP handlers and queued connections, acquire an engine slot before buffering uploads, time out stalled uploads, and reject ambiguous request framing; overload remains retryable.

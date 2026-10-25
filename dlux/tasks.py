@@ -8,6 +8,8 @@ execution. Host projects that run Celery pick this module up automatically via
 
 import logging
 
+from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
+
 logger = logging.getLogger('dlux')
 
 try:
@@ -145,8 +147,6 @@ if shared_task is not None:
             publish_agent_snapshot(service.store)
         finally:
             cache.delete('dlux.state_tick.lock')
-
-    from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
 
     @shared_task(name='dlux.tasks.ocr_background', ignore_result=True)
     def ocr_background():
