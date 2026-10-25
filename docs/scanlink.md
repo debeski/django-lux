@@ -7,7 +7,7 @@ prompt. They do not run commands or import certificates.
 
 ## Stress-test fixes (unpublished)
 
-The next pair is DjangoLux 1.15.1b2 and ScanLink 0.8.0b1. The browser client
+ScanLink 0.8.0b1 is published; DjangoLux 1.15.1b2 is the pending paired client. The browser client
 checks health before its first scan and sends the scan POST once. If the request
 or accepted response body loses its connection, `scan_request_uncertain` asks the
 operator to check ScanLink before starting another scan. File fields and the PDF
