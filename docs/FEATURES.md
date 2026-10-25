@@ -1,6 +1,6 @@
 # DjangoLux Feature Inventory
 
-- **ScanLink stress fixes (pending 1.15.1b2 / 0.8.0b1):** Scan requests use one
+- **ScanLink stress fixes (1.15.1b2 / 0.8.0b1):** Scan requests use one
   negotiated transport and never resubmit after an ambiguous connection loss;
   English/Arabic guidance asks operators to check the helper. The paired worker
   fixes completion timing, hard deadlines, request validation and result races.

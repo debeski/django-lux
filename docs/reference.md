@@ -6,7 +6,7 @@ see [Deployment Configuration](deployment-configuration.md).
 
 ## ScanLink
 
-The pending 1.15.1b2 client negotiates a healthy transport before its first scan
+The 1.15.1b2 client negotiates a healthy transport before its first scan
 and sends each scan POST once. A lost response produces `scan_request_uncertain`
 with shared English/Arabic guidance; it never automatically resubmits the scan.
 Paired ScanLink 0.8.0b1 fixes PDF-completion timing, parent deadlines, request
