@@ -6,6 +6,7 @@
 
     function messagesFor(element) {
         const data = (element && element.dataset) || {};
+        const strings = window.DLUX_STRINGS || {};
         return {
             label: data.scanLabel || "Scan",
             preparing: data.scanPreparing || "Preparing scan",
@@ -14,7 +15,8 @@
             pageTemplate: data.scanPageTemplate || "Page {count} scanned",
             generating: data.scanGenerating || "Generating PDF",
             completed: data.scanCompleted || "Scanned",
-            helperUnavailable: data.scanHelperUnavailable || "ScanLink is not available on this computer.",
+            helperUnavailable: data.scanHelperUnavailable || strings.scan_helper_unavailable_message || "Start ScanLink on this computer and try again. If your browser asks to connect to this computer, choose Allow.",
+            insecureOrigin: data.scanInsecureOrigin || strings.scan_insecure_origin_message || "Open this application using its secure address, or contact your support team to enable scanning.",
             busy: data.scanBusy || "Another scan is already running.",
             cancelled: data.scanCancelled || "The scan was cancelled.",
             timeout: data.scanTimeout || "The scan took too long to finish.",
@@ -26,6 +28,8 @@
 
     function errorMessage(messages, error) {
         switch (error && error.code) {
+            case "insecure_origin":
+                return messages.insecureOrigin;
             case "helper_unavailable":
                 return messages.helperUnavailable;
             case "busy":
@@ -98,7 +102,7 @@
             const scanLink = client();
             onProgress(messages.preparing, { status: "queued" });
             const health = await scanLink.checkHealth(true);
-            if (!health) throw new window.ScanLinkError(messages.helperUnavailable, "helper_unavailable");
+            if (!health) throw scanLink.connectionError || new window.ScanLinkError(messages.helperUnavailable, "helper_unavailable");
             if (health.twain_available === false) throw new window.ScanLinkError(messages.noScanners, "twain_unavailable");
             if (health.busy) throw new window.ScanLinkError(messages.busy, "busy");
 

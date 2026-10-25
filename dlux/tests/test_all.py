@@ -84,6 +84,7 @@ TEST_LABELS = [
     'dlux.tests.test_runtime_contract',
     'dlux.tests.test_runtime_supervisor',
     'dlux.tests.test_scaffold',
+    'dlux.tests.test_scanlink_connection',
     'dlux.tests.test_scanlink_gate',
     'dlux.tests.test_scanlink_releases',
     'dlux.tests.test_scope_default_theme',
