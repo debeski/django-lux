@@ -27,6 +27,8 @@ Saved values win; an environment string fills an option never saved (or saved in
 
 ## For developers
 
+The first beta pair is DjangoLux `1.15.0b1` with Composer `1.9.0b1`. Install it through a project image rebuild, including `django-lux[ocr]`, offline models, and the service/allow-list configuration below; the first OCR beta is deliberately unavailable as an inline package upgrade.
+
 ```python
 from dlux.files.registry import register_document_file
 
@@ -65,5 +67,11 @@ python manage.py dlux_adopt_ocr_text documents.DocumentOCR --apply
 - Service API: `POST /v1/ocr?mode=&threads=&max_pages=`, `GET /health`; see `dlux/ocr/serve.py`. Public service URLs, embedded credentials, URL paths, loopback/link-local addresses and redirects are rejected.
 
 ## Resource planning
+
+`OCR_WORKERS` (default `1`) bounds concurrent extraction and upload buffering. `OCR_QUEUE_SIZE` (default `2`, minimum `1`) adds waiting HTTP-handler slots; excess connections receive a retryable `503` and may be closed before upload. Waiting requests do not buffer their files. `OCR_QUEUE_WAIT` (default `20` seconds) bounds the wait for an engine slot; `OCR_READ_TIMEOUT` (default `30` seconds) is the socket inactivity timeout for headers/uploads. Uploads need a single `Content-Length` header, without `Transfer-Encoding`; truncated, stalled and oversized uploads are refused. `OCR_MAX_BYTES` (default 64 MiB), `OCR_MAX_PAGES` (default `500`) and `OCR_MAX_THREADS` bound individual requests.
+
+The generated Compose service exposes the queue and inactivity settings above and sets `OCR_MAX_BYTES` to 512 MiB unless overridden. The application's default per-file limit remains 64 MiB; both limits apply. Change container environment limits through the deployment configuration and recreate the OCR service.
+
+If a file is replaced while its OCR request is running, the completed text remains historical and cannot become current again. Current-file selection is independent of worker result updates.
 
 The OCR extra adds ONNX Runtime, image-processing dependencies and model files to the project image. Model loading is lazy and confined to the OCR process. Choose `OCR_MEMORY_LIMIT` and `OCR_MAX_THREADS` for the deployment; extraction quality varies for handwriting, stamps and damaged scans. Treat extracted text as a search aid and retain the original document.

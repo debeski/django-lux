@@ -32,6 +32,8 @@ MAX_BYTES = int(os.environ.get('OCR_MAX_BYTES', str(64 * 1024 * 1024)))
 MAX_PAGES = int(os.environ.get('OCR_MAX_PAGES', '500'))
 QUEUE_WAIT = float(os.environ.get('OCR_QUEUE_WAIT', '20'))
 WORKERS = max(1, int(os.environ.get('OCR_WORKERS', '1')))
+MAX_CONNECTIONS = WORKERS + max(1, int(os.environ.get('OCR_QUEUE_SIZE', '2')))
+READ_TIMEOUT = max(0.1, float(os.environ.get('OCR_READ_TIMEOUT', '30')))
 DEFAULT_THREADS = int(os.environ.get('OCR_THREADS', '2'))
 MAX_THREADS = max(1, int(os.environ.get('OCR_MAX_THREADS', str(os.cpu_count() or 4))))
 MODES = {'auto', 'ocr'}
@@ -48,6 +50,41 @@ log = logging.getLogger('ocr')
 ENGINE = None
 UNAVAILABLE = {}
 SLOTS = threading.BoundedSemaphore(WORKERS)
+
+
+class OCRHTTPServer(ThreadingHTTPServer):
+    request_queue_size = 64
+
+    def __init__(self, address, handler):
+        super().__init__(address, handler)
+        self._connections = threading.BoundedSemaphore(MAX_CONNECTIONS)
+
+    def process_request(self, request, address):
+        if not self._connections.acquire(blocking=False):
+            body = b'{"error":"The OCR engine is busy."}'
+            response = (b'HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n'
+                        b'Content-Type: application/json\r\nRetry-After: 30\r\nContent-Length: '
+                        + str(len(body)).encode('ascii') + b'\r\n\r\n' + body)
+            try:
+                request.settimeout(READ_TIMEOUT)
+                request.sendall(response)
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+        try:
+            request.settimeout(READ_TIMEOUT)
+            super().process_request(request, address)
+        except BaseException:
+            self._connections.release()
+            raise
+
+    def process_request_thread(self, request, address):
+        try:
+            super().process_request_thread(request, address)
+        finally:
+            self._connections.release()
 
 
 def detect_kind(head):
@@ -94,13 +131,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def reply(self, status, payload, headers=None):
         body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+        self.close_connection = True
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Connection', 'close')
         for key, value in (headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except OSError:
+            log.debug('OCR client disconnected before reading its response.')
 
     def error(self, status, message, headers=None):
         self.reply(status, {'error': message}, headers)
@@ -122,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.error(HTTPStatus.NOT_FOUND, 'Not found.')
         if ENGINE is None:
             return self.error(HTTPStatus.SERVICE_UNAVAILABLE, UNAVAILABLE.get('reason', 'The OCR engine is not available.'))
+        if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
+            return self.error(HTTPStatus.BAD_REQUEST, 'Send one Content-Length header without Transfer-Encoding.')
         query = parse_qs(url.query)
         mode = query.get('mode', ['auto'])[0]
         if mode not in MODES:
@@ -137,15 +181,20 @@ class Handler(BaseHTTPRequestHandler):
         if length > MAX_BYTES:
             self.close_connection = True
             return self.error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, f'The file exceeds {MAX_BYTES} bytes.')
-        body = self.rfile.read(length)
-        kind = detect_kind(body[:16])
-        if kind is None:
-            return self.error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, 'Send a PDF, PNG, JPEG, TIFF, BMP or WebP file.')
         started = time.monotonic()
         if not SLOTS.acquire(timeout=QUEUE_WAIT):
             return self.error(HTTPStatus.SERVICE_UNAVAILABLE, 'The OCR engine is busy.', {'Retry-After': '30'})
         try:
             queued_ms = round((time.monotonic() - started) * 1000, 1)
+            try:
+                body = self.rfile.read(length)
+            except TimeoutError:
+                return self.error(HTTPStatus.REQUEST_TIMEOUT, 'The file upload timed out.')
+            if len(body) != length:
+                return self.error(HTTPStatus.BAD_REQUEST, 'The file upload is incomplete.')
+            kind = detect_kind(body[:16])
+            if kind is None:
+                return self.error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, 'Send a PDF, PNG, JPEG, TIFF, BMP or WebP file.')
             with tempfile.NamedTemporaryFile(suffix='.' + kind) as handle:
                 handle.write(body)
                 handle.flush()
@@ -173,7 +222,7 @@ def main():
         log.error('%s', UNAVAILABLE['reason'])
     else:
         log.info('%s %s (models %s) ready; models load on first use', ENGINE.name, ENGINE.version, ENGINE.model_version)
-    server = ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('OCR_PORT', '8080'))), Handler)
+    server = OCRHTTPServer(('0.0.0.0', int(os.environ.get('OCR_PORT', '8080'))), Handler)
     server.daemon_threads = True
     # PID 1 ignores SIGTERM by default; without this `docker stop` waits out its timeout and kills.
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())

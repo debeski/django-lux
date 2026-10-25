@@ -318,6 +318,9 @@ services:
     environment:
       HF_HUB_OFFLINE: "1"
       OCR_WORKERS: "${OCR_WORKERS:-1}"
+      OCR_QUEUE_SIZE: "${OCR_QUEUE_SIZE:-2}"
+      OCR_QUEUE_WAIT: "${OCR_QUEUE_WAIT:-20}"
+      OCR_READ_TIMEOUT: "${OCR_READ_TIMEOUT:-30}"
       OCR_MAX_THREADS: "${OCR_MAX_THREADS:-4}"
       OCR_MAX_BYTES: "${OCR_MAX_BYTES:-536870912}"
     mem_limit: "${OCR_MEMORY_LIMIT:-3g}"

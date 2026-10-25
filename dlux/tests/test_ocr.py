@@ -195,6 +195,24 @@ class SchedulingTests(OCRTestCase):
 
 
 class RunTests(OCRTestCase):
+    def test_finishing_an_old_read_does_not_make_replaced_text_current(self):
+        paper = self.paper()
+        previous = self.rows(paper).get()
+
+        def replace_while_reading(_content):
+            with self.captureOnCommitCallbacks(execute=True):
+                paper.pdf_file.save('replacement.pdf', ContentFile(PDF + b'replacement'))
+            return payload('Text from the previous file')
+
+        with patch('dlux.ocr.service.call_service', side_effect=replace_while_reading):
+            service.run(previous.pk)
+        previous.refresh_from_db()
+        self.assertFalse(previous.is_current)
+        self.assertEqual(previous.status, 'done')
+        current = service.current_result(paper)
+        self.assertNotEqual(current.pk, previous.pk)
+        self.assertEqual(current.status, 'pending')
+
     def test_run_stores_text_engine_timings_and_sends_options(self):
         configure(mode='ocr', threads=4)
         row = self.rows(self.paper()).get()

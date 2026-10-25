@@ -217,7 +217,11 @@ def _store(result, payload):
     result.error = f'Pages that could not be read: {", ".join(str(index + 1) for index in failed)}' if failed else ''
     result.status = 'done'
     result.finished_at = timezone.now()
-    result.save()
+    result.save(update_fields=[
+        'engine', 'engine_version', 'model_version', 'markdown', 'text', 'pages',
+        'page_count', 'mean_confidence', 'timings', 'duration_ms', 'error',
+        'status', 'finished_at', 'updated_at',
+    ])
     return result
 
 

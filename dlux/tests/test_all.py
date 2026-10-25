@@ -13,6 +13,7 @@ TEST_LABELS = [
     'dlux.tests.test_document_history',
     'dlux.tests.test_document_wiring',
     'dlux.tests.test_ocr',
+    'dlux.tests.test_ocr_http',
     'dlux.tests.test_entry_clipboard',
     'dlux.tests.test_weather',
     'dlux.tests.test_accent_edges',
