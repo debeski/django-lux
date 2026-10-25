@@ -166,6 +166,7 @@ STRINGS = {
     'scanlink_update': 'Download update',
     'scanlink_up_to_date': 'ScanLink is up to date.',
     'scanlink_no_release': 'No installer is published on the server yet.',
+    'scan_request_uncertain_message': 'The scan request lost its connection. Check ScanLink before starting another scan.',
     'scan_insecure_origin_message': 'Open this application using its secure address, or contact your support team to enable scanning.',
     'scanlink_secure_preparing': 'ScanLink is setting up its secure connection. Approve any Windows prompt; this page will check again automatically.',
     'scanlink_secure_failed': 'Open ScanLink and choose Retry secure connection setup. Approve any Windows prompt. If setup is blocked, contact your support team.',

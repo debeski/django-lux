@@ -91,6 +91,9 @@ var ScanLink = window.ScanLink || class ScanLink {
         if (options.metadata && typeof options.metadata === "object") payload.metadata = options.metadata;
 
         try {
+            if (!this.preferredUrl && !await this.checkHealth()) {
+                throw this.connectionError;
+            }
             const response = await this._fetchResponse("/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -102,7 +105,13 @@ var ScanLink = window.ScanLink || class ScanLink {
                 throw await this._responseToError(response, "Failed to start scan.");
             }
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+                if (!data || !data.job_id) throw new Error("Missing scan job ID");
+            } catch (error) {
+                throw this._uncertainRequest(error);
+            }
             this.currentJobId = data.job_id;
             this.onStatus(data);
             return data;
@@ -220,8 +229,14 @@ var ScanLink = window.ScanLink || class ScanLink {
         window.location.href = url;
     }
 
+    _uncertainRequest(cause) {
+        return new ScanLinkError("The scan request lost its connection. Check ScanLink before starting another scan.", "scan_request_uncertain", { cause });
+    }
+
     async _fetchResponse(path, options = {}) {
-        const candidates = this._candidateUrls(false);
+        const readOnly = ["GET", "HEAD"].includes((options.method || "GET").toUpperCase());
+        const urls = this._candidateUrls(false);
+        const candidates = readOnly ? urls : urls.slice(0, 1);
         let lastError = null;
 
         for (const baseUrl of candidates) {
@@ -236,7 +251,7 @@ var ScanLink = window.ScanLink || class ScanLink {
         }
 
         this.onConnectionChange(false);
-        this.connectionError = this._connectionFailure(lastError);
+        this.connectionError = readOnly ? this._connectionFailure(lastError) : this._uncertainRequest(lastError);
         throw this.connectionError;
     }
 

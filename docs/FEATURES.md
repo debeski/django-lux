@@ -1,5 +1,10 @@
 # DjangoLux Feature Inventory
 
+- **ScanLink stress fixes (pending 1.15.1b2 / 0.8.0b1):** Scan requests use one
+  negotiated transport and never resubmit after an ambiguous connection loss;
+  English/Arabic guidance asks operators to check the helper. The paired worker
+  fixes completion timing, hard deadlines, request validation and result races.
+
 **Current source:** v1.8.3
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.

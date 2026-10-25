@@ -5,6 +5,20 @@ installer through Options → ScanLink. Operators download the installer from th
 project they use, install it, open ScanLink, and approve any Windows or browser
 prompt. They do not run commands or import certificates.
 
+## Stress-test fixes (unpublished)
+
+The next pair is DjangoLux 1.15.1b2 and ScanLink 0.8.0b1. The browser client
+checks health before its first scan and sends the scan POST once. If the request
+or accepted response body loses its connection, `scan_request_uncertain` asks the
+operator to check ScanLink before starting another scan. File fields and the PDF
+editor share English/Arabic guidance. Health/status reads retain HTTP/HTTPS
+fallback; old helpers remain supported.
+
+ScanLink 0.8.0b1 keeps a job in `generating_pdf` until the child exits and the PDF
+is stored, enforces the parent scan deadline despite ongoing progress, rejects
+malformed public/protocol scan bodies before queueing, and retains consumed-job
+metadata until its TTL for consistent single-use result responses.
+
 ## Compatible versions
 
 The DjangoLux 1.15.1b1 beta pairs with ScanLink 0.7.5b1. It retains

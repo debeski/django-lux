@@ -11,6 +11,12 @@ This file owns the release history for `django-lux`.
 
 - **OCR Overload Test**: Accept early connection closure during rejected uploads in the concurrency test, while retaining successful-request, single-engine and recovery assertions. Runtime behavior is unchanged.
 
+## v1.15.1b2
+
+- **Single Scan Submission**: Negotiate a healthy loopback transport before scanning, send each scan POST once, and report `scan_request_uncertain` if its response or body is lost instead of resubmitting through the fallback transport.
+- **Uncertain Scan Guidance**: Share English/Arabic recovery messages between file-field and PDF-editor scanning, paired with ScanLink 0.8.0b1 worker completion, deadline, payload and result-race fixes.
+- **Scan Transport Regressions**: Cover accepted-but-lost responses, lost response bodies, HTTP fallback negotiation and offline requests against both shipped JavaScript clients.
+
 ## v1.15.1b1
 
 - **ScanLink Beta Installers**: Accept and correctly order beta/RC/stable installer versions in the upload form, update manifest and workstation update panel; keep stable helpers ahead of their own betas.
