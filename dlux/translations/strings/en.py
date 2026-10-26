@@ -2709,4 +2709,11 @@ STRINGS = {
     'ocr_service_stop_requested': 'Stopping the ocr service through Composer.',
     'ocr_service_stop_unavailable': 'Saved. The ocr service could not be stopped from here: {reason} Use the Operations panel.',
     'ocr_service_stopped': 'Composer stopped the ocr service.',
+    'personal_columns_title': 'Arrange columns',
+    'personal_columns_intro': 'Choose the columns you see and drag to reorder, or use the arrow buttons. Your changes apply only to you. Columns restricted by the administrator stay unavailable.',
+    'personal_columns_up': 'Move column up',
+    'personal_columns_down': 'Move column down',
+    'personal_columns_restore': 'Restore',
+    'personal_columns_expired': 'This table control expired. Reload the table and try again.',
+    'personal_columns_invalid': 'Choose available columns and keep at least one column visible.',
 }

@@ -892,6 +892,8 @@ def _patch_table_init():
 
         from .utils.table_columns import apply_table_column_overlay
         apply_table_column_overlay(self, config.get('tables_config'))
+        from .utils.user_table_columns import apply_user_table_columns
+        apply_user_table_columns(self, config.get('tables_config'))
 
         # django-tables2: Translate context menu actions inside row_attrs
         if hasattr(self, 'row_attrs') and 'data-dlux-actions' in self.row_attrs:

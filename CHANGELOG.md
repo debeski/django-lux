@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Personal Table Columns (1.14.1 Forward Port)**: Preserve per-user ordering/visibility within current administrator/developer fences, using signed own-user table catalogs and bounded profile preferences. Include drag/arrow ordering, restore and reverted-edit detection.
+- **Server-Owned Sticky Forms (1.14.1 Forward Port)**: Emit the modal marker for `form.dlux_sticky_server = True` so last-entry data cannot overwrite a project's next number or validation input.
+
 - **OCR Overload Test**: Accept early connection closure during rejected uploads in the concurrency test, while retaining successful-request, single-engine and recovery assertions. Runtime behavior is unchanged.
 
 ## v1.15.1b2
