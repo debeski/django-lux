@@ -1,9 +1,11 @@
 {
   "schema_version": 2,
-  "version": "1.14.0",
+  "version": "1.14.1b1",
   "display": {
-    "summary": "Table customization, safe pagination, selectable incremental chains and auxiliary service controls.",
+    "summary": "Personal table column ordering and visibility within administrator restrictions.",
     "highlights": [
+      "Each user can hide and arrange available table columns and restore administrator defaults without changing other users.",
+      "Developer exclusions, administrator-hidden columns and protected table controls cannot be overridden by personal settings.",
       "Operations remains available in Composer development mode when inline package updates are disabled; the resident agent gates execution.",
       "Tables settings: reorder and restore columns, edit translated labels and icons, and choose primary/secondary sorting through the shared inspector. Restore is conditional, reverted edits stay clean, and system tables remain behind Show system items.",
       "Ribbon destination buttons support drag ordering that persists into real pages, including project export buttons.",
@@ -13,7 +15,7 @@
       "Password-confirmed Start/Stop for approved auxiliary services (Composer 1.8.0b1+). Web/Celery stay protected; restart, recreate and updates are unchanged.",
       "Table URL parameters cannot override validated page-size limits."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.1b1"
   },
   "requires": {
     "updater_schema": ">=1",

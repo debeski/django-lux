@@ -955,6 +955,8 @@ feature gates the other.
 
 ### Unsaved-changes guard
 
+Personal table column ordering and visibility use the `user_table_columns` GET/POST endpoint and `Profile.preferences['table_columns']`. A table render supplies the user-bound signed catalog; callers cannot nominate arbitrary models or reveal admin-hidden columns. `Meta.dlux_user_columns = False` disables the organizer for a fixed table. See [table-columns.md](table-columns.md#personal-column-organization-1141).
+
 A modal form that sets `form.dlux_unsaved_guard = True` renders with
 `data-dlux-unsaved-guard`, and `unsaved_guard.js` intercepts `hide.bs.modal` —
 the single event behind the backdrop, the X button and Escape — when the form's

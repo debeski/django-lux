@@ -2639,4 +2639,11 @@ STRINGS = {
     'pdf_version_history_label': 'Version History',
     'pdf_zoom_in_label': 'Zoom In',
     'pdf_zoom_out_label': 'Zoom Out',
+    'personal_columns_title': 'Arrange columns',
+    'personal_columns_intro': 'Choose the columns you see and drag to reorder, or use the arrow buttons. Your changes apply only to you. Columns restricted by the administrator stay unavailable.',
+    'personal_columns_up': 'Move column up',
+    'personal_columns_down': 'Move column down',
+    'personal_columns_restore': 'Restore',
+    'personal_columns_expired': 'This table control expired. Reload the table and try again.',
+    'personal_columns_invalid': 'Choose available columns and keep at least one column visible.',
 }
