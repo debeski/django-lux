@@ -3400,10 +3400,13 @@ class SystemSettingsForm(
         else:
             self.initial['default_language'] = 'en' if 'en' in current_languages else next(iter(current_languages), 'en')
 
+        # Another section's save must not adopt the posted names: the field is
+        # disabled there and saves this initial value.
+        names_posted = self.is_bound and 'system_names' in self.data and (
+            not self.single_step_mode or self.single_step_index == SETUP_STEP_IDENTITY
+        )
         initial_system_names = (
-            self.data.get('system_names')
-            if self.is_bound and 'system_names' in self.data
-            else self.initial.get('system_names')
+            self.data.get('system_names') if names_posted else self.initial.get('system_names')
         ) or {}
         if isinstance(initial_system_names, str):
             try:

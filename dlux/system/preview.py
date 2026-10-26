@@ -12,9 +12,9 @@ per-field preview code.
 
 A preview request can never write. It is GET-only, runs inside a transaction
 that is always rolled back, restores the session it found, and the markup it
-returns carries a guard that swallows clicks and submits. The reader's personal
-preferences are blanked for the request, so the page shows the system defaults
-being edited rather than the admin's own theme or density.
+returns carries a guard that swallows clicks and submits. The reader keeps their
+own theme, densities and font, except where the draft changes that default: then
+the personal choice is dropped for the request so the new default shows.
 """
 
 from __future__ import annotations
@@ -35,6 +35,14 @@ DRAFT_TTL_SECONDS = 30 * 60
 KIND_SYSTEM = 'system'
 KIND_APP = 'app'
 REQUEST_MEMOS = ('_dlux_system_config', '_dlux_language_config', '_dlux_scope_enabled')
+# Personal preference -> the system default it overrides.
+PREFERENCE_DEFAULTS = {
+    'theme': 'default_theme',
+    'table_density': 'default_table_density',
+    'form_density': 'default_form_density',
+    'modal_size': 'default_modal_size',
+    'font': 'default_fonts',
+}
 
 from .preview_state import current_draft, draft_settings as _draft_settings  # noqa: F401
 
@@ -232,8 +240,13 @@ def begin(request):
     except DraftInvalid:
         return None
 
+    from django.utils.module_loading import import_string
+
+    _build_system_config = import_string('dlux.utils.config._build_system_config')
     session_snapshot = dict(request.session.items()) if hasattr(request, 'session') else None
+    stored_config = _build_system_config()
     reset = _draft_settings.set(draft)
+    draft_config = _build_system_config()
     # Anything earlier in the stack that already read settings memoised them on
     # the request; those copies describe the stored row, not the draft.
     for memo in REQUEST_MEMOS:
@@ -247,8 +260,12 @@ def begin(request):
     request.dlux_preview_language = _draft_language(draft, request.GET.get(LANG_PARAM) or '')
 
     profile = getattr(user, 'profile', None) if getattr(user, 'is_authenticated', False) else None
-    if profile is not None:
-        profile.preferences = {}
+    if profile is not None and isinstance(profile.preferences, dict):
+        profile.preferences = {
+            key: value for key, value in profile.preferences.items()
+            if key not in PREFERENCE_DEFAULTS
+            or stored_config.get(PREFERENCE_DEFAULTS[key]) == draft_config.get(PREFERENCE_DEFAULTS[key])
+        }
     if audience == 'anonymous':
         from django.contrib.auth.models import AnonymousUser
 

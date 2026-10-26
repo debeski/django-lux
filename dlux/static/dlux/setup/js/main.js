@@ -1555,7 +1555,8 @@
         syncSystemNameRows(form, languages);
         const systemNames = readSystemNames(form);
         if (languagesField) languagesField.value = JSON.stringify(languages);
-        if (namesField) namesField.value = JSON.stringify(systemNames);
+        // Only Branding renders the name rows; elsewhere they read as empty.
+        if (namesField && form.querySelector('[data-system-name-list]')) namesField.value = JSON.stringify(systemNames);
         if (defaultField) {
             defaultField.value = fallbackLanguage;
         }
