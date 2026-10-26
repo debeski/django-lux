@@ -29,7 +29,7 @@ from types import SimpleNamespace
 from django.template.loader import render_to_string
 from dlux.translations import get_strings
 print(json.dumps({lang: render_to_string('dlux/system/operations_panel.html',
-      {'updates_enabled': True, 'request': SimpleNamespace(csp_nonce='n'), 'DLUX_STRINGS': get_strings(lang)}) for lang in ('en', 'ar')}))
+      {'operations_enabled': True, 'request': SimpleNamespace(csp_nonce='n'), 'DLUX_STRINGS': get_strings(lang)}) for lang in ('en', 'ar')}))
 `], { cwd: ROOT, env: { ...process.env, DJANGO_SETTINGS_MODULE: 'dlux.tests.settings', PYTHONPATH: ROOT } }).toString());
 
 const PAGE = (lang) => `<!doctype html><html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><meta name="csrf-token" content="tok">
@@ -69,7 +69,7 @@ let server;
 let browser;
 let page;
 
-// Opening the panel refreshes the service list by itself; this is what came after.
+// Lifecycle actions and deployment checks are separate from explicit service refreshes.
 const actions = () => page.evaluate(() => window.__posted.filter((body) => body.operation !== 'services'));
 const waitForAction = () => page.waitForFunction(
   () => window.__posted.some((body) => body.operation !== 'services'));
@@ -190,11 +190,22 @@ describe('deployment check in the panel', () => {
 });
 
 describe('opening the panel', () => {
-  test('loads the service list without a click', async () => {
+  test('opening and reopening cached results starts no operation', async () => {
     await load({});
-    await page.waitForFunction(() => window.__posted.length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__posted[0]), { operation: 'services' });
-    assert.equal(await page.evaluate(() => window.__posted.length), 1, 'once per opening');
+    assert.equal(await page.evaluate(() => window.__posted.length), 0);
+    assert.match(await page.locator('[data-dlux-ops-panel-services]').textContent(), /Refresh/);
+    await load({ services: SERVICES });
+    assert.equal(await page.evaluate(() => window.__posted.length), 0);
+    assert.equal(await page.locator('[data-dlux-ops-panel-status]').isVisible(), false);
+    await page.locator('[data-dlux-ops-panel-run="services"]').click();
+    assert.deepEqual(await page.evaluate(() => window.__posted), [{operation:'services'}]);
+  });
+
+  test('an active refresh clearly explains why cached service controls are disabled', async () => {
+    await load({services: SERVICES, run:{token:'refresh', operation:'services', status:'running'}});
+    assert.match(await page.locator('[data-dlux-ops-panel-status]').textContent(), /List services.*Running/);
+    assert.equal(await page.locator('[data-dlux-ops-panel-services] button:enabled').count(), 0);
+    assert.equal(await page.locator('[data-dlux-ops-panel]').getAttribute('aria-busy'), 'true');
   });
 
   test('does not interrupt a run already in progress', async () => {
@@ -243,9 +254,9 @@ describe('services in the panel', () => {
       assert.deepEqual((await actions())[0], { operation, service: 'metrics', current_password: 'pw-root-1234' });
       assert.match(await page.evaluate(() => window.__confirms[0].description), /metrics/);
       await page.evaluate(() => {
-        window.__state.run = { token: 'r2', operation: window.__posted.at(-1).operation, status: 'completed', active: false };
+        window.__state.run = { token: `r${window.__posted.length}`, operation: window.__posted.at(-1).operation, status: 'completed', active: false };
       });
-      await page.waitForFunction(() => window.__posted.filter(body => body.operation === 'services').length >= 2);
+      await page.waitForFunction(() => window.__posted.filter(body => body.operation === 'services').length >= 1);
     }
   });
 

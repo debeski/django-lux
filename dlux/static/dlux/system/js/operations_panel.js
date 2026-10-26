@@ -56,6 +56,7 @@
         const labels = root.dataset;
         const errorEl = root.querySelector('[data-dlux-ops-panel-error]');
         const summaryEl = root.querySelector('[data-dlux-ops-panel-summary]');
+        const statusEl = root.querySelector('[data-dlux-ops-panel-status]');
         const findingsEl = root.querySelector('[data-dlux-ops-panel-findings]');
         const noRepairEl = root.querySelector('[data-dlux-ops-panel-norepair]');
         const repairsWrap = root.querySelector('[data-dlux-ops-panel-repairs]');
@@ -73,7 +74,6 @@
         let spinner = null;
         let shownLogsToken = '';
         let refreshAfter = '';
-        let autoLoaded = false;
 
         function spec(name) {
             return (state.operations || []).find((operation) => operation.name === name) || null;
@@ -254,6 +254,13 @@
             if (payload) { state = { ...state, ...payload }; }
             const run = state.run;
             const ours = Boolean(run && PANEL_OPERATIONS.has(run.operation));
+            root.setAttribute('aria-busy', String(busy()));
+            if (statusEl) {
+                statusEl.hidden = !busy();
+                statusEl.textContent = busy()
+                    ? [spec(run.operation)?.label, labels.labelRunning].filter(Boolean).join(' — ')
+                    : '';
+            }
             if (!busy()) { stopSpinner(); }
             if (ours && run.status === 'failed') { setError(run.error || labels.labelFailed || 'The operation failed.'); }
             runButtons.forEach((button) => {
@@ -265,12 +272,6 @@
             renderServices();
             renderLogs();
             if (logsAllButton) { logsAllButton.disabled = busy() || !available('logs-tail'); }
-            // The list is what the panel is for; fetch it when it opens rather
-            // than asking for a click, unless something else is already running.
-            if (!autoLoaded && !busy() && available('services')) {
-                autoLoaded = true;
-                start('services').catch(() => {});
-            }
             // A restart or recreate changes what the service list shows.
             if (ours && run.status === 'completed' && refreshAfter === run.token) {
                 refreshAfter = '';
@@ -284,8 +285,9 @@
                 const data = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
                 render(data);
                 if (data.run && !TERMINAL.has(data.run.status)) { schedulePoll(); }
-            } catch (_error) {
-                // A transient failure must not wipe what is already rendered.
+            } catch (error) {
+                setError(error.message);
+                if (statusEl) { statusEl.hidden = true; }
             }
         }
 

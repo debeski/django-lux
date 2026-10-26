@@ -6,6 +6,7 @@
      data-run-url="{% url 'dlux_ops_run' %}"
      data-enabled="{% if operations_enabled %}true{% else %}false{% endif %}"
      data-label-never="{{ DLUX_STRINGS.dlux_ops_never|default:'Not checked yet' }}"
+     data-label-running="{{ DLUX_STRINGS.dlux_ops_running }}"
      data-label-clean="{{ DLUX_STRINGS.dlux_ops_clean|default:'No problems found' }}"
      data-label-summary="{{ DLUX_STRINGS.dlux_ops_summary|default:'{fail} problem(s), {warn} warning(s)' }}"
      data-label-no-repair="{{ DLUX_STRINGS.dlux_ops_no_repair|default:'No automatic repair is available for these findings.' }}"
@@ -34,6 +35,7 @@
     <div class="alert alert-secondary small mb-0">{{ DLUX_STRINGS.dlux_ops_panel_disabled|default:'This deployment has no Composer agent, so operations cannot run from here.' }}</div>
     {% else %}
     <div class="text-danger small" data-dlux-ops-panel-error hidden aria-live="polite"></div>
+    <p class="small text-muted mb-0" data-dlux-ops-panel-status role="status" aria-live="polite">{{ DLUX_STRINGS.dlux_ops_loading_panel }}</p>
 
     <section class="dlux-ops-panel-section" aria-labelledby="dluxOpsPanelCheck">
         <div class="dlux-ops-panel-head">
