@@ -5,9 +5,9 @@ installer through Options → ScanLink. Operators download the installer from th
 project they use, install it, open ScanLink, and approve any Windows or browser
 prompt. They do not run commands or import certificates.
 
-## Stress-test fixes (unpublished)
+## Stress-test fixes
 
-The next pair is DjangoLux 1.15.1b2 and ScanLink 0.8.0b1. The browser client
+DjangoLux 1.15.1b2 and ScanLink 0.8.0b1 are published betas. The browser client
 checks health before its first scan and sends the scan POST once. If the request
 or accepted response body loses its connection, `scan_request_uncertain` asks the
 operator to check ScanLink before starting another scan. File fields and the PDF
@@ -21,7 +21,8 @@ metadata until its TTL for consistent single-use result responses.
 
 ## Compatible versions
 
-The DjangoLux 1.15.1b1 beta pairs with ScanLink 0.7.5b1. It retains
+The current pair is DjangoLux 1.15.1b2 and ScanLink 0.8.0b1. The previous
+DjangoLux 1.15.1b1 beta pairs with ScanLink 0.7.5b1. The client retains
 health/status/result compatibility with ScanLink 0.7.4; older helpers do not
 report certificate setup progress.
 
@@ -95,3 +96,20 @@ upload/download checksums, file-field scanning, PDF append/save, Arabic error
 messages, busy/disconnect handling and concurrent request loads. Local scanner
 endpoints were simulated; real scanner hardware remains a manual acceptance
 step.
+
+## Published stress-fix pair acceptance
+
+On 2026-10-26, the published 1.15.1b2/0.8.0b1 pair passed development-testbed
+acceptance. Composer installed the PyPI wheel after a full database/media backup;
+all 694 files matched the candidate and active web/Celery packages. Published
+browser assets/templates passed file-field scanning, PDF append/save/download,
+Arabic errors, 300 health checks, 30 scans, 20-way contention and reconnect. A lost
+accepted response produced one POST, translated guidance and a retrievable PDF.
+Installer hashes and 100 manifest checks passed; anonymous access was denied.
+Doctor reported no errors.
+
+Only the TWAIN child was simulated locally; the worker and API were real. No
+frontend/template overrides were used in the final run. Native x64/x86 release
+gates separately verified certificate consent, 120 trusted HTTPS requests per
+architecture and restart identity reuse. Physical scanner and native browser/
+enterprise-policy acceptance remain manual.
