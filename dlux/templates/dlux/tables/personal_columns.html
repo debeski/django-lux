@@ -3,7 +3,6 @@
     {% csrf_token %}
     <input type="hidden" name="token" value="{{ token }}" data-dlux-unsaved-ignore>
     <input type="hidden" name="preferences" value="{{ preferences_json }}" data-personal-columns-value>
-    <h2 class="h5">{{ DLUX_STRINGS.personal_columns_title }}</h2>
     <p class="text-muted small">{{ DLUX_STRINGS.personal_columns_intro }}</p>
     {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
     <div data-personal-column-inspector></div>
