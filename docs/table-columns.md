@@ -66,3 +66,21 @@ Hiding and showing a column retains its position. Reverting labels, icons, sorti
 ## Pagination
 
 Since 1.14.0b3, URL page sizes cannot override the validated table size when django-tables2 configures the paginator. Invalid or oversized values fall back to allowed saved/default values; fixed metadata sizes, table prefixes and custom page-size fields remain supported. Shared request objects are unchanged.
+
+## Personal column layouts
+
+Personal layouts use the same header-strip renderer and inspector as the system
+builder. The ribbon gets an icon-only Arrange columns action with a Dlux tooltip;
+without a ribbon the icon joins the existing table footer or header controls.
+No separate button row is added. The standard modal supports drag, logical arrow
+keys, a Shown toggle, Restore, Save and Cancel. Restoring or reverting edits
+compares the resulting layout with the original state.
+
+Select a table title in the administrator builder to change **Allow personal
+column layouts**. This is enabled by default. Its sparse setting is
+`tables_config.columns["app.model"].user_columns`; `false` hides the action,
+ignores stored personal layouts, and denies both GET and POST from existing
+signed dialogs. Stored preferences are retained for re-enabling. Developer
+exclusions, administrator-hidden columns and protected controls remain outside
+personal customization. Header labels, icons and default sorting stay with the
+administrator.

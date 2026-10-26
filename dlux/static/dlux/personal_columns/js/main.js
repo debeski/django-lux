@@ -1,61 +1,119 @@
 (function () {
     'use strict';
-    let dragging = null;
-    function formOf(node) {
-        return node.closest('[data-personal-columns]') || document.querySelector('[data-personal-columns]');
-    }
-    function update(form) {
-        const rows = Array.from(form.querySelectorAll('[data-column-name]'));
-        const value = {order: rows.map(row => row.dataset.columnName),
-            hidden: rows.filter(row => !row.querySelector('[data-column-visible]').checked).map(row => row.dataset.columnName).sort()};
+    function init(form) {
+        if (form.dataset.personalColumnsReady) return;
+        form.dataset.personalColumnsReady = 'true';
+        const list = form.querySelector('[data-personal-columns-list]');
         const field = form.querySelector('[data-personal-columns-value]');
-        field.value = JSON.stringify(value);
-        field.dispatchEvent(new Event('input', {bubbles: true}));
+        const defaults = JSON.parse(form.dataset.defaultOrder);
+        const columns = new Map();
+        let selected = null;
+        let dragging = null;
         const reset = document.querySelector('[data-personal-columns-reset]');
-        if (reset) reset.disabled = !value.hidden.length && JSON.stringify(value.order) === form.dataset.defaultOrder.replace(/\s/g, '');
-        rows.forEach((row, index) => {
-            row.querySelector('[data-column-move="up"]').disabled = index === 0;
-            row.querySelector('[data-column-move="down"]').disabled = index === rows.length - 1;
+        const rows = () => Array.from(list.children);
+        const shownCount = () => [...columns.values()].filter(column => column.visible).length;
+        function move(cell, offset) {
+            const sibling = offset < 0 ? cell.previousElementSibling : cell.nextElementSibling;
+            if (!sibling) return;
+            list.insertBefore(offset < 0 ? cell : sibling, offset < 0 ? sibling : cell);
+            commit();
+            cell.querySelector('[data-column-handle]').focus({preventScroll:true});
+        }
+        for (const placeholder of rows()) {
+            const name = placeholder.dataset.columnName;
+            const column = {label:placeholder.dataset.columnLabel, visible:placeholder.dataset.columnVisible === 'true'};
+            const {cell, handle, arrows} = window.DluxColumnStrip.header({
+                name, label:column.label, enabled:column.visible, previous:form.dataset.previous, next:form.dataset.next,
+            });
+            column.cell = cell;
+            column.arrows = arrows;
+            columns.set(name, column);
+            cell.dataset.columnName = name;
+            cell.draggable = true;
+            handle.dataset.columnHandle = '';
+            handle.addEventListener('click', () => { selected = name; paint(); });
+            handle.addEventListener('keydown', event => {
+                if (!['ArrowLeft','ArrowRight'].includes(event.key)) return;
+                event.preventDefault();
+                move(cell, (event.key === 'ArrowRight' ? 1 : -1) * (getComputedStyle(list).direction === 'rtl' ? -1 : 1));
+            });
+            arrows.forEach((arrow, index) => arrow.addEventListener('click', () => move(cell, index ? 1 : -1)));
+            cell.addEventListener('dragstart', event => {
+                dragging = cell;
+                cell.classList.add('is-dragging');
+                event.dataTransfer.setData('text/plain', name);
+            });
+            cell.addEventListener('dragover', event => { if (dragging && dragging !== cell) event.preventDefault(); });
+            cell.addEventListener('drop', event => {
+                if (!dragging || dragging === cell) return;
+                event.preventDefault();
+                const rect = cell.getBoundingClientRect();
+                const after = (event.clientX > rect.left + rect.width / 2) !== (getComputedStyle(list).direction === 'rtl');
+                list.insertBefore(dragging, after ? cell.nextSibling : cell);
+                commit();
+            });
+            cell.addEventListener('dragend', () => { cell.classList.remove('is-dragging'); dragging = null; });
+            placeholder.replaceWith(cell);
+        }
+        const inspector = window.DluxInspectorShell.create(form.querySelector('[data-personal-column-inspector]'), {
+            presentation:'popover', actionsPlacement:'panel', dismissOnOutsideClick:true,
+            dismissIgnoreSelector:'[data-personal-columns-list]', strings:{empty:form.dataset.select},
+            adapter:{
+                getTitle:() => columns.get(selected)?.label || '',
+                getAnchor:() => columns.get(selected)?.cell,
+                getActions:() => selected ? [{id:'shown', type:'toggle', label:form.dataset.shown,
+                    checked:columns.get(selected).visible, disabled:columns.get(selected).visible && shownCount() === 1,
+                    title:shownCount() === 1 ? form.dataset.keepOne : '', onChange:context => {
+                        if (!context.value && shownCount() === 1) return;
+                        columns.get(selected).visible = context.value;
+                        commit();
+                    }}] : [],
+                clearSelection:() => { selected = null; paint(); },
+            },
+        });
+        function paint() {
+            rows().forEach((cell, index, all) => {
+                const column = columns.get(cell.dataset.columnName);
+                cell.classList.toggle('is-removed', !column.visible);
+                cell.classList.toggle('is-active', selected === cell.dataset.columnName);
+                column.arrows[0].disabled = index === 0;
+                column.arrows[1].disabled = index === all.length - 1;
+            });
+            if (reset) reset.disabled = shownCount() === columns.size && JSON.stringify(rows().map(row => row.dataset.columnName)) === JSON.stringify(defaults);
+            inspector.render(selected);
+        }
+        function commit() {
+            field.value = JSON.stringify({order:rows().map(row => row.dataset.columnName),
+                hidden:rows().filter(row => !columns.get(row.dataset.columnName).visible).map(row => row.dataset.columnName).sort()});
+            field.dispatchEvent(new Event('input', {bubbles:true}));
+            paint();
+        }
+        reset?.addEventListener('click', () => {
+            defaults.forEach(name => { const column = columns.get(name);column.visible = true;list.appendChild(column.cell); });
+            commit();
+        });
+        paint();
+    }
+    function boot(scope) {
+        (scope || document).querySelectorAll('[data-personal-columns]').forEach(init);
+        (scope || document).querySelectorAll('[data-personal-columns-launch]').forEach(button => {
+            if (button.dataset.placed) return;
+            const table = button.closest('.dlux-table-shell');
+            if (!table) return;
+            const area = table.closest('.modal') || table.closest('main') || document;
+            const ribbon = [...area.querySelectorAll('.dlux-ribbon-header')]
+                .filter(node => node.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).at(-1);
+            let host = ribbon?.querySelector('.dlux-ribbon-actions');
+            if (ribbon && !host) {
+                host = document.createElement('div');host.className = 'dlux-ribbon-actions';ribbon.appendChild(host);
+            }
+            host ||= table.querySelector('.dlux-table-footer-meta') || table.querySelector('.dlux-table-head-content');
+            if (!host) return;
+            button.dataset.placed = 'true';
+            host.appendChild(button);
         });
     }
-    document.addEventListener('change', event => {
-        if (event.target.matches('[data-column-visible]')) update(formOf(event.target));
-    });
-    document.addEventListener('click', event => {
-        const move = event.target.closest('[data-column-move]');
-        const reset = event.target.closest('[data-personal-columns-reset]');
-        if (!move && !reset) return;
-        const form = formOf(move || reset);
-        const list = form.querySelector('[data-personal-columns-list]');
-        if (move) {
-            const row = move.closest('[data-column-name]');
-            const sibling = move.dataset.columnMove === 'up' ? row.previousElementSibling : row.nextElementSibling;
-            if (sibling) list.insertBefore(move.dataset.columnMove === 'up' ? row : sibling, move.dataset.columnMove === 'up' ? sibling : row);
-        } else {
-            JSON.parse(form.dataset.defaultOrder).forEach(name => {
-                const row = Array.from(list.children).find(item => item.dataset.columnName === name);
-                row.querySelector('[data-column-visible]').checked = true;
-                list.appendChild(row);
-            });
-        }
-        update(form);
-        if (reset) form.querySelector('[data-personal-columns-value]').value = JSON.stringify({reset: true});
-    });
-    document.addEventListener('dragstart', event => {
-        dragging = event.target.closest('[data-personal-columns] [data-column-name]');
-        if (dragging) { event.dataTransfer.setData('text/plain', dragging.dataset.columnName); event.dataTransfer.effectAllowed = 'move'; }
-    });
-    document.addEventListener('dragover', event => {
-        const row = event.target.closest('[data-personal-columns] [data-column-name]');
-        if (dragging && row && row.parentElement === dragging.parentElement) event.preventDefault();
-    });
-    document.addEventListener('drop', event => {
-        const row = event.target.closest('[data-personal-columns] [data-column-name]');
-        if (!dragging || !row || row.parentElement !== dragging.parentElement) return;
-        event.preventDefault();
-        const rect = row.getBoundingClientRect();
-        row.parentElement.insertBefore(dragging, event.clientY > rect.top + rect.height / 2 ? row.nextSibling : row);
-        update(formOf(row));
-    });
-    document.addEventListener('dragend', () => { dragging = null; });
-})();
+    document.addEventListener('dlux:modal-content-loaded', event => boot(event.target));
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot(document));
+    else boot(document);
+}());

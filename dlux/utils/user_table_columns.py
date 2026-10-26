@@ -21,6 +21,8 @@ def personal_table_key(table):
 
 def available_columns(model_key, columns, config):
     overlay = (config.get('columns') or {}).get(model_key, {})
+    if overlay.get('user_columns', True) is False:
+        return []
     hidden = set(overlay.get('hidden', ()))
     return [column for column in columns if column['name'] not in hidden]
 
@@ -60,6 +62,7 @@ def apply_user_table_columns(table, config):
         return
     key = personal_table_key(table)
     table.dlux_user_columns_key = key
+    table.dlux_user_columns_label = str(model._meta.verbose_name_plural)
     token = signing.dumps({'user': str(user.pk), 'key': key,
                            'model': model._meta.label_lower, 'columns': columns},
                           salt=TOKEN_SALT, compress=True)

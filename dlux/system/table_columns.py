@@ -1,6 +1,7 @@
 """Normalize the sparse, model-keyed table-column overlay."""
 
 import re
+from .booleans import parse_boolean
 from .constants import TABLE_CONFIG_KEYS
 from .normalizers import normalize_layout_config
 
@@ -22,6 +23,8 @@ def normalize_tables_config(value):
             if not isinstance(overlay, dict):
                 continue
             entry = {}
+            if 'user_columns' in overlay:
+                entry['user_columns'] = parse_boolean(overlay['user_columns'], True)
             for key in ('hidden', 'order'):
                 raw = overlay.get(key)
                 if not isinstance(raw, (list, tuple)):

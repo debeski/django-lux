@@ -120,3 +120,7 @@ Finishing controls use the short **Restore** label and enable it only while a co
 Published beta 1.14.0b1 adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed discovery and presentation overlays for generated and handwritten tables. The ribbon shell and shared element inspector support localized header labels, optional icons, visibility, primary/secondary default sorting, per-column reset and per-table reset with the rewind icon. Removed developer columns remain restorable; shown headers support drag and keyboard/tap ordering. Dlux-supplied tables are hidden behind the default-off **Show system items** filter. Dedicated record-visibility gates remain in control. Admin-created columns are deferred. See [table-columns.md](table-columns.md).
 
 The 1.14.1 candidate adds **Arrange columns** for each authenticated table viewer: personal order/visibility, drag or arrow controls and restore. Administrator-hidden/developer-excluded columns and dedicated controls remain enforced. Preferences are isolated per user and table variant; no migration or Composer protocol change. See [personal column organization](table-columns.md#personal-column-organization-1141).
+
+Personal table layouts share the system builder's horizontal headers and
+inspector, opened by an icon-only ribbon action. Administrators can disable this
+per table; the endpoint enforces the switch even for previously opened dialogs.

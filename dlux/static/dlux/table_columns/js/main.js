@@ -189,23 +189,16 @@
                 [...new Set([...ordered.filter(name => names.includes(name)), ...names])].forEach(name => {
                     const index = visible.indexOf(name);
                     const enabled = index !== -1;
-                    const cell = element('div', 'dlux-table-columns__header');
-                    cell.dataset.columnHeader = name;
+                    const {cell, handle, arrows} = window.DluxColumnStrip.header({
+                        name, label:labels.get(name), enabled, disabled:hidden.disabled,
+                        selected:selected?.modelKey === model.key && selected.name === name,
+                        icon:headerSettings(model, name).icon, previous:strings.previous, next:strings.next,
+                    });
                     cell.dataset.columnEnabled = String(enabled);
-                    cell.classList.toggle('is-removed', !enabled);
-                    cell.classList.toggle('is-active', selected?.modelKey === model.key && selected.name === name);
                     cell.draggable = !hidden.disabled && enabled;
-                    const handle = button('btn btn-sm dlux-table-columns__handle', labels.get(name));
                     handle.title = enabled ? strings.reorder : strings.removed;
-                    const icon = headerSettings(model, name).icon;
-                    if (/^bi-[a-z0-9-]+$/.test(icon || '')) {
-                        const glyph = element('i', 'bi ' + icon + ' me-1');
-                        glyph.setAttribute('aria-hidden', 'true');
-                        handle.prepend(glyph);
-                    }
                     handle.dataset.columnHandle = '';
                     handle.dataset.columnName = name;
-                    handle.disabled = hidden.disabled;
                     handle.addEventListener('click', () => { selected = {modelKey:model.key,name}; render(); });
                     handle.addEventListener('keydown', event => {
                         if (!enabled || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
@@ -213,18 +206,10 @@
                         const rtl = getComputedStyle(root).direction === 'rtl';
                         move(model, name, (event.key === 'ArrowRight' ? 1 : -1) * (rtl ? -1 : 1));
                     });
-                    cell.appendChild(handle);
-                    [-1, 1].forEach(offset => {
-                        const label = offset < 0 ? strings.previous : strings.next;
-                        const arrow = button('btn btn-sm px-1', '', label + ': ' + labels.get(name));
-                        const icon = element('i', 'bi dlux-table-columns__arrow bi-chevron-' + (offset < 0 ? 'left' : 'right'));
-                        icon.setAttribute('aria-hidden', 'true');
-                        arrow.appendChild(icon);
-                        arrow.title = label;
-                        arrow.dataset.columnMove = String(offset);
+                    [-1, 1].forEach((offset, arrowIndex) => {
+                        const arrow = arrows[arrowIndex];
                         arrow.disabled = hidden.disabled || !enabled || (offset < 0 ? index === 0 : index === visible.length - 1);
                         arrow.addEventListener('click', () => move(model, name, offset));
-                        cell.appendChild(arrow);
                     });
                     cell.addEventListener('dragstart', event => {
                         dragging = {model: model.key, name};
@@ -313,7 +298,11 @@
                     const found = selection();
                     if (!found) return [];
                     const {model, column} = found;
-                    if (!column) return [{id:'reset-table', label:strings.reset, icon:'bi bi-arrow-counterclockwise',
+                    if (!column) return [{id:'personal-columns', type:'toggle', label:strings.user_controls,
+                        checked:state(model).entry.user_columns !== false, disabled:hidden.disabled,
+                        onChange:context => edit(model, entry => {
+                            if (context.value) delete entry.user_columns; else entry.user_columns = false;
+                        })}, {id:'reset-table', label:strings.reset, icon:'bi bi-arrow-counterclockwise',
                         disabled:hidden.disabled || !Object.hasOwn(object(config().columns), model.key),
                         onClick:() => commit(model, state(model).names, true)}];
                     const shown = state(model).visible.includes(column.name);
