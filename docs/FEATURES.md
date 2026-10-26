@@ -127,3 +127,6 @@ per table; the endpoint enforces the switch even for previously opened dialogs.
 
 Operations opens with cached results and explicit check/refresh actions. A live
 status identifies ongoing work when controls are temporarily disabled.
+
+Mono supports readable table-builder header controls and borderless disclosure
+links across normal, hover and keyboard-focus states.
