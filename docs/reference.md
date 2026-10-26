@@ -944,7 +944,10 @@ import — an `ImportError` at module scope surfaces as Django's misleading "The
 included URLconf does not appear to have any patterns in it".
 
 A form that was prefilled server-side marks itself `data-sticky-server` alongside
-`data-app-label`/`data-model-name`; dlux then skips its own client-side fill and
+`data-app-label`/`data-model-name`. Set `dlux_sticky_server = True` on the form class
+to emit the marker through the shared dynamic-modal template; handwritten templates
+must emit it themselves. This preserves server-calculated next numbers and bound
+validation input. Dlux then skips its own client-side fill and
 reloads when the switch is flipped, since only a reload can apply or undo work
 that happened before render.
 

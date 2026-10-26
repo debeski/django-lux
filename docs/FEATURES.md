@@ -1,5 +1,7 @@
 # DjangoLux Feature Inventory
 
+Forms declaring `dlux_sticky_server = True` retain their server-computed sticky defaults in dynamic modals, including next reference numbers and validation rerenders. See [assisted entry](template-customization.md#assisted-entry).
+
 **Current source:** v1.8.3
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
