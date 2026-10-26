@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.14.1b1",
+  "version": "1.14.1",
   "display": {
     "summary": "Personal table column preferences and preserved server-owned sticky entry defaults.",
     "highlights": [
@@ -16,7 +16,7 @@
       "Password-confirmed Start/Stop for approved auxiliary services (Composer 1.8.0b1+). Web/Celery stay protected; restart, recreate and updates are unchanged.",
       "Table URL parameters cannot override validated page-size limits."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.1b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.14.1"
   },
   "requires": {
     "updater_schema": ">=1",
