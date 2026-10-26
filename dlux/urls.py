@@ -180,6 +180,7 @@ urlpatterns = [
     path('sys/api/details/<str:app_label>/<str:model_name>/empty_schema/', api.get_model_details, {'pk': 'empty_schema'}, name='api_get_empty_schema'),
     path('sys/api/details/<str:app_label>/<str:model_name>/<int:pk>/', api.get_model_details, name='api_get_model_details'),
     # preferences API
+    path('sys/api/preferences/tables/columns/', api.user_table_columns, name='user_table_columns'),
     path('sys/api/preferences/update/', api.update_preferences, name='update_preferences'),
     path('sys/api/preferences/reset/', api.reset_preferences, name='reset_preferences'),
     path('sys/api/preferences/dialogs/reset/', api.reset_dialog_prompts, name='reset_dialog_prompts'),

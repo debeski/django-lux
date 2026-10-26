@@ -1,13 +1,13 @@
 name: CI
 
 # Green-checkmark gate: runs the curated package Django test suite on every
-# push/PR to main. Releases still run independently through release.yml.
+# push/PR to main and the owner-requested 1.14.1 stabilization line.
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/1.14.1]
   pull_request:
-    branches: [main]
+    branches: [main, release/1.14.1]
 
 permissions:
   contents: read

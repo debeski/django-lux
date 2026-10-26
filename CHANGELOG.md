@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.14.1b1
+
+- **Personal Table Columns**: Add an authenticated column organizer for each rendered table, with per-user order/visibility and restore in `Profile.preferences`. Signed user-bound table catalogs, current admin-hidden fences, protected controls, CSRF, bounded preferences and server-side overlays prevent personal choices from widening table visibility. No database migration or Composer protocol change.
+- **Server-Owned Sticky Forms**: Render `data-sticky-server` for forms declaring `dlux_sticky_server = True`, so browser sticky fill preserves server-calculated next numbers and validation input instead of restoring the previous record's value.
+
 ## v1.14.0
 
 - **Stable 1.14**: Promote the 1.14.0b4 implementation: table column inspector and ordering, safe pagination, selectable incremental backup chains, usable Backup Details, Section Manager keyword search and auxiliary service controls. Operations remains available with inline updates disabled. Requires Composer `>=1.8.0b1`; paired stable Composer is 1.8.0. No runtime, dependency or migration changes from b4. Updates-card manifests/history and OCR are outside this release.

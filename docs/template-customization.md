@@ -54,3 +54,5 @@ Use logical CSS properties and framework classes so layout mirrors in RTL. In pa
 ## Assisted entry
 
 Autofill and sticky forms are separate user preferences. Read them through `sticky_forms_enabled()` and `sticky_form_initial()` rather than the retired cookie-based `enable_prefill` switch. Password inputs need a preceding username autocomplete field in the DOM to prevent browsers from filling unrelated titlebar controls with saved credentials.
+
+A form that calculates its own sticky initial values must set `dlux_sticky_server = True` on the form class. The shared dynamic-modal form then emits `data-sticky-server`, preserving server transformations such as an incremented reference number instead of copying the old number back from the last-entry API. Keep the declaration even when sticky entry is switched off or the form is bound after a validation error: the server owns both the blank defaults and submitted values. Toggling the assisted-entry preference reloads after saving it; Save and add more reopens a fresh GET form.

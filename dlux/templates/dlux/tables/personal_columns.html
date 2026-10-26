@@ -1,0 +1,26 @@
+<form id="universalDynamicModalForm" method="post" data-personal-columns data-default-order="{{ defaults }}" data-dlux-unsaved-guard>
+    {% csrf_token %}
+    <input type="hidden" name="token" value="{{ token }}" data-dlux-unsaved-ignore>
+    <input type="hidden" name="preferences" value="{{ preferences_json }}" data-personal-columns-value>
+    <h2 class="h5">{{ DLUX_STRINGS.personal_columns_title }}</h2>
+    <p class="text-muted small">{{ DLUX_STRINGS.personal_columns_intro }}</p>
+    {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
+    <ul class="list-group mb-3" data-personal-columns-list>
+        {% for column in columns %}
+        <li class="list-group-item d-flex align-items-center gap-2" data-column-name="{{ column.name }}" draggable="true">
+            <i class="bi bi-grip-vertical" aria-hidden="true"></i>
+            <label class="d-flex flex-grow-1 align-items-center gap-2 mb-0">
+                <input class="form-check-input mt-0" type="checkbox" {% if not column.hidden %}checked{% endif %} data-column-visible>
+                <span>{{ column.label }}</span>
+            </label>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-column-move="up" {% if forloop.first %}disabled{% endif %} aria-label="{{ DLUX_STRINGS.personal_columns_up }}"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-column-move="down" {% if forloop.last %}disabled{% endif %} aria-label="{{ DLUX_STRINGS.personal_columns_down }}"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+        </li>
+        {% endfor %}
+    </ul>
+    <div data-dlux-modal-footer>
+        <button type="button" class="btn btn-outline-secondary" data-personal-columns-reset {% if not has_override %}disabled{% endif %}><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> {{ DLUX_STRINGS.personal_columns_restore }}</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ DLUX_STRINGS.btn_close }}</button>
+        <button type="submit" class="btn btn-primary">{{ DLUX_STRINGS.btn_save }}</button>
+    </div>
+</form>

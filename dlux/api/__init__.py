@@ -44,3 +44,4 @@ from .preferences import (  # noqa: F401
     update_preferences,
 )
 from .system_config import update_app_system_config  # noqa: F401
+from .table_columns import user_table_columns  # noqa: F401

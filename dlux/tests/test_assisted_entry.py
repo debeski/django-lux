@@ -199,7 +199,7 @@ class StickyFormMarkerTests(TestCase):
     had no producer and could not run — any sticky behaviour seen before this
     came from project-side code."""
 
-    def _render(self, instance):
+    def _render(self, instance, *, server=False, data=None):
         from django.template.loader import render_to_string
         from dlux.models import SystemSettings as _S
         from django import forms as dj_forms
@@ -207,8 +207,10 @@ class StickyFormMarkerTests(TestCase):
         class _Plain(dj_forms.Form):
             name = dj_forms.CharField(required=False)
 
+        form = _Plain(data=data)
+        form.dlux_sticky_server = server
         return render_to_string('dlux/helpers/dynamic_modal_form.html', {
-            'form': _Plain(),
+            'form': form,
             'sticky_app_label': '' if instance else _S._meta.app_label,
             'sticky_model_name': '' if instance else _S._meta.model_name,
             'request': None,
@@ -226,6 +228,13 @@ class StickyFormMarkerTests(TestCase):
         html = self._render(instance=object())
 
         self.assertNotIn('data-model-name', html)
+
+    def test_server_owned_initial_values_disable_second_client_fill(self):
+        self.assertIn('data-sticky-server', self._render(None, server=True))
+        self.assertNotIn('data-sticky-server', self._render(None))
+
+    def test_server_marker_also_protects_bound_validation_rerenders(self):
+        self.assertIn('data-sticky-server', self._render(None, server=True, data={'name': 'User input'}))
 
 
 class StickyFormsServerHelperTests(TestCase):
