@@ -960,7 +960,10 @@ import — an `ImportError` at module scope surfaces as Django's misleading "The
 included URLconf does not appear to have any patterns in it".
 
 A form that was prefilled server-side marks itself `data-sticky-server` alongside
-`data-app-label`/`data-model-name`; dlux then skips its own client-side fill and
+`data-app-label`/`data-model-name`. Set `dlux_sticky_server = True` on the form class
+to emit the marker through the shared dynamic-modal template; handwritten templates
+must emit it themselves. This preserves server-calculated next numbers and bound
+validation input. Dlux then skips its own client-side fill and
 reloads when the switch is flipped, since only a reload can apply or undo work
 that happened before render.
 
@@ -970,6 +973,8 @@ Options alone. Turning sticky off clears the remembered record id. Neither
 feature gates the other.
 
 ### Unsaved-changes guard
+
+Personal table column ordering and visibility use the `user_table_columns` GET/POST endpoint and `Profile.preferences['table_columns']`. A table render supplies the user-bound signed catalog; callers cannot nominate arbitrary models or reveal admin-hidden columns. `Meta.dlux_user_columns = False` disables the organizer for a fixed table. See [table-columns.md](table-columns.md#personal-column-organization-1141).
 
 A modal form that sets `form.dlux_unsaved_guard = True` renders with
 `data-dlux-unsaved-guard`, and `unsaved_guard.js` intercepts `hide.bs.modal` —

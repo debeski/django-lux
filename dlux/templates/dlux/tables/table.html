@@ -7,6 +7,13 @@
     data-dlux-table-resizable="{% if table.dlux_resizable_columns %}true{% else %}false{% endif %}"
     {% if table.dlux_density_locked %}data-dlux-table-density-locked="true"{% endif %}
 >
+    {% if table.dlux_user_columns_url %}
+    <div class="d-flex justify-content-end p-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-dynamic-modal="{{ table.dlux_user_columns_url }}">
+            <i class="bi bi-layout-three-columns" aria-hidden="true"></i> {{ DLUX_STRINGS.personal_columns_title }}
+        </button>
+    </div>
+    {% endif %}
     <div class="dlux-table-scroll">
         <table {{ table.attrs.as_html }}>
             <colgroup>

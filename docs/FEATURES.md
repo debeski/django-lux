@@ -5,6 +5,8 @@
   English/Arabic guidance asks operators to check the helper. The paired worker
   fixes completion timing, hard deadlines, request validation and result races.
 
+Forms declaring `dlux_sticky_server = True` retain their server-computed sticky defaults in dynamic modals, including next reference numbers and validation rerenders. See [assisted entry](template-customization.md#assisted-entry).
+
 **Current source:** v1.8.3
 
 This is a current capability map, not a release history. Use [CHANGELOG.md](../CHANGELOG.md) for versioned changes and [Reference](reference.md) for commands, routes, tags, and public helpers.
@@ -116,3 +118,5 @@ Beta 1.14.0b2 merges the published 1.13.2b1 fixes into the table-builder line: p
 Finishing controls use the short **Restore** label and enable it only while a column override exists. Reverted table edits leave the form clean, including visibility toggles that now retain column position. Ribbon buttons also support drag ordering alongside the existing draggable tabs, with saved per-host order applied to actual pages.
 
 Published beta 1.14.0b1 adds a Tables settings step, canonical `tables_config` storage with legacy mirrors, model-keyed discovery and presentation overlays for generated and handwritten tables. The ribbon shell and shared element inspector support localized header labels, optional icons, visibility, primary/secondary default sorting, per-column reset and per-table reset with the rewind icon. Removed developer columns remain restorable; shown headers support drag and keyboard/tap ordering. Dlux-supplied tables are hidden behind the default-off **Show system items** filter. Dedicated record-visibility gates remain in control. Admin-created columns are deferred. See [table-columns.md](table-columns.md).
+
+The 1.14.1 candidate adds **Arrange columns** for each authenticated table viewer: personal order/visibility, drag or arrow controls and restore. Administrator-hidden/developer-excluded columns and dedicated controls remain enforced. Preferences are isolated per user and table variant; no migration or Composer protocol change. See [personal column organization](table-columns.md#personal-column-organization-1141).

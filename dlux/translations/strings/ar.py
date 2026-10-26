@@ -2709,4 +2709,11 @@ STRINGS = {
     'ocr_service_stop_requested': 'جارٍ إيقاف خدمة ocr عبر Composer.',
     'ocr_service_stop_unavailable': 'تم الحفظ. تعذّر إيقاف خدمة ocr من هنا: {reason} استخدم لوحة العمليات.',
     'ocr_service_stopped': 'أوقف Composer خدمة ocr.',
+    'personal_columns_title': 'تنظيم الأعمدة',
+    'personal_columns_intro': 'اختر الأعمدة المعروضة واسحب لترتيبها، أو استخدم أزرار الأسهم. تنطبق التغييرات عليك فقط. الأعمدة التي قيّدها مسؤول النظام تبقى غير متاحة.',
+    'personal_columns_up': 'نقل العمود إلى الأعلى',
+    'personal_columns_down': 'نقل العمود إلى الأسفل',
+    'personal_columns_restore': 'استعادة',
+    'personal_columns_expired': 'انتهت صلاحية هذا الخيار. أعد تحميل الجدول وحاول مجدداً.',
+    'personal_columns_invalid': 'اختر من الأعمدة المتاحة وأبقِ عموداً واحداً ظاهراً على الأقل.',
 }
