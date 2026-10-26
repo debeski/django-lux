@@ -6,7 +6,7 @@ see [Deployment Configuration](deployment-configuration.md).
 
 ## ScanLink
 
-The pending 1.15.1b2 client negotiates a healthy transport before its first scan
+The 1.15.1b2 client negotiates a healthy transport before its first scan
 and sends each scan POST once. A lost response produces `scan_request_uncertain`
 with shared English/Arabic guidance; it never automatically resubmits the scan.
 Paired ScanLink 0.8.0b1 fixes PDF-completion timing, parent deadlines, request
@@ -1953,3 +1953,16 @@ Beta 1.14.0b2 incorporates published 1.13.2b1 without changing the table-column 
 Column **Restore** is disabled at defaults and follows pending label/icon/visibility/sort overrides immediately. Reverted table edits restore the form's original JSON so they do not trigger the unsaved-changes dialog. Ribbon button ordering is stored separately as `ribbon_config[<storage key>].action_order[<host route>]`, a list of `dest:<endpoint>` identities; it works across declared/custom buttons, preserves fixed HTML slots and applies through `RibbonMixin` or `build_ribbon(..., action_order=[...])`. See [ribbon.md](ribbon.md).
 
 `SystemSettings.tables_config` stores table preferences plus sparse model-keyed `hidden`, `order`, `headers` and `sorting` overlays and participates in runtime configuration and settings import/export. Tables is a dedicated settings step between Ribbon and Components. Existing flat keys and legacy `layout_config` writes remain supported. Generated and handwritten Dlux-managed tables apply the overlay at initialization, ignoring stale names and retaining a data column if all would be hidden. Audit/deletion, scope and row-action gates remain independent. `dlux.discovery.tables.table_column_catalog()` returns model keys, translated labels, column names/labels/orderability, route names and an `is_system` classification; `SystemSettingsForm.table_columns_catalog` exposes it lazily to the Tables builder. **Show system items** defaults off and reveals Dlux-supplied tables without changing configuration or permissions. The shared element inspector replaces the visibility grid: select a header to edit language-specific labels, an optional icon, visibility and up to two default sort columns/directions. Removed developer columns remain selectable for restoration. Per-column and per-model resets use the rewind icon; select the table title for the latter. The header strip retains drag, RTL-aware keyboard and tap ordering. Sorting ignores hidden/protected/non-orderable columns, falls back on unsupported computed sorts and yields to explicit request sorting. The builder preserves other models and stale names during ordinary edits and shares the existing settings save/import/discard flow. Admin-created columns are deferred. See [table-columns.md](table-columns.md).
+
+`tables_config.columns[model_key].user_columns` is a boolean with default `true`.
+When false, personal table overlays are not applied and the personal-column
+endpoint rejects GET/POST, including valid tokens issued before the change.
+The shared `DluxColumnStrip.header()` renderer supplies header handles/arrows to
+both builders; personal customization remains limited to order and visibility.
+
+Operations panel initialization only retrieves saved state. Service inventory and
+deployment checks are requested by their buttons; an existing active run is
+resumed with accessible progress feedback.
+
+Mono column-builder and disclosure styling is owned by
+`dlux/static/dlux/themes/css/mono.css`.

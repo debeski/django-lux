@@ -172,3 +172,26 @@ class UserTableColumnTests(_TableColumnTestSupport, TestCase):
         request.session = {}
         other = ColumnFixtureTable([], request=request, prefix='other-')
         self.assertNotEqual(other.dlux_user_columns_key, self.table().dlux_user_columns_key)
+
+    def test_admin_can_disable_personal_layouts_and_revoke_existing_dialogs(self):
+        token = self.token()
+        self.send({'hidden':['username']}, token=token)
+        self.configure({'hidden':['email'], 'user_columns':False})
+        self.assertFalse(getattr(self.table(), 'dlux_user_columns_url', None))
+        self.assertIn('username', [column.name for column in self.table().columns])
+        self.assertEqual(self.send({}, token=token).status_code, 403)
+        self.assertEqual(self.send(token=token, method='GET').status_code, 403)
+
+    def test_admin_personal_layout_flag_accepts_boolean_tokens(self):
+        from dlux.system.table_columns import normalize_tables_config
+        for value in (False, 'false', 'off', 0):
+            normalized = normalize_tables_config({'columns':{'auth.user':{'user_columns':value}}})
+            self.assertIs(normalized['columns']['auth.user']['user_columns'], False)
+
+    def test_the_launcher_titles_its_dialog(self):
+        from django.template.loader import render_to_string
+        from dlux.translations import get_strings
+
+        table = self.table()
+        html = render_to_string('dlux/tables/table.html', {'table': table, 'DLUX_STRINGS': get_strings('en')})
+        self.assertIn('data-modal-title="Arrange columns"', html)

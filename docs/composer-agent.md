@@ -43,3 +43,10 @@ Run Composer through the generated wrapper:
 `check` reports missing Composer services, obsolete `dlux-updater` wiring, or runtime-volume drift. Review the proposed change before `--fix`; Composer preserves modified project files under `.xclude/` and validates the resulting Compose configuration. Compose 5.3.0 or newer is required because DjangoLux uses `pre_start` hooks.
 
 For update behavior and recovery, see [Verified Inline Updates](inline-updater.md).
+
+The 1.15 Operations feedback update pairs with Composer 1.9.0b2 or newer.
+Deployment checks execute in the deployment executor's identity. The terminal
+check verifies that same process can access the configured secrets file. A
+readable host file does not guarantee readability after UID mapping; the finding
+shows a Linux VM recovery command for the affected UID. The network-facing agent
+requires no additional secrets-file permission. Update both resident services.

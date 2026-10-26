@@ -9,9 +9,16 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.1b3
+
+- **First 1.15 Stable Candidate**: 1.15.0 is not promoted; 1.15.0b1 predates the 1.14.1 forward port, so 1.15.1 becomes the first 1.15 stable. Pairs with Composer 1.9.0b2.
+- **Shared Personal Column Builder**: Reuse the administrator header strip and inspector for personal order/visibility. Move the icon-only organizer into the page ribbon with a Dlux tooltip, or existing table controls when no ribbon is available. Per-table `user_columns` defaults on; disabling it suppresses stored overlays and rejects existing dialog tokens.
+- **Explicit Operations Refresh**: Opening or reopening Operations loads saved state without starting a service check. Running operations expose an accessible status while controls are disabled; failed state loads are visible.
+- **Saving A Section Kept The System Name Only In Branding**: Saving any Options section other than Branding stored `system_names = {}`, so the project name fell back to "DjangoLux". `syncLanguageCatalog()` wrote the hidden field from name rows that only Branding renders, and `SystemSettingsForm` took that posted value as the disabled field's initial before `protect_inactive_settings()` ran. The form now reads posted names only on Branding, and the browser no longer blanks the field. The all-sections stale-payload contract now covers non-boolean fields.
+- **Preview Keeps The Viewer's Theme**: The live backdrop behind an Options section dropped every personal preference, so any change repainted the page in the system default theme. `dlux.system.preview.begin()` now drops a personal theme, density, modal size or font only when the draft changes that default.
+- **Mono Builder Controls**: Give column-header handles and arrows explicit light Mono surfaces with readable hover/focus states; render disclosure links without a border or shadow around their text. Theme overrides remain in mono.css.
 - **Personal Table Columns (1.14.1 Forward Port)**: Preserve per-user ordering/visibility within current administrator/developer fences, using signed own-user table catalogs and bounded profile preferences. Include drag/arrow ordering, restore and reverted-edit detection.
 - **Server-Owned Sticky Forms (1.14.1 Forward Port)**: Emit the modal marker for `form.dlux_sticky_server = True` so last-entry data cannot overwrite a project's next number or validation input.
-
 - **OCR Overload Test**: Accept early connection closure during rejected uploads in the concurrency test, while retaining successful-request, single-engine and recovery assertions. Runtime behavior is unchanged.
 
 ## v1.15.1b2

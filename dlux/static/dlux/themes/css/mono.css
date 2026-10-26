@@ -380,6 +380,37 @@
     color: var(--mono-800) !important;
 }
 
+:root.theme-mono .btn-link {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--mono-800) !important;
+}
+
+:root.theme-mono .dlux-table-columns__header {
+    background: var(--mono-50);
+    border-color: var(--mono-300);
+}
+
+:root.theme-mono .dlux-table-columns__header .btn {
+    background: var(--mono-50) !important;
+    color: var(--mono-900) !important;
+    border-color: transparent !important;
+    box-shadow: none;
+}
+
+:root.theme-mono .dlux-table-columns__header .btn:hover:not(:disabled),
+:root.theme-mono .dlux-table-columns__header .btn:focus-visible,
+:root.theme-mono .dlux-table-columns__header .btn:active {
+    background: var(--mono-200) !important;
+    color: var(--mono-950) !important;
+}
+
+:root.theme-mono .dlux-table-columns__header .btn .bi {
+    color: inherit !important;
+}
+
 /* 7. Sidebar Active State */
 :root.theme-mono .sidebar,
 .theme-mono .sidebar {

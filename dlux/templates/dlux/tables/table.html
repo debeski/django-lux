@@ -8,11 +8,10 @@
     {% if table.dlux_density_locked %}data-dlux-table-density-locked="true"{% endif %}
 >
     {% if table.dlux_user_columns_url %}
-    <div class="d-flex justify-content-end p-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-dynamic-modal="{{ table.dlux_user_columns_url }}">
-            <i class="bi bi-layout-three-columns" aria-hidden="true"></i> {{ DLUX_STRINGS.personal_columns_title }}
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-personal-columns-launch="{{ table.dlux_user_columns_key }}" data-dynamic-modal="{{ table.dlux_user_columns_url }}" data-modal-title="{{ DLUX_STRINGS.personal_columns_title }}"
+                aria-label="{{ DLUX_STRINGS.personal_columns_title }}: {{ table.dlux_user_columns_label }}" data-dlux-tooltip="{{ DLUX_STRINGS.personal_columns_title }}: {{ table.dlux_user_columns_label }}">
+            <i class="bi bi-layout-three-columns" aria-hidden="true"></i>
         </button>
-    </div>
     {% endif %}
     <div class="dlux-table-scroll">
         <table {{ table.attrs.as_html }}>

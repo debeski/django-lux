@@ -72,7 +72,7 @@ A preview is a real page rendered by the server with the unsaved form — never 
 
 A preview request:
 
-- renders in the draft's default language (`_dlux_preview_lang` picks another) and ignores the viewer's personal preferences, so the defaults being edited are what shows;
+- renders in the draft's default language (`_dlux_preview_lang` picks another) and keeps the viewer's personal theme, table/form density, modal size and font unless the draft changes that default, in which case the new default shows;
 - is superuser-only and GET-only, and its token only works for the superuser who drafted it;
 - runs in a transaction that is always rolled back, restores the session it found, and skips the auth-redirect sync, device tracking and setup redirects;
 - keeps its token through redirects, is sent `Cache-Control: no-store` and `X-Frame-Options: SAMEORIGIN`, has page animations disabled, and carries a static guard script (`dlux/system/js/preview_guard.js`) that swallows clicks and submits. Nothing inline is added, so previews keep the page CSP-compliant.
