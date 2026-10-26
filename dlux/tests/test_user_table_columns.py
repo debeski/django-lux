@@ -187,3 +187,11 @@ class UserTableColumnTests(_TableColumnTestSupport, TestCase):
         for value in (False, 'false', 'off', 0):
             normalized = normalize_tables_config({'columns':{'auth.user':{'user_columns':value}}})
             self.assertIs(normalized['columns']['auth.user']['user_columns'], False)
+
+    def test_the_launcher_titles_its_dialog(self):
+        from django.template.loader import render_to_string
+        from dlux.translations import get_strings
+
+        table = self.table()
+        html = render_to_string('dlux/tables/table.html', {'table': table, 'DLUX_STRINGS': get_strings('en')})
+        self.assertIn('data-modal-title="Arrange columns"', html)
