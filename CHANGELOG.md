@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.14.1
+
+- **Stable Personal Table Preferences**: Promote 1.14.1b1's per-user column ordering/visibility and server-owned sticky-form marker. Administrator/developer visibility limits remain enforced. No runtime code, dependency or migration changes from the beta; paired Composer remains 1.8.0.
+
 ## v1.14.1b1
 
 - **Personal Table Columns**: Add an authenticated column organizer for each rendered table, with per-user order/visibility and restore in `Profile.preferences`. Signed user-bound table catalogs, current admin-hidden fences, protected controls, CSRF, bounded preferences and server-side overlays prevent personal choices from widening table visibility. No database migration or Composer protocol change.
