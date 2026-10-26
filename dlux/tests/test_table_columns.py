@@ -460,6 +460,7 @@ class TableColumnsNormalizationTests(SimpleTestCase):
         self.assertEqual(normalize_config_group('tables_config', None), default_tables_config())
         self.assertIn('tables_config', get_exportable_settings())
 
+    @patch('dlux.forms.ocr._service_status', new=lambda *_args: '')
     def test_import_review_can_describe_table_configuration(self):
         from dlux.system.settings_diff import build_change_set
 

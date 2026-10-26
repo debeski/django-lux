@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Shared Personal Column Builder**: Reuse the administrator header strip and inspector for personal order/visibility. Move the icon-only organizer into the page ribbon with a Dlux tooltip, or existing table controls when no ribbon is available. Per-table `user_columns` defaults on; disabling it suppresses stored overlays and rejects existing dialog tokens.
 - **Personal Table Columns (1.14.1 Forward Port)**: Preserve per-user ordering/visibility within current administrator/developer fences, using signed own-user table catalogs and bounded profile preferences. Include drag/arrow ordering, restore and reverted-edit detection.
 - **Server-Owned Sticky Forms (1.14.1 Forward Port)**: Emit the modal marker for `form.dlux_sticky_server = True` so last-entry data cannot overwrite a project's next number or validation input.
 
