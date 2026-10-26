@@ -77,7 +77,7 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-26 (`1.15/personal_column_builder`): full3086 OK/6 skips, django check clean, JS syntax OK. Prior: 2026-10-25 paired stress PASS, evidence `.xclude/validation/paired-stress-2026-10-25/report.md`.
+- 2026-10-26 1.15.1b3 candidate (`1.15/patch_release`): suite3089 OK/6 skips; release_check bare+base v1.14.1, classify beta, build/twine PASS; pre-publish acceptance on :8101 (prod-version clone) PASS, evidence `.xclude/validation/1.15.1b3-prepublish-2026-10-26/report.md`.
 ### One-line info about last time edited Docs:
 - 2026-10-26: docs/table-columns.md, FEATURES, reference and CHANGELOG Unreleased record the shared personal column builder and `user_columns` switch. Prior: 2026-10-25 ScanLink1.15.1b2 docs.
 
