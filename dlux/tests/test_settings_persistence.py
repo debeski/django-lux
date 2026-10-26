@@ -131,6 +131,8 @@ class SettingsPersistenceContracts(TestCase):
                     for name in expected:
                         if form.fields[name].__class__.__name__ == 'BooleanField':
                             stale[name] = '' if enabled else 'on'
+                        elif name != 'default_language':
+                            stale[name] = '{}'
                     rebound = self.form(SystemSettings.objects.get(pk=obj.pk), step, stale)
                     self.assertTrue(rebound.is_valid(), rebound.errors)
                     for name, value in expected.items():
@@ -157,6 +159,30 @@ class SettingsPersistenceContracts(TestCase):
                     if owner != slug:
                         for group, key in fields:
                             self.assertIs(getattr(obj, group)[key], True, (slug, group, key))
+
+    def test_other_sections_keep_system_names_against_the_blanked_editor_field(self):
+        # Outside Branding the browser posts the hidden names field as "{}".
+        from dlux.system.constants import SETUP_STEP_IDENTITY
+        from dlux.system.preview import build_system_draft
+
+        for step, slug in enumerate(SETUP_STEP_SLUGS):
+            with self.subTest(step=slug):
+                obj = self.configured(True)
+                names = dict(obj.system_names)
+                data = {'default_language': 'ar', 'system_names': '{}'}
+                if step == SETUP_STEP_IDENTITY:
+                    data['system_names'] = '{"en": "Renamed", "ar": "Renamed"}'
+                    names = {'en': 'Renamed', 'ar': 'Renamed'}
+                request = self.factory.post('/', data)
+                request.user = self.user
+                request.session = {}
+                draft = build_system_draft(request, request.POST, mode='options', step=step)
+                self.assertEqual(draft.system_names, names)
+                form = self.form(SystemSettings.objects.get(pk=obj.pk), step, data)
+                self.assertTrue(form.is_valid(), form.errors)
+                form.save()
+                obj.refresh_from_db()
+                self.assertEqual(obj.system_names, names)
 
     def test_partial_imports_preserve_every_unsupplied_group_leaf(self):
         for group in iter_setting_groups():

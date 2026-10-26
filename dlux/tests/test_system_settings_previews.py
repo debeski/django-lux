@@ -196,6 +196,15 @@ class PreviewRenderTests(_PreviewCase):
         profile.refresh_from_db()
         self.assertEqual(profile.preferences.get('theme'), 'dark')
 
+    def test_personal_preferences_survive_drafts_that_leave_their_default_alone(self):
+        stored = SystemSettings.load().default_theme
+        personal = 'dark' if stored != 'dark' else 'light'
+        profile = self.admin.profile
+        profile.preferences = {'theme': personal}
+        profile.save()
+        body = self.preview(self.sample('components'), self.token(default_theme=stored, allowed_themes=[stored, personal], allow_user_theme_override='on')).content.decode()
+        self.assertIn(f'"theme": "{personal}"', body)
+
     def test_the_login_page_renders_for_a_visitor(self):
         response = self.preview(reverse('login'), self.token(), **{settings_preview.AS_PARAM: 'anonymous'})
         self.assertEqual(response.status_code, 200)
