@@ -15,7 +15,7 @@
     "updater_schema": ">=1",
     "baked_image": ">=1.15.0b1",
     "services": {
-      "composer": ">=1.9.0b1"
+      "composer": ">=1.9.0b2"
     },
     "migration_baseline": ">=1.14.0"
   },

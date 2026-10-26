@@ -124,3 +124,6 @@ The 1.14.1 candidate adds **Arrange columns** for each authenticated table viewe
 Personal table layouts share the system builder's horizontal headers and
 inspector, opened by an icon-only ribbon action. Administrators can disable this
 per table; the endpoint enforces the switch even for previously opened dialogs.
+
+Operations opens with cached results and explicit check/refresh actions. A live
+status identifies ongoing work when controls are temporarily disabled.

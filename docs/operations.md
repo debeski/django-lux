@@ -67,3 +67,9 @@ Operations is available to superusers from the admin command rail even when inli
 Start operates on an existing stopped/created container without recreation; use Recreate for absent services. Stop keeps containers and volumes. Controls follow the reported state and refresh after completion; old Composer versions disable them. Accept the paired beta before promotion.
 
 In the app, superusers open **Operations** from the admin panel's actions rail to run the deployment check and apply its repairs, restart or recreate allow-listed services, and read a service's recent logs (Composer 1.7.0b2+). Use [Deployment Doctor](doctor.md) before and after infrastructure changes. For generated Compose stacks, use `composer check` to report missing or drifted Composer services, and `composer check --fix` only after reviewing its planned changes. [Verified Inline Updates](inline-updater.md) documents the release handoff and recovery boundaries.
+
+Opening Operations reads its saved results without starting a deployment check or
+service refresh. Use Run deployment check or Refresh the service list explicitly.
+A running operation is named in the live status area while controls are disabled,
+including when reopening the panel during a run. Explicit service lifecycle
+actions refresh their result afterward. A failed status load is shown as an error.

@@ -1959,3 +1959,7 @@ When false, personal table overlays are not applied and the personal-column
 endpoint rejects GET/POST, including valid tokens issued before the change.
 The shared `DluxColumnStrip.header()` renderer supplies header handles/arrows to
 both builders; personal customization remains limited to order and visibility.
+
+Operations panel initialization only retrieves saved state. Service inventory and
+deployment checks are requested by their buttons; an existing active run is
+resumed with accessible progress feedback.
