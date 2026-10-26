@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Mono Builder Controls**: Give column-header handles and arrows explicit light Mono surfaces with readable hover/focus states; render disclosure links without a border or shadow around their text. Theme overrides remain in mono.css.
+
 - **Personal Table Columns (1.14.1 Forward Port)**: Preserve per-user ordering/visibility within current administrator/developer fences, using signed own-user table catalogs and bounded profile preferences. Include drag/arrow ordering, restore and reverted-edit detection.
 - **Server-Owned Sticky Forms (1.14.1 Forward Port)**: Emit the modal marker for `form.dlux_sticky_server = True` so last-entry data cannot overwrite a project's next number or validation input.
 
