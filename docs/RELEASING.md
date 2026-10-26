@@ -47,6 +47,10 @@ pauses for your approval before the PyPI upload.) The name must match the
 
 ## Cutting a release (the ~30-second ritual)
 
+### Owner-requested 1.14.1 stabilization
+
+The owner explicitly requested 1.14.1 before rebuilding Decrees while `main` already contains 1.15 OCR/ScanLink betas. This is a scoped exception to the single release-line policy: base `release/1.14.1` on published `v1.14.0`, review the candidate through a PR into that branch, and forward the same runtime changes to current `main` without downgrading its version or dependencies. CI covers both targets. Do not tag until owner review/merges and the required checks pass. Publish/test 1.14.1b1 before stable; verify published artifacts and PyPI availability before updating Decrees' pin or building its release image. This does not establish ongoing 1.14 maintenance. Retire the temporary release line once integration and release records are complete.
+
 ```sh
 # 0. main is green and your working tree is clean
 git switch main && git pull
