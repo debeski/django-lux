@@ -344,8 +344,15 @@ class ScaffoldTests(unittest.TestCase):
                     self.assertIn(".composer-channel", contents)
                     self.assertIn("debeski/composer:beta", contents)
                     self.assertIn("COMPOSER_SELF_IMAGE", contents)
-            # `self update`, the two-word form; `update-self` was the v1 route.
-            self.assertIn("$args.Count -eq 2", start_ps1_contents)
+            # Wrapper 5: `update self` refreshes only the deployer and an unscoped
+            # `update` refreshes it first; `self update` is a deprecated alias.
+            for name, contents in (
+                ("start.sh", start_sh_contents), ("start.ps1", start_ps1_contents),
+            ):
+                with self.subTest(wrapper=name):
+                    self.assertIn("update_self", contents)
+                    self.assertIn("update_all", contents)
+                    self.assertIn("'self update' is deprecated", contents)
             self.assertIn('"--env-file", $secretPath', start_ps1_contents)
             self.assertIn("COMPOSER_INHERITED_SECRET_KEYS", start_ps1_contents)
             self.assertIn("$projectRoot = (Resolve-Path $projectRoot).Path", start_ps1_contents)
@@ -367,7 +374,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 4
+        expected = 5
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):

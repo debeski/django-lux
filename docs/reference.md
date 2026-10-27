@@ -56,6 +56,8 @@ See [Weather](weather.md) for arguments, credentials, caching, and configuration
 | `python -m dlux startproject myproject --no-input` | Scaffold without prompting; use `--image`/`--repo` values or their defaults (CI). |
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
+| `./start.sh update` | Update the Composer deployer, then pull and recreate the stack and resident pair (wrapper 5+). Name services to update only those. |
+| `./start.sh update self` | Update only the Composer deployer. `self update` is a deprecated alias. |
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
 | `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
 
@@ -981,7 +983,10 @@ A modal form that sets `form.dlux_unsaved_guard = True` renders with
 the single event behind the backdrop, the X button and Escape — when the form's
 values differ from the snapshot taken after its initializers settle. The
 `#dluxUnsavedModal` prompt offers Save (via `requestSubmit` with the form's named
-submitter), Discard, or Go back.
+submitter), Discard, or Go back. Only one prompt is open at a time and Save
+submits once: a click on a dynamic modal's X raises `hide.bs.modal` twice
+(Bootstrap's dismiss handler and `dynamic_modal`'s), and before 1.15.2 each
+opened a prompt, so Save submitted the form twice.
 
 Project settings tiles (`register_app_settings`) are guarded by default: their
 form renders the marker unless it sets `dlux_unsaved_guard = False`, so a
