@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.1
+
+- **Stable 1.15**: Promote the accepted 1.15.1b3 implementation as the first 1.15 stable (1.15.0 is not promoted): document OCR, ScanLink automatic HTTPS setup and single scan submission, the 1.14.1 sticky-form and personal-column fixes, Options saves that keep the system name, previews that keep the viewer's theme, Operations checks on request, the shared personal column builder and Mono builder contrast. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.0. One additive migration since 1.14 (`0029_file_text`); no runtime, dependency or migration changes from 1.15.1b3.
+
 ## v1.15.1b3
 
 - **First 1.15 Stable Candidate**: 1.15.0 is not promoted; 1.15.0b1 predates the 1.14.1 forward port, so 1.15.1 becomes the first 1.15 stable. Pairs with Composer 1.9.0b2.
