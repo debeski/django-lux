@@ -1,11 +1,10 @@
 <form id="universalDynamicModalForm" method="post" class="dlux-table-columns" data-personal-columns data-default-order="{{ defaults }}" data-dlux-unsaved-guard
-      data-previous="{{ DLUX_STRINGS.table_columns_previous }}" data-next="{{ DLUX_STRINGS.table_columns_next }}" data-shown="{{ DLUX_STRINGS.table_columns_shown }}" data-keep-one="{{ DLUX_STRINGS.table_columns_keep_one }}" data-select="{{ DLUX_STRINGS.personal_columns_select }}">
+      data-previous="{{ DLUX_STRINGS.table_columns_previous }}" data-next="{{ DLUX_STRINGS.table_columns_next }}" data-show="{{ DLUX_STRINGS.personal_columns_show }}" data-hide="{{ DLUX_STRINGS.personal_columns_hide }}" data-keep-one="{{ DLUX_STRINGS.table_columns_keep_one }}">
     {% csrf_token %}
     <input type="hidden" name="token" value="{{ token }}" data-dlux-unsaved-ignore>
     <input type="hidden" name="preferences" value="{{ preferences_json }}" data-personal-columns-value>
     <p class="text-muted small">{{ DLUX_STRINGS.personal_columns_intro }}</p>
     {% if error %}<p class="alert alert-danger" role="alert">{{ error }}</p>{% endif %}
-    <div data-personal-column-inspector></div>
     <div class="dlux-table-columns__headers" data-personal-columns-list role="group" aria-label="{{ DLUX_STRINGS.personal_columns_title }}">
         {% for column in columns %}
         <div data-column-name="{{ column.name }}" data-column-label="{{ column.label }}" data-column-visible="{{ column.hidden|yesno:'false,true' }}">{{ column.label }}</div>
