@@ -45,4 +45,7 @@
 
 .dlux-table-columns__header.is-removed { opacity: .55; }
 .dlux-table-columns__header.is-removed .dlux-table-columns__handle { text-decoration: line-through; }
+/* With an eye the state is already shown; a hidden column just reads as disabled. */
+.dlux-table-columns__header--eye.is-removed .dlux-table-columns__handle { text-decoration: none; }
+.dlux-table-columns__eye { min-inline-size: 2rem; min-block-size: 2rem; }
 .dlux-table-columns__header.is-active { outline: 2px solid var(--bs-primary); }

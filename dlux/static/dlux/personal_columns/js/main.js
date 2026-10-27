@@ -7,7 +7,7 @@
         const field = form.querySelector('[data-personal-columns-value]');
         const defaults = JSON.parse(form.dataset.defaultOrder);
         const columns = new Map();
-        let selected = null;
+        const visibility = {show:form.dataset.show, hide:form.dataset.hide, keepOne:form.dataset.keepOne};
         let dragging = null;
         const reset = document.querySelector('[data-personal-columns-reset]');
         const rows = () => Array.from(list.children);
@@ -22,16 +22,22 @@
         for (const placeholder of rows()) {
             const name = placeholder.dataset.columnName;
             const column = {label:placeholder.dataset.columnLabel, visible:placeholder.dataset.columnVisible === 'true'};
-            const {cell, handle, arrows} = window.DluxColumnStrip.header({
+            const {cell, handle, arrows, eye} = window.DluxColumnStrip.header({
                 name, label:column.label, enabled:column.visible, previous:form.dataset.previous, next:form.dataset.next,
+                visibility,
             });
             column.cell = cell;
             column.arrows = arrows;
+            column.eye = eye;
             columns.set(name, column);
             cell.dataset.columnName = name;
             cell.draggable = true;
             handle.dataset.columnHandle = '';
-            handle.addEventListener('click', () => { selected = name; paint(); });
+            eye.addEventListener('click', () => {
+                if (column.visible && shownCount() === 1) return;
+                column.visible = !column.visible;
+                commit();
+            });
             handle.addEventListener('keydown', event => {
                 if (!['ArrowLeft','ArrowRight'].includes(event.key)) return;
                 event.preventDefault();
@@ -55,32 +61,16 @@
             cell.addEventListener('dragend', () => { cell.classList.remove('is-dragging'); dragging = null; });
             placeholder.replaceWith(cell);
         }
-        const inspector = window.DluxInspectorShell.create(form.querySelector('[data-personal-column-inspector]'), {
-            presentation:'popover', actionsPlacement:'panel', dismissOnOutsideClick:true,
-            dismissIgnoreSelector:'[data-personal-columns-list]', strings:{empty:form.dataset.select},
-            adapter:{
-                getTitle:() => columns.get(selected)?.label || '',
-                getAnchor:() => columns.get(selected)?.cell,
-                getActions:() => selected ? [{id:'shown', type:'toggle', label:form.dataset.shown,
-                    checked:columns.get(selected).visible, disabled:columns.get(selected).visible && shownCount() === 1,
-                    title:shownCount() === 1 ? form.dataset.keepOne : '', onChange:context => {
-                        if (!context.value && shownCount() === 1) return;
-                        columns.get(selected).visible = context.value;
-                        commit();
-                    }}] : [],
-                clearSelection:() => { selected = null; paint(); },
-            },
-        });
         function paint() {
             rows().forEach((cell, index, all) => {
                 const column = columns.get(cell.dataset.columnName);
                 cell.classList.toggle('is-removed', !column.visible);
-                cell.classList.toggle('is-active', selected === cell.dataset.columnName);
+                window.DluxColumnStrip.setVisibility(column.eye, column.visible, visibility, column.label,
+                    column.visible && shownCount() === 1);
                 column.arrows[0].disabled = index === 0;
                 column.arrows[1].disabled = index === all.length - 1;
             });
             if (reset) reset.disabled = shownCount() === columns.size && JSON.stringify(rows().map(row => row.dataset.columnName)) === JSON.stringify(defaults);
-            inspector.render(selected);
         }
         function commit() {
             field.value = JSON.stringify({order:rows().map(row => row.dataset.columnName),

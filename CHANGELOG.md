@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Eye-Icon Personal Column Editor**: Arrange columns drops the inspector, which held a single Shown toggle. Each header now carries an eye (`DluxColumnStrip.header({visibility})`, `DluxColumnStrip.setVisibility()`): open when the column is shown for the viewer, struck through when hidden, with hidden headers dimmed instead of struck out. The last shown column's eye is disabled with the keep-one hint. Drag, arrows, Restore and the server-side limits are unchanged; the administrator Tables builder keeps its inspector. New EN/AR strings `personal_columns_show`/`personal_columns_hide` and an updated intro; `personal_columns_select` is removed. Covered by `tests-e2e/personal_columns_eye.test.mjs`.
+
 ## v1.15.1
 
 - **Stable 1.15**: Promote the accepted 1.15.1b3 implementation as the first 1.15 stable (1.15.0 is not promoted): document OCR, ScanLink automatic HTTPS setup and single scan submission, the 1.14.1 sticky-form and personal-column fixes, Options saves that keep the system name, previews that keep the viewer's theme, Operations checks on request, the shared personal column builder and Mono builder contrast. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.0. One additive migration since 1.14 (`0029_file_text`); no runtime, dependency or migration changes from 1.15.1b3.

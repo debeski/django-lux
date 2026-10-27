@@ -1959,6 +1959,12 @@ When false, personal table overlays are not applied and the personal-column
 endpoint rejects GET/POST, including valid tokens issued before the change.
 The shared `DluxColumnStrip.header()` renderer supplies header handles/arrows to
 both builders; personal customization remains limited to order and visibility.
+`header({visibility: {show, hide, keepOne}})` adds a per-header eye button
+(`.dlux-table-columns__eye`, `aria-pressed` when hidden), and
+`DluxColumnStrip.setVisibility(eye, shown, labels, columnLabel, locked)` updates
+it; the personal organizer uses it instead of an inspector. New strings:
+`personal_columns_show`, `personal_columns_hide`; `personal_columns_select` is
+removed.
 
 Operations panel initialization only retrieves saved state. Service inventory and
 deployment checks are requested by their buttons; an existing active run is
