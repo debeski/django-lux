@@ -241,7 +241,12 @@ Composer agent row, when the resident is older than it should be: older than an
 operation needs, or older than the running release's own
 `requires.services.composer` floor. The notice names both versions and who can
 fix it. When the card's operations are blocked it gives the host commands
-(`./start.sh self update`, then `./start.sh agent update`). When only the
+(`./start.sh self update`, then `./start.sh agent update`). That form stays on
+purpose: it is shown to stacks whose Composer is too old, and their wrappers
+and Composer do not know `update self`. Composer 1.9.1b1+ keeps `self update`
+as a deprecated alias (see [deprecation countdown](deprecation-countdown.md)).
+With wrapper 5, a plain `./start.sh update` refreshes the deployer before the
+stack and the resident pair. When only the
 release's floor is missed, the card can still check and update the agent itself,
 and the notice says so instead of sending the administrator to a shell.
 

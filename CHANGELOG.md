@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Composer Wrapper 5 In The Scaffold**: `startproject` writes Composer wrapper 5 (`start.sh`/`start.ps1`, byte-identical to Composer 1.9.1b1): `./start.sh update` refreshes the Composer deployer before the stack and resident pair, `./start.sh update self` updates only the deployer, and `self update` is a deprecated alias. DjangoLux's own "Composer too old" guidance keeps `./start.sh self update`, which also works on older wrappers; tracked in `docs/deprecation-countdown.md`. No runtime change.
+
 ## v1.15.1
 
 - **Stable 1.15**: Promote the accepted 1.15.1b3 implementation as the first 1.15 stable (1.15.0 is not promoted): document OCR, ScanLink automatic HTTPS setup and single scan submission, the 1.14.1 sticky-form and personal-column fixes, Options saves that keep the system name, previews that keep the viewer's theme, Operations checks on request, the shared personal column builder and Mono builder contrast. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.0. One additive migration since 1.14 (`0029_file_text`); no runtime, dependency or migration changes from 1.15.1b3.
