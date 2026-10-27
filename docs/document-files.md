@@ -60,7 +60,7 @@ register_file_type(
 
 | Surface | Detail |
 |---|---|
-| Routes (in `dlux.urls`) | `/sys/files/<app>/<model>/<pk>/<field>/` + `source/` (inline), `download/`, `edit/` (page editor), `history/` (modal list), `history/<version>/download/`. Names `dlux_document_file_source`, `_download`, `_edit`, `_history`, `_version`. Excluded from navigation discovery. |
+| Routes (in `dlux.urls`) | `/sys/files/<app>/<model>/<pk>/<field>/` + `source/` (inline), `download/`, `edit/` (page editor), `history/` (modal list), `history/<version>/download/`. Names `dlux_document_file_source`, `_download`, `_edit`, `_history`, `_version`. Excluded from navigation discovery. `source/`, `download/` and version downloads go through `dlux.files.serving.serve_file`: `Accept-Ranges: bytes` with single-range `206`/`416`, `ETag` and `Last-Modified` with `304`, and `Cache-Control: private, no-cache`. |
 | Viewer | `{% load dlux_files %}{% dlux_document_viewer object 'pdf_file' %}` renders `dlux/pdf/viewer.html` with these routes; edit and history buttons follow the user's access and the PDF tools settings. `dlux.files.views.document_file_context()` gives the same context to a project template. |
 | Page editor | The built-in `DocumentFileAdapter` behind `PdfEditorView` (accept = the registration's kinds). Images join as pages; pages can be selected, rotated and fitted to A4; Scan uses ScanLink (§5). Saving keeps the previous file in history. |
 | Forms | Every form the dynamic modal builds gets, for each registered field, the DjangoLux file card with Scan, the `accept` attribute and the server-side type check (`dlux.files.forms.apply_document_file_fields(form)`; a project form can call it too). |

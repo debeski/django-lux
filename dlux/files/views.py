@@ -7,7 +7,7 @@ import os
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -115,22 +115,22 @@ def resolve_document(request, app_label, model_name, pk, field_name, action, loc
     return spec, document
 
 
-def _file_response(file_field, *, as_attachment):
-    if not file_field or not file_field.name or not file_field.storage.exists(file_field.name):
-        raise Http404('No file is attached.')
-    return FileResponse(file_field.open('rb'), as_attachment=as_attachment, filename=os.path.basename(file_field.name))
+def _file_response(request, file_field, *, as_attachment):
+    from .serving import serve_file
+
+    return serve_file(request, file_field, as_attachment=as_attachment)
 
 
 @login_required
 def document_file_source(request, app_label, model_name, pk, field_name):
     _, document = resolve_document(request, app_label, model_name, pk, field_name, 'view')
-    return _file_response(getattr(document, field_name), as_attachment=False)
+    return _file_response(request, getattr(document, field_name), as_attachment=False)
 
 
 @login_required
 def document_file_download(request, app_label, model_name, pk, field_name):
     _, document = resolve_document(request, app_label, model_name, pk, field_name, 'download')
-    return _file_response(getattr(document, field_name), as_attachment=True)
+    return _file_response(request, getattr(document, field_name), as_attachment=True)
 
 
 class DocumentFileAdapter:
@@ -217,7 +217,7 @@ def document_file_version(request, app_label, model_name, pk, field_name, versio
         raise PermissionDenied
     _, document = resolve_document(request, app_label, model_name, pk, field_name, 'history')
     row = get_object_or_404(versions_for(document, field_name), version_number=version)
-    return _file_response(row.archived_file, as_attachment=True)
+    return _file_response(request, row.archived_file, as_attachment=True)
 
 
 for _view in (convert_to_pdf, document_file_source, document_file_download, document_file_edit,
