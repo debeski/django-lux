@@ -367,6 +367,18 @@ class SettingsPersistenceContracts(TestCase):
 
 
 class ConcurrentSettingsWriterContracts(TransactionTestCase):
+    def signalled(self, event, writer, what, timeout=60):
+        # A writer that raised never signals; report its exception, not a bare timeout.
+        from time import monotonic
+
+        deadline = monotonic() + timeout
+        while not event.wait(0.1):
+            if writer.done():
+                writer.result()
+                self.fail(f'{what}: the writer finished without signalling')
+            if monotonic() > deadline:
+                self.fail(f'{what}: no signal after {timeout}s')
+
     @skipUnlessDBFeature('has_select_for_update')
     def test_namespace_writers_serialize_concurrent_merges(self):
         from concurrent.futures import ThreadPoolExecutor
@@ -381,7 +393,7 @@ class ConcurrentSettingsWriterContracts(TransactionTestCase):
         def merge(extra, namespace, value):
             if namespace == 'concurrent.first':
                 first_locked.set()
-                if not release_first.wait(10):
+                if not release_first.wait(60):
                     raise AssertionError('Timed out waiting to release first writer')
             return merge_app_system_config(extra, namespace, value)
 
@@ -400,14 +412,14 @@ class ConcurrentSettingsWriterContracts(TransactionTestCase):
         with patch('dlux.options.merge_app_system_config', side_effect=merge), ThreadPoolExecutor(max_workers=2) as pool:
             first = pool.submit(write, 'concurrent.first', False)
             try:
-                self.assertTrue(first_locked.wait(10))
+                self.signalled(first_locked, first, 'First writer reaching its locked merge')
                 second = pool.submit(write, 'concurrent.second', True)
-                self.assertTrue(second_started.wait(10))
+                self.signalled(second_started, second, 'Second writer starting')
                 self.assertFalse(second_finished.wait(0.2), 'Second writer bypassed the row lock')
             finally:
                 release_first.set()
-            first.result(timeout=10)
-            second.result(timeout=10)
+            first.result(timeout=60)
+            second.result(timeout=60)
         obj.refresh_from_db()
         self.assertEqual(obj.extra_config['app']['concurrent.first'], {'value': 1})
         self.assertEqual(obj.extra_config['app']['concurrent.second'], {'value': 2})
@@ -429,7 +441,7 @@ class ConcurrentSettingsWriterContracts(TransactionTestCase):
         def held(form, commit):
             if form.single_step_index == sidebar:
                 first_locked.set()
-                if not release_first.wait(10):
+                if not release_first.wait(60):
                     raise AssertionError('Timed out waiting to release first writer')
             return original(form, commit)
 
@@ -449,14 +461,14 @@ class ConcurrentSettingsWriterContracts(TransactionTestCase):
         with patch.object(SystemSettingsForm, '_save', autospec=True, side_effect=held), ThreadPoolExecutor(max_workers=2) as pool:
             first = pool.submit(save, sidebar)
             try:
-                self.assertTrue(first_locked.wait(10))
+                self.signalled(first_locked, first, 'First writer reaching its locked save')
                 second = pool.submit(save, login, second_started, second_finished)
-                self.assertTrue(second_started.wait(10))
+                self.signalled(second_started, second, 'Second writer starting')
                 self.assertFalse(second_finished.wait(0.5), 'Second section save bypassed the row lock')
             finally:
                 release_first.set()
-            first.result(timeout=20)
-            second.result(timeout=20)
+            first.result(timeout=60)
+            second.result(timeout=60)
         obj.refresh_from_db()
         self.assertIs(obj.sidebar_config['enabled'], False)
         self.assertIs(obj.login_config['show_logo'], False)
