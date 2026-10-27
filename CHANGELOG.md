@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Composer Wrapper 5 In The Scaffold**: `startproject` writes Composer wrapper 5 (`start.sh`/`start.ps1`, byte-identical to Composer 1.9.1b1): `./start.sh update` refreshes the Composer deployer before the stack and resident pair, `./start.sh update self` updates only the deployer, and `self update` is a deprecated alias. DjangoLux's own "Composer too old" guidance keeps `./start.sh self update`, which also works on older wrappers; tracked in `docs/deprecation-countdown.md`. No runtime change.
+
 - **Unsaved-Changes Save Submits Once**: Closing a dirty dynamic modal with its X raised `hide.bs.modal` twice (Bootstrap's dismiss handler and `dynamic_modal`'s own), and `unsaved_guard.js` opened its prompt for each, binding Save twice. One "Save changes" click then submitted the form twice: two records with the same next number, or an apparently cancelled entry where the duplicate was rejected. The prompt now ignores a second request while open, and Save is one-shot (it re-arms only if the form cannot be submitted). Covered by `tests-e2e/unsaved_guard_close.test.mjs`.
 
 ## v1.15.1

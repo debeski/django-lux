@@ -1,5 +1,5 @@
 #!/bin/bash
-# composer-wrapper: 4
+# composer-wrapper: 5
 set -euo pipefail
 
 # Closing the terminal must not abort a run in flight. The ignored disposition
@@ -27,28 +27,90 @@ case "${composer_channel}" in
 esac
 composer_self_image="${COMPOSER_SELF_IMAGE:-${composer_channel_image}}"
 
-# Pull the deployer image before launching composer from that same image.
-if [[ $# -eq 2 && "${1:-}" == "self" && "${2:-}" == "update" ]]; then
-    # Show current version from image's VERSION file. `docker image inspect`
-    # first, because `docker run` on a missing image pulls it — silently, since
-    # the progress goes to the stderr this used to discard.
-    echo "=== Current Composer Version ==="
-    if docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
-        docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION
-    else
-        echo "  (not present locally)"
-    fi
+# The deployer can only be refreshed here: a composer already running from
+# this image cannot replace it. `update self` refreshes only the deployer;
+# `update` with no named services refreshes it first, so the stack update
+# that follows runs on the new deployer. Named services skip the refresh.
+composer_image_version() {
+  docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION 2>/dev/null || true
+}
 
-    echo ""
-    echo "Pulling latest composer image..."
-    docker pull "${composer_self_image}"
-    
-    echo ""
-    echo "=== Installed Version ==="
-    docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION
-    
+refresh_deployer() {
+  local before="" after=""
+  if docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
+    before="$(composer_image_version)"
+  fi
+  echo "Updating the Composer deployer (${composer_self_image})..."
+  if ! docker pull "${composer_self_image}"; then
+    return 1
+  fi
+  after="$(composer_image_version)"
+  if [[ -n "${before}" && "${before}" == "${after}" ]]; then
+    echo "Composer deployer is up to date (${after})."
+  else
+    echo "Composer deployer: ${before:-not installed} -> ${after}"
+  fi
+}
+
+# bash 3.2 has no safe empty-array expansion under `set -u`, so classify the
+# arguments by shifting a copy rather than slicing an array.
+classify_invocation() {
+  invocation=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -d|--dev|--file=*) shift ;;
+      -f|--file) shift; if [[ $# -gt 0 ]]; then shift; fi ;;
+      *) break ;;
+    esac
+  done
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
+  local command="$1"
+  shift
+  if [[ "${command}" == "self" && $# -eq 1 && "$1" == "update" ]]; then
+    invocation="self_update"
+    return 0
+  fi
+  if [[ "${command}" != "update" ]]; then
+    return 0
+  fi
+  if [[ $# -eq 1 && "$1" == "self" ]]; then
+    invocation="update_self"
+    return 0
+  fi
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help) return 0 ;;
+      -f|--file|-a|--app|--status-file) shift ;;
+      -*) ;;
+      *) return 0 ;;
+    esac
+    if [[ $# -gt 0 ]]; then
+      shift
+    fi
+  done
+  invocation="update_all"
+}
+
+classify_invocation "$@"
+case "${invocation}" in
+  self_update)
+    echo "Note: 'self update' is deprecated; use './start.sh update self'." >&2
+    refresh_deployer || exit 1
     exit 0
-fi
+    ;;
+  update_self)
+    refresh_deployer || exit 1
+    exit 0
+    ;;
+  update_all)
+    if ! refresh_deployer; then
+      echo "Warning: could not refresh the Composer deployer; updating the stack with the installed one." >&2
+    fi
+    echo ""
+    ;;
+esac
 
 # Announce the first-run download instead of letting `docker run` pull an
 # unnamed image while the command appears to hang.
