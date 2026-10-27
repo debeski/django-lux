@@ -1,4 +1,4 @@
-# composer-wrapper: 4
+# composer-wrapper: 5
 Set-StrictMode -Version Latest
 
 # The wrapper resolves its own image before any composer code can run, so the
@@ -22,28 +22,75 @@ if (Test-Path -LiteralPath $composerChannelFile) {
 $composerChannelImage = if ($composerChannel -eq "beta") { "debeski/composer:beta" } else { "debeski/composer:latest" }
 $composerSelfImage = if ($env:COMPOSER_SELF_IMAGE) { $env:COMPOSER_SELF_IMAGE } else { $composerChannelImage }
 
-# Pull the deployer image before launching composer from that same image.
-if ($args.Count -eq 2 -and $args[0] -eq "self" -and $args[1] -eq "update") {
-    # `docker image inspect` first: `docker run` on a missing image pulls it,
-    # silently, since the progress goes to the stderr this used to discard.
-    Write-Host "=== Current Composer Version ==="
+# The deployer can only be refreshed here: a composer already running from
+# this image cannot replace it. `update self` refreshes only the deployer;
+# `update` with no named services refreshes it first, so the stack update
+# that follows runs on the new deployer. Named services skip the refresh.
+function Get-ComposerImageVersion {
+    $version = docker run --rm --entrypoint cat $composerSelfImage /app/VERSION 2>$null
+    if ($LASTEXITCODE -ne 0) { return "" }
+    return ("$version").Trim()
+}
+
+function Update-ComposerDeployer {
+    $before = ""
     docker image inspect $composerSelfImage 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        $currentVersion = docker run --rm --entrypoint cat $composerSelfImage /app/VERSION
-        Write-Host "  $currentVersion"
+    if ($LASTEXITCODE -eq 0) { $before = Get-ComposerImageVersion }
+    Write-Host "Updating the Composer deployer ($composerSelfImage)..."
+    # Out-Host keeps the pull's output out of this function's return value.
+    docker pull $composerSelfImage | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $false }
+    $after = Get-ComposerImageVersion
+    if ($before -and $before -eq $after) {
+        Write-Host "Composer deployer is up to date ($after)."
     } else {
-        Write-Host "  (not present locally)"
+        $previous = if ($before) { $before } else { "not installed" }
+        Write-Host "Composer deployer: $previous -> $after"
     }
+    return $true
+}
 
-    Write-Host ""
-    Write-Host "Pulling latest composer image..."
-    docker pull $composerSelfImage
+function Get-ComposerInvocation([string[]]$Arguments) {
+    $i = 0
+    while ($i -lt $Arguments.Count) {
+        $token = $Arguments[$i]
+        if ($token -eq "-d" -or $token -eq "--dev" -or $token -like "--file=*") { $i += 1; continue }
+        if ($token -eq "-f" -or $token -eq "--file") { $i += 2; continue }
+        break
+    }
+    if ($i -ge $Arguments.Count) { return "" }
+    $command = $Arguments[$i]
+    $rest = @()
+    if ($i + 1 -lt $Arguments.Count) { $rest = @($Arguments[($i + 1)..($Arguments.Count - 1)]) }
+    if ($command -eq "self" -and $rest.Count -eq 1 -and $rest[0] -eq "update") { return "self_update" }
+    if ($command -ne "update") { return "" }
+    if ($rest.Count -eq 1 -and $rest[0] -eq "self") { return "update_self" }
+    $j = 0
+    while ($j -lt $rest.Count) {
+        $token = $rest[$j]
+        if ($token -eq "-h" -or $token -eq "--help") { return "" }
+        if ($token -in @("-f", "--file", "-a", "--app", "--status-file")) { $j += 2; continue }
+        if (-not $token.StartsWith("-")) { return "" }
+        $j += 1
+    }
+    return "update_all"
+}
 
-    Write-Host ""
-    Write-Host "=== Installed Version ==="
-    docker run --rm --entrypoint cat $composerSelfImage /app/VERSION
-
+$composerInvocation = Get-ComposerInvocation @($args)
+if ($composerInvocation -eq "self_update") {
+    [Console]::Error.WriteLine("Note: 'self update' is deprecated; use '.\start.ps1 update self'.")
+    if (-not (Update-ComposerDeployer)) { exit 1 }
     exit 0
+}
+if ($composerInvocation -eq "update_self") {
+    if (-not (Update-ComposerDeployer)) { exit 1 }
+    exit 0
+}
+if ($composerInvocation -eq "update_all") {
+    if (-not (Update-ComposerDeployer)) {
+        [Console]::Error.WriteLine("Warning: could not refresh the Composer deployer; updating the stack with the installed one.")
+    }
+    Write-Host ""
 }
 
 if ($PSScriptRoot) {

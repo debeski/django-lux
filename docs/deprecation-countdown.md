@@ -24,6 +24,10 @@ The `dlux.forms`, `dlux.models`, `dlux.reports`, `dlux.discovery`, `dlux.backup`
 
 As of v1.12.0b2 DjangoLux owns file history (`dlux.FileVersion`) and the wiring between the file card, Scan, viewer, page editor and history (`register_document_file()`, see [Document files](document-files.md)). `PdfEditorView` with a project adapter, and project history models such as Archive's and Decrees' `DocumentFileVersion`, keep working unchanged through v1.x. Move to `register_document_file()` and run `dlux_adopt_file_history <app.Model>`; the adapter path is scheduled for removal in v2.0.
 
+### Composer `self update`
+
+Composer 1.9.1b1 (wrapper 5) replaces `./start.sh self update` with `./start.sh update self`, and a plain `./start.sh update` now refreshes the deployer before the stack. `self update` stays as a deprecated alias that prints a pointer to `update self`. DjangoLux keeps showing `./start.sh self update` to stacks whose Composer is too old for an operation (`dlux.updater.ops`, `dlux.relay`, `dlux_relay`, `dlux_ops_composer_behind_host`), because those stacks' wrappers and Composer do not know `update self`. Remove the alias, and switch that guidance to `update self`, only once DjangoLux's Composer floor is at least 1.9.1 and wrapper 5 has been out through one stable cycle; target v2.0.
+
 ### Raw `ImageField` for project images
 
 As of v1.8.4 a model image or font belongs in the asset library through

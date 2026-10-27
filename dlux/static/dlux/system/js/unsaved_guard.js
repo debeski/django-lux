@@ -129,7 +129,15 @@
      * Returns nothing; the chosen outcome drives the callbacks. `onSave`, when
      * given, replaces submitting `form` (for editors that save without a form).
      */
+    // One prompt at a time. A click on a dynamic modal's × asks Bootstrap to hide
+    // it twice (its own dismiss handler and dynamic_modal's), and each request
+    // reaches this guard; a second prompt would bind Save again and submit twice.
+    let promptOpen = false;
+
     function showUnsavedPrompt(config) {
+        if (promptOpen) {
+            return;
+        }
         const modalEl = document.querySelector('[data-dlux-unsaved-modal]');
         if (!modalEl || !window.bootstrap) {
             // No prompt available — never trap the admin inside the modal.
@@ -163,6 +171,8 @@
         document.body.classList.add('dlux-modal-stacked-open');
 
         let outcome = 'stay';
+        let saving = false;
+        promptOpen = true;
 
         function finish(next) {
             outcome = next;
@@ -170,6 +180,10 @@
         }
 
         function onSave() {
+            if (saving) {
+                return;
+            }
+            saving = true;
             if (typeof config.onSave === 'function') {
                 finish('save');
                 config.onSave();
@@ -193,6 +207,7 @@
                 submitter.click();
                 return;
             }
+            saving = false;
             if (errorEl) {
                 errorEl.textContent = errorEl.getAttribute('data-fallback')
                     || 'Could not submit this form automatically.';
@@ -208,6 +223,7 @@
         }
 
         function cleanup() {
+            promptOpen = false;
             if (saveBtn) { saveBtn.removeEventListener('click', onSave); }
             if (discardBtn) { discardBtn.removeEventListener('click', onDiscard); }
             stayBtns.forEach((btn) => btn.removeEventListener('click', onStay));

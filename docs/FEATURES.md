@@ -121,8 +121,9 @@ Published beta 1.14.0b1 adds a Tables settings step, canonical `tables_config` s
 
 The 1.14.1 candidate adds **Arrange columns** for each authenticated table viewer: personal order/visibility, drag or arrow controls and restore. Administrator-hidden/developer-excluded columns and dedicated controls remain enforced. Preferences are isolated per user and table variant; no migration or Composer protocol change. See [personal column organization](table-columns.md#personal-column-organization-1141).
 
-Personal table layouts share the system builder's horizontal headers and
-inspector, opened by an icon-only ribbon action. Administrators can disable this
+Personal table layouts share the system builder's horizontal headers, opened by
+an icon-only ribbon action; an eye on each header shows or hides that column for
+the viewer (hidden headers are dimmed), with no inspector. Administrators can disable this
 per table; the endpoint enforces the switch even for previously opened dialogs.
 
 Operations opens with cached results and explicit check/refresh actions. A live

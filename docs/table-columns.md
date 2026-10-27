@@ -69,12 +69,15 @@ Since 1.14.0b3, URL page sizes cannot override the validated table size when dja
 
 ## Personal column layouts
 
-Personal layouts use the same header-strip renderer and inspector as the system
-builder. The ribbon gets an icon-only Arrange columns action with a Dlux tooltip;
-without a ribbon the icon joins the existing table footer or header controls.
-No separate button row is added. The standard modal supports drag, logical arrow
-keys, a Shown toggle, Restore, Save and Cancel. Restoring or reverting edits
-compares the resulting layout with the original state.
+Personal layouts use the same header-strip renderer as the system builder, but
+no inspector: since 1.15.2 each header carries an eye. An open eye means the
+column is shown for you; a struck eye means it is hidden, and the header is
+dimmed. Click the eye to switch. The last shown column's eye is disabled with a
+"keep at least one column" hint. The ribbon gets an icon-only Arrange columns
+action with a Dlux tooltip; without a ribbon the icon joins the existing table
+footer or header controls. No separate button row is added. The standard modal
+supports the eyes, drag, logical arrow keys, Restore, Save and Cancel. Restoring
+or reverting edits compares the resulting layout with the original state.
 
 Select a table title in the administrator builder to change **Allow personal
 column layouts**. This is enabled by default. Its sparse setting is

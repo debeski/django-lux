@@ -195,3 +195,10 @@ class UserTableColumnTests(_TableColumnTestSupport, TestCase):
         table = self.table()
         html = render_to_string('dlux/tables/table.html', {'table': table, 'DLUX_STRINGS': get_strings('en')})
         self.assertIn('data-modal-title="Arrange columns"', html)
+
+    def test_dialog_toggles_visibility_with_eyes_not_an_inspector(self):
+        html = json.loads(self.send(method='GET').content)['html']
+        self.assertIn('data-show="Show column"', html)
+        self.assertIn('data-hide="Hide column"', html)
+        self.assertNotIn('data-personal-column-inspector', html)
+        self.assertNotIn('data-select=', html)
