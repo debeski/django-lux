@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.15.1b3",
+  "version": "1.15.1",
   "display": {
     "summary": "Settings and operations patch: other sections no longer wipe the system name, previews keep the viewer's theme, Operations checks only on request.",
     "highlights": [
@@ -10,7 +10,7 @@
       "Personal column layouts use the Tables builder strip from an icon-only ribbon action; administrators can turn them off per table.",
       "Includes the 1.14.1 sticky-form and personal-column fixes, Mono builder contrast fixes and the 1.15.1b2 ScanLink fixes."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.1b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.1"
   },
   "requires": {
     "updater_schema": ">=1",
