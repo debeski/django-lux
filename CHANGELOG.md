@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Unsaved-Changes Save Submits Once**: Closing a dirty dynamic modal with its X raised `hide.bs.modal` twice (Bootstrap's dismiss handler and `dynamic_modal`'s own), and `unsaved_guard.js` opened its prompt for each, binding Save twice. One "Save changes" click then submitted the form twice: two records with the same next number, or an apparently cancelled entry where the duplicate was rejected. The prompt now ignores a second request while open, and Save is one-shot (it re-arms only if the form cannot be submitted). Covered by `tests-e2e/unsaved_guard_close.test.mjs`.
+
 ## v1.15.1
 
 - **Stable 1.15**: Promote the accepted 1.15.1b3 implementation as the first 1.15 stable (1.15.0 is not promoted): document OCR, ScanLink automatic HTTPS setup and single scan submission, the 1.14.1 sticky-form and personal-column fixes, Options saves that keep the system name, previews that keep the viewer's theme, Operations checks on request, the shared personal column builder and Mono builder contrast. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.0. One additive migration since 1.14 (`0029_file_text`); no runtime, dependency or migration changes from 1.15.1b3.
