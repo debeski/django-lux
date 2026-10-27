@@ -983,7 +983,10 @@ A modal form that sets `form.dlux_unsaved_guard = True` renders with
 the single event behind the backdrop, the X button and Escape — when the form's
 values differ from the snapshot taken after its initializers settle. The
 `#dluxUnsavedModal` prompt offers Save (via `requestSubmit` with the form's named
-submitter), Discard, or Go back.
+submitter), Discard, or Go back. Only one prompt is open at a time and Save
+submits once: a click on a dynamic modal's X raises `hide.bs.modal` twice
+(Bootstrap's dismiss handler and `dynamic_modal`'s), and before 1.15.2 each
+opened a prompt, so Save submitted the form twice.
 
 Project settings tiles (`register_app_settings`) are guarded by default: their
 form renders the marker unless it sets `dlux_unsaved_guard = False`, so a
