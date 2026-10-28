@@ -1979,3 +1979,8 @@ resumed with accessible progress feedback.
 
 Mono column-builder and disclosure styling is owned by
 `dlux/static/dlux/themes/css/mono.css`.
+
+DLB viewer PBKDF2-SHA256 derives the same backup keys and honors the header's
+iteration count while reusing HMAC state and digest storage. Component benchmarks
+cover password derivation, compressed model paging, relation labels, and chain
+merging; see [performance checks](../tools/dlb-viewer/README.md#performance-checks).
