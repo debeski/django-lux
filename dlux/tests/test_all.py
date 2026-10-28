@@ -10,6 +10,7 @@ TEST_LABELS = [
     'dlux.tests.test_pdf_editor',
     'dlux.tests.test_pdf_extra_features',
     'dlux.tests.test_document_files',
+    'dlux.tests.test_file_serving',
     'dlux.tests.test_document_history',
     'dlux.tests.test_document_wiring',
     'dlux.tests.test_ocr',

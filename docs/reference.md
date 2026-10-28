@@ -1935,6 +1935,8 @@ When you need to trace behavior in the code, these files are the usual first sto
 
 Stable 1.12.0 promotes the accepted 1.12.0b3 implementation; see [release acceptance and upgrade requirements](release-1.12-acceptance.md).
 
+`dlux.files.serving.serve_file(request, field_file, *, content_type=None, as_attachment=False, filename=None)` serves an already-authorised stored file: `200` with `Accept-Ranges: bytes`, a single byte range as `206` (`416` when unsatisfiable; multiple ranges or a stale `If-Range` get the whole file), `ETag` (name, size and modification time) and `Last-Modified` with `304` on revalidation, and `Cache-Control: private, no-cache`. It never checks access; callers do.
+
 See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over. The history table identifies who performed each change in its translated **Changed by** column.
 
 ## OCR text
