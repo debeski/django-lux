@@ -155,6 +155,24 @@ The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 - Treat the decrypted contents as sensitive — they include user records and
   settings. Run it on a trusted machine.
 
-## Loading large backups
 
-The viewer shows upload progress while copying a selected file to its local server, then a busy indicator while opening, decrypting, or merging an incremental chain. Path-based opening and automatic unlocking of unencrypted backups show the same indicator. Controls are blocked until completion; errors clear the indicator so you can retry. Upload percentages describe the local transfer only; archive preparation has no estimated percentage.
+## Performance checks
+
+The viewer's Go benchmarks use synthetic model records; no deployment backup or
+credentials are needed. From this directory:
+
+```sh
+go test -run '^$' -bench . -benchmem
+# Optional CPU/allocation profiles for one operation:
+go test -run '^$' -bench BenchmarkPasswordDerivation -cpuprofile password.cpu -memprofile password.heap
+go tool pprof -top password.cpu
+go tool pprof -top -alloc_space password.heap
+```
+
+`BenchmarkLargeModel` compares the first and last 50-record pages, relation-label
+building, and ZIP inflation at 10,000 and 100,000 rows. `BenchmarkChainMerge`
+merges a 100,000-record base with 5,000 updated records and retains its synthetic
+ZIP inputs in `.xclude/benchmark-chain/`. Password derivation uses the format's
+390,000-iteration default. PBKDF2 reuses its HMAC state and digest buffer;
+algorithm, key bytes, iteration count, and backup compatibility are unchanged.
+These are component benchmarks, not an end-to-end file-opening guarantee.

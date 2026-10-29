@@ -37,7 +37,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 )
 
@@ -231,23 +230,23 @@ func pkcs7Unpad(b []byte, blockSize int) ([]byte, error) {
 
 // pbkdf2SHA256 is RFC 2898 PBKDF2 over HMAC-SHA256 (stdlib only).
 func pbkdf2SHA256(password, salt []byte, iterations, keyLen int) []byte {
-	newPRF := func() hash.Hash { return hmac.New(sha256.New, password) }
+	prf := hmac.New(sha256.New, password)
 	hLen := sha256.Size
 	numBlocks := (keyLen + hLen - 1) / hLen
 	dk := make([]byte, 0, numBlocks*hLen)
 	var idx [4]byte
 	for block := 1; block <= numBlocks; block++ {
 		binary.BigEndian.PutUint32(idx[:], uint32(block))
-		prf := newPRF()
+		prf.Reset()
 		prf.Write(salt)
 		prf.Write(idx[:])
 		u := prf.Sum(nil)
 		t := make([]byte, len(u))
 		copy(t, u)
 		for i := 1; i < iterations; i++ {
-			prf = newPRF()
+			prf.Reset()
 			prf.Write(u)
-			u = prf.Sum(nil)
+			u = prf.Sum(u[:0])
 			for j := range t {
 				t[j] ^= u[j]
 			}

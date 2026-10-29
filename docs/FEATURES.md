@@ -132,4 +132,7 @@ status identifies ongoing work when controls are temporarily disabled.
 Mono supports readable table-builder header controls and borderless disclosure
 links across normal, hover and keyboard-focus states.
 
-The standalone DLB viewer shows local upload progress and a busy indicator during backup opening, decryption, and incremental-chain preparation. See [viewer usage](../tools/dlb-viewer/README.md#loading-large-backups).
+
+The standalone DLB viewer reuses HMAC state during backup password derivation to
+reduce allocations without changing the backup format or password work factor.
+Its [performance checks](../tools/dlb-viewer/README.md#performance-checks) use synthetic data.
