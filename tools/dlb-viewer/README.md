@@ -19,6 +19,31 @@ SHA-256, and ZIP; Fernet and PBKDF2 are implemented from those primitives in
 modules** and trivial cross-compilation — the lightest way to ship a
 cross-platform viewer that needs no runtime installed on the target machine.
 
+## Large-model browsing
+
+The first 1,000 records stream directly from the archive. On the first deeper
+page request, the viewer builds a private temporary record index for that model;
+later pages seek directly to their records instead of decompressing and parsing
+every earlier row again. Building the index still takes one complete model scan.
+The cache holds the two most recently used models, each limited to 128 MiB of
+serialized records and one million rows. Over-budget models or unavailable
+temporary storage fall back to the original streaming path. Temporary indexes
+are removed on eviction, backup replacement, or normal viewer shutdown, alongside
+the existing decrypted payload. Backups remain read-only and their format is
+unchanged. Forced termination can leave temporary files, as with decrypted ZIPs.
+
+Record/relation preparation remains visibly busy. Changing views while an older
+request is still running keeps the newer selection on screen.
+
+### Component benchmarks
+
+From `tools/dlb-viewer`, run `go test -run '^$' -bench . -benchmem` with synthetic
+10,000/100,000-row models. The suite measures streaming and indexed pages,
+index construction, relation labels, ZIP inflation, password derivation and chain
+merging. Memory figures are allocated bytes per operation, not peak RAM usage.
+Chain benchmark ZIP inputs stay in `.xclude/benchmark-chain/`; no real backup or
+deployment credentials are required.
+
 ## Build
 
 Requires Go 1.21+.
