@@ -19,6 +19,22 @@ SHA-256, and ZIP; Fernet and PBKDF2 are implemented from those primitives in
 modules** and trivial cross-compilation — the lightest way to ship a
 cross-platform viewer that needs no runtime installed on the target machine.
 
+## Large-model browsing
+
+The first 1,000 records stream directly from the archive. On the first deeper
+page request, the viewer builds a private temporary record index for that model;
+later pages seek directly to their records instead of decompressing and parsing
+every earlier row again. Building the index still takes one complete model scan.
+The cache holds the two most recently used models, each limited to 128 MiB of
+serialized records and one million rows. Over-budget models or unavailable
+temporary storage fall back to the original streaming path. Temporary indexes
+are removed on eviction, backup replacement, or normal viewer shutdown, alongside
+the existing decrypted payload. Backups remain read-only and their format is
+unchanged. Forced termination can leave temporary files, as with decrypted ZIPs.
+
+Record/relation preparation remains visibly busy. Changing views while an older
+request is still running keeps the newer selection on screen.
+
 ## Build
 
 Requires Go 1.21+.
@@ -170,7 +186,7 @@ go tool pprof -top -alloc_space password.heap
 ```
 
 `BenchmarkLargeModel` compares the first and last 50-record pages, relation-label
-building, and ZIP inflation at 10,000 and 100,000 rows. `BenchmarkChainMerge`
+building, and ZIP inflation at 10,000 and 100,000 rows, plus index construction and cached deep-page access. `BenchmarkChainMerge`
 merges a 100,000-record base with 5,000 updated records and retains its synthetic
 ZIP inputs in `.xclude/benchmark-chain/`. Password derivation uses the format's
 390,000-iteration default. PBKDF2 reuses its HMAC state and digest buffer;

@@ -1,5 +1,10 @@
 # Reference
 
+The standalone DLB viewer lazily indexes deep model pages in private temporary
+files: two cached models, 128 MiB and one million records per model. It falls back
+to streaming when indexing is unavailable or over budget; no backup format or
+API response fields change. See [large-model browsing](../tools/dlb-viewer/README.md#large-model-browsing).
+
 This page is the fast lookup sheet for common DjangoLux commands, routes, template tags, and helper utilities.
 For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
 see [Deployment Configuration](deployment-configuration.md).

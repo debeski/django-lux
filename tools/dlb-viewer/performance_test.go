@@ -67,6 +67,41 @@ func BenchmarkLargeModel(b *testing.B) {
 					}
 				})
 			}
+			b.Run("indexed_last_page", func(b *testing.B) {
+				reader, err := zr.Open("data/sample/document.json")
+				if err != nil {
+					b.Fatal(err)
+				}
+				index, err := buildModelIndex(reader, modelIndexBytes, modelIndexRows)
+				reader.Close()
+				if err != nil {
+					b.Fatal(err)
+				}
+				defer index.close()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					rows, err := index.window(count-50, 50)
+					if err != nil || len(rows) != 50 {
+						b.Fatalf("rows=%d err=%v", len(rows), err)
+					}
+				}
+			})
+			b.Run("build_index", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					reader, err := zr.Open("data/sample/document.json")
+					if err != nil {
+						b.Fatal(err)
+					}
+					index, err := buildModelIndex(reader, modelIndexBytes, modelIndexRows)
+					reader.Close()
+					if err != nil {
+						b.Fatal(err)
+					}
+					index.close()
+				}
+			})
 			b.Run("relation_labels", func(b *testing.B) {
 				b.SetBytes(size)
 				b.ReportAllocs()

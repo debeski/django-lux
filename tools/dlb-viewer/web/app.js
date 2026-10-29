@@ -441,9 +441,15 @@ function setActive(predicate) {
   });
 }
 
+function freshContent() {
+  const content = el("div", { class: "content", id: "content" });
+  $("#content").replaceWith(content);
+  return content;
+}
+
 function selectView(view) {
   setActive((b) => b.classList.contains("navitem") && b.dataset.view === view);
-  const c = $("#content");
+  const c = freshContent();
   if (view === "overview") return renderOverview(c);
   if (view === "files") return renderFiles(c);
   if (view === "migrations") return renderMigrations(c);
@@ -554,7 +560,8 @@ function selectModel(key) {
 }
 
 async function loadModelPage() {
-  const c = $("#content");
+  const c = freshContent();
+  c.setAttribute("aria-busy", "true");
   c.innerHTML = "";
   c.append(el("h2", { text: MODEL_STATE.key }));
   c.append(el("div", { class: "spinner", text: "Loading records…" }));
@@ -565,18 +572,23 @@ async function loadModelPage() {
       limit: String(MODEL_STATE.limit),
     });
     const data = await api("/api/model?" + q.toString());
+    if (!c.isConnected) return;
     MODEL_STATE.total = data.total;
     await renderModelTable(c, data);
   } catch (err) {
     c.innerHTML = "";
     c.append(el("h2", { text: MODEL_STATE.key }));
     c.append(el("p", { class: "error", text: err.message }));
+  } finally {
+    c.removeAttribute("aria-busy");
   }
 }
 
 async function renderModelTable(c, data) {
   c.innerHTML = "";
   c.append(el("h2", { text: data.key }));
+  const loading = el("div", { class: "spinner", role: "status", text: "Preparing records and relations…" });
+  c.append(loading);
   if (CHAIN && CHAIN.mode === "delta") {
     c.append(chainBanner());
     try {
@@ -592,6 +604,7 @@ async function renderModelTable(c, data) {
   c.append(pager(data));
 
   if (!recs.length) {
+    loading.remove();
     c.append(el("p", { class: "muted", text: "No records in this range." }));
     return;
   }
@@ -672,6 +685,7 @@ async function renderModelTable(c, data) {
     return el("tr", {}, cells);
   });
 
+  loading.remove();
   c.append(el("div", { class: "table-wrap" }, [el("table", {}, [el("thead", {}, head), el("tbody", {}, body)])]));
   c.append(pager(data));
 }
