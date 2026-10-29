@@ -8,7 +8,7 @@
       "Arrange columns shows an eye on each header to show or hide it; the inspector is gone.",
       "The PDF viewer downloads a file once, and reopening a record revalidates instead of downloading it again.",
       "New projects get Composer wrapper 5: ./start.sh update refreshes the deployer first, ./start.sh update self updates only the deployer.",
-      "The standalone backup viewer shows loading progress, uses faster password derivation and cached deep pages, and keeps your current view when older requests finish."
+      "The backup viewer shows loading progress, uses faster password derivation and cached deep pages, and keeps your current view when older requests finish."
     ],
     "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.2b1"
   },
