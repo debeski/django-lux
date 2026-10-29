@@ -131,6 +131,61 @@ function resolveRelation(rel, value, maps) {
   return resolveRef(rel.to, value, maps);
 }
 
+// Loading covers the whole operation, including automatic unlock of plain backups.
+let BUSY = false;
+async function whileLoading(label, action) {
+  if (BUSY) return;
+  BUSY = true;
+  const app = $("#app");
+  const panel = $("#loading");
+  const progress = $("#loading-progress");
+  const previousFocus = document.activeElement;
+  app.inert = true;
+  app.setAttribute("aria-busy", "true");
+  $("#loading-label").textContent = label;
+  progress.removeAttribute("value");
+  panel.hidden = false;
+  panel.focus();
+  try {
+    return await action((text, fraction) => {
+      $("#loading-label").textContent = text;
+      if (fraction == null) progress.removeAttribute("value");
+      else progress.value = fraction;
+    });
+  } finally {
+    panel.hidden = true;
+    app.inert = false;
+    app.removeAttribute("aria-busy");
+    BUSY = false;
+    if (previousFocus && previousFocus.isConnected && previousFocus.getClientRects().length) previousFocus.focus();
+  }
+}
+
+function uploadBackup(file, report) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/open-upload");
+    xhr.setRequestHeader("X-DLB-Token", TOKEN);
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const fraction = event.loaded / event.total;
+        report(`Uploading backup: ${Math.floor(fraction * 100)}%`, fraction);
+      }
+    };
+    xhr.upload.onload = () => report("Opening backup and finding chain members…");
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300 && xhr.response) resolve(xhr.response);
+      else reject(new Error((xhr.response && xhr.response.error) || "Could not open backup."));
+    };
+    xhr.onerror = () => reject(new Error("Connection lost while uploading backup. Please try again."));
+    xhr.onabort = () => reject(new Error("Upload interrupted. Please try again."));
+    const body = new FormData();
+    body.append("file", file);
+    xhr.send(body);
+  });
+}
+
 // ── step 1: open ──────────────────────────────────────────────────────────────
 function wireOpen() {
   const dz = $("#dropzone");
@@ -162,38 +217,42 @@ function openError(msg) {
 }
 
 async function uploadFile(file) {
+  if (BUSY) return;
   openError("");
-  const fd = new FormData();
-  fd.append("file", file);
   try {
-    const st = await api("/api/open-upload", { method: "POST", body: fd });
-    onLoaded(st);
+    await whileLoading("Uploading backup…", async (report) => {
+      await onLoaded(await uploadBackup(file, report), report);
+    });
   } catch (err) { openError(err.message); }
 }
 
 async function openByPath() {
+  if (BUSY) return;
   openError("");
   const p = $("#path-input").value.trim();
   if (!p) return;
   try {
-    const st = await api("/api/open-path", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: p }),
+    await whileLoading("Opening backup and finding chain members…", async (report) => {
+      const st = await api("/api/open-path", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: p }),
+      });
+      await onLoaded(st, report);
     });
-    onLoaded(st);
   } catch (err) { openError(err.message); }
 }
 
 // ── step 2: unlock ────────────────────────────────────────────────────────────
-function onLoaded(state) {
+async function onLoaded(state, report = () => {}) {
   META = state.meta;
   CHAIN = state.chain || null;
   $("#source-label").textContent = state.source || "";
   renderUnlockMeta();
   if (state.unlocked) { SUMMARY = state.manifest; enterBrowse(); }
   else if ((META.encryption || {}).scheme === "none") {
-    unlock("").catch((err) => {
+    report("Preparing backup and merging chain data…");
+    await unlock("").catch((err) => {
       show("screen-unlock");
       $("#unlock-error").textContent = err.message;
       $("#unlock-error").hidden = false;
@@ -252,7 +311,7 @@ function wireUnlock() {
     btn.disabled = true;
     btn.textContent = "Decrypting…";
     try {
-      await unlock($("#password-input").value);
+      await whileLoading("Decrypting backup and preparing chain data…", () => unlock($("#password-input").value));
     } catch (err) {
       errEl.textContent = err.message;
       errEl.hidden = false;
@@ -382,9 +441,15 @@ function setActive(predicate) {
   });
 }
 
+function freshContent() {
+  const content = el("div", { class: "content", id: "content" });
+  $("#content").replaceWith(content);
+  return content;
+}
+
 function selectView(view) {
   setActive((b) => b.classList.contains("navitem") && b.dataset.view === view);
-  const c = $("#content");
+  const c = freshContent();
   if (view === "overview") return renderOverview(c);
   if (view === "files") return renderFiles(c);
   if (view === "migrations") return renderMigrations(c);
@@ -495,7 +560,8 @@ function selectModel(key) {
 }
 
 async function loadModelPage() {
-  const c = $("#content");
+  const c = freshContent();
+  c.setAttribute("aria-busy", "true");
   c.innerHTML = "";
   c.append(el("h2", { text: MODEL_STATE.key }));
   c.append(el("div", { class: "spinner", text: "Loading records…" }));
@@ -506,18 +572,23 @@ async function loadModelPage() {
       limit: String(MODEL_STATE.limit),
     });
     const data = await api("/api/model?" + q.toString());
+    if (!c.isConnected) return;
     MODEL_STATE.total = data.total;
     await renderModelTable(c, data);
   } catch (err) {
     c.innerHTML = "";
     c.append(el("h2", { text: MODEL_STATE.key }));
     c.append(el("p", { class: "error", text: err.message }));
+  } finally {
+    c.removeAttribute("aria-busy");
   }
 }
 
 async function renderModelTable(c, data) {
   c.innerHTML = "";
   c.append(el("h2", { text: data.key }));
+  const loading = el("div", { class: "spinner", role: "status", text: "Preparing records and relations…" });
+  c.append(loading);
   if (CHAIN && CHAIN.mode === "delta") {
     c.append(chainBanner());
     try {
@@ -533,6 +604,7 @@ async function renderModelTable(c, data) {
   c.append(pager(data));
 
   if (!recs.length) {
+    loading.remove();
     c.append(el("p", { class: "muted", text: "No records in this range." }));
     return;
   }
@@ -613,6 +685,7 @@ async function renderModelTable(c, data) {
     return el("tr", {}, cells);
   });
 
+  loading.remove();
   c.append(el("div", { class: "table-wrap" }, [el("table", {}, [el("thead", {}, head), el("tbody", {}, body)])]));
   c.append(pager(data));
 }
@@ -637,7 +710,7 @@ async function boot() {
   wireUnlock();
   try {
     const st = await api("/api/state");
-    if (st.loaded) onLoaded(st);
+    if (st.loaded) await whileLoading("Preparing backup…", (report) => onLoaded(st, report));
     else show("screen-open");
   } catch {
     show("screen-open");

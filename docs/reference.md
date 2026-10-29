@@ -1,5 +1,10 @@
 # Reference
 
+The standalone DLB viewer lazily indexes deep model pages in private temporary
+files: two cached models, 128 MiB and one million records per model. It falls back
+to streaming when indexing is unavailable or over budget; no backup format or
+API response fields change. See [large-model browsing](../tools/dlb-viewer/README.md#large-model-browsing).
+
 This page is the fast lookup sheet for common DjangoLux commands, routes, template tags, and helper utilities.
 For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
 see [Deployment Configuration](deployment-configuration.md).
@@ -1979,3 +1984,9 @@ resumed with accessible progress feedback.
 
 Mono column-builder and disclosure styling is owned by
 `dlux/static/dlux/themes/css/mono.css`.
+
+
+DLB viewer PBKDF2-SHA256 derives the same backup keys and honors the header's
+iteration count while reusing HMAC state and digest storage. Component benchmarks
+cover password derivation, compressed model paging, relation labels, and chain
+merging; see [performance checks](../tools/dlb-viewer/README.md#performance-checks).

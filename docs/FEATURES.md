@@ -1,5 +1,10 @@
 # DjangoLux Feature Inventory
 
+- **DLB large-model browsing:** bounded private disk indexes accelerate repeated
+  deep pages; unavailable storage or cache limits preserve streaming access.
+  Relation labels reuse parser storage, and delayed responses cannot replace a
+  newer view. See [viewer behavior](../tools/dlb-viewer/README.md#large-model-browsing).
+
 - **ScanLink stress fixes (1.15.1b2 / 0.8.0b1):** Scan requests use one
   negotiated transport and never resubmit after an ambiguous connection loss;
   English/Arabic guidance asks operators to check the helper. The paired worker
@@ -131,3 +136,8 @@ status identifies ongoing work when controls are temporarily disabled.
 
 Mono supports readable table-builder header controls and borderless disclosure
 links across normal, hover and keyboard-focus states.
+
+
+The standalone DLB viewer reuses HMAC state during backup password derivation to
+reduce allocations without changing the backup format or password work factor.
+Its [performance checks](../tools/dlb-viewer/README.md#performance-checks) use synthetic data.

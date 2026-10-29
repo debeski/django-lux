@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.15.1",
+  "version": "1.15.2b1",
   "display": {
-    "summary": "Settings and operations patch: other sections no longer wipe the system name, previews keep the viewer's theme, Operations checks only on request.",
+    "summary": "Patch beta: forms save once, personal column eye controls, faster PDF opening, and clearer, faster backup browsing.",
     "highlights": [
-      "Saving an Options section other than Branding no longer resets the project name to DjangoLux.",
-      "The live settings preview keeps your personal theme unless you change the default theme.",
-      "Operations opens without starting checks, shows what is running, and pairs with Composer 1.9.0b2 for executor-side secrets diagnostics.",
-      "Personal column layouts use the Tables builder strip from an icon-only ribbon action; administrators can turn them off per table.",
-      "Includes the 1.14.1 sticky-form and personal-column fixes, Mono builder contrast fixes and the 1.15.1b2 ScanLink fixes."
+      "Save changes in the unsaved-changes prompt submits the form once instead of twice.",
+      "Arrange columns shows an eye on each header to show or hide it; the inspector is gone.",
+      "The PDF viewer downloads a file once, and reopening a record revalidates instead of downloading it again.",
+      "New projects get Composer wrapper 5: ./start.sh update refreshes the deployer first, ./start.sh update self updates only the deployer.",
+      "The backup viewer shows loading progress, uses faster password derivation and cached deep pages, and keeps your current view when older requests finish."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.2b1"
   },
   "requires": {
     "updater_schema": ">=1",
