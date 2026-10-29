@@ -104,11 +104,13 @@ type App struct {
 	chainMode  string
 	chainNote  string
 
-	zipPath   string // decrypted inner zip (temp file)
-	zipFile   *os.File
-	zipReader *zip.Reader
-	manifest  *Manifest
-	rawMani   []byte
+	zipPath           string // decrypted inner zip (temp file)
+	zipFile           *os.File
+	zipReader         *zip.Reader
+	manifest          *Manifest
+	rawMani           []byte
+	modelIndexes      []*modelIndex
+	modelIndexSkipped map[string]bool
 }
 
 func main() {
@@ -466,25 +468,27 @@ func (a *App) handleModel(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 
+	if offset < 0 {
+		offset = 0
+	}
 	a.mu.Lock()
-	zr := a.zipReader
-	total := a.modelCountLocked(key)
-	a.mu.Unlock()
-	if zr == nil {
+	if a.zipReader == nil {
+		a.mu.Unlock()
 		writeErr(w, http.StatusBadRequest, "backup is locked")
 		return
 	}
-
 	parts := strings.SplitN(key, ".", 2)
 	member := fmt.Sprintf("data/%s/%s.json", parts[0], parts[1])
-	f, err := zr.Open(member)
-	if err != nil {
+	total := a.modelCountLocked(key)
+	if f, err := a.zipReader.Open(member); err != nil {
+		a.mu.Unlock()
 		writeErr(w, http.StatusNotFound, "no data for that model")
 		return
+	} else {
+		f.Close()
 	}
-	defer f.Close()
-
-	records, err := readRecordWindow(f, offset, limit)
+	records, err := a.modelWindow(member, offset, limit)
+	a.mu.Unlock()
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not read records")
 		return
@@ -512,13 +516,13 @@ func (a *App) handleLabels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.mu.Lock()
+	defer a.mu.Unlock()
 	zr := a.zipReader
 	var ms ModelSchema
 	haveSchema := false
 	if a.manifest != nil && a.manifest.Schema != nil {
 		ms, haveSchema = a.manifest.Schema[key]
 	}
-	a.mu.Unlock()
 	if zr == nil {
 		writeErr(w, http.StatusBadRequest, "backup is locked")
 		return
@@ -559,8 +563,10 @@ func streamLabels(r io.Reader, ms ModelSchema, byPK, byNK map[string]string) err
 		PK     json.RawMessage            `json:"pk"`
 		Fields map[string]json.RawMessage `json:"fields"`
 	}
+	var rc rec
 	for dec.More() {
-		var rc rec
+		clear(rc.Fields)
+		rc.PK = rc.PK[:0]
 		if err := dec.Decode(&rc); err != nil {
 			return err
 		}
@@ -819,6 +825,11 @@ func (a *App) resetLocked() {
 }
 
 func (a *App) closeZipLocked() {
+	for _, index := range a.modelIndexes {
+		index.close()
+	}
+	a.modelIndexes = nil
+	a.modelIndexSkipped = nil
 	a.zipReader = nil
 	a.manifest = nil
 	a.rawMani = nil

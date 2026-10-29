@@ -84,6 +84,13 @@
     </section>
   </main>
 
+  <div id="loading" class="loading-overlay" role="status" aria-live="polite" tabindex="-1" hidden>
+    <div class="card loading-card">
+      <h2 id="loading-label">Opening backup…</h2>
+      <progress id="loading-progress" max="1" aria-label="Backup loading progress"></progress>
+      <p class="muted">Large backups and incremental chains can take a while. Keep this window open.</p>
+    </div>
+  </div>
   <script src="/static/app.js"></script>
 </body>
 </html>
