@@ -1,7 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- 2026-10-26: `1.15/patch_release` = 1.15.1b3 candidate (owner: no 1.15.0 stable; 1.15.1 is the first 1.15 stable). Merges published 1.15.1b2 docs, personal column builder, Operations explicit refresh, settings name/preview fixes, Mono controls; pairs Composer 1.9.0b2 (`app-composer/secret_readability` 11084b5). Gates/stress pending; nothing pushed.
+- 2026-10-28: `1.15/viewer_loading` from verified local/remote main471d7d7: DLB upload progress + opening/decryption/chain busy overlay implemented; duplicate UI actions blocked, retry restored after errors. Prior Operations/columns/Mono work is already integrated on main. No version change, push, or tag.
 - Baseline1.15.0b1 is published at tag84b58f5 (release40208617201 PASS), with Composer1.9.0b1. Earlier failed-tag recovery is superseded; this patch preserved OCR models/migrations and original8097 data.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
@@ -77,9 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-26 1.15.1b3 candidate (`1.15/patch_release`): suite3089 OK/6 skips; release_check bare+base v1.14.1, classify beta, build/twine PASS; pre-publish acceptance on :8101 (prod-version clone) PASS, evidence `.xclude/validation/1.15.1b3-prepublish-2026-10-26/report.md`.
+- 2026-10-28 viewer loading: Go tests, make vet and native build PASS; desktop/mobile browser loading, upload, password retry, errors and duplicate-request checks PASS.
 ### One-line info about last time edited Docs:
-- 2026-10-26: docs/table-columns.md, FEATURES, reference and CHANGELOG Unreleased record the shared personal column builder and `user_columns` switch. Prior: 2026-10-25 ScanLink1.15.1b2 docs.
+- 2026-10-28: viewer README, FEATURES, reference and CHANGELOG Unreleased document local upload progress and indeterminate archive preparation.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

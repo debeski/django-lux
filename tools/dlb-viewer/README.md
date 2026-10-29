@@ -154,3 +154,7 @@ The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 - Read-only: the viewer never writes back to the backup or to any system.
 - Treat the decrypted contents as sensitive — they include user records and
   settings. Run it on a trusted machine.
+
+## Loading large backups
+
+The viewer shows upload progress while copying a selected file to its local server, then a busy indicator while opening, decrypting, or merging an incremental chain. Path-based opening and automatic unlocking of unencrypted backups show the same indicator. Controls are blocked until completion; errors clear the indicator so you can retry. Upload percentages describe the local transfer only; archive preparation has no estimated percentage.
