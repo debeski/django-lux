@@ -1,7 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- 2026-10-29: `1.15/viewer_improvements` integrates loadingd093a98, key derivation1bd0ed3 and deep-page/index/navigation715f8e8 on verified main471d7d7. Combined validation pending; no push/tag/version changes.
+- 2026-10-29: `1.15/viewer_improvements` integrates loadingd093a98, key derivation1bd0ed3 and deep-page/index/navigation715f8e8 on verified main471d7d7. Combined encrypted-backup/race/browser/platform checks PASS; local review candidate, no push/tag/version changes.
 - Baseline1.15.0b1 is published at tag84b58f5 (release40208617201 PASS), with Composer1.9.0b1. Earlier failed-tag recovery is superseded; this patch preserved OCR models/migrations and original8097 data.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
@@ -77,7 +77,7 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-29 viewer: race suite + desktop/mobile navigation checks PASS; 100k cached page0.035ms vs337ms streaming (340ms index setup), labels98MB vs142MB allocation. All five platform builds/vet PASS; paired integration checks pending; `.xclude/validation/`.
+- 2026-10-29 viewer: race suite + desktop/mobile navigation checks PASS; 100k cached page0.035ms vs337ms streaming (340ms index setup), labels98MB vs142MB allocation. Combined encrypted fixture, concurrency/reset, race, browser and five-platform/vet checks PASS; `.xclude/validation/report.md`.
 ### One-line info about last time edited Docs:
 - 2026-10-29: viewer README, FEATURES, reference and CHANGELOG Unreleased explain cache limits, private-temp lifecycle, streaming fallback and asynchronous loading/navigation.
 

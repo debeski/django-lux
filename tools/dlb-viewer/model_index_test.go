@@ -221,3 +221,25 @@ func TestModelIndexStorageFailureFallsBackToStreaming(t *testing.T) {
 		t.Fatal("failed index was not bypassed")
 	}
 }
+
+func TestModelRequestsDuringReset(t *testing.T) {
+	app := indexedTestApp(t)
+	defer app.reset()
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			response := httptest.NewRecorder()
+			app.handleModel(response, httptest.NewRequest("GET", "/api/model?key=sample.one&offset=1050", nil))
+			if response.Code != 200 && response.Code != 400 {
+				t.Errorf("unexpected status %d", response.Code)
+			}
+		}()
+	}
+	app.reset()
+	wg.Wait()
+	if len(app.modelIndexes) != 0 {
+		t.Fatal("reset retained an index")
+	}
+}

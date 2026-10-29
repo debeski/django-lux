@@ -108,7 +108,8 @@ func (a *App) modelWindow(member string, offset, limit int) ([]json.RawMessage, 
 	for i, index := range a.modelIndexes {
 		if index.member == member {
 			// Move the recently used index to the end of the two-entry cache.
-			a.modelIndexes = append(append(a.modelIndexes[:i:i], a.modelIndexes[i+1:]...), index)
+			copy(a.modelIndexes[i:], a.modelIndexes[i+1:])
+			a.modelIndexes[len(a.modelIndexes)-1] = index
 			return index.window(offset, limit)
 		}
 	}
