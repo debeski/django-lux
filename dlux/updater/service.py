@@ -21,6 +21,7 @@ from .manifest import (
     ReleaseCandidate,
     assess_wheel,
     download_wheel,
+    package_release_notes,
     verify_pypi_attestation,
 )
 from .runtime import RuntimeStore
@@ -582,6 +583,25 @@ def _run_model():
     return apps.get_model("dlux", "DluxUpdateRun")
 
 
+# A DEBUG log record in the level-first formats projects use: basicConfig's
+# `DEBUG:name:message`, or `%(levelname)s %(message)s`.
+_DEBUG_RECORD_RE = re.compile(r"^DEBUG[:\s]")
+
+
+def _without_debug_records(text):
+    """Command output minus its debug log records.
+
+    A project that turns debug logging on — Decrees calls
+    ``logging.basicConfig(level=logging.DEBUG)`` whenever DEBUG is set — makes
+    every manage.py child print those records on stderr, and the update dialog
+    showed them as progress.
+    """
+    return "\n".join(
+        line for line in str(text or "").splitlines()
+        if not _DEBUG_RECORD_RE.match(line.lstrip())
+    )
+
+
 def _sanitize(value, limit=4000):
     value = str(value or "").replace("\x00", "")
     value = SECRET_FLAG_RE.sub(r"\1<redacted>", value)
@@ -602,11 +622,13 @@ def serialize_state(state):
         "previous_version": state.previous_version,
         "latest_version": state.latest_version,
         "latest_manifest": state.latest_manifest or {},
-        # What the *installed* release said about itself, for the release-notes
-        # control on the DjangoLux row. Empty for a version that arrived baked
-        # into the image rather than through an inline update, and the row then
-        # offers nothing rather than an empty page.
+        # What the installed release and the rollback target say about
+        # themselves, read by reconcile from their own packages: the DjangoLux
+        # row's notes control and the rollback review. Empty until reconcile has
+        # run, or for a release without notes, and the row then offers nothing
+        # rather than an empty page.
         "active_manifest": state.active_manifest or {},
+        "previous_manifest": state.previous_manifest or {},
         "latest_compatible": state.latest_compatible,
         "latest_reason": state.latest_reason,
         "last_checked_at": state.last_checked_at.isoformat() if state.last_checked_at else None,
@@ -656,6 +678,8 @@ def get_ui_state():
             "previous_version": "",
             "latest_version": "",
             "latest_manifest": {},
+            "active_manifest": {},
+            "previous_manifest": {},
             "latest_compatible": False,
             "latest_reason": "",
             "last_checked_at": None,
@@ -1058,6 +1082,18 @@ class UpdateService:
         if state.previous_version != target:
             state.previous_version = target
             changed.append("previous_version")
+        # The DjangoLux row's release notes and the rollback review read these,
+        # and, like `previous_version`, only the retired in-container swap ever
+        # wrote them. Each release's own package says what it is, so they follow
+        # every apply, rollback and rebuild, Composer's or anyone's.
+        for prefix, version in (
+            ("active", state.active_version or baked_version),
+            ("previous", state.previous_version),
+        ):
+            notes = self._installed_release_notes(version, baked_version) if version else {}
+            if getattr(state, f"{prefix}_manifest") != notes:
+                setattr(state, f"{prefix}_manifest", notes)
+                changed.append(f"{prefix}_manifest")
         # An installed release must stop being an offer. `latest_*` is recomputed
         # only by a check run, so after any successful install the card kept
         # advertising the version that had just become active — through a panel
@@ -1098,6 +1134,35 @@ class UpdateService:
             target = below[-1]
             return "" if self._version_is_newer(baked_version, target) else target
         return baked_version if baked_version and baked_version != active else ""
+
+    def _installed_release_notes(self, version, baked_version):
+        """``version``'s notes from its package on disk, or {} when it has none here."""
+        try:
+            release = self.store.release_path(version)
+            if release.is_dir():
+                return package_release_notes(release / "dlux", version)
+            if version == baked_version:
+                package = self._baked_package()
+                return package_release_notes(package, version) if package else {}
+        except Exception:
+            logger.debug("The release notes of DjangoLux %s could not be read.", version, exc_info=True)
+        return {}
+
+    def _baked_package(self):
+        """The image's own ``dlux`` package, never a release on the runtime volume.
+
+        This process may be running a volume release, which puts that release
+        first on the path; the baked one is the first copy outside the volume.
+        """
+        import dlux
+
+        runtime = self.store.root.resolve()
+        candidates = [Path(dlux.__file__).resolve().parent]
+        candidates += [Path(entry or os.curdir).resolve() / "dlux" for entry in sys.path]
+        for package in candidates:
+            if not package.is_relative_to(runtime) and (package / "release-manifest.json").is_file():
+                return package
+        return None
 
     @staticmethod
     def _version_is_newer(candidate, current):
@@ -1494,6 +1559,7 @@ class UpdateService:
         ineligible = self._prerelease_off_channel(version, state)
 
         state.latest_version = version or current
+        state.latest_manifest = package_request.availability_notes(report)
         state.latest_compatible = bool(newer and inline_safe and not skipped and not ineligible)
         if not newer:
             state.latest_reason = "DjangoLux is up to date."
@@ -2063,7 +2129,7 @@ class UpdateService:
             text=True,
             timeout=timeout,
         )
-        output = _sanitize(f"{completed.stdout}\n{completed.stderr}")
+        output = _sanitize(_without_debug_records(f"{completed.stdout}\n{completed.stderr}"))
         if output:
             run.append_log(output)
             run.save(update_fields=["progress_log"])

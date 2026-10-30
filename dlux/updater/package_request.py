@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from . import UpdaterError
 from .image_update import _state_dir, read_deploy_status
+from .manifest import release_notes
 
 TRIGGER_FILENAME = "package-update-request.json"
 ACK_FILENAME = f"{TRIGGER_FILENAME}.ack"
@@ -124,6 +125,27 @@ def read_availability(store=None):
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def availability_notes(report):
+    """The offered release's own notes from Composer's report, or {}.
+
+    Composer reads the manifest from the same verified wheel that decides
+    `inline_safe` and publishes its ``display`` block (or the whole manifest)
+    beside the version, so the review dialog can show what the release changes.
+    A Composer that publishes neither leaves the dialog with its generic line.
+    """
+    version = str(report.get("version") or "").strip()
+    if not version:
+        return {}
+    manifest = report.get("manifest")
+    manifest = manifest if isinstance(manifest, dict) else {}
+    if str(manifest.get("version") or version).strip() != version:
+        return {}
+    display = report.get("display")
+    if not isinstance(display, dict):
+        display = manifest.get("display") if isinstance(manifest.get("display"), dict) else manifest
+    return release_notes(display, version)
 
 
 def composer_progress(store=None):

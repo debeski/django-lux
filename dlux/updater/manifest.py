@@ -256,6 +256,86 @@ def _requirement_floor(value, default=1):
         raise UpdaterError("The release manifest has an invalid updater schema requirement.") from exc
 
 
+SUMMARY_LIMIT = 1000
+HIGHLIGHTS_LIMIT = 8
+HIGHLIGHT_LENGTH = 160
+
+
+def release_url_is_valid(url, version):
+    """True only for this release's own GitHub release page."""
+    try:
+        expected_path = f"/debeski/django-lux/releases/tag/v{Version(str(version))}"
+    except InvalidVersion:
+        return False
+    parsed = urlparse(str(url or ""))
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == "github.com"
+        and port in (None, 443)
+        and not parsed.username
+        and not parsed.password
+        and parsed.path.rstrip("/") == expected_path
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def bounded_highlights(highlights):
+    cleaned = []
+    for item in highlights[:HIGHLIGHTS_LIMIT]:
+        text = str(item or "").strip()[:HIGHLIGHT_LENGTH]
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def release_notes(display, version):
+    """A manifest's ``display`` block, bounded for the Updates card, or ``{}``.
+
+    For notes that arrive as published data rather than from a wheel this
+    process verified: text is capped like a validated manifest's, and a link
+    survives only when it is this release's own page.
+    """
+    display = display if isinstance(display, dict) else {}
+    summary = display.get("summary")
+    summary = summary.strip()[:SUMMARY_LIMIT] if isinstance(summary, str) else ""
+    highlights = display.get("highlights")
+    highlights = bounded_highlights(highlights) if isinstance(highlights, list) else []
+    url = display.get("release_url")
+    url = url.strip() if isinstance(url, str) else ""
+    if not release_url_is_valid(url, version):
+        url = ""
+    if not (summary or highlights or url):
+        return {}
+    return {"version": str(version), "summary": summary, "highlights": highlights, "release_url": url}
+
+
+def package_release_notes(package_root, version):
+    """The notes in an installed ``dlux`` package's own manifest, or ``{}``.
+
+    Only the ``display`` block is read, bounded like published notes, so a
+    release whose ``requires`` this updater does not understand still shows
+    what it is. A manifest that names another version yields nothing.
+    """
+    try:
+        manifest = json.loads((Path(package_root) / "release-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(manifest, dict):
+        return {}
+    try:
+        if Version(str(manifest.get("version") or "")) != Version(str(version)):
+            return {}
+    except InvalidVersion:
+        return {}
+    display = manifest.get("display")
+    return release_notes(display if isinstance(display, dict) else manifest, version)
+
+
 def validate_release_manifest(manifest, expected_version):
     if not isinstance(manifest, dict):
         raise UpdaterError("The release manifest must be a JSON object.")
@@ -292,20 +372,9 @@ def validate_release_manifest(manifest, expected_version):
         raise UpdaterError("The release manifest has an invalid migration policy.")
     if not isinstance(manifest.get("summary"), str) or not isinstance(manifest.get("release_url"), str):
         raise UpdaterError("The release manifest has invalid display metadata.")
-    release_url = urlparse(str(manifest.get("release_url") or ""))
-    expected_release_path = f"/debeski/django-lux/releases/tag/v{Version(str(expected_version))}"
-    if (
-        release_url.scheme != "https"
-        or release_url.hostname != "github.com"
-        or release_url.port not in (None, 443)
-        or release_url.username
-        or release_url.password
-        or release_url.path.rstrip("/") != expected_release_path
-        or release_url.query
-        or release_url.fragment
-    ):
+    if not release_url_is_valid(manifest.get("release_url"), expected_version):
         raise UpdaterError("The release manifest contains an invalid release URL.")
-    manifest["summary"] = manifest.get("summary", "")[:1000]
+    manifest["summary"] = manifest.get("summary", "")[:SUMMARY_LIMIT]
     # Optional curated release highlights (short bullet points shown in the
     # update modal, so it doesn't render the whole prose summary and grow tall).
     # Fully optional + back-compatible: older manifests omit it; older updaters
@@ -314,12 +383,7 @@ def validate_release_manifest(manifest, expected_version):
     if highlights is not None:
         if not isinstance(highlights, list):
             raise UpdaterError("The release manifest has invalid highlights.")
-        cleaned = []
-        for item in highlights[:8]:
-            text = str(item or "").strip()[:160]
-            if text:
-                cleaned.append(text)
-        manifest["highlights"] = cleaned
+        manifest["highlights"] = bounded_highlights(highlights)
     # Optional inline-update floor: the most recent version that required a
     # project image rebuild. An inline (Python-only) update is only safe onto a
     # baked image at or above this version, so a box several releases behind

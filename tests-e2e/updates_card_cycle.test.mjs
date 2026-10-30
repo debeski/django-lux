@@ -24,6 +24,7 @@ const BASE = `http://localhost:${PORT}`;
 
 const UPDATER = `
 <div class="dlux-updater" data-dlux-updater data-can-manage="true" data-state-url="/u/state" data-check-url="/u/check"
+     data-apply-url="/u/apply" data-label-finish="Finish" data-label-generic-changes="Bug fixes and improvements"
      data-label-last-check="Last check" data-label-image-local="Local build: not compared with the registry"
      data-label-baked-dlux="baked dlux" data-note-baked-dlux="DjangoLux version baked into this image">
   <div class="dlux-upd-row">
@@ -47,9 +48,19 @@ const UPDATER = `
     <div data-dlux-update-summary></div><div data-dlux-update-compatibility></div><div data-dlux-update-maintenance></div>
     <input type="password" name="current_password">
   </div>
-  <div data-dlux-update-progress-panel hidden></div>
+  <div data-dlux-update-progress-panel hidden>
+    <span data-dlux-update-progress-status></span>
+    <div data-dlux-update-progress><div class="progress-bar" data-dlux-update-progress-bar></div></div>
+    <pre data-dlux-update-progress-log></pre>
+  </div>
   <div data-dlux-update-error hidden></div>
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>Cancel</button>
   <button type="button" data-dlux-update-submit></button>
+</div>
+<div id="dluxReleaseNotesModal">
+  <h5 data-dlux-notes-title>Release notes for the installed version</h5>
+  <p data-dlux-notes-summary></p><div data-dlux-notes-highlights></div>
+  <a data-dlux-notes-link hidden>Full release page</a>
 </div>`;
 
 const OPS_ROW = (name, check, action, extra = '') => `
@@ -100,10 +111,12 @@ const OPERATIONS = [
 let server;
 let browser;
 let page;
+let loads = {};
 
 before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split('?')[0];
+    loads[url] = (loads[url] || 0) + 1;
     if (PAGES[url]) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(PAGES[url]);
@@ -123,17 +136,39 @@ after(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-/** A stateful stand-in for the server: `script` decides how each request is answered. */
-async function open(route, script, initial) {
+/** A stateful stand-in for the server: `script` decides how each request is answered
+ *  (a reply of `{ __status: 503 }` fails with that status). `setup` runs first. */
+async function open(route, script, initial, setup = '') {
+  loads = {};
   page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  if (setup) await page.addInitScript(setup);
   await page.addInitScript(({ body, init }) => {
-    window.bootstrap = { Modal: class { constructor(e) { this.e = e; } show() { this.e.dataset.open = 'true'; } hide() { this.e.dataset.open = 'false'; } } };
+    window.bootstrap = { Modal: class {
+      constructor(e) {
+        this.e = e;
+        document.addEventListener('click', (event) => {
+          const dismiss = event.target.closest('[data-bs-dismiss="modal"]');
+          if (dismiss && this.e.contains(dismiss) && !dismiss.disabled) this.hide();
+        });
+      }
+      show() { this.e.dataset.open = 'true'; }
+      hide() {
+        const veto = new Event('hide.bs.modal', { cancelable: true });
+        this.e.dispatchEvent(veto);
+        if (veto.defaultPrevented) return;
+        this.e.dataset.open = 'false';
+        this.e.dispatchEvent(new Event('hidden.bs.modal'));
+      }
+    } };
     window.__server = init;
     window.__posted = [];
     window.__calls = {};
-    const reply = (payload) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(payload) });
+    const reply = (payload) => {
+      const status = (payload && payload.__status) || 200;
+      return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(payload) });
+    };
     window.fetch = (url, options = {}) => {
       const key = String(url);
       window.__calls[key] = (window.__calls[key] || 0) + 1;
@@ -194,6 +229,189 @@ describe('the DjangoLux row', () => {
     await page.waitForFunction(() => window.__calls['/u/runs/t1/'] >= 2
       && !document.querySelector('[data-dlux-update-check]').classList.contains('dlux-btn--loading'), null, { timeout: 12000 });
     assert.match(await icon(), /bi-check-circle-fill/);
+    await closePage();
+  });
+});
+
+// The server finishes the check `takes` ms after it was queued, and from then on
+// every endpoint says so; `runFails` makes the run endpoint answer 503 after its
+// first reply, as a proxy can while web restarts.
+const SETTLE_SCRIPT = `
+  const s = window.__server;
+  const run = (status, active) => ({ token: 't1', action: 'check', status, active });
+  const finished = Boolean(s.queuedAt) && Date.now() - s.queuedAt >= (s.takes || 2000);
+  const current = !s.queuedAt ? null : (finished ? run('completed', false) : run('checking', true));
+  const state = finished ? { ...s.state, ...s.after } : (s.queuedAt ? { ...s.state, active_run_token: 't1' } : s.state);
+  if (url === '/u/check') {
+    s.queuedAt = Date.now();
+    return { ok: true, run: run('queued', true), run_url: '/u/runs/t1/', state: { ...s.state, active_run_token: 't1' } };
+  }
+  if (url === '/u/state') return { ok: true, state, run: current, image_update: null };
+  if (url === '/u/runs/t1/') return s.runFails && n > 1 ? { __status: 503 } : { ok: true, run: current };
+  return { ok: true };`;
+
+const FOUND = { latest_version: '1.10.1', latest_compatible: true, last_checked_at: '2026-10-30T06:14:36Z' };
+
+const settled = () => page.evaluate(() => {
+  const check = document.querySelector('[data-dlux-update-check]');
+  return {
+    spinning: check.classList.contains('dlux-btn--loading'),
+    checkHidden: check.hidden,
+    reviewHidden: document.querySelector('[data-dlux-update-review]').hidden,
+  };
+});
+
+describe('a check settles on its result without a reload', () => {
+  test('when the run poll stops answering, the state still ends the spinner', async () => {
+    const errors = await open('/updater', SETTLE_SCRIPT, { state: UPDATER_STATE(), after: FOUND, runFails: true });
+    await page.locator('[data-dlux-update-check]').click();
+    await page.waitForFunction(() => !document.querySelector('[data-dlux-update-check]').classList.contains('dlux-btn--loading'),
+      null, { timeout: 12000 });
+    assert.deepEqual(await settled(), { spinning: false, checkHidden: true, reviewHidden: false },
+      'the review icon replaces the spinner once the state reports the finished check');
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+
+  test('a tab that was in the background settles as soon as it is visible again', async () => {
+    // Chrome's intensive throttling: a hidden page's chained timers wake at most
+    // once a minute, so the run poll alone may not look again for a long while.
+    const background = `
+      window.__hidden = false;
+      Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get: () => window.__hidden });
+      Object.defineProperty(Document.prototype, 'visibilityState', { configurable: true, get: () => (window.__hidden ? 'hidden' : 'visible') });
+      const realSetTimeout = window.setTimeout.bind(window);
+      window.setTimeout = (fn, ms, ...args) => realSetTimeout(fn, window.__hidden ? Math.max(ms || 0, 60000) : ms, ...args);`;
+    const errors = await open('/updater', SETTLE_SCRIPT, { state: UPDATER_STATE(), after: FOUND, takes: 2500 }, background);
+    await page.locator('[data-dlux-update-check]').click();
+    await page.evaluate(() => { window.__hidden = true; });
+    await page.waitForTimeout(4000);
+    assert.equal((await settled()).spinning, true, 'still in the background: nothing has looked yet');
+
+    await page.evaluate(() => { window.__hidden = false; document.dispatchEvent(new Event('visibilitychange')); });
+    await page.waitForFunction(() => !document.querySelector('[data-dlux-update-check]').classList.contains('dlux-btn--loading'),
+      null, { timeout: 3000 });
+    assert.deepEqual(await settled(), { spinning: false, checkHidden: true, reviewHidden: false });
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+});
+
+const REVIEW_SCRIPT = `
+  const s = window.__server;
+  if (url === '/u/state') return { ok: true, state: s.state, run: s.run || null, image_update: null };
+  if (url === '/u/apply') {
+    s.queuedAt = Date.now();
+    s.run = { token: 'a1', action: 'apply', status: 'queued', active: true };
+    return { ok: true, run: s.run, run_url: '/u/runs/a1/', state: { ...s.state, active_run_token: 'a1' } };
+  }
+  if (url === '/u/runs/a1/') {
+    const done = Date.now() - s.queuedAt >= 2500;
+    s.run = done
+      ? { token: 'a1', action: 'apply', status: s.outcome, active: false, error: s.outcome === 'failed' ? 'Composer could not apply the release (exit 1).' : '' }
+      : { token: 'a1', action: 'apply', status: 'applying', active: true };
+    if (done && s.outcome === 'completed') s.state = { ...s.state, active_version: '1.10.1', latest_compatible: false };
+    return { ok: true, run: { ...s.run, progress_log: 'Started apply request.' } };
+  }
+  return { ok: true };`;
+
+const OFFER = (manifest) => UPDATER_STATE({ last_checked_at: '2026-10-30T06:14:36Z', latest_version: '1.10.1', latest_compatible: true, latest_manifest: manifest });
+
+const reviewNotes = () => page.locator('[data-dlux-update-summary] li').allTextContents();
+
+describe('the review dialog shows the release it offers', () => {
+  test('a release with highlights lists them, the generic line last', async () => {
+    await open('/updater', REVIEW_SCRIPT, { state: OFFER({
+      version: '1.10.1', summary: 'Patch beta: forms save once.', highlights: ['Save submits once.', 'The PDF viewer downloads once.'],
+    }) });
+    await page.locator('[data-dlux-update-review]').click();
+    assert.deepEqual(await reviewNotes(), ['Save submits once.', 'The PDF viewer downloads once.', 'Bug fixes and improvements']);
+    await closePage();
+  });
+
+  test('a release with only a summary shows the summary, not just "Bug fixes and improvements"', async () => {
+    await open('/updater', REVIEW_SCRIPT, { state: OFFER({ version: '1.10.1', summary: 'Patch beta: forms save once.', highlights: [] }) });
+    await page.locator('[data-dlux-update-review]').click();
+    assert.deepEqual(await reviewNotes(), ['Patch beta: forms save once.', 'Bug fixes and improvements']);
+    await closePage();
+  });
+});
+
+// What reconcile records from each release's own package: the installed one
+// (`active_manifest`) and the rollback target (`previous_manifest`).
+const NOTES = (version, highlights) => ({
+  version, summary: `DjangoLux ${version}.`, highlights,
+  release_url: `https://github.com/debeski/django-lux/releases/tag/v${version}`,
+});
+
+describe('the installed release and the rollback target show their own notes', () => {
+  test('a release without recorded notes offers no notes button', async () => {
+    await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({ active_manifest: {} }) });
+    assert.equal(await page.locator('[data-dlux-release-notes]').isVisible(), false);
+    await closePage();
+  });
+
+  test('the notes button opens what the installed release says about itself', async () => {
+    const errors = await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      active_manifest: NOTES('1.10.0', ['Rows, not buttons.', 'Faster PDF opening.']),
+    }) });
+    const button = page.locator('[data-dlux-release-notes]');
+    assert.equal(await button.isVisible(), true);
+    await button.click();
+    const modal = page.locator('#dluxReleaseNotesModal');
+    assert.equal(await modal.getAttribute('data-open'), 'true');
+    assert.equal(await modal.locator('[data-dlux-notes-title]').textContent(), 'Release notes for the installed version — v1.10.0');
+    assert.equal(await modal.locator('[data-dlux-notes-summary]').textContent(), 'DjangoLux 1.10.0.');
+    assert.deepEqual(await modal.locator('[data-dlux-notes-highlights] li').allTextContents(),
+      ['Rows, not buttons.', 'Faster PDF opening.', 'Bug fixes and improvements']);
+    assert.equal(await modal.locator('[data-dlux-notes-link]').getAttribute('href'),
+      'https://github.com/debeski/django-lux/releases/tag/v1.10.0');
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+
+  test('the rollback review lists what the release it brings back contains', async () => {
+    await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      previous_version: '1.9.5', previous_manifest: NOTES('1.9.5', ['The older release.']),
+    }) });
+    await page.locator('[data-dlux-update-rollback]').click();
+    assert.equal(await page.locator('[data-dlux-update-target]').textContent(), '1.9.5');
+    assert.deepEqual(await reviewNotes(), ['The older release.', 'Bug fixes and improvements']);
+    await closePage();
+  });
+});
+
+async function applyUpdate(outcome) {
+  const errors = await open('/updater', REVIEW_SCRIPT, { state: OFFER({}), outcome });
+  await page.locator('[data-dlux-update-review]').click();
+  await page.locator('input[name="current_password"]').fill('pw');
+  await page.locator('[data-dlux-update-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-dlux-update-dismiss]').disabled
+    && document.querySelector('[data-dlux-update-progress-panel]').hidden === false
+    && window.__server.run && !window.__server.run.active, null, { timeout: 15000 });
+  return errors;
+}
+
+describe('closing the dialog after an inline update', () => {
+  test('Finish reloads the page, so every row and asset shows the new release', async () => {
+    const errors = await applyUpdate('completed');
+    const dismiss = page.locator('[data-dlux-update-dismiss]');
+    await page.waitForFunction(() => document.querySelector('[data-dlux-update-dismiss]').textContent === 'Finish', null, { timeout: 5000 });
+    assert.equal(loads['/updater'], 1, 'Finish waits for the operator');
+    await dismiss.click();
+    await page.waitForFunction(() => document.readyState === 'complete' && !window.__server.run, null, { timeout: 10000 });
+    assert.equal(loads['/updater'], 2, 'the page is reloaded onto the new release');
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+
+  test('closing after a failed update leaves the page as it is', async () => {
+    await applyUpdate('failed');
+    const dismiss = page.locator('[data-dlux-update-dismiss]');
+    assert.equal(await dismiss.textContent(), 'Cancel');
+    await dismiss.click();
+    await page.waitForTimeout(500);
+    assert.equal(loads['/updater'], 1);
     await closePage();
   });
 });
