@@ -11,11 +11,14 @@ see [Deployment Configuration](deployment-configuration.md).
 
 ## ScanLink
 
-The 1.15.1b2 client negotiates a healthy transport before its first scan
-and sends each scan POST once. A lost response produces `scan_request_uncertain`
-with shared English/Arabic guidance; it never automatically resubmits the scan.
-Paired ScanLink 0.8.0b1 fixes PDF-completion timing, parent deadlines, request
-validation and consumed-result metadata; earlier helper APIs stay compatible.
+`ScanLink.startScan()` negotiates a healthy transport through `GET /health`
+before every scan and sends each scan POST once, to that transport. A transport
+that stopped answering falls back to the other one, and an unreachable helper
+reports `helper_unavailable`/`insecure_origin` without posting. A lost response
+produces `scan_request_uncertain` with shared English/Arabic guidance; it never
+automatically resubmits the scan. Paired ScanLink 0.8.0b2 has the same client
+fix; 0.8.0b1 fixed PDF-completion timing, parent deadlines, request validation
+and consumed-result metadata; earlier helper APIs stay compatible.
 
 `window.DluxScan.scan()` is shared by file fields and the PDF editor. Its
 `window.ScanLink` client tries localhost HTTPS :5443 and HTTP :5000, with a

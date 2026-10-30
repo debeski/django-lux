@@ -8,11 +8,14 @@ prompt. They do not run commands or import certificates.
 ## Stress-test fixes
 
 DjangoLux 1.15.1b2 and ScanLink 0.8.0b1 are published betas. The browser client
-checks health before its first scan and sends the scan POST once. If the request
-or accepted response body loses its connection, `scan_request_uncertain` asks the
-operator to check ScanLink before starting another scan. File fields and the PDF
-editor share English/Arabic guidance. Health/status reads retain HTTP/HTTPS
-fallback; old helpers remain supported.
+checks health before every scan and sends the scan POST once, to the transport
+that just answered. If HTTPS stops answering (for example after a ScanLink
+restart whose certificate setup failed), the next scan uses HTTP :5000; if
+ScanLink is closed, the scan reports `helper_unavailable` (or `insecure_origin`)
+without posting. If the request or accepted response body loses its connection,
+`scan_request_uncertain` asks the operator to check ScanLink before starting
+another scan. File fields and the PDF editor share English/Arabic guidance.
+Health/status reads retain HTTP/HTTPS fallback; old helpers remain supported.
 
 ScanLink 0.8.0b1 keeps a job in `generating_pdf` until the child exits and the PDF
 is stored, enforces the parent scan deadline despite ongoing progress, rejects
@@ -21,7 +24,14 @@ metadata until its TTL for consistent single-use result responses.
 
 ## Compatible versions
 
-The current pair is DjangoLux 1.15.1b2 and ScanLink 0.8.0b1. The previous
+The current pair is ScanLink 0.8.0b2 with the next DjangoLux release after
+1.15.2b1 (unreleased): both clients health-check before every scan POST, and the
+paired suite (`dlux/tests/fixtures/scanlink/scenarios.mjs`, run with ScanLink's
+`static/scanlink.js` as the second argument) passes 34/34 against both. ScanLink
+0.8.0b2 keeps the 0.8.0b1 HTTP protocol, so DjangoLux 1.15.1b2 through 1.15.2b1
+(paired with 0.8.0b1) still work with it; their file-field and PDF-editor scans
+already ran a health check before each scan, so only direct
+`window.ScanLink.startScan()` callers could keep a stale transport. The previous
 DjangoLux 1.15.1b1 beta pairs with ScanLink 0.7.5b1. The client retains
 health/status/result compatibility with ScanLink 0.7.4; older helpers do not
 report certificate setup progress.

@@ -96,6 +96,55 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
     assert.equal(bodyPosts, 1);
     passed++;
+
+    const restarted = [];
+    let httpsUp = true;
+    context = runtime(file, async (url, options) => {
+        restarted.push([url, options.method]);
+        if (url.startsWith('https:') && !httpsUp) throw new TypeError('HTTPS setup failed after restart');
+        return response(options.method === 'POST' ? { job_id: 'restart-job', status: 'queued' } : { status: 'ok' });
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    await client.startScan();
+    assert.match(client.baseUrl, /^https:/);
+    httpsUp = false;
+    restarted.length = 0;
+    assert.equal((await client.startScan()).job_id, 'restart-job');
+    assert.deepEqual(restarted.filter(([, method]) => method === 'POST').map(([url]) => url), ['http://localhost:5000/scan']);
+    assert.match(client.baseUrl, /^http:/);
+    passed++;
+
+    for (const [secure, code] of [[true, 'helper_unavailable'], [false, 'insecure_origin']]) {
+        const afterClose = [];
+        let helperUp = true;
+        context = runtime(file, async (url, options) => {
+            if (helperUp) return response({ status: 'ok' });
+            afterClose.push(options.method);
+            throw new TypeError('ScanLink closed');
+        }, secure);
+        client = vm.runInContext('new ScanLink()', context);
+        assert.ok(await client.checkHealth());
+        helperUp = false;
+        await assert.rejects(client.startScan(), (error) => error.code === code);
+        assert.ok(afterClose.length > 0 && afterClose.every(method => method === 'GET'));
+        passed++;
+    }
+
+    const healthyPosts = [];
+    let dropPost = false;
+    context = runtime(file, async (url, options) => {
+        if (options.method === 'GET') return response({ status: 'ok' });
+        healthyPosts.push(url);
+        if (dropPost) throw new TypeError('accepted by server; response lost');
+        return response({ job_id: 'first-job', status: 'queued' });
+    });
+    client = vm.runInContext('new ScanLink({ baseUrl: "http://localhost:5000" })', context);
+    await client.startScan();
+    healthyPosts.length = 0;
+    dropPost = true;
+    await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
+    assert.deepEqual(healthyPosts, ['http://localhost:5000/scan']);
+    passed++;
 }
 
 {
@@ -109,6 +158,34 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     assert.equal(context.window.DluxScan.errorMessage(messages, { code: 'scan_request_uncertain' }), 'تحقق من ScanLink قبل بدء مسح آخر');
     assert.equal(context.window.DluxScan.errorMessage(messages, error), 'افتح العنوان الآمن');
     await assert.rejects(context.window.DluxScan.scan({ messages }), (err) => err.code === 'insecure_origin' && err.message === 'افتح العنوان الآمن');
+    passed++;
+}
+
+{
+    const posts = [];
+    let httpsUp = true;
+    let helperUp = true;
+    const document = { querySelectorAll: () => [], addEventListener() {} };
+    const context = runtime(clientPath, async (url, options) => {
+        if (!helperUp || (url.startsWith('https:') && !httpsUp)) throw new TypeError('not reachable');
+        if (options.method === 'POST') {
+            posts.push(url);
+            return response({ job_id: 'dlux-job', status: 'queued' });
+        }
+        if (url.endsWith('/result')) return { ok: true, blob: async () => 'pdf' };
+        if (url.includes('/scan/')) return response({ job_id: 'dlux-job', status: 'completed', page_count: 1 });
+        return response({ status: 'ok', twain_available: true, busy: false });
+    }, true, { document });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    const scan = () => context.window.DluxScan.scan({ messages: context.window.DluxScan.messagesFor(null) });
+    assert.equal(await scan(), 'pdf');
+    httpsUp = false;
+    assert.equal(await scan(), 'pdf');
+    assert.deepEqual(posts, ['https://localhost:5443/scan', 'http://localhost:5000/scan']);
+    passed++;
+    helperUp = false;
+    await assert.rejects(scan(), (err) => err.code === 'helper_unavailable');
+    assert.equal(posts.length, 2);
     passed++;
 }
 
