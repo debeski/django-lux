@@ -56,6 +56,11 @@ const UPDATER = `
   <div data-dlux-update-error hidden></div>
   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>Cancel</button>
   <button type="button" data-dlux-update-submit></button>
+</div>
+<div id="dluxReleaseNotesModal">
+  <h5 data-dlux-notes-title>Release notes for the installed version</h5>
+  <p data-dlux-notes-summary></p><div data-dlux-notes-highlights></div>
+  <a data-dlux-notes-link hidden>Full release page</a>
 </div>`;
 
 const OPS_ROW = (name, check, action, extra = '') => `
@@ -328,6 +333,50 @@ describe('the review dialog shows the release it offers', () => {
     await open('/updater', REVIEW_SCRIPT, { state: OFFER({ version: '1.10.1', summary: 'Patch beta: forms save once.', highlights: [] }) });
     await page.locator('[data-dlux-update-review]').click();
     assert.deepEqual(await reviewNotes(), ['Patch beta: forms save once.', 'Bug fixes and improvements']);
+    await closePage();
+  });
+});
+
+// What reconcile records from each release's own package: the installed one
+// (`active_manifest`) and the rollback target (`previous_manifest`).
+const NOTES = (version, highlights) => ({
+  version, summary: `DjangoLux ${version}.`, highlights,
+  release_url: `https://github.com/debeski/django-lux/releases/tag/v${version}`,
+});
+
+describe('the installed release and the rollback target show their own notes', () => {
+  test('a release without recorded notes offers no notes button', async () => {
+    await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({ active_manifest: {} }) });
+    assert.equal(await page.locator('[data-dlux-release-notes]').isVisible(), false);
+    await closePage();
+  });
+
+  test('the notes button opens what the installed release says about itself', async () => {
+    const errors = await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      active_manifest: NOTES('1.10.0', ['Rows, not buttons.', 'Faster PDF opening.']),
+    }) });
+    const button = page.locator('[data-dlux-release-notes]');
+    assert.equal(await button.isVisible(), true);
+    await button.click();
+    const modal = page.locator('#dluxReleaseNotesModal');
+    assert.equal(await modal.getAttribute('data-open'), 'true');
+    assert.equal(await modal.locator('[data-dlux-notes-title]').textContent(), 'Release notes for the installed version — v1.10.0');
+    assert.equal(await modal.locator('[data-dlux-notes-summary]').textContent(), 'DjangoLux 1.10.0.');
+    assert.deepEqual(await modal.locator('[data-dlux-notes-highlights] li').allTextContents(),
+      ['Rows, not buttons.', 'Faster PDF opening.', 'Bug fixes and improvements']);
+    assert.equal(await modal.locator('[data-dlux-notes-link]').getAttribute('href'),
+      'https://github.com/debeski/django-lux/releases/tag/v1.10.0');
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+
+  test('the rollback review lists what the release it brings back contains', async () => {
+    await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      previous_version: '1.9.5', previous_manifest: NOTES('1.9.5', ['The older release.']),
+    }) });
+    await page.locator('[data-dlux-update-rollback]').click();
+    assert.equal(await page.locator('[data-dlux-update-target]').textContent(), '1.9.5');
+    assert.deepEqual(await reviewNotes(), ['The older release.', 'Bug fixes and improvements']);
     await closePage();
   });
 });

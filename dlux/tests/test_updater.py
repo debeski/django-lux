@@ -38,6 +38,7 @@ from dlux.updater.manifest import (
     _validated_https_url,
     assess_wheel,
     download_wheel,
+    package_release_notes,
     validate_local_release_manifest,
     validate_release_manifest,
     verify_pypi_attestation,
@@ -118,6 +119,24 @@ def release_manifest(version="1.2.3", **overrides):
     return manifest
 
 
+def release_display(version, summary="Staged test release"):
+    return {
+        "summary": summary,
+        "highlights": [f"What {version} changes"],
+        "release_url": f"https://github.com/debeski/django-lux/releases/tag/v{version}",
+    }
+
+
+def stage_release(store, version, manifest=None):
+    """A volume release carrying its own ``dlux/release-manifest.json``, as Composer stages it."""
+    package = store.release_path(version) / "dlux"
+    package.mkdir(parents=True)
+    if manifest is None:
+        manifest = {"schema_version": 2, "version": version, "display": release_display(version)}
+    (package / "release-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return package
+
+
 def make_wheel(path, version="1.2.3", *, manifest=None, requires=(), requires_python=">=3.11"):
     manifest = manifest or release_manifest(version)
     metadata = [
@@ -189,6 +208,29 @@ class ManifestTests(TestCase):
             validate_release_manifest(release_manifest(schema_version=2), "1.2.3")
         with self.assertRaises(UpdaterError):
             validate_release_manifest(release_manifest(version="1.2.4"), "1.2.3")
+
+    def test_an_installed_packages_notes_are_bounded_and_must_name_its_version(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package = Path(temp_dir)
+            manifest_file = package / "release-manifest.json"
+            self.assertEqual(package_release_notes(package, "1.2.3"), {}, "no manifest, no notes")
+
+            display = {**release_display("1.2.3"), "release_url": "https://example.com/v1.2.3"}
+            manifest_file.write_text(json.dumps({
+                "schema_version": 2, "version": "1.2.3",
+                "requires": {"something_newer": ">=1"}, "display": display,
+            }), encoding="utf-8")
+            notes = package_release_notes(package, "1.2.3")
+            self.assertEqual(notes["summary"], "Staged test release",
+                             "requirements are for installing; they do not hide the notes")
+            self.assertEqual(notes["release_url"], "", "only the release's own page is linked")
+            self.assertEqual(package_release_notes(package, "1.2.4"), {})
+
+            manifest_file.write_text(json.dumps(release_manifest("1.2.3")), encoding="utf-8")
+            self.assertEqual(package_release_notes(package, "1.2.3")["summary"], "Safe updater test release")
+
+            manifest_file.write_text("{", encoding="utf-8")
+            self.assertEqual(package_release_notes(package, "1.2.3"), {})
 
     def test_download_rejects_hash_mismatch_and_redirect_host(self):
         payload = b"not-a-wheel"
@@ -637,6 +679,132 @@ class RuntimeStoreTests(TestCase):
                 reconciled = service.reconcile()
 
             self.assertTrue(reconciled.latest_compatible)
+
+    def test_reconcile_records_each_releases_own_notes(self):
+        """The installed-release notes button never appeared on a Composer stack.
+
+        `active_manifest` and `previous_manifest` were written only by the
+        retired in-container swap, so the row had nothing to offer and a
+        rollback review had no notes. Each staged release carries its own.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            for version in ("1.8.9", "1.8.10"):
+                stage_release(store, version)
+            store.write_active("1.8.10", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.10"
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = UpdateService(store=store).reconcile()
+
+            self.assertEqual(reconciled.active_manifest, {"version": "1.8.10", **release_display("1.8.10")})
+            self.assertEqual(reconciled.previous_manifest, {"version": "1.8.9", **release_display("1.8.9")})
+            self.assertEqual(get_ui_state()["previous_manifest"]["version"], "1.8.9")
+
+    def test_a_baked_rollback_target_has_the_images_notes_from_a_volume_worker(self):
+        # The worker runs the volume release, which is first on its path; the
+        # baked target's notes are the image's package, not that one.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            package = stage_release(store, NEWER_VERSION)
+            store.write_active(NEWER_VERSION, source="volume", generation=1)
+            store.set_generation(1)
+            state = DluxUpdateState.load()
+            state.baked_version = __version__
+            state.active_version = NEWER_VERSION
+            state.generation = 1
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value=__version__), \
+                    mock.patch("dlux.__file__", str(package / "__init__.py")), \
+                    mock.patch.object(sys, "path", [str(package.parent), *sys.path]):
+                reconciled = UpdateService(store=store).reconcile()
+
+            image = validate_local_release_manifest()
+            self.assertEqual(reconciled.previous_version, __version__)
+            self.assertEqual(reconciled.previous_manifest["version"], __version__)
+            self.assertEqual(reconciled.previous_manifest["summary"], image["summary"])
+            self.assertEqual(reconciled.previous_manifest["release_url"], image["release_url"])
+            self.assertEqual(reconciled.active_manifest["version"], NEWER_VERSION)
+
+    def test_notes_that_do_not_belong_to_the_release_are_not_kept(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            stage_release(store, "1.8.9", manifest={
+                "schema_version": 2, "version": "1.9.0", "display": release_display("1.9.0"),
+            })
+            store.write_active("1.8.9", source="volume", generation=0)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.8.6"
+            state.active_version = "1.8.9"
+            state.active_manifest = release_manifest("1.8.9")
+            state.previous_manifest = release_manifest("1.8.6")
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.8.6"):
+                reconciled = UpdateService(store=store).reconcile()
+
+            self.assertEqual(reconciled.active_manifest, {}, "a manifest naming 1.9.0 is not 1.8.9's")
+            self.assertEqual(reconciled.previous_version, "1.8.6")
+            self.assertEqual(reconciled.previous_manifest, {},
+                             "this process does not carry 1.8.6, so it cannot say what it was")
+
+    def test_a_composer_apply_then_rollback_moves_the_notes_with_the_release(self):
+        from dlux.updater import package_request
+
+        class _Completed:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            store = RuntimeStore(root / "runtime").ensure()
+            (root / "manage.py").write_text("# generated\n", encoding="utf-8")
+            state = DluxUpdateState.load()
+            state.baked_version = __version__
+            state.active_version = __version__
+            state.save()
+            run = DluxUpdateRun.objects.create(
+                action=DluxUpdateRun.ACTION_APPLY,
+                status=DluxUpdateRun.STATUS_APPLYING,
+                is_active=True,
+                source_version=__version__,
+                target_version=NEWER_VERSION,
+                started_at=timezone.now(),
+            )
+            state.active_run_token = run.token
+            state.save(update_fields=["active_run_token"])
+            # What Composer leaves behind: the release staged and activated,
+            # then its ack.
+            stage_release(store, NEWER_VERSION)
+            store.write_active(NEWER_VERSION, source="volume", generation=1)
+            store.set_generation(1)
+            package_request.ack_path(store).write_text(
+                json.dumps({"token": run.token, "exit_code": 0}), encoding="utf-8",
+            )
+            service = UpdateService(store=store, command_runner=lambda *a, **k: _Completed())
+            image = validate_local_release_manifest()
+            with override_settings(BASE_DIR=root), mock.patch(
+                "dlux.updater.service.get_baked_version", return_value=__version__,
+            ):
+                finished = service.tick_package_update()
+                finished.refresh_from_db()
+                self.assertEqual(finished.status, DluxUpdateRun.STATUS_COMPLETED)
+                ui = get_ui_state()
+                self.assertEqual(ui["active_manifest"], {"version": NEWER_VERSION, **release_display(NEWER_VERSION)})
+                self.assertEqual(ui["previous_version"], __version__)
+                self.assertEqual(ui["previous_manifest"]["summary"], image["summary"],
+                                 "the rollback review describes the release it brings back")
+
+                # Composer's rollback: the baked image is active again.
+                store.write_active(__version__, source="image", generation=2)
+                store.set_generation(2)
+                reconciled = service.reconcile()
+
+            self.assertEqual(reconciled.active_manifest["summary"], image["summary"])
+            self.assertEqual(reconciled.previous_version, "")
+            self.assertEqual(reconciled.previous_manifest, {})
 
     def test_the_state_tick_reconciles_a_row_left_behind_by_an_upgrade(self):
         """The 1.8.0 regression: nothing called reconcile() any more.
@@ -1768,7 +1936,7 @@ class UpdaterApiTests(TestCase):
 
         state = DluxUpdateState.load()
         self.assertEqual(get_ui_state()["active_manifest"], {},
-                         "a version baked into the image has no manifest, and the row offers nothing")
+                         "nothing is recorded until reconcile reads the release, and the row offers nothing")
         state.active_manifest = release_manifest(version="1.9.3", highlights=["Rows, not buttons"])
         state.save()
         manifest = get_ui_state()["active_manifest"]

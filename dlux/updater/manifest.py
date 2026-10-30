@@ -314,6 +314,28 @@ def release_notes(display, version):
     return {"version": str(version), "summary": summary, "highlights": highlights, "release_url": url}
 
 
+def package_release_notes(package_root, version):
+    """The notes in an installed ``dlux`` package's own manifest, or ``{}``.
+
+    Only the ``display`` block is read, bounded like published notes, so a
+    release whose ``requires`` this updater does not understand still shows
+    what it is. A manifest that names another version yields nothing.
+    """
+    try:
+        manifest = json.loads((Path(package_root) / "release-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(manifest, dict):
+        return {}
+    try:
+        if Version(str(manifest.get("version") or "")) != Version(str(version)):
+            return {}
+    except InvalidVersion:
+        return {}
+    display = manifest.get("display")
+    return release_notes(display if isinstance(display, dict) else manifest, version)
+
+
 def validate_release_manifest(manifest, expected_version):
     if not isinstance(manifest, dict):
         raise UpdaterError("The release manifest must be a JSON object.")

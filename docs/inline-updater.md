@@ -73,7 +73,18 @@ derives both from what is actually on the volume:
   newest staged release below the active one, else the release baked into the
   image, which is exactly how Composer picks its rollback target. A target below
   the baked version is not offered: reconcile resets anything under that floor,
-  so the rollback would be undone on the next pass.
+  so the rollback would be undone on the next pass; and
+- `active_manifest` and `previous_manifest` — the installed release's notes on
+  the DjangoLux row and the notes in the rollback review — come from each
+  release's own `dlux/release-manifest.json`: the staged release under
+  `releases/<version>/`, or the image's package for the baked version (the first
+  copy outside the runtime volume, so a worker running a volume release still
+  reads the image's). Only `display` (or a schema-1 manifest's top-level
+  `summary`, `highlights`, `release_url`) is kept, bounded like the offered
+  release's notes, and nothing is kept when the manifest names another version.
+  They follow every apply, rollback and image rebuild, Composer's included.
+  Before 1.15.3 only the retired in-container swap wrote them, so the notes icon
+  never appeared and a rollback review had no notes.
 
 ### When the image moves backward
 
@@ -217,8 +228,9 @@ A fifth row links to Backup & restore with the date of the last backup, which is
 all its own card ever showed. Everything a row *reports* — a version, a digest,
 that date, what an update would move to — sits at the row's end; the lead group
 holds the controls and the name. The DjangoLux row also offers the installed
-release's own notes, from the manifest the inline update recorded when it
-applied; a version baked into the image has none, and the icon stays away. Each row's icons carry that component's own last
+release's own notes, which reconcile reads from that release's package (see
+[What the card offers after an update](#what-the-card-offers-after-an-update));
+a release without notes offers no icon. Each row's icons carry that component's own last
 check in their tooltip; there is no shared "last check" line, because with four
 components on one card it answered for none of them.
 
@@ -369,8 +381,9 @@ An inline apply or rollback started from DjangoLux (Options or `sys/api/dlux-upd
 
 ## The end of an inline update
 
-Once Composer acknowledges, the worker reconciles the state row, collects the
-active release's static files and finishes the run. `manage.py` output joins the
+Once Composer acknowledges, the worker reconciles the state row (versions, the
+rollback target and both releases' notes), collects the active release's static
+files and finishes the run. `manage.py` output joins the
 run log without DEBUG log records (`DEBUG:name:...` or `DEBUG ...` lines): a
 project that turns debug logging on, as Decrees does with
 `logging.basicConfig(level=logging.DEBUG)` when `DEBUG` is set, prints them on
