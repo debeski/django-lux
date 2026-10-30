@@ -35,6 +35,14 @@ Project state, tasks and known bugs: see `tracker.md`.
   its own `AGENTS.md`). A DjangoLux change that needs them ships with their paired
   beta, accepted together on `testbed-dlux`. The DLB viewer (`tools/dlb-viewer`)
   already ships through this repo's release flow.
+- **Consumers ship stable only.** Consumer projects (`../project-*`) are committed,
+  tagged and published only against published stables of DjangoLux, Composer and
+  ScanLink: never a `bN` pin, a `:beta`/`vX.Y.ZbN` image or a beta
+  `.composer-channel`, even though Decrees doubles as the testbed app. Betas are
+  accepted on `~/Desktop/depy/testbed-*` stacks through compose-level means (source
+  mounts, `build-app.sh --wheel` overlays, beta-channel inline updates) that are
+  never committed to a consumer. A consumer bumps its DjangoLux pin only after the
+  stable is published.
 - **Downstream first.** Before moving or renaming a template, static file or public
   symbol, grep the consumer projects (`../project-archive`, `../project-decrees`,
   `../project-dhub`, `../project-dlux-crm`, `../project-dlux-panel`,
