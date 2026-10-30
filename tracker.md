@@ -90,7 +90,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Follow-up stress complete on `1.15/scanlink_stress` + ScanLink `0.8/stress_fixes`; candidates1.15.1b2/0.8.0b1 unpushed/unpublished.8097 stays published1.15.1b1, real installers/Caddy64MB/data preserved; synthetic60 now7 PDF pages. Candidate browser assets/template fixture tested through routing; real worker with hardware child simulated. Evidence `.xclude/validation/paired-stress-2026-10-25/report.md`. Prior PR14 bypass applied only to that beta.
+- Security audit of dlux + Composer + ScanLink (read-only, ranked findings; brief in the 2026-10-30 session card) is deferred by the owner until the work currently in flight in all three repos lands; the owner says when. Consumer projects ship stable only — never pin a beta in Decrees for testing; use testbed compose mounts/overlays.
 - Stable1.14.0+Composer1.8.0 accepted on8096. :8097 depy/testbed-dlux-ocr uses Composer wrapper --dev, .secrets/.env, standard admin credentials; updated b1 wheel in dlux-ocr-1.15-b1-background:acceptance, no source mounts, inline-off. Background test settings restored/off; controls available. Updates-card deferred; Archive adoption separate.
 - 1.15/OCR polish/stress testing authorized2026-10-25. Preserve0029 and OCR work while integrating stable; no main bypass or tag until beta candidate validated. Legacy S5/privacy cleanup remain separate. Never alter tagged migrations.
 - Test stacks live only at `~/Desktop/depy/testbed-*` and use Composer wrappers in dev mode; official `testbed-dlux` is protected unless owner directs otherwise. Accept published betas there before promoting.
