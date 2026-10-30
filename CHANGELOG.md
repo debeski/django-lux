@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.2
+
+- **Stable 1.15.2**: Promote the published and accepted 1.15.2b2 implementation, which includes 1.15.2b1: the unsaved-changes prompt saves once, an eye on each header shows or hides personal columns, the PDF viewer downloads once and stored files are served with ranges and 304 revalidation (`serve_file`), the DLB viewer shows loading progress and browses large models faster, the scaffold writes Composer wrapper 6, the Updates card settles checks, shows each release's own notes and reloads after Finish, and the bundled ScanLink client health-checks before every scan. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.1, which publishes the release notes the Updates card shows. No migrations since 1.15.1; no runtime, dependency or migration changes from 1.15.2b2.
+
 ## v1.15.2b2
 
 - **1.15.2 Candidate (Beta 2)**: Second patch beta on stable 1.15.1, replacing 1.15.2b1 as the 1.15.2 candidate (PRs #29–#31). No new migrations, dependency or runtime-requirement changes since 1.15.2b1; Composer `>=1.9.0b2` still suffices (wrapper 6, like wrapper 5, handles `update self` itself with a `docker pull` and otherwise calls commands Composer 1.9.0 has). Paired Composer beta: 1.9.1b2, which adds the release notes this beta's review dialog shows; with an older Composer the dialog keeps the generic line.

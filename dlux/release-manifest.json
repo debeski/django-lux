@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "version": "1.15.2b2",
+  "version": "1.15.2",
   "display": {
-    "summary": "Patch beta: forms save once, personal column eye controls, faster PDF opening and backup browsing, Composer wrapper 6, an Updates card that settles and shows release notes, and ScanLink checks before every scan.",
+    "summary": "Patch release: forms save once, personal column eye controls, faster PDF opening and backup browsing, Composer wrapper 6, an Updates card that settles and shows release notes, and ScanLink checks before every scan.",
     "highlights": [
       "Save changes in the unsaved-changes prompt submits the form once instead of twice.",
       "Arrange columns shows an eye on each header to show or hide it; the inspector is gone.",
@@ -13,7 +13,7 @@
       "The update log no longer shows DEBUG lines from the project's own logging.",
       "ScanLink re-checks its connection before every scan, so a lost HTTPS link falls back to HTTP instead of failing the scan."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.2b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.2"
   },
   "requires": {
     "updater_schema": ">=1",
