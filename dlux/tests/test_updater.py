@@ -61,6 +61,7 @@ from dlux.updater.release_check import (
 from dlux.updater.service import (
     UpdateService,
     _sanitize,
+    get_ui_state,
     queue_daily_check_if_due,
     queue_run,
 )
@@ -1904,6 +1905,79 @@ class UpdaterApiTests(TestCase):
         self.assertEqual(state.latest_version, NEWER_VERSION)
         self.assertTrue(state.latest_compatible)
         self.assertEqual(state.last_check_error, "")
+
+    def _release_url(self, version):
+        return f"https://github.com/debeski/django-lux/releases/tag/v{version}"
+
+    def test_the_offered_release_carries_its_own_notes(self):
+        """The review dialog read `latest_manifest`, which nothing on the
+        Composer path ever wrote: every offer said only "Bug fixes and
+        improvements". Composer reads the notes from the verified wheel and
+        publishes them beside the version."""
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+            "display": {
+                "summary": "Patch beta: forms save once.",
+                "highlights": ["Save changes submits the form once.", "  ", "The PDF viewer downloads once."],
+                "release_url": self._release_url(NEWER_VERSION),
+            },
+        })
+
+        self.assertEqual(state.latest_manifest, {
+            "version": NEWER_VERSION,
+            "summary": "Patch beta: forms save once.",
+            "highlights": ["Save changes submits the form once.", "The PDF viewer downloads once."],
+            "release_url": self._release_url(NEWER_VERSION),
+        })
+        self.assertEqual(get_ui_state()["latest_manifest"]["summary"], "Patch beta: forms save once.")
+
+    def test_notes_inside_a_published_manifest_are_read_too(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+            "manifest": {
+                "schema_version": 2, "version": NEWER_VERSION,
+                "display": {"summary": "From the manifest.", "highlights": ["One."], "release_url": ""},
+            },
+        })
+
+        self.assertEqual(state.latest_manifest["summary"], "From the manifest.")
+        self.assertEqual(state.latest_manifest["highlights"], ["One."])
+        self.assertEqual(state.latest_manifest["release_url"], "")
+
+    def test_notes_are_published_data_and_kept_within_bounds(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+            "display": {
+                "summary": "s" * 5000,
+                "highlights": [f"item {index} " + "x" * 400 for index in range(20)],
+                "release_url": "https://evil.example/releases/tag/v" + NEWER_VERSION,
+            },
+        })
+
+        notes = state.latest_manifest
+        self.assertEqual(len(notes["summary"]), 1000)
+        self.assertEqual(len(notes["highlights"]), 8)
+        self.assertTrue(all(len(item) <= 160 for item in notes["highlights"]))
+        self.assertEqual(notes["release_url"], "", "only the release's own GitHub page may be linked")
+
+    def test_notes_for_another_version_are_not_shown_as_this_ones(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+            "manifest": {"version": "0.0.1", "display": {"summary": "Old notes."}},
+        })
+
+        self.assertEqual(state.latest_manifest, {})
+
+    def test_a_report_without_notes_clears_the_previous_offer_notes(self):
+        state = DluxUpdateState.load()
+        state.latest_manifest = {"version": "0.0.2", "summary": "Stale notes."}
+        state.save()
+
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+        })
+
+        self.assertEqual(state.latest_manifest, {})
 
     def test_nothing_published_is_reported_as_unknown_not_up_to_date(self):
         """The dangerous failure: silently telling an operator they are current."""

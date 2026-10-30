@@ -772,12 +772,12 @@ class HandoffCollectsStaticTests(TestCase):
 
         return newer_version(get_baked_version())
 
-    def _runner(self, returncode=0):
+    def _runner(self, returncode=0, stderr=""):
         class _Completed:
             def __init__(self):
                 self.returncode = returncode
                 self.stdout = "42 static files copied."
-                self.stderr = ""
+                self.stderr = stderr
 
         def run(command, **kwargs):
             self.commands.append((list(command), kwargs.get("env") or {}))
@@ -785,10 +785,10 @@ class HandoffCollectsStaticTests(TestCase):
 
         return run
 
-    def _service(self, returncode=0):
+    def _service(self, returncode=0, stderr=""):
         from dlux.updater.service import UpdateService
 
-        return UpdateService(store=self.store, command_runner=self._runner(returncode))
+        return UpdateService(store=self.store, command_runner=self._runner(returncode, stderr))
 
     def _applying_run(self):
         Run, State = self._models()
@@ -829,6 +829,27 @@ class HandoffCollectsStaticTests(TestCase):
         self.assertIn("--clear", command)
         finished.refresh_from_db()
         self.assertTrue(finished.report.get("static_collected"))
+
+    def test_debug_log_records_stay_out_of_the_progress_log(self):
+        """A project that calls `logging.basicConfig(level=DEBUG)` (Decrees does
+        when DEBUG is on) makes collectstatic print every debug record on stderr,
+        and the update dialog showed them as progress."""
+        run = self._applying_run()
+        self._ack(run.token, 0)
+        stderr = (
+            "DEBUG:dlux:dlux: Scope auto-injection patches applied.\n"
+            "DEBUG:dlux:dlux: Global translation patches applied.\n"
+            "DEBUG 2026-10-30 08:15:40 patches 7 1 verbose-format record\n"
+            "WARNING:dlux:a warning is still worth showing"
+        )
+
+        with override_settings(BASE_DIR=self.base_dir):
+            finished = self._service(stderr=stderr).tick_package_update()
+
+        finished.refresh_from_db()
+        self.assertIn("42 static files copied.", finished.progress_log)
+        self.assertIn("a warning is still worth showing", finished.progress_log)
+        self.assertNotIn("DEBUG", finished.progress_log)
 
     def test_the_collected_release_is_the_one_on_the_volume(self):
         """Collecting from the baked image would write a *different* version's

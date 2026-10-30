@@ -705,7 +705,7 @@ global default.
 
 | Route | Method | Access/Purpose |
 | --- | --- | --- |
-| `/sys/api/dlux-update/state/` | `GET` | Superuser/Global Staff read-only updater state and latest run |
+| `/sys/api/dlux-update/state/` | `GET` | Superuser/Global Staff read-only updater state and latest run; `state.latest_manifest` holds the offered release's notes (`version`, `summary`, `highlights`, `release_url`) when Composer's availability report carries them, else `{}` |
 | `/sys/api/dlux-update/runs/<token>/` | `GET` | Superuser durable run status and bounded progress log |
 | `/sys/api/dlux-update/check/` | `POST` | Superuser-only CSRF-protected official PyPI check |
 | `/sys/api/dlux-update/apply/` | `POST` | Superuser + current-password verified apply request |

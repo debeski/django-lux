@@ -122,6 +122,13 @@
         modalElement?.addEventListener('hide.bs.modal', (event) => {
             if (modalLocked) { event.preventDefault(); }
         });
+        // Closing the dialog after an update that changed the release reloads the
+        // page: its rows were rendered by the previous release (the backup row
+        // only server-side) and its scripts and styles are the previous release's.
+        let reloadOnClose = false;
+        modalElement?.addEventListener('hidden.bs.modal', () => {
+            if (reloadOnClose) window.location.reload();
+        });
         let state = null;
         let currentAction = 'apply';
         let runUrl = '';
@@ -132,6 +139,8 @@
         let rootStatusTimer = null;
         let checkHandle = null;
         let checkBusy = false;
+        let checkToken = '';
+        let pollInFlight = false;
         let reopenReviewAfterCheck = false;
         // Image-level (full container) update: not a DluxUpdateRun, so it is
         // tracked via the state endpoint's `image_update` object rather than a
@@ -281,6 +290,7 @@
                 dismissAction.classList.remove('btn-secondary');
                 dismissAction.classList.add('btn-success');
             }
+            if (succeeded) reloadOnClose = true;
             if (progress) {
                 progress.setAttribute('aria-valuenow', String(percent));
                 progress.setAttribute('aria-valuetext', run.status.replaceAll('_', ' '));
@@ -316,6 +326,7 @@
             // Locked like an inline run: the update owns the page until web is
             // back on the new image. Unlocked by showImageFinished().
             setModalLocked(true);
+            reloadOnClose = false;
             if (dismissAction) {
                 dismissAction.textContent = dismissActionLabel;
                 dismissAction.classList.remove('btn-success');
@@ -349,9 +360,7 @@
                 dismissAction.classList.remove('btn-secondary');
                 dismissAction.classList.add('btn-success');
             }
-            if (succeeded) {
-                modalElement.addEventListener('hidden.bs.modal', () => window.location.reload(), { once: true });
-            }
+            if (succeeded) reloadOnClose = true;
         }
 
         async function awaitImageCompletion() {
@@ -776,6 +785,12 @@
                 // again, so the "pending" note stayed until a reload.
                 statePollTimer = window.setTimeout(pollReadOnlyState, 2000);
             }
+            // Whichever read sees the check run finish ends it, not only the run
+            // poll: that poll can fail, or wait out a background tab's throttled
+            // timer, and the row kept spinning over a check that had completed.
+            if (checkBusy && checkToken && payload.run?.token === checkToken && !payload.run.active) {
+                await settleCheck(payload.run, true);
+            }
         }
 
         async function pollReadOnlyState() {
@@ -834,42 +849,57 @@
             }, delay));
         }
 
-        async function pollRun() {
-            if (!runUrl) return;
-            try {
-                const payload = await jsonRequest(runUrl, { method: 'GET' });
-                render(state, payload.run);
-                if (!TERMINAL.has(payload.run.status)) {
-                    schedulePoll();
-                } else {
-                    const shouldReopenReview = Boolean(
-                        reopenReviewAfterCheck
-                        && payload.run.action === 'check'
-                        && payload.run.status === 'completed'
-                    );
-                    if (reopenReviewAfterCheck && payload.run.action === 'check') {
-                        reopenReviewAfterCheck = false;
-                    }
-                    runUrl = '';
-                    stopCheckSpinner(); // no-op unless a check spinner is active
-                    await refreshState();
-                    if (payload.run.action === 'check') followUpAfterCheck();
-                    if (shouldReopenReview) {
-                        if (hasWheelUpdate(state)) {
-                            openReview('apply');
-                        } else if (dismissButtons && dismissButtons[0]) {
-                            dismissButtons[0].click();
-                        }
-                    } else if (payload.run.action === 'check') {
-                        restoreReviewActionState();
-                    }
+        // The end of a check, whichever request noticed it. `stateIsFresh` when
+        // the caller has just rendered the state that showed it.
+        async function settleCheck(run, stateIsFresh = false) {
+            window.clearTimeout(pollTimer);
+            runUrl = '';
+            checkToken = '';
+            const reopen = reopenReviewAfterCheck && run?.status === 'completed';
+            reopenReviewAfterCheck = false;
+            stopCheckSpinner();
+            if (!stateIsFresh) await refreshState().catch(() => {});
+            followUpAfterCheck();
+            if (reopen) {
+                if (hasWheelUpdate(state)) {
+                    openReview('apply');
+                } else if (dismissButtons && dismissButtons[0]) {
+                    dismissButtons[0].click();
                 }
-            } catch (_error) {
+            } else {
+                restoreReviewActionState();
+            }
+        }
+
+        async function pollRun() {
+            if (!runUrl || pollInFlight) return;
+            pollInFlight = true;
+            let run = null;
+            try {
+                run = (await jsonRequest(runUrl, { method: 'GET' })).run || null;
+            } catch (_error) { /* handled below */ }
+            pollInFlight = false;
+            if (!run) {
                 // web unreachable — most likely the maintenance 503. Advance the
                 // modal from the proxy-served mirror, then keep polling web.
                 await pollInlineMirror();
-                schedulePoll();
+                // A check never raises the maintenance wall, so ask the state too:
+                // it settles a check that finished while its run poll failed.
+                if (checkBusy) await refreshState().catch(() => {});
+                if (runUrl) schedulePoll();
+                return;
             }
+            render(state, run);
+            if (!TERMINAL.has(run.status)) {
+                schedulePoll();
+                return;
+            }
+            runUrl = '';
+            if (run.action === 'check') {
+                await settleCheck(run);
+                return;
+            }
+            await refreshState().catch(() => {});
         }
 
         async function queue(url, body) {
@@ -894,7 +924,8 @@
             }
             startCheckSpinner(button);
             try {
-                await queue(root.dataset.checkUrl, new FormData());
+                const payload = await queue(root.dataset.checkUrl, new FormData());
+                checkToken = payload.run?.token || '';
                 if (!runUrl) {
                     // Synchronous check: state is refreshed and we're done.
                     await refreshState();
@@ -913,6 +944,7 @@
                 // tracked run reaches a terminal status in pollRun().
             } catch (requestError) {
                 reopenReviewAfterCheck = false;
+                checkToken = '';
                 stopCheckSpinner();
                 restoreReviewActionState();
                 showError(requestError.message);
@@ -923,9 +955,10 @@
         imageCheckButton?.addEventListener('click', () => runCheck(imageCheckButton));
 
         // Render release notes as short bullet highlights instead of the long
-        // prose summary (which made the modal very tall). The generic
-        // "Bug fixes and improvements" entry is ALWAYS appended last, even when
-        // a release ships no curated highlights.
+        // prose summary (which made the modal very tall); the summary stands in
+        // only for a release without highlights, and only where nothing else
+        // shows it. The generic "Bug fixes and improvements" entry is ALWAYS
+        // appended last, even when a release ships no curated highlights.
         function renderReleaseNotes(container, manifest, allowSummaryFallback = false) {
             if (!container) return;
             container.textContent = '';
@@ -1048,7 +1081,7 @@
             renderReleaseNotes(
                 modalElement.querySelector('[data-dlux-update-summary]'),
                 manifest,
-                isImage,
+                true,
             );
             modalElement.querySelector('[data-dlux-update-compatibility]').textContent = compatibility;
             const maintenanceEl = modalElement.querySelector('[data-dlux-update-maintenance]');
@@ -1102,6 +1135,7 @@
             submit.disabled = requireAck;
             password.disabled = false;
             setModalLocked(false);
+            reloadOnClose = false;
             if (dismissAction) {
                 dismissAction.textContent = dismissActionLabel;
                 dismissAction.classList.remove('btn-success');
@@ -1200,7 +1234,18 @@
             try { await refreshState(); } catch (_error) { /* next tick tries again */ }
         }
         window.setInterval(backgroundRefresh, BACKGROUND_REFRESH_MS);
-        document.addEventListener('visibilitychange', backgroundRefresh);
+        // A background tab's chained timers can be held to one wake-up a minute
+        // (Chrome's intensive throttling), so a run that finished meanwhile is
+        // asked about the moment the tab is back rather than when the poll wakes.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) return;
+            if (runUrl) {
+                window.clearTimeout(pollTimer);
+                pollRun();
+                return;
+            }
+            backgroundRefresh();
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {

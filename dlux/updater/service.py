@@ -582,6 +582,25 @@ def _run_model():
     return apps.get_model("dlux", "DluxUpdateRun")
 
 
+# A DEBUG log record in the level-first formats projects use: basicConfig's
+# `DEBUG:name:message`, or `%(levelname)s %(message)s`.
+_DEBUG_RECORD_RE = re.compile(r"^DEBUG[:\s]")
+
+
+def _without_debug_records(text):
+    """Command output minus its debug log records.
+
+    A project that turns debug logging on — Decrees calls
+    ``logging.basicConfig(level=logging.DEBUG)`` whenever DEBUG is set — makes
+    every manage.py child print those records on stderr, and the update dialog
+    showed them as progress.
+    """
+    return "\n".join(
+        line for line in str(text or "").splitlines()
+        if not _DEBUG_RECORD_RE.match(line.lstrip())
+    )
+
+
 def _sanitize(value, limit=4000):
     value = str(value or "").replace("\x00", "")
     value = SECRET_FLAG_RE.sub(r"\1<redacted>", value)
@@ -1494,6 +1513,7 @@ class UpdateService:
         ineligible = self._prerelease_off_channel(version, state)
 
         state.latest_version = version or current
+        state.latest_manifest = package_request.availability_notes(report)
         state.latest_compatible = bool(newer and inline_safe and not skipped and not ineligible)
         if not newer:
             state.latest_reason = "DjangoLux is up to date."
@@ -2063,7 +2083,7 @@ class UpdateService:
             text=True,
             timeout=timeout,
         )
-        output = _sanitize(f"{completed.stdout}\n{completed.stderr}")
+        output = _sanitize(_without_debug_records(f"{completed.stdout}\n{completed.stderr}"))
         if output:
             run.append_log(output)
             run.save(update_fields=["progress_log"])

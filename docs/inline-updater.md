@@ -145,6 +145,28 @@ and the next worker tick finishes the run from the fresh report. A Composer
 before 1.4.0 never acknowledges: after 20 seconds the run falls back to its last
 report and says so in the run log.
 
+The card ends a check on whichever request sees the run finish: the run poll,
+any state read (the 60-second background refresh, the poll's own fallback when
+the run endpoint fails), or the tab becoming visible again, which polls at once
+instead of waiting for a timer a background tab may hold back for a minute.
+Before 1.15.3 only the run poll could, so a check whose poll failed or slept in
+a throttled background tab kept spinning until the page was reloaded.
+
+### Release notes for the offered release
+
+The availability report may carry the offered release's own notes. Composer reads
+them from the same verified wheel that decides `inline_safe` and publishes the
+manifest's `display` block (`summary`, `highlights`, `release_url`) as `display`,
+or the whole manifest as `manifest`. The check stores them as
+`DluxUpdateState.latest_manifest`, bounded like a validated manifest (summary
+1000 characters, 8 highlights of 160) and keeping `release_url` only when it is
+that release's own GitHub page; notes naming another version are dropped. The
+review dialog lists the highlights, or the summary when there are none, above the
+generic "Bug fixes and improvements" line. A report without notes clears the
+previous offer's, and the dialog then shows the generic line alone: Composer 1.9.1
+and earlier publish only the version and `inline_safe`. Nothing here reaches the
+network; the notes come off the runtime volume like the rest of the report.
+
 ### What refreshes the reported versions
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the volume — it never writes the database. The database side is `UpdateService.reconcile()`, and since 1.8.6 the Celery state tick runs it once per worker process (so, after `migrator`) and again whenever the recorded baked version stops matching the installed package.
@@ -344,6 +366,20 @@ Release eligibility remains strict. Composer honors the release manifest's schem
 Update admission serializes through the DjangoLux state row. An image update and an inline update cannot be admitted concurrently. When a pre-update backup is requested, DjangoLux must finish it before the update intent is written.
 
 An inline apply or rollback started from DjangoLux (Options or `sys/api/dlux-update/`) takes its backup in the Celery worker before writing the Composer request: the run moves to *Backing up* ("Creating a data-only pre-update DjangoLux backup."), the backup's token is stored on the run, and a failed backup fails the run so Composer is never asked to swap code. `backup_mode` is `data` (default), `full` or `skip`. This step was lost in 1.10.0 with the in-container executor and restored in 1.11.0b5; between those releases inline updates ran without it. The step runs in the release being updated *from*, so the first update that takes it is one started on 1.11.0b5 or later. `./start.sh dlux update` and `dlux rollback` go to Composer directly and do not pass through this step; Composer takes the snapshot itself instead, through `manage.py dlux_backup` (see the Composer docs for `--backup`).
+
+## The end of an inline update
+
+Once Composer acknowledges, the worker reconciles the state row, collects the
+active release's static files and finishes the run. `manage.py` output joins the
+run log without DEBUG log records (`DEBUG:name:...` or `DEBUG ...` lines): a
+project that turns debug logging on, as Decrees does with
+`logging.basicConfig(level=logging.DEBUG)` when `DEBUG` is set, prints them on
+stderr, and the update dialog showed them as progress.
+
+Success turns the dismiss button into **Finish**, and closing the dialog reloads
+the page: the card's rows were rendered by the previous release (the Backup &
+Restore time only server-side) and the page still runs that release's scripts.
+Closing after a failure leaves the page as it is.
 
 ## The end of an image update
 

@@ -85,6 +85,7 @@ See [Developer Guide](developer-guide.md), [Project Configuration](project-confi
 - A generated Compose baseline with `web`, `celery`, `db`, `redis`, Caddy (nginx fallback), SMTP relay, and Composer's agent/executor/proxy topology.
 - Compose `pre_start` reconciliation/migration hooks, a persistent runtime volume, active-release supervisor, maintenance handling, and health checks.
 - Composer-owned package/image update execution with manifest safety gates, backup-before-intent behavior, external health-gated activation, and rollback.
+- The Options Updates card settles a check on its result without a reload (any state read or a return to the tab ends it), its review dialog lists the offered release's own highlights when Composer publishes them, its progress log leaves out DEBUG log records, and Finish after an inline update reloads the page onto the new release.
 - Generated stack files (`compose.yml`, `Dockerfile`, `.env`, proxy configs, entrypoint) carry the stack contract schema they were written for, reported by the `stack.schema` doctor check ([Stack Schema Stamps](stack-schema.md)).
 - Stable and beta release channels: stable is the default and excludes every prerelease, beta is an explicit per-deployment opt-in, and opting out never downgrades an installed release.
 - The maintenance page ships in the Composer image and is published on the runtime volume (stack schema 3); a project keeps its own page in `.proxy/maintenance/`.
