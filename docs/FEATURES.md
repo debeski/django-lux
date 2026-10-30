@@ -5,10 +5,11 @@
   Relation labels reuse parser storage, and delayed responses cannot replace a
   newer view. See [viewer behavior](../tools/dlb-viewer/README.md#large-model-browsing).
 
-- **ScanLink stress fixes (1.15.1b2 / 0.8.0b1):** Scan requests use one
-  negotiated transport and never resubmit after an ambiguous connection loss;
-  English/Arabic guidance asks operators to check the helper. The paired worker
-  fixes completion timing, hard deadlines, request validation and result races.
+- **ScanLink stress fixes (1.15.1b2 / 0.8.0b1, health per scan with 0.8.0b2):**
+  Every scan re-negotiates its transport through a health check, then sends one
+  POST and never resubmits after an ambiguous connection loss; English/Arabic
+  guidance asks operators to check the helper. The paired worker fixes
+  completion timing, hard deadlines, request validation and result races.
 
 Forms declaring `dlux_sticky_server = True` retain their server-computed sticky defaults in dynamic modals, including next reference numbers and validation rerenders. See [assisted entry](template-customization.md#assisted-entry).
 
