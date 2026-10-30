@@ -77,7 +77,7 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-29 combined1.15.2b1:3101 OK/6 skips; Django check, Go race/vet/five-platform builds, desktop/mobile viewer tests, bare/base v1.15.1/classifier/build/twine PASS. Paired Composer882 OK/4 skips + CI40816717339 PASS; `.xclude/validation/combined/`.
+- 2026-10-30 Python 3.14.6 local full suite (`uv venv .xclude/venv314`, Django 6.1.2, pillow 13.0.0): 3101 OK/9 skips in 268 s; CI + release matrices gain 3.14 and the Postgres contracts move to 3.14 (`1.15/ci_python_314`). CI job time swings 4.4–8.9 min per job with no Python-version pattern: same commit, 237 s vs 443 s spread evenly over every module = runner speed, not a stalled test.
 ### One-line info about last time edited Docs:
 - 2026-10-30: #26 tidied the v1.15.2b1 changelog (dropped duplicate wrapper 5 entry, restored DLB loading-feedback and password-derivation entries lost in the viewer merges).
 
@@ -90,7 +90,7 @@
 - Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Follow-up stress complete on `1.15/scanlink_stress` + ScanLink `0.8/stress_fixes`; candidates1.15.1b2/0.8.0b1 unpushed/unpublished.8097 stays published1.15.1b1, real installers/Caddy64MB/data preserved; synthetic60 now7 PDF pages. Candidate browser assets/template fixture tested through routing; real worker with hardware child simulated. Evidence `.xclude/validation/paired-stress-2026-10-25/report.md`. Prior PR14 bypass applied only to that beta.
+- Security audit of dlux + Composer + ScanLink (read-only, ranked findings; brief in the 2026-10-30 session card) is deferred by the owner until the work currently in flight in all three repos lands; the owner says when. Consumer projects ship stable only — never pin a beta in Decrees for testing; use testbed compose mounts/overlays.
 - Stable1.14.0+Composer1.8.0 accepted on8096. :8097 depy/testbed-dlux-ocr uses Composer wrapper --dev, .secrets/.env, standard admin credentials; updated b1 wheel in dlux-ocr-1.15-b1-background:acceptance, no source mounts, inline-off. Background test settings restored/off; controls available. Updates-card deferred; Archive adoption separate.
 - 1.15/OCR polish/stress testing authorized2026-10-25. Preserve0029 and OCR work while integrating stable; no main bypass or tag until beta candidate validated. Legacy S5/privacy cleanup remain separate. Never alter tagged migrations.
 - Test stacks live only at `~/Desktop/depy/testbed-*` and use Composer wrappers in dev mode; official `testbed-dlux` is protected unless owner directs otherwise. Accept published betas there before promoting.
