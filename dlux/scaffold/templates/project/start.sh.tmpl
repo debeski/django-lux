@@ -1,5 +1,5 @@
 #!/bin/bash
-# composer-wrapper: 5
+# composer-wrapper: 6
 set -euo pipefail
 
 # Closing the terminal must not abort a run in flight. The ignored disposition
@@ -31,25 +31,33 @@ composer_self_image="${COMPOSER_SELF_IMAGE:-${composer_channel_image}}"
 # this image cannot replace it. `update self` refreshes only the deployer;
 # `update` with no named services refreshes it first, so the stack update
 # that follows runs on the new deployer. Named services skip the refresh.
-composer_image_version() {
-  docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION 2>/dev/null || true
+composer_image_id() {
+  docker image inspect --format '{{.Id}}' "${composer_self_image}" 2>/dev/null || true
 }
 
+composer_image_version() {
+  docker run --rm --entrypoint cat "$1" /app/VERSION 2>/dev/null || true
+}
+
+# A rebuilt tag can keep its version string, so compare image IDs, and start
+# a container for a version only when there is one to report. The replaced
+# image stays readable by ID after the pull.
 refresh_deployer() {
-  local before="" after=""
-  if docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
-    before="$(composer_image_version)"
-  fi
+  local before_id="" after_id="" before=""
+  before_id="$(composer_image_id)"
   echo "Updating the Composer deployer (${composer_self_image})..."
   if ! docker pull "${composer_self_image}"; then
     return 1
   fi
-  after="$(composer_image_version)"
-  if [[ -n "${before}" && "${before}" == "${after}" ]]; then
-    echo "Composer deployer is up to date (${after})."
-  else
-    echo "Composer deployer: ${before:-not installed} -> ${after}"
+  after_id="$(composer_image_id)"
+  if [[ -n "${before_id}" && "${before_id}" == "${after_id}" ]]; then
+    echo "Composer deployer is up to date ($(composer_image_version "${composer_self_image}"))."
+    return 0
   fi
+  if [[ -n "${before_id}" ]]; then
+    before="$(composer_image_version "${before_id}")"
+  fi
+  echo "Composer deployer: ${before:-not installed} -> $(composer_image_version "${composer_self_image}")"
 }
 
 # bash 3.2 has no safe empty-array expansion under `set -u`, so classify the
@@ -75,22 +83,26 @@ classify_invocation() {
   if [[ "${command}" != "update" ]]; then
     return 0
   fi
-  if [[ $# -eq 1 && "$1" == "self" ]]; then
-    invocation="update_self"
-    return 0
-  fi
+  # `update self` takes only the global -f/-d options, in any position, like
+  # composer itself; anything else is left for composer to reject.
+  local selves=0 options=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h|--help) return 0 ;;
-      -f|--file|-a|--app|--status-file) shift ;;
-      -*) ;;
+      self) selves=$((selves + 1)) ;;
+      -d|--dev|--file=*) ;;
+      -f|--file) if [[ $# -gt 1 ]]; then shift; fi ;;
+      -a|--app|--status-file) options=1; if [[ $# -gt 1 ]]; then shift; fi ;;
+      -*) options=1 ;;
       *) return 0 ;;
     esac
-    if [[ $# -gt 0 ]]; then
-      shift
-    fi
+    shift
   done
-  invocation="update_all"
+  if [[ ${selves} -eq 0 ]]; then
+    invocation="update_all"
+  elif [[ ${selves} -eq 1 && ${options} -eq 0 ]]; then
+    invocation="update_self"
+  fi
 }
 
 classify_invocation "$@"
