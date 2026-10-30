@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **CI On Python 3.14**: The CI and release test matrices add Python 3.14, the version the scaffolded `python:3.14-slim` project images run, and the Postgres settings contracts run on 3.14 instead of 3.13. No runtime change.
+
 ## v1.15.2b1
 
 - **1.15.2 Candidate**: Patch beta on stable 1.15.1. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices (wrapper 5's `update`/`update self` only pull the deployer image before calling commands Composer 1.9.0 already has). Paired Composer beta: 1.9.1b1.

@@ -77,7 +77,7 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-29 combined1.15.2b1:3101 OK/6 skips; Django check, Go race/vet/five-platform builds, desktop/mobile viewer tests, bare/base v1.15.1/classifier/build/twine PASS. Paired Composer882 OK/4 skips + CI40816717339 PASS; `.xclude/validation/combined/`.
+- 2026-10-30 Python 3.14.6 local full suite (`uv venv .xclude/venv314`, Django 6.1.2, pillow 13.0.0): 3101 OK/9 skips in 268 s; CI + release matrices gain 3.14 and the Postgres contracts move to 3.14 (`1.15/ci_python_314`). CI job time swings 4.4–8.9 min per job with no Python-version pattern: same commit, 237 s vs 443 s spread evenly over every module = runner speed, not a stalled test.
 ### One-line info about last time edited Docs:
 - 2026-10-30: #26 tidied the v1.15.2b1 changelog (dropped duplicate wrapper 5 entry, restored DLB loading-feedback and password-derivation entries lost in the viewer merges).
 
