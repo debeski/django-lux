@@ -344,7 +344,7 @@ class ScaffoldTests(unittest.TestCase):
                     self.assertIn(".composer-channel", contents)
                     self.assertIn("debeski/composer:beta", contents)
                     self.assertIn("COMPOSER_SELF_IMAGE", contents)
-            # Wrapper 5: `update self` refreshes only the deployer and an unscoped
+            # Wrapper 5+: `update self` refreshes only the deployer and an unscoped
             # `update` refreshes it first; `self update` is a deprecated alias.
             for name, contents in (
                 ("start.sh", start_sh_contents), ("start.ps1", start_ps1_contents),
@@ -374,7 +374,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 5
+        expected = 6
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):
