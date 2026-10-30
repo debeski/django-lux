@@ -77,9 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-10-30 `1.15/installed_release_notes`: test_all 3112 OK/6 skips + Django check; updater e2e (updates_card_cycle/image_update_finish/ops_rows) 22/22. Not driven on a testbed stack.
+- 2026-10-30 `1.15/updates_card_refresh` (both commits, rebased on main 77a1081): test_all 3112 OK/6 skips + Django check; updater e2e (updates_card_cycle/image_update_finish/ops_rows) 22/22. Installed-notes commit not driven on a testbed stack.
 ### One-line info about last time edited Docs:
-- 2026-10-30 `1.15/installed_release_notes`: `docs/inline-updater.md` (reconcile records installed/rollback notes), FEATURES/reference state fields; CHANGELOG Unreleased entry.
+- 2026-10-30 `1.15/updates_card_refresh`: `docs/inline-updater.md` (check settling, offered/installed/rollback notes, end of an inline update), FEATURES/reference state fields; five CHANGELOG Unreleased entries.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
