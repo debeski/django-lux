@@ -1,7 +1,7 @@
 # Project Tracker (django-lux) [Max 100 lines total]
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- 2026-10-29: `1.15/release_1_15_2b1` combines #21–#24 with tested DLB viewer164b715 (loading, key derivation, bounded indexes/navigation). Candidate1.15.2b1; Composer1.9.1b1 combines #7/#8, floor stays>=1.9.0b2. Combined3101/Go race/browser/five-platform/build gates PASS; PR25 updated; GitHub CI/main review pending; untagged.
+- 2026-10-30: **v1.15.2b1 published** (tag on main befc15e, PRs #21–#26; release 41010703168 PASS): PyPI wheel+sdist (wheel content = local tag build, 705 files), GitHub prerelease 7 assets, notes 9 entries; PyPI/GitHub latest stay 1.15.1. Paired **Composer v1.9.1b1 published** (0e6a7eb, run 41009888473): `:v1.9.1b1`=`:beta` amd64+arm64, `:latest` stays 1.9.0. Floor `>=1.9.0b2`. **Accepted on testbed-dlux 2026-10-30** (real clicks: beta channel, Options update, eye+guard one POST, PDF single fetch, rollback/re-apply, wrapper 5 via check --fix, update/update self, DLB viewer); gaps + pre-existing card issues in `main/.xclude/validation/1.15.2b1-acceptance-2026-10-30/report.md`. Next: stable 1.15.2 + Composer 1.9.1, only then Decrees 2.1.27 pinned to those stables (serve_file, guard opt-in), tested beforehand via testbed compose mounts.
 - Baseline1.15.0b1 is published at tag84b58f5 (release40208617201 PASS), with Composer1.9.0b1. Earlier failed-tag recovery is superseded; this patch preserved OCR models/migrations and original8097 data.
 - Stack stamps: compose `x-environment` `DLUX_STACK_SCHEMA`, Dockerfile `org.dlux.stack-schema`, `dlux stack schema N` headers (`start.*` keep Composer's marker); unstamped = skipped, mismatch = warning. Existing projects stay unstamped until edited. `docs/doctor.md` claims Composer drift-diffs against `dlux_stack_contract`; it never has (weighing, unchanged).
 - **v1.11.0b2 (beta, published 2026-10-06)**: reconcile rewrites a stale `source: image` version in `active.json`; image update modal locks, clears the old log, waits for DjangoLux's completion and offers Finish; scaffold maintenance page returns to its own URL on any end state. PyPI + GitHub prerelease. Accepted on `testbed-dlux` with Composer 1.6.1b2: inline `--version 1.11.0b2` (unpinned update hit a stale PyPI CDN copy of the simple index twice), 96 assets `v=1.11.0b2`, served updater.js has the new completion path, `check --deep` + `run -m` report 1.11.0b2. Not driven live: an actual image update (testbed image is a local build, so none is offered) and the stale image version (needs a baked image >=1.11.0b2).
@@ -24,7 +24,7 @@
 ### Adopted Standards' rules and policies:
 - Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work. Repo agent rules live in committed `AGENTS.md` (union of the two divergent copies, 2026-10-17); `CLAUDE.md` only imports it, and both are no longer gitignored so fresh clones and cloud sessions see them.
 - Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
-- **Beta first, every release, no exceptions** (2026-09-24): tag `vX.Y.ZbN`, test it on the beta channel, and only then tag the stable. `requires_beta_first()` now returns True for patches too, in both repos. A cross-repo floor names the other release's FIRST prerelease (`>=1.5.3b1`), or the two betas cannot be tested against each other.
+- **Beta first, every release, no exceptions** (2026-09-24): tag `vX.Y.ZbN`, test it on the beta channel, and only then tag the stable. `requires_beta_first()` now returns True for patches too, in both repos. A cross-repo floor names the other release's FIRST prerelease (`>=1.5.3b1`), or the two betas cannot be tested against each other. **Consumers ship stable only** (owner 2026-10-30): Decrees and every `project-*` are committed/released only on published stable DjangoLux/Composer/ScanLink — betas are tested on testbed compose stacks (mounts, overlays, beta channel), never pinned in a consumer.
 - **One release line (2026-10-21)**: `release/1.10.x` retired (tip kept as tag `archive/release-1.10.x`: v1.10.3 + 2 docs commits); no 1.11.x line. Fixes ship on `main` only; consumers upgrade to the current stable instead of receiving backports.
 - Never delete files; move superseded material into `.xclude/` with its relative path.
 - New feature releases/workstreams start from verified `main` on separate one-feature branches; merge only after branch-local implementation, docs, and tests pass.
@@ -79,7 +79,7 @@
 ### One-line info about last verified Tests:
 - 2026-10-29 combined1.15.2b1:3101 OK/6 skips; Django check, Go race/vet/five-platform builds, desktop/mobile viewer tests, bare/base v1.15.1/classifier/build/twine PASS. Paired Composer882 OK/4 skips + CI40816717339 PASS; `.xclude/validation/combined/`.
 ### One-line info about last time edited Docs:
-- 2026-10-29:1.15.2b1 changelog/manifest fold in viewer loading/performance; viewer README, FEATURES/reference and synthetic fixture provenance included. Paired Composer1.9.1b1 folds PR8 action pins into PR7.
+- 2026-10-30: #26 tidied the v1.15.2b1 changelog (dropped duplicate wrapper 5 entry, restored DLB loading-feedback and password-derivation entries lost in the viewer merges).
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
