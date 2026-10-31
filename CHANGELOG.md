@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.3
+
+- **Stable 1.15.3: SECURITY (High Priority)**: Promote the published and accepted 1.15.3b1. The generated proxy served every stored `/media/` file without authorization; stored files are now private by default (stack schema 4). **Every project using DjangoLux should upgrade now**, then run `./start.sh check --fix` with Composer 1.9.2+ (paired stable), which rewrites an unmodified generated proxy and restarts it. A hand-edited proxy needs the `/media/` blocks copied by hand and `./start.sh restart caddy`. Accepted on testbed-dlux 2026-10-31: the exposed proxy was reported, the fix was refused on 1.15.1 and applied on 1.15.3b1; afterwards signed-out requests got 403 and signed-in ones 200. No migrations; no runtime, dependency or migration changes from 1.15.3b1.
+
 ## v1.15.3b1
 
 - **1.15.3 Security Candidate**: Patch beta on stable 1.15.2 carrying only the high-priority stored-files security fix below. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices for updates. Paired Composer beta 1.9.2b1 adds the `stored-files` check and the `check --fix` proxy migration that existing stacks need.
