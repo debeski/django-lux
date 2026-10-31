@@ -9,6 +9,13 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Stored Files Private By Default (Stack Schema 4)**: The scaffold's `.proxy/Caddyfile` served every `/media/` file to anyone, so a direct link to a document PDF, receipt or attachment needed no login; three consumer projects found this in production. The proxy now serves only `public/`, `dlux/branding/`, `dlux/assets/image/` and `dlux/assets/font/` directly. For any other file it asks the new `dlux.files.media.media_access` (`/sys/files/media-access/`, via Caddy `forward_auth` or nginx `auth_request`):
+  - backups, `dlux/assets/private/` and `dlux/file_history/` are refused to everyone;
+  - a registered document file is served only to users who reach the document in its scoped queryset and pass `can_access('view')`, and a case variant of its name is refused;
+  - other files are served to signed-in users.
+
+  New settings `DLUX_PUBLIC_MEDIA` and `DLUX_APP_ONLY_MEDIA` extend the two lists. The stack contract moves to schema 4; existing projects copy the new `/media/` blocks into their own proxy file (`docs/deployment-configuration.md`). Covered by `dlux/tests/test_media_access.py`, and checked against `caddy:latest` for traversal, encoded, case and spoofed-header requests.
+
 ## v1.15.2
 
 - **Stable 1.15.2**: Promote the published and accepted 1.15.2b2 implementation, which includes 1.15.2b1: the unsaved-changes prompt saves once, an eye on each header shows or hides personal columns, the PDF viewer downloads once and stored files are served with ranges and 304 revalidation (`serve_file`), the DLB viewer shows loading progress and browses large models faster, the scaffold writes Composer wrapper 6, the Updates card settles checks, shows each release's own notes and reloads after Finish, and the bundled ScanLink client health-checks before every scan. Requires Composer `>=1.9.0b2`; paired stable Composer is 1.9.1, which publishes the release notes the Updates card shows. No migrations since 1.15.1; no runtime, dependency or migration changes from 1.15.2b2.

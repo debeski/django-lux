@@ -97,10 +97,32 @@
 			file_server
 		}
 
-		# Media files. (nginx: location /media/ { alias /app/media/; })
-		handle_path /media/* {
+		# Public media: branding, managed images and fonts, and the project's
+		# public/ folder, served to anyone. Keep in step with
+		# dlux.files.media.PUBLIC_MEDIA.
+		# (nginx: location ^~ /media/public/ … { root /app; })
+		@public_media path /media/public/* /media/dlux/branding/* /media/dlux/assets/image/* /media/dlux/assets/font/*
+		handle @public_media {
+			uri strip_prefix /media
 			root * /app/media
 			file_server
+		}
+
+		# Every other stored file is private: the app decides who gets it
+		# (signed in, and a registered document file only to users who may view
+		# its document) before the file server sends a byte. Projects add public
+		# folders with DLUX_PUBLIC_MEDIA and app-only ones with DLUX_APP_ONLY_MEDIA.
+		# (nginx: location /media/ { auth_request /_dlux_media_access; root /app; })
+		handle /media/* {
+			route {
+				forward_auth web:8000 {
+					uri /sys/files/media-access/
+				}
+				uri strip_prefix /media
+				root * /app/media
+				header Cache-Control "private, no-cache"
+				file_server
+			}
 		}
 
 		# Hybrid health endpoint:

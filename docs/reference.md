@@ -218,6 +218,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
+| `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. See [Stored files](deployment-configuration.md#stored-files-media). |
 | `/sys/options/app-settings/<namespace>/` | Superuser-only modal for settings registered with `register_app_settings(...)` |
 | `/sys/options/app-settings-group/<group_id>/` | Superuser-only modal for a tile registered with `register_app_settings_group(...)`: every grouped section, one Save |
 | `/sys/users/` | User management |

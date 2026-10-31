@@ -4,6 +4,7 @@ from django.urls import path
 from . import views, api
 from django.contrib.auth import views as auth_views
 from .views.weather import weather_current, weather_locations
+from .files import media as media_views
 from .files import views as file_views
 from .ocr import views as ocr_views
 
@@ -129,6 +130,7 @@ urlpatterns = [
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/assets/upload/', views.managed_asset_picker_upload, name='managed_asset_picker_upload'),
     path('sys/files/convert/', file_views.convert_to_pdf, name='dlux_files_convert'),
+    path('sys/files/media-access/', media_views.media_access, name='dlux_media_access'),
     path('sys/files/<str:app_label>/<str:model_name>/<str:pk>/<str:field_name>/source/', file_views.document_file_source, name='dlux_document_file_source'),
     path('sys/files/<str:app_label>/<str:model_name>/<str:pk>/<str:field_name>/download/', file_views.document_file_download, name='dlux_document_file_download'),
     path('sys/files/<str:app_label>/<str:model_name>/<str:pk>/<str:field_name>/edit/', file_views.document_file_edit, name='dlux_document_file_edit'),
