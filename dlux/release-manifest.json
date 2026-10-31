@@ -1,16 +1,14 @@
 {
   "schema_version": 2,
-  "version": "1.15.3",
+  "version": "1.15.4b1",
   "display": {
-    "summary": "SECURITY (high priority): stored files were served without authorization. 1.15.3 makes them private; after updating, run ./start.sh check --fix (Composer 1.9.2+) so the proxy asks DjangoLux before serving them.",
+    "summary": "Lighter pages: each page loads only the stylesheet of the theme in use, and switching themes loads the new one before fading to it.",
     "highlights": [
-      "SECURITY: the generated proxy served every /media/ file to anyone, without signing in. Stored files are now private by default (stack schema 4).",
-      "Only media/public/, branding and managed images and fonts stay public; every other stored file is checked by the app first.",
-      "A registered document's file reaches only users who may view that document; backups, protected assets and file history are never served from /media/.",
-      "Updating DjangoLux alone does not change your proxy: run ./start.sh check --fix with Composer 1.9.2+, or copy the new /media/ blocks by hand.",
-      "List folders your site shows to signed-out visitors in DLUX_PUBLIC_MEDIA (or move them under media/public/) before switching."
+      "Pages link only the active theme's stylesheet instead of every allowed theme's (about 425 KB of uncompressed CSS when all twelve are allowed).",
+      "Switching themes loads the new stylesheet first and then fades to it; the newest of several quick switches wins.",
+      "From 1.15.2 or earlier? This includes the 1.15.3 security fix: afterwards run ./start.sh check --fix (Composer 1.9.2+) so stored files stay private."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.4b1"
   },
   "requires": {
     "updater_schema": ">=1",
