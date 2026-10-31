@@ -159,9 +159,11 @@ A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: p
 
 **Existing stacks (schema 3 or unstamped)** serve every `/media/` file to anyone. The image update doesn't change this, because the proxy file lives in the project:
 
-1. Copy the `/media/` blocks from the 1.15.3 scaffold's `.proxy/Caddyfile` (or `.proxy/default.conf.template`) into the project's own copy.
-2. Restamp both files and `compose.yml`'s `DLUX_STACK_SCHEMA` to `4`.
-3. Run `./start.sh` so the proxy reloads its configuration.
+1. Update DjangoLux to 1.15.3 or later.
+2. Run `./start.sh check --fix` with Composer 1.9.2 or later. `composer check` reports the exposure as a `stored-files` failure. The fix rewrites an unmodified generated proxy file to these blocks, validates it, restamps it to 4, archives the original under `.xclude/composer-check/`, and recreates the proxy. It refuses while the running DjangoLux is older than 1.15.3.
+3. If the proxy file was edited by hand, Composer reports it and leaves it alone. Copy the `/media/` blocks from the 1.15.3 scaffold's `.proxy/Caddyfile` (or `.proxy/default.conf.template`) into it, restamp it and `compose.yml`'s `DLUX_STACK_SCHEMA` to `4`, and run `./start.sh`.
+
+Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
 Projects that already deny their own folders in the proxy can keep those rules; they don't conflict.
 

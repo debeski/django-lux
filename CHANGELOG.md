@@ -14,7 +14,7 @@ This file owns the release history for `django-lux`.
   - a registered document file is served only to users who reach the document in its scoped queryset and pass `can_access('view')`, and a case variant of its name is refused;
   - other files are served to signed-in users.
 
-  New settings `DLUX_PUBLIC_MEDIA` and `DLUX_APP_ONLY_MEDIA` extend the two lists. The stack contract moves to schema 4; existing projects copy the new `/media/` blocks into their own proxy file (`docs/deployment-configuration.md`). Covered by `dlux/tests/test_media_access.py`, and checked against `caddy:latest` for traversal, encoded, case and spoofed-header requests.
+  New settings `DLUX_PUBLIC_MEDIA` and `DLUX_APP_ONLY_MEDIA` extend the two lists. The stack contract moves to schema 4. **Existing projects:** after updating DjangoLux, run `./start.sh check --fix` with Composer 1.9.2+, which rewrites an unmodified generated proxy file (debeski/composer#14). Otherwise copy the new `/media/` blocks into the proxy file by hand (`docs/deployment-configuration.md`). Covered by `dlux/tests/test_media_access.py`, and checked against `caddy:latest` for traversal, encoded, case and spoofed-header requests.
 
 ## v1.15.2
 
