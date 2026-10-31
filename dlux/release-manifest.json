@@ -1,19 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.15.2",
+  "version": "1.15.3b1",
   "display": {
-    "summary": "Patch release: forms save once, personal column eye controls, faster PDF opening and backup browsing, Composer wrapper 6, an Updates card that settles and shows release notes, and ScanLink checks before every scan.",
+    "summary": "SECURITY (high priority): stored files were served without authorization. 1.15.3 makes them private; after updating, run ./start.sh check --fix (Composer 1.9.2+) so the proxy asks DjangoLux before serving them.",
     "highlights": [
-      "Save changes in the unsaved-changes prompt submits the form once instead of twice.",
-      "Arrange columns shows an eye on each header to show or hide it; the inspector is gone.",
-      "The PDF viewer downloads a file once, and reopening a record revalidates instead of downloading it again.",
-      "The backup viewer shows loading progress, uses faster password derivation and cached deep pages, and keeps your current view when older requests finish.",
-      "New projects get Composer wrapper 6: ./start.sh update refreshes the deployer first, and ./start.sh update self accepts -f/-d anywhere.",
-      "The Updates card stops spinning when a check ends, shows each release's own notes, and reloads after Finish so the page matches the new release.",
-      "The update log no longer shows DEBUG lines from the project's own logging.",
-      "ScanLink re-checks its connection before every scan, so a lost HTTPS link falls back to HTTP instead of failing the scan."
+      "SECURITY: the generated proxy served every /media/ file to anyone, without signing in. Stored files are now private by default (stack schema 4).",
+      "Only media/public/, branding and managed images and fonts stay public; every other stored file is checked by the app first.",
+      "A registered document's file reaches only users who may view that document; backups, protected assets and file history are never served from /media/.",
+      "Updating DjangoLux alone does not change your proxy: run ./start.sh check --fix with Composer 1.9.2+, or copy the new /media/ blocks by hand.",
+      "List folders your site shows to signed-out visitors in DLUX_PUBLIC_MEDIA (or move them under media/public/) before switching."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.3b1"
   },
   "requires": {
     "updater_schema": ">=1",
