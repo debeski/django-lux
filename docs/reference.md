@@ -1588,6 +1588,9 @@ Theme/runtime UI notes:
 - the options page uses `.theme-preview` selectors
 - the sidebar toolbar picker uses `.theme-option-circle` selectors
 - runtime theme changes dispatch the `dlux:theme-changed` event so secondary UI such as the sidebar indicator can sync without a refresh
+- a page links only the active theme's stylesheet (`DLUX_ACTIVE_THEME`, `link[data-dlux-theme-css]`); the other allowed themes' links sit in the inert `<template id="dlux-theme-stylesheets">`
+- `window.setTheme(slug)` loads the target theme's stylesheet beside the active one and switches once it has loaded; only the latest of several quick switches applies
+- `window.dluxLoadThemeStylesheet(slug[, url])` loads a theme's stylesheet without switching and returns a promise of `true` once it has loaded (`false` when no URL is known or the request failed)
 
 Options/runtime UI notes:
 

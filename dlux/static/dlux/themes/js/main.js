@@ -4,29 +4,79 @@ document.addEventListener('DOMContentLoaded', function() {
         ? window.DLUX_THEME_NAMES
         : ['light'];
     const defaultTheme = (window.DLUX_CONFIG && window.DLUX_CONFIG.default_theme) || themes[0] || 'light';
+    const themeCssUrls = {};
+    const themeStylesheets = new Map();
     const previewThemes = new Set();
     const themeSwitchFade = {
         swapTimer: null,
         cleanupTimer: null,
         revision: 0,
     };
+    let themeRequest = 0;
+
+    document.getElementById('dlux-theme-stylesheets')?.content
+        .querySelectorAll('link[data-dlux-theme-css]')
+        .forEach((link) => {
+            themeCssUrls[link.dataset.dluxThemeCss] = link.getAttribute('href');
+        });
 
     // Load saved theme
     const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || defaultTheme);
+    const initialTheme = themes.includes(savedTheme) ? savedTheme : defaultTheme;
     themes.forEach(t => root.classList.remove(`theme-${t}`));
-    root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : defaultTheme}`);
+    root.classList.add(`theme-${initialTheme}`);
+    loadThemeStylesheet(initialTheme);
 
-    function loadPreviewStylesheet(theme, url) {
-        if (!theme || !url || document.querySelector(`[data-dlux-preview-theme-css="${theme}"]`)) {
-            return;
+    // The page ships only the active theme's stylesheet. Another theme's sheet
+    // is inserted beside it, keeping its place in the cascade, and resolves once
+    // it has loaded so a switch never paints the page unstyled.
+    function loadThemeStylesheet(theme, url) {
+        if (!theme) {
+            return Promise.resolve(false);
+        }
+        if (themeStylesheets.has(theme)) {
+            return themeStylesheets.get(theme);
         }
 
-        const stylesheet = document.createElement('link');
+        let stylesheet = document.querySelector(`link[data-dlux-theme-css="${CSS.escape(theme)}"]`);
+        if (stylesheet && stylesheet.sheet) {
+            const loaded = Promise.resolve(true);
+            themeStylesheets.set(theme, loaded);
+            return loaded;
+        }
+        if (stylesheet) {
+            // A server-rendered sheet without a CSSOM sheet by now failed to load.
+            stylesheet.remove();
+        }
+
+        const href = themeCssUrls[theme] || url;
+        if (!href) {
+            return Promise.resolve(false);
+        }
+        const anchors = document.querySelectorAll('link[data-dlux-theme-css]');
+        stylesheet = document.createElement('link');
         stylesheet.rel = 'stylesheet';
-        stylesheet.href = url;
-        stylesheet.dataset.dluxPreviewThemeCss = theme;
-        document.head.appendChild(stylesheet);
+        stylesheet.href = href;
+        stylesheet.dataset.dluxThemeCss = theme;
+
+        const loading = new Promise((resolve) => {
+            stylesheet.addEventListener('load', () => resolve(true), { once: true });
+            stylesheet.addEventListener('error', () => {
+                themeStylesheets.delete(theme);
+                stylesheet.remove();
+                resolve(false);
+            }, { once: true });
+        });
+        themeStylesheets.set(theme, loading);
+        if (anchors.length) {
+            anchors[anchors.length - 1].after(stylesheet);
+        } else {
+            document.head.appendChild(stylesheet);
+        }
+        return loading;
     }
+
+    window.dluxLoadThemeStylesheet = loadThemeStylesheet;
 
     function applyTheme(resolvedTheme) {
         // Remove all current theme classes
@@ -101,13 +151,17 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setTheme = function(theme, options) {
         const allowPreviewTheme = Boolean(options && options.preview && theme);
         const resolvedTheme = theme && (themes.includes(theme) || allowPreviewTheme) ? theme : defaultTheme;
+        const request = ++themeRequest;
 
         if (allowPreviewTheme && !themes.includes(resolvedTheme)) {
             previewThemes.add(resolvedTheme);
-            loadPreviewStylesheet(resolvedTheme, options.cssUrl);
         }
 
-        fadeThemeSwitch(resolvedTheme);
+        loadThemeStylesheet(resolvedTheme, options && options.cssUrl).then(() => {
+            if (request === themeRequest) {
+                fadeThemeSwitch(resolvedTheme);
+            }
+        });
     };
 
     function updateActiveThemeUI(activeTheme) {

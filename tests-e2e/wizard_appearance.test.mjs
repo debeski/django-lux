@@ -57,13 +57,14 @@ describe('wizard appearance cluster', { concurrency: 1 }, () => {
     const { ctx, page, errors } = await wizard();
     try {
       await stepContaining(page, '.dlux-language-fonts-table-wrap');
-      const surfaces = await page.evaluate(() => {
+      const surfaces = await page.evaluate(async () => {
         const root = document.documentElement;
         const wrap = document.querySelector('.dlux-language-fonts-table-wrap');
         const table = wrap?.querySelector('.dlux-language-fonts-table');
         if (!wrap || !table) return null;
         const result = {};
         for (const theme of ['mono', 'dark']) {
+          await window.dluxLoadThemeStylesheet(theme);
           [...root.classList]
             .filter((name) => name.startsWith('theme-'))
             .forEach((name) => root.classList.remove(name));

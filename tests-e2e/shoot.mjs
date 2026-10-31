@@ -2,12 +2,13 @@
 //
 // Usage:  node shoot.mjs <baseline|current> [--phase main|setup] [--append]
 //
-// Every allowed theme's stylesheet is already present on every page (base.html
-// loops DLUX_THEMES and emits a <link> for each), and the active theme is only
-// a class on <html>. So one page load yields all 12 themes: set the class, wait
-// for a paint, shoot. That is ~12x fewer navigations than switching the theme
-// through the preference API, and it isolates the CSS from the preference
-// plumbing — which is the point, since only the CSS is being refactored.
+// A page links only the active theme's stylesheet, `dluxLoadThemeStylesheet`
+// adds any other allowed theme's beside it, and the active theme is only a
+// class on <html>. So one page load yields all 12 themes: load the sheet, set
+// the class, wait for a paint, shoot. That is ~12x fewer navigations than
+// switching the theme through the preference API, and it isolates the CSS from
+// the preference plumbing — which is the point, since only the CSS is being
+// refactored.
 
 import { chromium } from 'playwright';
 import { mkdir, rm } from 'node:fs/promises';
@@ -178,7 +179,8 @@ async function usable(resp, route) {
 async function shootThemes(p, route) {
   let n = 0;
   for (const theme of THEMES) {
-    await p.evaluate((t) => {
+    await p.evaluate(async (t) => {
+      await window.dluxLoadThemeStylesheet(t);
       const root = document.documentElement;
       [...root.classList].filter((c) => c.startsWith('theme-')).forEach((c) => root.classList.remove(c));
       root.classList.add(`theme-${t}`);

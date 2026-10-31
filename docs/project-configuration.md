@@ -28,6 +28,8 @@ Register project-owned themes with `DLUX_CUSTOM_THEMES` and WOFF2 font families 
 
 A rule that applies to one named theme (`:root.theme-dark .x`) lives in that theme's stylesheet under `dlux/static/dlux/themes/css/`, never in a feature stylesheet; feature CSS styles every theme through `--dlux-*` tokens whose defaults sit in `base/css/main.css`. `test_theme_tokens` enforces this for the package. Custom themes follow the same rule in their own CSS file.
 
+A page links only the active theme's stylesheet: the server resolves the reader's theme (their preference, the scope or system default, or the forced public-page theme) and `base.html` emits that one `<link data-dlux-theme-css="<slug>">`. The other allowed themes are listed in an inert `<template id="dlux-theme-stylesheets">`, and `window.setTheme(slug)` loads the chosen sheet beside the active one before it switches, so a custom theme's CSS is fetched only by readers who use it. Project CSS keyed to one theme (`:root.theme-neon .x`) behaves as before. Script that needs another theme's rules without switching to it (a test, a preview) awaits `window.dluxLoadThemeStylesheet(slug)` first.
+
 Each custom theme must have a stable slug, translated display name, and a static CSS path. Each custom font must identify its family and available WOFF2 variants. Keep assets inside the project static tree and test both LTR and RTL rendering. The exact accepted setting shapes and defaults are listed in [Deployment Configuration](deployment-configuration.md).
 
 ## Settings integration
