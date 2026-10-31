@@ -62,9 +62,12 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/setup/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/inspector/css/main.css' %}">
-    {% for theme in DLUX_THEMES %}
-    <link rel="stylesheet" href="{% dlux_static theme.css_path %}">
-    {% endfor %}
+    {% if DLUX_ACTIVE_THEME %}
+    <link rel="stylesheet" href="{% dlux_static DLUX_ACTIVE_THEME.css_path %}" data-dlux-theme-css="{{ DLUX_ACTIVE_THEME.slug }}">
+    {% endif %}
+    <template id="dlux-theme-stylesheets">{% for theme in DLUX_THEMES %}
+        <link rel="stylesheet" href="{% dlux_static theme.css_path %}" data-dlux-theme-css="{{ theme.slug }}">{% endfor %}
+    </template>
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/card_edges.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/titlebar/css/surfaces.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/accessibility/css/main.css' %}">

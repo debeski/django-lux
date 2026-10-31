@@ -44,7 +44,8 @@ for (const route of routes) {
   if (!resp || resp.status() >= 400) continue;
 
   for (const theme of FULL) {
-    await page.evaluate((th) => {
+    await page.evaluate(async (th) => {
+      await window.dluxLoadThemeStylesheet(th);
       const root = document.documentElement;
       [...root.classList].filter((c) => c.startsWith('theme-')).forEach((c) => root.classList.remove(c));
       root.classList.add(`theme-${th}`);

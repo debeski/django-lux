@@ -575,8 +575,15 @@ def dlux_context(request):
     # the normally-allowed set, so the forced public theme actually applies.
     if public_index_theme and public_root_theme and public_root_theme not in allowed_theme_names:
         allowed_theme_names = [*allowed_theme_names, public_root_theme]
+    theme_options = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
     context['DLUX_THEME_NAMES'] = allowed_theme_names
-    context['DLUX_THEMES'] = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
+    context['DLUX_THEMES'] = theme_options
+    # Only the resolved theme's stylesheet is linked; base.html lists the other
+    # allowed themes' sheets in an inert <template> the switcher loads from.
+    context['DLUX_ACTIVE_THEME'] = next(
+        (theme for theme in theme_options if theme['slug'] == user_prefs.get('theme')),
+        theme_options[0] if theme_options else None,
+    )
     context['theme_preview_css'] = generate_theme_preview_css()
     context['DLUX_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
     context['DLUX_MODAL_SIZES'] = list(MODAL_SIZE_CHOICES)

@@ -2,6 +2,8 @@ from dlux.tests.harness import setup_test_environment
 
 setup_test_environment()
 
+import re
+
 from django.test import TestCase, RequestFactory, override_settings
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
@@ -226,6 +228,71 @@ class ContextProcessorsTests(TestCase):
         self.assertEqual(context['DLUX_THEME_NAMES'], ['dark', 'retro'])
         self.assertEqual([theme['slug'] for theme in context['DLUX_THEMES']], ['dark', 'retro'])
         self.assertEqual(context['user_preferences']['theme'], 'retro')
+
+    def test_dlux_context_links_the_users_theme(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark', 'retro']
+        settings_obj.allow_user_theme_override = True
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        self.user.profile.preferences = {'theme': 'retro'}
+        self.user.profile.save(update_fields=['preferences'])
+
+        context = dlux_context(request)
+
+        self.assertEqual(context['DLUX_ACTIVE_THEME']['slug'], 'retro')
+        self.assertEqual(context['DLUX_ACTIVE_THEME']['css_path'], 'dlux/themes/css/retro.css')
+
+    def test_dlux_context_links_the_default_theme_for_anonymous_visitors(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'gothic'
+        settings_obj.allowed_themes = ['dark', 'gothic']
+        settings_obj.save()
+
+        context = dlux_context(self.factory.get('/accounts/login/'))
+
+        self.assertEqual(context['DLUX_ACTIVE_THEME']['slug'], 'gothic')
+        self.assertEqual(context['DLUX_ACTIVE_THEME']['slug'], context['user_preferences']['theme'])
+
+    def test_dlux_context_links_the_forced_public_page_theme(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.homepage_config = {
+            **(settings_obj.homepage_config or {}),
+            'public': {'enabled': True, 'theme': 'neon'},
+        }
+        settings_obj.save()
+
+        context = dlux_context(self.factory.get('/'))
+
+        self.assertEqual(context['DLUX_ACTIVE_THEME']['slug'], 'neon')
+
+    def test_rendered_page_links_only_the_active_theme_stylesheet(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'retro'
+        settings_obj.allowed_themes = ['dark', 'retro', 'neon']
+        settings_obj.save()
+
+        html = self.client.get('/accounts/login/').content.decode()
+        page, _, rest = html.partition('<template id="dlux-theme-stylesheets">')
+        templated, _, tail = rest.partition('</template>')
+        theme_link = r'<link rel="stylesheet" href="/static/dlux/themes/css/(\w+)\.css\?v=[^"]+"'
+
+        self.assertEqual(sorted(re.findall(theme_link, page + tail)), ['previews', 'retro'])
+        self.assertIn('data-dlux-theme-css="retro"', page)
+        self.assertEqual(sorted(re.findall(theme_link, templated)), ['dark', 'neon', 'retro'])
 
     def test_dlux_context_falls_back_from_disallowed_theme_and_locked_sidebar(self):
         from dlux.models import SystemSettings

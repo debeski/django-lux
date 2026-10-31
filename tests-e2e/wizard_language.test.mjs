@@ -79,7 +79,8 @@ describe('wizard language + translation editing', { concurrency: 1 }, () => {
       const scrollable = await page.$eval(selector, (wrap) => wrap.scrollHeight > wrap.clientHeight);
       assert.equal(scrollable, true, 'translation matrix is not tall enough to exercise its sticky header');
 
-      await page.evaluate(() => {
+      await page.evaluate(async () => {
+        await window.dluxLoadThemeStylesheet('dark');
         [...document.documentElement.classList]
           .filter((name) => name.startsWith('theme-'))
           .forEach((name) => document.documentElement.classList.remove(name));

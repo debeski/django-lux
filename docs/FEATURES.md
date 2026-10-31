@@ -53,7 +53,7 @@ This is a current capability map, not a release history. Use [CHANGELOG.md](../C
 - Per-user landing pages chosen by the user in Options, or assigned by administrators per user and per group preset, when the per-user homepage switch is on.
 - App-owned System Settings previews by page: `registerAppPreview(namespace, {path})` renders that page with the unsaved app form applied.
 - Grouped project settings tiles: `register_app_settings_group()` + `register_app_settings(group=...)` show several namespaces as sections of one Options tile, validated together and saved in one write (`write_app_system_configs()`).
-- Theme/font registries, custom project themes/fonts, RTL/LTR rendering, and system/user override policy.
+- Theme/font registries, custom project themes/fonts, RTL/LTR rendering, and system/user override policy. A page ships only the active theme's stylesheet; another allowed theme's sheet loads when the reader switches to it.
 - Portable setup import/export and `config.json` bootstrap for unconfigured generated projects.
 
 See [System Configuration](system-configuration.md) and [Deployment Configuration](deployment-configuration.md).

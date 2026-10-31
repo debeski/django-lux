@@ -122,7 +122,7 @@ release verification, maintenance, recovery, and rollback behavior.
 The following names may appear in templates, JavaScript, tests, or historical
 documentation, but they are not accepted deployment settings:
 
-- `DLUX_FONTS`, `DLUX_THEMES`, `DLUX_THEME_NAMES`, `DLUX_TABLE_DENSITIES`,
+- `DLUX_FONTS`, `DLUX_THEMES`, `DLUX_THEME_NAMES`, `DLUX_ACTIVE_THEME`, `DLUX_TABLE_DENSITIES`,
   `DLUX_MODAL_SIZES`, `DLUX_STRINGS`, `DLUX_URL_PREFIX`, `DLUX_URLS`,
   `DLUX_VERSION`, and `DLUX_SHOW_INITIAL_USER_SETUP` are generated runtime
   context values.
