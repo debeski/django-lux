@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.15.3b1",
+  "version": "1.15.3",
   "display": {
     "summary": "SECURITY (high priority): stored files were served without authorization. 1.15.3 makes them private; after updating, run ./start.sh check --fix (Composer 1.9.2+) so the proxy asks DjangoLux before serving them.",
     "highlights": [
@@ -10,7 +10,7 @@
       "Updating DjangoLux alone does not change your proxy: run ./start.sh check --fix with Composer 1.9.2+, or copy the new /media/ blocks by hand.",
       "List folders your site shows to signed-out visitors in DLUX_PUBLIC_MEDIA (or move them under media/public/) before switching."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.3b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.3"
   },
   "requires": {
     "updater_schema": ">=1",
