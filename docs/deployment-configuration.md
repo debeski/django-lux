@@ -161,7 +161,7 @@ A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: p
 
 1. Update DjangoLux to 1.15.3 or later.
 2. Run `./start.sh check --fix` with Composer 1.9.2 or later. `composer check` reports the exposure as a `stored-files` failure. The fix rewrites an unmodified generated proxy file to these blocks, validates it, restamps it to 4, archives the original under `.xclude/composer-check/`, and recreates the proxy. It refuses while the running DjangoLux is older than 1.15.3.
-3. If the proxy file was edited by hand, Composer reports it and leaves it alone. Copy the `/media/` blocks from the 1.15.3 scaffold's `.proxy/Caddyfile` (or `.proxy/default.conf.template`) into it, restamp it and `compose.yml`'s `DLUX_STACK_SCHEMA` to `4`, and run `./start.sh`.
+3. If the proxy file was edited by hand, Composer reports it and leaves it alone. Copy the `/media/` blocks from the 1.15.3 scaffold's `.proxy/Caddyfile` (or `.proxy/default.conf.template`) into it, restamp it and `compose.yml`'s `DLUX_STACK_SCHEMA` to `4`, then restart the proxy with `./start.sh restart caddy` (or `nginx`). `./start.sh` and `./start.sh update` don't recreate the proxy when only its mounted file changed, so the old rules keep serving until it restarts. Afterwards, check that a private file's `/media/` URL returns 403 when signed out.
 
 Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
