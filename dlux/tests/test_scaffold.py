@@ -819,8 +819,9 @@ class StackContractTests(unittest.TestCase):
         self.assertEqual(self.contract["dlux_version"], __version__)
         # 2: service command_module / retired_command_modules, so Composer can
         # check and fix retired entrypoints. 3: the maintenance page moved into
-        # the Composer image (no .proxy/maintenance.html bind mount).
-        self.assertEqual(self.contract["schema_version"], 3)
+        # the Composer image (no .proxy/maintenance.html bind mount). 4: stored
+        # files are private; the proxy asks /sys/files/media-access/ first.
+        self.assertEqual(self.contract["schema_version"], 4)
 
     def test_read_stamp_spellings(self):
         read = self.stack_contract.read_stamp

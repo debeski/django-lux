@@ -100,6 +100,8 @@ See [Getting Started](getting-started.md), [Composer Agent Integration](composer
 
 Stable 1.12.0 promotes the accepted 1.12.0b3 implementation; see [release acceptance and upgrade requirements](release-1.12-acceptance.md).
 
+Stored files are private by default (stack schema 4). The proxy serves only branding, managed images and fonts, and `public/` directly. Every other `/media/` file is checked by the app first, and a registered document file only reaches users who may view its document ([Stored files](deployment-configuration.md#stored-files-media)).
+
 See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over. The history table identifies who performed each change in its translated **Changed by** column.
 
 ## OCR text

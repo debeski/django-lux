@@ -65,6 +65,7 @@ register_file_type(
 | Page editor | The built-in `DocumentFileAdapter` behind `PdfEditorView` (accept = the registration's kinds). Images join as pages; pages can be selected, rotated and fitted to A4; Scan uses ScanLink (§5). Saving keeps the previous file in history. |
 | Forms | Every form the dynamic modal builds gets, for each registered field, the DjangoLux file card with Scan, the `accept` attribute and the server-side type check (`dlux.files.forms.apply_document_file_fields(form)`; a project form can call it too). |
 | Modal save | The modal save and the history write share one transaction: a replaced file goes to history (`replace`, or `clear` when emptied), a new PDF gets metadata and its target name, and an accepted image uploaded through the form becomes the PDF (the uploaded image itself is not kept). |
+| Direct `/media/` links | On a stack-schema-4 proxy, the file's own `/media/` path is served only to users who may view the document: the same scope and `can_access('view')` check as `source/`. See [Stored files](deployment-configuration.md#stored-files-media). |
 | Soft delete | Deleting a registered document (`instance.delete()` or `queryset.delete()`) soft-deletes its history rows with the same time and actor; `restore()` brings back exactly those rows. |
 
 The PDF tools settings (System Settings → Extra Features: editing, history, maximum pages and size) still apply to every surface.

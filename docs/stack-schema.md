@@ -71,6 +71,7 @@ on the current number, and each bump adds a row below.
 
 | Schema | Since | Change to existing stacks |
 | --- | --- | --- |
+| 4 | 1.15.3 | Stored files become private: the proxy serves only the public `/media/` folders directly and asks `/sys/files/media-access/` before serving any other file (`forward_auth` in `.proxy/Caddyfile`, `auth_request` in `.proxy/default.conf.template`). Composer 1.9.2+ `check --fix` does this for an unmodified generated proxy once DjangoLux is 1.15.3+; otherwise copy the `/media/` blocks from a fresh scaffold, restamp, and run `./start.sh`. See [Stored files](deployment-configuration.md#stored-files-media). |
 | 3 | 1.13.0 | The maintenance page leaves the project: `.proxy/maintenance.html` and its proxy bind mount go, the proxy serves the page Composer publishes on `dlux_runtime` (`proxy/maintenance/`, assets under `/_dlux/maintenance/`). `composer check --fix` (Composer 1.7.0+) migrates the proxy config and compose, keeps a customised page as `.proxy/maintenance/`, and restamps a schema-2 stack to 3. |
 | 2 | 1.7.0 | Each DjangoLux-owned service's command module is part of the contract; the retired `tools.smtp_relay` and `tools.dlux_runtime_supervisor` entrypoints must be replaced (`composer check --fix` does this). |
 | 1 | — | Initial contract: services, networks, single ingress, Docker socket rule, `dlux_runtime` read/write split. |

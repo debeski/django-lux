@@ -28,6 +28,7 @@ authorization decision.
 
 ## Applied Dlux Measures
 
+- Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. See [Stored files](deployment-configuration.md#stored-files-media).
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
 - Table row context-menu actions are permission-filtered server-side

@@ -85,8 +85,31 @@ server {
         return 404;
     }
 
+    # Public media (branding, managed images and fonts, the project's public/
+    # folder). Keep in step with dlux.files.media.PUBLIC_MEDIA.
+    location ^~ /media/public/ { root /app; }
+    location ^~ /media/dlux/branding/ { root /app; }
+    location ^~ /media/dlux/assets/image/ { root /app; }
+    location ^~ /media/dlux/assets/font/ { root /app; }
+
+    # Every other stored file is private: the app decides who gets it before
+    # nginx sends it (403 when refused).
     location /media/ {
-        alias /app/media/;
+        auth_request /_dlux_media_access;
+        root /app;
+        add_header Cache-Control "private, no-cache";
+    }
+
+    location = /_dlux_media_access {
+        internal;
+        proxy_pass http://$web_upstream/sys/files/media-access/;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Host $host;
+        # Always set here, so a client cannot supply its own.
+        proxy_set_header X-Forwarded-Uri $request_uri;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
     }
 
     location / {
