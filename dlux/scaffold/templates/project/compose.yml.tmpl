@@ -39,8 +39,10 @@ services:
       org.dlux.restart: "protected"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Only what Postgres reads, not the shared x-environment block: a new image
+    # tag or stack schema stamp there must not recreate the database.
     environment:
-      <<: *de
+      POSTGRES_DB: "${POSTGRES_DB:-{{ project_slug }}_db}"
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
     healthcheck:

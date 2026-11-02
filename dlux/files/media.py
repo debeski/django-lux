@@ -7,16 +7,22 @@ proxy never hands a stored file to someone the app itself would refuse.
 
 Decisions, in order:
 
-- folders only the app serves (backups, protected assets, file history) are
-  refused to everyone; their own views serve them after their checks;
-- public folders (branding, managed images and fonts, ``public/`` and
-  ``DLUX_PUBLIC_MEDIA``) are served to anyone;
-- everything else needs a signed-in user;
-- a registered document file follows its document: the user must reach the
-  document in its scoped queryset and pass its ``view`` access check.
+- folders only the app serves (backups, protected assets, file history) and
+  ``DLUX_APP_ONLY_MEDIA`` are refused to everyone; their own views serve them
+  after their checks;
+- public folders (branding, managed images and fonts, ``public/``) and
+  ``DLUX_PUBLIC_MEDIA`` are served to anyone;
+- a registered document file follows its document: anyone gets it when the
+  registration's ``public`` rule passes, otherwise the user must reach the
+  document in its scoped queryset and pass its ``view`` access check;
+- everything else needs a signed-in user.
+
+A project entry is a folder (``products/``) or, when it has a wildcard, a file
+pattern matched one folder level per ``/`` (``publication/*.png``).
 """
 
 import posixpath
+from fnmatch import fnmatchcase
 from urllib.parse import unquote, urlsplit
 
 from django.conf import settings
@@ -32,17 +38,32 @@ PUBLIC_MEDIA = ('public/', 'dlux/branding/', 'dlux/assets/image/', 'dlux/assets/
 FORWARDED_URI = 'HTTP_X_FORWARDED_URI'
 #: Documents checked per registered field for one requested name.
 _DOCUMENT_CANDIDATES = 5
+_WILDCARDS = frozenset('*?[')
 
 
-def _prefixes(builtin, setting):
+def _listed(name, builtin, setting):
+    """Is ``name`` under one of the folders, or matched by one of the patterns?
+
+    Compared without regard to case: on a case-insensitive host disk a case
+    variant reaches the same file.
+    """
     extra = getattr(settings, setting, ()) or ()
     if isinstance(extra, str):
         extra = (extra,)
-    return tuple(
-        prefix.strip('/').casefold() + '/'
-        for prefix in (*builtin, *extra)
-        if str(prefix or '').strip('/')
-    )
+    key = name.casefold()
+    parts = key.split('/')
+    for entry in (*builtin, *extra):
+        entry = str(entry or '').strip('/').casefold()
+        if not entry:
+            continue
+        if _WILDCARDS.isdisjoint(entry):
+            if (key + '/').startswith(entry + '/'):
+                return True
+            continue
+        pattern = entry.split('/')
+        if len(pattern) == len(parts) and all(map(fnmatchcase, parts, pattern)):
+            return True
+    return False
 
 
 def media_name(uri):
@@ -78,12 +99,26 @@ def _document_decision(request, name):
     from .specs import registered_document_files
     from .views import can_access
 
+    signed_in = request.user.is_authenticated
     matched = False
     for spec in registered_document_files():
+        if not (signed_in or spec.public):
+            # Signed out, only a public rule can grant: skip the lookup.
+            continue
         model, field = spec.model, spec.field_name
         if not model._base_manager.filter(**{f'{field}__iexact': name}).exists():
             continue
         matched = True
+        if spec.public:
+            # Unscoped and the same for every reader: signing in must not hide a public file.
+            candidates = model._base_manager.filter(**{field: name})
+            if hasattr(model, 'deleted_at'):
+                candidates = candidates.filter(deleted_at__isnull=True)
+            for document in candidates[:_DOCUMENT_CANDIDATES]:
+                if spec.public(document):
+                    return True
+        if not signed_in:
+            continue
         queryset = spec.queryset(request, model) if spec.queryset else _scope_filtered_modal_queryset(model, request.user)
         for document in queryset.filter(**{field: name})[:_DOCUMENT_CANDIDATES]:
             if can_access(request, spec, document, 'view'):
@@ -93,15 +128,12 @@ def _document_decision(request, name):
 
 def media_decision(request, name):
     """May ``request`` fetch the stored file ``name`` from the proxy?"""
-    key = name.casefold() + '/'
-    if key.startswith(_prefixes(APP_ONLY_MEDIA, 'DLUX_APP_ONLY_MEDIA')):
+    if _listed(name, APP_ONLY_MEDIA, 'DLUX_APP_ONLY_MEDIA'):
         return False
-    if key.startswith(_prefixes(PUBLIC_MEDIA, 'DLUX_PUBLIC_MEDIA')):
+    if _listed(name, PUBLIC_MEDIA, 'DLUX_PUBLIC_MEDIA'):
         return True
-    if not request.user.is_authenticated:
-        return False
     decision = _document_decision(request, name)
-    return True if decision is None else decision
+    return request.user.is_authenticated if decision is None else decision
 
 
 @require_safe

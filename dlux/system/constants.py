@@ -1,6 +1,10 @@
 """Canonical constants for Dlux system settings and runtime surfaces."""
 
 DEFAULT_HOME_URL = '/accounts/profile/'
+#: The schema 4 proxy asks this before serving any private `/media/` file (Caddy
+#: `forward_auth`, nginx `auth_request`); DjangoLux answers it wherever the
+#: project mounts `dlux.urls`.
+MEDIA_ACCESS_URI = '/sys/files/media-access/'
 
 # ── route discovery ──────────────────────────────────────────────────────────
 # Discovery walks the URLconf once and classifies every named route. It excludes
