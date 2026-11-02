@@ -278,6 +278,11 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("celery:", compose_dev_contents)
             self.assertIn('published: "90"', compose_dev_contents)
             self.assertIn('BASE_URL: "http://localhost:90"', compose_dev_contents)
+            # Postgres takes only its own keys, so a new image tag or schema
+            # stamp in the shared anchor does not recreate the database.
+            db_block = compose_contents[compose_contents.index("\n  db:"):compose_contents.index("\n  redis:")]
+            self.assertNotIn("<<: *de", db_block)
+            self.assertIn('POSTGRES_DB: "${POSTGRES_DB:-demo_project_db}"', db_block)
             # Development runs the bind-mounted checkout, not an installed
             # release, so inline updates are turned back off for both services
             # that inherit the shared env anchor from compose.yml.

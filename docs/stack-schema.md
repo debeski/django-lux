@@ -15,7 +15,7 @@ version that wrote them (`Generated with django-lux X.Y.Z.`).
 
 | File | Stamp |
 | --- | --- |
-| `compose.yml` | `DLUX_STACK_SCHEMA: "N"` in the shared `x-environment` block, so it also reaches `web`, `celery`, `db` and `smtp-relay` |
+| `compose.yml` | `DLUX_STACK_SCHEMA: "N"` in the shared `x-environment` block, so it also reaches `web`, `celery` and `smtp-relay`. Since 1.15.4 the scaffold's `db` takes only `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`, so a restamp or a new `WEB_IMAGE` tag no longer recreates the database. An older stack can make the same change to its `db` service; Postgres restarts once when it does. |
 | `Dockerfile` | `LABEL org.dlux.stack-schema="N"` (readable with `docker image inspect`) |
 | `compose.dev.yml`, `entrypoint.sh`, `gunicorn.py`, `.secrets/.env`, `.proxy/Caddyfile`, `.proxy/default.conf.template` | `# dlux stack schema N` header comment |
 

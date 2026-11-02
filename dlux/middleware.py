@@ -6,9 +6,9 @@ from django.contrib.auth import logout
 from django.core.exceptions import SuspiciousOperation
 from django.http import JsonResponse
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import NoReverseMatch, Resolver404, get_script_prefix, resolve, reverse
 
-from .system.constants import DEFAULT_HOME_URL
+from .system.constants import DEFAULT_HOME_URL, MEDIA_ACCESS_URI
 from .fonts import clear_font_cache
 
 _thread_locals = threading.local()
@@ -438,7 +438,30 @@ class DluxMiddleware:
         except Exception:
             pass
 
+    @staticmethod
+    def _route_media_access(request):
+        """The generated proxy asks ``MEDIA_ACCESS_URI`` (stack schema 4), but a
+        project may mount ``dlux.urls`` under a prefix (``/staff/``). Route that
+        request to the mounted view, through the same checks as a direct one.
+        A URLconf that answers the URI itself (a root mount, a project's own
+        route) is left alone."""
+        if request.path_info != MEDIA_ACCESS_URI:
+            return
+        try:
+            resolve(MEDIA_ACCESS_URI)
+            return
+        except Resolver404:
+            pass
+        try:
+            mounted = reverse('dlux_media_access')
+        except NoReverseMatch:
+            return
+        prefix = get_script_prefix()
+        request.path = mounted
+        request.path_info = '/' + mounted[len(prefix):] if mounted.startswith(prefix) else mounted
+
     def __call__(self, request):
+        self._route_media_access(request)
         _thread_locals.user = getattr(request, 'user', None)
         _thread_locals.request = request
         clear_font_cache()
