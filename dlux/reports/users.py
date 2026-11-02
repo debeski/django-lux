@@ -1,21 +1,29 @@
 from collections import Counter, defaultdict
 from datetime import timedelta
 from io import BytesIO
+from urllib.parse import urlencode
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from ..translations import get_strings
-from ..utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
+from ..utils import get_user_management_tier_state_for_user
 from . import (
-    activity_report_key,
+    _report_period_details,
     apply_report_scope,
+    build_activity_window,
     build_activity_windows,
     apply_report_window,
     filter_report_eligible_activity,
     normalize_report_window,
+    report_model_key,
+    report_model_label,
 )
+
+#: The periods the report modal always offers as tabs; the reports page's other
+#: periods (quarter, half-year, year, custom) are added as one more tab.
+USER_REPORT_TAB_WINDOWS = ('week', 'month', 'all')
 
 
 def _safe_list(value):
@@ -52,7 +60,7 @@ def _distinct_values(queryset, field_name):
     return values
 
 
-def build_user_report(target_user, actor=None, window='week', activity_only=False):
+def build_user_report(target_user, actor=None, window='week', activity_only=False, custom_start=None, custom_end=None):
     """Everything Dlux knows about ``target_user``, for the report modal and XLSX.
 
     ``activity_only`` is the General Reports view (see ``user_report_access``):
@@ -62,6 +70,7 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
     """
     s = get_strings()
     window = normalize_report_window(window)
+    period = _report_period_details(window, custom_start, custom_end)
     ActivityLog = apps.get_model('dlux', 'ActivityLog')
     TrustedDevice = apps.get_model('dlux', 'TrustedDevice')
     KnownDevice = apps.get_model('dlux', 'UserKnownDevice')
@@ -71,7 +80,10 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
     if activity_only:
         activity_qs = apply_report_scope(activity_qs, actor)
     eligible_activity_qs = filter_report_eligible_activity(activity_qs).order_by('-created_at')
-    selected_activity_qs = apply_report_window(eligible_activity_qs, window).order_by('-created_at')
+    selected_activity_qs = apply_report_window(
+        eligible_activity_qs, window,
+        custom_start=period['custom_start'], custom_end=period['custom_end'],
+    ).order_by('-created_at')
     presence_qs = PresenceSession.objects.filter(user=target_user).select_related('known_device').order_by('-last_seen_at')
     known_devices = KnownDevice.objects.filter(user=target_user).select_related('trusted_device').order_by('-last_seen_at')
     trusted_devices = TrustedDevice.objects.filter(user=target_user).order_by('-last_used_at')
@@ -97,7 +109,7 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
         return [
             {
                 'key': key,
-                'label': translate_activity_log_model_name(key, strings=s),
+                'label': report_model_label(key, strings=s),
                 'count': count,
             }
             for key, count in counter.most_common()
@@ -110,7 +122,7 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
         for model_key, action_counter in model_action_map.items():
             models.append({
                 'key': model_key,
-                'label': translate_activity_log_model_name(model_key, strings=s),
+                'label': report_model_label(model_key, strings=s),
                 'count': sum(action_counter.values()),
                 'actions': _fmt_actions(action_counter),
             })
@@ -123,13 +135,16 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
             apply_report_window(eligible_activity_qs, window_name)
             .order_by('-created_at')[:25]
         )
-        for window_name in ('week', 'month', 'all')
+        for window_name in USER_REPORT_TAB_WINDOWS
     }
+    if window not in windows:
+        windows[window] = build_activity_window(selected_activity_qs, strings=s)
+        recent_activity_windows[window] = list(selected_activity_qs[:25])
     action_counts = Counter()
     model_counts = Counter()
     for action, row_model_key, row_model_name in selected_activity_qs.values_list('action', 'model_key', 'model_name'):
         action_counts[action] += 1
-        model_counts[activity_report_key(row_model_key, row_model_name) or s.get('user_report_unknown')] += 1
+        model_counts[report_model_key(row_model_key, row_model_name) or s.get('user_report_unknown')] += 1
     presence_days = set()
     total_seconds = 0
     total_requests = 0
@@ -176,6 +191,14 @@ def build_user_report(target_user, actor=None, window='week', activity_only=Fals
         'activity_only': bool(activity_only),
         'generated_at': generated_at,
         'selected_window': window,
+        'selected_period': period,
+        # A page period without a tab of its own (quarter, half-year, year, custom).
+        'selected_period_tab': window not in USER_REPORT_TAB_WINDOWS,
+        'selected_window_stats': windows[window],
+        'selected_query': urlencode(
+            {'window': window, 'custom_start': period['custom_start'], 'custom_end': period['custom_end']}
+            if window == 'custom' else {'window': window}
+        ),
         'history_started_at': history_started_at,
         'target_user': target_user,
         'profile': profile,
@@ -342,13 +365,11 @@ def _write_log_sheet(wb, report, window, s, write_rows, *, network):
         header += [s.get('user_report_ip_address'), s.get('user_report_user_agent')]
     rows = [header]
     selected_qs = report.get('selected_activity_qs') or report['activity_qs']
-    if window:
-        selected_qs = apply_report_window(selected_qs, normalize_report_window(window)).order_by('-created_at')
     for item in selected_qs[:1000]:
         row = [
             item.created_at,
             s.get(f'action_{str(item.action or "").lower()}', item.action),
-            translate_activity_log_model_name(item.model_name, strings=s),
+            report_model_label(report_model_key(item.model_key, item.model_name), strings=s),
         ]
         if network:
             row += [item.ip_address, item.user_agent]

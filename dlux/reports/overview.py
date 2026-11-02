@@ -2,10 +2,11 @@
 
 import json
 from collections import Counter, defaultdict
+from urllib.parse import urlencode
 from django.core.cache import cache
 from django.db import models
-from django.db.models import Count, Q
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Concat, TruncDate
 from django.utils import timezone
 from ..translations import get_current_language_code, get_strings
 from ..utils import (
@@ -13,14 +14,13 @@ from ..utils import (
     is_central_staff,
     is_global_staff,
     is_scope_enabled,
-    translate_activity_log_model_name,
 )
 
 from ._shared import logger
 from .config import _reports_config, get_reports_overview_cache_seconds
 from .eligibility import is_report_eligible_activity_model_name
-from .filters import _apply_report_builder_filters, _filter_values, _report_filter_catalog
-from .queries import _aggregation_queryset, _base_activity_queryset, _count_grouped, _visible_user_queryset, activity_report_key, apply_report_scope, apply_report_window, filter_report_eligible_activity
+from .filters import _apply_report_builder_filters, _filter_values, _report_filter_catalog, report_models_predicate
+from .queries import _aggregation_queryset, _base_activity_queryset, _count_grouped, _visible_user_queryset, activity_report_key, apply_report_scope, apply_report_window, filter_report_eligible_activity, report_model_key, report_model_label
 from .windows import _report_period_details, get_previous_period_bounds, get_report_window_bounds, normalize_report_window
 
 
@@ -43,7 +43,7 @@ def _format_model_actions(model_action_map, strings):
     for model_key, action_counter in model_action_map.items():
         models.append({
             "key": model_key,
-            "label": translate_activity_log_model_name(model_key, strings=strings),
+            "label": report_model_label(model_key, strings=strings),
             "count": sum(action_counter.values()),
             "actions": _format_actions(action_counter, strings),
         })
@@ -68,7 +68,7 @@ def build_activity_windows(activity_qs, *, strings=None):
         report_key = activity_report_key(row_model_key, row_model_name)
         if not is_report_eligible_activity_model_name(report_key):
             continue
-        group_key = report_key or strings.get("user_report_unknown")
+        group_key = report_model_key(row_model_key, row_model_name) or strings.get("user_report_unknown")
         for window in ("all",):
             window_action[window][action] += 1
             window_model_action[window][group_key][action] += 1
@@ -85,6 +85,25 @@ def build_activity_windows(activity_qs, *, strings=None):
             "action_counts": _format_actions(window_action[window], strings),
         }
         for window in ("week", "month", "all")
+    }
+
+
+def build_activity_window(activity_qs, *, strings=None):
+    """``build_activity_windows``' figures for one queryset already limited to its
+    period (quarter, half-year, year, custom)."""
+    strings = strings or get_strings()
+    action_counter = Counter()
+    model_action = defaultdict(Counter)
+    for action, row_model_key, row_model_name in activity_qs.values_list("action", "model_key", "model_name"):
+        if not is_report_eligible_activity_model_name(activity_report_key(row_model_key, row_model_name)):
+            continue
+        group_key = report_model_key(row_model_key, row_model_name) or strings.get("user_report_unknown")
+        action_counter[action] += 1
+        model_action[group_key][action] += 1
+    return {
+        "activity_count": sum(action_counter.values()),
+        "models": _format_model_actions(model_action, strings),
+        "action_counts": _format_actions(action_counter, strings),
     }
 
 
@@ -144,7 +163,7 @@ def _build_reports_overview_stats(current_qs, previous_qs, all_qs, *, strings):
 
     model_counts = Counter()
     for row in _count_grouped(current_qs, "model_key", "model_name"):
-        key = activity_report_key(row["model_key"], row["model_name"]) or unknown
+        key = report_model_key(row["model_key"], row["model_name"]) or unknown
         model_counts[key] += row["count"]
 
     action_counts = Counter()
@@ -183,12 +202,49 @@ def _build_reports_overview_stats(current_qs, previous_qs, all_qs, *, strings):
             for key, count in user_counts.most_common()
         ],
         "models": [
-            {"key": key, "label": translate_activity_log_model_name(key, strings=strings), "count": count}
+            {"key": key, "label": report_model_label(key, strings=strings), "count": count}
             for key, count in model_counts.most_common()
         ],
         "actions": _format_actions(action_counts, strings),
         "days": day_counts,
     }
+
+
+def _keyword_predicate(keyword, model_catalog, operation_catalog):
+    """Rows matching the search: the user's username or full name, the document
+    number, the stored action or model name, or a model or operation as the page
+    labels it (a suggestion picked from the list is a label, often translated)."""
+    folded = keyword.casefold()
+    predicate = (
+        Q(created_by__username__icontains=keyword)
+        | Q(report_full_name__icontains=keyword)
+        | Q(action__icontains=keyword)
+        | Q(model_name__icontains=keyword)
+        | Q(number__icontains=keyword)
+    )
+    actions = [item["key"] for item in operation_catalog if folded in str(item["label"]).casefold()]
+    if actions:
+        predicate |= Q(action__in=actions)
+    models = report_models_predicate(item for item in model_catalog if folded in str(item["label"]).casefold())
+    if models:
+        predicate |= models
+    return predicate
+
+
+def _search_suggestions(users, model_catalog, operation_catalog):
+    """What the search field suggests: the visible users' usernames and full
+    names, then the models and operations the builder offers."""
+    seen = set()
+    values = []
+    candidates = [value for user in users for value in (user.get_username(), user.get_full_name())]
+    candidates += [item["label"] for item in model_catalog]
+    candidates += [item["label"] for item in operation_catalog]
+    for value in candidates:
+        value = str(value or "").strip()
+        if value and value.casefold() not in seen:
+            seen.add(value.casefold())
+            values.append(value)
+    return values
 
 
 def build_reports_overview(actor, *, window="week", filters=None, now=None):
@@ -229,14 +285,9 @@ def build_reports_overview(actor, *, window="week", filters=None, now=None):
 
     keyword = str(filters.get("q") or "").strip()
     if keyword:
-        filtered_qs = filtered_qs.filter(
-            Q(created_by__username__icontains=keyword)
-            | Q(created_by__first_name__icontains=keyword)
-            | Q(created_by__last_name__icontains=keyword)
-            | Q(action__icontains=keyword)
-            | Q(model_name__icontains=keyword)
-            | Q(number__icontains=keyword)
-        )
+        filtered_qs = filtered_qs.alias(
+            report_full_name=Concat("created_by__first_name", Value(" "), "created_by__last_name"),
+        ).filter(_keyword_predicate(keyword, model_catalog, operation_catalog))
     all_qs = filtered_qs
     current_qs = apply_report_window(
         filtered_qs,
@@ -258,7 +309,7 @@ def build_reports_overview(actor, *, window="week", filters=None, now=None):
             created_at__lt=previous_end,
         )
 
-    users = _visible_user_queryset(actor)
+    users = list(_visible_user_queryset(actor))
     stats = None
     cache_seconds = get_reports_overview_cache_seconds()
     if cache_seconds:
@@ -313,6 +364,12 @@ def build_reports_overview(actor, *, window="week", filters=None, now=None):
         "actions": stats["actions"],
         "days": stats["days"],
         "visible_users": users,
+        "search_suggestions": _search_suggestions(users, model_catalog, operation_catalog),
+        # The page's period for the user report modal, custom range included.
+        "user_report_query": urlencode(
+            {"window": window, "custom_start": period["custom_start"], "custom_end": period["custom_end"]}
+            if window == "custom" else {"window": window}
+        ),
         "recent_activity": list(current_qs[:50]),
         "available_models": model_catalog,
         "available_actions": operation_catalog,

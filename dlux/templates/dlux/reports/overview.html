@@ -42,11 +42,14 @@
             </div>
             <div class="col-lg-4">
                 <label class="form-label" for="reports-search">{{ DLUX_STRINGS.search }}</label>
-                <input id="reports-search" type="search" name="q" value="{{ overview.filters.q }}" class="form-control glass-input" placeholder="{{ DLUX_STRINGS.reports_search_placeholder|default:'User, model, operation, or number' }}">
+                <input id="reports-search" type="search" name="q" value="{{ overview.filters.q }}" class="form-control glass-input" list="reports-search-suggestions" autocomplete="off" placeholder="{{ DLUX_STRINGS.reports_search_placeholder|default:'User, model, operation, or number' }}">
+                <datalist id="reports-search-suggestions">
+                    {% for suggestion in overview.search_suggestions %}<option value="{{ suggestion }}"></option>{% endfor %}
+                </datalist>
             </div>
-            <div class="col-lg-4 dlux-report-period-preview">
-                <span>{{ DLUX_STRINGS.reports_active_period|default:'Active period' }}</span>
-                <strong>{% if overview.period.range_label %}{{ overview.period.range_label }}{% else %}{{ DLUX_STRINGS.user_report_window_all }}{% endif %}</strong>
+            <div class="col-lg-4">
+                <span class="form-label d-block">{{ DLUX_STRINGS.reports_active_period|default:'Active period' }}</span>
+                <div class="dlux-report-period-preview"><strong>{% if overview.period.range_label %}{{ overview.period.range_label }}{% else %}{{ DLUX_STRINGS.user_report_window_all }}{% endif %}</strong></div>
             </div>
         </div>
 
@@ -65,10 +68,7 @@
             <section class="dlux-report-builder-panel" data-report-choice-panel="models">
                 <div class="dlux-report-builder-panel-heading">
                     <div><span>{{ DLUX_STRINGS.reports_builder_models|default:'Models' }}</span><small>{{ DLUX_STRINGS.reports_builder_models_help|default:'Controls model totals and data included in the ZIP.' }}</small></div>
-                    <div class="dlux-report-builder-actions">
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-report-select="all">{{ DLUX_STRINGS.reports_include_all|default:'Include all' }}</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-report-select="none">{{ DLUX_STRINGS.reports_exclude_all|default:'Exclude all' }}</button>
-                    </div>
+                    {% include 'dlux/reports/_choice_actions.html' %}
                 </div>
                 <input type="search" class="form-control form-control-sm glass-input" data-report-choice-search placeholder="{{ DLUX_STRINGS.reports_builder_search_models|default:'Search models' }}">
                 <div class="dlux-report-choice-list">
@@ -86,10 +86,7 @@
             <section class="dlux-report-builder-panel" data-report-choice-panel="operations">
                 <div class="dlux-report-builder-panel-heading">
                     <div><span>{{ DLUX_STRINGS.reports_builder_operations|default:'Operations' }}</span><small>{{ DLUX_STRINGS.reports_builder_operations_help|default:'Controls which activity operations are calculated in every output.' }}</small></div>
-                    <div class="dlux-report-builder-actions">
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-report-select="all">{{ DLUX_STRINGS.reports_include_all|default:'Include all' }}</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-report-select="none">{{ DLUX_STRINGS.reports_exclude_all|default:'Exclude all' }}</button>
-                    </div>
+                    {% include 'dlux/reports/_choice_actions.html' %}
                 </div>
                 <input type="search" class="form-control form-control-sm glass-input" data-report-choice-search placeholder="{{ DLUX_STRINGS.reports_builder_search_operations|default:'Search operations' }}">
                 <div class="dlux-report-choice-list">
@@ -152,7 +149,7 @@
                     <thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.tbl_full_name }}</th><th>{{ DLUX_STRINGS.tbl_staff_tier }}</th><th></th></tr></thead>
                     <tbody>
                         {% for visible_user in overview.visible_users %}
-                        <tr><td>{{ visible_user.username }}</td><td>{{ visible_user.get_full_name|default:visible_user.username }}</td><td>{% if visible_user.is_staff %}{{ DLUX_STRINGS.badge_staff }}{% else %}{{ DLUX_STRINGS.regular_user|default:'User' }}{% endif %}</td><td class="text-end"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?window={{ overview.window }}" data-modal-title="{{ DLUX_STRINGS.user_report_title }}"><i class="bi bi-file-earmark-person me-1"></i>{{ DLUX_STRINGS.user_report_title }}</button></td></tr>
+                        <tr><td>{{ visible_user.username }}</td><td>{{ visible_user.get_full_name|default:visible_user.username }}</td><td>{% if visible_user.is_staff %}{{ DLUX_STRINGS.badge_staff }}{% else %}{{ DLUX_STRINGS.regular_user|default:'User' }}{% endif %}</td><td class="text-end"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?{{ overview.user_report_query }}" data-modal-title="{{ DLUX_STRINGS.user_report_title }}"><i class="bi bi-file-earmark-person me-1"></i>{{ DLUX_STRINGS.user_report_title }}</button></td></tr>
                         {% empty %}
                         {% include 'dlux/tables/empty_row.html' with colspan=4 text=DLUX_STRINGS.reports_empty %}
                         {% endfor %}

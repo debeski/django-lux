@@ -119,6 +119,7 @@ Generated app scaffold baseline:
 | `python manage.py dlux_seed --count 25 --log --apply` | Generate rows and one reportable `CREATE` activity entry per row, attributed to random active users. |
 | `python manage.py dlux_seed --user-id 1 --scope-id 1 --apply` | Generate rows attributed to one user and scope; either attribution option implies `--log`. |
 | `python manage.py dlux_seed app.Model --apply` | Seed only the named model; `--app`, `--exclude`, `--database`, and `--no-populate` further constrain the run. |
+| `python manage.py dlux_backfill_report_activity` | Count, per report model, the records with no `CREATE` activity row (saved before activity logging), which reports therefore never count. `--apply` writes them from each record's creation time, creator, scope and number, marked `details.backfilled`; reruns skip what is already logged. `--model app.Model` (repeatable) limits the run. |
 | `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
 | `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
 | `python manage.py dlux_update_worker` | Legacy in-container update worker retained only during the v1.8 compatibility window; new stacks hand intent to Composer through Celery Beat. |
@@ -266,6 +267,9 @@ Backup export contract:
 
 - general-report criteria use `window`, optional inclusive `custom_start`/`custom_end`, repeated `models`, repeated `operations`, and `builder=1`; async jobs persist the normalized allowlisted form in `ReportBackup.criteria`
 - report model discovery is separate from navigation discovery; set `dlux_report = False` on a model or list its `app_label.model_name` under `DLUX_CONFIG['reports']['exclude_models']`; exclusions win over include lists, while `exclude_activity` handles unresolved legacy activity labels
+- one entry per model: activity rows logged under a legacy name or older key that resolves to an installed model count under its `label_lower` (`dlux.reports.report_model_key`), labelled by `resolve_model_label` (`report_model_label`); models from `health_check`, `rest_framework`, `corsheaders` and `csp` are never eligible
+- `q` matches the username or full name, the document number, the stored action or model name, and any operation or model label the page shows; the field's `<datalist>` suggests the visible users' usernames and full names and the offered models and operations
+- the user report modal and its XLSX take the page's `window`, plus `custom_start`/`custom_end` for `custom`; a period outside week/month/all is added as its own tab (`report.selected_period_tab`)
 - report ZIPs contain `entries.xlsx` (the Export Entries workbook), the referenced media under `files/`, and `manifest.json`; they carry **no** `data/*.json` because the archive is a periodic deliverable, never a restore source — `manifest.json.selection` records the exact normalized criteria used for the page/workbook/archive
 - the restorable system `.dlb` is unaffected and still serializes `data/<app>/<model>.json`; `stream_model_into_zip(include_records=False)` is what drops the JSON for the reports ZIP only
 - `/sys/reports/export.xlsx` exports the selected models' **actual rows** (one sheet per model, period- and scope-filtered) plus an Export Info index sheet; credential-named fields are always dropped, `DLUX_CONFIG['reports']['entries_exclude_fields'] = {'app.model': ['field']}` drops more, and `entries_row_limit` (default `20000`) caps each sheet

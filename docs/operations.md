@@ -32,6 +32,10 @@ The User Report is available to authorized staff from the user directory. It com
 
 General Reports use business activity (`ActivityLog.category = "user"`) rather than framework infrastructure events. They support the selected period and model or operation filters, a printable analytical view, XLSX record export, and a ZIP containing the workbook plus eligible media. Models can opt out with `dlux_report = False` or `DLUX_CONFIG['reports']['exclude_models']`.
 
+Rows a model was logged under in older releases (a legacy name such as `decree`, or a translated verbose name) count under that model, with the same label the sidebar and tables use. Infrastructure packages (`health_check`, `rest_framework`, `corsheaders`, `csp`) are never offered. The search field suggests the visible users, models and operations, and matches them as the page shows them (a user's full name, a translated model or operation label). Opening a user's report from the page keeps the page's period, including a quarter, half-year, year or custom range, which gets its own tab in the modal (1.15.4+).
+
+Reports count the activity log, so records saved before the deployment logged activity (imports, seeds, a project that adopted DjangoLux reports later) are not counted until they have a `CREATE` row. `python manage.py dlux_backfill_report_activity` lists how many are missing per model; with `--apply` it writes them from each record's own creation time, creator, scope and number, marked `details.backfilled`, and skips any record that already has one (1.15.4+). Models without a creation timestamp (`created_at`, `created`, `created_on`, `date_created`, `timestamp`, or `DLUX_CONFIG['reports']['backup_window_fields']`) are skipped.
+
 ## Backup and restore
 
 Open **Options → Admin panel → Backup & Restore** for system backups. A full `.dlb` backup contains restorable data and media; a quick/data-only backup omits media. Backups expose progress, heartbeat, retry state, retention, and explicit failure information. Passphrase-protected backups are never retried unattended because DjangoLux does not retain the passphrase.
