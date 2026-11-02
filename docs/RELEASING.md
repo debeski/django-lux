@@ -248,6 +248,24 @@ automatic health-failure path restores the previous release by swapping the
 pointer, it does not restore the database (see `inline-updater.md`). Until that
 path can restore the pre-update backup, do not ship a release that needs it.
 
+### Release notes limits (`display`)
+
+`display` is what administrators read in **Options → Updates** and its
+release-notes dialog, which show at most:
+
+| field | limit |
+|---|---|
+| `summary` | 1000 characters (`SUMMARY_LIMIT`) |
+| `highlights` | 8 entries (`HIGHLIGHTS_LIMIT`) |
+| each highlight | 160 characters (`HIGHLIGHT_LENGTH`), and a string |
+
+Lengths are counted without surrounding whitespace. A deployment trims anything
+longer without a word (`bounded_highlights()`), which is right for published
+notes but hides an authoring mistake, so `release_check` refuses it: every form
+(bare, `--base-tag`, `--classify`) fails with one `::error::` line per problem,
+naming the field, the highlight's index and its length. Shorten the text rather
+than relying on the trim.
+
 ### State-only field changes (`SeparateDatabaseAndState`)
 
 `AlterField` is rejected by the gate outright, and that is deliberate: Django

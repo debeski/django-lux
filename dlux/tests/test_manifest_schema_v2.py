@@ -201,3 +201,103 @@ class ImageBaselineAutomationTests(SimpleTestCase):
         errors = validate_image_baseline(
             {'schema_version': 2, 'requires': {'baked_image': '>=0.0.1'}})
         self.assertTrue(errors, 'a floor below the computed one must be refused')
+
+
+class DisplayLimitGateTests(SimpleTestCase):
+    """Release notes the Updates card would cut fail the release, not the reader.
+
+    `bounded_highlights()` trims published notes silently, which is right at
+    runtime. At release time the trim hid four highlights cut mid-word in the
+    first 1.15.4b2 manifest; only the bare check's JSON output showed it.
+    """
+
+    def _display(self, **display):
+        return _manifest(display={**V2['display'], **display})
+
+    def test_the_shipped_manifest_fits_the_updates_card(self):
+        import json
+        from pathlib import Path
+        import dlux
+        from dlux.updater.release_check import validate_display_limits
+
+        manifest = json.loads(
+            (Path(dlux.__file__).parent / 'release-manifest.json').read_text(encoding='utf-8')
+        )
+        self.assertEqual(validate_display_limits(manifest), [])
+
+    def test_a_highlight_over_the_limit_is_refused(self):
+        from dlux.updater.manifest import HIGHLIGHT_LENGTH
+        from dlux.updater.release_check import validate_display_limits
+
+        fits = 'x' * HIGHLIGHT_LENGTH
+        self.assertEqual(validate_display_limits(self._display(highlights=[f'  {fits}\n'])), [])
+        errors = validate_display_limits(self._display(highlights=['short', fits + 'y']))
+        self.assertEqual(len(errors), 1)
+        self.assertIn('display.highlights[1]', errors[0])
+        self.assertIn(f'{HIGHLIGHT_LENGTH + 1} characters', errors[0])
+
+    def test_more_highlights_than_the_card_shows_are_refused(self):
+        from dlux.updater.manifest import HIGHLIGHTS_LIMIT
+        from dlux.updater.release_check import validate_display_limits
+
+        self.assertEqual(
+            validate_display_limits(self._display(highlights=['x'] * HIGHLIGHTS_LIMIT)), [])
+        errors = validate_display_limits(self._display(highlights=['x'] * (HIGHLIGHTS_LIMIT + 1)))
+        self.assertEqual(len(errors), 1)
+        self.assertIn(f'{HIGHLIGHTS_LIMIT + 1} entries', errors[0])
+
+    def test_a_summary_over_the_limit_is_refused(self):
+        from dlux.updater.manifest import SUMMARY_LIMIT
+        from dlux.updater.release_check import validate_display_limits
+
+        self.assertEqual(validate_display_limits(self._display(summary='s' * SUMMARY_LIMIT)), [])
+        errors = validate_display_limits(self._display(summary='s' * (SUMMARY_LIMIT + 1)))
+        self.assertEqual(len(errors), 1)
+        self.assertIn('display.summary', errors[0])
+
+    def test_a_highlight_that_is_not_text_is_refused(self):
+        from dlux.updater.release_check import validate_display_limits
+
+        errors = validate_display_limits(self._display(highlights=['One.', 7]))
+        self.assertEqual(errors, ['display.highlights[1] must be text.'])
+
+    def test_a_v1_manifest_is_checked_at_the_top_level(self):
+        from dlux.updater.manifest import HIGHLIGHT_LENGTH
+        from dlux.updater.release_check import validate_display_limits
+
+        errors = validate_display_limits(
+            {'schema_version': 1, 'summary': 'x', 'highlights': ['x' * (HIGHLIGHT_LENGTH + 1)]})
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith('highlights[0] '))
+
+    def test_the_runtime_guard_still_trims_instead_of_refusing(self):
+        """A deployment reading notes keeps the old behaviour: shorten, never refuse."""
+        from dlux.updater.manifest import HIGHLIGHT_LENGTH, HIGHLIGHTS_LIMIT
+
+        out = validate_release_manifest(
+            self._display(highlights=['x' * 400] * (HIGHLIGHTS_LIMIT + 4)), '1.8.0')
+        self.assertEqual(len(out['highlights']), HIGHLIGHTS_LIMIT)
+        self.assertTrue(all(len(item) == HIGHLIGHT_LENGTH for item in out['highlights']))
+
+    def test_every_release_check_form_fails_before_anything_else_runs(self):
+        import contextlib
+        import io
+        from unittest import mock
+        from dlux.updater import release_check
+        from dlux.updater.manifest import HIGHLIGHT_LENGTH
+
+        raw = release_check._local_manifest()
+        raw['display'] = {**raw['display'], 'highlights': ['x' * (HIGHLIGHT_LENGTH + 1)]}
+        for argv in ([], ['--base-tag', 'v0.0.1'], ['--classify']):
+            with self.subTest(argv=argv):
+                stderr = io.StringIO()
+                with (
+                    mock.patch.object(release_check, '_local_manifest', return_value=raw),
+                    mock.patch.object(
+                        release_check.subprocess, 'run',
+                        side_effect=AssertionError('the gate must refuse before git runs'),
+                    ),
+                    contextlib.redirect_stderr(stderr),
+                ):
+                    self.assertEqual(release_check.main(argv), 1)
+                self.assertIn('::error::display.highlights[0]', stderr.getvalue())
