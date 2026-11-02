@@ -14,7 +14,7 @@
             <button type="button" class="btn btn-outline-primary rounded-pill" data-dlux-user-report-print>
                 <i class="bi bi-printer me-1"></i>{{ DLUX_STRINGS.user_report_print }}
             </button>
-            <a href="{{ xlsx_url }}?window={{ report.selected_window|default:'week' }}"
+            <a href="{{ xlsx_url }}?{{ report.selected_query }}"
                class="btn btn-primary rounded-pill"
                data-dlux-user-report-export-base="{{ xlsx_url }}">
                 <i class="bi bi-filetype-xlsx me-1"></i>{{ DLUX_STRINGS.user_report_export_xlsx }}
@@ -130,6 +130,13 @@
                                 {{ DLUX_STRINGS.user_report_window_all }}
                             </button>
                         </li>
+                        {% if report.selected_period_tab %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dlux-report-window-selected" type="button" role="tab" aria-selected="true" data-dlux-user-report-window="{{ report.selected_window }}" data-dlux-user-report-export-query="{{ report.selected_query }}" data-dlux-user-report-activity-count="{{ report.selected_window_stats.activity_count }}">
+                                {{ report.selected_period.range_label|default:DLUX_STRINGS.reports_active_period }}
+                            </button>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
                 <div class="tab-content">
@@ -142,6 +149,11 @@
                     <div class="tab-pane fade{% if report.selected_window == 'all' %} show active{% endif %}" id="dlux-report-window-all" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.all %}
                     </div>
+                    {% if report.selected_period_tab %}
+                    <div class="tab-pane fade show active" id="dlux-report-window-selected" role="tabpanel">
+                        {% include "dlux/users/_user_report_window.html" with window=report.selected_window_stats %}
+                    </div>
+                    {% endif %}
                 </div>
             </section>
         </div>
@@ -198,6 +210,11 @@
                 <div data-dlux-user-report-recent-window="all"{% if report.selected_window != 'all' %} class="d-none"{% endif %}>
                     {% include "dlux/users/_user_report_activity.html" with logs=report.recent_activity_windows.all %}
                 </div>
+                {% if report.selected_period_tab %}
+                <div data-dlux-user-report-recent-window="{{ report.selected_window }}">
+                    {% include "dlux/users/_user_report_activity.html" with logs=report.recent_activity %}
+                </div>
+                {% endif %}
             </section>
         </div>
     </div>

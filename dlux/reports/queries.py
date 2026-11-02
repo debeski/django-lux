@@ -3,8 +3,16 @@
 from django.apps import apps
 from django.db import models
 from django.db.models import Count, Q
+from ..translations import resolve_model_label
 from ..utils.common import _iter_queryset_by_pk  # re-exported: generic pagination
-from ..utils import get_user_scope, is_central_staff, is_global_staff, is_scope_enabled
+from ..utils import (
+    get_user_scope,
+    is_central_staff,
+    is_global_staff,
+    is_scope_enabled,
+    resolve_model_by_name,
+    translate_activity_log_model_name,
+)
 from ..utils.users import report_visible_users
 
 from ._shared import REPORT_ACTIVITY_CATEGORY
@@ -76,6 +84,28 @@ def activity_report_key(model_key, model_name):
 def log_report_key(log):
     """``activity_report_key`` for a UserActivityLog instance."""
     return activity_report_key(getattr(log, "model_key", None), getattr(log, "model_name", None))
+
+
+def report_model_key(model_key, model_name):
+    """The row's model as one report identity.
+
+    Rows logged under a legacy name (``decree``, a translated verbose name) or an
+    older key name the same installed model as current ``app_label.model`` rows,
+    so they are grouped under its ``label_lower``. Anything else keeps its raw
+    identity.
+    """
+    key = activity_report_key(model_key, model_name)
+    model = resolve_model_by_name(key) if key else None
+    return model._meta.label_lower if model is not None else key
+
+
+def report_model_label(key, *, strings=None):
+    """The display label for a report identity: the installed model's canonical
+    label (the one the sidebar and tables use), else its translated activity name."""
+    model = resolve_model_by_name(key) if key else None
+    if model is not None:
+        return resolve_model_label(model, strings=strings)
+    return translate_activity_log_model_name(key, strings=strings)
 
 
 def filter_report_eligible_activity(queryset):

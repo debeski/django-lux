@@ -57,11 +57,14 @@ from .queries import (  # noqa: F401
     filter_report_eligible_activity,
     get_visible_report_activity,
     log_report_key,
+    report_model_key,
+    report_model_label,
 )
 from .filters import (  # noqa: F401
     _apply_report_builder_filters,
     _filter_values,
     _report_filter_catalog,
+    report_models_predicate,
 )
 from .overview import (  # noqa: F401
     REPORT_OVERVIEW_CACHE_SCHEMA_VERSION,
@@ -72,6 +75,7 @@ from .overview import (  # noqa: F401
     _overview_stats_cache_key,
     _safe_cache_get,
     _safe_cache_set,
+    build_activity_window,
     build_activity_windows,
     build_reports_overview,
 )
@@ -135,6 +139,7 @@ __all__ = [
     'apply_report_scope',
     'apply_report_window',
     'backup_record_folder',
+    'build_activity_window',
     'build_activity_windows',
     'build_backup_zip',
     'build_model_entries_xlsx',

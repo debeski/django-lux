@@ -532,6 +532,7 @@ def user_report_modal_view(request, pk):
     report = build_user_report(
         target_user, actor=request.user, window=window,
         activity_only=access == USER_REPORT_ACTIVITY,
+        custom_start=request.GET.get('custom_start'), custom_end=request.GET.get('custom_end'),
     )
     context = {
         'DLUX_STRINGS': get_strings(),
@@ -554,6 +555,7 @@ def user_report_xlsx_view(request, pk):
     report = build_user_report(
         target_user, actor=request.user, window=window,
         activity_only=access == USER_REPORT_ACTIVITY,
+        custom_start=request.GET.get('custom_start'), custom_end=request.GET.get('custom_end'),
     )
     content = build_user_report_xlsx(report, window=window)
     filename = f"dlux-user-report-{target_user.pk}-{report['selected_window']}.xlsx"

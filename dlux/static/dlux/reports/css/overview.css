@@ -139,11 +139,13 @@
     padding-top: 0.25rem;
 }
 
+/* The value box sits under its own label like the period and search fields
+   beside it, at their height, so the row's three controls line up. */
 .dlux-report-period-preview {
     display: flex;
-    min-height: var(--dlux-form-input-h, 3.05rem);
-    flex-direction: column;
-    justify-content: center;
+    height: var(--dlux-form-input-h, 3.05rem);
+    align-items: center;
+    padding-block: 0;
 }
 
 .dlux-report-period-preview strong {
@@ -205,8 +207,21 @@
     gap: 0.4rem;
 }
 
+.dlux-report-select-btn {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 0.6rem;
+}
+
+/* As many choices per row as the panel fits, wrapping onto the next line. */
 .dlux-report-choice-list {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+    align-content: start;
     max-height: 18rem;
     gap: 0.35rem;
     margin-top: 0.75rem;
@@ -298,6 +313,36 @@
 .dlux-report-table-card h2 {
     margin-bottom: 0.85rem;
     font-size: 1rem;
+}
+
+/* A long breakdown (By Day over a year, many users) scrolls inside its card
+   instead of stretching the page, with its header kept above the rows. */
+.dlux-report-table-card .dlux-table-scroll {
+    max-height: 24rem;
+    overflow: auto;
+}
+
+.dlux-report-table-card .dlux-data-table.table > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* The page-level sticky header option opens every table scroller (tables/css
+   main.css); these cards keep their own, as the backup page does. */
+@media (min-width: 992px) {
+    body[data-dlux-sticky-header="on"] .dlux-report-table-card .dlux-table-shell {
+        overflow: hidden;
+    }
+
+    body[data-dlux-sticky-header="on"] .dlux-report-table-card .dlux-table-scroll {
+        max-height: 24rem;
+        overflow: auto;
+    }
+
+    body[data-dlux-sticky-header="on"] .dlux-report-table-card .dlux-data-table.table > thead > tr > th {
+        top: 0;
+    }
 }
 
 .dlux-report-users {

@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const windowName = tab.dataset.dluxUserReportWindow || 'week';
         if (exportLink) {
             const baseUrl = exportLink.dataset.dluxUserReportExportBase;
-            exportLink.href = `${baseUrl}?window=${encodeURIComponent(windowName)}`;
+            // A page period tab (custom range included) carries its whole query.
+            const query = tab.dataset.dluxUserReportExportQuery || `window=${encodeURIComponent(windowName)}`;
+            exportLink.href = `${baseUrl}?${query}`;
         }
         const totalActions = report?.querySelector('[data-dlux-user-report-total-actions]');
         if (totalActions) {

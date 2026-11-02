@@ -52,6 +52,16 @@ _EXCLUDED_APP_LABELS = {
 }
 
 
+# Infrastructure packages whose models hold no project work. Matched on the app's
+# package, not its label: django-health-check's TestModel is labelled just `db`.
+_EXCLUDED_APP_PACKAGES = {
+    "corsheaders",
+    "csp",
+    "health_check",
+    "rest_framework",
+}
+
+
 _CELERY_REPORT_APP_LABELS = {
     "celery",
     "djcelery",
@@ -146,6 +156,8 @@ def is_report_eligible_model(model):
     if keys & _normalized_config_set("include_models"):
         return True
     if meta.app_label in _EXCLUDED_APP_LABELS:
+        return False
+    if str(getattr(meta.app_config, "name", "") or "").split(".")[0] in _EXCLUDED_APP_PACKAGES:
         return False
     if meta.app_label == "dlux":
         return _model_is_section(model)
