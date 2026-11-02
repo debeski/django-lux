@@ -24,6 +24,7 @@ register_document_file(
     can_access=reviewer_access,         # optional: (request, document, action) -> True / False / None
     queryset=archive_queryset,          # optional: (request, model) -> QuerySet to look documents up in
     ocr=True,                           # optional: False keeps this field out of OCR text (docs/ocr.md)
+    public=is_published,                # optional: document -> True serves its stored file to anyone
 )
 ```
 
@@ -35,6 +36,7 @@ register_document_file(
 | `can_access` | `None` for every action, i.e. the standard check below. `True` grants, `False` refuses. Actions: `view`, `download`, `history`, `edit`. |
 | `ocr` | `True`: the field's text is read when OCR is enabled in Extra Features, and the viewer offers **Extracted text (OCR)**. `False` opts the field out. See [OCR text](ocr.md). |
 | `queryset` | the dynamic modal's scope- and access-filtered set (`_scope_filtered_modal_queryset`). A project whose central users see `scope IS NULL` rows supplies its own. |
+| `public` | `None`: only users who pass the standard check get the stored file from `/media/`. A callable `(document) -> bool` returning `True` lets anyone, signed in or not and whatever their scope, fetch that document's file from the proxy, such as a published decree on a public site (1.15.4+). It is not consulted for a soft-deleted document, and it doesn't open the viewer, editor or history views. See [Stored files](deployment-configuration.md#stored-files-media). |
 
 The standard check is `view_<model>` for `view`/`download`/`history` and `change_<model>` for `edit`, on a document found in the lookup set (scope applied, soft-deleted rows hidden). Backend checks match what the UI offers (DSRP-1).
 

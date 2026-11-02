@@ -26,6 +26,10 @@ class DocumentFileSpec:
     #: ``queryset(request, model) -> QuerySet`` the document is looked up in;
     #: defaults to the dynamic modal's scope- and access-filtered set.
     queryset: Optional[Callable] = None
+    #: ``public(document) -> bool``: ``True`` serves the stored file to anyone,
+    #: signed in or not (a published record), whatever the reader's scope. A
+    #: soft-deleted document is never public.
+    public: Optional[Callable] = None
     #: Read the file's text with OCR when OCR is enabled in Options (``False`` opts out).
     ocr: bool = True
 

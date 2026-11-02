@@ -109,12 +109,85 @@ class MediaAccessTests(TestCase):
         cache.clear()
         self.assertFalse(self.decide(self.reader, self.name))
 
+    def test_a_document_file_without_a_public_rule_is_never_served_signed_out(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        self.assertFalse(self.decide(AnonymousUser(), self.name))
+
+    def test_the_public_rule_serves_a_document_file_to_anyone(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        register_document_file(Paper, 'pdf_file', public=lambda document: document.title == 'Annual report')
+        draft = Paper.objects.create(title='Draft')
+        draft.pdf_file.save('draft.pdf', ContentFile(b'%PDF-1.4'))
+        self.assertTrue(self.decide(AnonymousUser(), self.name))
+        self.assertTrue(self.decide(self.stranger, self.name))
+        self.assertFalse(self.decide(AnonymousUser(), draft.pdf_file.name))
+        self.assertFalse(self.decide(self.stranger, draft.pdf_file.name))
+        self.assertTrue(self.decide(self.reader, draft.pdf_file.name))
+        self.assertFalse(self.decide(AnonymousUser(), self.name.upper()))
+
+    def test_a_public_document_file_ignores_the_readers_scope(self):
+        register_document_file(Paper, 'pdf_file', public=lambda document: True)
+        ScopeSettings.objects.update_or_create(pk=1, defaults={'is_enabled': True})
+        Paper.all_objects.filter(pk=self.paper.pk).update(scope=Scope.objects.create(name='Other branch'))
+        self.stranger.profile.scope = Scope.objects.create(name='My branch')
+        self.stranger.profile.save()
+        cache.clear()
+        self.assertTrue(self.decide(self.stranger, self.name))
+
+    def test_a_soft_deleted_document_is_not_public(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        register_document_file(Paper, 'pdf_file', public=lambda document: True)
+        self.paper.delete()
+        self.assertFalse(self.decide(AnonymousUser(), self.name))
+
     @override_settings(DLUX_PUBLIC_MEDIA=['products/'], DLUX_APP_ONLY_MEDIA=('exports',))
     def test_projects_add_public_and_app_only_folders(self):
         from django.contrib.auth.models import AnonymousUser
 
         self.assertTrue(self.decide(AnonymousUser(), 'products/shoe.jpg'))
         self.assertFalse(self.decide(self.admin, 'exports/2026.xlsx'))
+
+    @override_settings(DLUX_PUBLIC_MEDIA=['publication/*.png'], DLUX_APP_ONLY_MEDIA=['reports/*.xlsx'])
+    def test_entries_with_a_wildcard_match_files_one_folder_level_per_slash(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        for name, allowed in (('publication/mark.png', True), ('PUBLICATION/MARK.PNG', True),
+                              ('publication/mark.pdf', False), ('publication/old/mark.png', False),
+                              ('publication.png', False)):
+            with self.subTest(name=name):
+                self.assertEqual(self.decide(AnonymousUser(), name), allowed)
+        self.assertFalse(self.decide(self.admin, 'reports/2026.xlsx'))
+        self.assertTrue(self.decide(self.admin, 'reports/2026.csv'))
+
+    @override_settings(ROOT_URLCONF='dlux.tests.urls_with_prefix_mount')
+    def test_the_proxy_uri_reaches_a_prefixed_mount(self):
+        def ask_root(user=None):
+            self.client.logout()
+            if user is not None:
+                self.client.force_login(user)
+            return self.client.get('/sys/files/media-access/', HTTP_X_FORWARDED_URI=f'/media/{self.name}')
+
+        self.assertEqual(reverse('dlux_media_access'), '/dlux/sys/files/media-access/')
+        self.assertEqual(ask_root(self.reader).status_code, 204)
+        self.assertEqual(ask_root(self.stranger).status_code, 403)
+        self.assertEqual(ask_root().status_code, 403)
+        self.assertEqual(self.ask(f'/media/{self.name}', self.reader).status_code, 204)
+
+    @override_settings(ROOT_URLCONF='dlux.tests.urls_with_own_media_access')
+    def test_a_project_route_at_the_proxy_uri_wins(self):
+        self.client.force_login(self.reader)
+        root = self.client.get('/sys/files/media-access/', HTTP_X_FORWARDED_URI=f'/media/{self.name}')
+        self.assertEqual(root.status_code, 403)
+        self.assertEqual(self.ask(f'/media/{self.name}', self.reader).status_code, 204)
+
+    def test_signed_out_requests_look_up_only_public_registrations(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        with self.assertNumQueries(0):
+            self.assertFalse(self.decide(AnonymousUser(), self.name))
 
     def test_endpoint_answers_204_or_403_and_is_never_cached(self):
         allowed = self.ask(f'/media/{self.name}', self.reader)
