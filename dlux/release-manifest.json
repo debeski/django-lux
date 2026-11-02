@@ -4,9 +4,9 @@
   "display": {
     "summary": "Reports fixes, with a command that counts records saved before activity logging; stored-file access for prefixed mounts and public documents; pages that load only the active theme.",
     "highlights": [
-      "Reports: the user report opens on every period the page offers, including quarter, half-year, year and a custom range.",
+      "Reports: the user report opens on every period, including quarter, half-year, year and a custom range, and Enter in the search filters.",
       "Reports: each model has one entry with one translated label, and the search field suggests users, models and operations.",
-      "Reports: tall tables scroll inside their cards. python manage.py dlux_backfill_report_activity counts records saved before activity logging.",
+      "Reports: tall tables scroll in their cards; ./start.sh run -m web dlux_backfill_report_activity counts records saved before activity logging.",
       "Stored files: a project that mounts DjangoLux under a prefix now passes the proxy's access check.",
       "register_document_file(public=...) serves published documents to signed-out visitors; DLUX_PUBLIC_MEDIA and DLUX_APP_ONLY_MEDIA accept file patterns.",
       "Pages link only the active theme's stylesheet; switching themes loads the new one before fading to it.",
