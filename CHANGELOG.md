@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.4b1
+
+- **1.15.4 Candidate**: Patch beta on stable 1.15.3 carrying only the theme-stylesheet change below (#39). No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices for updates, and there is no paired Composer or ScanLink beta. The manifest's highlights repeat the 1.15.3 instruction for deployments updating from 1.15.2 or earlier: run `./start.sh check --fix` with Composer 1.9.2+ afterwards.
 - **Pages Ship Only The Active Theme**: `base.html` linked every allowed theme's stylesheet on every page (about 425 KB of uncompressed CSS with all twelve allowed), though only the `theme-<slug>` class on `<html>` chose one. It now links only the theme the server resolves for the reader (`DLUX_ACTIVE_THEME`: their preference, the scope or system default, or the forced public-page theme), as `<link data-dlux-theme-css="<slug>">`. The other allowed themes' links sit in an inert `<template id="dlux-theme-stylesheets">`. `window.setTheme()` inserts the target sheet beside the active one (keeping its cascade position) and fades only after it has loaded; the newest of several quick switches wins. The setup-preview path (`setTheme(slug, {preview, cssUrl})`) uses the same loader instead of appending to the end of `<head>`. New `window.dluxLoadThemeStylesheet(slug)` loads a sheet without switching; the screenshot harness (`shoot.mjs`, `reach.mjs`) and two wizard e2e tests use it. No migrations, settings or template overrides change.
 
 ## v1.15.3
