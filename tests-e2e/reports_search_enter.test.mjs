@@ -2,9 +2,10 @@
 //
 // The header's Print and Export buttons are submit buttons of the builder form
 // (`form="general-report-form"`) and come before it in the document, so the
-// browser's implicit submission pressed Print: Enter in the search opened the
-// print view in a new tab instead of filtering. Enter in the search now applies
-// the builder; Enter in a model or operation filter only filters.
+// browser's implicit submission pressed Print: Enter in the search, on the
+// period or on a checkbox opened the print view instead of filtering. Enter in
+// any of them now applies the builder; Enter in a model or operation filter only
+// filters.
 //
 // Run:  node --test --test-concurrency=1 'tests-e2e/*.test.mjs'
 
@@ -49,6 +50,37 @@ describe('reports builder: Enter', () => {
       await ctx.close();
     }
   });
+
+  for (const [name, selector] of [
+    ['the period', '#reports-window'],
+    ['a model checkbox', 'input[name="models"]'],
+  ]) {
+    test(`Enter on ${name} applies the builder and opens no print view`, async () => {
+      const { ctx, page, errors } = await loggedInPage(browser);
+      try {
+        await page.goto(`${BASE}/sys/reports/`, { waitUntil: 'networkidle' });
+        const field = page.locator(selector).first();
+        assert.ok(await field.count(), `the builder renders ${name}`);
+        const checked = selector.startsWith('input') ? await field.isChecked() : null;
+        const opened = [];
+        ctx.on('page', (p) => opened.push(p.url()));
+
+        await field.focus();
+        await Promise.all([
+          page.waitForURL((url) => url.searchParams.get('builder') === '1', { timeout: 10000 }),
+          page.keyboard.press('Enter'),
+        ]);
+        await page.waitForLoadState('networkidle');
+
+        assert.equal(new URL(page.url()).pathname, '/sys/reports/');
+        assert.deepEqual(opened, []);
+        if (checked !== null) assert.equal(await page.locator(selector).first().isChecked(), checked);
+        assert.deepEqual(errors, []);
+      } finally {
+        await ctx.close();
+      }
+    });
+  }
 
   test('Enter in a model or operation filter stays on the page', async () => {
     const { ctx, page, errors } = await loggedInPage(browser);

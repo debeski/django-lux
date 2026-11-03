@@ -84,14 +84,15 @@
     }
 
     /* The header's Print and Export buttons belong to this form and come first in
-       the document, so the browser's implicit submission (Enter in a field) would
-       press Print. Enter in the search or a date applies the builder instead; in
-       a model or operation filter it only filters. */
+       the document, so the browser's implicit submission (Enter in a field, on
+       the period or on a checkbox) would press Print. Enter there applies the
+       builder instead; in a model or operation filter it only filters. Buttons
+       keep their own Enter. */
     if (form) {
         form.addEventListener('keydown', function (event) {
             const field = event.target;
-            if (event.key !== 'Enter' || event.isComposing || !(field instanceof HTMLInputElement)) return;
-            if (field.type === 'checkbox' || field.type === 'radio') return;
+            if (event.key !== 'Enter' || event.isComposing) return;
+            if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
             event.preventDefault();
             if (!field.matches('[data-report-choice-search]') && form.reportValidity()) submitBuilder();
         });

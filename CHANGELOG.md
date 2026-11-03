@@ -9,6 +9,11 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.4b3
+
+- **1.15.4 Candidate 3**: Patch beta on 1.15.4b2 with the one fix its post-publish acceptance on testbed-dlux found, below. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta. The manifest keeps the 1.15.3 instruction for deployments updating from 1.15.2 or earlier: run `./start.sh check --fix` with Composer 1.9.2+ afterwards.
+- **Enter On The Reports Period Or A Checkbox No Longer Opens The Print View**: 1.15.4b2 stopped Enter in the search and date fields from submitting the builder through the header's Print report button, but its handler covered text inputs only, so Enter on the period dropdown or on a model or operation checkbox still opened the print view. `reports/js/overview.js` now applies the builder on Enter on any builder input or the period; buttons keep their own Enter, and the model and operation filters still only filter. `tests-e2e/reports_search_enter.test.mjs` adds both cases (each fails without the fix).
+
 ## v1.15.4b2
 
 - **1.15.4 Candidate 2**: Patch beta on 1.15.4b1 adding the media-access gaps the consumer releases found (#41) and the General Reports fixes (#42). No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta. The scaffold `db` change applies to new projects only. The manifest keeps the 1.15.3 instruction for deployments updating from 1.15.2 or earlier: run `./start.sh check --fix` with Composer 1.9.2+ afterwards.
