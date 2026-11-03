@@ -9,7 +9,12 @@ import urllib.request
 
 from packaging.version import InvalidVersion, Version
 
-from .manifest import validate_local_release_manifest
+from .manifest import (
+    HIGHLIGHT_LENGTH,
+    HIGHLIGHTS_LIMIT,
+    SUMMARY_LIMIT,
+    validate_local_release_manifest,
+)
 
 
 #: Channels a tag may publish to. A tag classifies itself; there is no keyword,
@@ -157,6 +162,13 @@ def _separate_state_is_safe(operation):
     return False
 
 
+def _local_manifest():
+    """The working tree's release manifest exactly as written."""
+    return json.loads(
+        (Path(__file__).resolve().parents[1] / "release-manifest.json").read_text(encoding="utf-8")
+    )
+
+
 def _manifest_at_tag(tag):
     """The release manifest as it was published at `tag`, or None."""
     completed = subprocess.run(
@@ -296,6 +308,48 @@ def validate_image_baseline(manifest):
             f"rebuild; the floor must not go backwards"
         ]
     return []
+
+
+def validate_display_limits(manifest):
+    """Refuse release notes the Updates card would cut.
+
+    `bounded_highlights()` and `release_notes()` trim the display block to the
+    card's limits without a word. That is right for notes a deployment reads: a
+    shortened line beats a refused update. On release day the same trim is an
+    authoring mistake nobody sees — the first 1.15.4b2 manifest had four
+    highlights cut mid-word and every gate passed.
+    """
+    if manifest.get("schema_version") == 2:
+        display, prefix = manifest.get("display"), "display."
+    else:
+        display, prefix = manifest, ""
+    display = display if isinstance(display, dict) else {}
+    errors = []
+    summary = display.get("summary")
+    if isinstance(summary, str) and len(summary.strip()) > SUMMARY_LIMIT:
+        errors.append(
+            f"{prefix}summary is {len(summary.strip())} characters; the Updates card "
+            f"shows {SUMMARY_LIMIT} and cuts the rest."
+        )
+    highlights = display.get("highlights")
+    if not isinstance(highlights, list):
+        return errors
+    if len(highlights) > HIGHLIGHTS_LIMIT:
+        errors.append(
+            f"{prefix}highlights has {len(highlights)} entries; the Updates card "
+            f"shows the first {HIGHLIGHTS_LIMIT} and drops the rest."
+        )
+    for index, item in enumerate(highlights):
+        if not isinstance(item, str):
+            errors.append(f"{prefix}highlights[{index}] must be text.")
+            continue
+        text = item.strip()
+        if len(text) > HIGHLIGHT_LENGTH:
+            errors.append(
+                f"{prefix}highlights[{index}] is {len(text)} characters; the Updates card "
+                f"cuts it at {HIGHLIGHT_LENGTH}: {text[:60]!r}..."
+            )
+    return errors
 
 
 def classify_tag(tag, *, manifest_version=""):
@@ -512,6 +566,13 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     manifest = validate_local_release_manifest()
+    # Read raw: the validated manifest has already been trimmed to the limits.
+    raw = _local_manifest()
+    errors = validate_display_limits(raw)
+    if errors:
+        for error in errors:
+            print(f"::error::{error}", file=sys.stderr)
+        return 1
     current_tag = os.getenv("GITHUB_REF_NAME") or f"v{manifest['version']}"
     base_tag = args.base_tag or None
 
@@ -549,9 +610,6 @@ def main(argv=None):
     # Both floors are derived from published history rather than remembered on
     # release day. `validate_image_baseline` existed but was never called from
     # here, so the convention it replaced was still only a convention.
-    raw = json.loads(
-        (Path(__file__).resolve().parents[1] / "release-manifest.json").read_text(encoding="utf-8")
-    )
     errors = validate_image_baseline(raw) + validate_migration_baseline(raw)
     if base_tag:
         errors += validate_declared_migration_effect(raw, base_tag)
