@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "version": "1.15.4b2",
+  "version": "1.15.4b3",
   "display": {
     "summary": "Reports fixes, with a command that counts records saved before activity logging; stored-file access for prefixed mounts and public documents; pages that load only the active theme.",
     "highlights": [
-      "Reports: the user report opens on every period, including quarter, half-year, year and a custom range, and Enter in the search filters.",
+      "Reports: the user report opens on every period, including quarter, half-year, year and a custom range; Enter in the builder applies it instead of printing.",
       "Reports: each model has one entry with one translated label, and the search field suggests users, models and operations.",
       "Reports: tall tables scroll in their cards; ./start.sh run -m web dlux_backfill_report_activity counts records saved before activity logging.",
       "Stored files: a project that mounts DjangoLux under a prefix now passes the proxy's access check.",
@@ -12,7 +12,7 @@
       "Pages link only the active theme's stylesheet; switching themes loads the new one before fading to it.",
       "From 1.15.2 or earlier? This includes the 1.15.3 security fix: afterwards run ./start.sh check --fix (Composer 1.9.2+) so stored files stay private."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.4b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.4b3"
   },
   "requires": {
     "updater_schema": ">=1",
