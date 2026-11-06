@@ -52,7 +52,7 @@ Generated projects include `start.sh` and `start.ps1` wrappers plus the resident
 ## What DjangoLux gives you
 
 - A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, titlebar global search, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
-- A 17-step first-launch setup wizard at `/sys/setup/` with category-owned identity, localization, homepage, email, security, login, sidebar, navigation, titlebar, search, notifications, themes/typography, layout, logging, profile, backup, and optional-feature settings.
+- A 19-step first-launch setup wizard at `/sys/setup/` covering identity, languages, email, security, themes and fonts, titlebar, sidebar, navbar, ribbon, tables, layout, homepage, login page, profile, search, notifications, logging, backups and optional features.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Dlux email readiness checks, public-account provenance badges, throttles, and optional approval.
 - A database-backed `SystemSettings` singleton layered over `DLUX_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
@@ -187,20 +187,14 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 
 ## Documentation
 
-- [Documentation Hub](docs/README.md)
-- [Security Policy](SECURITY.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Documentation index](docs/README.md): every guide, grouped for operators and developers
+- [Features](docs/FEATURES.md): the capability map
 - [Getting Started](docs/getting-started.md)
-- [Admin Guide](docs/admin-guide.md)
 - [Developer Guide](docs/developer-guide.md)
-- [Customization Guide](docs/customization-guide.md)
-- [Reference](docs/reference.md)
-- [DSRP-1 Security Standard](docs/security-dsrp-1.md)
-- [Optional SSO Packages](docs/sso.md)
-- [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
+- [Reference](docs/reference.md): commands, routes, template tags and helpers
 - [Verified Inline Updater](docs/inline-updater.md)
-- [Releasing](docs/RELEASING.md) — tag-driven PyPI + GitHub release flow
-- [Migrating from django-microsys](docs/migrating-from-microsys.md) — in-place upgrade for existing deployments
-- [Features](docs/FEATURES.md) — complete feature inventory
+- [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
+- [Migrating from django-microsys](docs/migrating-from-microsys.md)
+- [Releasing](docs/RELEASING.md)
 - [Changelog](CHANGELOG.md)
+- [Security Policy](SECURITY.md), [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)

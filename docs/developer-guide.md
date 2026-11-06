@@ -1,10 +1,7 @@
 # Developer Guide
 
-This page explains how DjangoLux fits into a Django project and how to think about its moving parts before you start extending it.
-
-## Local test deployments
-
-Keep local test stacks in `~/Desktop/depy/testbed-*`, named for their subject (for example `testbed-dlux`, `testbed-archive`, or `testbed-crm-gov`). Run them through the generated Composer wrapper in development mode: `./start.sh --dev`, or a local `run.sh` that always delegates with `--dev`. Put development overrides in `compose.dev.yml`; keep inline updates disabled when testing bind-mounted source. Keep deployment directories outside source checkouts and `.xclude/` evidence archives. Preserve the official `testbed-dlux` deployment unless the owner explicitly requests changing it.
+This page explains how DjangoLux fits into a Django project and how to think about its
+moving parts before you start extending it.
 
 ## The Core Mental Model
 
@@ -38,7 +35,8 @@ To **add a new first-class setting** to the `SystemSettings` pipeline (schema �
 normalizer → export whitelist → form → runtime), follow the step-by-step procedure
 and trap list in [`adding-system-settings.md`](adding-system-settings.md). To store
 **project-owned** config without touching the framework, use the
-`extra_config['app']` namespace documented in [`reference.md`](reference.md).
+`extra_config['app']` namespace described in
+[Project-wide app config](ui-integration.md#project-wide-app-config).
 
 ## Core Models
 
@@ -50,13 +48,19 @@ The main system-level models are:
   the profile/onboarding surface.
 
 - `Scope` and `ScopeSettings`
-  Represent the optional scope-isolation system and whether scoping is globally enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a dedicated `Scope` for every newly registered user. `Scope.default_theme` provides an allowed-theme fallback for users in that scope who have not selected a valid personal theme; it is ignored while scopes are disabled.
+  Represent the optional scope-isolation system and whether scoping is globally
+  enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a
+  dedicated `Scope` for every newly registered user. `Scope.default_theme` provides an
+  allowed-theme fallback for users in that scope who have not selected a valid
+  personal theme; it is ignored while scopes are disabled.
 
 - `ScopedModel`
-  Gives inheriting models audit fields, actor tracking, soft-delete behavior, and automatic scope support.
+  Gives inheriting models audit fields, actor tracking, soft-delete behavior, and
+  automatic scope support.
 
 - `Profile`
-  Extends the user model with phone, profile picture, preferences, and 2FA state. Profiles are created automatically.
+  Extends the user model with phone, profile picture, preferences, and 2FA state.
+  Profiles are created automatically.
 
 - `ActivityLog`, `DluxNotification*`, and backup/restore run models
   Persist the audit, user-delivery, report, and recovery control planes.
@@ -94,15 +98,30 @@ Behavior to remember:
 - `save()` auto-assigns actor fields from the current request user
 - `save()` can also inherit scope from the current user's profile
 - `delete()` becomes a soft-delete
-- bulk `queryset.delete()` is a soft-delete too: it sets `deleted_at` and `deleted_by` (the current user) on the rows not already deleted, and returns `(count, {label: count})`
-- `queryset.hard_delete()` really removes rows, for maintenance such as log pruning; `queryset.restore()` clears the soft-delete markers in bulk
+- bulk `queryset.delete()` is a soft-delete too: it sets `deleted_at` and `deleted_by`
+  (the current user) on the rows not already deleted, and returns
+  `(count, {label: count})`
+- `queryset.hard_delete()` really removes rows, for maintenance such as log pruning;
+  `queryset.restore()` clears the soft-delete markers in bulk
 - `objects` is scope-aware and hides soft-deleted rows
-- `all_objects` is the raw escape hatch (no scoping, soft-deleted rows included, same queryset methods)
-- Django's cascade from a non-scoped parent still hard-deletes scoped children; soft-delete the parent's children yourself when they must survive
-- `dlux_reset = False` on a model keeps it out of Reset data, for history tables that must only go with the record they describe
+- `all_objects` is the raw escape hatch (no scoping, soft-deleted rows included, same
+  queryset methods)
+- Django's cascade from a non-scoped parent still hard-deletes scoped children;
+  soft-delete the parent's children yourself when they must survive
+- `dlux_reset = False` on a model keeps it out of Reset data, for history tables that
+  must only go with the record they describe
+- When `ScopeSettings.auto_create_user_scope` is enabled, new users automatically
+  receive their own dedicated scope
 
-Users that history points at are never hard-deleted. Any reverse relation to the user whose `on_delete` is not `CASCADE` (`created_by`, `deleted_by`, activity logs, a project's `PROTECT` links) counts as history, and so do Django admin log entries; `CASCADE` rows (sessions, devices, the profile) belong to the account itself. User Management, the Django admin (single and bulk) and Reset data all soft-delete such users (deactivate, soft-delete the profile, rename to `name_del`) and hard-delete only users with no history. `dlux.utils` exposes `user_has_history()`, `soft_delete_user()` and `delete_user_preserving_history()` for project code.
-- When `ScopeSettings.auto_create_user_scope` is enabled, new users automatically receive their own dedicated scope
+Users that history points at are never hard-deleted. Any reverse relation to the user
+whose `on_delete` is not `CASCADE` (`created_by`, `deleted_by`, activity logs, a
+project's `PROTECT` links) counts as history, and so do Django admin log entries;
+`CASCADE` rows (sessions, devices, the profile) belong to the account itself.
+
+User Management, the Django admin (single and bulk) and Reset data all soft-delete
+such users (deactivate, soft-delete the profile, rename to `name_del`) and hard-delete
+only users with no history. `dlux.utils` exposes `user_has_history()`,
+`soft_delete_user()` and `delete_user_preserving_history()` for project code.
 
 ## Startup Patches and Zero-Boilerplate Behavior
 
@@ -116,29 +135,63 @@ That is why many dlux features feel "automatic" even when your model or form cod
 
 ### The `ready()` Phase: Behind the Magic
 
-When `DluxConfig.ready()` runs at startup, it applies several global monkey-patches to Django's core components to enable the "Zero-Boilerplate" experience.
+When `DluxConfig.ready()` runs at startup, it applies several global monkey-patches to
+Django's core components to enable the "Zero-Boilerplate" experience.
 
 #### 1. Automatic Scope Injection
-Through `dlux.patches.apply_scoped_patches()`, the system intercepts the `__init__` methods of `ModelForm`, `FilterSet`, and `Table` (from `django-tables2`).
+Through `dlux.patches.apply_scoped_patches()`, the system intercepts the `__init__`
+methods of `ModelForm`, `FilterSet`, and `Table` (from `django-tables2`).
 - **Discovery**: It checks if the underlying model inherits from `ScopedModel`.
-- **Injection**: If so, it automatically adds a `scope` field/filter/column if one hasn't been explicitly defined or excluded.
-- **Access Control**: It locks the field for non-superusers, ensuring they cannot change their assigned scope.
-- **Disabled scopes**: Resolved CRUD and section forms remove both the injected field and any matching nodes in a custom Crispy layout. A form helper may therefore include `scope` unconditionally; Dlux clones shared helpers before pruning them so a later settings change can re-enable the field safely.
+- **Injection**: If so, it automatically adds a `scope` field/filter/column if one
+  hasn't been explicitly defined or excluded.
+- **Access Control**: It locks the field for non-superusers, ensuring they cannot
+  change their assigned scope.
+- **Disabled scopes**: Resolved CRUD and section forms remove both the injected field
+  and any matching nodes in a custom Crispy layout. A form helper may therefore
+  include `scope` unconditionally; Dlux clones shared helpers before pruning them so a
+  later settings change can re-enable the field safely.
 
 #### 2. Universal Translation Patches
 Through `apply_global_translation_patches()`, the system:
-- **Monkey-patches `gettext`**: Every call to Django's translation utilities (including `_()`) first checks the `DLUX_STRINGS` dictionary and runtime overrides before falling back to local PO files.
-- **Translates Model Meta**: Automatically wraps `verbose_name` and `verbose_name_plural` of ALL models in the project with lazy translators that look up keys in `dlux` (`model_<name>` / `models_<name>`). Each falls back to the *other* key before the raw name, so a model translated with only one key still resolves on every surface (sidebar, nav, section manager). The canonical helper is `dlux.translations.resolve_model_label(model)` — the single entry point components share so they always agree on the label (order: plural → singular → raw).
-- **Translates Permissions**: Dynamic labels in the user management UI are generated by translating the "Can add/view/delete" strings in real-time.
+- **Monkey-patches `gettext`**: Every call to Django's translation utilities
+  (including `_()`) first checks the `DLUX_STRINGS` dictionary and runtime overrides
+  before falling back to local PO files.
+- **Translates Model Meta**: Automatically wraps `verbose_name` and
+  `verbose_name_plural` of ALL models in the project with lazy translators that look
+  up keys in `dlux` (`model_<name>` / `models_<name>`). Each falls back to the *other*
+  key before the raw name, so a model translated with only one key still resolves on
+  every surface (sidebar, nav, section manager). The canonical helper is
+  `dlux.translations.resolve_model_label(model)` — the single entry point components
+  share so they always agree on the label (order: plural → singular → raw).
+- **Translates Permissions**: Dynamic labels in the user management UI are generated
+  by translating the "Can add/view/delete" strings in real-time.
 
 #### 3. Auth Redirect Defaults
-If `LOGIN_REDIRECT_URL` or `LOGOUT_REDIRECT_URL` are missing from your `settings.py`, DjangoLux injects its own defaults to ensure a smooth out-of-the-box flow.
+If `LOGIN_REDIRECT_URL` or `LOGOUT_REDIRECT_URL` are missing from your `settings.py`,
+DjangoLux injects its own defaults to ensure a smooth out-of-the-box flow.
 
 A few practical consequences:
 
 - you usually do not add `scope` manually to every form and filter
 - translated labels often come from verbose names or translation keys without manual wiring
 - opting out is explicit, such as excluding `scope` in form metadata when needed
+
+### Never resolve a URL from a module body
+
+`reverse()` (and anything reaching it) must not run while a module is being
+imported. A project's `urls.py` calls `include('dlux.urls')` inside its
+`urlpatterns` list literal, so during that call the project's own urls module is
+in `sys.modules` **without** `urlpatterns`. Resolving a URL then makes Django
+cache that half-built module on the resolver, and every later system check fails
+with "The included URLconf does not appear to have any patterns in it".
+
+This is easy to hit indirectly: dlux's global gettext patch answers a lazy
+string through `get_strings()`, which reads `get_system_config()`, and Django
+resolves lazy strings inside form-class bodies at import time.
+`_root_urlconf_is_loading()` (`dlux/discovery/routes.py`, importable from
+`dlux.discovery`) is the guard: route discovery, `known_route_names()` and the
+table-column catalog skip their URL lookups while it returns true. Add the same
+guard to any new code that can resolve a URL from a config or translation lookup.
 
 ## Discovery and Generated Components
 
@@ -223,45 +276,101 @@ class ChapterAddView(CreateView):
 ```
 
 Both accept a profile name, an iterable of names, or `True` for every profile.
-`dlux_exclude` always wins over `dlux_include`. The released
-`view.sidebar_exclude = True` still works and hides the view from every feature.
+`dlux_exclude` always wins over `dlux_include`. `view.sidebar_exclude = True`
+hides the view from every feature.
 
 ### Sidebar Permission Inference
 
-Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:
+Sidebar items are only visible to users who have the required view permission. The
+permission for each item is inferred in this order:
 
-1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view callback — used as-is.
-2. **System route meta**: items in `SYSTEM_ROUTE_META` (e.g., `manage_users`, `options_view`) use their declared `__dlux_*` permission tokens.
-3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
-4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
-5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.
+1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view
+   callback — used as-is.
+2. **System route meta**: items in `SYSTEM_ROUTE_META` (e.g., `manage_users`,
+   `options_view`) use their declared `__dlux_*` permission tokens.
+3. **Model-based inference**: for class-based views with a model, the permission is
+   `app_label.view_model_name`.
+4. **URL pattern inference**: for function-based views without a model, the app label
+   comes from the URL namespace (or callback module) and the model name from the URL
+   name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
+5. **No inference**: if none of the above produce a permission, the item is hidden
+   from non-superusers.
 
-This means staff users will only see sidebar items for models they have explicit `app.view_model` permissions for. Ensure users are granted the appropriate permissions.
+This means staff users will only see sidebar items for models they have explicit
+`app.view_model` permissions for. Ensure users are granted the appropriate
+permissions.
 
 ## Dlux-owned UI primitives
 
-Dlux-owned screens must reuse the framework primitive before falling back to a raw Django widget or generic Bootstrap structure:
+Dlux-owned screens must reuse the framework primitive before falling back to a raw
+Django widget or generic Bootstrap structure:
 
-- `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy layouts, use `build_file_field()` so the file card, validation output, drag/drop behavior, toolbar, and translations stay intact. Do not write a raw `<input type="file">` in a Dlux-owned template.
-- `DluxLookupField` from `dlux.forms` when a ForeignKey has more rows than a dropdown should hold, or when readers would otherwise create a second record for one that already exists. It renders a box you type into, reuses an exact name, refuses a near miss with what it resembles, and — given `create` — adds a record that genuinely is new. Do not hand-build a `<datalist>` and a hidden key beside a text input.
-- `ManagedAssetField` from `dlux.models` for **any** model image or font — not `ImageField`. It supplies the picker, the instant permission-checked upload and the namespace that keeps one pool out of another's picker; pair it with `ManagedAssetFormMixin` from `dlux.forms` and place it with `build_asset_field()`. See `docs/managed-assets.md`.
-- `AssetPickerField` from `dlux.forms` when a form field selects a reusable `ManagedAsset` without a model field behind it. Its file card opens the saved-file library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
-- `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
-- Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces, including sidebar entry icons. It is lazy-rendered, searchable, keyboard-closeable, and owns the shared Bootstrap Icons catalog. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
-- Dlux inspector shell through `dlux/helpers/inspector/css/main.css` and `dlux/helpers/inspector/js/main.js` for builder-style editors. `window.DluxInspectorShell.create(container, { adapter })` owns the bordered inspector surface, action row, pinned Clear selection action, and responsive field grid; the adapter owns the selected object, supported actions, field specs, mutation, and commit behavior.
-- `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms` for settings switches; do not hand-build Bootstrap switch markup. For a server-locked toggle, set `field.disabled = True` and `field.dlux_lock_reason`: the builder applies the shared dimmed dependent state, `aria-disabled`, and a Dlux tooltip to the whole card.
-- `DluxTable` from `dlux.tables`, or the `dlux-table-shell` / `dlux-table-scroll` / `dlux-data-table` structure, for Dlux-owned data grids.
-- Compact auxiliary tables inside System Settings that do not need the full `DluxTable` shell must still own a surface. Use the setup theme tokens such as `--dlux-setup-item-bg` and `--dlux-setup-item-border`; do not leave the body transparent against the modal. A sticky auxiliary header must layer `--dlux-table-header-surface` over an opaque `--table-row` backdrop so scrolling content cannot bleed through translucent theme gradients.
-- The universal dynamic-modal protocol (`data-dynamic-modal`, JSON `{html}` fragments, and `data-dlux-modal-footer`) for modal workflows, and `window.DluxLoadingButton` for asynchronous button state.
-- To open the dynamic modal from your own code, dispatch `dlux:dynamic_modal:open` with `detail.data.url` (and an optional `title`). Dispatch it on any element, on `document.body`, or on `document`; dlux listens in the capture phase, so it is caught whether or not the event bubbles. Between 1.8.0 and 1.8.11 the listener was bubble-phase, and a non-bubbling `CustomEvent` dispatched on `document.body` — the default, since `bubbles` is false unless you set it — silently reached nothing. Passing `bubbles: true` is still good practice if other listeners need to see the event.
-- `data-dlux-context` plus the Dlux row-action schema for context menus, and `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip implementations.
-- `from dlux.notifications import notify` for user-facing success, warning, and error feedback so drawer/history behavior remains consistent. Supply a stable `event_key` for retryable background events; automatic CRUD already keys durable delivery to its activity-log row and does not persist success back to the actor.
+- `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy
+  layouts, use `build_file_field()` so the file card, validation output, drag/drop
+  behavior, toolbar, and translations stay intact. Do not write a raw
+  `<input type="file">` in a Dlux-owned template.
+- `DluxLookupField` from `dlux.forms` when a ForeignKey has more rows than a dropdown
+  should hold, or when readers would otherwise create a second record for one that
+  already exists. It renders a box you type into, reuses an exact name, refuses a near
+  miss with what it resembles, and — given `create` — adds a record that genuinely is
+  new. Do not hand-build a `<datalist>` and a hidden key beside a text input.
+- `ManagedAssetField` from `dlux.models` for **any** model image or font — not
+  `ImageField`. It supplies the picker, the instant permission-checked upload and the
+  namespace that keeps one pool out of another's picker; pair it with
+  `ManagedAssetFormMixin` from `dlux.forms` and place it with `build_asset_field()`.
+  See `docs/managed-assets.md`.
+- `AssetPickerField` from `dlux.forms` when a form field selects a reusable
+  `ManagedAsset` without a model field behind it. Its file card opens the saved-file
+  library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
+- `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from
+  `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
+- Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for
+  Bootstrap Icons fields inside System Settings/setup surfaces, including sidebar
+  entry icons. It is lazy-rendered, searchable, keyboard-closeable, and owns the
+  shared Bootstrap Icons catalog. The grid opens as a popover anchored under the field
+  (the asset picker library's geometry) and closes on an outside click or Escape; pass
+  `inline: True` in the include context for an in-flow disclosure that pushes the
+  following fields down instead.
+- Dlux inspector shell through `dlux/helpers/inspector/css/main.css` and
+  `dlux/helpers/inspector/js/main.js` for builder-style editors.
+  `window.DluxInspectorShell.create(container, { adapter })` owns the bordered
+  inspector surface, action row, pinned Clear selection action, and responsive field
+  grid; the adapter owns the selected object, supported actions, field specs,
+  mutation, and commit behavior.
+- `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms`
+  for settings switches; do not hand-build Bootstrap switch markup. For a
+  server-locked toggle, set `field.disabled = True` and `field.dlux_lock_reason`: the
+  builder applies the shared dimmed dependent state, `aria-disabled`, and a Dlux
+  tooltip to the whole card.
+- `DluxTable` from `dlux.tables`, or the `dlux-table-shell` / `dlux-table-scroll` /
+  `dlux-data-table` structure, for Dlux-owned data grids.
+- Compact auxiliary tables inside System Settings that do not need the full
+  `DluxTable` shell must still own a surface. Use the setup theme tokens such as
+  `--dlux-setup-item-bg` and `--dlux-setup-item-border`; do not leave the body
+  transparent against the modal. A sticky auxiliary header must layer
+  `--dlux-table-header-surface` over an opaque `--table-row` backdrop so scrolling
+  content cannot bleed through translucent theme gradients.
+- The universal dynamic-modal protocol (`data-dynamic-modal`, JSON `{html}` fragments,
+  and `data-dlux-modal-footer`) for modal workflows, and `window.DluxLoadingButton`
+  for asynchronous button state.
+- To open the dynamic modal from your own code, dispatch `dlux:dynamic_modal:open`
+  with `detail.data.url` (and an optional `title`). Dispatch it on any element, on
+  `document.body`, or on `document`; dlux listens in the capture phase, so it is
+  caught whether or not the event bubbles (a `CustomEvent` does not bubble unless you
+  set `bubbles: true`). Pass `bubbles: true` when other listeners also need to see the
+  event.
+- `data-dlux-context` plus the Dlux row-action schema for context menus, and
+  `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip
+  implementations.
+- `from dlux.notifications import notify` for user-facing success, warning, and error
+  feedback so drawer/history behavior remains consistent. Supply a stable `event_key`
+  for retryable background events; automatic CRUD already keys durable delivery to its
+  activity-log row and does not persist success back to the actor.
 
 ### Markup wrappers
 
-Four wrappers cover the structural markup that used to be copy-pasted. Three are
-block tags from `dlux_tags` (`{% load dlux_tags %}` first), one is a plain
-include:
+Four wrappers cover the repeated structural markup. Three are block tags from
+`dlux_tags` (`{% load dlux_tags %}` first), one is a plain include:
 
 ```html
 {% dlux_table_shell density="balanced" class="" %}
@@ -298,7 +407,9 @@ editable markup (`dlux/tables/shell.html`, `dlux/base/card.html`,
 `dlux/notifications/alert.html`) rather than HTML built in Python. Use them for
 new markup; do not hand-write `dlux-table-shell`/`dlux-table-scroll` pairs.
 
-The reusable form CSS and JavaScript are loaded by `dlux/forms/assets_head.html` and `dlux/forms/assets_scripts.html`. Keep new primitives compatible with those global, idempotent initializers so they also work after dynamic-modal replacement.
+The reusable form CSS and JavaScript are loaded by `dlux/forms/assets_head.html` and
+`dlux/forms/assets_scripts.html`. Keep new primitives compatible with those global,
+idempotent initializers so they also work after dynamic-modal replacement.
 
 ### Template comment audit
 
@@ -324,11 +435,11 @@ repeatable `--exclude` flags.
 ### Authenticated-page scroll boundaries
 
 On authenticated screens, `#mainContent` is the viewport-height scroll pane; the
-document itself must have no vertical scroll range. A Backup & Restore regression
-showed why this distinction matters: its grid's overflow reached the document
-scroller even though `document.body.scrollHeight` still matched the viewport.
-After the inner pane reached its end, another wheel gesture scrolled the document,
-revealing the transparent `<html>` canvas as a white block and moving the sidebar.
+document itself must have no vertical scroll range. A grid feature root can leak
+its overflow to the document scroller even while `document.body.scrollHeight`
+matches the viewport: once the inner pane reaches its end, another wheel gesture
+scrolls the document, revealing the transparent `<html>` canvas as a white block
+and moving the sidebar.
 
 For a feature root that uses grid layout inside this shell, establish a page-local
 layout boundary:
@@ -400,7 +511,8 @@ Use dynamic modals when:
 - you need form-only, list-only, or read-only modal behavior
 - the model should be managed from a custom trigger instead of the sections page
 
-In both cases, the discovery system is the same. What changes is the entry point and the surrounding UI.
+In both cases, the discovery system is the same. What changes is the entry point and
+the surrounding UI.
 
 Section Manager always renders one `keyword` search field for the selected
 model, without Advanced filters. It searches concrete text fields and, for a
@@ -498,17 +610,28 @@ function init(root) {
 }
 ```
 
-Widgets that only listened for `shown.bs.modal` failed in a way that is easy to miss:
+A widget that listens only for `shown.bs.modal` fails in a way that is easy to miss:
 nothing throws, the server payload is correct, and the widget renders on the loads
 that happen to win the race — so it looks intermittent rather than broken.
 
 ### Pinning buttons to the modal footer
 
-The dynamic modal owns its header, scrolling body, and persistent footer. AJAX partials should return body content only: do not add another `.modal-header`, `.modal-body`, or `.modal-footer`, and use the trigger's `data-modal-title` for the single shell title. Legacy fragments that still return Bootstrap modal chrome are normalized automatically; their embedded title is promoted to the shell, non-title header context stays in the body, and their footer actions are pinned.
+The dynamic modal owns its header, scrolling body, and persistent footer. AJAX
+partials should return body content only: do not add another `.modal-header`,
+`.modal-body`, or `.modal-footer`, and use the trigger's `data-modal-title` for the
+single shell title.
 
-Built-in action bars (auto-form buttons, multi-step wizard controls, the System Settings wizard bar, and `_build_submit_actions` bars) are detected and moved into the pinned footer automatically.
+A fragment that does return Bootstrap modal chrome is normalized automatically: its
+embedded title is promoted to the shell, non-title header context stays in the
+body, and its footer actions are pinned.
 
-For a **custom modal template** (a view that sets `template_name`, or a custom options screen), mark your own button container with `data-dlux-modal-footer` to have it pinned the same way:
+Built-in action bars (auto-form buttons, multi-step wizard controls, the System
+Settings wizard bar, and `_build_submit_actions` bars) are detected and moved into the
+pinned footer automatically.
+
+For a **custom modal template** (a view that sets `template_name`, or a custom options
+screen), mark your own button container with `data-dlux-modal-footer` to have it
+pinned the same way:
 
 ```html
 <form method="post" action="{{ request.path }}">
@@ -526,9 +649,15 @@ For a **custom modal template** (a view that sets `template_name`, or a custom o
 Notes:
 
 - The marked container takes priority over the built-in bars.
-- Its buttons are associated to the modal form via the `form=` attribute, so AJAX submit interception and multi-step wizard navigation still work after relocation.
-- The element is physically moved out of the modal body, so any custom JS for those buttons should use document-level event delegation rather than querying the modal body after load.
-- Nothing is pinned when the body also carries a records list (`data-dlux-modal-list`, which the combined form+table template sets and a custom modal template can set itself): in the footer the form's Save would read as the submit for the table above it, so the action bar stays under its own form.
+- Its buttons are associated to the modal form via the `form=` attribute, so AJAX
+  submit interception and multi-step wizard navigation still work after relocation.
+- The element is physically moved out of the modal body, so any custom JS for those
+  buttons should use document-level event delegation rather than querying the modal
+  body after load.
+- Nothing is pinned when the body also carries a records list (`data-dlux-modal-list`,
+  which the combined form+table template sets and a custom modal template can set
+  itself): in the footer the form's Save would read as the submit for the table above
+  it, so the action bar stays under its own form.
 
 ## Users, Profiles, and Permissions
 
@@ -539,11 +668,15 @@ The user side of DjangoLux has a few important defaults:
 - the user-management flow uses the interactive modal wizard
 - permission labels are translated dynamically instead of staying in raw Django English
 
-If you extend user-facing workflows, treat `Profile` as part of the normal user contract rather than an optional extra.
+If you extend user-facing workflows, treat `Profile` as part of the normal user
+contract rather than an optional extra.
 
 ### Hiding permissions of a disabled feature
 
-An optional feature can keep its permission cards out of the group and user permission editors while it is switched off. Register a filter in `AppConfig.ready()`; it runs every time a permission form is built and returns a `Q` over `Permission` (or `None` to hide nothing):
+An optional feature can keep its permission cards out of the group and user permission
+editors while it is switched off. Register a filter in `AppConfig.ready()`; it runs
+every time a permission form is built and returns a `Q` over `Permission` (or `None`
+to hide nothing):
 
 ```python
 from django.db.models import Q
@@ -556,68 +689,106 @@ def hide_pos_permissions():
 register_permission_visibility_filter(hide_pos_permissions)
 ```
 
-Hiding is display-only. Saving a group or user keeps every hidden permission it already holds (`keep_hidden_permissions()`), so turning the feature back on shows the original grants unchanged, and `has_perm()` is never affected. Filters that raise are logged and hide nothing; registering the same callable twice is a no-op. `hidden_permission_ids()` returns what is hidden right now.
+Hiding is display-only. Saving a group or user keeps every hidden permission it
+already holds (`keep_hidden_permissions()`), so turning the feature back on shows the
+original grants unchanged, and `has_perm()` is never affected. Filters that raise are
+logged and hide nothing; registering the same callable twice is a no-op.
+`hidden_permission_ids()` returns what is hidden right now.
 
 ## Translation and Scope Behavior
 
-Two recent themes in DjangoLux are worth treating as first-class features, not side effects:
+Two behaviours are first-class features, not side effects:
 
-- translations are resolved with layered fallbacks, including user preferences, session state, config defaults, and runtime overrides
+- translations are resolved with layered fallbacks, including user preferences,
+  session state, config defaults, and runtime overrides
 - scope behavior is auto-injected when enabled and removed when disabled
 
-That means you should usually extend the system by leaning into those mechanisms rather than rebuilding them locally in each form, table, or view.
+That means you should usually extend the system by leaning into those mechanisms
+rather than rebuilding them locally in each form, table, or view.
 
 ## Guided Tutorial Contract
 
-The built-in tutorial reads the same resolved `window.DLUX_STRINGS` object as the rest of the active page. Do not add a tutorial-only JSON payload or global translation object. The previous implementation did both: step text requested unprefixed names such as `sidebar_title` even though the catalog key was `tut_sidebar_title`, while the control bar read a nonexistent `window.TUT_STRINGS`. Both paths silently reached their English literals even when the page language was Arabic.
+The built-in tutorial reads the same resolved `window.DLUX_STRINGS` object as the
+rest of the active page. Do not add a tutorial-only JSON payload or global
+translation object. A step that asks for an unprefixed name (`sidebar_title`
+instead of the catalog key `tut_sidebar_title`), or a control that reads its own
+strings object, silently falls back to its English literal in every language.
 
 Keep these invariants when extending the framework tour:
 
 - pass exact catalog keys, including the `tut_` prefix, to the tutorial text helper
-- define every new `tut_*` key in every shipped language; `test_translation_coverage.py` scans the tutorial JavaScript and enforces this
-- target stable component classes or `data-*` hooks; candidates are resolved when the tour starts and only rendered elements become steps
+- define every new `tut_*` key in every shipped language;
+  `test_translation_coverage.py` scans the tutorial JavaScript and enforces this
+- target stable component classes or `data-*` hooks; candidates are resolved when the
+  tour starts and only rendered elements become steps
 - avoid assigning two descriptions to the same target; the resolver collapses duplicate elements
-- a target inside a hidden container never becomes a step: Options defaults to the tabbed layout, where only the active pane renders, so the tour introduces the tab strip (`.dlux-options-tabs`) instead of each hidden card
-- the tour starts from Help in the user hub, and `user_hub.js` closes the hub on that click; do not target elements inside `#dlux-user-dropdown-card` from a step, or the closed card will drop them
-- keep Driver.js positioning LTR internally, but derive popover content, control direction, and alignment from the document `dir`
+- a target inside a hidden container never becomes a step: Options defaults to the
+  tabbed layout, where only the active pane renders, so the tour introduces the tab
+  strip (`.dlux-options-tabs`) instead of each hidden card
+- the tour starts from Help in the user hub, and `user_hub.js` closes the hub on that
+  click; do not target elements inside `#dlux-user-dropdown-card` from a step, or the
+  closed card will drop them
+- keep Driver.js positioning LTR internally, but derive popover content, control
+  direction, and alignment from the document `dir`
 
-The browser regression in `tests-e2e/tutorial.test.mjs` changes a real user preference to Arabic, reloads Options, starts the real tour, and verifies Arabic step text, translated controls, RTL presentation, and current component coverage, including the Options tab-strip step.
+The browser regression in `tests-e2e/tutorial.test.mjs` changes a real user preference
+to Arabic, reloads Options, starts the real tour, and verifies Arabic step text,
+translated controls, RTL presentation, and current component coverage, including the
+Options tab-strip step.
 
 ## Audit, Interaction, and Utility Subsystems
 
-DjangoLux also includes a few subsystems that make it feel larger than a normal "app with some templates":
+DjangoLux also includes a few subsystems that make it feel larger than a normal "app
+with some templates":
 
 - Activity logging:
-  the system captures login/logout, CRUD, merged User/Profile changes, diffs, and download/export events through signals and shared logging helpers.
+  the system captures login/logout, CRUD, merged User/Profile changes, diffs, and
+  download/export events through signals and shared logging helpers.
 - Context menus:
-  generated or custom tables can emit URL actions or decoupled `dlux:record:*` events, which lets the UI layer stay interactive without hard-wiring custom JavaScript everywhere.
+  generated or custom tables can emit URL actions or decoupled `dlux:record:*` events,
+  which lets the UI layer stay interactive without hard-wiring custom JavaScript
+  everywhere.
 - Fetch/export helpers:
-  `fetch_file()` and `fetch_excel()` provide package-level download/export behavior instead of every project reimplementing file handling and Excel generation.
+  `fetch_file()` and `fetch_excel()` provide package-level download/export behavior
+  instead of every project reimplementing file handling and Excel generation.
 - Productivity helpers:
-  autofill, sticky forms, filter setup, and reusable list templates push common back-office UX patterns into shared infrastructure.
+  autofill, sticky forms, filter setup, and reusable list templates push common
+  back-office UX patterns into shared infrastructure.
 
-That cluster of subsystems is a big part of why DjangoLux should be treated like an internal platform layer, not just a widget library.
+That cluster of subsystems is a big part of why DjangoLux should be treated like an
+internal platform layer, not just a widget library.
 
-## vNext Tables and Filter Pages
+## Tables and Filter Pages
 
-If you are wiring a normal list screen today, the supported path is:
+A list screen follows this path:
 
-- extend `dlux/list_base.html`
-- add `RibbonMixin` to the view (see [Ribbon](ribbon.md)); legacy pages may keep `setup_filter_helper()` (`advanced_filter_helper()` was removed in v1.10.0)
+- extend `dlux/list_base.html`, or use the ready arrangement in
+  [`dlux/list_page.html`](#the-list-page)
+- add `RibbonMixin` to the view (see [Ribbon](ribbon.md)); a page with a plain filter
+  bar can keep `setup_filter_helper()`
 - render the table with `{% render_table table %}` and do not wrap it in another `.table-responsive`
 - prefer `dlux.tables.DluxTable` for handwritten tables
 
-The current table contract is:
+The table contract:
 
 - stock `django_tables2` templates and no-template tables are auto-adopted into the Dlux renderer
-- explicit non-stock custom templates are left alone unless you point them at the Dlux template yourself
-- density precedence is `Table.Meta.dlux_density` -> `Profile.preferences["table_density"]` -> `SystemSettings.default_table_density` -> `balanced`
-- page-size precedence is `Table.Meta.dlux_per_page` -> request `per_page` -> `Profile.preferences["table_page_size"]` -> `20`
-- only sizes in `Meta.dlux_per_page_options` reach the paginator; invalid or oversized URL values fall back through that precedence. Prefixes and a custom `Meta.per_page_field` are supported; a fixed `Meta.dlux_per_page` wins over the URL.
+- explicit non-stock custom templates are left alone unless you point them at the Dlux
+  template yourself
+- density precedence is `Table.Meta.dlux_density` ->
+  `Profile.preferences["table_density"]` -> `SystemSettings.default_table_density` ->
+  `balanced`
+- page-size precedence is `Table.Meta.dlux_per_page` -> request `per_page` ->
+  `Profile.preferences["table_page_size"]` -> `20`
+- only sizes in `Meta.dlux_per_page_options` reach the paginator; invalid or oversized
+  URL values fall back through that precedence. Prefixes and a custom
+  `Meta.per_page_field` are supported; a fixed `Meta.dlux_per_page` wins over the URL.
 - built-in per-page controls and the density switcher live in the framework-owned footer
 - tables with forced `dlux_density` intentionally hide the footer density switcher
-- `Meta.dlux_show_footer = False` (or the `dlux_show_footer=False` constructor kwarg) removes the footer entirely and renders every row, because the footer owns the paging controls
-- dynamic modal manager tables set that kwarg themselves: a modal has no room for the toolbar and its paging links would navigate the page underneath
+- `Meta.dlux_show_footer = False` (or the `dlux_show_footer=False` constructor kwarg)
+  removes the footer entirely and renders every row, because the footer owns the
+  paging controls
+- dynamic modal manager tables set that kwarg themselves: a modal has no room for the
+  toolbar and its paging links would navigate the page underneath
 - default row actions are `dlux:record:view`, `dlux:record:edit`, and `dlux:record:delete`
 - disable default row actions with `Meta.dlux_actions = False`
 - customize the action list with `get_dlux_row_actions(self, record, base_actions)`
@@ -636,13 +807,15 @@ class InvoiceTable(DluxTable):
         dlux_per_page = 50
 ```
 
-Filter pages also have a clearer contract now:
+Filter bars without a Ribbon:
 
-- `setup_filter_helper()` defaults to inline placeholder labels for legacy filter bars
+- `setup_filter_helper()` defaults to inline placeholder labels
 - if you want normal external labels instead, pass `inline_labels=False`
 - if a page cannot extend `dlux/list_base.html`, include `dlux/forms/filter_assets_head.html`
 
-For Arabic keyword search, use `arabic_search_q()` instead of hand-rolled `icontains` chains so أ/ا, ي/ى, ة/ه, ق/غ, diacritics, and Arabic-Indic digits all match interchangeably:
+For Arabic keyword search, use `arabic_search_q()` instead of hand-rolled `icontains`
+chains so أ/ا, ي/ى, ة/ه, ق/غ, diacritics, and Arabic-Indic digits all match
+interchangeably:
 
 ```python
 from dlux.utils import arabic_search_q
@@ -660,7 +833,6 @@ class DecreeFilter(django_filters.FilterSet):
 For the full contract and more examples, use:
 
 - [Reference](reference.md)
-- [Customization Guide](customization-guide.md)
 - [Project Configuration](project-configuration.md)
 - [Translations](translation-guide.md)
 - [UI Integration](ui-integration.md)
@@ -668,9 +840,18 @@ For the full contract and more examples, use:
 
 ## Outbound network access
 
-`web` and `celery` have no route to the internet in a generated stack; only `composer-agent` does. Do not call a public host from a view, signal, task or management command. Outbound calls go through the Composer relay as named, pinned operations, and project-specific ones are declared in `relay/operations.json`. The rule, the topology and the (planned) developer API are in [Outbound Requests](outbound-requests.md).
+`web` and `celery` have no route to the internet in a generated stack; only
+`composer-agent` does. Do not call a public host from a view, signal, task or
+management command. Outbound calls go through the Composer relay as named, pinned
+operations, and project-specific ones are declared in `relay/operations.json`. The
+rule, the topology and the (planned) developer API are in [Outbound
+Requests](outbound-requests.md).
 
 ## Where to Go Next
 
-- Use the [Customization Guide](customization-guide.md) when you are ready to wire your own extensions; it links to the focused translation, UI, project-configuration, and template references.
-- Use the [Reference](reference.md) when you need commands, endpoints, template tags, or helper names quickly.
+- Use [Project Configuration](project-configuration.md),
+  [Translations](translation-guide.md), [UI Integration](ui-integration.md) and
+  [Template Customization](template-customization.md) when you are ready to wire
+  your own extensions.
+- Use the [Reference](reference.md) when you need commands, endpoints, template tags,
+  or helper names quickly.

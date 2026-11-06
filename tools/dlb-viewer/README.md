@@ -22,15 +22,20 @@ cross-platform viewer that needs no runtime installed on the target machine.
 ## Large-model browsing
 
 The first 1,000 records stream directly from the archive. On the first deeper
-page request, the viewer builds a private temporary record index for that model;
-later pages seek directly to their records instead of decompressing and parsing
-every earlier row again. Building the index still takes one complete model scan.
-The cache holds the two most recently used models, each limited to 128 MiB of
-serialized records and one million rows. Over-budget models or unavailable
-temporary storage fall back to the original streaming path. Temporary indexes
-are removed on eviction, backup replacement, or normal viewer shutdown, alongside
-the existing decrypted payload. Backups remain read-only and their format is
-unchanged. Forced termination can leave temporary files, as with decrypted ZIPs.
+page request, the viewer lazily builds a private temporary record index for that
+model; later pages seek directly to their records instead of decompressing and
+parsing every earlier row again. Building the index still takes one complete
+model scan.
+
+- The cache holds the two most recently used models, each limited to 128 MiB of
+  serialized records and one million rows.
+- Over-budget models, or unavailable temporary storage, fall back to streaming.
+  Indexed and streamed pages return the same response fields.
+- Temporary indexes are removed on eviction, backup replacement, or normal viewer
+  shutdown, alongside the decrypted payload. Forced termination can leave
+  temporary files, as with decrypted ZIPs.
+- The index is a viewer-side cache: backups stay read-only and need no special
+  format.
 
 Record/relation preparation remains visibly busy. Changing views while an older
 request is still running keeps the newer selection on screen.
@@ -97,8 +102,8 @@ a clear "incorrect password or corrupted backup" message.
   `↗`. A **"Resolve relations"** toggle in the top bar swaps them between the
   raw stored reference (a PK or natural key) and a readable name resolved from
   the related model's rows. This relies on a `schema` block the backup records
-  in `manifest.json`; backups written before that feature shipped have no
-  schema, so the toggle is hidden and references are shown as stored.
+  in `manifest.json`; for a backup without it the toggle is hidden and
+  references are shown as stored.
   **File-field cells** (e.g. a profile picture or an uploaded document) link
   straight to the stored file by its readable name instead of the raw random
   storage path — the name opens the file inline in a new tab, and a `↓` next to
@@ -171,7 +176,6 @@ The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 - Treat the decrypted contents as sensitive — they include user records and
   settings. Run it on a trusted machine.
 
-
 ## Performance checks
 
 The viewer's Go benchmarks use synthetic model records; no deployment backup or
@@ -185,10 +189,17 @@ go tool pprof -top password.cpu
 go tool pprof -top -alloc_space password.heap
 ```
 
-`BenchmarkLargeModel` compares the first and last 50-record pages, relation-label
-building, and ZIP inflation at 10,000 and 100,000 rows, plus index construction and cached deep-page access. `BenchmarkChainMerge`
-merges a 100,000-record base with 5,000 updated records and retains its synthetic
-ZIP inputs in `.xclude/benchmark-chain/`. Password derivation uses the format's
-390,000-iteration default. PBKDF2 reuses its HMAC state and digest buffer;
-algorithm, key bytes, iteration count, and backup compatibility are unchanged.
-These are component benchmarks, not an end-to-end file-opening guarantee.
+These component benchmarks cover password derivation, compressed model paging,
+relation labels, and chain merging; they are not an end-to-end file-opening
+guarantee.
+
+- `BenchmarkLargeModel` compares the first and last 50-record pages,
+  relation-label building, and ZIP inflation at 10,000 and 100,000 rows, plus
+  index construction and cached deep-page access.
+- `BenchmarkChainMerge` merges a 100,000-record base with 5,000 updated records
+  and keeps its synthetic ZIP inputs in `.xclude/benchmark-chain/`.
+- `BenchmarkPasswordDerivation` uses the format's 390,000-iteration default.
+
+The viewer's PBKDF2-SHA256 derives the same backup keys as `dlux/backup.py` and
+honours the iteration count recorded in the backup header, reusing its HMAC state
+and digest buffer across iterations.

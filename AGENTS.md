@@ -52,9 +52,20 @@ Project state, tasks and known bugs: see `tracker.md`.
   `dlux/tests/test_import_graph.py` guards it. The function-scope imports are
   load-bearing mitigation for real cycles, not clutter — do not promote them to
   module scope blindly.
-- **Docs are same-turn.** Any change to a feature, schema, setting, API, env var or
-  setup step updates the matching file under `docs/` in the same turn (`FEATURES.md`,
-  `reference.md`, and the topic doc).
+- **Docs are same-turn, in the doc that owns the subject.** Any change to a feature,
+  schema, setting, API, env var or setup step updates its topic doc under `docs/` in
+  the same turn. Edit the section that describes the behaviour; never append a
+  release blurb to the top or bottom of a doc. `reference.md` only gains a lookup
+  entry (command, route, template tag, helper, config key) and `FEATURES.md` only
+  gains or loses a line when a capability is added or removed. A new doc gets a line
+  in `docs/README.md`.
+- **The manual describes the present.** No version narration ("since", "before",
+  "until", "now"), beta or candidate notes, dates or acceptance evidence in `docs/`.
+  Release history goes in `CHANGELOG.md`, evidence in `.xclude/validation/`.
+  Allowed: "requires Composer X or later" facts, migration numbers a reader needs,
+  removal targets in `deprecation-countdown.md`, and the release docs (`RELEASING.md`,
+  `stack-schema.md`). `dlux/tests/test_docs_hygiene.py` enforces links, anchors,
+  index coverage and no prerelease tokens.
 - **Outbound network calls.** Never open a connection to a public host from code
   that runs in `web` or `celery`; route it through the Composer relay
   (`docs/outbound-requests.md`). New features that need the internet ship as relay
