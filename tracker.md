@@ -75,7 +75,7 @@
   - [x] Scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`; shipped in 1.9.5b4. Template comment must keep the word `DAC_READ_SEARCH`: Composer <=1.5.3 substring-checks for it.
 
 ### One-line info about last verified Tests:
-- 2026-11-06 `1.15/prune_assets_references` merged with main `ca2183f`: full suite PENDING; before the merge 3165 OK (6 skipped), django check clean; `test_prune_assets` 15 OK (9 fail on the old command), the UI cases fail on the old walk (5). (Last release gates: 1.15.4b4 on 2026-11-06, suite 3161 OK, release_check + build + twine OK.)
+- 2026-11-06 `1.15/prune_assets_references` merged with main `ca2183f`: full suite 3169 OK (6 skipped), django check clean; `test_prune_assets` 15 OK (9 fail on the old command), the UI cases fail on the old walk (5). (Last release gates: 1.15.4b4 on 2026-11-06, suite 3161 OK, release_check + build + twine OK.)
 ### One-line info about last time edited Docs:
 - 2026-11-06 `1.15/prune_assets_references`: `managed-assets.md` prune section (every relation counts, row-first delete; `--apply` caution dropped), Image deletion guard, `reference.md` command row; CHANGELOG `## Unreleased`.
 
