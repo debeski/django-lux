@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are prioritized for the latest released `django-lux` package and the current `main` branch. Older releases may receive fixes when a backport is practical, but users should generally upgrade to the latest stable version after a security advisory is published.
+Security fixes ship in a new release on the current line, built from `main`. There are no backports to older minor versions: after an advisory is published, upgrade to the latest stable release.
 
 Optional packages such as `django-lux-sso` and `django-lux-sso-client` are maintained separately. Report vulnerabilities for them through their own repositories when available, or include the affected package name in your report.
 

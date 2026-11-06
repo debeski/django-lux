@@ -15,9 +15,9 @@ Settings → Extra Features → Weather**, or in the same step of first-run setu
 3. Choose Celsius or Fahrenheit, a display style, and a placement, then save.
 
 Display styles are **icon only**, **temperature only**, **icon + temperature**,
-and **full** (icon, temperature and condition text); 1.10.0b1's *condition text*
-is read as full. Placements are **titlebar**, **user hub**, **floating**, and
-**project embeds only**.
+and **full** (icon, temperature and condition text); a stored legacy `text`
+display value is read as full. Placements are **titlebar**, **user hub**,
+**floating**, and **project embeds only**.
 
 **Floating** is a round bubble, like an assistant's launcher: the icon, with the
 temperature as a badge (the condition text is in its panel). It starts in the
@@ -115,8 +115,8 @@ the agent to make the call through the [egress relay](outbound-requests.md) usin
 built-in operations `weather.geocode` and `weather.current`; and the answer goes into
 the shared cache, which web reads. The API key is sealed to a key only the agent
 holds, so it is never on the shared volume in the clear, and the agent returns only
-the fields weather reads. This needs **Composer 1.6.0b1 or newer**; nothing has to
-change in `compose.yml`.
+the fields weather reads. This requires **Composer 1.6.0 or later**; nothing has
+to change in `compose.yml`.
 
 If the agent does not offer the operation (an older Composer), the worker tries the
 call itself, which works only if you gave `celery` a route out:
@@ -158,8 +158,9 @@ agent offers both.
   waits up to ten seconds for its answer. An unsaved key is encrypted before it
   reaches the broker and sealed again for the agent.
 
-Tasks are sent by name, so the worker must run DjangoLux 1.10.0b4 or later (a
-deployment's web and celery always do). Web checks for a live worker once a minute.
+Tasks are sent by name, so the worker must run a DjangoLux release that registers
+them. A deployment's web and celery run the same release, so they always match.
+Web checks for a live worker once a minute.
 
 The worker and web share Django's default cache, so it must be a shared backend
 (Redis, as generated stacks use); LocMemCache is per process and would never see
@@ -174,4 +175,4 @@ require `collectstatic` when installing into a deployed project.
 If an administrator's search reports a key error, check the account/key status
 and access to both APIs. For local Python installations without a usable CA
 bundle, configure a trusted bundle through `SSL_CERT_FILE`; do not disable TLS
-verification. On this development Mac, `/etc/ssl/cert.pem` supplies that bundle.
+verification. On macOS, `/etc/ssl/cert.pem` supplies one.

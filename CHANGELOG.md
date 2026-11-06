@@ -13,6 +13,24 @@ This file owns the release history for `django-lux`.
 - **The Backup Folder Can't Be A Public Folder**: The proxy serves `public/`, `dlux/branding/`, `dlux/assets/image/` and `dlux/assets/font/` without asking the app, so no check could keep a backup there private. System Settings now refuses such an *Automatic export target* and any `DLUX_PUBLIC_MEDIA` entry (new translated `error_sys_backup_target_public`), and `normalize_backup_config` falls back to `dlux_backups` for a stored one (`backup_folder_is_public()`). The folder rules (`PUBLIC_MEDIA`, `APP_ONLY_MEDIA`, matching) move to the new leaf module `dlux.system.media_folders`, so the settings normalizers can use them; `dlux.files.media` still exports them. Move any backups already kept in a public folder out of it. The help text (`help_sys_backup_auto_export_target`, English and Arabic) no longer suggests `protected/dlux`, which was an ordinary folder, and names the refused folders.
 - **Uploaded Restore Files Get Unguessable Names**: `system_backup_upload_view` saved uploads as `uploaded-<YYYYMMDD-HHMMSS>.dlb`; it now appends a random part (`uploaded-<timestamp>-<token>.dlb`), like the `system-<token>.dlb` names backups already get. Restoring from an uploaded file is unchanged. No migrations.
 
+## v1.15.4
+
+- **Stable 1.15.4**: Promote the accepted 1.15.4b4: the General Reports fixes and `dlux_backfill_report_activity`, stored-file access for prefixed mounts and published documents, pages that load only the active theme, PDF saves that work with pypdf 7, and the documentation overhaul. Requires Composer `>=1.9.0b2`; no migrations, and no runtime or dependency changes from 1.15.4b4. From 1.15.2 or earlier, run `./start.sh check --fix` (Composer 1.9.2+) afterwards.
+
+## v1.15.4b4
+
+- **1.15.4 Candidate 4**: Patch beta on 1.15.4b3 with the pypdf 7 fix below and the documentation overhaul (#46). No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta.
+- **PDF Saves Work With pypdf 7**: pypdf 7.0.0 removed the `remove_identicals`/`remove_orphans` arguments of `PdfWriter.compress_identical_objects()`. With it installed, every PDF editor save, image-to-PDF conversion and document-history write raised `DeprecationError`. `optimize_pdf_writer()` (`dlux/pdf/assembly.py`) now passes `remove_duplicates`/`remove_unreferenced`, which pypdf 6.13.0 and later accept, and a new test fails on any pypdf deprecation warning in the assembly path. No dependency or migration changes.
+- **Documentation Overhaul**: The manual under `docs/` now describes current behaviour only, with no release narration, beta notes or acceptance evidence. `reference.md` is a lookup sheet of commands, routes, configuration keys, tags and helpers, at half its former length. `FEATURES.md` is a one-page capability map, and feature prose lives in each topic's own doc. New `docs/backups.md` covers backup policy, chains, interruptions, restore and the `.dlb` format. `docs/README.md` indexes every doc.
+- **Docs Hygiene Test**: New `dlux/tests/test_docs_hygiene.py` fails on a broken relative link or anchor, on a `docs/*.md` missing from the index, or on a prerelease version or "unreleased" in the manual. `test_deployment_config_docs` now also finds settings read from `(name, default)` tables, which brought `DLUX_ASSET_MAX_INSTALLER_MB` into the settings inventory.
+- **Corrected Docs**:
+  - The setup wizard has 19 steps, and the `log_config`, `profile_config` and `backup_config` step numbers are corrected.
+  - `dlux_prune_assets`, `dlux_runtime_contract`, `dlux_adopt_file_history`, `dlux_adopt_ocr_text`, `dlux_ocr_backfill`, `dlux_image_gate`, `dlux_reconcile` and `dlux_relay` are documented.
+  - Alert auto-close applies only to `data-autohide` alerts.
+  - ScanLink compatibility is stated against stable 0.7.4.
+  - `RELEASING.md` matches the release practice: one release line, a failed run's tag is re-cut, and the GitHub release draft is finished by hand.
+- **Docs Moved Out**: Dated audits, the 1.12 acceptance record, the updater consolidation note, the agent-pairing design spec, the admin and customization hub pages, the 1.11 testbed log and unused screenshots are no longer in the repository; git history keeps them.
+
 ## v1.15.4b3
 
 - **1.15.4 Candidate 3**: Patch beta on 1.15.4b2 with the one fix its post-publish acceptance on testbed-dlux found, below. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta. The manifest keeps the 1.15.3 instruction for deployments updating from 1.15.2 or earlier: run `./start.sh check --fix` with Composer 1.9.2+ afterwards.

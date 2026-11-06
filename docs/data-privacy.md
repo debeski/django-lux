@@ -43,7 +43,8 @@ DjangoLux does not do.
 | **Notifications** | `DluxNotification` | User-facing event content and target metadata, delivered only through per-recipient state after scope and view-permission checks |
 
 Client-IP resolution (which header DjangoLux trusts for the IP addresses above) is
-itself configurable — see the Admin Guide, Step 3 / Access & Security.
+itself configurable in step 4, **Access & Security**, of
+[System Configuration](system-configuration.md).
 
 ## Retention
 

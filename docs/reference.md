@@ -1,59 +1,21 @@
 # Reference
 
-The standalone DLB viewer lazily indexes deep model pages in private temporary
-files: two cached models, 128 MiB and one million records per model. It falls back
-to streaming when indexing is unavailable or over budget; no backup format or
-API response fields change. See [large-model browsing](../tools/dlb-viewer/README.md#large-model-browsing).
+A lookup sheet: management commands, routes, configuration keys, template tags and
+helpers. How each feature behaves is in its own guide (see
+[Feature Guides](#feature-guides)); every `DLUX_*` setting and environment variable
+is in [Deployment Configuration](deployment-configuration.md).
 
-This page is the fast lookup sheet for common DjangoLux commands, routes, template tags, and helper utilities.
-For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
-see [Deployment Configuration](deployment-configuration.md).
-
-## ScanLink
-
-`ScanLink.startScan()` negotiates a healthy transport through `GET /health`
-before every scan and sends each scan POST once, to that transport. A transport
-that stopped answering falls back to the other one, and an unreachable helper
-reports `helper_unavailable`/`insecure_origin` without posting. A lost response
-produces `scan_request_uncertain` with shared English/Arabic guidance; it never
-automatically resubmits the scan. Paired ScanLink 0.8.0b2 has the same client
-fix; 0.8.0b1 fixed PDF-completion timing, parent deadlines, request validation
-and consumed-result metadata; earlier helper APIs stay compatible.
-
-`window.DluxScan.scan()` is shared by file fields and the PDF editor. Its
-`window.ScanLink` client tries localhost HTTPS :5443 and HTTP :5000, with a
-three-second timeout per health attempt. `connectionError.code` is
-`insecure_origin` only after both transports fail from an insecure context;
-other connection failures use `helper_unavailable`. ScanLink 0.7.5 adds optional
-`/health.https_setup` (`preparing`, `ready`, `failed`) for automatic certificate
-setup guidance. See [ScanLink workstation setup](scanlink.md).
-
-## Entry clipboard
-
-Enable the deployment-wide **Entry clipboard** switch in Extra Features
-(`extra_config.entry_clipboard.enabled`, off by default). Its accessible icon-only
-Bootstrap clipboard button shares the assisted-entry header row with sticky forms.
-Dlux ribbons and reports are always excluded. Eligible text fields
-support session snippets by default when enabled. Set
-`data-dlux-entry-clipboard="false"` on a field or containing element to opt out.
-Automatic prefill remains with sticky forms. `window.DluxEntryClipboard.init(root)` initializes opted-in forms
-inserted by custom clients. Alt+Shift+C opens the focused form's popover; Escape dismisses it.
-See [Entry clipboard](entry-clipboard.md).
-Popover controls pair field selection with Copy and search with Clear; compact
-snippet rows expose Add and Replace icons. Entry text opens a detail view with Back.
-Custom clipboard-only forms also show the Assisted entry legend; sticky reuse
-requires explicit create-only model capability metadata.
-Snippet storage is isolated by user ID and purged on logout/account switching;
-stale browser-history restores clear the previous user's tray and reload the page.
-
-## Weather
-
-For optional weather, load `dlux_weather` and use `{% weather_widget %}` for a
-compact indicator or `{% weather_widget variant="card" %}` for a dashboard card.
-Both inherit Extra Features settings and render nothing when disabled or for
-anonymous users. `GET /sys/api/weather/` reads configured locations;
-`POST /sys/api/weather/locations/` searches cities for superusers.
-See [Weather](weather.md) for arguments, credentials, caching, and configuration.
+- [Scaffold Commands](#scaffold-commands)
+- [Management Commands](#management-commands)
+- [Routes](#routes)
+- [Configuration Keys](#configuration-keys)
+- [Tables](#tables)
+- [Helpers](#helpers)
+- [Template Tags and Filters](#template-tags-and-filters)
+- [Authorization Contracts](#authorization-contracts)
+- [Optional SSO Packages](#optional-sso-packages)
+- [Feature Guides](#feature-guides)
+- [Codebase Entry Points](#codebase-entry-points)
 
 ## Scaffold Commands
 
@@ -69,23 +31,36 @@ See [Weather](weather.md) for arguments, credentials, caching, and configuration
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
 | `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
 
-Agent-capable ASGI projects may set `DLUX_MIDDLEWARE` to a compatible middleware wrapper and `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` to explicit machine API prefixes. The control panel uses these only for `/api/agent/v1/`; bearer authentication still applies at the endpoint.
 
 Generated project baseline:
+
 - `.secrets/.env` with scaffolded bootstrap secret values
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
-- `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
+- `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter
+  CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, outbound-only `composer-agent` (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the isolated `composer-executor` that holds the real Docker socket and performs all writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services. It requires Compose 5.3.0+ for the `celery` `pre_start` migration hooks; existing stacks are checked and repaired through `./start.sh check --fix`.
+- a generated Docker baseline with `web`, `celery`, outbound-only `composer-agent`
+  (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the
+  isolated `composer-executor` that holds the real Docker socket and performs all
+  writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
+  `smtp-relay` services. Compose 5.3.0 or later is required for the `celery`
+  `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
 - `requirements.txt` pinned to the generated stable `django-lux` release
-- a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
+- a persistent `dlux_runtime` volume, project-owned process supervisor, and a
+  proxy-served maintenance/progress page
 
 Generated app scaffold baseline:
-- discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`, `urls.py`, `translations.py`, templates, and tests
+
+- discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`,
+  `urls.py`, `translations.py`, templates, and tests
 - optional `--register` patching for `INSTALLED_APPS` and root project URLs
 - modal/list conventions that align with Dlux discovery, sections, and table/filter helpers
 
 ## Management Commands
+
+
+
+### Setup and settings
 
 | Command | Purpose |
 | --- | --- |
@@ -93,18 +68,6 @@ Generated app scaffold baseline:
 | `python manage.py dlux_setup --skip-check` | Skip the validation pass after setup. |
 | `python manage.py dlux_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
 | `python manage.py dlux_setup --skip-configure` | Do not append the `dlux_settings(globals())` helper to the active settings module. |
-| `python manage.py dlux_doctor` | Run the deployment doctor: settings wiring, URLs, database, migrations, cache, SMTP, static files, and production-safety checks. Exits 1 when any check fails. |
-| `python manage.py dlux_doctor --format json` | Emit the machine-readable report Composer consumes. |
-| `python manage.py dlux_backup [--scope data\|full] [--trigger update\|manual\|scheduled] [--requested-by NAME]` | Take a system backup in the foreground (server key, system data included) and print one JSON line: `ok`, `token`, `status`, `trigger`, `scope`, `rows`, `files`, `size`, `path`, `error`. Exits non-zero unless it completed, and never leaves an automatic retry armed. Composer runs it before an operator's `dlux update`/`dlux rollback`. |
-| `python manage.py dlux_translations` | Audit translation strings: keys missing from a language, looked up but undefined, permission/model labels, duplicates, and values left in English. See [Translations](translation-guide.md#auditing-strings). |
-| `python manage.py dlux_translations --lang ar --stub ar` | Print every Arabic gap as paste-ready entries grouped by `translations.py`. |
-| `python manage.py dlux_translations --fail [--check …] [--app LABEL] [--json] [--core]` | Exit 1 on failing gaps (CI); limit checks or apps, emit JSON, or audit DjangoLux's own catalogue. |
-| `python manage.py dlux_doctor --group security` | Limit to one group (`settings`, `urls`, `database`, `services`, `static`, `security`, `packages`); repeatable. |
-| `python manage.py dlux_doctor --strict` | Exit 1 on warnings as well as errors. |
-| `python manage.py dlux_doctor --apply` | Apply the safe fixes for failing checks (for example `collectstatic`). |
-| `python manage.py dlux_doctor --apply --allow-stateful` | Also run fixes that mutate the database (`migrator`). |
-| `python manage.py dlux_check` | Deprecated alias for `dlux_doctor`; warns on stderr and delegates. |
-| `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped; Composer's drift-diff execs this. Generated stack files carry its `schema_version` as a stamp ([Stack Schema Stamps](stack-schema.md)). |
 | `python manage.py dlux_settings status` | Inspect the `SystemSettings` singleton without creating it. |
 | `python manage.py dlux_settings configure` | Mark the singleton configured without replacing its values. |
 | `python manage.py dlux_settings unconfigure` | Preserve settings but mark setup incomplete so `/sys/setup/` opens again. |
@@ -112,21 +75,78 @@ Generated app scaffold baseline:
 | `python manage.py dlux_settings reset --yes` | Recreate the singleton from model defaults and mark it unconfigured. |
 | `python manage.py dlux_settings export --output config.json` | Export portable System Settings JSON. |
 | `python manage.py dlux_settings import --input config.json` | Import portable System Settings JSON and mark setup configured. |
+
+### Diagnostics and stack contract
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_doctor` | Run the deployment doctor: settings wiring, URLs, database, migrations, cache, SMTP, static files, and production-safety checks. Exits 1 when any check fails. |
+| `python manage.py dlux_doctor --format json` | Emit the machine-readable report Composer consumes. |
+| `python manage.py dlux_doctor --group security` | Limit to one group (`settings`, `urls`, `database`, `services`, `static`, `security`, `packages`); repeatable. |
+| `python manage.py dlux_doctor --strict` | Exit 1 on warnings as well as errors. |
+| `python manage.py dlux_doctor --apply` | Apply the safe fixes for failing checks (for example `collectstatic`). |
+| `python manage.py dlux_doctor --apply --allow-stateful` | Also run fixes that mutate the database (`migrator`). |
+| `python manage.py dlux_check` | Deprecated alias for `dlux_doctor`; warns on stderr and delegates. |
+| `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped; Composer's drift-diff execs this. Generated stack files carry its `schema_version` as a stamp; see [Stack Schema Stamps](stack-schema.md). |
+| `python manage.py dlux_runtime_contract` | Print the runtime-volume contract (layout, `active.json`, which process writes what) as JSON. |
+| `python manage.py dlux_relay [OPERATION ...]` | Report whether the Composer egress relay answers and which operations it offers; exits non-zero if a named operation is not on offer. See [Outbound Requests](outbound-requests.md). |
+
+### Backups, assets and data
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_backup [--scope data\|full] [--trigger update\|manual\|scheduled] [--requested-by NAME]` | Take a system backup in the foreground (server key, system data included) and print one JSON line: `ok`, `token`, `status`, `trigger`, `scope`, `rows`, `files`, `size`, `path`, `error`. Exits non-zero unless it completed, and never leaves an automatic retry armed. Composer runs it before an operator's `dlux update`/`dlux rollback`. |
+| `python manage.py dlux_prune_assets [--apply] [--namespace NS] [--kind KIND] [--include-shared]` | Report managed assets that no declared field references; `--apply` deletes them. Limit by namespace (repeatable) or kind; the shared pool is skipped unless asked for. See [Managed Assets](managed-assets.md). |
 | `python manage.py dlux_prune_activity_log --dry-run` | Preview log rows outside configured category retention windows. |
 | `python manage.py dlux_prune_activity_log` | Delete rows outside configured category retention windows. |
+| `python manage.py dlux_backfill_report_activity` | Count, per report model, the records with no `CREATE` activity row (saved before activity logging), which reports therefore never count. `--apply` writes them from each record's creation time, creator, scope and number, marked `details.backfilled`; reruns skip what is already logged. `--model app.Model` (repeatable) limits the run. On a generated stack: `./start.sh run -m web dlux_backfill_report_activity`. |
+
+### Document files and OCR
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_adopt_file_history app_label.Model [--apply] [--verify]` | Copy a project's own file-history rows into `dlux.FileVersion`; archived files stay where they are. `--verify` checks every source row against its copy. See [Document Files](document-files.md). |
+| `python manage.py dlux_ocr_backfill` | OCR existing registered document files in resumable batches (`--files`, `--batch-size`, `--limit`, `--enqueue`, `--retry-failed`, `--restart`, `--dry-run`). See [OCR](ocr.md). |
+| `python manage.py dlux_adopt_ocr_text app_label.Model [--apply]` | Copy a project's own OCR rows into `dlux.FileText`. |
+
+### Translations
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_translations` | Audit translation strings: keys missing from a language, looked up but undefined, permission/model labels, duplicates, and values left in English. See [Translations](translation-guide.md#auditing-strings). |
+| `python manage.py dlux_translations --lang ar --stub ar` | Print every Arabic gap as paste-ready entries grouped by `translations.py`. |
+| `python manage.py dlux_translations --fail [--check …] [--app LABEL] [--json] [--core]` | Exit 1 on failing gaps (CI); limit checks or apps, emit JSON, or audit DjangoLux's own catalogue. |
+
+### Seed data
+
+| Command | Purpose |
+| --- | --- |
 | `python manage.py dlux_seed` | Dry-run auto-discovery and show the project models and empty canonical dependencies that would be seeded. |
 | `python manage.py dlux_seed --count 25 --seed 42 --apply` | Generate 25 deterministic rows per discovered project model from field metadata. |
 | `python manage.py dlux_seed --count 25 --log --apply` | Generate rows and one reportable `CREATE` activity entry per row, attributed to random active users. |
 | `python manage.py dlux_seed --user-id 1 --scope-id 1 --apply` | Generate rows attributed to one user and scope; either attribution option implies `--log`. |
 | `python manage.py dlux_seed app.Model --apply` | Seed only the named model; `--app`, `--exclude`, `--database`, and `--no-populate` further constrain the run. |
-| `python manage.py dlux_backfill_report_activity` | Count, per report model, the records with no `CREATE` activity row (saved before activity logging), which reports therefore never count. `--apply` writes them from each record's creation time, creator, scope and number, marked `details.backfilled`; reruns skip what is already logged. `--model app.Model` (repeatable) limits the run. On a generated stack: `./start.sh run -m web dlux_backfill_report_activity`. |
-| `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
-| `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
-| `python manage.py dlux_update_worker` | Legacy in-container update worker retained only during the v1.8 compatibility window; new stacks hand intent to Composer through Celery Beat. |
+
+### Generated-stack internals
+
+| Command | Purpose |
+| --- | --- |
 | `python manage.py migrator` | Internal generated-project migration/static/bootstrap command, run by Celery's Compose `pre_start` hook under the runtime supervisor. |
 | `python manage.py migrator -mm` | Force makemigrations for every target app, then migrate, then collectstatic. |
 | `python manage.py migrator -nm` | Skip makemigrations and migrate; still collect static. Mutually exclusive with `-mm`. |
 | `python manage.py migrator -a APP` | Scope the target-app list instead of auto-discovering local apps. |
+| `python manage.py dlux_reconcile` | Reset the active runtime pointer to the baked image when a volume-pinned release is not newer than it. Touches only the runtime volume and always exits 0, so it runs before migrations. |
+| `python manage.py dlux_image_gate --baked-dlux-version X.Y.Z` | Print, as JSON, whether a candidate image adopts, keeps or blocks the active DjangoLux release. |
+| `python manage.py dlux_update_worker` | Legacy update queue worker. Generated stacks do not run it: Celery Beat hands update intent to Composer. |
+
+### Migrating from microsys
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
+| `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
+
+### `dlux_seed` behaviour
 
 `dlux_seed` excludes Django/Dlux internals, unmanaged/proxy/auto-created models, and
 models outside the project root. Set `dlux_seed = False` on a project model that
@@ -145,9 +165,7 @@ the work is included in General Reports. `--user-id` fixes the actor for every r
 `--scope-id` fixes the scope for every row; either option enables logging without a
 separate `--log`. Without a fixed scope, the command uses the selected actor's scope
 or the scope assigned to the generated model row. Standard Dlux `created_by`,
-`updated_by`, and `scope` relations receive the same attribution. The former
-standalone `seed_activity_log` command has been retired because its synthetic logs
-were not linked to seeded project records.
+`updated_by`, and `scope` relations receive the same attribution.
 
 Projects with canonical lookup data can declare ownership through their local
 `populate` command:
@@ -161,51 +179,17 @@ class Command(BaseCommand):
 ```
 
 If that command accepts `--models`, DjangoLux passes only empty related model
-labels; otherwise it invokes the legacy command once. Models owned by `populate`
+labels; otherwise it runs `populate` once. Models owned by `populate`
 are reused as dependencies and never receive random rows from `dlux_seed`.
 `--no-populate` preserves that ownership: empty canonical models stay empty and
 dependent seed models are reported as skipped.
 
-## Optional SSO Packages
+## Routes
 
-| Package | Purpose |
-| --- | --- |
-| `django-lux-sso` | Optional OIDC provider plugin for a standalone Dlux SSO deployment. |
-| `django-lux-sso-client` | Lightweight Django client SDK for connected projects; does not depend on `django-lux`. |
+### Core Routes
 
-The provider is cross-platform OIDC. Non-Django projects should use their normal
-OIDC library and the provider discovery document:
-
-```text
-https://sso.example.com/o/.well-known/openid-configuration/
-```
-
-Portable client role claim: `dlux_sso_role`.
-
-Provider integration is explicit:
-
-```python
-from dlux_sso.settings import dlux_sso_settings
-
-dlux_sso_settings(globals())
-```
-
-Client integration is explicit:
-
-```python
-from dlux_sso_client.settings import configure_dlux_sso
-
-configure_dlux_sso(
-    globals(),
-    issuer_url="https://sso.example.com",
-    client_id="client-id",
-    client_secret="client-secret",
-)
-```
-
-See [Optional SSO Packages](sso.md), [Public Registration Playground](registration.md), and [DSRP-1 Security Standard](security-dsrp-1.md).
-
-## Core Routes
+The routes operators and integrators reach directly. Internal JSON endpoints that
+shipped pages call are left out; `dlux/urls.py` has every route.
 
 | Route | Purpose |
 | --- | --- |
@@ -219,7 +203,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
-| `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` answers this root URI too when the project mounts `dlux.urls` under a prefix (1.15.4+). See [Stored files](deployment-configuration.md#stored-files-media). |
+| `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |
 | `/sys/options/app-settings/<namespace>/` | Superuser-only modal for settings registered with `register_app_settings(...)` |
 | `/sys/options/app-settings-group/<group_id>/` | Superuser-only modal for a tile registered with `register_app_settings_group(...)`: every grouped section, one Save |
 | `/sys/users/` | User management |
@@ -245,43 +229,50 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/groups/<int:pk>/delete/` | POST-only group preset delete; ignores the preset sidecar and permission M2M but blocks on assigned users/history |
 | `/sys/groups/<int:pk>/members/` | Preset membership modal + who/which/when history |
 | `/sys/sections/` | Section management |
-| `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated internal-process version health response used directly by the update worker |
+| `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated version health of the running processes, read by the updater |
 
-Section security contract:
+### Route Access Contracts
 
-- `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/`, and subsection CRUD endpoints require the existing section permissions
-- Section Manager uses a framework-owned `keyword` field against the currently selected model, with no Advanced controls. It preserves the discovered FilterSet's unbound queryset restrictions and model-manager scope; project-specific filter fields apply only on their own list surfaces.
-- section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Dlux section or discovered section child model
-- `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
-- `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
-- `/accounts/profile/` exposes `sign_out_other_sessions` only on the authenticated user's own password-change form and only while `prevent_multiple_active_sessions` is false. On a successful change, an enabled toggle excludes the current browser from revocation, deletes every other discoverable database or cache-backed session, marks its presence row ended/revoked, and then lets Django rotate the retained session key. Trusted-device records are not revoked. The backend ignores a forged toggle while single-session enforcement is enabled.
-- `/accounts/profile/` resolves signed-in devices and session revocation through the configured `SESSION_ENGINE`. Database rows provide discovery for database sessions; `UserPresenceSession` is the durable index for cache-backed sessions. Missing cache entries are omitted and their stale presence rows are closed without marking them revoked.
-- the create-user modal can mark a new account with `profile.preferences["force_password_change"]`; `DluxMiddleware` then redirects that user to `/accounts/profile/?force_password_change=1` until the profile password-change form succeeds and clears the marker. While this marker is active, the first-login Initial User Setup auto-modal is deferred so the password-change requirement remains the only blocking first action. The forced change must set a password different from the current one.
-- `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint used by the Options Admin panel command launcher. It requires the acting superuser's current password and sets the same `profile.preferences["force_password_change"]` marker on every non-superuser user, preserving other preference keys and skipping all superusers.
-- `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `dlux.view_activitylog` permission or superuser status rather than plain `is_staff`
-- embedded activity snippets on user-detail surfaces only render when the caller also has `dlux.view_activitylog`
-- sidebar-discovered system routes plus the built-in dashboard/user-hub shortcuts now mirror those same helper-backed checks instead of older template-only `is_staff` assumptions
-- sidebar items are only visible to users with the required view permission; no implicit staff fallback (see Sidebar Permission Inference below)
+- `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/` and the
+  subsection CRUD endpoints require the section permissions. Section detail, delete
+  and subsection CRUD accept only a discovered Dlux section or section child model,
+  never an arbitrary `model=` token.
+- Section Manager searches the selected model through one framework-owned `keyword`
+  field, with no Advanced controls. It keeps the discovered FilterSet's unbound
+  queryset restrictions and the model manager's scope; project-specific filter
+  fields apply only on their own list pages.
+- `/sys/users/` and the user-detail page and modal require `auth.view_user` for
+  staff users; superusers bypass.
+- `/sys/reset_password/<int:pk>/` requires `auth.change_user` and the same
+  staff, scope and superuser target checks as the user-management modals. A new
+  password equal to the target's current one is refused.
+- `/accounts/profile/` offers `sign_out_other_sessions` only on the user's own
+  password-change form, and only while `prevent_multiple_active_sessions` is off.
+  When ticked, a successful change keeps the current browser, deletes every other
+  database or cache-backed session, marks their presence rows ended and revoked, and
+  lets Django rotate the kept session key. Trusted devices stay trusted. The backend
+  ignores a forged toggle while single-session enforcement is on.
+- Signed-in devices and session revocation resolve through the configured
+  `SESSION_ENGINE`: database rows for database sessions, `UserPresenceSession` as
+  the index for cache-backed ones. Missing cache entries are omitted and their stale
+  presence rows closed without being marked revoked.
+- The create-user modal can set `profile.preferences["force_password_change"]`.
+  `DluxMiddleware` then sends that user to `/accounts/profile/?force_password_change=1`
+  until a password change succeeds, which clears the marker; the new password must
+  differ from the old one. Initial User Setup waits until then.
+- `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint behind
+  the Options Admin panel. It requires the current password and sets the same marker
+  on every non-superuser, keeping their other preferences.
+- `/sys/logs/` and `/sys/logs/<int:pk>/details/` require `dlux.view_activitylog` or
+  superuser status. Activity snippets on user-detail pages need the same permission.
+- Sidebar system routes and the dashboard and user-hub shortcuts use the same
+  helper-backed checks. Sidebar items need the view permission; there is no implicit
+  staff fallback (see [Sidebar Permission Inference](#sidebar-permission-inference)).
 
-Backup export contract:
+Report and backup routes are described with their features in
+[Operations](operations.md) and [Backups](backups.md).
 
-- general-report criteria use `window`, optional inclusive `custom_start`/`custom_end`, repeated `models`, repeated `operations`, and `builder=1`; async jobs persist the normalized allowlisted form in `ReportBackup.criteria`
-- report model discovery is separate from navigation discovery; set `dlux_report = False` on a model or list its `app_label.model_name` under `DLUX_CONFIG['reports']['exclude_models']`; exclusions win over include lists, while `exclude_activity` handles unresolved legacy activity labels
-- one entry per model: activity rows logged under a legacy name or older key that resolves to an installed model count under its `label_lower` (`dlux.reports.report_model_key`), labelled by `resolve_model_label` (`report_model_label`); models from `health_check`, `rest_framework`, `corsheaders` and `csp` are never eligible
-- `q` matches the username or full name, the document number, the stored action or model name, and any operation or model label the page shows; the field's `<datalist>` suggests the visible users' usernames and full names and the offered models and operations
-- the user report modal and its XLSX take the page's `window`, plus `custom_start`/`custom_end` for `custom`; a period outside week/month/all is added as its own tab (`report.selected_period_tab`)
-- report ZIPs contain `entries.xlsx` (the Export Entries workbook), the referenced media under `files/`, and `manifest.json`; they carry **no** `data/*.json` because the archive is a periodic deliverable, never a restore source — `manifest.json.selection` records the exact normalized criteria used for the page/workbook/archive
-- the restorable system `.dlb` is unaffected and still serializes `data/<app>/<model>.json`; `stream_model_into_zip(include_records=False)` is what drops the JSON for the reports ZIP only
-- `/sys/reports/export.xlsx` exports the selected models' **actual rows** (one sheet per model, period- and scope-filtered) plus an Export Info index sheet; credential-named fields are always dropped, `DLUX_CONFIG['reports']['entries_exclude_fields'] = {'app.model': ['field']}` drops more, and `entries_row_limit` (default `20000`) caps each sheet
-- `/sys/reports/print/` renders the same criteria as a print-ready analytical report (charts plus a table twin per chart) using the bundled Chart.js on a fixed paper surface; both routes require `dlux.view_reports`
-- report ZIP and full system `.dlb` exports use primary-key pagination plus a backup-local JSON serializer, so PostgreSQL deployments do not need Django server-side named cursors for export streaming
-- system backup rows, report backup rows, system restore rows, updater runtime state/run rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
-- `.dlb` payloads are encrypted in chunked Fernet frames (8 MB frames from the streaming writer, encrypted on a background thread while the archive is built) — or, with `encryption.scheme: "none"`, stored as the plain ZIP right after the header — and include a manifest with Dlux version, migration state, model counts, file counts, `system_data_included`, `consistency` (`snapshot` on PostgreSQL, `live` elsewhere) and omitted-superuser-password policy
-- `SystemBackup` records `encryption` (`server_key`/`passphrase`/`none`), `system_data_included`, a bounded `progress_log` (last 200 progress messages) and the `cancelled` status (migration `0024`, inline-safe: every column has a `db_default`, the status choice is state-only)
-- `dlux.backup.SYSTEM_DATA_MODELS` lists the Dlux bookkeeping models a portable backup leaves out; one that a kept model still references is kept
-- superuser password hashes are omitted from system backups and preserved from the target database during restore
-
-## 2FA Routes
+### 2FA Routes
 
 | Route | Purpose |
 | --- | --- |
@@ -295,19 +286,28 @@ Backup export contract:
 
 2FA security contract:
 
-- `/sys/2fa/enable/`, `/sys/2fa/setup/totp/`, `/sys/2fa/disable/`, `/sys/2fa/backup-codes/generate/`, and resend endpoints are POST-only mutators
+- `/sys/2fa/enable/`, `/sys/2fa/setup/totp/`, `/sys/2fa/disable/`,
+  `/sys/2fa/backup-codes/generate/`, and resend endpoints are POST-only mutators
 - backup codes are stored hashed in `Profile.backup_codes`
 - login 2FA redirects validate `next` against allowed hosts before redirecting
-- destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
-- Profile can trust the current browser after current-password confirmation; untrusted sessions cannot revoke trusted sessions
-- when `prevent_multiple_active_sessions` is enabled, each newly authenticated session revokes every other active session for that user; the older browser is redirected to the session-ended page on its next request
-- when `prevent_multiple_active_sessions` is disabled, successful logins do not revoke another browser's database- or cache-backed session; changing the system setting takes effect through normalized runtime config without a restart
+- destructive profile-side 2FA actions such as disable, backup-code regeneration, and
+  session revocation require the current-password guard on the backend
+- Profile can trust the current browser after current-password confirmation; untrusted
+  sessions cannot revoke trusted sessions
+- when `prevent_multiple_active_sessions` is enabled, each newly authenticated session
+  revokes every other active session for that user; the older browser is redirected to
+  the session-ended page on its next request
+- when `prevent_multiple_active_sessions` is disabled, successful logins do not revoke
+  another browser's database- or cache-backed session; changing the system setting
+  takes effect through normalized runtime config without a restart
 - email 2FA supports auto-send on login and 120s resend cooldown to reduce authentication friction
-- TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
+- TOTP setup persists secret/enabled state through `set_profile_totp_state(...)`
+  instead of the full `Profile.save()` path, so unrelated profile-save side effects do
+  not block authenticator setup
 
-## API Endpoints
+### API Endpoints
 
-### Autofill
+#### Autofill
 
 | Route | Method | Purpose |
 | --- | --- | --- |
@@ -317,11 +317,11 @@ Backup export contract:
 
 Autofill security contract:
 
-- detail/autofill serialization now returns only direct fields of the requested model
+- detail and autofill serialization return only direct fields of the requested model
 - reverse OneToOne expansion such as `user.profile.*` is intentionally excluded
 - reads use the model default manager so scoped query behavior is preserved
 
-### Preferences
+#### Preferences
 
 | Route | Method | Purpose |
 | --- | --- | --- |
@@ -329,377 +329,10 @@ Autofill security contract:
 | `/sys/api/preferences/reset/` | `POST` | Clear saved preferences and related session keys |
 | `/sys/api/preferences/app/<namespace>/` | `POST` | Set (or clear) one app-owned preference namespace |
 
-#### App-owned preferences (the `app` namespace)
+App-owned preference namespaces are described in
+[UI Integration](ui-integration.md#per-user-app-preferences).
 
-Downstream projects can persist their **own** per-user state (dashboard layouts,
-saved views, collapsed panels, …) so it follows the user across browsers and
-devices, without adding a model. It lives under a single **reserved top-level
-key** in `Profile.preferences`:
-
-```jsonc
-// Profile.preferences
-{
-  "theme": "dark",                 // Dlux-owned keys (validated by Dlux)
-  "app": {                          // reserved namespace — opaque to Dlux
-    "myproject.dashboard.v1": { "order": [3,1,2], "hidden": ["kpis"] }
-  }
-}
-```
-
-Dlux never inspects the shape of anything under `app`; it only merges at the
-namespace level and enforces the size cap. Namespace keys are arbitrary dotted
-strings (max 128 chars) — prefix with your project to avoid collisions.
-
-- **Bulk write** — `POST /sys/api/preferences/update/` with `{"app": {"<ns>": <value>}}` merges that namespace, preserving sibling namespaces and Dlux keys. A `null` value clears a namespace.
-- **Targeted, concurrent-safe write** — `POST /sys/api/preferences/app/<namespace>/` with the namespace's new value as the JSON body writes *only* that namespace (two tabs writing different namespaces won't clobber each other). A `null` body clears it. Returns `{status, namespace, value}`.
-- **Size cap** — the whole `Profile.preferences` blob is inlined into every authenticated page as `window.USER_PREFS`, so a hard ceiling applies. Writes that would exceed it are rejected with **HTTP 413**. Default 64 KB; override with `settings.DLUX_MAX_PREFERENCES_BYTES`.
-
-Browser helpers (global, defined alongside `window.updatePreferences`):
-
-```js
-// read (from the inlined window.USER_PREFS.app, no request)
-const layout = window.getAppPreference('myproject.dashboard.v1', { order: [] });
-
-// write just this namespace (targeted endpoint); returns the fetch Promise
-window.updateAppPreference('myproject.dashboard.v1', layout)
-  .then(res => { if (res.status === 413) { /* too large */ } });
-
-// clear it
-window.updateAppPreference('myproject.dashboard.v1', null);
-```
-
-Mounted/prefixed projects: Dlux injects `window.DLUX_URL_PREFIX`,
-`window.DLUX_URLS`, `window.dluxUrl(path)`, and
-`window.dluxEndpoint(name, params, fallbackPath)` into `base.html`. Built-in
-preference/theme/language/table-density writes use the reversed
-`preferencesUpdate` endpoint, and app-pref writes use the reversed
-`appPreference` template, so they work under `/`, `/dlux/`, or an active i18n
-prefix. Downstream JS should use `{% url %}` for concrete routes or these
-helpers for Dlux route templates rather than posting directly to
-`/sys/api/...`.
-
-`window.dluxParseJson(text, fallback)` (also from `base_head.js`) parses a JSON
-string and returns `fallback` when it is empty or invalid; feature scripts use it
-instead of defining their own copy. Page data for scripts goes through Django's
-`json_script` filter, never a hand-assembled `<script type="application/json">`.
-
-`localStorage` remains a fine fallback/migration layer — read it if
-`getAppPreference` returns your default, then write through to the namespace so
-the value becomes cross-device.
-
-#### App-owned **system** config (the `extra_config['app']` namespace)
-
-The global, project-wide counterpart of the per-user `app` namespace. Downstream
-projects store opaque JSON under a reserved key in `SystemSettings.extra_config`:
-
-```jsonc
-// SystemSettings.extra_config
-{ "app": { "myproject.settings": { "feature_x": true } } }
-```
-
-- **Write** — `POST /sys/api/system-config/app/<namespace>/` with the namespace's new value as the JSON body. **Superuser-only** (non-superusers get 403), POST + CSRF, namespace-scoped (only `extra_config['app'][<ns>]` is touched — it can never reach Dlux's own settings or other keys), size-capped (**HTTP 413**; default 64 KB, override `settings.DLUX_MAX_SYSTEM_APP_CONFIG_BYTES`), **audit-logged**, and cache-refreshed. A `null` body clears the namespace.
-- **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`, where a stored namespace replaces only that namespace from `DLUX_CONFIG['extra']['app']`; the project's other namespaces stay.
-- **Write programmatically** — `from dlux.options import write_app_system_config`; `write_app_system_config('myproject.settings', {...}, request=None)` for server-side writes (migrations, management commands, signals). It applies the same namespace validation, size cap (raises `AppSystemConfigError`), persistence, and cache refresh as the endpoint, and audit-logs when a `request` is passed. Pass `value=None` to clear the namespace.
-
-Single and grouped writers lock the authoritative settings row and update only
-`extra_config`, preserving independent namespace and scalar-setting changes.
-Core settings imports use supplied-key patch semantics by default; complete
-forms and snapshot restores explicitly replace their groups. See
-[Settings persistence contracts](system-configuration.md#settings-persistence-contracts).
-
-Because it is opaque JSON written only by superusers into a walled-off key, it
-cannot be used to tamper with security-relevant Dlux configuration. Card
-templates that display this data get Django's auto-escaping — do **not** `|safe`
-it.
-
-#### Surfacing app-owned system settings in Options
-
-If a downstream app has project-level settings worth exposing, register a
-settings surface from `<yourapp>/dlux_options.py`. Dlux adds one tile per
-registered namespace to the Options admin settings grid, visible to superusers
-only. The modal is separate from `SystemSettingsForm` and saves only
-`extra_config['app'][namespace]`.
-
-Simple built-in controls:
-
-```python
-# myapp/dlux_options.py
-from dlux.options import register_app_settings
-
-register_app_settings(
-    namespace="myproject.catalog",
-    title="Catalog Settings",
-    description="Project-wide catalog defaults.",
-    icon="bi-grid",
-    fields=[
-        {
-            "name": "enabled",
-            "type": "boolean",
-            "label": "Enable catalog",
-            "help_text": "Show catalog navigation and catalog-specific actions.",
-            "default": True,
-        },
-        {
-            "name": "default_view",
-            "type": "choice",
-            "label": "Default view",
-            "choices": [("grid", "Grid"), ("table", "Table")],
-            "default": "grid",
-            "control": "selector",
-            "variant": "toggle",
-            "option_meta": {
-                "grid": {"icon": "bi-grid"},
-                "table": {"icon": "bi-table"},
-            },
-        },
-        {
-            "name": "page_size",
-            "type": "integer",
-            "label": "Default page size",
-            "default": 24,
-            "min_value": 1,
-            "max_value": 200,
-        },
-    ],
-)
-```
-
-**Titles, descriptions and labels that follow the reader's language.** Pass a
-lazy string — a plain `str` is resolved once, at import, and freezes the tile to
-whichever language happened to be active when the worker booted:
-
-```python
-from django.utils.translation import gettext_lazy as _
-
-register_app_settings(
-    namespace="myproject.catalog",
-    title=_("Catalog Settings"),                    # lazy: resolved per request
-    description=_("Project-wide catalog defaults."),
-    fields=[{"name": "enabled", "label": _("Enable catalog")}],
-)
-```
-
-`title` and `description` accept a string, a lazy string, `f(request)`, or
-`f()` — both callable shapes, because both read naturally and neither should be
-a trap. A callable of any other shape raises at registration, where the mistake
-is, rather than on the Options page months later. Field `label` and `help_text`
-are handed to the form field untouched, so a lazy value stays lazy there too.
-
-If a title or description raises while the page is being built, the tile is
-still shown with its namespace as the title and the error is logged: text is
-cosmetic, and hiding a whole settings surface over it reads to an operator as
-the page losing their settings. `visible()` is the exception and fails closed,
-because that one is a permission decision.
-
-Supported field `type` values are `boolean`, `choice`, `multiple_choice`,
-`char`, `text`, `integer`, `number`, and `json`. Choice fields can use Dlux's
-selector widgets with `control="selector"` and `variant="card"` or `"toggle"`.
-Existing unknown keys in the namespace are preserved when the generated form
-saves, so adding/removing surfaced fields does not wipe other app-owned data.
-
-Custom form escape hatch:
-
-```python
-from django import forms
-from dlux.options import register_app_settings
-
-class CatalogSettingsForm(forms.Form):
-    label = forms.CharField(max_length=80)
-
-    def to_app_config(self, current_value):
-        value = dict(current_value or {})
-        value["label"] = self.cleaned_data["label"].strip()
-        return value
-
-register_app_settings(
-    namespace="myproject.catalog",
-    title="Catalog Settings",
-    form_class=CatalogSettingsForm,
-    defaults={"label": "Catalog"},
-)
-```
-
-#### Grouping several settings into one tile
-
-A project with several small settings surfaces can show them as one tile instead
-of one tile each. Register the tile with `register_app_settings_group()` and
-name it in each `register_app_settings(group=...)`:
-
-```python
-from dlux.options import register_app_settings, register_app_settings_group
-
-register_app_settings_group(
-    id="myproject.store",
-    title=_("Store options"),
-    description=_("Store-wide settings for the catalog and the till."),
-    icon="bi-sliders",
-    order=50,
-)
-
-register_app_settings(namespace="myproject.catalog", title=_("Catalog"), group="myproject.store", order=10, fields=[...])
-register_app_settings(namespace="myproject.till", title=_("Point of sale"), group="myproject.store", order=20,
-                      form_class=TillSettingsForm)
-```
-
-Each grouped registration becomes a section of the tile's modal, under the
-same `<h6>` section headings core settings steps use, ordered by its own
-`order`, with its `title` as the heading and its `description` beneath. Its
-form is built exactly as its own tile would build it, with field names
-prefixed by `app_settings_form_prefix(namespace)` so sections cannot clash.
-Every section validates before anything is saved, and all of them land in
-**one** write of the settings row through `write_app_system_configs({namespace:
-value, ...})` — never one load-and-save per section. Each keeps its own
-`extra_config['app'][namespace]`, so code reading a namespace does not change
-when it joins a group.
-
-- A group whose `visible()` returns false or raises hides its tile (fail
-  closed); a group with no visible sections shows no tile.
-- A registration naming a group that was never registered keeps its own tile.
-- `/sys/options/app-settings/<namespace>/` still opens one section on its own,
-  for links that point at a single namespace.
-- The group modal carries the unsaved-changes guard unless a section's form
-  sets `dlux_unsaved_guard = False`.
-- `registerAppPreview()` previews apply to standalone tiles; the group modal
-  offers no Preview action.
-- `get_visible_app_settings()` still lists every registration;
-  `get_visible_app_settings_tiles()` is the folded list the Options page draws.
-
-#### Previewing app-owned system settings
-
-An app's settings preview is a page of its own, rendered by the server with the
-unsaved app form — the same mechanism as core System Settings (see *Unsaved
-previews* in `system-configuration.md`). The shared app-settings template
-includes a hidden Preview action; registering the namespace makes it available
-and names the page to render:
-
-```javascript
-const unregister = window.DluxSetupPreview.registerAppPreview('myproject.catalog', {
-  path: '/catalog/',            // or (form) => '/catalog/?view=' + form.elements.default_view.value
-  audience: '',                 // 'anonymous' to render a public page as a visitor sees it
-});
-```
-
-Preview POSTs the app form to `system_settings_preview_draft` with
-`_dlux_preview_kind=app`; the server builds it with `build_app_settings_form()`
-and `get_app_settings_form_value()` exactly as a save would, places the value at
-`extra_config['app'][<namespace>]` of a draft that is never saved, and renders
-`path` with it in the popup. Anything the page reads through
-`get_app_system_config()` shows the unsaved value; nothing is written.
-
-`registerAppPreview()` throws without a `path`. The returned `unregister()`
-removes the registration and hides the Preview action again.
-
-*Changed in 1.9.5b2:* the 1.9.5b1 `mode`/`target`/`apply()`/`render()` callbacks
-and their DOM helpers are retired. A preview is a rendered page, so an app
-registers the page instead of patching the one on screen.
-
-#### App settings in first-run setup
-
-Every tile registered with `register_app_settings()` also appears in the setup
-wizard, in a **Project Settings** step after Dlux's own (so it is the last step
-and no Dlux step changes index). Each tile is one section of that step, built
-with the same `build_app_settings_form()` its Options modal uses, with its field
-names prefixed `app__<namespace>-` (non-alphanumerics become `_`) so sections
-cannot clash with each other or with Dlux's fields. A custom `form_class` gets the
-prefix through its `prefix` argument or `**kwargs`; one that accepts neither has
-`form.prefix` set after construction, so markup its `__init__` builds would miss
-it.
-
-Sections validate with the rest of the wizard, and every section reports its
-errors in the same round. On finish, each value comes from
-`get_app_settings_form_value()` (so `to_app_config()` still decides it) and is
-merged by `merge_app_system_config()` — the size and JSON checks
-`write_app_system_config()` applies — into the row the wizard saves, in that one
-save. A refused value is shown on its section and nothing is saved.
-
-Pass `setup=False` to keep a tile out of setup, e.g. settings that only make sense
-once data exists. The step appears only when at least one visible tile remains.
-
-### Adding an Options-page card
-
-Downstream apps add cards to `/sys/options/` through a small registry — the only
-supported path (registration is trusted Python run once at startup; there is no
-HTTP/DB/settings way to inject a card). Create `<yourapp>/dlux_options.py`; Dlux
-autodiscovers and imports it:
-
-```python
-# myapp/dlux_options.py
-from dlux.options import register_card
-
-def _build(request):
-    from dlux.utils import get_app_system_config
-    return {"settings": get_app_system_config("myproject.settings", {})}
-
-register_card(
-    id="myproject.dashboard",          # [A-Za-z0-9._-]; the data-options-card value, and the
-                                       # slug for /sys/options/#dlux-option-<id> deep links
-    title="Dashboard Layout",          # str, or callable(request)->str for i18n
-    icon="bi-grid",                    # Bootstrap-Icons class(es)
-    template_name="myapp/options/dashboard_card.html",  # rendered as the card *body*
-    order=100,                          # lower sorts first
-    superuser_only=False,               # or permission="myapp.change_thing"
-    context_builder=_build,             # optional callable(request)->dict
-    search_keywords=("layout", "تخطيط"),  # optional global-search synonyms
-    visible=lambda r: get_app_system_config("myproject.settings", {}).get("enabled", True),
-)                                       # optional config-driven visibility (fail-closed)
-```
-
-`visible` is an optional `callable(request)->bool` for **config-driven visibility**
-— e.g. show the card only when a feature is enabled in `extra_config`. It is
-evaluated server-side *after* `superuser_only`/`permission`, and **fail-closed**:
-if it raises, the card is hidden.
-
-The card is also a **global-search result**, deep-linking to
-`/sys/options/#dlux-option-<id>`. Its entry is built per request — so the label
-is whatever `title(request)` returns in the user's language, and the same
-`superuser_only`/`permission`/`visible` gates decide who can find it. Matching
-uses that label plus `search_keywords`, which are **not** translated: list the
-synonyms for every language you ship.
-
-Your template renders only the card body; Dlux supplies the surrounding card
-chrome (heading, drag handle) and includes it in reordering/tabs like any
-built-in card. The card body context is your `context_builder` output plus
-`request`, `user`, and `DLUX_STRINGS`. Guarantees:
-
-- **Server-side gating** — `superuser_only`/`permission` are enforced before the
-  builder runs or the template renders.
-- **Sandboxed** — a card that raises is logged and skipped; it can never blank
-  the Options page.
-- **Lifecycle hook** — after `options.js` initializes it dispatches
-  `document`-level `dlux:options-ready` (`event.detail.cardIds` lists all
-  rendered cards); attach your card's JS there instead of patching `options.js`.
-
-#### Auto-persisting a card control to an app preference
-
-Rather than wiring `updateAppPreference` by hand, mark any control inside your
-card with `data-dlux-app-pref="<namespace>"` and Dlux persists its value to that
-per-user `app` namespace on `change` — then fires a `dlux:app-pref-changed`
-event (`detail: {namespace, field, value}`) so you can apply it live:
-
-```html
-<!-- scalar value -> USER_PREFS.app["myproject.catalog_layout"] = "table" -->
-<select data-dlux-app-pref="myproject.catalog_layout">
-  <option value="grid">Grid</option>
-  <option value="table">Table</option>
-</select>
-```
-
-```js
-document.addEventListener('dlux:app-pref-changed', (e) => {
-  if (e.detail.namespace === 'myproject.catalog_layout') applyCatalogLayout(e.detail.value);
-});
-```
-
-Add `data-dlux-app-pref-field="<key>"` to merge one field into an object-valued
-namespace instead of replacing it. Controls in the initial page are bound
-automatically; call `window.bindAppPrefControls(root)` after injecting new DOM.
-Resolve the effective value app-side as *user pref → global default*, e.g.
-`window.getAppPreference('myproject.catalog_layout', globalDefault)`, where the
-global default comes from `get_app_system_config(...)`. Dlux's **Reset Defaults**
-clears the `app` namespace along with the rest, so a reset falls back to the
-global default.
-
-### Notifications
+#### Notifications
 
 | Route | Method | Purpose |
 | --- | --- | --- |
@@ -709,600 +342,20 @@ global default.
 | `/sys/api/notifications/read-all/` | `POST` | Mark all current-user notification states as read |
 | `/sys/api/notifications/clear-all/` | `POST` | Dismiss read current-user notification states from the drawer |
 
-### Verified Inline Updater
+#### Weather
 
-| Route | Method | Access/Purpose |
+| Route | Method | Purpose |
 | --- | --- | --- |
-| `/sys/api/dlux-update/state/` | `GET` | Superuser/Global Staff read-only updater state and latest run; `state.latest_manifest` holds the offered release's notes (`version`, `summary`, `highlights`, `release_url`) when Composer's availability report carries them, else `{}`; `state.active_manifest` and `state.previous_manifest` hold the installed release's and the rollback target's notes in the same shape, read by reconcile from each release's own package |
-| `/sys/api/dlux-update/runs/<token>/` | `GET` | Superuser durable run status and bounded progress log |
-| `/sys/api/dlux-update/check/` | `POST` | Superuser-only CSRF-protected official PyPI check |
-| `/sys/api/dlux-update/apply/` | `POST` | Superuser + current-password verified apply request |
-| `/sys/api/dlux-update/rollback/` | `POST` | Superuser + current-password verified rollback request |
-| `/sys/api/dlux-update/channel/` | `POST` | Superuser-only CSRF-protected release channel (`stable`/`beta`) selection; installs nothing |
-| `/sys/api/dlux-update/interval/` | `POST` | Superuser-only CSRF-protected, audited update check interval (`minutes`: 5, 15, 30, 60, 180, 360, 720 or 1440); published to Composer by the worker |
-| `/sys/api/dlux-ops/state/` | `GET` | Superuser-only deployment-row state: the available operations, the newest run, the last deployment check, the Composer agent's version against its channel, and `composer_behind` (`version`, `required`, `ops_blocked`) when that agent is older than an operation or this release's `requires.services.composer` floor |
-| `/sys/api/dlux-ops/run/` | `POST` | Superuser-only CSRF-protected, audited request for one named deployment operation (`operation`: `check`, `agent-check`, `check-fix-apply`, `agent-update`, `services`, `service-restart`, `service-recreate`, `logs-tail`; `service` and `lines` where the operation takes them); the write operations also re-verify `current_password`, and `check-fix-apply` may only apply what the last check showed |
-| `/sys/operations/` | `GET` | Superuser-only Operations panel (admin-rail dynamic modal): deployment check and repairs, service controls, logs of one or every service; independent of the inline-update switch; every action goes through `/sys/api/dlux-ops/run/` |
-| `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
+| `/sys/api/weather/` | `GET` | Current conditions for the configured locations |
+| `/sys/api/weather/locations/` | `POST` | City search for superusers |
 
-Published beta 1.14.0b3 adds POST operations `service-start` and `service-stop`, with required `service` and current-password confirmation. Composer 1.8.0b1+ publishes `can_start`, `can_stop` and `can_lifecycle` beside `can_restart`. These affect existing, approved auxiliary containers only; Web/Celery, worker/beat/proxy names, data services and Composer remain protected. Agent and executor independently validate targets. See [Operations](operations.md).
+See [Weather](weather.md).
 
-Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,
-`DLUX_UPDATE_CHECK_INTERVAL=86400`, and
-`DLUX_UPDATE_RUNTIME_ROOT=/opt/dlux-runtime` in `compose.yml`, and
-`compose.dev.yml` turns the first back off for `web` and `celery` — development
-runs a bind-mounted checkout, not an installed release, so there is nothing
-meaningful to update. Other deployments default to disabled. The update index is fixed to official PyPI and is not configurable in
-v1. See [Verified Inline Updater](inline-updater.md).
+## Configuration Keys
 
-Dlux Notifications replace Dlux-owned uses of Django message storage with a durable, inferred event pipeline. Public API:
+### Profile Preferences
 
-```python
-from dlux.notifications import notify
-
-notify("Invoice approved.")
-notify.success("Saved.")
-notify.error("Could not delete record.", obj=record)
-notify("Backup completed.", action="backup_complete", target_url="/sys/backup/")
-notify.success(message_key="msg_password_changed")
-notify.error("Export failed.", event_key=f"export:{job.pk}:failed")
-```
-
-Optional routing stays compact:
-
-```python
-notify(
-    "Payroll batch exported.",
-    obj=batch,
-    action="export",
-    category="reports",
-    to="watchers",
-    email=True,
-)
-```
-
-For language-aware Dlux-owned notices, pass `message_key` and optional `title_key` values from `DLUX_STRINGS`. The stored `DluxNotification.message` remains a fallback for history/email, while flash notices, the titlebar drawer, and `/sys/api/notifications/` resolve keyed text in the active request language at render time. Legacy rows without metadata also rerender when the stored text exactly matches a known Dlux/app/project translation value; interpolated and free-form messages remain stored text.
-
-Notification data model:
-
-- `DluxNotification(ScopedModel)`: durable event content, level, category, source/action, source model/object metadata, target URL, request path, unique optional `event_key`, per-event badge eligibility, metadata, audience type, and expiry.
-- `DluxNotificationState`: per-user read/dismiss/email state for each delivered notification.
-- `DluxNotificationRule(ScopedModel)`: JSON match/delivery rules for persist/flash/badge/email/recipient routing and deliberate actor inclusion.
-- `DluxNotificationWatch(ScopedModel)`: model-level watches per user/scope; object-level watches are intentionally deferred.
-
-Automatic behavior:
-
-- `ScopedModel` create/update/delete events are notification-capable by default unless the model sets `dlux_notify = False`. Successful automatic CRUD excludes the actor from durable delivery; configured create/delete flash feedback remains request-local and does not create an unread state or sidebar badge.
-- Durable automatic CRUD routes to model watchers plus users returned by the object's `dlux_notification_recipients()` hook. Dlux requires active users, matching scope, the model's view permission, and any row-level `dlux_notification_visible_to()` check before creating recipient state. Permission makes a user eligible; it does not subscribe every permission holder.
-- Updates use the activity-log diff payload, including existing sensitive-field masking, and default to quiet persisted summaries for recipients rather than actor flash.
-- Generic modal/context-menu CRUD attaches route/surface metadata before the signal pipeline emits the event.
-- Activity logs remain the audit source; notifications are user-facing delivery records, so an automatic event with no eligible recipient leaves no orphan notification row.
-- Automatic CRUD uses `crud:activity:<pk>` as its durable event key. Other retryable/asynchronous callers should pass their own stable `event_key`; the database unique constraint is the idempotency boundary, while the existing two-second cache guard only suppresses same-request bursts.
-
-Model tuning:
-
-```python
-class Invoice(ScopedModel):
-    dlux_notify = {
-        "watchable": True,
-        "update": "summary",
-        "flash": ["create", "delete"],
-        "view_permission": "billing.view_invoice",
-    }
-
-    def dlux_notification_recipients(self, *, action, actor):
-        return [self.owner, self.approver]
-
-    def dlux_notification_visible_to(self, *, user, action, actor):
-        return user in {self.owner, self.approver}
-
-
-class TempCalculation(ScopedModel):
-    dlux_notify = False
-```
-
-The standard `app_label.view_model` permission is required unless `view_permission` names another permission. `dlux_notification_visible_to()` is an additional row-level restriction, not a permission grant. A delivery rule may set `to` from `actor`, `watchers`, `related`, `staff`, `users`, and `broadcast`; automatic sources still remove the actor unless that rule explicitly sets `include_actor: true`.
-
-System Settings store `notification_config` with:
-
-- `enabled`: top-level master gate (default on), edited via the dedicated **Notifications** settings step (`?step=7`). When off, `emit_notification_event()`, `get_flash_notifications()`, and `get_notification_context()` short-circuit, suppressing flash notices, the titlebar drawer/badge, emails, automatic CRUD notifications, and `notify(...)` — the same enable/disable pattern as the sidebar and nav bar.
-- `flash`: `enabled`, `position`, `size`, `text_size`, `timeout_ms`, `max_visible`
-- `drawer`: `enabled`, `badge_enabled`, `preview_limit`
-- `bridge.django_messages_enabled`: optional compatibility bridge for host-project Django messages
-- `email.enabled/default`: `enabled` is the master gate for notification email and remains disabled/server-coerced off unless Dlux email delivery is configured; `default` emails eligible persisted notifications only after that gate is on
-- `retention.default_expiry_days`
-- `automatic.scoped_model_crud`: master switch for automatic `ScopedModel` CRUD notification sources
-- `automatic.create/delete`: per-action gates under the automatic CRUD source
-- `automatic.update`: `off`, `summary`, or `full`; summary emits quiet changed-field summaries and full keeps richer update metadata
-- `automatic.actor_flash_actions/watchable`: actor flash defaults and model-watch support
-- `automatic.include_actor`: defaults to `false`; rules or model policy must deliberately opt successful automatic CRUD into durable self-notification
-
-The separate `sidebar_config.show_notification_badges` flag controls whether
-model-backed sidebar entries use each notification's existing
-`source_model_key` to show per-section unread counters. It is independent from
-`notification_config.drawer.badge_enabled`; the global notifications master
-switch still disables both. Sidebar groups aggregate unique child model keys,
-counts are scoped to the current user's undismissed/unexpired notification
-states whose event has `badge_enabled=True`; a `badge: false` delivery rule keeps
-the item in the drawer without increasing titlebar/sidebar counts. The notification list API returns the same mapping as
-`section_counts` for live updates.
-
-DEBUG-only internal test trigger:
-
-- `/sys/debug/notifications/` creates test notifications for the current superuser/global-staff user when `settings.DEBUG` is true; outside DEBUG it returns 404.
-- Query examples: `?level=success`, `?level=all`, `?persist=0`, `?flash=0`, `?next=/sys/options/`.
-
-### Titlebar User Hub Styles
-
-System Settings store titlebar layout in `titlebar_config`:
-
-- `user_hub_style`: `dropdown` (default) or `titlebar_actions`
-- `actions_layout`: `scattered` (default) or `grouped`
-- `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
-
-`dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
-
-`actions_layout` is independent of `user_hub_style`. `scattered` leaves every action on the bar. `grouped` moves the optional ones into `#dlux-titlebar-rail` under the titlebar, behind the caret in `.titlebar__constants`; Home, that caret and the user hub trigger never move. Viewports under 576px group regardless of the setting. The rail's buttons keep `dlux-titlebar-btn` styling because the shared rules are scoped to `:is(.titlebar, .dlux-titlebar-rail)`, and the rail mirrors `data-titlebar-buttons-shape`, `data-titlebar-home-shape`, `data-titlebar-show-home` and `data-titlebar-show-language-switcher` from the titlebar. Action nodes are moved rather than cloned, so any panel nested inside a toggle keeps working; a project adding its own titlebar action gets the same treatment without registering anything.
-
-Titlebar keyboard shortcuts:
-
-- `Ctrl/Cmd+K` focuses the global search box.
-- `Ctrl/Cmd+J` opens Options through the rendered Options link.
-- `Ctrl/Cmd+H` opens Home through the rendered titlebar Home link.
-- `Ctrl/Cmd+U` opens User Management through the rendered Users link (`[data-dlux-users-link]` in the hub, `[data-titlebar-action-key="users"]` in titlebar-actions mode), so a reader without the directory permission has no link and the key does nothing.
-
-### Global search
-
-Global search has its own System Settings step and canonical `search_config` JSON:
-
-- `enabled`: renders the global-search control and enables its endpoint; default true
-- `display_mode`: `icon` (default; expands on focus) or `always`. Below 768px,
-  `always` intentionally uses the icon interaction too; activating either mode
-  opens the field and results below the titlebar instead of consuming its width.
-- `include_data`: also permits searching viewable data records; default false
-
-The v1.x compatibility layer still accepts `titlebar_config.global_search_mode`
-(`disabled`, `icon`, or `always`) and
-`titlebar_config.global_search_include_data`, and mirrors canonical saves back to
-them. New code should read `search_config`; the titlebar receives it as the
-`search` template context.
-
-The titlebar global search is served by the `login_required`
-JSON endpoint `global_search` (`/search/?q=…`). It returns permission-filtered,
-translated results grouped by type — `page`, `setting`, `option`, `action`, and
-(when `search_config.include_data` is on **and** the request passes `?data=1`)
-`data`. Result labels follow the viewer's language (resolved with Dlux's own
-`get_current_language_code`, i.e. session preview → profile preference → session
-→ config; the index is cached per language), so an Arabic UI returns Arabic
-results and an Arabic query matches:
-
-- **Pages** come from the global route discovery through the `search` profile, filtered by each route's inferred permissions. That profile accepts form pages, so `chapter_add` is findable by name; id-bound pages (`chapter_edit`) are not, since a search result needs a URL that resolves without arguments.
-- **Settings** are the 17 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only). Selecting one dispatches `dlux:dynamic_modal:open` from `document.body` with `bubbles: true`; the modal helper listens on `document`, which also receives the element-dispatched events table row actions emit. Each settings result also carries a `fallback_url` pointing at the admin panel card (`#dlux-option-admin-panel`), used when the page has no dynamic-modal host so a click is never silently inert.
-- **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user. Only cards the current configuration actually renders are indexed — a single-language install returns no Language result, a single-theme install no Theme result, and the same applies to `allow_user_home_url`, `allow_user_font_override`, `navbar.allow_user_mode_override`, and `sidebar.allow_user_density`. Below the split thresholds (non-tabs layout, at most 5 themes and 2 languages) the page merges Theme and Language into one `theme-language` card, so those two results are remapped to that slug rather than dropped. The index is keyed on the sidebar cache version, which `SystemSettings.refresh_cache()` bumps on save, so configuration changes take effect at once. A result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card. Under the tabbed Options layout the target card usually sits in an inactive pane, so the deep link activates that pane before scrolling. A `hashchange` handler re-runs the same logic, because selecting a second Options result while already on the page changes only the hash and never reloads.
-- **Actions** are curated titlebar/nav shortcuts (My Profile, Options).
-
-### Permission visibility
-
-| API | Purpose |
-| --- | --- |
-| `dlux.access.register_permission_visibility_filter(fn)` | `fn()` returns a `Q` over `Permission` to hide from the group/user permission editors, or `None`. Evaluated per form; duplicates ignored. |
-| `dlux.access.unregister_permission_visibility_filter(fn)` | Remove a filter (tests). |
-| `dlux.access.hidden_permission_ids()` | Permission ids hidden right now. |
-| `dlux.forms.keep_hidden_permissions(form, current, submitted)` | `submitted` plus the `current` permissions the form hid; the group and user forms save through it. |
-
-See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-feature).
-
-### Translation keys
-
-`DLUX_STRINGS.<key>|default:'…'` and `strings.get('<key>', '…')` fall back to the
-literal default when the key is absent, so a missing key renders English in every
-language with no error. `dlux/tests/test_translation_coverage.py` fails the build
-when a referenced key does not resolve in every shipped language, when the
-language dicts drift apart, or when a `STRING_ALIASES` entry points at nothing.
-Retired keys may resolve through `dlux/translation_aliases.py` instead of being
-defined directly. Keys a template deliberately presence-tests (`footer_text`) are
-listed in that test's `_OPTIONAL_OVERRIDE_KEYS`. `scripts/audit_strings.py` runs
-the same check outside the suite.
-
-### Assisted entry
-
-Two independent aids for repetitive data entry, each a user preference:
-
-| Preference | Default | Behaviour |
-| --- | --- | --- |
-| `autofill_from_related` | on | Choosing a ForeignKey copies that record's matching-named fields into the form. Reacts only to a deliberate selection. |
-| `sticky_forms` | off | A new form starts pre-filled from the last record the user created. Off by default because it changes a form nobody touched. |
-
-A form advertises what it supports. FK selects carrying `data-autofill-source`
-(added automatically by `resolve_form_class_for_model`) enable the first.
-`data-model-name` + `data-app-label` enable the second — the dynamic modal emits
-them on **create** forms only, since pre-filling an existing record from a
-different one would be data loss. A project rendering its own form templates must
-emit them itself for sticky-forms to apply there; the attributed `<form>` may be the
-root element the modal inserts.
-
-Forms that support sticky-forms get a thin `dlux-assist-bar` at the top, with the
-switch at its end. That switch is the shared `dlux-settings-toggle-field` control
-— `helpers/toggle/css/main.css` (loaded on every page) and the themes style it by those
-exact class names, so JS building it must use them and `type="checkbox"`, or it
-renders as a bare browser checkbox.
-
-`window.updatePreferences(data)` returns the `fetch` promise. Anything that
-navigates or reloads after saving a preference must await it, or the navigation
-races the POST and the new page renders the old value.
-
-Sticky prefill is a **server-side** concern — the initial data has to be in the
-form before it renders — so dlux owns the gate rather than a cookie:
-
-```python
-from dlux.utils import sticky_forms_enabled, sticky_form_initial
-
-# either read the gate directly...
-if request.method == 'GET' and sticky_forms_enabled(request):
-    ...
-
-# ...or let dlux build the initial dict
-initial = sticky_form_initial(request, Decree, {
-    'category': 'category',
-    'number': lambda last: increment_number(last.number),
-})
-form = DecreeForm(initial=initial, request=request)
-```
-
-`sticky_form_initial` returns `{}` when the preference is off, on a POST, or when
-the model has no rows, so a call site never has to branch.
-
-These helpers are opt-in. A project pinned to dlux < 1.8.0 should guard the
-import and fall back to reading the `sticky_forms` preference itself — never to
-the retired `enable_prefill` cookie, whose `'true'` default made prefill
-impossible to switch off.
-
-```python
-def add_decree(request):
-    from dlux.utils import sticky_forms_enabled
-    ...
-```
-
-`dlux.utils` sits inside a 27-module import cycle (`dlux.models`, `dlux.middleware`,
-`dlux.discovery`, `dlux.context_processors` and others — see
-`scripts/import_cycles.py`). A module-scope `from dlux.utils import ...` in a
-project module that Django reaches through `ROOT_URLCONF` can therefore observe a
-half-initialised package, which surfaces as Django's misleading "The included
-URLconf does not appear to have any patterns in it".
-
-Both helpers arrived in 1.8.0. A project pinned to an older dlux should guard the
-import — an `ImportError` at module scope surfaces as Django's misleading "The
-included URLconf does not appear to have any patterns in it".
-
-A form that was prefilled server-side marks itself `data-sticky-server` alongside
-`data-app-label`/`data-model-name`. Set `dlux_sticky_server = True` on the form class
-to emit the marker through the shared dynamic-modal template; handwritten templates
-must emit it themselves. This preserves server-calculated next numbers and bound
-validation input. Dlux then skips its own client-side fill and
-reloads when the switch is flipped, since only a reload can apply or undo work
-that happened before render.
-
-Only sticky-forms gets an inline switch, on the forms that support it; filling
-from a related record reacts to a deliberate selection and is configured from
-Options alone. Turning sticky off clears the remembered record id. Neither
-feature gates the other.
-
-### Unsaved-changes guard
-
-Personal table column ordering and visibility use the `user_table_columns` GET/POST endpoint and `Profile.preferences['table_columns']`. A table render supplies the user-bound signed catalog; callers cannot nominate arbitrary models or reveal admin-hidden columns. `Meta.dlux_user_columns = False` disables the organizer for a fixed table. See [table-columns.md](table-columns.md#personal-column-organization-1141).
-
-A modal form that sets `form.dlux_unsaved_guard = True` renders with
-`data-dlux-unsaved-guard`, and `unsaved_guard.js` intercepts `hide.bs.modal` —
-the single event behind the backdrop, the X button and Escape — when the form's
-values differ from the snapshot taken after its initializers settle. The
-`#dluxUnsavedModal` prompt offers Save (via `requestSubmit` with the form's named
-submitter), Discard, or Go back. Only one prompt is open at a time and Save
-submits once: a click on a dynamic modal's X raises `hide.bs.modal` twice
-(Bootstrap's dismiss handler and `dynamic_modal`'s), and before 1.15.2 each
-opened a prompt, so Save submitted the form twice.
-
-Project settings tiles (`register_app_settings`) are guarded by default: their
-form renders the marker unless it sets `dlux_unsaved_guard = False`, so a
-`form_class` that only makes sense to close freely can opt out.
-
-Dirtiness is a value snapshot rather than an input listener on purpose: the
-System Settings form rewrites its own hidden JSON carriers during init and live
-preview, dispatching synthetic events that would otherwise mark it dirty
-immediately.
-
-System Settings previews are rendered by the server, not patched in the page:
-`window.DluxSetupPreview` (`dlux/static/dlux/setup/js/previews.js`) only posts the
-unsaved form to `system_settings_preview_draft` and frames the page it names.
-`applySystemSettingsPreview(form)` remains for callers that rewrite a hidden
-builder field — it schedules a re-render of the draft page. Preview never
-submits the form; see *Unsaved previews* in `system-configuration.md`.
-
-The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
-user preference; while set, a dirty close discards without prompting. This is
-intentionally not a standalone Options toggle: use the Options footer's
-**Restore prompts** action to clear the dismissal and show the warning again.
-
-### Never resolve a URL from a module body
-
-`reverse()` (and anything reaching it) must not run while a module is being
-imported. A project's `urls.py` calls `include('dlux.urls')` inside its
-`urlpatterns` list literal, so during that call the project's own urls module is
-in `sys.modules` **without** `urlpatterns`. Resolving a URL then makes Django
-cache that half-built module on the resolver, and every later system check fails
-with "The included URLconf does not appear to have any patterns in it".
-
-This is easy to hit indirectly: dlux's global gettext patch answers a lazy
-string by calling `get_strings()` → `get_system_config()`, and Django resolves
-lazy strings inside form-class bodies at import time. `_root_urlconf_is_loading()`
-in `dlux/discovery.py` guards the one known path; add the same guard to any new
-code that can resolve a URL from a config or translation lookup.
-
-### Registering a dismissible dialog
-
-Any prompt with a "don't show again" switch should register itself, so the
-Options page's **Reset dialog prompts** action can bring it back. Without that,
-the opt-out is a one-way door:
-
-```python
-from dlux.dialogs import register_dismissible_dialog
-
-register_dismissible_dialog(
-    id='archive.install_app',          # stable slug, [A-Za-z0-9._-], namespaced
-    label='Install as app prompt',     # shown to developers/operators
-    app_namespace='archive.pwa',       # preferences['app']['archive.pwa']
-    app_preference_key='dismissed',    # ...['dismissed']
-    description='The add-to-home-screen prompt.',
-)
-```
-
-Call it once at startup (an `AppConfig.ready()` is the natural place).
-Dismissal state can live in any of:
-
-| Argument | Stored in |
-| --- | --- |
-| `preference_key` | a top-level key in `Profile.preferences` (Dlux-owned) |
-| `app_namespace` + `app_preference_key` | `Profile.preferences['app'][<namespace>][<key>]` — the right home for project prompts |
-| `profile_field` | a boolean field on `Profile` (Dlux-internal; projects cannot add fields to Dlux's `Profile`) |
-
-Registering the same `id` twice replaces the earlier entry, so a module imported
-more than once does not accumulate duplicates.
-
-`POST /sys/api/preferences/dialogs/reset/` (`reset_dialog_prompts`) clears every
-registered dismissal for the current user and returns
-`{"success": true, "reset": <n>, "registered": <n>}`. It is deliberately narrower
-than `reset_preferences`: theme, density, language and every other preference are
-left alone, and only the dismissed key is removed from an app namespace — other
-keys in that namespace survive. Dlux registers two built-ins: the unsaved-changes
-warning, and the first-login Initial User Setup modal.
-- **Data** searches `icontains` across the text fields of the project's real models (the activity-log model set plus User/Profile), gated by each model's `view` permission; scoped models are row-filtered automatically by `ScopedManager`.
-
-Two optional settings tune the data provider:
-
-- `DLUX_SEARCH_DATA_MODELS` — an allowlist of `app_label.model` strings; when set, only these models are searched (otherwise the default heuristic set is used).
-- `DLUX_SEARCH_DATA_URL_RESOLVER` — dotted path to a callable `obj → url` that produces the click-through URL for a data result. Without it, results link only when a `<model>_detail` / `<model>_update` route exists, and are shown non-clickable otherwise.
-
-### Activity logging (`log_config`)
-
-`ActivityLog` (formerly `UserActivityLog`; the old name remains importable as an alias)
-is the single source of truth for all logs. Every row carries a `category`:
-
-- `user` — project work and dev-invoked logs (auto-discovered project/auxiliary models).
-- `system` — dlux-internal events (`app_label == 'dlux'`, backups, etc.).
-- `audit` — security events (login success/failure, logout, lockout, 2FA
-  enable/disable/failure, password change, session & trusted-device revoke, permission
-  denied). Audit rows are **append-only** (cannot be edited/deleted in-app) and are never
-  auto-pruned by default.
-
-`log_config` (Step 11 of the setup wizard) governs logging:
-
-- `enabled` — master switch (does not gate audit).
-- `user` / `system` — each has `enabled`, `default_actions` (`create`/`update`/`delete`),
-  `retention_days` (0 = keep forever), and a sparse `models` override map keyed by
-  `"app_label.model"` supporting per-action sub-toggles.
-- The system list carries a synthetic **User accounts** entry (`dlux.useridentity`)
-  controlling the unified User+Profile identity log — user accounts are a core dlux
-  component, so identity rows are stored under the `system` category.
-
-Only models that produce meaningful logs appear in the grid — Django framework internals
-(`auth`/`sessions`/`contenttypes`/`admin`), health-check/`testmodel` models, and dlux
-operational/identity/self/dummy models (devices, presence, notifications, backups, Profile,
-ActivityLog, the fieldless Section placeholder) are hard-excluded.
-
-**Custom actions:** actions beyond `create`/`update`/`delete` (e.g. `DOWNLOAD`, `EXPORT`,
-`APPROVE`) are **logged by default** with no configuration. To surface a toggle for one in
-the settings grid, declare it on the model:
-
-```python
-class Decree(ScopedModel):
-    dlux_log_actions = ["download", "export"]   # adds per-action toggles in Step 11
-```
-
-A dev can then disable a specific action via its per-model `actions` override
-(`{"download": false}`) without affecting CRUD. Security-sensitive account actions (password
-reset, 2FA, lockouts) are logged under `audit`, not the per-model grid.
-- `audit` — `enabled` (always on), per-event `events` flags, `immutable`, and its own
-  `retention_days`.
-
-A correctness floor (`LOG_FORCED_EXCLUDED_MODEL_KEYS`) — Session and other
-non-integer-PK/bookkeeping tables — is never logged regardless of config.
-
-Custom dev logging (zero boilerplate):
-
-```python
-from dlux import log_activity
-log_activity("APPROVE", obj)                       # instance form
-log_activity("EXPORT", pk, model="documents.decree")  # pk + model form
-```
-
-It resolves model/scope/actor/IP from the current request, defaults to the `user` category,
-and honours `log_config` gating.
-
-Retention is enforced by the `dlux_prune_activity_log` management command (deletes
-`user`/`system` rows past their `retention_days`; skips `audit` unless its
-`retention_days > 0`; supports `--dry-run`). The `/sys/logs/` view shows user/system/audit
-tabs (`?category=`); the audit tab is restricted to superusers/global staff.
-
-### Profile page + onboarding (`profile_config`)
-
-`profile_config` (Step 15 of the setup wizard) governs the user profile page and the
-first-login experience — it is **not** personalization defaults (those stay in
-theme/typography/layout/language configs) and **not** per-user prefs (those live in
-`Profile.preferences`):
-
-- `show_completion_widget`, `show_session_device_cards`, `show_activity_feed` — gate the
-  matching profile-page sections. The profile activity feed shows at most the latest five
-  project activity entries and latest five system interaction entries. Their System Settings
-  controls share an auto-fitting row and wrap as the available width narrows.
-- `security_nudges` — `off` / `subtle` / `persistent` (account-health prompt for missing 2FA).
-- `homepage_config.allow_user_override` — let users pick their own landing page
-  (stored as `Profile.preferences['user_home_url']`; honoured at login after an
-  explicit `?next` and before `homepage_config.default_url` via
-  `resolve_user_home_url()`). The old
-  `profile_config['allow_user_home_url']` value is a v1.x compatibility mirror.
-  The same switch lets administrators assign landing pages (no schema change):
-  **Edit User** writes `Profile.preferences['admin_home_url']`, which
-  `/sys/api/preferences/update/` refuses to write and `/sys/api/preferences/reset/`
-  keeps; the group preset form writes `extra_config['group_home_urls']`
-  (`{group name: url}`, kept across renames and pruned on delete, via
-  `get_group_home_urls()` / `set_group_home_url(name, url, previous_name=None)`).
-  Both fields are hidden while the switch is off. Resolution order is the user's own
-  pick, then `admin_home_url`, then the first active group preset by name with an
-  entry, then `default_url`; `resolve_assigned_home_url(user, config=None)` returns
-  the admin part alone and skips any page the user cannot open
-  (`build_user_home_url_options`). `user_home_override_enabled(config=None)` reads
-  the switch. Options and the first-login modal label the "default" choice with the
-  assigned page.
-- `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`) —
-  whether the first-login modal runs and which preferences it offers. These three choices
-  render as an evenly distributed, wrapping horizontal rail in System Settings.
-  `homepage_config.allow_user_override` independently controls whether the same modal and the
-  Options page expose the permission-filtered landing-page selector.
-
-System and anonymous landing behavior now share `homepage_config`: `default_url`
-is the authenticated/system destination and `public.url` is the optional separate
-anonymous destination. Per-user `user_home_url` remains in `Profile.preferences`.
-The old `home_url`, `public_root_config`, and flat public page keys are synchronized
-compatibility mirrors through v1.x; see `docs/deprecation-countdown.md`.
-
-**Initial User Setup** is the per-user first-login counterpart to the system setup wizard: a
-lightweight dlux dynamic modal (`/accounts/welcome/`, `initial_user_setup`) that auto-opens
-once per user when `onboarding_enabled` and the user's `Profile.is_configured` is false. It
-writes the chosen theme/language/fonts (+ optional home override) into `Profile.preferences`
-and sets `Profile.is_configured`; "Skip for now" just sets the flag. The auto-open trigger is
-gated by the `DLUX_SHOW_INITIAL_USER_SETUP` context flag, and is suppressed while
-`Profile.preferences["force_password_change"]` is active so a first-login password change
-always happens before optional onboarding preferences.
-
-### Full-system backup policy (`backup_config`)
-
-`backup_config` (Step 16) is the DB-backed policy consumed by the full `.dlb`
-backup subsystem:
-
-- `scheduled_enabled` — opt in to Celery-beat scheduling (off by default).
-- `schedule_interval_hours` — due interval, from 1 through 8760 hours; beat polls every 15 minutes.
-- `retention_days` — remove completed backups older than this age (a chain goes when its newest member does); `0` keeps indefinitely.
-- `max_backups_to_keep` — retain the newest completed backups, counting a chain (full + its increments) as one; `0` disables the count limit.
-- `auto_export_target` — validated relative folder inside Django `default_storage` (default `dlux_backups`). From 1.15.5 it is never served from `/media/`, wherever it is. It can't be a public folder (`public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/` or a `DLUX_PUBLIC_MEDIA` entry): the settings form refuses one and the normalizer falls back to the default. Uploaded restore files are saved there as `uploaded-<timestamp>-<random>.dlb`.
-- `use_celery` and `exclude_models` — normalized code-owned compatibility keys retained from `DLUX_CONFIG['backup']`.
-- `stall_timeout_minutes` — 2–1440 (default 30). A pending/running backup whose
-  `heartbeat_at` is older than this is declared dead and failed.
-- `auto_retry_enabled` — re-run a failed or stalled backup automatically (default on).
-- `max_attempts` — 1–10 total attempts per backup row, counting the first (default 3).
-- `retry_delay_minutes` — 0–1440 wait between attempts (default 5).
-- `incremental_enabled` — scheduled runs are increments of the open chain (default off).
-- `full_every_days` — 1–365 (default 7): a chain whose full backup is older than this is closed.
-- `max_chain_length` — 1–500 increments per chain (default 24) before the next backup is full.
-
-Each `SystemBackup` stores a `manual`, `scheduled`, or `update` trigger. Inline
-apply/rollback always creates and verifies an update-triggered backup before
-maintenance, aborts if it fails, and protects the new backup while retention runs.
-
-#### Incremental backups (chains)
-
-A full backup is the base of a chain (`kind=full`, `sequence=0`,
-`chain_id` = its own token); an increment (`kind=incremental`) continues the
-newest completed member (`parent`) by default and stores only:
-
-- rows whose digest changed — every row's serialized JSON is hashed (BLAKE2b-64)
-  while it is written, so detection needs no timestamps and covers every model;
-- `deleted/<app>/<model>.json` — primary keys present in the parent, gone now;
-- media whose storage name is not in the parent's index.
-
-Every member, full or incremental, writes its index — `{"models": {label: {pk:
-digest}}, "files": [storage names]}` — into `index.json` inside the `.dlb` and
-into a `.idx` sidecar beside it (same encryption), so the next increment reads
-one small file instead of decrypting its parent. `SystemBackup.index_root` is
-the SHA-256 of that index and the header/manifest `chain` block carries `id`,
-`sequence`, `token`, `parent`, `root` and `parent_root`. An increment's header
-`kind` is `dlux-system-backup-increment` (a full backup's stays
-`dlux-system-backup`), so DjangoLux before 1.11.0b4 and older viewers refuse an
-increment instead of restoring it as a full backup.
-
-A chain is **closed** — the next backup must be full — when its base is gone or
-older than `full_every_days`, it reached `max_chain_length`, the applied
-migrations differ from the chain's (`migration_digest`), or the head lost its
-sidecar. Increments inherit the chain's scope and encryption; a passphrase chain
-keeps one passphrase (the increment must open its parent's sidecar). Scheduled
-runs continue only a full-scope, server-key chain.
-
-For manual incrementals, the **Parent backup** selector defaults to Automatic
-(the newest completed indexed backup). A superuser can instead choose the latest
-eligible member of another chain. Older members within a continued chain cannot
-be selected, so a chain stays linear. Choices exclude chains closed by age,
-length, schema changes or missing indexes. Automatic keeps its existing behavior:
-if the newest chain is closed, it does not silently fall back to an older one.
-The selected chain determines scope and encryption; passphrase chains still
-require their passphrase. Eligibility is checked again under the creation lock.
-`POST sys/backup/create/` accepts optional `backup_parent=<token>` for an
-incremental; omission or an empty value selects Automatic. The list-status GET
-accepts the same parameter and returns selection-aware `chain` availability and
-translated parent options. Scheduled selection is unchanged.
-
-Restoring a member resolves base → member from the cleartext headers of the
-`.dlb` files in the backup folder (so uploaded chains work too), follows
-`parent_root` → `root` links, and refuses a missing, foreign or swapped member
-before anything is wiped. All members must share the base's migration state. The
-base is loaded as a normal restore, then each increment, in order and in the
-same transaction, upserts its rows (deserialized saves update by primary key)
-and raw-deletes its `deleted/` keys and their implicit M2M links.
-
-Deleting a member deletes every later member of its chain (the DLB viewer opens a chain ZIP, or an increment beside its earlier members, as the merged state); an increment's
-Download returns the whole chain as one ZIP
-(`GET sys/backup/<token>/download-chain/`). The create form's Type selector
-offers *Incremental* only while a chain is open and says why when it is not.
-
-#### Interrupted backups
-
-Every progress tick writes `SystemBackup.heartbeat_at` (plus `stage`,
-`attempt_count`, `next_attempt_at`), which is the only reliable evidence that a
-run is alive: a worker killed mid-build — OOM, restart, lost connection — never
-reaches the failure path, so without it the row stays `running` forever with a
-frozen percentage and no error.
-
-`reap_stalled_system_backups()` fails any pending/running row that has gone
-quiet past `stall_timeout_minutes`, for **every** trigger, and then starts any
-due retry. It runs from the Backup & Restore page and its status poller, from
-the scheduled-backup beat task, and from Celery `worker_ready` — so a worker
-restart retires exactly the backups that worker abandoned (a run in a sibling
-worker heartbeats every few seconds and is never inside the window).
-
-Retries re-run the whole snapshot on the same history row; a partially written
-`.dlb` is one encrypted stream over a consistent snapshot and has nothing
-resumable in it. **Passphrase-protected backups are never retried
-automatically** — the passphrase is stored nowhere, so a blind re-run would
-silently produce a secret-key-encrypted file instead. The one exception is a
-retry queued from inside the Celery task, which still holds the passphrase in
-its arguments; every other path leaves the row failed with a Retry button that
-asks for the passphrase (`POST sys/backup/<token>/resume/`). A cancelled
-backup can be retried the same way.
-
-Cancelling (`POST sys/backup/<token>/cancel/`) flips the row to `cancelled`.
-Every progress write a running backup makes is conditional on the row still
-being `running`, so the write that matches nothing is the cancellation signal:
-the run stops within a heartbeat (about 3 seconds), deletes any file it already
-stored, and unlocks its drawer item without a failure notice.
-
-Common preference keys:
+Common `Profile.preferences` keys:
 
 - `theme`
 - `lang`
@@ -1312,7 +365,9 @@ Common preference keys:
 - `sidebar_accordions`
 - `sidebar_order`
 - `autofill_enabled`
-- `trusted_device` — (Internal) indicates if the current session is trusted for 30 days
+- `trusted_device` (internal): whether the current session is trusted for 30 days
+
+### Sidebar
 
 Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 
@@ -1330,44 +385,22 @@ Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 When `enabled` is `false`, Dlux does not render the runtime sidebar, ignores
 sidebar toolbar/reorder/density controls, and lets the main layout expand.
 
-**Step master toggles** dim and disable their dependent settings rather than
-hiding them, so an admin can see what enabling the step will restore. A dimmed
-dependent also carries a `data-dlux-tooltip` naming the control that enables it.
-Variant switches (email transport, client-IP mode, login style) still hide their
-inapplicable fields — they are not on/off dependencies. Because a disabled control does not post, each
-group's save path keeps the stored configuration and only flips `enabled` when
-the master toggle is off — never rebuild a group from flat fields without that
-guard, or switching the feature off will reset it. The cross-step public page and
-public-registration flags are the deliberate exception: their fields are injected
-into other steps, so they stay hidden when inapplicable.
+The sidebar step and `toggle_icon` are described in
+[System Configuration](system-configuration.md).
 
-`toggle_icon` is the glyph on the titlebar's sidebar-toggle button, set from
-Setup Step 7 (Sidebar) with the same searchable icon picker used for sidebar
-entry icons. Its picker is disabled while the sidebar is off, and while
-`collapse_mode` is `locked_expanded` — that mode hides the toggle on desktop
-(it still renders below 1100px). The grid is a disclosure: clicking the current icon expands it, picking one
-collapses it again, and it is only built while open — a ~600-button grid rendered
-on every step render is what made the step lag. It defaults to `bi-list`. Any class from the bundled Bootstrap Icons font
-is accepted; because the value is rendered straight into a `class` attribute the
-normalizer requires a plain `bi-*` token (lowercase, no spaces, max 64 chars) and
-falls back to the default for anything else, so a hand-edited or imported
-`sidebar_config` cannot inject markup. Icons listed in
-`SIDEBAR_TOGGLE_DIRECTIONAL_ICONS` (arrows, chevrons, sidebar panels) point
-*toward* the sidebar, so the template tags them `dlux-icon-directional` and CSS
-mirrors them under `[dir="rtl"]`; symmetric glyphs render as authored.
+### SystemSettings Storage
 
-`SystemSettings` storage is grouped. Runtime exposes normalized groups and keeps
-selected flat keys only as v1.x compatibility aliases. The model keeps identity
-and asset fields as standalone columns (`system_names`, `logo`, `favicon`,
-`default_language`, `default_theme`, `is_configured`). Mutable settings live in
-JSON groups in this order: `auth_config`, `email_config`,
-`registration_config`, `homepage_config`, `search_config`,
-`client_ip_config`, `notification_config`, `layout_config`,
+`SystemSettings` keeps identity and asset fields as columns (`system_names`, `logo`,
+`favicon`, `default_language`, `default_theme`, `is_configured`). Everything mutable
+lives in JSON groups: `auth_config`, `email_config`, `registration_config`,
+`homepage_config`, `client_ip_config`, `notification_config`, `layout_config`,
 `language_config`, `theme_config`, `typography_config`, `login_config`,
-`titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`,
-`profile_config`, `backup_config`, and `extra_config`.
+`titlebar_config`, `search_config`, `sidebar_config`, `ribbon_config`,
+`tables_config`, `navbar_config`, `log_config`, `profile_config`, `backup_config`
+and `extra_config`. Asset foreign keys stay standalone protected references and are
+never embedded in JSON.
 
-`homepage_config` is the canonical home/public-home group:
+`homepage_config` is the home and public-page group:
 
 ```json
 {
@@ -1386,62 +419,65 @@ JSON groups in this order: `auth_config`, `email_config`,
 }
 ```
 
-Migration `0016` adds the canonical JSON fields with database defaults. When an
-upgraded row still has legacy values, runtime resolution promotes `home_url`,
-`public_root_config`, `profile_config['allow_user_home_url']`, and the old
-titlebar search keys immediately; the first normal model save persists the same
-values canonically. Those database fields remain synchronized mirrors until
-v2.0.0. Asset foreign keys remain standalone protected references; they are
-intentionally not embedded in JSON.
+New code uses `homepage_config` and `search_config`, or their accepted aliases
+(`homepage`/`public_homepage`, `search`/`global_search`). Until 2.0 the legacy
+`home_url` column, `public_root_config`, `profile_config['allow_user_home_url']` and
+the titlebar global-search keys stay synchronized mirrors, and `get_system_config()`
+also flattens grouped values back to legacy keys such as `home_url`, `public_root`,
+`allowed_themes`, `default_table_density` and `translations_override`; see
+[Deprecation Countdown](deprecation-countdown.md). `translations_override` holds
+overrides only: the merged translation catalog is never stored.
 
-The canonical source for those grouped settings is `dlux.system`: `constants.py`
-owns settings choices/constants, `defaults.py` owns `default_*_config()`
-factories, `normalizers.py` owns config coercion, and `schema.py`/`registry.py`
-describe groups, legacy flat keys, runtime aliases, and export/import coverage.
-Import from `dlux.system`; the old defaults modules are not canonical APIs. The
-root `dlux.constants` re-export was **removed in v1.8.0** — use
-`dlux.system.constants`.
+`dlux.system` is the source for the groups: `constants.py` (choices and constants),
+`defaults.py` (`default_*_config()` factories), `normalizers.py` (coercion), and
+`schema.py`/`registry.py` (groups, legacy flat keys, runtime aliases, import/export
+coverage). Import constants from `dlux.system.constants`. How to add a setting is in
+[Adding a System Setting](adding-system-settings.md).
 
-Important migration invariant, and note what it does *not* cover: published
-migrations `0001`, `0002`, and additive `0004` serialize default callable paths
-under `dlux.models.default_*_config`, so **those wrappers** must remain
-importable indefinitely. No migration references `dlux.constants`; verified by
-removing the module and running `makemigrations --check`, which reported no
-changes. The two facts sit next to each other and are easy to conflate. Keep the wrappers as thin delegates; do not move canonical
-settings logic back into `dlux.models`.
+### Runtime Flags
 
-`SystemSettingsForm` consumes registry schema metadata for the low-risk scalar
-groups (`auth_config`, `registration_config`, the legacy `public_root_config`,
-`layout_config`, and `client_ip_config`) when hydrating form initials and packing
-cleaned split fields back into normalized groups. The complex builders for email
-secrets, notifications, login hero copy, titlebar, sidebar, navbar, logging,
-profile, language catalogs, theme, and font pickers remain custom.
+Common keys in `get_system_config()`:
 
-New code should use `homepage_config` and `search_config` (or their accepted
-`homepage`/`public_homepage` and `search`/`global_search` aliases). During v1.x,
-`get_system_config()` also flattens grouped values back to legacy keys such as
-`home_url`, `public_root`, and the titlebar global-search keys, alongside
-keys such as `allowed_themes`,
-`default_table_density`, and `translations_override`, while also exposing
-normalized group aliases for internal use. `translations_override` remains
-override-only data; Dlux never stores the merged translation catalog in
-`language_config`.
-
-Common runtime feature flags in `get_system_config()`:
-
-- `email_2fa` — Enable email-based 2FA (set via `DLUX_CONFIG['email_2fa']` or the System Settings UI)
-- `forgot_password_enabled` — Show the login-page **Forgot password?** link and enable the self-service email reset flow (`/accounts/password-reset/`). Default off; additionally self-gates on email readiness (`get_email_service_status()`), so the link and reset views stay hidden/404 until Dlux email delivery is configured. The reset email is sent through `send_dlux_mail`, and every reset page renders in the configured login style/direction/language.
-- `prevent_multiple_active_sessions` — When true, each successful login or completed 2FA login becomes the user's only active session. Dlux evicts other session keys for that user regardless of trusted-device status; trusted devices keep their trust record but must start a new session next time.
+- `email_2fa` — Enable email-based 2FA (set via `DLUX_CONFIG['email_2fa']` or the
+  System Settings UI)
+- `forgot_password_enabled` — Show the login-page **Forgot password?** link and enable
+  the self-service email reset flow (`/accounts/password-reset/`). Default off;
+  additionally self-gates on email readiness (`get_email_service_status()`), so the
+  link and reset views stay hidden/404 until Dlux email delivery is configured. The
+  reset email is sent through `send_dlux_mail`, and every reset page renders in the
+  configured login style/direction/language.
+- `prevent_multiple_active_sessions` — When true, each successful login or completed
+  2FA login becomes the user's only active session. Dlux evicts other session keys for
+  that user regardless of trusted-device status; trusted devices keep their trust
+  record but must start a new session next time.
 - `login_lockout_enabled` — Cache-based failed-login lockout on the password step (default on).
-- `login_lockout_threshold` — Failed attempts from the same IP or username before the lock arms (1–50, default 5).
-- `login_lockout_window_minutes` — Rolling window during which failed attempts keep counting (1–1440, default 15).
-- `login_lockout_duration_minutes` — How long sign-in stays blocked once the lock is armed (1–1440, default 15). The legacy `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` / `DLUX_LOGIN_LOCKOUT_SECONDS` Django settings act only as a fallback when system config cannot be resolved.
+- `login_lockout_threshold` — Failed attempts from the same IP or username before the
+  lock arms (1–50, default 5).
+- `login_lockout_window_minutes` — Rolling window during which failed attempts keep
+  counting (1–1440, default 15).
+- `login_lockout_duration_minutes` — How long sign-in stays blocked once the lock is
+  armed (1–1440, default 15). The `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` /
+  `DLUX_LOGIN_LOCKOUT_SECONDS` Django settings act only as a fallback when system
+  config cannot be resolved.
 - `enforce_strong_passwords` — Enable the strict password validator on every set-password path.
-- `strong_password_min_length` — Minimum length the strict validator (and the live checklist card) requires while enforcement is on (8–64, default 12).
-- `purge_session_on_exit` — When true, the session cookie is a browser-session cookie (`session.set_expiry(0)`, no persistent `Max-Age`), so a new browser session requires authentication. Tabs share this cookie, so closing one tab cannot end the session while the browser session remains open. Enforced by `DluxMiddleware` on authenticated requests (default off).
-- `inactivity_timeout_enabled` — Enable idle sign-out. When on, `DluxMiddleware` expires the session after inactivity (overriding the static `DLUX_SESSION_IDLE_TIMEOUT_SECONDS`), and authenticated pages load `session_timeout.js`, which shows a countdown modal ~30s before expiry with a "Stay signed in" dismiss (pings `/accounts/session-keepalive/`) and a "Sign out now" action (default off).
-- `inactivity_timeout_minutes` — Minutes of inactivity before sign-out while `inactivity_timeout_enabled` is on (1–1440, default 10).
-- `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
+- `strong_password_min_length` — Minimum length the strict validator (and the live
+  checklist card) requires while enforcement is on (8–64, default 12).
+- `purge_session_on_exit` — When true, the session cookie is a browser-session cookie
+  (`session.set_expiry(0)`, no persistent `Max-Age`), so a new browser session
+  requires authentication. Tabs share this cookie, so closing one tab cannot end the
+  session while the browser session remains open. Enforced by `DluxMiddleware` on
+  authenticated requests (default off).
+- `inactivity_timeout_enabled` — Enable idle sign-out. When on, `DluxMiddleware`
+  expires the session after inactivity (overriding the static
+  `DLUX_SESSION_IDLE_TIMEOUT_SECONDS`), and authenticated pages load
+  `session_timeout.js`, which shows a countdown modal ~30s before expiry with a "Stay
+  signed in" dismiss (pings `/accounts/session-keepalive/`) and a "Sign out now"
+  action (default off).
+- `inactivity_timeout_minutes` — Minutes of inactivity before sign-out while
+  `inactivity_timeout_enabled` is on (1–1440, default 10).
+- `email_config` — Redacted Dlux email delivery config. Supports delivery `transport`
+  (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never
+  include SMTP secrets.
   The `relay` option is offered only while the internal relay answers on
   `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`, overridable via
   `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally
@@ -1488,8 +524,8 @@ Common runtime feature flags in `get_system_config()`:
   the controls appear under Identity only while public page is enabled.
 - `show_titlebar_on_public` / `show_sidebar_on_public` — Centralized public page
   chrome toggles (`public_root_config.*`, both default **off** = hidden). They
-  supersede the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
-  (legacy data migrates inverted) and gate `base.html`'s titlebar/sidebar for
+  replace the deprecated `titlebar_config.hide_on_public_unauthenticated_index` and
+  gate `base.html`'s titlebar/sidebar for
   anonymous public page visitors via the shared `_is_public_index()` context flag.
   Their controls appear under Titlebar and Sidebar respectively, only while public
   page is enabled.
@@ -1500,16 +536,16 @@ Common runtime feature flags in `get_system_config()`:
 - `default_modal_size` — Default width of the shared dynamic modal (`compact` →
   `modal-lg`, `standard` → `modal-xl`, `wide` → `modal-xl dlux-modal-wide`). The
   resolved class is `APP_CONFIG.appearance.modal_size_class`.
-- `table_edges` — Global Dlux table-shell corner style (`layout_config`, JSON-only,
-  no migration; edited on the **Themes & Fonts** step, since edge shape is a
+- `table_edges` — Global Dlux table-shell corner style (`layout_config`; edited on the
+  **Themes & Fonts** step, since edge shape is a
   surface decision like the palette and every builder previews in it):
   `curved` uses the shipped 1.35rem radius, `half_rounded` uses
   square top corners with 1.35rem bottom corners, and `normal` uses the standard
   Bootstrap 0.375rem radius. `base.html` emits the normalized choice as
   `body[data-dlux-table-edges]`; `tables/css/main.css` applies it through shared
   top, bottom, and shape variables to the shell, card, header cells, and footer.
-- `card_edges` — Global Dlux outer-card corner style (`layout_config`, JSON-only,
-  no migration; edited on the **Themes & Fonts** step alongside `table_edges`):
+- `card_edges` — Global Dlux outer-card corner style (`layout_config`; edited on the
+  **Themes & Fonts** step alongside `table_edges`):
   `curved` applies the house `1.35rem` radius, `half_rounded`
   applies `0 0 1.35rem 1.35rem`, and `normal` applies the standard `0.375rem`.
   Child card sections, list-group bottoms, Ribbon surfaces, and profile panels
@@ -1521,7 +557,7 @@ Common runtime feature flags in `get_system_config()`:
   targets Bootstrap and Dlux card surfaces while excluding table cards and modal
   shells. Custom card surfaces can opt in with `data-dlux-card-surface` or opt out
   with `data-dlux-card-edges-ignore`.
-- Accent edges are independent, default-off JSON settings with no migration:
+- Accent edges are independent, default-off settings:
   `sidebar_config.accent_edge` is configured in Sidebar,
   `titlebar_config.accent_edge` in Titlebar, and
   `layout_config.table_accent_edges` under Layout's table controls. `base.html`
@@ -1545,10 +581,9 @@ Common runtime feature flags in `get_system_config()`:
   strip — the Admin panel is the first tab), or `compact` (a dense single-page,
   desktop-app-style list). Exposed at `APP_CONFIG.appearance.options_style` and
   emitted as `data-options-style` on `#dluxOptionsGrid`; `options.css`/`options.js`
-  render the three modes from the same card DOM (JSON-only, no migration).
-  Exposed as `APP_CONFIG.appearance.*`.
-- `row_actions_style` — How table row actions are triggered (`layout_config`,
-  JSON-only, no migration): `context` (default) keeps the right-click / long-press
+  render the three modes from the same card DOM .
+- `row_actions_style` — How table row actions are triggered (`layout_config`):
+  `context` (default) keeps the right-click / long-press
   context menu; `column` adds a dedicated last three-dot column (`dlux_row_actions`)
   and turns the row's right-click marker (`data-dlux-context`) off so the button is
   the only trigger; `both` enables the column and the context menu. Distinct from a
@@ -1556,8 +591,8 @@ Common runtime feature flags in `get_system_config()`:
   The column is added by the patched `Table.__init__` and its three-dot button
   (`.dlux-row-actions-trigger`) reuses the row's `data-dlux-actions` payload via the
   shared context-menu JS. Exposed at `APP_CONFIG.appearance.row_actions_style`.
-- `ribbon_layout` — How the list-page ribbon is arranged (`layout_config`,
-  JSON-only, no migration): `default` (title and actions on one row, filters
+- `ribbon_layout` — How the list-page ribbon is arranged (`layout_config`): `default`
+  (title and actions on one row, filters
   beneath), `stacked` (actions on their own row under the filters), or `compact`
   (one row: no title, actions as the last column of the filter row). Rendered by
   `{% dlux_ribbon %}` from `dlux/templates/dlux/ribbon/_<layout>.html`.
@@ -1566,17 +601,17 @@ Common runtime feature flags in `get_system_config()`:
   by `Ribbon.shows_title` and mirrored in the Ribbon step by
   `ribbon/js/ribbon_settings.js`.
 - `ribbon_style` — How the ribbon looks, independently of its arrangement
-  (`layout_config`, JSON-only): `accent` (a coloured edge down the side of a
+  (`layout_config`): `accent` (a coloured edge down the side of a
   bordered header), `panel` (a softly rounded, raised panel), or `flat` (no
   panel, just a dividing rule). Emitted as `dlux-ribbon-skin-<style>` on the
   root, which also carries `data-dlux-card-surface` so `card_edges` applies, and
   `glass-profile` on the panel skin so the themes own its surface. A new style is
   a CSS block plus a choice and an `option_meta` entry.
 - `ribbon_title` — Whether the page title renders inside the ribbon (`layout_config`,
-  JSON-only, default `True`). Off means the ribbon carries filters and actions only
+  default `True`). Off means the ribbon carries filters and actions only
   and the page supplies its own heading.
-- `ribbon_advanced_trigger` — How the advanced filters are reached (`layout_config`,
-  JSON-only): `button` (default, a toggle whose open state is remembered per list in
+- `ribbon_advanced_trigger` — How the advanced filters are reached (`layout_config`):
+  `button` (default, a toggle whose open state is remembered per list in
   `localStorage`), `always` (the panel is always open and no toggle renders), or
   `off` (the advanced fields are not rendered at all). A server-rendered open panel
   wins over a stored "collapsed" so a filter that is in effect is never hidden.
@@ -1586,38 +621,179 @@ Common runtime feature flags in `get_system_config()`:
   `APP_CONFIG.appearance.footer_text`; the `dlux/system/footer.html` partial
   renders it, falling back to `DLUX_STRINGS.footer_text` then `© <year> <system name>`.
 
-Theme/runtime UI notes:
+### Activity Logging (`log_config`)
+
+`ActivityLog` is the single store for all logs (`UserActivityLog` remains an importable
+alias). Every row carries a `category`:
+
+- `user` — project work and dev-invoked logs (auto-discovered project/auxiliary models).
+- `system` — dlux-internal events (`app_label == 'dlux'`, backups, etc.).
+- `audit` — security events (login success/failure, logout, lockout, 2FA
+  enable/disable/failure, password change, session & trusted-device revoke, permission
+  denied). Audit rows are **append-only** (cannot be edited/deleted in-app) and are never
+  auto-pruned by default.
+
+`log_config` (setup step 17, Logging) governs logging:
+
+- `enabled` — master switch (does not gate audit).
+- `user` / `system` — each has `enabled`, `default_actions` (`create`/`update`/`delete`),
+  `retention_days` (0 = keep forever), and a sparse `models` override map keyed by
+  `"app_label.model"` supporting per-action sub-toggles.
+- The system list carries a synthetic **User accounts** entry (`dlux.useridentity`)
+  controlling the unified User+Profile identity log — user accounts are a core dlux
+  component, so identity rows are stored under the `system` category.
+- `audit` — `enabled` (always on), per-event `events` flags, `immutable`, and its own
+  `retention_days`.
+
+Only models that produce meaningful logs appear in the grid — Django framework internals
+(`auth`/`sessions`/`contenttypes`/`admin`), health-check/`testmodel` models, and dlux
+operational/identity/self/dummy models (devices, presence, notifications, backups, Profile,
+ActivityLog, the fieldless Section placeholder) are hard-excluded.
+
+**Custom actions:** actions beyond `create`/`update`/`delete` (e.g. `DOWNLOAD`, `EXPORT`,
+`APPROVE`) are **logged by default** with no configuration. To surface a toggle for one in
+the settings grid, declare it on the model:
+
+```python
+class Decree(ScopedModel):
+    dlux_log_actions = ["download", "export"]   # adds per-action toggles in the Logging step
+```
+
+A dev can then disable a specific action via its per-model `actions` override
+(`{"download": false}`) without affecting CRUD. Security-sensitive account actions (password
+reset, 2FA, lockouts) are logged under `audit`, not the per-model grid.
+
+A correctness floor (`LOG_FORCED_EXCLUDED_MODEL_KEYS`) — Session and other
+non-integer-PK/bookkeeping tables — is never logged regardless of config.
+
+Custom dev logging (zero boilerplate):
+
+```python
+from dlux import log_activity
+log_activity("APPROVE", obj)                       # instance form
+log_activity("EXPORT", pk, model="documents.decree")  # pk + model form
+```
+
+It resolves model/scope/actor/IP from the current request, defaults to the `user` category,
+and honours `log_config` gating.
+
+Retention is enforced by the `dlux_prune_activity_log` management command (deletes
+`user`/`system` rows past their `retention_days`; skips `audit` unless its
+`retention_days > 0`; supports `--dry-run`). The `/sys/logs/` view shows user/system/audit
+tabs (`?category=`); the audit tab is restricted to superusers/global staff.
+
+### Profile Page and Onboarding (`profile_config`)
+
+`profile_config` (setup step 14, Profile) governs the user profile page and the
+first-login experience — it is **not** personalization defaults (those stay in
+theme/typography/layout/language configs) and **not** per-user prefs (those live in
+`Profile.preferences`):
+
+- `show_completion_widget`, `show_session_device_cards`, `show_activity_feed` — gate the
+  matching profile-page sections. The profile activity feed shows at most the latest five
+  project activity entries and latest five system interaction entries. Their System Settings
+  controls share an auto-fitting row and wrap as the available width narrows.
+- `security_nudges` — `off` / `subtle` / `persistent` (account-health prompt for missing 2FA).
+- `homepage_config.allow_user_override` — let users pick their own landing page
+  (stored as `Profile.preferences['user_home_url']`; honoured at login after an
+  explicit `?next` and before `homepage_config.default_url` via
+  `resolve_user_home_url()`).
+  `profile_config['allow_user_home_url']` is a compatibility mirror.
+  The same switch lets administrators assign landing pages (no schema change):
+  **Edit User** writes `Profile.preferences['admin_home_url']`, which
+  `/sys/api/preferences/update/` refuses to write and `/sys/api/preferences/reset/`
+  keeps; the group preset form writes `extra_config['group_home_urls']`
+  (`{group name: url}`, kept across renames and pruned on delete, via
+  `get_group_home_urls()` / `set_group_home_url(name, url, previous_name=None)`).
+  Both fields are hidden while the switch is off. Resolution order is the user's own
+  pick, then `admin_home_url`, then the first active group preset by name with an
+  entry, then `default_url`; `resolve_assigned_home_url(user, config=None)` returns
+  the admin part alone and skips any page the user cannot open
+  (`build_user_home_url_options`). `user_home_override_enabled(config=None)` reads
+  the switch. Options and the first-login modal label the "default" choice with the
+  assigned page.
+- `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`) —
+  whether the first-login modal runs and which preferences it offers. These three choices
+  render as an evenly distributed, wrapping horizontal rail in System Settings.
+  `homepage_config.allow_user_override` independently controls whether the same modal and the
+  Options page expose the permission-filtered landing-page selector.
+
+System and anonymous landing behavior share `homepage_config`: `default_url`
+is the authenticated/system destination and `public.url` is the optional separate
+anonymous destination. Per-user `user_home_url` remains in `Profile.preferences`.
+The `home_url`, `public_root_config` and flat public-page keys are synchronized
+compatibility mirrors until 2.0; see [Deprecation Countdown](deprecation-countdown.md).
+
+**Initial User Setup** is the per-user first-login counterpart to the system setup wizard: a
+lightweight dlux dynamic modal (`/accounts/welcome/`, `initial_user_setup`) that auto-opens
+once per user when `onboarding_enabled` and the user's `Profile.is_configured` is false. It
+writes the chosen theme/language/fonts (+ optional home override) into `Profile.preferences`
+and sets `Profile.is_configured`; "Skip for now" just sets the flag. The auto-open trigger is
+gated by the `DLUX_SHOW_INITIAL_USER_SETUP` context flag, and is suppressed while
+`Profile.preferences["force_password_change"]` is active so a first-login password change
+always happens before optional onboarding preferences.
+
+### Backups (`backup_config`)
+
+`backup_config` (setup step 18, Backups) holds the schedule, retention, retry and
+incremental-chain policy. Its keys and the backup lifecycle are in
+[Backups](backups.md).
+
+### Theme and Options Hooks
+
+Theme runtime:
 
 - official theme ordering comes from `dlux/themes.py`
 - the options page uses `.theme-preview` selectors
 - the sidebar toolbar picker uses `.theme-option-circle` selectors
-- runtime theme changes dispatch the `dlux:theme-changed` event so secondary UI such as the sidebar indicator can sync without a refresh
-- a page links only the active theme's stylesheet (`DLUX_ACTIVE_THEME`, `link[data-dlux-theme-css]`); the other allowed themes' links sit in the inert `<template id="dlux-theme-stylesheets">`
-- `window.setTheme(slug)` loads the target theme's stylesheet beside the active one and switches once it has loaded; only the latest of several quick switches applies
-- `window.dluxLoadThemeStylesheet(slug[, url])` loads a theme's stylesheet without switching and returns a promise of `true` once it has loaded (`false` when no URL is known or the request failed)
+- runtime theme changes dispatch the `dlux:theme-changed` event so secondary UI such
+  as the sidebar indicator can sync without a refresh
+- a page links only the active theme's stylesheet (`DLUX_ACTIVE_THEME`,
+  `link[data-dlux-theme-css]`); the other allowed themes' links sit in the inert
+  `<template id="dlux-theme-stylesheets">`
+- `window.setTheme(slug)` loads the target theme's stylesheet beside the active one
+  and switches once it has loaded; only the latest of several quick switches applies
+- `window.dluxLoadThemeStylesheet(slug[, url])` loads a theme's stylesheet without
+  switching and returns a promise of `true` once it has loaded (`false` when no URL is
+  known or the request failed)
 
-Options/runtime UI notes:
+Options page:
 
-- Options cards are draggable through per-card handles and the current order is persisted in browser `localStorage`
+- Options cards are draggable through per-card handles and the current order is
+  persisted in browser `localStorage`
 - the wide System Info card intentionally keeps a double-column span inside the grid
-- Autofill and Reset Defaults are standalone cards in the shared Options card system, not nested sub-cards
-- `tabs` style keeps Theme and Language as separate cards/tabs even when the card/compact layouts would merge a small number of choices into one combined card
-- the authenticated Navbar groups Dlux-owned routes under an unclickable `System` crumb by default; unplaced Dlux system routes may also follow `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup & Restore falls under Application Options unless the hierarchy builder explicitly places it elsewhere; configurable Dlux system routes remain available in that builder for overrides
+- Autofill and Reset Defaults are standalone cards in the shared Options card system,
+  not nested sub-cards
+- `tabs` style keeps Theme and Language as separate cards/tabs even when the
+  card/compact layouts would merge a small number of choices into one combined card
+- the authenticated Navbar groups Dlux-owned routes under an unclickable `System`
+  crumb by default; unplaced Dlux system routes may also follow
+  `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup &
+  Restore falls under Application Options unless the hierarchy builder explicitly
+  places it elsewhere; configurable Dlux system routes remain available in that
+  builder for overrides
 
-## Framework-Owned Table Surface
+## Tables
 
-Dlux now owns the default table chrome for standard `django_tables2` tables.
+### Framework-Owned Table Surface
 
-- stock `django_tables2` templates such as `django_tables2/bootstrap5.html` are remapped at runtime to `dlux/tables/table.html`
+Dlux owns the default table chrome for standard `django_tables2` tables.
+
+- stock `django_tables2` templates such as `django_tables2/bootstrap5.html` are
+  remapped at runtime to `dlux/tables/table.html`
 - tables with no explicit template are also auto-captured
 - explicit non-stock custom templates are left alone by default
 - the system default density comes from `SystemSettings.default_table_density`
 - the per-user override lives in `Profile.preferences["table_density"]`
 - the per-user page-size preference lives in `Profile.preferences["table_page_size"]`
 - built-in pagination and page-size controls are rendered by `dlux/tables/table.html`
-- the paginator enforces `dlux_per_page_options` and fixed `dlux_per_page` values even when the URL supplies another size; invalid sizes fall back to the saved/default value, including prefixed and custom `Meta.per_page_field` query parameters
+- the paginator enforces `dlux_per_page_options` and fixed `dlux_per_page` values even
+  when the URL supplies another size; invalid sizes fall back to the saved/default
+  value, including prefixed and custom `Meta.per_page_field` query parameters
 - the recommended handwritten-table base class is `dlux.tables.DluxTable`
-- the framework list-screen arrangement is `dlux/list_page.html` (Ribbon over table, no card); blocks `list_before_table`, `list_body`, `list_after_table`, `list_modals`, `list_page_attrs`
+- the framework list-screen arrangement is `dlux/list_page.html` (Ribbon over table,
+  no card); blocks `list_before_table`, `list_body`, `list_after_table`,
+  `list_modals`, `list_page_attrs`
 
 Supported table Meta overrides:
 
@@ -1626,13 +802,18 @@ Supported table Meta overrides:
 - `dlux_per_page = 20` to force a fixed default page size for one table
 - `dlux_per_page_options = (10, 20, 50, 100)` to override the built-in page-size choices
 - `dlux_actions = False` to disable default Dlux row actions
-- `dlux_show_footer = False` to drop the footer toolbar (page-size, density switcher, record summary, pagination); such a table renders unpaginated, since nothing would be left to reach page two
+- `dlux_show_footer = False` to drop the footer toolbar (page-size, density switcher,
+  record summary, pagination); such a table renders unpaginated, since nothing would
+  be left to reach page two
 
 Supported table extension hook:
 
-- `get_dlux_row_actions(self, record, base_actions)` to extend or replace the default action list before permission filtering
+- `get_dlux_row_actions(self, record, base_actions)` to extend or replace the default
+  action list before permission filtering
 
-## Context Menu Events
+Column layouts are described in [Table Columns](table-columns.md).
+
+### Context Menu Events
 
 | Event | Purpose |
 | --- | --- |
@@ -1653,7 +834,7 @@ Common action keys:
 - `permission`
 - `permissions`
 
-## Common Activity Log Actions
+### Common Activity Log Actions
 
 The system records several action families out of the box, including:
 
@@ -1665,9 +846,9 @@ The system records several action families out of the box, including:
 - `DOWNLOAD`
 - `EXPORT`
 
-## Reusable Helpers
+## Helpers
 
-### View/security helpers
+### View and Security Helpers
 
 | Helper | Purpose |
 | --- | --- |
@@ -1695,141 +876,59 @@ from dlux.utils import set_profile_totp_state
 set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=True)
 ```
 
-### Form/UI helpers
+### Form and UI Helpers
 
 | Helper | Purpose |
 | --- | --- |
 | `build_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. Field validation errors render visibly below the file card; set `field.widget.attrs['data-max-file-bytes']` for immediate client size validation while retaining server-side validation. |
 | `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
-| `DluxLookupField(queryset=..., create={...})` | Turn a ForeignKey into a search-and-add box: type a name, reuse an exact match, get warned about a near miss, add what is genuinely new. See below. |
+| `DluxLookupField(queryset=..., create={...})` | Turn a ForeignKey into a search-and-add box: type a name, reuse an exact match, get warned about a near miss, add what is genuinely new. See [UI Integration](ui-integration.md#search-and-add-fields). |
 
-### Search-and-add fields (`DluxLookupField`)
+### Frequently Used Helpers
 
-A dropdown makes a reader scroll a register of hundreds; a free text box makes a
-second "Acme Trading" the moment somebody types a space differently. A lookup
-field is the middle, and a form declares one field to get it:
-
-```python
-from dlux.forms import DluxLookupField
-
-class InvoiceForm(forms.ModelForm):
-    supplier = DluxLookupField(
-        queryset=Party.objects.filter(kind='company', is_active=True),
-        create={'kind': 'company', 'subtype': 'supplier'},
-    )
-```
-
-That is the whole adoption. No companion fields, no `clean()`, no `save()`, no
-template, no script.
-
-**What is derived.** The queryset a `ModelChoiceField` already carries *is* the
-search scope, so searching needs no configuration. Only `create` has to be
-stated, because what a new row must be is not derivable from a queryset. Passing
-the same mapping used to scope the queryset is usually right: it keeps a record
-created here findable by the field that created it.
-
-| `create` | Behaviour |
+| Helper | Purpose |
 | --- | --- |
-| omitted / `None` | **Search only** — the default. A name matching nothing is a validation error, and the control never offers to add. |
-| `True` | Add a record carrying only the name. |
-| `{...}` | Add a record carrying the name plus these values. |
+| `get_system_config()` | Return the merged runtime configuration |
+| `get_theme_names()` | Return the active official theme-name list from the shared theme registry |
+| `get_theme_choices()` | Return the active theme tuples used by settings/forms choice fields |
+| `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
+| `dlux_settings()` | Apply the default DjangoLux settings requirements from a project `settings.py` via `dlux_settings(globals())`, including app stack, locale and activity middleware, context processor, Crispy defaults, `MESSAGE_TAGS`, and core language/format defaults |
+| `get_secret()` | Read a Docker secret file first, then fall back to an environment variable |
+| `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
+| `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
+| `resolve_model_by_name()` | Find a model class dynamically by name |
+| `filter_context_actions()` | Hide context-menu actions the current user should not see |
+| `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
+| `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
+| `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
+| `get_visible_group_presets(user)` | Preset Groups (auth.Group + GroupProfile) a user may see/assign: global + own-scope for scoped staff, all for superuser/Global Staff |
+| `can_manage_group_preset(actor, group)` | `True` if actor may CRUD/manage-membership on a preset (global presets are superuser/Global-Staff only; scoped staff manage own-scope presets) |
+| `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
+| `set_group_members(group, users, actor, manageable_users=None)` | Group-centric inverse of the above: set one preset's members, syncing `group.user_set` and audit rows |
+| `get_manageable_users_queryset(actor)` | Users an actor may add to/remove from presets, honouring the same tiers as the user directory |
+| `apply_public_registration_defaults(user)` | Apply the marked public-registration default scope and matching global/scope Group presets to an activated public-registration user |
+| `collect_related_objects(instance, ignore_relations=None)` | Inspect reverse and related objects for reporting or delete warnings; `ignore_relations` names internal accessors to skip |
+| `has_related_records()` | Fast relation check before destructive actions |
+| `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
+| `arabic_search_q(term, fields)` | Variant-aware Arabic `icontains`: one OR'd `Q` over `fields` matching every common spelling of `term` (alef/hamza forms, ي/ى/ئ, ة/ه, ق/غ, و/ؤ, Farsi ی/ک, Arabic-Indic digits, ignoring diacritics/tatweel/hamza) via `__iregex` — stored values need no migration |
+| `arabic_search_pattern(term)` | The underlying regex builder (confusable letters become character classes); reusable for custom lookups |
+| `normalize_arabic(value)` | Fold a string to one canonical Arabic spelling (for Python-side comparison, dedup keys, or a stored shadow column); `ARABIC_EQUIVALENCE_GROUPS` is the overridable default fold table (`groups=` kwarg on all three) |
+| `set_field_attrs()` | Apply DjangoLux-friendly widget classes and affordances to a form, including the shared datepicker hook (`.dlux-datepicker`; `.flatpickr` is still accepted) |
+| `translate_choices()` | Translate choice lists using the system translation engine |
+| `log_user_action()` | Create consistent audit log entries |
+| `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
+| `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
 
-Adding is opt-**in**: a field left as it comes searches a fixed list and nothing
-else, which is what most fields want. On such a field a near miss is reported as
-a suggestion — *"No entry called X. Did you mean Y?"* — and the consent box is
-not rendered at all, because offering to add on a field that cannot add is a
-dead end.
+### Permission Visibility
 
-**What a typed name means**, in order — only the last is a new record:
+| API | Purpose |
+| --- | --- |
+| `dlux.access.register_permission_visibility_filter(fn)` | `fn()` returns a `Q` over `Permission` to hide from the group/user permission editors, or `None`. Evaluated per form; duplicates ignored. |
+| `dlux.access.unregister_permission_visibility_filter(fn)` | Remove a filter (tests). |
+| `dlux.access.hidden_permission_ids()` | Permission ids hidden right now. |
+| `dlux.forms.keep_hidden_permissions(form, current, submitted)` | `submitted` plus the `current` permissions the form hid; the group and user forms save through it. |
 
-1. an exact name (case- and space-insensitive) is *that* record, reused;
-2. a name close to an existing one is refused, naming what it resembles;
-3. anything else is new.
-
-Case 2 is a question rather than a verdict, because two real bodies can have
-near-identical names. The widget renders the suggestion as a one-click button
-and a consent box beside it; a submit carrying that consent goes ahead. Consent
-never duplicates an *exact* name — it answers "is this a typo?", not "make me a
-second copy".
-
-**Arabic.** Names are folded before comparison — hamzated alef to alef, `ة` to
-`ه`, `ى` to `ي`, tatweel and harakat dropped — so the ways the script writes one
-letter do not read as typos. `شركه النور` *is* `شركة النور`: reused exactly,
-nothing to confirm. Latin text contains none of these, so other alphabets are
-unaffected.
-
-**Tuning.** The defaults were measured against a register of 92 Arabic company
-names: `near_ratio=0.90` catches every simulated typo and flags five pairs that
-are not duplicates, which is the right trade when a false positive costs one
-click and a false negative costs a duplicate. A register of part numbers or
-postcodes will want its own values.
-
-| Argument | Default | Purpose |
-| --- | --- | --- |
-| `create` | `None` | What a new record must be, or search-only. |
-| `search_field` | `'name'` | The attribute searched and written. |
-| `near_ratio` | `0.90` | How alike two names must be to be treated as a typo. |
-| `boilerplate_share` | `0.15` | A word on this share of the register stops distinguishing anything in it. |
-
-**How it posts.** One field name carries both: a key when a row was picked, the
-typed name otherwise, so tests and API callers can post either. `<name>__typed`
-and `<name>__confirm` ride alongside and belong to the widget — a form never
-declares them. Matching runs on the server, so a form posted without the script
-resolves identically; the script only ranks the rows as you type.
-
-**Notifications.** A record the field adds is logged like any other create, but
-does not flash at the actor: adding it was a side effect of saving the form, not
-a second act, and automatic CRUD would otherwise announce it as one. The parent
-object's own banner is unaffected.
-
-**Why a name that matched nothing is unsaved.** The field returns an *unsaved*
-instance, and `dlux.patches` writes it immediately before the form's own object.
-Validating a form must never write, or a form failing a later rule leaves a
-record behind.
-
-### Alert Auto-Close Contract
-
-`dlux/base/js/base_runtime.js` auto-closes every Bootstrap-style `.alert` after a short delay unless the alert explicitly opts out with `data-autoclose="false"`.
-
-Default Django messages render through `dlux/notifications/messages.html` as compact fixed flash notices rather than full-width titlebar overlays. Authenticated pages use `.dlux-flash-container`, positioned below `--header-height`; public auth pages pass `dlux_flash_mode='page'` to use `.dlux-page-alert-container` near the viewport top. Both containers are `pointer-events: none`, while visible alerts remain closeable and `.dlux-alert--closing` disables pointer events before the removal transition.
-
-Use the opt-out for alerts that remain actionable after the first few seconds, such as validation blockers, missing-secret warnings, setup/import instructions, or status messages that explain why a field must be changed before the form can submit. Do not use it for normal Django flash messages that should behave like transient success/error notices.
-
-Profile password-change validation is modal-scoped: invalid submissions render field errors inside `#resetPasswordModal`, reopen that modal on the response, and do not enqueue the generic form-error flash.
-
-Server-rendered or template alerts:
-
-```html
-<div class="alert alert-info" data-autoclose="false">
-    This setup notice remains visible until the user resolves it.
-</div>
-```
-
-JavaScript-created alerts:
-
-```javascript
-const notice = document.createElement('div');
-notice.className = 'alert alert-warning';
-notice.setAttribute('data-autoclose', 'false');
-```
-
-### Lux Signature Contract
-
-`dlux/base/js/signature.js` is the removable, client-only DjangoLux attribution layer. It reads `<html data-dlux="DjangoLux X.Y.Z ...">`, prints one quiet console credit on load, exposes non-enumerable `window.lux` / `window.dlux` console getters, and reveals a compact `.dlux-signature-pop` visual credit when a user types `dlux` on the page outside input, textarea, select, or contenteditable targets. It makes no network calls and stores no data.
-
-## Naming: Management Screens
-
-Two conventions, so the name tells you what a thing is:
-
-- **URL names are `manage_<plural>`** — `manage_users`, `manage_scopes`,
-  `manage_groups`, `manage_sections`, `manage_assets`.
-- **Template names say whether it is a page or a fragment.**
-  `manage_<plural>.html` is a full page that extends a base;
-  `_<noun>_manager.html` is an embeddable partial rendered into a modal, and
-  carries the leading underscore dlux uses for every partial.
-
-`dlux/tests/test_ribbon.py` asserts both, so the distinction stays load-bearing
-rather than coincidental.
+See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-feature).
 
 ## Template Tags and Filters
 
@@ -1859,145 +958,156 @@ rather than coincidental.
 | `extra_sidebar` | inclusion tag | Render additional sidebar groups |
 | `sidebar_item_class` | simple tag | Return `active` when the current request matches a URL name |
 
-## Frequently Used Helpers
-
-| Helper | Purpose |
-| --- | --- |
-| `get_system_config()` | Return the merged runtime configuration |
-| `get_theme_names()` | Return the active official theme-name list from the shared theme registry |
-| `get_theme_choices()` | Return the active theme tuples used by settings/forms choice fields |
-| `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
-| `dlux_settings()` | Apply the default DjangoLux settings requirements from a project `settings.py` via `dlux_settings(globals())`, including app stack, locale and activity middleware, context processor, Crispy defaults, `MESSAGE_TAGS`, and core language/format defaults |
-| `get_secret()` | Read a Docker secret file first, then fall back to an environment variable |
-| `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
-| `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
-| `resolve_model_by_name()` | Find a model class dynamically by name |
-| `filter_context_actions()` | Hide context-menu actions the current user should not see |
-| `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
-| `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
-| `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
-| `get_visible_group_presets(user)` | Preset Groups (auth.Group + GroupProfile) a user may see/assign: global + own-scope for scoped staff, all for superuser/Global Staff |
-| `can_manage_group_preset(actor, group)` | `True` if actor may CRUD/manage-membership on a preset (global presets are superuser/Global-Staff only; scoped staff manage own-scope presets) |
-| `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
-| `set_group_members(group, users, actor, manageable_users=None)` | Group-centric inverse of the above: set one preset's members, syncing `group.user_set` and audit rows |
-| `get_manageable_users_queryset(actor)` | Users an actor may add to/remove from presets, honouring the same tiers as the user directory |
-| `apply_public_registration_defaults(user)` | Apply the marked public-registration default scope and matching global/scope Group presets to an activated public-registration user |
-| `collect_related_objects(instance, ignore_relations=None)` | Inspect reverse and related objects for reporting or delete warnings; `ignore_relations` names internal accessors to skip |
-| `has_related_records()` | Fast relation check before destructive actions |
-| `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
-| `arabic_search_q(term, fields)` | Variant-aware Arabic `icontains`: one OR'd `Q` over `fields` matching every common spelling of `term` (alef/hamza forms, ي/ى/ئ, ة/ه, ق/غ, و/ؤ, Farsi ی/ک, Arabic-Indic digits, ignoring diacritics/tatweel/hamza) via `__iregex` — stored values need no migration |
-| `arabic_search_pattern(term)` | The underlying regex builder (confusable letters become character classes); reusable for custom lookups |
-| `normalize_arabic(value)` | Fold a string to one canonical Arabic spelling (for Python-side comparison, dedup keys, or a stored shadow column); `ARABIC_EQUIVALENCE_GROUPS` is the overridable default fold table (`groups=` kwarg on all three) |
-| `set_field_attrs()` | Apply DjangoLux-friendly widget classes and affordances to a form, including the shared datepicker hook (`.dlux-datepicker` with legacy `.flatpickr` compatibility) |
-| `translate_choices()` | Translate choice lists using the system translation engine |
-| `log_user_action()` | Create consistent audit log entries |
-| `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
-| `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
-
 ## Authorization Contracts
 
-- `DynamicModalManagerView` and `DynamicModalDeleteView` are backend-authorized surfaces, not login-only helpers
+- `DynamicModalManagerView` and `DynamicModalDeleteView` are backend-authorized
+  surfaces, not login-only helpers
 - `accounts/profile/edit/<pk>/modal/` is self-only
-- dedicated user-management modals follow the same staff/scope/superuser rules as `dlux/views/users.py`
-- `/sys/users/` and user-detail surfaces require `auth.view_user` OR `dlux.manage_staff` for staff callers (superusers still bypass)
+- dedicated user-management modals follow the same staff/scope/superuser rules as
+  `dlux/views/users.py`
+- `/sys/users/` and user-detail surfaces require `auth.view_user` OR
+  `dlux.manage_staff` for staff callers (superusers still bypass)
 - **Staff Tier System**: Three non-superuser staff tiers exist:
-  - **Global Staff** (`is_global_staff`): Non-scoped staff with `dlux.manage_scopes` permission — can create scopes, assign any scope, and manage ALL users
-  - **Central Staff** (`is_central_staff`): Non-scoped staff WITHOUT `manage_scopes` — can only create/manage scopeless users, completely blind to scoped users
+  - **Global Staff** (`is_global_staff`): Non-scoped staff with `dlux.manage_scopes`
+    permission — can create scopes, assign any scope, and manage ALL users
+  - **Central Staff** (`is_central_staff`): Non-scoped staff WITHOUT `manage_scopes` —
+    can only create/manage scopeless users, completely blind to scoped users
   - **Scoped Staff**: Staff assigned to a specific scope — can only manage users within that scope
 - Only **superusers** can create Global Staff users (assign `manage_scopes` permission)
 - Global Staff and superusers can create Central Staff
-- Central Staff cannot see scoped users in `/sys/users/`, cannot assign scopes, and cannot access scope management
+- Central Staff cannot see scoped users in `/sys/users/`, cannot assign scopes, and
+  cannot access scope management
 - user-detail activity snippets require `dlux.view_activitylog`
-- sidebar system items, dashboard cards, and user-hub shortcuts for Users / Sections / Activity Log follow the same helper-backed authorization rules
+- sidebar system items, dashboard cards, and user-hub shortcuts for Users / Sections /
+  Activity Log follow the same helper-backed authorization rules
 - section-management routes require `dlux.view_sections` or `dlux.manage_sections`
-- `filter_context_actions()` now properly respects `manage_sections` permission for section-related context menu actions
-- Options diagnostics are privileged-only; personal preference controls remain available to authenticated users
-- `SYSTEM_ROUTE_META` supplies a system route's `group_key` before model app-label inference, so `manage_users` stays under dlux System even though it is backed by `auth.User`
+- `filter_context_actions()` lets `manage_sections` reveal only actions flagged
+  `section_action: True`; it never bypasses per-model delete or change permissions
+- Options diagnostics are privileged-only; personal preference controls remain
+  available to authenticated users
+- `SYSTEM_ROUTE_META` supplies a system route's `group_key` before model app-label
+  inference, so `manage_users` stays under dlux System even though it is backed by
+  `auth.User`
 
 ### Sidebar Permission Inference
 
-Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:
+Sidebar items are only visible to users who have the required view permission. The
+permission for each item is inferred in this order:
 
-1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view callback — used as-is.
-2. **System route meta**: items in `SYSTEM_ROUTE_META` use their declared `__dlux_*` permission tokens:
+1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view
+   callback — used as-is.
+2. **System route meta**: items in `SYSTEM_ROUTE_META` use their declared `__dlux_*`
+   permission tokens:
    - `manage_users` → `__dlux_user_directory__`
    - `user_activity_log` → `__dlux_activity_log__`
    - `manage_sections` → `__dlux_sections_view__`
    - `options_view` → `__dlux_authenticated__`
    - `system_backup_page` → `is_superuser`
-3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
-4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
-5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.
+3. **Model-based inference**: for class-based views with a model, the permission is
+   `app_label.view_model_name`.
+4. **URL pattern inference**: for function-based views without a model, the app label
+   comes from the URL namespace (or callback module) and the model name from the URL
+   name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
+5. **No inference**: if none of the above produce a permission, the item is hidden
+   from non-superusers.
 
 Internal tokens are resolved by `user_matches_permission_token()` in
 `dlux/utils/authorization.py` and re-exported from `dlux.utils`.
 
+## Naming: Management Screens
+
+Two conventions, so the name tells you what a thing is:
+
+- **URL names are `manage_<plural>`** — `manage_users`, `manage_scopes`,
+  `manage_groups`, `manage_sections`, `manage_assets`.
+- **Template names say whether it is a page or a fragment.**
+  `manage_<plural>.html` is a full page that extends a base;
+  `_<noun>_manager.html` is an embeddable partial rendered into a modal, and
+  carries the leading underscore dlux uses for every partial.
+
+`dlux/tests/test_ribbon.py` asserts both, so the distinction stays load-bearing
+rather than coincidental.
+
+## Optional SSO Packages
+
+| Package | Purpose |
+| --- | --- |
+| `django-lux-sso` | Optional OIDC provider plugin for a standalone Dlux SSO deployment. |
+| `django-lux-sso-client` | Lightweight Django client SDK for connected projects; does not depend on `django-lux`. |
+
+The provider is cross-platform OIDC. Non-Django projects should use their normal
+OIDC library and the provider discovery document:
+
+```text
+https://sso.example.com/o/.well-known/openid-configuration/
+```
+
+Portable client role claim: `dlux_sso_role`.
+
+Provider integration is explicit:
+
+```python
+from dlux_sso.settings import dlux_sso_settings
+
+dlux_sso_settings(globals())
+```
+
+Client integration is explicit:
+
+```python
+from dlux_sso_client.settings import configure_dlux_sso
+
+configure_dlux_sso(
+    globals(),
+    issuer_url="https://sso.example.com",
+    client_id="client-id",
+    client_secret="client-secret",
+)
+```
+
+See [Optional SSO Packages](sso.md), [Public Registration
+Playground](registration.md), and [DSRP-1 Security Standard](security-dsrp-1.md).
+
+## Feature Guides
+
+These features are documented in their own guides:
+
+| Feature | Guide |
+| --- | --- |
+| Backups and restore | [Backups](backups.md) |
+| Inline updates, runtime volume, updater routes | [Verified Inline Updater](inline-updater.md) |
+| App-owned preferences and settings | [UI Integration](ui-integration.md#app-preferences-and-app-owned-settings) |
+| Options-page cards | [UI Integration](ui-integration.md#options-page-cards) |
+| Global search | [UI Integration](ui-integration.md#global-search) |
+| Unsaved-changes guard and dismissible dialogs | [UI Integration](ui-integration.md#unsaved-changes-guard) |
+| Search-and-add (lookup) fields | [UI Integration](ui-integration.md#search-and-add-fields) |
+| Alert auto-close and the Lux signature | [UI Integration](ui-integration.md#alert-auto-close) |
+| Assisted entry and sticky forms | [Template Customization](template-customization.md#assisted-entry) |
+| Entry clipboard | [Entry Clipboard](entry-clipboard.md) |
+| Titlebar and user hub styles | [System Configuration](system-configuration.md) |
+| Translation keys and coverage | [Translations](translation-guide.md) |
+| Document files and stored-file serving | [Document Files](document-files.md) |
+| OCR | [OCR](ocr.md) |
+| PDF toolkit | [PDF Toolkit](pdf-toolkit.md) |
+| ScanLink | [ScanLink](scanlink.md) |
+| Table column layouts | [Table Columns](table-columns.md) |
+| Ribbon | [Ribbon](ribbon.md) |
+| Weather | [Weather](weather.md) |
+
 ## Codebase Entry Points
 
-When you need to trace behavior in the code, these files are the usual first stops:
+When you need to trace behavior in the code, these are the usual first stops:
 
-- `dlux/models.py` for `SystemSettings`, `ScopedModel`, `Profile`, notifications,
-  backup/restore records, and updater state/run models
-- `dlux/forms/` for form logic — `system_settings.py` (setup wizard), `users.py`, `auth.py`, `registration.py`, `scopes.py`, `permissions.py`, and `builders.py` (the dev-facing field builders)
+- `dlux/models/` for `SystemSettings` (`settings.py`), `ScopedModel` (`base.py`),
+  `Profile` (`users.py`), notifications, files, backup/restore records and updater
+  state
+- `dlux/system/` for settings constants, defaults, normalizers and the registry
+- `dlux/forms/` for form logic: `system_settings.py` and `system_settings_groups/`
+  (setup wizard), `users.py`, `auth.py`, `registration.py`, `scopes.py`,
+  `permissions.py` and `builders.py` (the developer-facing field builders)
 - `dlux/views/sections.py` for sections and dynamic modal flows
 - `dlux/views/updater.py` and `dlux/updater/` for updater HTTP boundaries,
-  verification, persistent runtime storage, and orchestration
-- `dlux/translations.py` for built-in translation keys and language-resolution logic
-- `dlux/utils/` for authorization, configuration merging, filtering/CRUD helpers,
-  import/export, navigation, settings integration, and UI utilities
-
-
-## Document files
-
-Stable 1.12.0 promotes the accepted 1.12.0b3 implementation; see [release acceptance and upgrade requirements](release-1.12-acceptance.md).
-
-`dlux.files.serving.serve_file(request, field_file, *, content_type=None, as_attachment=False, filename=None)` serves an already-authorised stored file: `200` with `Accept-Ranges: bytes`, a single byte range as `206` (`416` when unsatisfiable; multiple ranges or a stale `If-Range` get the whole file), `ETag` (name, size and modification time) and `Last-Modified` with `304` on revalidation, and `Cache-Control: private, no-cache`. It never checks access; callers do.
-
-See [Document files](document-files.md) for `register_document_file()`: one call that connects the file card (with Scan), viewer, page editor, downloads and file history for a model field, with permission and scope checks. Accepted kinds come from the `dlux.files` registry (PDF and JPG/JPEG, PNG, TIF/TIFF, WebP built in; projects add their own); images become PDF pages, and pages can be rotated or fitted to A4. History lives in `dlux.FileVersion` (migration `0026`, additive); `dlux_adopt_file_history` moves a project's own history rows over. The history table identifies who performed each change in its translated **Changed by** column.
-
-## OCR text
-
-Without optional Celery, OCR task entrypoints are disabled while core/PDF imports and saved-text access remain available. Configure a worker for queued OCR, or use synchronous CLI backfill.
-
-`extra_config['ocr']` also controls background catch-up (`background_enabled`, `background_interval`, `background_batch_size`, `background_queue_limit`) and `automatic_models`. Model exclusions affect automatic work, including jobs waiting to start; manual viewer OCR remains available. Celery Beat runs `dlux.tasks.ocr_background` each minute, subject to the stored interval and queue limits.
-
-Service resource controls include `OCR_WORKERS`, `OCR_QUEUE_SIZE`, `OCR_QUEUE_WAIT`, `OCR_READ_TIMEOUT`, `OCR_MAX_BYTES`, `OCR_MAX_PAGES` and `OCR_MAX_THREADS`; see the [resource limits](ocr.md#resource-planning). Finishing a historical OCR job never changes the current-file selection.
-
-See [OCR text](ocr.md) (1.15, unreleased): `dlux.ocr` reads registered document files with the stack's optional `ocr` service (`python -m dlux.ocr.serve` from the project image with the optional `ocr` extra, Indra OCR, internal network only). Every `register_document_file()` field takes part unless it passes `ocr=False`. Options live in System Settings > Extra Features (`extra_config['ocr']`, `OCR_*` environment strings only as fallbacks); saving a change of the switch starts/stops the service through Composer after a current-password check (Operations panel as fallback). Text is stored per file SHA-256 in `dlux.FileText` (migration `0029`, additive), shown from the viewer's **Extracted text (OCR)** button with Run OCR, searchable through global search and `arabic_search_q(..., model=...)`. `dlux_ocr_backfill` (batched, resumable) and `dlux_adopt_ocr_text` cover existing files and a project's own OCR rows.
-
-## Optional PDF toolkit
-
-See [PDF toolkit](pdf-toolkit.md) for model-agnostic `dlux.pdf` adapters, modal viewer/editor/history, local assets, and the optional `pdf` extra. Administrator controls sit in System Settings → Extra Features (stored in the app-owned `dlux.pdf` namespace). 1.11 requires an image rebuild (`>=1.11.0b7`) and introduces no PDF-feature migrations.
-
-## Table column configuration (1.14 beta)
-
-Beta 1.14.0b2 incorporates published 1.13.2b1 without changing the table-column API or migration0028. Backup and restore histories use the shared DluxTable template, retaining the inspector's header overrides and the fixed-size footer behavior.
-
-Column **Restore** is disabled at defaults and follows pending label/icon/visibility/sort overrides immediately. Reverted table edits restore the form's original JSON so they do not trigger the unsaved-changes dialog. Ribbon button ordering is stored separately as `ribbon_config[<storage key>].action_order[<host route>]`, a list of `dest:<endpoint>` identities; it works across declared/custom buttons, preserves fixed HTML slots and applies through `RibbonMixin` or `build_ribbon(..., action_order=[...])`. See [ribbon.md](ribbon.md).
-
-`SystemSettings.tables_config` stores table preferences plus sparse model-keyed `hidden`, `order`, `headers` and `sorting` overlays and participates in runtime configuration and settings import/export. Tables is a dedicated settings step between Ribbon and Components. Existing flat keys and legacy `layout_config` writes remain supported. Generated and handwritten Dlux-managed tables apply the overlay at initialization, ignoring stale names and retaining a data column if all would be hidden. Audit/deletion, scope and row-action gates remain independent. `dlux.discovery.tables.table_column_catalog()` returns model keys, translated labels, column names/labels/orderability, route names and an `is_system` classification; `SystemSettingsForm.table_columns_catalog` exposes it lazily to the Tables builder. **Show system items** defaults off and reveals Dlux-supplied tables without changing configuration or permissions. The shared element inspector replaces the visibility grid: select a header to edit language-specific labels, an optional icon, visibility and up to two default sort columns/directions. Removed developer columns remain selectable for restoration. Per-column and per-model resets use the rewind icon; select the table title for the latter. The header strip retains drag, RTL-aware keyboard and tap ordering. Sorting ignores hidden/protected/non-orderable columns, falls back on unsupported computed sorts and yields to explicit request sorting. The builder preserves other models and stale names during ordinary edits and shares the existing settings save/import/discard flow. Admin-created columns are deferred. See [table-columns.md](table-columns.md).
-
-`tables_config.columns[model_key].user_columns` is a boolean with default `true`.
-When false, personal table overlays are not applied and the personal-column
-endpoint rejects GET/POST, including valid tokens issued before the change.
-The shared `DluxColumnStrip.header()` renderer supplies header handles/arrows to
-both builders; personal customization remains limited to order and visibility.
-`header({visibility: {show, hide, keepOne}})` adds a per-header eye button
-(`.dlux-table-columns__eye`, `aria-pressed` when hidden), and
-`DluxColumnStrip.setVisibility(eye, shown, labels, columnLabel, locked)` updates
-it; the personal organizer uses it instead of an inspector. New strings:
-`personal_columns_show`, `personal_columns_hide`; `personal_columns_select` is
-removed.
-
-Operations panel initialization only retrieves saved state. Service inventory and
-deployment checks are requested by their buttons; an existing active run is
-resumed with accessible progress feedback.
-
-Mono column-builder and disclosure styling is owned by
-`dlux/static/dlux/themes/css/mono.css`.
-
-
-DLB viewer PBKDF2-SHA256 derives the same backup keys and honors the header's
-iteration count while reusing HMAC state and digest storage. Component benchmarks
-cover password derivation, compressed model paging, relation labels, and chain
-merging; see [performance checks](../tools/dlb-viewer/README.md#performance-checks).
+  verification, runtime storage and orchestration
+- `dlux/translations/` for built-in strings and language resolution
+- `dlux/utils/` for authorization, configuration merging, filtering and CRUD helpers,
+  import/export, navigation, settings integration and UI utilities

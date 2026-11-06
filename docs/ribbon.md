@@ -5,9 +5,9 @@ The ribbon is the band at the top of a list page carrying its **title**, its
 
 It is page chrome, like the navbar and the titlebar: the administrator chooses
 how it looks in *System Settings → Ribbon*, and a view gets a correct one
-without configuring anything. It replaced `advanced_filter_helper` (removed in v1.10.0), which
+without configuring anything. It supersedes `advanced_filter_helper`, which
 required a hand-written `advanced_config` dict per FilterSet and had a fixed
-layout no administrator could change (removed in v1.10.0 — see
+layout no administrator could change (see
 [Deprecation Countdown](deprecation-countdown.md)).
 
 ## Using it
@@ -36,8 +36,9 @@ composite control.
 
 Keep page-owned POST workflows out of the action rail when they need several
 fields. The Backup & Restore page renders its encryption, passphrase, scope,
-system-data switch and create button as a row immediately under `{% dlux_ribbon %}`, leaving the ribbon actions
-for navigation, filters, and compact triggers.
+system-data switch and create button as a row immediately under
+`{% dlux_ribbon %}`, leaving the ribbon actions for navigation, filters, and
+compact triggers.
 
 ## What is derived, and how
 
@@ -119,8 +120,8 @@ For finer control, override `get_ribbon_actions()`, `get_ribbon_title()`,
 
 ## Field normalisation and the Clear control
 
-`build_ribbon` applies `set_field_attrs` to the filter form — the same
-normalisation the old helpers applied — so widgets get their Bootstrap classes,
+`build_ribbon` applies `set_field_attrs` to the filter form — the shared
+form-field normalisation — so widgets get their Bootstrap classes,
 their RTL `dir`, and the shared `dlux-datepicker` hook. It runs **after**
 derivation, not before: `set_field_attrs` folds a select's label into its empty
 choice and blanks `field.label`, so normalising first would destroy the labels
@@ -129,8 +130,7 @@ the derivation reads.
 The Clear control reflects **filter** state, not table presentation state.
 `page`, `per_page`, `sort` and `export_type` never activate it, and a Clear
 preserves them — except `page`, which is dropped because page 7 of a different
-result set is meaningless. This is the same contract the former `advanced_filter_helper`
-was fixed to honour in v1.8.2.
+result set is meaningless.
 
 ## Tabs
 
@@ -300,9 +300,9 @@ Two behaviours worth knowing:
 ### What Settings shows
 
 The builder lists **every** model with a ribbon, locked ones included, and
-resolves each declared strip into its actual tabs — it used to know only the
-*sources* that generate them, which is why a page's real tabs were invisible and
-a locked model had no presence in Settings at all.
+resolves each declared strip into its actual tabs rather than only the *sources*
+that generate them, so a page's real tabs are visible and a locked model still has
+a presence in Settings.
 
 Each model card separates the two kinds of strip:
 
@@ -437,7 +437,31 @@ per language, `icon` re-glyphs it, and dropping the entry restores it — the sa
 overlay model the declared tab strips use. A button that is raw `html` has no
 destination, so it can be neither deduped nor edited.
 
-Drag destination buttons within a host's Buttons row to reorder developer and administrator buttons together. The sparse `action_order` map under the model/route storage entry records one destination-key list per host route, for example `{"action_order": {"reports_overview": ["dest:/reports/export/", "dest:/reports/create/"]}}`. Returning to code order removes that host's ordering preference. Unknown destinations are ignored and new buttons retain their relative code order after the configured destinations. Raw HTML controls stay fixed in their original slots. Ordering does not add buttons or change their permission gates. Both `RibbonMixin` and function hosts using `build_ribbon(custom_actions_key=..., custom_actions_host=...)` apply saved order; direct callers can pass an `action_order` destination list. Catalog discovery uses a request copy with an empty query string, preserving the reader's permissions without inheriting settings-step parameters. Saved query-only button destinations also match when the runtime URL adds page filters, so export buttons retain their configured position.
+Drag destination buttons within a host's Buttons row to reorder developer and
+administrator buttons together. The order is stored apart from the button
+overlays, as `ribbon_config[<storage key>].action_order[<host route>]`: one sparse
+list of `dest:<endpoint>` identities per host route, under the model label or
+`route.<name>` storage entry.
+
+```json
+{"action_order": {"reports_overview": ["dest:/reports/export/", "dest:/reports/create/"]}}
+```
+
+- Returning to code order removes that host's ordering preference.
+- Unknown destinations are ignored. Buttons the list does not name keep their
+  relative code order after the configured ones.
+- Raw HTML controls have no destination, so they stay fixed in their original
+  slots.
+- Ordering does not add buttons or change their permission gates.
+- A saved query-only destination also matches when the runtime URL adds page
+  filters, so export buttons keep their configured position.
+
+`RibbonMixin` and function hosts using
+`build_ribbon(custom_actions_key=..., custom_actions_host=...)` both apply the
+saved order; direct callers can pass a destination list as
+`build_ribbon(..., action_order=[...])`. Catalog discovery uses a request copy
+with an empty query string, so it keeps the reader's permissions without
+inheriting settings-step parameters.
 
 The builder gets a class-based host's buttons by asking it — `get_ribbon_actions()`
 is where a real view builds them, since which buttons it shows usually depends on
@@ -468,7 +492,7 @@ duplicate check then drops the markup.
 `ribbon_destination` discovery profile and the hidden `dlux` group rule by hand —
 the same rules the sidebar and navbar catalogs use, so a view excluded from those
 is excluded here too, the usual way (`dlux_exclude = True`, or naming profiles).
-Skipping that is what once offered sign-up and session pages, settings
+Skipping those rules would offer sign-up and session pages, settings
 import/export endpoints, and `global_search` — which answers with JSON — as
 destinations. Two things do come out of the hidden group: the configurable system
 pages, and every dynamic-modal manager whoever registered it. Everything dlux owns
@@ -626,8 +650,8 @@ style works with every layout.
 | `panel` | A softly rounded, raised panel. |
 | `flat` | No panel at all: a single dividing rule under the band, for pages where the list should lead. |
 
-The panel skin also carries `glass-profile` (a dlux-wide class name, not the skin's label), and every layout carries
-`data-dlux-card-surface`. Both are existing dlux chrome hooks, not decoration:
+The panel skin also carries `glass-profile` (a dlux-wide class name, not the
+skin's label), and every layout carries `data-dlux-card-surface`. Both are existing dlux chrome hooks, not decoration:
 all seven themes restyle `.glass-profile`, so the dark themes replace the panel
 surface with their own rather than tinting a light one, and
 `base/css/card_edges.css` keys off `data-dlux-card-surface`, so the **Card edges**
@@ -654,7 +678,8 @@ Individual fields render through crispy, so widgets, choice translation and
 error display are unchanged.
 
 The ribbon's JS hooks (`form.dlux-ribbon[data-dlux-ribbon-autosubmit]`,
-`button.dlux-ribbon-toggle`) are deliberately distinct from the old helper's
-(`form.dlux-filter[data-dlux-filter-autosubmit]`, `button.dlux-filter-toggle`)
-so both scripts can be on one page during migration without a select change
-submitting the form twice.
+`button.dlux-ribbon-toggle`) are deliberately distinct from those of the generic
+filter-form script, `dlux/static/dlux/forms/js/filter_form.js`
+(`form.dlux-filter[data-dlux-filter-autosubmit]`, `button.dlux-filter-toggle`),
+so both scripts can be on one page without a select change submitting the form
+twice.

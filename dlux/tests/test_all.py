@@ -49,6 +49,7 @@ TEST_LABELS = [
     'dlux.tests.test_defaults_and_urls',
     'dlux.tests.test_dependent_settings',
     'dlux.tests.test_deployment_config_docs',
+    'dlux.tests.test_docs_hygiene',
     'dlux.tests.test_dialog_reset',
     'dlux.tests.test_dlux_setup',
     'dlux.tests.test_doctor',
