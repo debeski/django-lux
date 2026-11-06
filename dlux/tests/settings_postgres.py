@@ -1,14 +1,8 @@
-"""Isolated PostgreSQL settings for the settings-persistence CI gate."""
+"""The package test settings on PostgreSQL, the database every deployed stack runs."""
 
 import os
 
 from .settings import *  # noqa: F403
-
-# The unrelated document fixture app has no migrations; its foreign keys cannot
-# be synchronized before the migrated dlux tables on PostgreSQL.
-INSTALLED_APPS = [
-    app for app in INSTALLED_APPS if 'document_files_app' not in app
-]
 
 DATABASES = {
     'default': {

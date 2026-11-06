@@ -55,6 +55,11 @@ DJANGO_SETTINGS_MODULE=dlux.tests.settings python -m django check
 python dlux/tests/test_all.py
 ```
 
+CI also runs the suite on PostgreSQL. For changes to queries, locking,
+transactions, migrations or test models, run it there too
+(`dlux.tests.settings_postgres`; see "CI test suite" in
+[`docs/RELEASING.md`](docs/RELEASING.md)).
+
 For generated-project changes, also verify the scaffold commands:
 
 ```bash
