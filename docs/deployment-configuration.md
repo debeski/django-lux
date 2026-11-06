@@ -127,8 +127,8 @@ documentation, but they are not accepted deployment settings:
   `DLUX_VERSION`, and `DLUX_SHOW_INITIAL_USER_SETUP` are generated runtime
   context values.
 - `DLUX_PROJECT_NAME` is ignored.
-- `DLUX_CELERY_HEALTH_TTL` was removed when Celery health became an on-demand
-  check.
+- `DLUX_CELERY_HEALTH_TTL` is ignored: Celery health is checked on demand from
+  Options.
 
 ## Deployment Safety
 
@@ -139,15 +139,16 @@ documentation, but they are not accepted deployment settings:
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
+
 ## Stored files (`/media/`)
 
-Stored files are private by default (stack schema 4). The generated proxy, Caddy or the nginx fallback, serves `/media/` with its own file server. Before it sends anything outside the public folders, it asks DjangoLux at `/sys/files/media-access/` (Caddy `forward_auth`, nginx `auth_request`). Since 1.15.4 DjangoLux answers that URI wherever the project mounts `dlux.urls`, so a project that mounts it under a prefix (`path('staff/', include('dlux.urls'))`) uses the generated proxy blocks unchanged and needs no root alias. The rules (`dlux.files.media`), in order:
+Stored files are private by default (stack schema 4). The generated proxy, Caddy or the nginx fallback, serves `/media/` with its own file server. Before it sends anything outside the public folders, it asks DjangoLux at `/sys/files/media-access/` (Caddy `forward_auth`, nginx `auth_request`). DjangoLux answers that URI wherever the project mounts `dlux.urls`, so a project that mounts it under a prefix (`path('staff/', include('dlux.urls'))`) uses the generated proxy blocks unchanged and needs no root alias. The rules (`dlux.files.media`), in order:
 
 | Request | Result |
 | --- | --- |
 | `dlux_backups/`, `dlux/assets/private/`, `dlux/file_history/`, plus `DLUX_APP_ONLY_MEDIA` | Refused to everyone. The app's own views serve these after their checks (backups, installer downloads, file history). |
 | `public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/`, plus `DLUX_PUBLIC_MEDIA` | Served to anyone (branding on the login page, managed images and fonts). |
-| A registered document file (`register_document_file`) | Served to anyone when its registration's `public(document)` rule returns `True` (1.15.4+; a soft-deleted document is never public). Otherwise served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check (`can_access`, else `view_<model>`). A case variant of its name is refused. |
+| A registered document file (`register_document_file`) | Served to anyone when its registration's `public(document)` rule returns `True` (a soft-deleted document is never public). Otherwise served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check (`can_access`, else `view_<model>`). A case variant of its name is refused. |
 | Any other stored file | Served to any signed-in user. |
 
 A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: private, no-cache`, so a browser revalidates each time.
@@ -157,7 +158,7 @@ A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: p
 | `DLUX_PUBLIC_MEDIA` | `()` | Extra folders under `MEDIA_ROOT` served to anyone, such as `['products/']` for storefront images. With the default proxy, files there still go through the check, which allows them. |
 | `DLUX_APP_ONLY_MEDIA` | `()` | Extra folders never served from `/media/`. Serve them from your own view with `dlux.files.serving.serve_file` after your permission check. |
 
-An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a folder (1.15.4+): `'publication/*.png'` matches the PNG files directly in `publication/`, not those in its subfolders, because each `*` stays within one folder level. Folders and patterns are matched without regard to case. To make a record's file public only while the record is published, use the `public` rule of [`register_document_file`](document-files.md) instead of a pattern.
+An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a folder: `'publication/*.png'` matches the PNG files directly in `publication/`, not those in its subfolders, because each `*` stays within one folder level. Folders and patterns are matched without regard to case. To make a record's file public only while the record is published, use the `public` rule of [`register_document_file`](document-files.md) instead of a pattern.
 
 **Existing stacks (schema 3 or unstamped)** serve every `/media/` file to anyone. The image update doesn't change this, because the proxy file lives in the project:
 
@@ -171,4 +172,4 @@ Projects that already deny their own folders in the proxy can keep those rules; 
 
 ## Managed asset upload limits
 
-`DLUX_ASSET_MAX_IMAGE_MB` controls the validated image limit and defaults to `10`. `DLUX_ASSET_MAX_FONT_MB` controls WOFF2 uploads and defaults to `20`. Managed files use Django's configured default storage; production deployments must persist or externally host that storage. See [Managed assets](managed-assets.md).
+`DLUX_ASSET_MAX_IMAGE_MB` controls the validated image limit and defaults to `10`. `DLUX_ASSET_MAX_FONT_MB` controls WOFF2 uploads and defaults to `20`. `DLUX_ASSET_MAX_INSTALLER_MB` controls protected installer uploads and defaults to `200`. Managed files use Django's configured default storage; production deployments must persist or externally host that storage. See [Managed assets](managed-assets.md).

@@ -1,13 +1,28 @@
 # Managed assets
 
-DjangoLux provides a superuser-only Asset Manager dynamic modal, opened from the Options admin-panel action rail. The *library* it manages is not superuser-only: any model can hold an asset through `ManagedAssetField`, and the field's own permission decides who may add to it — see [Using an asset field in a project](#using-an-asset-field-in-a-project). Its `sys/assets/` endpoint returns modal JSON rather than a standalone page. It centralizes reusable branding images and WOFF2 font files while keeping each feature's semantic field in its own settings form.
+DjangoLux provides a superuser-only Asset Manager dynamic modal, opened from the
+Options admin-panel action rail. Its `sys/assets/` endpoint returns modal JSON rather
+than a standalone page. It centralizes reusable branding images and WOFF2 font files
+while keeping each feature's semantic field in its own settings form.
 
-The modal uses fixed Dlux Ribbon tabs that are not part of the configurable list-page Ribbon Builder:
+The *library* it manages is not superuser-only: any model can hold an asset through
+`ManagedAssetField`, and the field's own permission decides who may add to it — see
+[Using an asset field in a project](#using-an-asset-field-in-a-project).
 
-- **Images** shows only the image grid. **Upload images** stays in the modal footer, opens a multi-file chooser, and uploads immediately after selection. Image names come from their files and can be changed in place by selecting the displayed name; renaming does not change the stable asset slug or stored filename.
-- **Fonts** keeps its metadata in two desktop rows, followed by a full-width file row and a family/variant list. Its upload action stays with that form, and the modal footer is hidden on this tab.
+The modal uses fixed Dlux Ribbon tabs that are not part of the configurable
+list-page Ribbon Builder:
 
-Tab links use `asset_tab=images|fonts`. Modal-internal navigation preserves the original manager URL for delete routing while successful uploads reload the selected tab. Unknown tab values resolve to Images.
+- **Images** shows only the image grid. **Upload images** stays in the modal footer,
+  opens a multi-file chooser, and uploads immediately after selection. Image names
+  come from their files and can be changed in place by selecting the displayed name;
+  renaming does not change the stable asset slug or stored filename.
+- **Fonts** keeps its metadata in two desktop rows, followed by a full-width file row
+  and a family/variant list. Its upload action stays with that form, and the modal
+  footer is hidden on this tab.
+
+Tab links use `asset_tab=images|fonts`. Modal-internal navigation preserves the
+original manager URL for delete routing while successful uploads reload the selected
+tab. Unknown tab values resolve to Images.
 
 ## Using an asset field in a project
 
@@ -51,19 +66,43 @@ image_override = ManagedAssetField(
 )
 ```
 
-`namespace` is where an upload lands; `reads` widens what the picker lists and never widens what it writes. An asset id posted from outside the read set is refused during `clean()`, not merely hidden in the UI. De-duplication is keyed on `(namespace, checksum)` rather than the checksum alone — matching globally would hand one pool's row, title and all, to a caller who uploaded the same bytes into another.
+`namespace` is where an upload lands; `reads` widens what the picker lists and never
+widens what it writes. An asset id posted from outside the read set is refused during
+`clean()`, not merely hidden in the UI.
+
+De-duplication is keyed on `(namespace, checksum)` rather than the checksum alone —
+matching globally would hand one pool's row, title and all, to a caller who uploaded
+the same bytes into another.
 
 Namespaces dlux owns: `dlux.systemsettings` (branding), `dlux.fonts`, `dlux.scanlink`, and `dlux.shared`.
 
-**`dlux.shared` is read by every picker, automatically.** A file uploaded straight through the Asset Manager's Images tab lands there, because it belongs to no single model — an admin putting a file in the library by hand is doing it so a form can use it, and having to name which form in advance would defeat the point. No field has to list it in `reads`.
+**`dlux.shared` is read by every picker, automatically.** A file uploaded straight
+through the Asset Manager's Images tab lands there, because it belongs to no single
+model — an admin putting a file in the library by hand is doing it so a form can use
+it, and having to name which form in advance would defeat the point. No field has to
+list it in `reads`.
 
-An asset whose `namespace` column is empty predates the column and belongs to whatever its kind defaults to — `dlux.systemsettings` for an image, `dlux.fonts` for a font, `dlux.scanlink` for an installer. `effective_namespace` resolves it, a picker matches those rows when it reads that default, and `save()` writes a concrete value the first time the row is touched. This is why the upgrade needs no data migration: one stamped default would have been wrong for two of the three kinds.
+An asset whose `namespace` column is empty belongs to whatever its kind defaults to:
+`dlux.systemsettings` for an image, `dlux.fonts` for a font, `dlux.scanlink` for an
+installer. `effective_namespace` resolves it, a picker matches those rows when it
+reads that default, and `save()` writes a concrete value the first time the row is
+touched.
 
 ### Instant upload and who may do it
 
-Choosing a file uploads it immediately and the form then carries only an asset id. The picker posts the field it belongs to as `app_label.modelname.fieldname`, and the server resolves that against its own registry of declared fields to decide the namespace, the accepted kind, and the permission. The identity is an identifier, never a grant: a forged or renamed value resolves to nothing and is refused, and nothing in the request body can choose where a file lands.
+Choosing a file uploads it immediately and the form then carries only an asset id.
+The picker posts the field it belongs to as `app_label.modelname.fieldname`, and the
+server resolves that against its own registry of declared fields to decide the
+namespace, the accepted kind, and the permission. The identity is an identifier,
+never a grant: a forged or renamed value resolves to nothing and is refused, and
+nothing in the request body can choose where a file lands.
 
-**Whoever may add or change the record may add its picture** — the field's own `add_`/`change_` permission is the gate. There is deliberately no `add_managedasset` permission to invent, seed and grant to every role that already holds `change_product`. A picker built by hand with no field identity gets no instant upload and stays superuser-only, which is what the System Settings branding pickers do.
+**Whoever may add or change the record may add its picture** — the field's own
+`add_`/`change_` permission is the gate. There is deliberately no `add_managedasset`
+permission to invent, seed and grant to every role that already holds
+`change_product`. A picker built by hand with no field identity gets no instant
+upload and stays superuser-only, which is what the System Settings branding pickers
+do.
 
 ### Migrating off an ImageField
 
@@ -78,11 +117,38 @@ The first save with no asset chosen adopts the stored file into the library **in
 
 ## Storage and references
 
-`ManagedAsset` stores the file through Django's default storage plus its namespace, type, MIME type, byte size, SHA-256 checksum, and image dimensions. Identical active uploads of the same type *in the same namespace* reuse the existing row. Files are written to `dlux/assets/<kind>/<namespace>/`; changing that path affects new saves only, so existing files keep their stored names. `SystemSettings.logo_asset`, `favicon_asset`, `login_logo_asset`, and `login_background_asset` are nullable `PROTECT` references.
+`ManagedAsset` stores the file through Django's default storage plus its namespace,
+type, MIME type, byte size, SHA-256 checksum, and image dimensions. Identical active
+uploads of the same type *in the same namespace* reuse the existing row.
 
-The System Settings fields still appear as System Logo, Favicon, Login Logo, and Login Background. Their shared picker uses the standard Dlux file-card surface: the card opens the compatible saved-file library in a field-anchored overlay that does not reflow the form, while its compact toolbar provides open, upload, and clear actions. A direct image upload is validated and registered immediately through the `sys/assets/upload/` endpoint (the pre-1.9 `sys/setup/assets/upload/` route still resolves). The first-run setup gate lets that endpoint through, so the wizard's pickers upload before the system is configured; the view still authorizes every upload against the field's declaration. The returned asset replaces the pending browser file and is added to every compatible picker on the open form, so later setup steps can select it without saving settings first. Asset Manager image uploads publish the same browser event to open pickers. Clearing detaches and never deletes the saved file.
+Images and fonts are written to `dlux/assets/<kind>/<namespace>/`. Installers are
+written to `dlux/assets/private/installer/<namespace>/`, which the media proxy
+refuses to everyone, so they are served only by the app's own views. Changing that
+path affects new saves only, so existing files keep their stored names.
 
-Legacy `SystemSettings.logo` and `favicon` files remain readable for upgrade safety. Saving settings adopts a valid legacy file into `ManagedAsset` without copying it, then uses the protected relation. The separate login logo falls back to the system logo when unset.
+`SystemSettings.logo_asset`, `favicon_asset`, `login_logo_asset`, and
+`login_background_asset` are nullable `PROTECT` references.
+
+The System Settings fields appear as System Logo, Favicon, Login Logo, and Login
+Background. Their shared picker uses the standard Dlux file-card surface: the card
+opens the compatible saved-file library in a field-anchored overlay that does not
+reflow the form, while its compact toolbar provides open, upload, and clear actions.
+
+A direct image upload is validated and registered immediately through the
+`sys/assets/upload/` endpoint (`sys/setup/assets/upload/`, URL name
+`managed_image_picker_upload`, is an alias of it). The first-run setup gate lets
+that endpoint through, so the wizard's pickers upload before the system is
+configured; the view still authorizes every upload against the field's declaration.
+
+The returned asset replaces the pending browser file and is added to every
+compatible picker on the open form, so later setup steps can select it without
+saving settings first. Asset Manager image uploads publish the same browser event to
+open pickers. Clearing detaches and never deletes the saved file.
+
+Legacy `SystemSettings.logo` and `favicon` files are still read. Saving settings
+adopts a valid legacy file into `ManagedAsset` without copying it, then uses the
+protected relation. The separate login logo falls back to the system logo when
+unset.
 
 ## Upload policy
 
@@ -90,37 +156,85 @@ Only these formats are accepted:
 
 - Images: GIF, ICO, JPEG, PNG, and WebP, verified with Pillow.
 - Fonts: WOFF2 files with a WOFF2 signature.
+- Installers: Windows `.exe` files that start with the `MZ` header, published as
+  ScanLink releases (see [ScanLink](scanlink.md#publishing-installers)).
 
-CSS, JavaScript, SVG, HTML, and arbitrary attachment uploads are not supported. The default limits are 10 MB per image and 20 MB per font. Deployments can override them with `DLUX_ASSET_MAX_IMAGE_MB` and `DLUX_ASSET_MAX_FONT_MB`.
+CSS, JavaScript, SVG, HTML, and arbitrary attachment uploads are not supported.
+
+| Setting | Default | Limit |
+| --- | --- | --- |
+| `DLUX_ASSET_MAX_IMAGE_MB` | `10` | Largest image upload, in MB. |
+| `DLUX_ASSET_MAX_FONT_MB` | `20` | Largest font upload, in MB. |
+| `DLUX_ASSET_MAX_INSTALLER_MB` | `200` | Largest installer upload, in MB. |
+
+Each is a Django setting holding a whole number of megabytes. A value below `1` is
+raised to `1`, and a value that is not a number falls back to the default.
 
 ## Cleaning up unused files
 
-Each tab has a **Clean up unused** action that removes every asset in it that nothing references. It previews what would go before deleting anything, and leaves alone anything uploaded within the last 24 hours: instant upload registers an asset the moment a file is chosen, so a shorter grace period would delete a picture out of a record somebody is still writing. `PROTECT` re-checks each delete, so a reference added between the preview and the confirmation blocks that row rather than the whole run. References are counted the same way as for the command below (`dlux.assets.prunable_assets()` reads `referenced_asset_ids()`), so a project's `ManagedAssetField` images and assets held only by soft-deleted records are kept. If a relation cannot be read, the action removes nothing and says so.
+Each tab has a **Clean up unused** action that removes every asset in it that nothing
+references. It previews what would go before deleting anything, and leaves alone
+anything uploaded within the last 24 hours: instant upload registers an asset the
+moment a file is chosen, so a shorter grace period would delete a picture out of a
+record somebody is still writing.
+
+References are counted the same way as for the command below
+(`dlux.assets.prunable_assets()` reads `referenced_asset_ids()`), so a project's
+`ManagedAssetField` images and assets held only by soft-deleted records are kept. If
+a relation cannot be read, the action removes nothing and says so. `PROTECT`
+re-checks each delete, so a reference added between the preview and the
+confirmation blocks that row rather than the whole run. A stored file is removed
+only after its row is deleted.
 
 ### `dlux_prune_assets`
 
-`python manage.py dlux_prune_assets` reports, or with `--apply` deletes, managed assets that nothing references:
+`python manage.py dlux_prune_assets` reports, or with `--apply` deletes, managed
+assets that nothing references:
 
 | Option | Effect |
 | --- | --- |
 | *(none)* | Dry run: print the declared field count, the referenced asset count and the candidates grouped by namespace (the first 20 of each), and delete nothing. |
-| `--apply` | Delete the candidates. One failed delete is reported and the run continues. |
+| `--apply` | Delete the candidates, each row before its stored file. One failed delete is reported and the run continues. |
 | `--namespace NS` | Consider only this namespace. Repeatable. |
 | `--kind KIND` | Consider only one asset kind (`image`, `font`, `installer`). |
 | `--include-shared` | Also consider `dlux.shared`, which is skipped by default because it is a curated pool any field may read. |
 
-An asset counts as referenced when any row points at it through any relation to `ManagedAsset`: plain foreign keys (DjangoLux's branding fields, font variants and ScanLink releases), one-to-ones, many-to-manys, and hidden relations such as the `ManagedAssetField`s a project declares, which are also read from the field registry. Rows are read through each model's base manager, so a soft-deleted record that can still be restored, or a record in another scope, keeps its asset. If a relation or declared model cannot be read (an app mid-migration, say), the command refuses to prune rather than treat its assets as unreferenced.
+An asset counts as referenced when any row points at it through any relation to
+`ManagedAsset`: plain foreign keys (DjangoLux's branding fields, font variants and
+ScanLink releases), one-to-ones, many-to-manys, and hidden relations such as the
+`ManagedAssetField`s a project declares, which are also read from the field
+registry. Rows are read through each model's base manager, so a soft-deleted record
+that can still be restored, or a record in another scope, keeps its asset. If a
+relation or declared model cannot be read (an app mid-migration, say), the command
+refuses to prune rather than treat its assets as unreferenced.
 
-Each delete runs in its own transaction and removes the row first; the stored file is removed only after that row delete commits, and only when no other asset row uses the same file. A delete the database refuses, such as one blocked by a `PROTECT` reference added since the scan, is reported as kept and leaves both the row and its file in place.
+Each delete runs in its own transaction and removes the row first. The stored file
+is removed only after that row delete commits, and only when no other asset row uses
+the same file. A delete the database refuses, such as one blocked by a `PROTECT`
+reference added since the scan, is reported as kept and leaves both the row and its
+file in place.
 
-There is no 24-hour grace period: run it when no instant upload is waiting for its form to be saved.
+There is no 24-hour grace period: run it when no instant upload is waiting for its
+form to be saved.
 
 ## Image deletion guard
 
-The Images tab shows the usage report returned by `dlux.assets.collect_asset_usages()`: the rows pointing at each image through any relation, hidden ones and soft-deleted records included, grouped by model. A relation that cannot be read is listed as a usage. Its delete action is disabled while usages are visible, and database `PROTECT` relations remain authoritative if a usage changes between display and submission. Deleting an unused image removes its storage object after the database transaction commits.
+The Images tab shows the usage report returned by
+`dlux.assets.collect_asset_usages()`: the rows pointing at each image through any
+relation, hidden ones and soft-deleted records included, grouped by model. A
+relation that cannot be read is listed as a usage. Its delete action is disabled
+while usages are visible, and database `PROTECT` relations remain authoritative if a
+usage changes between display and submission. Deleting an unused image removes its
+storage object after the database transaction commits.
 
 ## UI-managed fonts
 
-A WOFF2 upload can register a font family, stable slug, display label, weight, and normal/italic style. `ManagedFontFamily` and `ManagedFontVariant` feed the existing font registry and `@font-face` generator, so the font becomes available to System Settings through the normal allowed-font and default-font pipeline. Additional uploads can add or replace variants for the same family and weight/style.
+A WOFF2 upload can register a font family, stable slug, display label, weight, and
+normal/italic style. `ManagedFontFamily` and `ManagedFontVariant` feed the existing
+font registry and `@font-face` generator, so the font becomes available to System
+Settings through the normal allowed-font and default-font pipeline. Additional
+uploads can add or replace variants for the same family and weight/style.
 
-System-settings JSON exports contain storage names, not file bytes. An import reattaches a referenced asset only when that storage object is available in the destination storage.
+System-settings JSON exports contain storage names, not file bytes. An import
+reattaches a referenced asset only when that storage object is available in the
+destination storage.

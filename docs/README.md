@@ -1,70 +1,97 @@
 # DjangoLux Documentation
 
-DjangoLux now uses a layered documentation structure:
+The [package README](../README.md) is the landing page. This folder is the manual: it
+describes how DjangoLux works now. Release history is in the
+[changelog](../CHANGELOG.md), and [Features](FEATURES.md) is the one-page capability
+map.
 
-- `README.md` is the package landing page.
-- `docs/` is the operating and integration manual.
-- `CHANGELOG.md` is the release-history archive.
-- Root policy files cover security reporting, contribution expectations, and project conduct.
+## Start here
 
-Use the sections below based on what you are trying to do.
+- [Getting Started](getting-started.md): install, configure Django, generate a
+  project and launch it.
+- [Features](FEATURES.md): what DjangoLux provides, with links to each topic.
+- [Migrating from microsys](migrating-from-microsys.md): moving a project off the
+  predecessor package.
 
-## Start Here
+## Running a deployment
 
-- [Getting Started](getting-started.md) for installation, Django configuration, and first launch.
-- [Changelog](../CHANGELOG.md) for release-by-release history and migration context.
-- [Security Policy](../SECURITY.md), [Contributing Guide](../CONTRIBUTING.md), and [Code of Conduct](../CODE_OF_CONDUCT.md) for repository governance.
+- [System Configuration](system-configuration.md): the 19-step setup wizard at
+  `/sys/setup/`, System Settings and the Options view at `/sys/options/`.
+- [Operations](operations.md): users, staff tiers, permissions, activity logs,
+  reports, data reset and the Operations panel.
+- [Backups](backups.md): full, data-only, portable and incremental backups,
+  schedules, retention and restore.
+- [Managed Assets](managed-assets.md): uploaded images, fonts and installer files.
+- [Data & Privacy](data-privacy.md): the personal data DjangoLux stores, retention,
+  and the privacy and consent controls.
+- [Public Registration](registration.md): the disabled-by-default, email-verified
+  signup.
+- [Optional SSO Packages](sso.md): the OIDC provider plugin and client SDK.
+- [Deployment Configuration](deployment-configuration.md): every accepted `DLUX_*`
+  setting and environment variable, with types, defaults and precedence.
+- [Verified Inline Updater](inline-updater.md): how Composer updates, verifies,
+  activates and rolls back a generated deployment.
+- [Composer Agent Integration](composer-agent.md): what DjangoLux and the Composer
+  agent each own.
+- [Deployment Doctor](doctor.md): diagnosing a deployment, the JSON report and the
+  repair tiers.
+- [Stack Schema Stamps](stack-schema.md): the contract schema generated stack files
+  carry.
+- [Outbound Requests](outbound-requests.md): only `composer-agent` reaches the
+  internet; how a project asks for an outbound call.
+- [ScanLink](scanlink.md): installing and troubleshooting the workstation scanning
+  helper.
+- [OCR](ocr.md): the optional `ocr` service, its settings and resource limits.
 
-## I am Configuring DjangoLux
+Rules for operators:
 
-- [Admin Guide](admin-guide.md) for the operator map and safety rules.
-- [System Configuration](system-configuration.md) for the seventeen-step setup wizard, Options view, email, security, navigation, and appearance.
-- [Operations](operations.md) for users, permissions, reports, backups, assets, and deployment procedures.
-- [Deployment Configuration](deployment-configuration.md) for every accepted `DLUX_*` Django setting and environment variable, including types, defaults, precedence, and secret handling.
-- [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
-- [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
-- [Data & Privacy](data-privacy.md) for the personal data DjangoLux stores, transparency vs. consent, retention, and the privacy-notice / consent operator controls.
-- [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
-- [Outbound Requests](outbound-requests.md) for the network rule (only `composer-agent` reaches the internet) and how a project asks for an outbound call.
-- [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
-- [Deployment Doctor](doctor.md) for diagnosing a deployment, the JSON report contract Composer consumes, and the remediation safety tiers.
-- [Stack Schema Stamps](stack-schema.md) for the contract schema number generated stack files carry, and what changed between schemas.
+- Interface visibility never replaces backend authorization. Changes are POST-only,
+  and security-sensitive ones also ask for the current password.
+- Take a full backup before a data reset or a restore.
+- Run `composer check` before changing a generated Compose stack.
+- Configure the proxy and client-IP policy before relying on lockout, rate limits or
+  activity-log attribution.
 
-## I am Integrating DjangoLux into a Django Project
+## Building on DjangoLux
 
-- [Developer Guide](developer-guide.md) for the system mental model, configuration layers, scoped models, discovery, and when to use each subsystem.
-- [Customization Guide](customization-guide.md) for the focused developer-extension references.
-- [Project Configuration](project-configuration.md) for `DLUX_CONFIG`, custom themes/fonts, app settings, and integration setup.
-- [Translations](translation-guide.md) for `DLUX_STRINGS`, overrides, and RTL verification.
-- [UI Integration](ui-integration.md) for sections, modals, tables, filters, downloads, activity logging, and tutorials.
-- [Ribbon](ribbon.md) for the list-page band carrying a page's title, filters, and actions.
-- [Template Customization](template-customization.md) for extension partials, page bases, form footers, and assisted entry.
-- [Adding a System Setting](adding-system-settings.md) — the A→Z procedure and trap list for adding a first-class setting to the `SystemSettings` pipeline (framework contributors).
+- [Developer Guide](developer-guide.md): the mental model, configuration layers,
+  scoped models, discovery and which subsystem to use when.
+- [Project Configuration](project-configuration.md): `DLUX_CONFIG`, custom themes
+  and fonts, and integration settings.
+- [UI Integration](ui-integration.md): sections, modals, tables, filters, downloads,
+  activity logging, app-owned settings, global search and dialogs.
+- [Table Columns](table-columns.md): administrator and personal column layouts.
+- [Ribbon](ribbon.md): the list-page band carrying a page's title, filters and
+  actions.
+- [Template Customization](template-customization.md): extension partials, page
+  bases, form footers and assisted entry.
+- [Translations](translation-guide.md): `DLUX_STRINGS`, overrides and RTL checks.
+- [Document Files](document-files.md): `register_document_file()`, the file card,
+  viewer, page editor and file history.
+- [PDF Toolkit](pdf-toolkit.md): the optional `pdf` extra.
+- [Entry Clipboard](entry-clipboard.md): reusable text snippets in entry forms.
+- [Weather](weather.md): the optional weather widget and card.
 
-## I Need Reference Material
+Rules for extensions:
 
-- [Deployment Configuration](deployment-configuration.md) for the canonical accepted deployment-key inventory.
-- [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
-- [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
-- [Verified Inline Updater](inline-updater.md) for updater settings, volume state, safety gates, and operator recovery.
-- [Deployment Doctor](doctor.md) for the check groups, report schema, and exit codes.
-- [DSRP-1 Security Standard](security-dsrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
-- [UI Integration](ui-integration.md#download-helpers) for download/export helpers.
-- [UI Integration](ui-integration.md#sections-and-dynamic-modals) for action and modal integration patterns.
-- [UI Integration](ui-integration.md#activity-logging) for the audit-log model and manual hooks.
+- Use the Dlux primitives before writing a local equivalent: `DluxFileInput` and
+  `AssetPickerField`, choice widgets, the icon picker, toggle builders, `DluxTable`,
+  dynamic-modal responses and loading buttons already handle themes, RTL,
+  accessibility and lifecycle.
+- Keep UI visibility and backend authorization in step.
+- Dynamic-modal endpoints return `JsonResponse({"html": ...})`.
+- No raw HTML in translated or form-help strings.
 
-## Current Major Capabilities
+## Reference and policy
 
-- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public page destination, centralized Client IP resolution configuration, sidebar behavior controls, and scheduled backup/storage/retention policy.
-- A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, draggable Options cards, built-in two-factor authentication flows, and 30-day trusted device management.
-- A disabled-by-default public registration playground with mandatory email verification, SMTP readiness checks, throttles, honeypot protection, and optional superuser approval.
-- A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
-- A shared theme registry that keeps theme validation, ordering, previews, and CSS inclusion aligned across setup, options, and the live runtime UI.
-- A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
-- Reusable helper APIs such as `require_current_password(...)`, `set_profile_totp_state(...)`, `build_file_field(...)`, and `build_settings_toggle_field(...)` for extending security and System Settings surfaces without duplicating framework behavior.
-- A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
-- Optional OIDC SSO packages that keep provider/client behavior separate from core Dlux runtime imports.
-- Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
-- Framework-level automation for translations, scope injection, actor tracking, soft-delete, UI preference persistence, and CSP-friendly external asset usage across shipped templates and modal helpers.
-- Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.
-- A verified generated-Compose updater with official-PyPI provenance checks, persistent versioned releases, superuser-approved maintenance, process restarts, and compatible rollback while the baked package remains the fallback.
+- [Reference](reference.md): management commands, routes, template tags, helpers
+  and configuration keys.
+- [DSRP-1 Security Standard](security-dsrp-1.md): the backend authorization and
+  security-flow policy, and the no-inline asset rule.
+- [Deprecation Countdown](deprecation-countdown.md): removed and deprecated APIs with
+  their removal targets.
+- [Adding a System Setting](adding-system-settings.md): the procedure for framework
+  contributors.
+- [Releasing](RELEASING.md): versioning, betas, release gates and the changelog.
+- [Security Policy](../SECURITY.md), [Contributing](../CONTRIBUTING.md) and
+  [Code of Conduct](../CODE_OF_CONDUCT.md).

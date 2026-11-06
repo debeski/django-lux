@@ -47,7 +47,7 @@ def optimize_pdf_writer(writer):
     """
     for page in writer.pages:
         page.compress_content_streams()
-    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+    writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
     return writer
 
 

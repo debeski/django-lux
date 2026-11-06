@@ -13,7 +13,7 @@ There are **two** ways to add configuration, and picking the wrong one wastes ho
 
 | You want… | Use | Where it's documented |
 |:--|:--|:--|
-| A **project-owned** flag/value for *your* app (a downstream project using dlux) | The `extra_config['app'][<namespace>]` app-config namespace + `register_app_settings()` | `reference.md` → "App-owned **system** config" |
+| A **project-owned** flag/value for *your* app (a downstream project using dlux) | The `extra_config['app'][<namespace>]` app-config namespace + `register_app_settings()` | [Project-wide app config](ui-integration.md#project-wide-app-config), [Settings tiles in Options](ui-integration.md#settings-tiles-in-options) |
 | A **framework-level** setting that ships with dlux, belongs to a settings group (layout, auth, titlebar…), and is exposed to every project | The full pipeline **in this document** | this file |
 
 If you are building on top of dlux in your own project, you almost always want the
@@ -98,9 +98,16 @@ so migration callables and Django startup stay import-safe:
 | `system/schema.py` | `SYSTEM_SETTING_GROUPS` — the typed `SettingField`/`SettingGroup` table | imports defaults + normalizers |
 | `system/registry.py` | derived lookups (`get_flat_config_fields()`, aliases, …) | imports schema |
 
-Keeping `defaults.py`/`normalizers.py` import-free is not a style choice — migration
-`0011` and startup call these; a stray model import there causes circular-import
-crashes at `migrate` time. (Trap 7.)
+Keeping `defaults.py`/`normalizers.py` import-free is not a style choice — migrations
+(through the `dlux.models` wrappers below) and startup call these; a stray model
+import there causes circular-import crashes at `migrate` time. (Trap 7.)
+
+**Migration invariant.** Published migrations (`0001`, `0002`, `0004`, `0016`,
+`0017`) serialize their JSON field defaults as `dlux.models.default_<group>_config`
+paths, so **those wrappers** must stay importable indefinitely. Keep them as thin
+delegates to `dlux.system.defaults`; do not move canonical settings logic back into
+`dlux.models`. This covers only the wrappers: no migration references
+`dlux.constants`.
 
 ---
 
@@ -126,6 +133,14 @@ Export / Import / config.json bootstrap
 Read (everywhere)
   → get_system_config()                merges defaults+DLUX_CONFIG+DB              (utils/config.py)
 ```
+
+`SystemSettingsForm` reads the registry schema to hydrate initials and pack cleaned
+split fields back into normalized groups for the scalar groups in
+`_SCHEMA_SIMPLE_CONFIG_GROUPS` (`auth_config`, `registration_config`, the legacy
+`public_root_config`, `layout_config`, `client_ip_config`, `backup_config`) and for
+`tables_config`. The builders for email secrets, notifications, login hero copy,
+titlebar, sidebar, navbar, logging, profile, language catalogs, theme, and font
+pickers are custom.
 
 The single most important line: **`normalize_system_settings_import_payload`
 whitelists the payload to `SYSTEM_SETTINGS_EXPORT_FIELDS` and silently discards
@@ -185,7 +200,7 @@ _field('layout', 'show_audit_fields', field_type='bool', default=False,
        widget='switch', legacy_flat=True),
 ```
 `legacy_flat=True` auto-generates: the `SystemSettings.show_audit_fields` property
-(via `get_flat_config_fields()` → `models.py`), the flat import alias, and the
+(via `get_flat_config_fields()` → `dlux/models/settings.py`), the flat import alias, and the
 `form_sys_<name>` / `help_sys_<name>` label/help keys. `field_type` ∈
 `str|bool|int|email|dict|list`; `widget` ∈ `switch|choice|multiselect|json|text`.
 
@@ -211,11 +226,12 @@ owns a field is wherever the settings layout renders it.
 5. **`clean_<name>()`** using the preservation helper with the **correct step index**:
    ```python
    def clean_show_audit_fields(self):
-       return self._clean_preserved_toggle('show_audit_fields', 9, False)
+       return self._clean_preserved_toggle('show_audit_fields', SETUP_STEP_TABLES, False)
    ```
-   The `9` is the 0-indexed layout step. If it's wrong (or you skip the helper),
-   saving *any other* step reads the absent checkbox as `False` and wipes your
-   value (Trap 2). Choice/text fields have `_clean_preserved_choice` /
+   Pass the step's named index (`SETUP_STEP_<slug>` from `dlux/system/constants.py`,
+   positions in `SETUP_STEPS`), never a literal. If it's wrong (or you skip the
+   helper), saving *any other* step reads the absent checkbox as `False` and wipes
+   your value (Trap 2). Choice/text fields have `_clean_preserved_choice` /
    `_clean_preserved_text` equivalents.
 6. **Pack on save**: in the layout-group build block, add the key
    to the dict that becomes `layout_config`, preferring an already-present grouped
@@ -274,6 +290,23 @@ whose layout renders them (`settings_diff.review_groups()`, from
 review too. Only a storage field that no single control renders needs an entry in
 `settings_diff.UNOWNED_FIELD_STEPS`.
 
+### Step 7a2 — Dim a master toggle's dependents, don't hide them
+
+**Step master toggles** dim and disable their dependent settings rather than hiding
+them, so an admin can see what enabling the step will restore. A dimmed dependent
+also carries a `data-dlux-tooltip` naming the control that enables it
+(`setDependentFieldEnabled()` in `setup/js/dom.js`).
+
+Variant switches (email transport, client-IP mode, login style) still hide their
+inapplicable fields — they are not on/off dependencies. The cross-step public page
+and public-registration flags are the deliberate exception: their fields are
+injected into other steps, so they stay hidden when inapplicable.
+
+Because a disabled control does not post, each group's save path keeps the stored
+configuration and only flips `enabled` when the master toggle is off. Never rebuild
+a group from flat fields without that guard, or switching the feature off will
+reset it (Trap 9).
+
 ### Step 7b — Bind a visible widget (choice fields)
 
 A choice field declared with `widget=forms.HiddenInput()` — the house pattern for
@@ -312,9 +345,9 @@ from the source file's mtime, so the URL updates and the `<link>` looks correct
 while the file itself 404s and the page silently renders unstyled. Check the
 asset's HTTP status, not just that the tag is present.
 
-### Step 8 — Translations (`translations.py`)
-Add `form_sys_<name>` and `help_sys_<name>` to **both** the EN and AR dicts. No raw
-HTML in i18n strings (crispy renders help unescaped).
+### Step 8 — Translations (`translations/strings/`)
+Add `form_sys_<name>` and `help_sys_<name>` to **both** `dlux/translations/strings/en.py`
+and `ar.py`. No raw HTML in i18n strings (crispy renders help unescaped).
 
 ### Step 9 — Consume it
 Read via `get_system_config().get('show_audit_fields')` — or, better, wrap policy in
@@ -332,8 +365,9 @@ updater's migration-safety gate.
 ### Step 11 — Tests, docs, changelog (same turn)
 - **Test through the save path** (§6). A test that only sets `layout_config`
   directly proves nothing (Trap 3).
-- Update `docs/` (reference/admin/FEATURES as relevant), `CHANGELOG.md`, and
-  `tracker.md`. Check `git tag` first — never append to a published version.
+- Update `docs/` (the topic doc, `reference.md` and `FEATURES.md` as relevant),
+  `CHANGELOG.md`, and `tracker.md`. Check `git tag` first — never append to a
+  published version.
 
 ---
 
@@ -359,14 +393,14 @@ Both still **must** be in `SYSTEM_SETTINGS_EXPORT_FIELDS`.
 | Validation | `dlux/system/normalizers.py` · `normalize_<group>_config()` |
 | Choices / **export whitelist** | `dlux/system/constants.py` · `*_CHOICES`, `SYSTEM_SETTINGS_EXPORT_FIELDS` |
 | Typed field | `dlux/system/schema.py` · `SYSTEM_SETTING_GROUPS` → `_field(...)` |
-| Flat property generation | `dlux/models.py` · `get_flat_config_fields()` loop (auto) |
-| Form field / clean / save | `dlux/forms/system_settings.py` · `SystemSettingsForm` |
-| Per-step preservation | `dlux/forms/system_settings.py` · `_clean_preserved_toggle/_choice/_text` |
+| Flat property generation | `dlux/models/settings.py` · `get_flat_config_fields()` loop (auto) |
+| Form field / clean / save | `dlux/forms/system_settings.py` · `SystemSettingsForm`; per-step clean mixins in `dlux/forms/system_settings_groups/` |
+| Per-step preservation | `dlux/forms/system_settings_groups/shared.py` · `_clean_preserved_toggle/_choice/_text` |
 | Import whitelist + apply | `dlux/utils/import_export.py` · `normalize_system_settings_import_payload`, `apply_system_settings_import` |
 | Flat⇄group reconcile | `dlux/utils/config.py` · `expand_system_config_groups` |
 | Runtime merge/expose | `dlux/utils/config.py` · `get_system_config` |
-| Strings | `dlux/translations.py` · EN + AR |
-| `config.json` bootstrap | `dlux/utils/config.py` · `bootstrap_system_settings_config_json` |
+| Strings | `dlux/translations/strings/en.py` + `ar.py` |
+| `config.json` bootstrap | `dlux/utils/import_export.py` · `bootstrap_system_settings_config_json` |
 
 ---
 
@@ -397,7 +431,7 @@ assert 'show_audit_fields' in SYSTEM_SETTINGS_EXPORT_FIELDS
 ```
 
 Then run the full suite. See `dlux/tests/test_audit_visibility.py::SettingsPersistenceTests`
-for the pattern that would have caught the whitelist drop.
+for the pattern that catches a whitelist drop.
 
 ---
 
@@ -413,7 +447,7 @@ for the pattern that would have caught the whitelist drop.
    writes `False`. Use the helper, pass the right index.
 3. **Tests that bypass the save path** — setting `layout_config` directly and
    asserting behavior tests nothing about persistence. It passes while the real
-   feature is broken (this exact gap hid trap 1). Drive tests through
+   feature is broken (it cannot see trap 1). Drive tests through
    `apply_system_settings_import` and the bound form.
 4. **Unconditional DB override in `get_system_config`** — applying a value without
    `_should_apply_db_override()` materializes the whole group via `expand`, which
@@ -433,7 +467,7 @@ for the pattern that would have caught the whitelist drop.
    flat fields reads every dependent as its default and wipes the configuration
    the admin was only switching off. Guard the pack on the master toggle (see
    `if sidebar['enabled']` / `notifications_master_off` in `SystemSettingsForm`)
-   and prove it with a test that saves the step with the master off.
+   and prove it with a test that saves the step with the master off. See Step 7a2.
 10. **JSON-only key not routed in `apply_system_settings_import`** — `legacy_flat`
    keys route via the generic setter; JSON-only keys need an explicit `elif`
    (mirror the `options_style` branch) or import/bootstrap silently skips them.
@@ -444,7 +478,7 @@ for the pattern that would have caught the whitelist drop.
 
 ### Catalogue preservation guard
 
-The form now derives section ownership from the crispy layout's field names
+The form derives section ownership from the crispy layout's field names
 and named HTML controls. Every editable field must have an owner; transport
 fields for setup-file import are the only explicit exceptions in the catalogue
 regression. A builder that emits its transport input only in the active section
@@ -458,8 +492,10 @@ registered in `test_all.TEST_LABELS` and exercises every section, group boolean
 leaves, partial imports, credential retention, explicit clears and stale writes.
 The concurrent writer test additionally runs on PostgreSQL (skipped on SQLite).
 
-- `reference.md` — app-owned config namespace (`extra_config['app']`),
-  `register_app_settings()`, `DluxSetupPreview.registerAppPreview()`, runtime
-  config keys.
+- `ui-integration.md` — app-owned config namespace `extra_config['app']`
+  ([Project-wide app config](ui-integration.md#project-wide-app-config)),
+  `register_app_settings()` ([Settings tiles in Options](ui-integration.md#settings-tiles-in-options)),
+  `DluxSetupPreview.registerAppPreview()` ([Previewing app settings](ui-integration.md#previewing-app-settings)).
+- `reference.md` — runtime config keys.
 - `developer-guide.md` — configuration layers, `ScopedModel`, startup patches.
 - `docs/RELEASING.md` — tag-driven release + migration-safety rules.

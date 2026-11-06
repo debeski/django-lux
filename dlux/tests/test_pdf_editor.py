@@ -1,3 +1,4 @@
+import warnings
 from io import BytesIO
 
 from django.test import RequestFactory, SimpleTestCase, TestCase
@@ -77,6 +78,14 @@ class PdfAssemblyTests(SimpleTestCase):
         writer.write(stream)
         with self.assertRaisesRegex(ValueError, 'Encrypted'):
             assemble_pdf([{'source':'current','page':1}], lambda key: stream.getvalue())
+
+    def test_assembly_uses_no_deprecated_pypdf_api(self):
+        # pypdf removes an API one major release after deprecating it (7.0.0 dropped
+        # remove_identicals), so a deprecation warning today is a crash tomorrow.
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', DeprecationWarning)
+            output = assemble_pdf([{'source': 'current', 'page': 1}] * 2, lambda key: source_pdf([100]))
+        self.assertEqual(len(PdfReader(BytesIO(output)).pages), 2)
 
 
 class PdfTransportTests(TestCase):

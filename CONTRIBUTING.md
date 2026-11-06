@@ -29,6 +29,12 @@ Updater/provenance work also needs the updater extra:
 python -m pip install -e ".[updater]"
 ```
 
+PDF toolkit and OCR work need their extras as well:
+
+```bash
+python -m pip install -e ".[pdf,ocr]"
+```
+
 ## Development Guidelines
 
 - Prefer existing Dlux helpers, templates, settings patterns, and translation systems over one-off implementations.

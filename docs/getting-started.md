@@ -167,7 +167,11 @@ This gives you:
 
 If your project does not define its own `/` view, dlux will catch an otherwise unresolved `/` request and redirect into the bundled login/setup flow.
 
-On a fresh and unconfigured install, Dlux also guards ordinary anonymous requests before normal app pages render. That means a host project's public `/` page will still be redirected into the setup/login path until the system is configured. After setup completes, control returns to the host project's normal root view behavior.
+On a fresh and unconfigured install, Dlux also guards ordinary anonymous requests
+before normal app pages render. That means a host project's public `/` page will
+still be redirected into the setup/login path until the system is configured.
+After setup completes, control returns to the host project's normal root view
+behavior.
 
 If your project already owns `/accounts/`, mount dlux under a prefix and update auth redirects explicitly:
 
@@ -199,6 +203,8 @@ python manage.py dlux_setup
 
 What it does:
 
+- appends the recommended `dlux_settings()` helper block to the active settings
+  file unless it is already wired up or `--skip-configure` is used
 - runs `makemigrations dlux` unless `--no-migrate` is used
 - runs `migrate dlux` unless `--no-migrate` is used
 - runs `dlux_doctor` unless `--skip-check` is used
@@ -214,6 +220,7 @@ mounting, database reachability, pending migrations, cache and SMTP round-trips,
 collected static files, and production-safety settings, and exits 1 when any
 check fails — so it works in CI. `--apply` runs the safe fixes it found;
 database-mutating fixes additionally require `--allow-stateful`. See
+[Deployment Doctor](doctor.md) for the checks and remediation tiers, and
 [reference.md](reference.md) for the full flag list.
 
 Useful scaffold commands:
@@ -227,23 +234,16 @@ python -m dlux startapp billing --register
 
 On a fresh install, Dlux protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 
-The setup flow first asks the superuser to choose the setup language. That choice controls only the first-launch setup UI language and direction. The actual saved system default language is selected separately in the Localization step and can be different.
+The setup flow first asks the superuser to choose the setup language. That choice
+controls only the first-launch setup UI language and direction. The saved system
+default language is selected separately in the Languages step and can be
+different.
 
-The setup wizard then runs in thirteen steps:
-
-1. Identity: language-keyed system names (JSON dict), logo, favicon, setup import, and public page title/metadata when public page access is enabled.
-2. Localization: explicit language catalog, default language, user language override policy, and the translation matrix editor.
-3. Access and security: public page access, global home URL, public registration/email 2FA toggles, trusted-session enforcement, Dlux email delivery path/secret storage, and client IP resolution.
-4. Login Page: login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message.
-5. Sidebar: sidebar builder and sidebar behavior controls, plus public page sidebar visibility when public page access is enabled.
-6. Navbar: optional authenticated navbar mode, override policy, and hierarchy tree.
-7. Titlebar: titlebar controls (logo/home visibility, treatment, button shape, user-hub layout style, action order, alignment, height, surface), plus public page titlebar visibility when public page access is enabled.
-8. Notifications: flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
-9. Themes and Typography: theme availability, default theme, theme override policy, fonts, and the public page theme when public page access is enabled.
-10. Layout: table, form, modal, Options-page, audit-field, and soft-delete visibility controls.
-11. Logging: user/system activity logging, audit event logging, and retention controls.
-12. Profile Page: profile-page modules and first-login user setup/onboarding options.
-13. Backups: scheduled backup, storage, and retention policy.
+The wizard then walks through every System Settings step in order, from Branding
+and Languages to Backups and Extra Features, plus a final Project Settings step
+when the project registers its own settings tiles. See
+[System Configuration](system-configuration.md#first-launch-setup) for the list of
+steps and what each one configures.
 
 When the form is saved:
 
@@ -263,7 +263,12 @@ After setup, the same configuration stays editable from the superuser System Set
 
 ## Next Reads
 
-- [Admin Guide](admin-guide.md) for operating the setup wizard, Options view, and runtime preferences.
+- [System Configuration](system-configuration.md) for the setup wizard, the
+  Options view, and runtime preferences, and [Operations](operations.md) for
+  day-to-day administration.
 - [Developer Guide](developer-guide.md) for the system mental model and integration patterns.
-- [Customization Guide](customization-guide.md) for translations, sections, dynamic modals, and template overrides.
-- [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, guarded bootstrap, updates, and rollback.
+- [Translations](translation-guide.md),
+  [UI Integration](ui-integration.md#sections-and-dynamic-modals) and
+  [Template and Form Customization](template-customization.md) for translations,
+  sections, dynamic modals, and template overrides.
+- [Verified Inline Updates](inline-updater.md) for generated-Compose deployment, guarded bootstrap, updates, and rollback.
