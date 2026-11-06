@@ -6,7 +6,7 @@ contains, what a generation bump means, and which side owns each file.
 
 Before v1.8.0 the layout was an implicit detail of ``dlux/updater/runtime.py``,
 because only DjangoLux ever wrote it. Composer now stages and activates releases
-(see ``docs/updater-consolidation.md``), so it is a cross-repo interface and has
+(see ``docs/inline-updater.md#who-does-what``), so it is a cross-repo interface and has
 to be written down. This mirrors ``dlux/stack_contract.py`` exactly, including
 how it travels: ``manage.py dlux_runtime_contract`` prints the contract for the
 release that is *actually running*, so a consumer never diffs against whatever

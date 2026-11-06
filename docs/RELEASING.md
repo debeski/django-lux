@@ -86,6 +86,26 @@ Pushing the tag triggers the pipeline:
 
 Watch it under the repo's **Actions** tab.
 
+### When github-release fails after PyPI published
+
+The job creates a draft, uploads the assets, then publishes the draft. Immutable
+releases are on, so a draft must have every asset before it is published. Do not
+rerun the job against an existing draft: the action cannot find a draft by tag, so a
+rerun makes a duplicate draft, deletes it, and deletes and re-uploads every asset of
+the first one, and can die halfway and leave fewer assets than before. Finish it by
+hand instead:
+
+1. `gh run download <run-id> -D <empty dir>` fetches the run's `dist` and
+   `dlb-viewer-binaries` artifacts. Check the wheel and sdist digests against PyPI.
+2. `gh release upload vX.Y.Z <file>` for each missing asset.
+3. Compare all seven asset digests (`gh api repos/<owner>/<repo>/releases/<id>`,
+   `.assets[].digest`) with the artifacts.
+4. Publish with the workflow's own call:
+   `gh api -X PATCH repos/<owner>/<repo>/releases/<id> -F draft=false -F prerelease=<true|false> -f make_latest=<true|false>`,
+   taking `prerelease` and `make_latest` from the run's classify job.
+
+No workflow listens to release events, so publishing by hand triggers nothing else.
+
 ## Channels: stable and beta
 
 **The tag decides where a release is published.** There is no commit-message
@@ -366,13 +386,21 @@ API value after cryptographic attestation verification.
   version, and a tag is immutable. So any change after a release = a new version.
   (This replaces the old "check `dist/` before editing the changelog" workaround
   — the tooling now enforces it.)
-- **Tag from the integration branch only**, after its implementation, docs,
-  and tests pass. Use `main` for the active line or `release/1.10.x` for a
-  maintenance release based on the published 1.10 line; merge the isolated
-  feature there before tagging. Never include unrelated beta-line changes in
-  a maintenance release. `git show vX.Y.Z` shows exactly what shipped.
-- **If a release run fails before PyPI upload**, fix forward: bump to the next
-  patch and re-tag. Don't try to reuse a tag.
+- **Tag from `main` only**, after the merged work's implementation, docs and
+  tests pass. There is one release line: fixes land on `main` and consumers
+  upgrade to the current stable instead of getting backports.
+  `git show vX.Y.Z` shows exactly what shipped.
+- **If a release run fails before anything is published**, fix it and re-cut the
+  same tag on the fixed commit (`git push origin --delete vX.Y.Z`,
+  `git tag -d vX.Y.Z`, tag again, push). First confirm PyPI has no such version
+  (`https://pypi.org/pypi/django-lux/X.Y.Z/json` is a 404) and there is no GitHub
+  release. A version already on PyPI can never be re-uploaded; then bump instead.
+- **Keep changelog entries short.** One bullet per change: a bold title, then one
+  to three sentences on what changed for a user or operator, naming the setting,
+  route, command or model involved. Aim for under 60 words. Test counts, testbed
+  evidence and implementation walk-throughs go in the PR description and
+  `.xclude/validation/`, not the changelog. The manual under `docs/` describes the
+  result in the present tense and never repeats the changelog.
 
 ---
 

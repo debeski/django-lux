@@ -10,6 +10,15 @@ This file owns the release history for `django-lux`.
 ## Unreleased
 
 - **PDF Saves Work With pypdf 7**: pypdf 7.0.0 removed the `remove_identicals`/`remove_orphans` arguments of `PdfWriter.compress_identical_objects()`. With it installed, every PDF editor save, image-to-PDF conversion and document-history write raised `DeprecationError`. `optimize_pdf_writer()` (`dlux/pdf/assembly.py`) now passes `remove_duplicates`/`remove_unreferenced`, which pypdf 6.13.0 and later accept, and a new test fails on any pypdf deprecation warning in the assembly path. No dependency or migration changes.
+- **Documentation Overhaul**: The manual under `docs/` now describes current behaviour only, with no release narration, beta notes or acceptance evidence. `reference.md` is a lookup sheet of commands, routes, configuration keys, tags and helpers, at half its former length. `FEATURES.md` is a one-page capability map, and feature prose lives in each topic's own doc. New `docs/backups.md` covers backup policy, chains, interruptions, restore and the `.dlb` format. `docs/README.md` indexes every doc.
+- **Docs Hygiene Test**: New `dlux/tests/test_docs_hygiene.py` fails on a broken relative link or anchor, on a `docs/*.md` missing from the index, or on a prerelease version or "unreleased" in the manual. `test_deployment_config_docs` now also finds settings read from `(name, default)` tables, which brought `DLUX_ASSET_MAX_INSTALLER_MB` into the settings inventory.
+- **Corrected Docs**:
+  - The setup wizard has 19 steps, and the `log_config`, `profile_config` and `backup_config` step numbers are corrected.
+  - `dlux_prune_assets`, `dlux_runtime_contract`, `dlux_adopt_file_history`, `dlux_adopt_ocr_text`, `dlux_ocr_backfill`, `dlux_image_gate`, `dlux_reconcile` and `dlux_relay` are documented.
+  - Alert auto-close applies only to `data-autohide` alerts.
+  - ScanLink compatibility is stated against stable 0.7.4.
+  - `RELEASING.md` matches the release practice: one release line, a failed run's tag is re-cut, and the GitHub release draft is finished by hand.
+- **Docs Moved Out**: Dated audits, the 1.12 acceptance record, the updater consolidation note, the agent-pairing design spec, the admin and customization hub pages, the 1.11 testbed log and unused screenshots are no longer in the repository; git history keeps them.
 
 ## v1.15.4b3
 

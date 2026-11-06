@@ -18,8 +18,9 @@ result with one exit code.
 This split means app-side checks version with the dlux release that is actually
 running. Composer needs no dlux knowledge beyond the report schema below.
 
-`dlux_check` remains as a deprecated back-compat alias for `dlux_doctor` (it
-warns on stderr and delegates); prefer `dlux_doctor`.
+`dlux_check` is a deprecated alias for `dlux_doctor`: it warns on stderr,
+delegates, and always exits 0, so it is advisory only. Use `dlux_doctor` wherever
+the exit code should gate.
 
 ## Report schema
 
@@ -71,7 +72,7 @@ ingress, where the Docker socket may be mounted (`ro`, socket-proxy only), the
 volumes and env keys.
 
 Every service carries an `org.dlux.restart` label — `safe` (stateless / owns no
-in-flight operation: web, celery, smtp-relay, caddy) or `protected` (data store,
+in-flight operation: web, celery, smtp-relay, caddy, ocr) or `protected` (data store,
 holds state, or manages its own lifecycle: db, redis, docker-socket-proxy,
 composer-agent, composer-executor). Composer classifies restart safety from
 these labels instead of a hardcoded name list; the `safe` set mirrors
@@ -97,9 +98,9 @@ static-collection fix avoids). `load_contract()` stamps the report with
 both the tests and Composer use — it flags a contract service on the wrong
 networks, a missing contract service, any service on an undeclared network, and
 any service (contract or project-added) that bridges `frontend` and `egress` and
-so collapses the ingress/egress isolation. `schema_version` is `2`; adding
-services/keys is backwards-compatible, renaming a field bumps the version.
-Generated stack files record the schema they were written for; the
+so collapses the ingress/egress isolation. The contract's `schema_version` is the
+stack schema: adding services/keys is backwards-compatible, renaming a field bumps
+it. Generated stack files record the schema they were written for; the
 `stack.schema` check compares `compose.yml`'s stamp with the running contract
 (see [Stack Schema Stamps](stack-schema.md)).
 
@@ -107,13 +108,21 @@ Generated stack files record the schema they were written for; the
 
 | Group | Covers |
 | --- | --- |
-| `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper |
+| `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
 | `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, Celery broker |
 | `static` | `STATIC_ROOT` configured, populated, contains dlux assets |
 | `security` | `DEBUG`, placeholder `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, proxy SSL header, secure cookies |
 | `packages` | optional extras present |
+
+`--group <name>` (repeatable) runs only the named groups.
+
+`updater.runtime_volume` is skipped while inline updates are disabled. Otherwise it
+reports the verdict the Celery worker recorded, because `web` (where the doctor
+usually runs) holds the runtime volume read-only by design, and warns when the
+worker has stopped reporting (see
+[Who decides the runtime volume is usable](inline-updater.md#who-decides-the-runtime-volume-is-usable)).
 
 ## Remediation safety tiers
 

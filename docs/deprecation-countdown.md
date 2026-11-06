@@ -75,7 +75,7 @@ apply and rollback paths of `dlux.updater.service`, and the release-selection he
 `python -m dlux enable-updater` / `enable-agent` Compose migrations (`dlux.scaffold.legacy`).
 Composer has performed every inline update since v1.8.0; `DLUX_UPDATE_EXECUTOR` is now ignored.
 Existing generated stacks migrate with `./start.sh check --fix`. See
-[Updater Consolidation](updater-consolidation.md) and [Verified Inline Updates](inline-updater.md).
+[Verified Inline Updates](inline-updater.md#who-does-what).
 
 ### `archive_file` names on the file widget
 

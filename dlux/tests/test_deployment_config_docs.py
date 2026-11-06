@@ -17,6 +17,7 @@ class DeploymentConfigurationDocsTests(SimpleTestCase):
             re.compile(r"""scope\.(?:get|setdefault)\(\s*['"](DLUX_[A-Z0-9_]+)['"]"""),
             re.compile(r"""scope\[\s*['"](DLUX_[A-Z0-9_]+)['"]\s*\]"""),
             re.compile(r"""os\.(?:getenv|environ\.get)\(\s*['"](DLUX_[A-Z0-9_]+)['"]"""),
+            re.compile(r"""\(\s*['"](DLUX_[A-Z0-9_]+)['"]\s*,"""),
         )
         discovered = set()
         for path in package_root.rglob('*.py'):

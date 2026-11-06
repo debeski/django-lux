@@ -5,9 +5,9 @@ Everything a project needs from the outside world goes through it, over a small,
 typed, audited channel. This page states the rule, the topology it produces, and
 how a project developer asks for an outbound call.
 
-> **Status.** Released in DjangoLux 1.10.0 (`dlux.relay`) with Composer 1.6.0
-> (`composer/relay.py`, `composer relay`). A stack still on an older Composer has no
-> relay; the interim in "Until the relay ships" applies there only.
+> **Requirement.** The relay (`dlux.relay` on the DjangoLux side, `composer relay`
+> on Composer's) needs Composer 1.6.0 or later. A stack on an older Composer has no
+> relay; see [Stacks without the relay](#stacks-without-the-relay).
 > `python manage.py dlux_relay` tells you whether the agent you are running answers.
 
 ## The topology
@@ -47,10 +47,10 @@ If your feature needs something from the internet, it asks the agent through the
 relay. The agent makes the call, checks it against a fixed operation, and returns
 only the fields the operation defines.
 
-## How a developer asks (planned)
+## How a developer asks
 
-1. **Use a built-in operation** when Composer ships one (weather is planned as the
-   first: `weather.geocode`, `weather.current`).
+1. **Use a built-in operation** when Composer ships one. Composer ships
+   `weather.geocode` and `weather.current`, which [Weather](weather.md) uses.
 2. **Declare your own** in `relay/operations.json` in the project directory. The
    agent already mounts that directory read-only (`${PWD}:${PWD}:ro`) and `web` and
    `celery` do not, so application code can never widen its own network access, and
@@ -87,9 +87,10 @@ only the fields the operation defines.
    data. On failure it raises `relay.RelayError` with a stable `code`
    (`agent` no answering agent, `unsupported`, `unapproved`, `invalid`,
    `credentials`, `network`, `provider`, `response`, `blocked`, `limit`, `expired`,
-   `timeout`) and a message that names the fix. A `web` request cannot write to the
-   channel: queue a Celery task by name, cache its result, and read the cache in the
-   request, as weather does.
+   `timeout`, and `writer` for a process that cannot write the channel) and a
+   message that names the fix. A `web` request cannot write to the channel: queue a
+   Celery task by name, cache its result, and read the cache in the request, as
+   weather does.
 
 Secrets (API keys, tokens) are never placed on the volume in the clear: `secret=`
 is sealed to a public key only the agent holds, bound to that request and operation.
@@ -110,10 +111,12 @@ the reply, per-operation rate limits, request expiry and a bounded backlog. It
 records call counts, status, bytes and duration per operation, never parameters or
 secrets.
 
-## Until the relay ships
+## Stacks without the relay
 
-Weather is the only feature that needs the internet today, and it makes its calls
-in the Celery worker, so a stack that uses it must put `celery` on the network the
-scaffold already declares. That is a deliberate exception to the topology above,
-and it is why the relay exists. See [Weather](weather.md). Do not use the same
-workaround for new features; wait for the relay or ask for an operation.
+On a Composer older than 1.6.0 the agent offers no operations. Update Composer
+(`./start.sh self update`, then `./start.sh agent update`) rather than working
+around it. Until then, [Weather](weather.md) falls back to calling OpenWeather
+from the Celery worker, which works only if the project put `celery` on the
+`egress` network the scaffold already declares. That is a deliberate exception to
+the topology above and a stopgap: it lets every Celery task reach the internet. Do
+not use the same workaround for new features; ask for an operation instead.

@@ -8,7 +8,7 @@ token — but for the *package* rather than the project image.
 Why the executor moved out of this package at all: Composer stages and verifies a
 release before activating it, and health-gates the restart from outside the
 container being swapped. An in-container updater cannot roll back a release that
-prevented it from starting. See ``docs/updater-consolidation.md``.
+prevented it from starting. See ``docs/inline-updater.md#who-does-what``.
 
 Removal schedule: DjangoLux 1.8.0 deprecates the in-container executor and 1.10.0
 deletes it. Nothing here deletes anything a deployed ``compose.yml`` names — that
