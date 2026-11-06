@@ -268,28 +268,19 @@ def register_managed_font(asset, *, slug, family, label='', weight=400, style='n
     return font, variant
 
 
-def collect_asset_usages(asset):
-    from dlux.utils import collect_related_objects
-    return collect_related_objects(asset)
-
-
-def referenced_asset_ids():
-    """Ids of every managed asset some row points at, through any relation.
+def _asset_relations():
+    """`(model, field name)` for every relation that can point at a managed asset.
 
     Every relation to `ManagedAsset` counts: plain foreign keys (the branding
     fields, font variants, ScanLink releases), one-to-ones, many-to-manys and
     hidden ones. `ManagedAssetField` sets `related_name='+'`, so a walk that skips
-    hidden relations misses exactly the fields projects declare. Rows are read
+    hidden relations misses exactly the fields projects declare. Callers read rows
     through `_base_manager`: a default manager may hide soft-deleted or
     out-of-scope records, and a trashed record can still be restored.
-
-    A relation that cannot be read raises `RuntimeError` instead of counting as
-    empty, so a caller about to delete refuses rather than widening its set.
     """
     from django.db.models import ForeignObjectRel
 
     Asset = apps.get_model('dlux', 'ManagedAsset')
-    referenced = set()
     for relation in Asset._meta.get_fields(include_hidden=True):
         if not isinstance(relation, ForeignObjectRel):
             continue
@@ -297,7 +288,40 @@ def referenced_asset_ids():
         if model._meta.auto_created:
             # An implicit many-to-many table; its ManyToManyRel is read instead.
             continue
-        name = relation.field.name
+        yield model, relation.field.name
+
+
+def collect_asset_usages(asset):
+    """What points at `asset`, as `{verbose name plural: [up to 20 rows]}`.
+
+    Reads the same relations as `referenced_asset_ids`, so a card shows "in use"
+    exactly when clean-up would keep it. A relation that cannot be read is listed
+    with no rows, which still counts as in use and keeps Delete disabled.
+    """
+    usages = {}
+    for model, name in _asset_relations():
+        label = str(model._meta.verbose_name_plural)
+        rows = usages.get(label, {})
+        try:
+            with transaction.atomic():
+                for row in model._base_manager.filter(**{f'{name}__pk': asset.pk}).distinct()[:20]:
+                    rows.setdefault(row.pk, str(row))
+        except Exception:
+            usages[label] = rows
+            continue
+        if rows:
+            usages[label] = rows
+    return {label: list(rows.values())[:20] for label, rows in usages.items()}
+
+
+def referenced_asset_ids():
+    """Ids of every managed asset some row points at, through any relation.
+
+    A relation that cannot be read raises `RuntimeError` instead of counting as
+    empty, so a caller about to delete refuses rather than widening its set.
+    """
+    referenced = set()
+    for model, name in _asset_relations():
         try:
             values = (
                 model._base_manager
@@ -324,8 +348,9 @@ ASSET_PRUNE_MIN_AGE_HOURS = 24
 def prunable_assets(kind=None, *, min_age_hours=ASSET_PRUNE_MIN_AGE_HOURS, namespaces=None):
     """Assets nothing references and that are old enough to be safe to remove.
 
-    Reference checking is the same relation walk the manager already shows per
-    card, so what this returns is exactly the set whose Delete is enabled.
+    References come from `referenced_asset_ids`, the relations each card's usage
+    report reads, so this is the set whose Delete is enabled. Raises
+    `RuntimeError` when a relation cannot be read.
     """
     from datetime import timedelta
 
@@ -339,4 +364,5 @@ def prunable_assets(kind=None, *, min_age_hours=ASSET_PRUNE_MIN_AGE_HOURS, names
         queryset = queryset.filter(namespace__in=list(namespaces))
     if min_age_hours:
         queryset = queryset.filter(created_at__lte=timezone.now() - timedelta(hours=min_age_hours))
-    return [asset for asset in queryset.order_by('title', 'pk') if not collect_asset_usages(asset)]
+    referenced = referenced_asset_ids()
+    return [asset for asset in queryset.order_by('title', 'pk') if asset.pk not in referenced]

@@ -266,7 +266,16 @@ def asset_manager_prune(request):
 
     strings = get_strings()
     kind = 'font' if _active_tab(request) == 'fonts' else 'image'
-    candidates = prunable_assets(kind)
+    try:
+        candidates = prunable_assets(kind)
+    except RuntimeError:
+        # A relation that cannot be read (an app mid-migration) could hold any
+        # of them, so nothing is offered rather than everything.
+        message = strings.get(
+            'asset_prune_unchecked', 'Could not check which files are in use, so nothing was removed.',
+        )
+        notify.error(message, request=request, action='managed_asset_prune_refused', category='assets')
+        return JsonResponse({'success': False, 'error': message}, status=503)
     confirmed = str(request.POST.get('confirm') or '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
     if not candidates:

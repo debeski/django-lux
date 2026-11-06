@@ -95,7 +95,7 @@ CSS, JavaScript, SVG, HTML, and arbitrary attachment uploads are not supported. 
 
 ## Cleaning up unused files
 
-Each tab has a **Clean up unused** action that removes every asset in it that nothing references. It previews what would go before deleting anything, and leaves alone anything uploaded within the last 24 hours: instant upload registers an asset the moment a file is chosen, so a shorter grace period would delete a picture out of a record somebody is still writing. `PROTECT` re-checks each delete, so a reference added between the preview and the confirmation blocks that row rather than the whole run.
+Each tab has a **Clean up unused** action that removes every asset in it that nothing references. It previews what would go before deleting anything, and leaves alone anything uploaded within the last 24 hours: instant upload registers an asset the moment a file is chosen, so a shorter grace period would delete a picture out of a record somebody is still writing. `PROTECT` re-checks each delete, so a reference added between the preview and the confirmation blocks that row rather than the whole run. References are counted the same way as for the command below (`dlux.assets.prunable_assets()` reads `referenced_asset_ids()`), so a project's `ManagedAssetField` images and assets held only by soft-deleted records are kept. If a relation cannot be read, the action removes nothing and says so.
 
 ### `dlux_prune_assets`
 
@@ -117,7 +117,7 @@ There is no 24-hour grace period: run it when no instant upload is waiting for i
 
 ## Image deletion guard
 
-The Images tab shows the relationship usage report returned by `collect_related_objects()`. Its delete action is disabled while usages are visible, and database `PROTECT` relations remain authoritative if a usage changes between display and submission. Deleting an unused image removes its storage object after the database transaction commits.
+The Images tab shows the usage report returned by `dlux.assets.collect_asset_usages()`: the rows pointing at each image through any relation, hidden ones and soft-deleted records included, grouped by model. A relation that cannot be read is listed as a usage. Its delete action is disabled while usages are visible, and database `PROTECT` relations remain authoritative if a usage changes between display and submission. Deleting an unused image removes its storage object after the database transaction commits.
 
 ## UI-managed fonts
 

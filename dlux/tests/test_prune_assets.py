@@ -22,7 +22,7 @@ from django.db import connection, models
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
-from dlux.assets import referenced_asset_ids
+from dlux.assets import collect_asset_usages, prunable_assets, referenced_asset_ids
 from dlux.managers import ScopedManager
 from dlux.models import (
     ManagedAsset, ManagedFontFamily, ManagedFontVariant, ScanLinkRelease, SystemSettings,
@@ -241,3 +241,20 @@ class HiddenAndTrashedReferenceTests(TransactionTestCase):
         self.assertTrue(ManagedAsset.objects.filter(pk=used.pk).exists())
         self.assertTrue(_stored(used))
         self.assertEqual(self.Probe._base_manager.get(pk=record.pk).photo_id, used.pk)
+
+    def test_the_asset_manager_sees_them_too(self):
+        live = _asset(name='live.png')
+        trashed = _asset(name='trashed.png')
+        unused = _asset(name='unused.png')
+        self.Probe.objects.create(photo=live)
+        self.Probe.objects.create(photo=trashed, deleted_at=timezone.now())
+
+        for asset in (live, trashed):
+            with self.subTest(asset=asset.file.name):
+                self.assertTrue(collect_asset_usages(asset), 'its card shows it in use and Delete stays disabled')
+        self.assertEqual(collect_asset_usages(unused), {})
+
+        candidates = {asset.pk for asset in prunable_assets('image', min_age_hours=0)}
+        self.assertIn(unused.pk, candidates)
+        self.assertNotIn(live.pk, candidates)
+        self.assertNotIn(trashed.pk, candidates)
