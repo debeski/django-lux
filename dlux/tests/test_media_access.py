@@ -109,6 +109,53 @@ class MediaAccessTests(TestCase):
         cache.clear()
         self.assertFalse(self.decide(self.reader, self.name))
 
+    def test_files_beside_document_files_are_refused_even_to_a_superuser(self):
+        # A replaced original, a project's own history copy, an orphan: no document is left to check.
+        for name in ('papers/replaced.pdf', 'papers/paper_1_2026-01-01_V2.pdf', 'PAPERS/orphan.pdf'):
+            with self.subTest(name=name):
+                self.assertFalse(self.decide(self.admin, name))
+
+    def test_an_attachment_beside_its_document_file_needs_a_signed_in_user(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        self.paper.attachment.save('annex.pdf', ContentFile(b'%PDF-1.4'))
+        self.assertTrue(self.decide(self.stranger, self.paper.attachment.name))
+        self.assertFalse(self.decide(AnonymousUser(), self.paper.attachment.name))
+
+    def test_other_folders_and_subfolders_need_a_signed_in_user(self):
+        for name in ('papers/2026/scan.pdf', 'reports/q1.pdf', 'loose.pdf'):
+            with self.subTest(name=name):
+                self.assertTrue(self.decide(self.stranger, name))
+
+    def test_a_file_a_document_had_before_is_refused_in_any_folder(self):
+        from django.contrib.contenttypes.models import ContentType
+
+        from dlux.models import FileVersion
+
+        FileVersion.objects.create(
+            content_type=ContentType.objects.get_for_model(Paper), object_id=self.paper.pk, document_model='Paper',
+            version_number=1, active_name_before='scans/2019/old.pdf', archived_file='scans/2019/old_V1.pdf',
+        )
+        for name in ('scans/2019/old.pdf', 'scans/2019/old_V1.pdf', 'SCANS/2019/OLD.pdf'):
+            with self.subTest(name=name):
+                self.assertFalse(self.decide(self.admin, name))
+        self.assertTrue(self.decide(self.admin, 'scans/2019/other.pdf'))
+
+    def test_the_editor_leaves_nothing_fetchable_beside_the_new_file(self):
+        from dlux.files.history import save_new_version
+        from dlux.tests.test_document_history import PdfWriter, pdf_bytes
+
+        if PdfWriter is None:
+            self.skipTest('Install django-lux[pdf] to test file history.')
+        self.paper.pdf_file.save('signed.pdf', ContentFile(pdf_bytes(2)))
+        before = self.paper.pdf_file.name
+        with self.captureOnCommitCallbacks(execute=True):
+            saved, _ = save_new_version(self.paper, pdf_bytes(1), user=self.admin)
+        self.assertFalse(self.paper.pdf_file.storage.exists(before))
+        self.assertFalse(self.decide(self.stranger, before))
+        self.assertFalse(self.decide(self.stranger, saved))
+        self.assertTrue(self.decide(self.reader, saved))
+
     def test_a_document_file_without_a_public_rule_is_never_served_signed_out(self):
         from django.contrib.auth.models import AnonymousUser
 

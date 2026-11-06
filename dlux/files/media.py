@@ -15,6 +15,10 @@ Decisions, in order:
 - a registered document file follows its document: anyone gets it when the
   registration's ``public`` rule passes, otherwise the user must reach the
   document in its scoped queryset and pass its ``view`` access check;
+- any other file in a folder that holds registered document files, or one a
+  document had before, is refused: a replaced original, a project's own history
+  copy or an orphan has no document left to check. The current file of another
+  field on a document model (an attachment) is the exception;
 - everything else needs a signed-in user.
 
 A project entry is a folder (``products/``) or, when it has a wildcard, a file
@@ -88,8 +92,57 @@ def media_name(uri):
     return name
 
 
+def _in_document_folder(name):
+    """Does ``name``'s own folder hold a registered document file?
+
+    Compared without regard to case, like the document match. Subfolders do not
+    count, so a shared parent folder keeps its other files.
+    """
+    from django.db.models import CharField
+    from django.db.models.functions import Substr
+
+    from .specs import registered_document_files
+
+    folder = posixpath.dirname(name)
+    for spec in registered_document_files():
+        field = spec.field_name
+        rows = spec.model._base_manager.exclude(**{f'{field}__isnull': True}).exclude(**{field: ''})
+        if folder:
+            rows = rows.filter(**{f'{field}__istartswith': f'{folder}/'}).annotate(
+                dlux_media_rest=Substr(field, len(folder) + 2, output_field=CharField()),
+            ).exclude(dlux_media_rest__contains='/')
+        else:
+            rows = rows.exclude(**{f'{field}__contains': '/'})
+        if rows.exists():
+            return True
+    return False
+
+
+def _earlier_document_file(name):
+    """Was ``name`` a document's file before, or is it kept as a history copy?"""
+    from django.db.models import Q
+
+    from dlux.models import FileVersion
+
+    return FileVersion._base_manager.filter(Q(active_name_before__iexact=name) | Q(archived_file__iexact=name)).exists()
+
+
+def _attachment_of_a_document(name):
+    """Is ``name`` the current file of an unregistered field on a document model?"""
+    from .specs import file_field_names, registered_document_files
+
+    registered = {}
+    for spec in registered_document_files():
+        registered.setdefault(spec.model, set()).add(spec.field_name)
+    return any(
+        model._base_manager.filter(**{f'{field}__iexact': name}).exists()
+        for model, fields in registered.items()
+        for field in file_field_names(model) if field not in fields
+    )
+
+
 def _document_decision(request, name):
-    """True or False when ``name`` is a registered document file, else None.
+    """True or False when ``name`` is or was among registered document files, else None.
 
     Matched without regard to case: on a case-insensitive host disk a case
     variant reaches the same file, so it must not slip past its document.
@@ -123,7 +176,12 @@ def _document_decision(request, name):
         for document in queryset.filter(**{field: name})[:_DOCUMENT_CANDIDATES]:
             if can_access(request, spec, document, 'view'):
                 return True
-    return False if matched else None
+    if matched:
+        return False
+    if not signed_in or not (_in_document_folder(name) or _earlier_document_file(name)):
+        # Signed out, everything unmatched is refused anyway: no more lookups.
+        return None
+    return None if _attachment_of_a_document(name) else False
 
 
 def media_decision(request, name):

@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Files Beside Document Files Stay Private**: `media_decision` checked only a registered document's current file, so a replaced original, a project's own history copy or an orphan in that folder went to any signed-in user. These, and any name a `FileVersion` row records, are now refused to everyone. An attachment on the document model still needs a signed-in user.
+- **Replaced Document Files Leave The Folder**: `save_new_version()` and `record_upload()` remove the replaced file after the transaction commits, once its history copy is saved, unless a file field still names it. A rollback keeps it. No migrations.
+
 ## v1.15.4
 
 - **Stable 1.15.4**: Promote the accepted 1.15.4b4: the General Reports fixes and `dlux_backfill_report_activity`, stored-file access for prefixed mounts and published documents, pages that load only the active theme, PDF saves that work with pypdf 7, and the documentation overhaul. Requires Composer `>=1.9.0b2`; no migrations, and no runtime or dependency changes from 1.15.4b4. From 1.15.2 or earlier, run `./start.sh check --fix` (Composer 1.9.2+) afterwards.
