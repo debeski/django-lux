@@ -114,6 +114,8 @@ Generated app scaffold baseline:
 | `python manage.py dlux_settings import --input config.json` | Import portable System Settings JSON and mark setup configured. |
 | `python manage.py dlux_prune_activity_log --dry-run` | Preview log rows outside configured category retention windows. |
 | `python manage.py dlux_prune_activity_log` | Delete rows outside configured category retention windows. |
+| `python manage.py dlux_prune_assets` | Dry-run list of managed assets no relation references, grouped by namespace ([Managed Assets](managed-assets.md#dlux_prune_assets)). |
+| `python manage.py dlux_prune_assets --apply` | Delete those assets; each file is removed only after its row delete commits. |
 | `python manage.py dlux_seed` | Dry-run auto-discovery and show the project models and empty canonical dependencies that would be seeded. |
 | `python manage.py dlux_seed --count 25 --seed 42 --apply` | Generate 25 deterministic rows per discovered project model from field metadata. |
 | `python manage.py dlux_seed --count 25 --log --apply` | Generate rows and one reportable `CREATE` activity entry per row, attributed to random active users. |

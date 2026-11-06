@@ -273,6 +273,46 @@ def collect_asset_usages(asset):
     return collect_related_objects(asset)
 
 
+def referenced_asset_ids():
+    """Ids of every managed asset some row points at, through any relation.
+
+    Every relation to `ManagedAsset` counts: plain foreign keys (the branding
+    fields, font variants, ScanLink releases), one-to-ones, many-to-manys and
+    hidden ones. `ManagedAssetField` sets `related_name='+'`, so a walk that skips
+    hidden relations misses exactly the fields projects declare. Rows are read
+    through `_base_manager`: a default manager may hide soft-deleted or
+    out-of-scope records, and a trashed record can still be restored.
+
+    A relation that cannot be read raises `RuntimeError` instead of counting as
+    empty, so a caller about to delete refuses rather than widening its set.
+    """
+    from django.db.models import ForeignObjectRel
+
+    Asset = apps.get_model('dlux', 'ManagedAsset')
+    referenced = set()
+    for relation in Asset._meta.get_fields(include_hidden=True):
+        if not isinstance(relation, ForeignObjectRel):
+            continue
+        model = relation.related_model
+        if model._meta.auto_created:
+            # An implicit many-to-many table; its ManyToManyRel is read instead.
+            continue
+        name = relation.field.name
+        try:
+            values = (
+                model._base_manager
+                .filter(**{f'{name}__isnull': False})
+                .values_list(f'{name}__pk', flat=True)
+                .distinct()
+            )
+            referenced.update(value for value in values if value is not None)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not read {model._meta.label}.{name}; refusing to treat its assets as unused: {exc}"
+            ) from exc
+    return referenced
+
+
 #: How long an asset is left alone regardless of whether anything points at it.
 #:
 #: Instant upload registers the asset the moment a file is chosen — before the

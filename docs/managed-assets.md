@@ -97,6 +97,24 @@ CSS, JavaScript, SVG, HTML, and arbitrary attachment uploads are not supported. 
 
 Each tab has a **Clean up unused** action that removes every asset in it that nothing references. It previews what would go before deleting anything, and leaves alone anything uploaded within the last 24 hours: instant upload registers an asset the moment a file is chosen, so a shorter grace period would delete a picture out of a record somebody is still writing. `PROTECT` re-checks each delete, so a reference added between the preview and the confirmation blocks that row rather than the whole run.
 
+### `dlux_prune_assets`
+
+`python manage.py dlux_prune_assets` reports, or with `--apply` deletes, managed assets that nothing references:
+
+| Option | Effect |
+| --- | --- |
+| *(none)* | Dry run: print the declared field count, the referenced asset count and the candidates grouped by namespace (the first 20 of each), and delete nothing. |
+| `--apply` | Delete the candidates. One failed delete is reported and the run continues. |
+| `--namespace NS` | Consider only this namespace. Repeatable. |
+| `--kind KIND` | Consider only one asset kind (`image`, `font`, `installer`). |
+| `--include-shared` | Also consider `dlux.shared`, which is skipped by default because it is a curated pool any field may read. |
+
+An asset counts as referenced when any row points at it through any relation to `ManagedAsset`: plain foreign keys (DjangoLux's branding fields, font variants and ScanLink releases), one-to-ones, many-to-manys, and hidden relations such as the `ManagedAssetField`s a project declares, which are also read from the field registry. Rows are read through each model's base manager, so a soft-deleted record that can still be restored, or a record in another scope, keeps its asset. If a relation or declared model cannot be read (an app mid-migration, say), the command refuses to prune rather than treat its assets as unreferenced.
+
+Each delete runs in its own transaction and removes the row first; the stored file is removed only after that row delete commits, and only when no other asset row uses the same file. A delete the database refuses, such as one blocked by a `PROTECT` reference added since the scan, is reported as kept and leaves both the row and its file in place.
+
+There is no 24-hour grace period: run it when no instant upload is waiting for its form to be saved.
+
 ## Image deletion guard
 
 The Images tab shows the relationship usage report returned by `collect_related_objects()`. Its delete action is disabled while usages are visible, and database `PROTECT` relations remain authoritative if a usage changes between display and submission. Deleting an unused image removes its storage object after the database transaction commits.
