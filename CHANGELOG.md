@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **PDF Saves Work With pypdf 7**: pypdf 7.0.0 removed the `remove_identicals`/`remove_orphans` arguments of `PdfWriter.compress_identical_objects()`. With it installed, every PDF editor save, image-to-PDF conversion and document-history write raised `DeprecationError`. `optimize_pdf_writer()` (`dlux/pdf/assembly.py`) now passes `remove_duplicates`/`remove_unreferenced`, which pypdf 6.13.0 and later accept, and a new test fails on any pypdf deprecation warning in the assembly path. No dependency or migration changes.
+
 ## v1.15.4b3
 
 - **1.15.4 Candidate 3**: Patch beta on 1.15.4b2 with the one fix its post-publish acceptance on testbed-dlux found, below. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta. The manifest keeps the 1.15.3 instruction for deployments updating from 1.15.2 or earlier: run `./start.sh check --fix` with Composer 1.9.2+ afterwards.
