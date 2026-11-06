@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.15.4b4",
+  "version": "1.15.4",
   "display": {
     "summary": "Reports fixes, with a command that counts records saved before activity logging; stored-file access for prefixed mounts and public documents; pages that load only the active theme; PDF saves that work with pypdf 7.",
     "highlights": [
@@ -13,7 +13,7 @@
       "PDF editor saves and document history work with pypdf 7.0.0, which new image builds of the pdf extra install.",
       "From 1.15.2 or earlier? This includes the 1.15.3 security fix: afterwards run ./start.sh check --fix (Composer 1.9.2+) so stored files stay private."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.4b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.4"
   },
   "requires": {
     "updater_schema": ">=1",
