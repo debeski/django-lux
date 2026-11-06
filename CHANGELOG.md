@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.4
+
+- **Stable 1.15.4**: Promote the accepted 1.15.4b3: the General Reports fixes and `dlux_backfill_report_activity`, stored-file access for prefixed mounts and published documents, and pages that load only the active theme. It also ships the documentation overhaul (#46): the wheel differs from 1.15.4b3 only in METADATA, `release-manifest.json` and two code comments. Requires Composer `>=1.9.0b2`; no migrations, and no runtime or dependency changes from 1.15.4b3. From 1.15.2 or earlier, run `./start.sh check --fix` (Composer 1.9.2+) afterwards.
 - **Documentation Overhaul**: The manual under `docs/` now describes current behaviour only, with no release narration, beta notes or acceptance evidence. `reference.md` is a lookup sheet of commands, routes, configuration keys, tags and helpers, at half its former length. `FEATURES.md` is a one-page capability map, and feature prose lives in each topic's own doc. New `docs/backups.md` covers backup policy, chains, interruptions, restore and the `.dlb` format. `docs/README.md` indexes every doc.
 - **Docs Hygiene Test**: New `dlux/tests/test_docs_hygiene.py` fails on a broken relative link or anchor, on a `docs/*.md` missing from the index, or on a prerelease version or "unreleased" in the manual. `test_deployment_config_docs` now also finds settings read from `(name, default)` tables, which brought `DLUX_ASSET_MAX_INSTALLER_MB` into the settings inventory.
 - **Corrected Docs**:
