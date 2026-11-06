@@ -1202,7 +1202,7 @@ backup subsystem:
 - `schedule_interval_hours` — due interval, from 1 through 8760 hours; beat polls every 15 minutes.
 - `retention_days` — remove completed backups older than this age (a chain goes when its newest member does); `0` keeps indefinitely.
 - `max_backups_to_keep` — retain the newest completed backups, counting a chain (full + its increments) as one; `0` disables the count limit.
-- `auto_export_target` — validated relative folder inside Django `default_storage`.
+- `auto_export_target` — validated relative folder inside Django `default_storage` (default `dlux_backups`). Never served from `/media/`, wherever it is. It can't be a public folder (`public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/` or a `DLUX_PUBLIC_MEDIA` entry): the settings form refuses one and the normalizer falls back to the default. Uploaded restore files are saved there as `uploaded-<timestamp>-<random>.dlb`.
 - `use_celery` and `exclude_models` — normalized code-owned compatibility keys retained from `DLUX_CONFIG['backup']`.
 - `stall_timeout_minutes` — 2–1440 (default 30). A pending/running backup whose
   `heartbeat_at` is older than this is declared dead and failed.

@@ -145,10 +145,12 @@ Stored files are private by default (stack schema 4). The generated proxy, Caddy
 
 | Request | Result |
 | --- | --- |
-| `dlux_backups/`, `dlux/assets/private/`, `dlux/file_history/`, plus `DLUX_APP_ONLY_MEDIA` | Refused to everyone. The app's own views serve these after their checks (backups, installer downloads, file history). |
+| `dlux_backups/`, `dlux/assets/private/`, `dlux/file_history/`, plus `DLUX_APP_ONLY_MEDIA` and any `.dlb` file | Refused to everyone. The app's own views serve these after their checks (backups, installer downloads, file history). |
 | `public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/`, plus `DLUX_PUBLIC_MEDIA` | Served to anyone (branding on the login page, managed images and fonts). |
 | A registered document file (`register_document_file`) | Served to anyone when its registration's `public(document)` rule returns `True` (1.15.4+; a soft-deleted document is never public). Otherwise served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check (`can_access`, else `view_<model>`). A case variant of its name is refused. |
 | Any other stored file | Served to any signed-in user. |
+
+Whatever a rule above would serve is refused when it is a backup: a file in the folder system backups are written to now (System Settings, Backup, *Automatic export target*, `backup_config.auto_export_target`) or the reports backup folder (`DLUX_CONFIG['reports']['backup_storage_prefix']`), read on each request, or a file a backup record still names after its folder was changed. A custom backup folder needs no `DLUX_APP_ONLY_MEDIA` entry. The backup folder can't be a public folder, because the proxy serves those without asking: System Settings refuses one, and a stored value that is one falls back to `dlux_backups`. Move any backups already kept in a public folder out of it.
 
 A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: private, no-cache`, so a browser revalidates each time.
 
