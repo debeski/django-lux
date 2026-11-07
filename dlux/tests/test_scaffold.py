@@ -218,6 +218,11 @@ class ScaffoldTests(unittest.TestCase):
                 '"--loglevel=info"]',
                 compose_contents,
             )
+            # The web wrapper execs its server, so the supervisor's direct child
+            # is the server itself and a restart waits for it to release :8000.
+            self.assertIn("python -m dlux.updater.supervisor -- bash -c", compose_contents)
+            self.assertIn("exec python manage.py runserver 0.0.0.0:8000", compose_contents)
+            self.assertIn("exec gunicorn -c gunicorn.py config.wsgi:application", compose_contents)
             # Native Compose init containers, not a composer-read label.
             self.assertIn("    pre_start:", compose_contents)
             self.assertIn("${DLUX_MIGRATOR_FLAGS:-}", compose_contents)

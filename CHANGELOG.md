@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Supervisor Waits For The Whole Process Group**: `dlux.updater.supervisor.stop_child()` waited only for its direct child, the `bash -c` wrapper. bash dies at once on SIGTERM, so a generation restart (every inline update and rollback) could start gunicorn while the old master still held :8000; the new master exited with "Address already in use" and took `web` down. It now returns only once the whole process group has exited, SIGKILLs the group after `--grace-seconds`, and reaps the orphaned server as PID 1. Reaches a stack only through a rebuilt image.
+- **Scaffold Web Command Execs Its Server**: the generated `web` command runs `exec gunicorn …` / `exec python manage.py runserver …`, so the server is the supervisor's direct child even under an older image's supervisor. Existing projects add `exec` by hand; Composer does not rewrite this command.
+
 ## v1.15.4
 
 - **Stable 1.15.4**: Promote the accepted 1.15.4b4: the General Reports fixes and `dlux_backfill_report_activity`, stored-file access for prefixed mounts and published documents, pages that load only the active theme, PDF saves that work with pypdf 7, and the documentation overhaul. Requires Composer `>=1.9.0b2`; no migrations, and no runtime or dependency changes from 1.15.4b4. From 1.15.2 or earlier, run `./start.sh check --fix` (Composer 1.9.2+) afterwards.

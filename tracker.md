@@ -33,6 +33,7 @@
 - Generated deployment docs must reflect Compose 5.3+ `pre_start`, Composer external execution, and the retired updater service.
 - 2026-08-31 scoped-model audit: Dlux tenant/user-visible records using row isolation are scoped (`Profile`, `ActivityLog`, notifications/rules/watches); remaining non-scoped concrete tables are global/system/owner-filtered infrastructure, with `GroupProfile.scope` managed manually by preset gates.
 ### Current Project's Unsolved Known Bugs:
+- Supervisor restart race (found 2026-11-07, Archive testbed rollback; published behaviour): `stop_child()` waited for the `bash -c` wrapper, not gunicorn, so a new generation could start while the old master held :8000 and web exited. **Fixed on `1.15/supervisor_restart_wait`** (local commit, unmerged): waits for the whole group, SIGKILL after grace, PID-1 reaping; scaffold `exec`s its server. Owner picks 1.15.5b1 or 1.15.6. The fix reaches a stack only through a rebuilt image; the `exec` reaches it through compose. Consumers still without `exec`: Archive, Decrees, Trademarks, CRM sales + gov, dhub, dlux-panel, min-survey.
 - Separate follow-up: legacy report S5 (inline completion lacks active/target-version verification) remains open. `testbed_break_scenarios.md` leaves the tree on `1.15/docs_overhaul`; historical copies in git history still need an explicit decision. Do not mix either fix into OCR.
 - User-reported 2026-10-13: “Skip for now” does not work in the user preference setup on first login. Reproduction/root cause unverified; investigation and fix deferred.
 - Tag rulesets on these remotes CAN be bypassed with the owner's admin rights (the same bypass that lets `main` take a direct push). So when a release job fails BEFORE anything is published — no PyPI upload, no image push, no release page — delete the tag (`git push origin :refs/tags/vX.Y.Z`), fix, and re-cut the SAME version. Burn a version only when artifacts were actually published (as 1.8.14b1 was). Ask the owner before choosing either path.
@@ -74,12 +75,11 @@
 - **Completed Recently:**
   - [x] Weather needs a route out (found 2026-09-30 on `testbed-dlux`): the scaffold keeps celery off `egress` by design, so b2's OpenWeather calls failed on generated stacks. Fixed by the egress relay — the Composer agent is the only service with internet, only celery writes the channel, secrets are sealed to the agent's key. Composer 1.6.0b1 + DjangoLux 1.10.0b4. smtp-relay stays (decided; see `.xclude/plans/egress_relay_plan.md` section 10). The CRM's rate scrapers use it on `main` (unpushed).
   - [x] Scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`; shipped in 1.9.5b4. Template comment must keep the word `DAC_READ_SEARCH`: Composer <=1.5.3 substring-checks for it.
-  - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-11-06 1.15.4b4 (`de079af`, = `44902eb` tree): full suite 3161 OK on pypdf 6.14.2 and 3158 OK on pypdf 7.0.0 (py3.14, pdf extra), PDF modules 69 OK on pypdf 6.13.0 and 7.0.0, classify / `--base-tag v1.15.3` / bare release_check, build + twine OK; testbed-dlux pre-publish 5 checks.
+- 2026-11-07 `1.15/supervisor_restart_wait` (py3.13 main venv): full suite 3164 OK (6 skipped), `django check` OK, scratch `startproject`/`startapp --register` OK (compose has `exec`), Linux PID-1 gunicorn restart check old/new/old+exec (`.xclude/validation/supervisor-restart-wait-2026-11-07/`).
 ### One-line info about last time edited Docs:
-- 2026-11-06 `1.15/docs_overhaul`: whole manual (audit `main/.xclude/audits/docs-audit-2026-11-05.md`); CHANGELOG `## Unreleased`.
+- 2026-11-07 `1.15/supervisor_restart_wait`: `docs/inline-updater.md` "How `web` and `celery` restart on a new release"; CHANGELOG `## Unreleased`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

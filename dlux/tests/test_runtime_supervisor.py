@@ -5,7 +5,11 @@ setup_test_environment()
 import io
 import json
 import os
+import signal
+import subprocess
+import sys
 import tempfile
+import time
 from pathlib import Path
 from unittest import mock
 
@@ -13,6 +17,143 @@ from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 
 from dlux.updater import supervisor
+
+
+# A stand-in for a gunicorn master: records "start", and on SIGTERM either
+# ignores it or needs SHUTDOWN seconds before it records "stop" and exits.
+SERVER = """\
+import os, signal, sys, time
+events, shutdown = sys.argv[1], sys.argv[2]
+
+def note(event):
+    with open(events, "a", encoding="utf-8") as handle:
+        handle.write(event + "\\n")
+
+def stop(*_):
+    time.sleep(float(shutdown))
+    note("stop")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal.SIG_IGN if shutdown == "ignore" else stop)
+note("start")
+time.sleep(120)
+"""
+
+# The generated web command's shape: a compound bash -c, so bash forks the
+# server instead of exec'ing it and dies on SIGTERM before the server does.
+WRAPPER = 'if true; then echo starting; "$0" "$@"; fi'
+
+
+def _wait_for(predicate, timeout=15.0):
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            raise AssertionError("timed out waiting for the server")
+        time.sleep(0.05)
+
+
+def _group_exists(pgid):
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+class _ServerTestCase(SimpleTestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name)
+        self.server = self.dir / "server.py"
+        self.server.write_text(SERVER, encoding="utf-8")
+        self.events_file = self.dir / "events"
+
+    def events(self):
+        try:
+            return self.events_file.read_text(encoding="utf-8").split()
+        except FileNotFoundError:
+            return []
+
+    def wrapped_server_command(self, shutdown):
+        return ["bash", "-c", WRAPPER, sys.executable, str(self.server), str(self.events_file), str(shutdown)]
+
+    def _kill_leftovers(self, pgid):
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+class StopChildTests(_ServerTestCase):
+    def start_wrapped(self, shutdown):
+        child = subprocess.Popen(
+            self.wrapped_server_command(shutdown), start_new_session=True, stdout=subprocess.DEVNULL
+        )
+        self.addCleanup(self._kill_leftovers, child.pid)
+        _wait_for(lambda: self.events() == ["start"])
+        return child
+
+    def test_returns_only_after_a_bash_wrapped_server_exits(self):
+        child = self.start_wrapped(shutdown=2)
+        began = time.monotonic()
+        supervisor.stop_child(child, grace_seconds=30)
+        self.assertGreaterEqual(time.monotonic() - began, 1.5)
+        self.assertEqual(self.events(), ["start", "stop"])
+        self.assertFalse(_group_exists(child.pid))
+        self.assertIsNotNone(child.returncode)
+
+    def test_kills_the_group_after_the_grace_period(self):
+        child = self.start_wrapped(shutdown="ignore")
+        began = time.monotonic()
+        supervisor.stop_child(child, grace_seconds=1)
+        elapsed = time.monotonic() - began
+        self.assertGreaterEqual(elapsed, 1.0)
+        self.assertLess(elapsed, 1.0 + supervisor.KILL_WAIT_SECONDS)
+        self.assertEqual(self.events(), ["start"])
+        self.assertFalse(_group_exists(child.pid))
+        self.assertIsNotNone(child.returncode)
+
+
+class GenerationRestartTests(_ServerTestCase):
+    """Drive the supervisor process itself through a generation restart."""
+
+    def test_the_next_generation_starts_only_after_the_old_server_stopped(self):
+        state = self.dir / "runtime" / "state"
+        state.mkdir(parents=True)
+        (state / "generation").write_text("0\n", encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH=str(Path(supervisor.__file__).resolve().parents[2]))
+        process = subprocess.Popen(
+            [
+                sys.executable, "-m", "dlux.updater.supervisor",
+                "--runtime-root", str(self.dir / "runtime"),
+                "--poll-seconds", "0.1", "--grace-seconds", "30",
+                "--", *self.wrapped_server_command(shutdown=1.5),
+            ],
+            env=env,
+            stdout=subprocess.DEVNULL,
+        )
+        self.addCleanup(self._stop_supervisor, process)
+        _wait_for(lambda: self.events() == ["start"])
+
+        (state / "generation").write_text("1\n", encoding="utf-8")
+        _wait_for(lambda: len(self.events()) >= 3)
+        self.assertEqual(self.events()[:3], ["start", "stop", "start"])
+
+        process.send_signal(signal.SIGTERM)
+        process.wait(timeout=15)
+        self.assertEqual(self.events(), ["start", "stop", "start", "stop"])
+
+    @staticmethod
+    def _stop_supervisor(process):
+        if process.poll() is not None:
+            return
+        process.send_signal(signal.SIGTERM)
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
 
 
 class VersionOrderingTests(SimpleTestCase):

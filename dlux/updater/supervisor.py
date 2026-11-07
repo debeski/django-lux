@@ -126,22 +126,70 @@ def generation(root):
         return 0
 
 
+KILL_WAIT_SECONDS = 10.0
+
+
 def signal_group(process, sig):
-    if process.poll() is not None:
-        return
+    """Signal the child's process group, even after the direct child has exited.
+
+    The group outlives a ``bash -c`` wrapper that dies first, so its server
+    grandchild must still receive the signal.
+    """
     try:
         os.killpg(process.pid, sig)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
 
 
-def stop_child(process, grace_seconds):
-    signal_group(process, signal.SIGTERM)
-    deadline = time.monotonic() + grace_seconds
-    while process.poll() is None and time.monotonic() < deadline:
-        time.sleep(0.1)
+def _reap_group(process):
+    """Reap exited members of the child's group once the direct child is reaped.
+
+    As PID 1 the supervisor adopts a grandchild orphaned by the wrapper, and an
+    unreaped zombie keeps the group alive. The direct child is reaped first
+    through ``Popen`` so its exit status is not lost.
+    """
     if process.poll() is None:
+        return
+    while True:
+        try:
+            pid, _status = os.waitpid(-process.pid, os.WNOHANG)
+        except ChildProcessError:
+            return
+        if pid == 0:
+            return
+
+
+def _group_running(process):
+    _reap_group(process)
+    if process.poll() is None:
+        return True
+    try:
+        os.killpg(process.pid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+def _wait_group(process, seconds, interval):
+    deadline = time.monotonic() + seconds
+    while _group_running(process):
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(interval)
+    return True
+
+
+def stop_child(process, grace_seconds, sig=signal.SIGTERM):
+    """Stop the child's whole process group and return the direct child's exit code.
+
+    Returns only once every process of the group has exited, so a restart never
+    starts the next generation while the old server still holds its port. The
+    group is SIGKILLed after ``grace_seconds``.
+    """
+    signal_group(process, sig)
+    if not _wait_group(process, grace_seconds, 0.1):
         signal_group(process, signal.SIGKILL)
+        _wait_group(process, KILL_WAIT_SECONDS, 0.05)
     return process.wait()
 
 
@@ -189,8 +237,7 @@ def main(argv=None):
                 restart_requested = True
                 break
         if stopping:
-            signal_group(child, forwarded_signal)
-            return stop_child(child, max(1.0, args.grace_seconds))
+            return stop_child(child, max(1.0, args.grace_seconds), forwarded_signal)
         if restart_requested:
             continue
         return_code = child.poll()
