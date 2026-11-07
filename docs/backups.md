@@ -120,16 +120,20 @@ only.
 Numbers outside their range are clamped to it. The settings form rejects an invalid
 `auto_export_target`. On any other path a value falls back to `dlux_backups` when it
 contains `.` or `..` segments, uses characters other than letters, digits, `.`, `_`,
-`-` and `/`, or is longer than 180 characters.
+`-` and `/`, is longer than 180 characters, or names a public folder.
 
 `use_celery` and `exclude_models` have no field on the settings page. Saving the page
 keeps their stored values, and a settings import carries them. Until System Settings
 stores a backup policy, the whole group comes from the `DLUX_CONFIG['backup']`
 fallback.
 
-Keep the default `dlux_backups` folder. The app serves backups only through its
-superuser views, and a custom `auto_export_target` must also be listed in
-`DLUX_APP_ONLY_MEDIA` (see [Stored files](deployment-configuration.md#stored-files-media)).
+The app serves backups only through its superuser views, and `/media/` never serves
+one, whatever the folder: the media access check refuses any `.dlb` file, the backup
+folder in use, and any file a backup record still names after the folder changed (see
+[Stored files](deployment-configuration.md#stored-files-media)). The folder can't be a
+public folder (`public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/`
+or a `DLUX_PUBLIC_MEDIA` entry), because the proxy serves those without asking the
+app: the settings form refuses one.
 
 ## Schedules and retention
 
@@ -299,7 +303,7 @@ from the passphrase, or from Django `SECRET_KEY` for a server-key backup.
 Restore is superuser-only. It asks for the current password and an explicit
 confirmation that this system's data will be replaced. The source is a backup in the
 history, or a `.dlb` file in the backup folder: one uploaded through the page (saved
-as `uploaded-<timestamp>.dlb`) or one copied there by hand, which the page lists.
+as `uploaded-<timestamp>-<token>.dlb`) or one copied there by hand, which the page lists.
 
 Uploads are capped by `DLUX_DLB_UPLOAD_MAX_MB` (default 512), and the reverse
 proxy's body limit applies first. See

@@ -42,9 +42,10 @@
 - e2e on `5ecb2a9` (2026-10-12): the same 10 failures as d362ee7, all stale tests (e.g. `wizard_security` calls `selectOption` on the now-radio `client_ip_mode`); backup page, global search, tutorial, email, security.
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] **Backup folder media fix (branch `1.15/backup_folder_media`, merged with main `ca2183f`, unpushed; draft GHSA-w9cm-w67h-j969, Moderate 5.3, `< 1.15.5`, publish with 1.15.5)**: `media_decision` refused only `dlux_backups/`; now refuses `.dlb` anywhere, the configured system/report backup folders (per request) and paths named by `SystemBackup`/`ReportBackup` rows; `auto_export_target` can't be a public folder (form + normalizer); uploaded restores `uploaded-<ts>-<token>.dlb`. Stays on the 1.15 line, ships in 1.15.5b1 (owner 2026-11-06); `docs/backups.md` updated after the merge. Next: push + PR on owner OK. Decrees' own proxy serves all `dlux/assets/*` + `profile_pictures/*` (a backup folder there stays public).
   - [x] **1.15.4 published 2026-11-06** (#50 `cb4e418`, run 42242548441 all 10 PASS, GitHub Latest, PyPI latest): b4 renumbered; b4 = b3 + #48 (pypdf 7.0.0 removed `remove_identicals`; PDF saves failed on fresh installs) + #46 docs. Accepted pre- and post-publish (`main/.xclude/validation/1.15.4*-2026-11-06/`).
   - [ ] **Consumers to 1.15.4**: Archive, Decrees and Trademarks install `django-lux[pdf]` with `pypdf>=6.13.0`, so any image built from 2026-11-06 gets pypdf 7.0.0 and PDF saves fail on DjangoLux < 1.15.4; bump the pin, then drop workarounds (CRM root alias, Trademarks `/files/` + `publication/` proxy rule).
-  - [ ] **1.15.5b1**: `1.15/prune_assets_references` (Asset Manager + `dlux_prune_assets` keep FK-referenced files) and `1.15/backup_folder_media` (custom backup folders; advisory decision pending). Docs overhaul (#46) shipped in 1.15.4.
+  - [ ] **1.15.5b1**: `1.15/prune_assets_references` (Asset Manager + `dlux_prune_assets` keep FK-referenced files) and `1.15/backup_folder_media` (custom backup folders; draft GHSA-w9cm-w67h-j969). Docs overhaul (#46) shipped in 1.15.4.
   - [ ] `dlux_prune_assets --apply` deletes the file of an asset that a plain FK still uses (branding `logo_asset`, font variants, ScanLink releases): references come only from `registered_asset_fields()`, and `asset.file.delete()` runs before the PROTECT-refused `asset.delete()`. Own branch; managed-assets.md carries a caution until fixed.
   - [ ] **1.16.0: in-house task manager** (`1.16/task-runner`, session "DjangoLux task runner to replace Celery"): every DjangoLux- and Composer-side task; Composer pair in step. `1.16/postgres_ci` is not task-manager work: retarget to `1.15/postgres_ci`.
   - [ ] Backup page restore-history refresh returns 500 while there are no restores yet (since 1.13.2; found by the Archive 1.5.0 acceptance on DjangoLux 1.15.2, notes in the shared notes folder `dlux-1.15.2-restore-status-500.md`). Own branch, same 1.15.3b1.
@@ -72,14 +73,13 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:**
-  - [x] Weather needs a route out (found 2026-09-30 on `testbed-dlux`): the scaffold keeps celery off `egress` by design, so b2's OpenWeather calls failed on generated stacks. Fixed by the egress relay — the Composer agent is the only service with internet, only celery writes the channel, secrets are sealed to the agent's key. Composer 1.6.0b1 + DjangoLux 1.10.0b4. smtp-relay stays (decided; see `.xclude/plans/egress_relay_plan.md` section 10). The CRM's rate scrapers use it on `main` (unpushed).
   - [x] Scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`; shipped in 1.9.5b4. Template comment must keep the word `DAC_READ_SEARCH`: Composer <=1.5.3 substring-checks for it.
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-11-06 1.15.4b4 (`de079af`, = `44902eb` tree): full suite 3161 OK on pypdf 6.14.2 and 3158 OK on pypdf 7.0.0 (py3.14, pdf extra), PDF modules 69 OK on pypdf 6.13.0 and 7.0.0, classify / `--base-tag v1.15.3` / bare release_check, build + twine OK; testbed-dlux pre-publish 5 checks.
+- 2026-11-06 `1.15/backup_folder_media` merged with main `ca2183f`: full suite 3171 OK (6 skipped, incl. docs hygiene), django check clean. Last release gate: 1.15.4b4 2026-11-06 (3161 OK, release_check, build + twine, testbed-dlux pre-publish).
 ### One-line info about last time edited Docs:
-- 2026-11-06 `1.15/docs_overhaul`: whole manual (audit `main/.xclude/audits/docs-audit-2026-11-05.md`); CHANGELOG `## Unreleased`.
+- 2026-11-06 `1.15/backup_folder_media`: `backups.md` (backup folder never served, can't be public; upload name), `deployment-configuration.md` Stored files, `FEATURES.md`, `security-dsrp-1.md`; CHANGELOG `## Unreleased`. Before: `1.15/docs_overhaul` rewrote the whole manual.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

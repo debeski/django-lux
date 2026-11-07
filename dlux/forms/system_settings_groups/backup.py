@@ -6,6 +6,8 @@ Mixed into SystemSettingsForm; see dlux/forms/system_settings.py.
 import json
 import re
 from django.core.exceptions import ValidationError
+from ...system.media_folders import backup_folder_is_public
+from ...translations import get_strings
 from ...utils import (
     CLIENT_IP_MODE_AUTO,
     CLIENT_IP_MODE_CLOUDFLARE,
@@ -72,4 +74,9 @@ class BackupCleanMixin:
         parts = target.split('/') if target else []
         if not parts or any(part in {'', '.', '..'} or not re.fullmatch(r'[A-Za-z0-9._-]+', part) for part in parts):
             raise ValidationError("Use a relative storage folder containing only letters, numbers, dots, underscores, hyphens, and slashes.")
+        if backup_folder_is_public(target):
+            raise ValidationError(get_strings().get(
+                'error_sys_backup_target_public',
+                'This folder is served to anyone. Choose a folder outside the public media folders.',
+            ))
         return target
