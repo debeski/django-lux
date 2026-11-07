@@ -15,6 +15,10 @@ Decisions, in order:
 - a registered document file follows its document: anyone gets it when the
   registration's ``public`` rule passes, otherwise the user must reach the
   document in its scoped queryset and pass its ``view`` access check;
+- any other file in a folder that holds registered document files, or one a
+  document had before, is refused: a replaced original, a project's own history
+  copy or an orphan has no document left to check. The current file of another
+  field on a document model (an attachment) is the exception;
 - everything else needs a signed-in user.
 
 A project entry is a folder (``products/``) or, when it has a wildcard, a file
@@ -88,8 +92,58 @@ def media_name(uri):
     return name
 
 
+def _stored_under(model, field, folder):
+    """Rows whose ``field`` lies under ``folder`` (any depth), or every stored row for the root.
+
+    Compared without regard to case. A document file and any case variant of its
+    name share a folder, so a request whose folder holds none of a field's files
+    needs no further lookups against that field.
+    """
+    rows = model._base_manager.exclude(**{f'{field}__isnull': True}).exclude(**{field: ''})
+    return rows.filter(**{f'{field}__istartswith': f'{folder}/'}) if folder else rows
+
+
+def _directly_in(rows, field, folder):
+    """Do any of ``rows`` (from `_stored_under`) sit in ``folder`` itself, not in a subfolder?"""
+    from django.db.models import CharField
+    from django.db.models.functions import Substr
+
+    if not folder:
+        return rows.exclude(**{f'{field}__contains': '/'}).exists()
+    return rows.annotate(
+        dlux_media_rest=Substr(field, len(folder) + 2, output_field=CharField()),
+    ).exclude(dlux_media_rest__contains='/').exists()
+
+
+def _earlier_document_file(name):
+    """Does a history row name ``name``, as a document's earlier file or as a kept copy?
+
+    An exact match: these columns have no index, and a case-insensitive scan of
+    both costs several times more on every signed-in request.
+    """
+    from django.db.models import Q
+
+    from dlux.models import FileVersion
+
+    return FileVersion._base_manager.filter(Q(active_name_before=name) | Q(archived_file=name)).exists()
+
+
+def _attachment_of_a_document(name):
+    """Is ``name`` exactly the current file of an unregistered field on a document model?"""
+    from .specs import file_field_names, registered_document_files
+
+    registered = {}
+    for spec in registered_document_files():
+        registered.setdefault(spec.model, set()).add(spec.field_name)
+    return any(
+        model._base_manager.filter(**{field: name}).exists()
+        for model, fields in registered.items()
+        for field in file_field_names(model) if field not in fields
+    )
+
+
 def _document_decision(request, name):
-    """True or False when ``name`` is a registered document file, else None.
+    """True or False when ``name`` is or was among registered document files, else None.
 
     Matched without regard to case: on a case-insensitive host disk a case
     variant reaches the same file, so it must not slip past its document.
@@ -100,13 +154,18 @@ def _document_decision(request, name):
     from .views import can_access
 
     signed_in = request.user.is_authenticated
-    matched = False
+    folder = posixpath.dirname(name)
+    matched = beside = False
     for spec in registered_document_files():
         if not (signed_in or spec.public):
             # Signed out, only a public rule can grant: skip the lookup.
             continue
         model, field = spec.model, spec.field_name
+        nearby = _stored_under(model, field, folder)
+        if not nearby.exists():
+            continue
         if not model._base_manager.filter(**{f'{field}__iexact': name}).exists():
+            beside = beside or _directly_in(nearby, field, folder)
             continue
         matched = True
         if spec.public:
@@ -123,7 +182,12 @@ def _document_decision(request, name):
         for document in queryset.filter(**{field: name})[:_DOCUMENT_CANDIDATES]:
             if can_access(request, spec, document, 'view'):
                 return True
-    return False if matched else None
+    if matched:
+        return False
+    if not signed_in or not (beside or _earlier_document_file(name)):
+        # Signed out, everything unmatched is refused anyway: no more lookups.
+        return None
+    return None if _attachment_of_a_document(name) else False
 
 
 def media_decision(request, name):

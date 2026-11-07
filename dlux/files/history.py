@@ -3,14 +3,20 @@
 Every write goes to a new storage name; nothing is overwritten. Database rows
 are written inside the caller's transaction, but storage writes cannot be rolled
 back, so a failure leaves at worst an unreferenced new file, never a lost one.
+The replaced file leaves the document's folder only after the transaction
+commits, once its history copy is saved.
 """
 
+import logging
 import os
 from io import BytesIO
 
 from django.core.files.base import ContentFile
+from django.db import transaction
 
-from .specs import get_document_file
+from .specs import file_field_names, get_document_file
+
+logger = logging.getLogger(__name__)
 
 
 def _messages(key, default):
@@ -121,6 +127,39 @@ def archive_previous(document, previous_name, *, field_name='pdf_file', user=Non
     return version
 
 
+def _still_named(name):
+    """Does any row's file field, history copies included, still hold ``name``?"""
+    from django.apps import apps
+
+    return any(
+        model._base_manager.filter(**{f'{field}__iexact': name}).exists()
+        for model in apps.get_models() if model._meta.managed and not model._meta.proxy
+        for field in file_field_names(model)
+    )
+
+
+def _drop_replaced(document, version):
+    """After the commit, remove the file `version` replaced; history holds its copy.
+
+    A name some row still holds stays, and a rollback keeps the file the
+    restored row names.
+    """
+    previous = version.active_name_before if version else ''
+    if not previous:
+        return
+    storage = getattr(document, version.field_name).storage
+
+    def drop():
+        try:
+            if not _still_named(previous):
+                storage.delete(previous)
+        except Exception:
+            # The file only stays on disk: the media check refuses it to everyone.
+            logger.warning('Could not remove replaced document file %s', previous, exc_info=True)
+
+    transaction.on_commit(drop, using=document._state.db)
+
+
 def _store(document, field_name, data, user, extra_update=()):
     file_field = getattr(document, field_name)
     saved = file_field.storage.save(target_name(document, field_name), ContentFile(data), max_length=file_field.field.max_length)
@@ -147,6 +186,7 @@ def save_new_version(document, pdf_bytes, *, field_name='pdf_file', user=None, a
     if version:
         version.active_name_after = saved
         version.save(update_fields=['active_name_after'])
+    _drop_replaced(document, version)
     return saved, page_count
 
 
@@ -165,6 +205,7 @@ def record_upload(document, previous_name, *, field_name='pdf_file', user=None):
         document, previous_name, field_name=field_name, user=user,
         action_type='replace' if current else 'clear', active_name_after=current,
     )
+    _drop_replaced(document, version)
     if current and file_field.storage.exists(current):
         from . import detect_file_type, to_pdf_bytes
 

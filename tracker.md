@@ -44,7 +44,7 @@
 - **Priority 1:**
   - [x] **1.15.4 published 2026-11-06** (#50 `cb4e418`, run 42242548441 all 10 PASS, GitHub Latest, PyPI latest): b4 renumbered; b4 = b3 + #48 (pypdf 7.0.0 removed `remove_identicals`; PDF saves failed on fresh installs) + #46 docs. Accepted pre- and post-publish (`main/.xclude/validation/1.15.4*-2026-11-06/`).
   - [ ] **Consumers to 1.15.4**: Archive, Decrees and Trademarks install `django-lux[pdf]` with `pypdf>=6.13.0`, so any image built from 2026-11-06 gets pypdf 7.0.0 and PDF saves fail on DjangoLux < 1.15.4; bump the pin, then drop workarounds (CRM root alias, Trademarks `/files/` + `publication/` proxy rule).
-  - [ ] **1.15.5b1**: `1.15/prune_assets_references` (Asset Manager + `dlux_prune_assets` keep FK-referenced files) and `1.15/backup_folder_media` (custom backup folders; advisory decision pending). Docs overhaul (#46) shipped in 1.15.4.
+  - [ ] **1.15.5b1**: `1.15/prune_assets_references` (Asset Manager + `dlux_prune_assets` keep FK-referenced files) and `1.15/backup_folder_media` (custom backup folders; advisory decision pending) and `1.15/document_media_leftovers` (files beside document files refused; replaced files removed after commit; advisory decision pending). Docs overhaul (#46) shipped in 1.15.4.
   - [ ] `dlux_prune_assets --apply` deletes the file of an asset that a plain FK still uses (branding `logo_asset`, font variants, ScanLink releases): references come only from `registered_asset_fields()`, and `asset.file.delete()` runs before the PROTECT-refused `asset.delete()`. Own branch; managed-assets.md carries a caution until fixed.
   - [ ] **1.16.0: in-house task manager** (`1.16/task-runner`, session "DjangoLux task runner to replace Celery"): every DjangoLux- and Composer-side task; Composer pair in step. `1.16/postgres_ci` is not task-manager work: retarget to `1.15/postgres_ci`.
   - [ ] Backup page restore-history refresh returns 500 while there are no restores yet (since 1.13.2; found by the Archive 1.5.0 acceptance on DjangoLux 1.15.2, notes in the shared notes folder `dlux-1.15.2-restore-status-500.md`). Own branch, same 1.15.3b1.
@@ -77,9 +77,9 @@
   - [x] BLOCKER found and fixed: Composer's `KNOWN_REQUIREMENT_KEYS` lacked `migration_baseline` and fails closed, so **every published Composer would have refused the 1.8.14 manifest outright**. Dlux 1.8.14 was uninstallable as written. Fixed in Composer 1.3.14b1; that is why the manifest requires `>=1.3.14b1` and not `>=1.3.14` — a beta does not satisfy the floor of the release it precedes (2026-09-08).
 
 ### One-line info about last verified Tests:
-- 2026-11-06 1.15.4b4 (`de079af`, = `44902eb` tree): full suite 3161 OK on pypdf 6.14.2 and 3158 OK on pypdf 7.0.0 (py3.14, pdf extra), PDF modules 69 OK on pypdf 6.13.0 and 7.0.0, classify / `--base-tag v1.15.3` / bare release_check, build + twine OK; testbed-dlux pre-publish 5 checks.
+- 2026-11-06 `1.15/document_media_leftovers` (local, unpushed): full suite 3170 OK (6 skipped), django check OK. Earlier, 1.15.4b4 (`de079af`, = `44902eb` tree): full suite 3161 OK on pypdf 6.14.2 and 3158 OK on pypdf 7.0.0 (py3.14, pdf extra), PDF modules 69 OK on pypdf 6.13.0 and 7.0.0, classify / `--base-tag v1.15.3` / bare release_check, build + twine OK; testbed-dlux pre-publish 5 checks.
 ### One-line info about last time edited Docs:
-- 2026-11-06 `1.15/docs_overhaul`: whole manual (audit `main/.xclude/audits/docs-audit-2026-11-05.md`); CHANGELOG `## Unreleased`.
+- 2026-11-06 `1.15/document_media_leftovers`: `deployment-configuration.md` stored-files rules, `document-files.md` history and `/media/` links; CHANGELOG `## Unreleased`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

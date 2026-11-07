@@ -53,3 +53,10 @@ def document_file_fields(model_or_instance):
 
 def registered_document_files():
     return list(_specs.values())
+
+
+def file_field_names(model):
+    """The concrete ``FileField`` (and ``ImageField``) names of ``model``."""
+    from django.db.models import FileField
+
+    return [field.name for field in model._meta.concrete_fields if isinstance(field, FileField)]
