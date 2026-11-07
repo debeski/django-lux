@@ -92,50 +92,51 @@ def media_name(uri):
     return name
 
 
-def _in_document_folder(name):
-    """Does ``name``'s own folder hold a registered document file?
+def _stored_under(model, field, folder):
+    """Rows whose ``field`` lies under ``folder`` (any depth), or every stored row for the root.
 
-    Compared without regard to case, like the document match. Subfolders do not
-    count, so a shared parent folder keeps its other files.
+    Compared without regard to case. A document file and any case variant of its
+    name share a folder, so a request whose folder holds none of a field's files
+    needs no further lookups against that field.
     """
+    rows = model._base_manager.exclude(**{f'{field}__isnull': True}).exclude(**{field: ''})
+    return rows.filter(**{f'{field}__istartswith': f'{folder}/'}) if folder else rows
+
+
+def _directly_in(rows, field, folder):
+    """Do any of ``rows`` (from `_stored_under`) sit in ``folder`` itself, not in a subfolder?"""
     from django.db.models import CharField
     from django.db.models.functions import Substr
 
-    from .specs import registered_document_files
-
-    folder = posixpath.dirname(name)
-    for spec in registered_document_files():
-        field = spec.field_name
-        rows = spec.model._base_manager.exclude(**{f'{field}__isnull': True}).exclude(**{field: ''})
-        if folder:
-            rows = rows.filter(**{f'{field}__istartswith': f'{folder}/'}).annotate(
-                dlux_media_rest=Substr(field, len(folder) + 2, output_field=CharField()),
-            ).exclude(dlux_media_rest__contains='/')
-        else:
-            rows = rows.exclude(**{f'{field}__contains': '/'})
-        if rows.exists():
-            return True
-    return False
+    if not folder:
+        return rows.exclude(**{f'{field}__contains': '/'}).exists()
+    return rows.annotate(
+        dlux_media_rest=Substr(field, len(folder) + 2, output_field=CharField()),
+    ).exclude(dlux_media_rest__contains='/').exists()
 
 
 def _earlier_document_file(name):
-    """Was ``name`` a document's file before, or is it kept as a history copy?"""
+    """Does a history row name ``name``, as a document's earlier file or as a kept copy?
+
+    An exact match: these columns have no index, and a case-insensitive scan of
+    both costs several times more on every signed-in request.
+    """
     from django.db.models import Q
 
     from dlux.models import FileVersion
 
-    return FileVersion._base_manager.filter(Q(active_name_before__iexact=name) | Q(archived_file__iexact=name)).exists()
+    return FileVersion._base_manager.filter(Q(active_name_before=name) | Q(archived_file=name)).exists()
 
 
 def _attachment_of_a_document(name):
-    """Is ``name`` the current file of an unregistered field on a document model?"""
+    """Is ``name`` exactly the current file of an unregistered field on a document model?"""
     from .specs import file_field_names, registered_document_files
 
     registered = {}
     for spec in registered_document_files():
         registered.setdefault(spec.model, set()).add(spec.field_name)
     return any(
-        model._base_manager.filter(**{f'{field}__iexact': name}).exists()
+        model._base_manager.filter(**{field: name}).exists()
         for model, fields in registered.items()
         for field in file_field_names(model) if field not in fields
     )
@@ -153,13 +154,18 @@ def _document_decision(request, name):
     from .views import can_access
 
     signed_in = request.user.is_authenticated
-    matched = False
+    folder = posixpath.dirname(name)
+    matched = beside = False
     for spec in registered_document_files():
         if not (signed_in or spec.public):
             # Signed out, only a public rule can grant: skip the lookup.
             continue
         model, field = spec.model, spec.field_name
+        nearby = _stored_under(model, field, folder)
+        if not nearby.exists():
+            continue
         if not model._base_manager.filter(**{f'{field}__iexact': name}).exists():
+            beside = beside or _directly_in(nearby, field, folder)
             continue
         matched = True
         if spec.public:
@@ -178,7 +184,7 @@ def _document_decision(request, name):
                 return True
     if matched:
         return False
-    if not signed_in or not (_in_document_folder(name) or _earlier_document_file(name)):
+    if not signed_in or not (beside or _earlier_document_file(name)):
         # Signed out, everything unmatched is refused anyway: no more lookups.
         return None
     return None if _attachment_of_a_document(name) else False

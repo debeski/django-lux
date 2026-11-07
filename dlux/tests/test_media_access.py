@@ -121,6 +121,7 @@ class MediaAccessTests(TestCase):
         self.paper.attachment.save('annex.pdf', ContentFile(b'%PDF-1.4'))
         self.assertTrue(self.decide(self.stranger, self.paper.attachment.name))
         self.assertFalse(self.decide(AnonymousUser(), self.paper.attachment.name))
+        self.assertFalse(self.decide(self.stranger, self.paper.attachment.name.upper()))
 
     def test_other_folders_and_subfolders_need_a_signed_in_user(self):
         for name in ('papers/2026/scan.pdf', 'reports/q1.pdf', 'loose.pdf'):
@@ -136,10 +137,19 @@ class MediaAccessTests(TestCase):
             content_type=ContentType.objects.get_for_model(Paper), object_id=self.paper.pk, document_model='Paper',
             version_number=1, active_name_before='scans/2019/old.pdf', archived_file='scans/2019/old_V1.pdf',
         )
-        for name in ('scans/2019/old.pdf', 'scans/2019/old_V1.pdf', 'SCANS/2019/OLD.pdf'):
+        for name in ('scans/2019/old.pdf', 'scans/2019/old_V1.pdf'):
             with self.subTest(name=name):
                 self.assertFalse(self.decide(self.admin, name))
         self.assertTrue(self.decide(self.admin, 'scans/2019/other.pdf'))
+
+    def test_a_file_elsewhere_costs_one_lookup_per_document_field(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as queries:
+            self.assertTrue(self.decide(self.stranger, 'reports/q1.pdf'))
+        papers = [q['sql'] for q in queries.captured_queries if Paper._meta.db_table in q['sql']]
+        self.assertEqual(len(papers), 1, papers)
 
     def test_the_editor_leaves_nothing_fetchable_beside_the_new_file(self):
         from dlux.files.history import save_new_version
