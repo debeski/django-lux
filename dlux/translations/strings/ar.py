@@ -635,6 +635,7 @@ STRINGS = {
     'asset_prune_confirm': 'حذف {count} ملف غير مستخدم نهائياً؟',
     'asset_prune_done': 'تم حذف {count} ملف غير مستخدم.',
     'asset_prune_failed': 'فشل التنظيف.',
+    'asset_prune_unchecked': 'تعذّر التحقق من الملفات المستخدمة، لذلك لم يُحذف أي ملف.',
     'asset_upload_failed': 'تعذر رفع الملف.',
     'asset_upload_unknown_field': 'حقل الرفع هذا غير معروف.',
     'asset_library_empty': 'لا توجد أصول متوافقة قابلة لإعادة الاستخدام بعد.',

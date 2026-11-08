@@ -178,44 +178,54 @@ anything uploaded within the last 24 hours: instant upload registers an asset th
 moment a file is chosen, so a shorter grace period would delete a picture out of a
 record somebody is still writing.
 
-`PROTECT` re-checks each delete, so a reference added between the preview and the
+References are counted the same way as for the command below
+(`dlux.assets.prunable_assets()` reads `referenced_asset_ids()`), so a project's
+`ManagedAssetField` images and assets held only by soft-deleted records are kept. If
+a relation cannot be read, the action removes nothing and says so. `PROTECT`
+re-checks each delete, so a reference added between the preview and the
 confirmation blocks that row rather than the whole run. A stored file is removed
 only after its row is deleted.
 
 ### `dlux_prune_assets`
 
 `python manage.py dlux_prune_assets` reports, or with `--apply` deletes, managed
-assets that no declared `ManagedAssetField` references:
+assets that nothing references:
 
 | Option | Effect |
 | --- | --- |
 | *(none)* | Dry run: print the declared field count, the referenced asset count and the candidates grouped by namespace (the first 20 of each), and delete nothing. |
-| `--apply` | Delete the candidates and their stored files. One failed delete is reported and the run continues. |
+| `--apply` | Delete the candidates, each row before its stored file. One failed delete is reported and the run continues. |
 | `--namespace NS` | Consider only this namespace. Repeatable. |
 | `--kind KIND` | Consider only one asset kind (`image`, `font`, `installer`). |
 | `--include-shared` | Also consider `dlux.shared`, which is skipped by default because it is a curated pool any field may read. |
 
-References are read from the `ManagedAssetField` registry, the same declarations
-the upload endpoint trusts, so a field a project adds is counted without further
-setup. If a declared model cannot be read (an app mid-migration, say), the command
-refuses to prune rather than treat its assets as unreferenced. There is no 24-hour
-grace period: run it when no instant upload is waiting for its form to be saved.
+An asset counts as referenced when any row points at it through any relation to
+`ManagedAsset`: plain foreign keys (DjangoLux's branding fields, font variants and
+ScanLink releases), one-to-ones, many-to-manys, and hidden relations such as the
+`ManagedAssetField`s a project declares, which are also read from the field
+registry. Rows are read through each model's base manager, so a soft-deleted record
+that can still be restored, or a record in another scope, keeps its asset. If a
+relation or declared model cannot be read (an app mid-migration, say), the command
+refuses to prune rather than treat its assets as unreferenced.
 
-Dlux's own branding fields, font variants and ScanLink releases reference their
-assets through plain foreign keys, not `ManagedAssetField`, so assets in
-`dlux.systemsettings`, `dlux.fonts` and `dlux.scanlink` are listed as candidates
-even while in use. With `--apply`, the command deletes such an asset's stored file
-before `PROTECT` refuses the row, which leaves the row without its file. Limit
-`--apply` runs to project namespaces with `--namespace`, or use the Asset Manager's
-**Clean up unused**, which checks every relation.
+Each delete runs in its own transaction and removes the row first. The stored file
+is removed only after that row delete commits, and only when no other asset row uses
+the same file. A delete the database refuses, such as one blocked by a `PROTECT`
+reference added since the scan, is reported as kept and leaves both the row and its
+file in place.
+
+There is no 24-hour grace period: run it when no instant upload is waiting for its
+form to be saved.
 
 ## Image deletion guard
 
-The Images tab shows the relationship usage report returned by
-`collect_related_objects()`. Its delete action is disabled while usages are visible,
-and database `PROTECT` relations remain authoritative if a usage changes between
-display and submission. Deleting an unused image removes its storage object after
-the database transaction commits.
+The Images tab shows the usage report returned by
+`dlux.assets.collect_asset_usages()`: the rows pointing at each image through any
+relation, hidden ones and soft-deleted records included, grouped by model. A
+relation that cannot be read is listed as a usage. Its delete action is disabled
+while usages are visible, and database `PROTECT` relations remain authoritative if a
+usage changes between display and submission. Deleting an unused image removes its
+storage object after the database transaction commits.
 
 ## UI-managed fonts
 

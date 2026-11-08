@@ -7,24 +7,32 @@ deployment accumulates files no page can reach.
 Deliberately conservative, because deleting a file is not undoable:
 
 * **Dry run by default.** `--apply` is the only thing that deletes.
-* **Referenced assets are never touched**, and "referenced" is read from the
-  `ManagedAssetField` registry — the same declarations the upload endpoint
-  trusts — so a field a project adds is counted without this command knowing
-  about it.
+* **Referenced assets are never touched.** "Referenced" is every relation to the
+  asset model (`referenced_asset_ids`: plain foreign keys such as the branding
+  fields, font variants and ScanLink releases, one-to-ones, many-to-manys) plus
+  the `ManagedAssetField` registry, read through each model's base manager so
+  soft-deleted and out-of-scope records count too.
 * **The shared namespace is never pruned.** It is a curated pool any field may
   read, so "nothing points at it" is not evidence it is unused.
-* An asset the registry cannot account for is **kept and reported**, never
-  guessed at.
+* A relation or declaration that cannot be read makes the run **refuse**, never
+  guess.
+* **The row goes first.** Each delete runs in its own transaction, and the file
+  is removed by `ManagedAsset.delete` only once that row delete has committed.
+  A delete the database refuses (a reference that appeared since the scan)
+  leaves both the row and its file as they were.
 """
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.db.models import Q
+from django.db.models.deletion import ProtectedError, RestrictedError
 
+from dlux.assets import referenced_asset_ids
 from dlux.models.asset_field import registered_asset_fields
 from dlux.models.assets import SHARED_ASSET_NAMESPACE
 
 
 class Command(BaseCommand):
-    help = "Report (or with --apply, delete) managed assets no declared field references."
+    help = "Report (or with --apply, delete) managed assets nothing references."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -85,29 +93,32 @@ class Command(BaseCommand):
 
         deleted = 0
         for asset in orphans:
-            stored = getattr(asset.file, 'name', '')
+            pk = asset.pk
             try:
-                if stored:
-                    asset.file.delete(save=False)
-                asset.delete()
-                deleted += 1
+                # The file is scheduled by ManagedAsset.delete for after this
+                # commits, so a refused or rolled-back delete keeps it.
+                with transaction.atomic():
+                    asset.delete()
+            except (ProtectedError, RestrictedError):
+                self.stderr.write(f"    kept #{pk}: it is referenced")
+                continue
             except Exception as exc:
-                # One unreadable file must not abandon the rest of the run.
-                self.stderr.write(f"    could not delete #{asset.pk}: {exc}")
+                # One failure must not abandon the rest of the run.
+                if ManagedAsset.objects.filter(pk=pk).exists():
+                    self.stderr.write(f"    could not delete #{pk}: {exc}")
+                    continue
+                self.stderr.write(f"    deleted #{pk}, but its file could not be removed: {exc}")
+            deleted += 1
         self.stdout.write(self.style.SUCCESS(f"\nDeleted {deleted} of {len(orphans)}."))
 
     def _referenced_ids(self):
-        """Every asset id a declared field currently points at.
-
-        Read per declaration rather than through reverse accessors:
-        `ManagedAssetField` sets `related_name='+'`, so there are none.
-        """
-        referenced = set()
+        """Every asset id any relation or declared field currently points at."""
+        referenced = referenced_asset_ids()
         for declaration in registered_asset_fields().values():
             column = f'{declaration.field_name}_id'
             try:
                 values = (
-                    declaration.model._default_manager
+                    declaration.model._base_manager
                     .filter(~Q(**{column: None}))
                     .values_list(column, flat=True)
                 )
