@@ -638,6 +638,7 @@ STRINGS = {
     'asset_prune_confirm': 'Permanently delete {count} unused file(s)?',
     'asset_prune_done': '{count} unused file(s) removed.',
     'asset_prune_failed': 'Clean-up failed.',
+    'asset_prune_unchecked': 'Could not check which files are in use, so nothing was removed.',
     'asset_upload_failed': 'The file could not be uploaded.',
     'asset_upload_unknown_field': 'This upload field is not recognized.',
     'asset_library_empty': 'No compatible reusable assets yet.',
