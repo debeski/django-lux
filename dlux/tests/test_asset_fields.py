@@ -489,6 +489,35 @@ class AssetPruneTests(TestCase):
         self.assertEqual(payload['count'], 0)
         self.assertTrue(payload['message'])
 
+    def test_an_unreadable_relation_refuses_the_clean_up(self):
+        from unittest import mock
+
+        from dlux.models import ScanLinkRelease
+
+        asset = self._aged_asset()
+        broken = mock.Mock()
+        broken.filter.side_effect = RuntimeError('no such table')
+        with mock.patch.object(ScanLinkRelease._meta, 'base_manager', broken):
+            response = self._client().post(self.url, {'confirm': '1'})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(response.json()['success'])
+        self.assertTrue(response.json()['error'])
+        self.assertTrue(ManagedAsset.objects.filter(pk=asset.pk).exists())
+
+    def test_an_unreadable_relation_keeps_delete_disabled(self):
+        from unittest import mock
+
+        from dlux.assets import collect_asset_usages
+        from dlux.models import ScanLinkRelease
+
+        asset = self._aged_asset()
+        broken = mock.Mock()
+        broken.filter.side_effect = RuntimeError('no such table')
+        with mock.patch.object(ScanLinkRelease._meta, 'base_manager', broken):
+            usages = collect_asset_usages(asset)
+        self.assertIn(str(ScanLinkRelease._meta.verbose_name_plural), usages)
+
     def test_the_manager_action_stays_superuser_only(self):
         client = Client()
         client.force_login(self.staff)
