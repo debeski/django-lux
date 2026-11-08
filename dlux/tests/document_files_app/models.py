@@ -10,6 +10,7 @@ from dlux.models import ScopedModel
 class Paper(ScopedModel):
     title = models.CharField(max_length=100)
     pdf_file = models.FileField(upload_to='papers/', blank=True)
+    attachment = models.FileField(upload_to='papers/', blank=True)
 
     class Meta:
         app_label = 'document_files_app'
