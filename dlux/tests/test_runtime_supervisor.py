@@ -53,9 +53,11 @@ def _wait_for(predicate, timeout=15.0):
 
 
 def _group_exists(pgid):
+    # Like supervisor._group_running: on macOS a group left with only a zombie,
+    # orphaned to launchd and not yet reaped, answers EPERM.
     try:
         os.killpg(pgid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         return False
     return True
 
@@ -81,7 +83,7 @@ class _ServerTestCase(SimpleTestCase):
     def _kill_leftovers(self, pgid):
         try:
             os.killpg(pgid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
 
 
