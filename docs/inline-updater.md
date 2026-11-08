@@ -121,6 +121,40 @@ volume; it never writes the database. The database side is
 matching the installed package (an image swap under a running worker) or the
 runtime volume's generation advances (a release activated by Composer).
 
+### How `web` and `celery` restart on a new release
+
+Both services run their command under the supervisor:
+`python -m dlux.updater.supervisor -- <command>`. The supervisor puts the active
+release on `PYTHONPATH` and starts the command in a process group of its own.
+When `state/generation` on the runtime volume changes, which happens on every
+inline update and rollback, it restarts the command:
+
+1. It sends SIGTERM to the whole process group.
+2. It waits until every process in the group has exited. A server still finishing
+   an in-flight request keeps its port until then.
+3. After `--grace-seconds` (default 30) it sends SIGKILL to the group.
+4. Only then does it start the command again, under the new release.
+
+A SIGTERM or SIGINT sent to the supervisor (`docker stop`) is forwarded and waited
+on the same way, and the supervisor exits with the command's exit code.
+
+`web`'s command is a `bash -c` wrapper that picks `runserver` or `gunicorn` from
+`DEBUG_STATUS`. It `exec`s the server, so the server is the supervisor's direct
+child, not a shell that dies on SIGTERM before the server does.
+
+The two halves reach a stack in different ways:
+
+- **The supervisor** is the image's baked DjangoLux. It is PID 1 and starts before
+  any volume release is on `PYTHONPATH`, so a change to it reaches a stack only
+  through a rebuilt image. Inline updates do not replace it.
+- **The `exec`** lives in the project's `compose.yml`. It takes effect on the next
+  `./start.sh` that recreates `web`, whatever the image.
+
+Keep the `exec` in a hand-edited `compose.yml`. Without it, a supervisor that waits
+only for its direct child starts the next gunicorn while the old master still holds
+port 8000. The new master logs `Address already in use`, exits 1, and takes the
+`web` container down with it.
+
 ## Checking for updates
 
 ### Which releases are eligible: stable and beta

@@ -196,10 +196,10 @@ services:
     command: >
       python -m dlux.updater.supervisor -- bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
           echo "Starting in DEBUG mode with Django development server..."
-          python manage.py runserver 0.0.0.0:8000
+          exec python manage.py runserver 0.0.0.0:8000
       else
           echo "Starting in PRODUCTION mode with Gunicorn..."
-          gunicorn -c gunicorn.py {{ config_package }}.wsgi:application
+          exec gunicorn -c gunicorn.py {{ config_package }}.wsgi:application
       fi'
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
