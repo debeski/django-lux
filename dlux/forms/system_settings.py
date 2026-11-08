@@ -1573,7 +1573,7 @@ class SystemSettingsForm(
         self.fields['backup_max_backups_to_keep'].label = s.get('form_sys_backup_max_backups_to_keep', 'Maximum backups to keep')
         self.fields['backup_max_backups_to_keep'].help_text = s.get('help_sys_backup_max_backups_to_keep', 'Keep only the newest completed backups after each successful backup. Use 0 for no count limit.')
         self.fields['backup_auto_export_target'].label = s.get('form_sys_backup_auto_export_target', 'Automatic export target')
-        self.fields['backup_auto_export_target'].help_text = s.get('help_sys_backup_auto_export_target', 'Storage-relative folder in Django default storage, for example dlux_backups or protected/dlux.')
+        self.fields['backup_auto_export_target'].help_text = s.get('help_sys_backup_auto_export_target', 'Storage-relative folder in Django default storage, for example dlux_backups or backups/system. Never a public folder: public/, branding, managed images and fonts, or a DLUX_PUBLIC_MEDIA entry.')
         self.fields['backup_stall_timeout_minutes'].label = s.get('form_sys_backup_stall_timeout_minutes', 'Stall timeout (minutes)')
         self.fields['backup_stall_timeout_minutes'].help_text = s.get('help_sys_backup_stall_timeout_minutes', 'A running backup that reports no progress for this long is treated as dead and marked failed, so an interrupted worker cannot leave it running forever.')
         self.fields['backup_auto_retry_enabled'].label = s.get('form_sys_backup_auto_retry_enabled', 'Retry failed backups automatically')
