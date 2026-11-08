@@ -41,7 +41,7 @@ tags and helpers are in the [Reference](reference.md).
   searchable printable/XLSX reports. See [Operations](operations.md).
 - **Backups:** full, data-only, portable and incremental backups, encrypted with the
   server key or a passphrase, with scheduling, retention, restore and an offline
-  viewer. See [Backups](backups.md) and the
+  viewer. Backups are never served from `/media/`. See [Backups](backups.md) and the
   [DLB viewer](../tools/dlb-viewer/README.md).
 - **Managed assets:** uploaded images, WOFF2 fonts and protected installer files.
   See [Managed Assets](managed-assets.md).

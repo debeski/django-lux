@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import secrets
 
 from django.apps import apps
 from django.conf import settings
@@ -657,7 +658,9 @@ def system_backup_upload_view(request):
         notify.error(s.get('sysbackup_upload_invalid'), request=request, action='backup_upload_invalid', category='backup')
         return redirect('system_backup_page')
     stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
-    default_storage.save(f'{get_system_backup_storage_prefix()}/uploaded-{stamp}.dlb', uploaded)
+    # Unguessable like `system-{token}.dlb`: an upload may be unencrypted.
+    name = f'uploaded-{stamp}-{secrets.token_urlsafe(16)}.dlb'
+    default_storage.save(f'{get_system_backup_storage_prefix()}/{name}', uploaded)
     notify.success(s.get('sysbackup_upload_done'), request=request, action='backup_upload_done', category='backup')
     return redirect('system_backup_page')
 

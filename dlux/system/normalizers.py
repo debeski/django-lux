@@ -10,6 +10,7 @@ import re
 from copy import deepcopy
 from urllib.parse import urlsplit
 from .booleans import parse_boolean as _to_bool
+from .media_folders import backup_folder_is_public
 
 from .constants import (
     GROUP_HOME_URLS_KEY,
@@ -1012,6 +1013,7 @@ def normalize_backup_config(value):
         not target_parts
         or len(raw_target) > 180
         or any(part in {'', '.', '..'} or not _BACKUP_TARGET_SEGMENT_RE.fullmatch(part) for part in target_parts)
+        or backup_folder_is_public(raw_target)
     ):
         raw_target = defaults['auto_export_target']
 

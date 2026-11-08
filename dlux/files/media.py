@@ -7,9 +7,9 @@ proxy never hands a stored file to someone the app itself would refuse.
 
 Decisions, in order:
 
-- folders only the app serves (backups, protected assets, file history) and
-  ``DLUX_APP_ONLY_MEDIA`` are refused to everyone; their own views serve them
-  after their checks;
+- folders only the app serves (backups, protected assets, file history),
+  ``DLUX_APP_ONLY_MEDIA`` and any ``.dlb`` archive are refused to everyone;
+  their own views serve them after their checks;
 - public folders (branding, managed images and fonts, ``public/``) and
   ``DLUX_PUBLIC_MEDIA`` are served to anyone;
 - a registered document file follows its document: anyone gets it when the
@@ -21,53 +21,35 @@ Decisions, in order:
   field on a document model (an attachment) is the exception;
 - everything else needs a signed-in user.
 
+Whatever would be granted is refused when it is a backup: a file in the folder
+system or report backups are written to now (``backup_config.auto_export_target``
+and ``DLUX_CONFIG['reports']['backup_storage_prefix']``, read per request), or
+one a backup record names, so moving the folder does not expose older backups.
+
 A project entry is a folder (``products/``) or, when it has a wildcard, a file
 pattern matched one folder level per ``/`` (``publication/*.png``).
 """
 
 import posixpath
-from fnmatch import fnmatchcase
 from urllib.parse import unquote, urlsplit
 
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.decorators.http import require_safe
 
-#: Served only by the app's own views, never by the proxy.
-APP_ONLY_MEDIA = ('dlux_backups/', 'dlux/assets/private/', 'dlux/file_history/')
-#: Served to anyone. Keep in step with the public `/media/` routes of the
-#: scaffold's `.proxy/Caddyfile` and `.proxy/default.conf.template`.
-PUBLIC_MEDIA = ('public/', 'dlux/branding/', 'dlux/assets/image/', 'dlux/assets/font/')
+from dlux.system.media_folders import (  # noqa: F401  re-exported
+    APP_ONLY_MEDIA,
+    BACKUP_SUFFIX,
+    PUBLIC_MEDIA,
+    backup_folder_is_public,
+    is_public_media,
+    listed as _listed,
+)
+
 #: Set by the proxy on its sub-request (both templates overwrite any client value).
 FORWARDED_URI = 'HTTP_X_FORWARDED_URI'
 #: Documents checked per registered field for one requested name.
 _DOCUMENT_CANDIDATES = 5
-_WILDCARDS = frozenset('*?[')
-
-
-def _listed(name, builtin, setting):
-    """Is ``name`` under one of the folders, or matched by one of the patterns?
-
-    Compared without regard to case: on a case-insensitive host disk a case
-    variant reaches the same file.
-    """
-    extra = getattr(settings, setting, ()) or ()
-    if isinstance(extra, str):
-        extra = (extra,)
-    key = name.casefold()
-    parts = key.split('/')
-    for entry in (*builtin, *extra):
-        entry = str(entry or '').strip('/').casefold()
-        if not entry:
-            continue
-        if _WILDCARDS.isdisjoint(entry):
-            if (key + '/').startswith(entry + '/'):
-                return True
-            continue
-        pattern = entry.split('/')
-        if len(pattern) == len(parts) and all(map(fnmatchcase, parts, pattern)):
-            return True
-    return False
 
 
 def media_name(uri):
@@ -190,14 +172,44 @@ def _document_decision(request, name):
     return None if _attachment_of_a_document(name) else False
 
 
+def backup_folders():
+    """The folders system and report backups are written to now."""
+    from dlux.backup.config import get_system_backup_storage_prefix
+    from dlux.reports.archive import get_backup_storage_prefix
+
+    return (get_system_backup_storage_prefix(), get_backup_storage_prefix())
+
+
+def _is_backup(name):
+    """Is ``name`` in a backup folder, or a file a backup record names?"""
+    from django.db.models import Q
+
+    from dlux.models import ReportBackup, SystemBackup
+
+    if _listed(name, backup_folders()):
+        return True
+    archives = Q(file_path__iexact=name)
+    stem, dot, suffix = name.rpartition('.')
+    if dot and suffix.casefold() == 'idx':
+        # A member's row-index sidecar sits beside its archive (`SystemBackup.index_path`).
+        archives |= Q(file_path__iexact=f'{stem}{BACKUP_SUFFIX}')
+    return (
+        SystemBackup._base_manager.filter(archives).exists()
+        or ReportBackup._base_manager.filter(file_path__iexact=name).exists()
+    )
+
+
 def media_decision(request, name):
     """May ``request`` fetch the stored file ``name`` from the proxy?"""
-    if _listed(name, APP_ONLY_MEDIA, 'DLUX_APP_ONLY_MEDIA'):
+    if _listed(name, APP_ONLY_MEDIA, 'DLUX_APP_ONLY_MEDIA') or name.casefold().endswith(BACKUP_SUFFIX):
         return False
-    if _listed(name, PUBLIC_MEDIA, 'DLUX_PUBLIC_MEDIA'):
-        return True
-    decision = _document_decision(request, name)
-    return request.user.is_authenticated if decision is None else decision
+    if is_public_media(name):
+        allowed = True
+    else:
+        decision = _document_decision(request, name)
+        allowed = request.user.is_authenticated if decision is None else decision
+    # Looked up only when the answer would be yes, so refusals stay query-free.
+    return allowed and not _is_backup(name)
 
 
 @require_safe

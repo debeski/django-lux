@@ -10,9 +10,10 @@ from django.core.files.base import ContentFile
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from dlux.files.media import APP_ONLY_MEDIA, PUBLIC_MEDIA, media_decision, media_name
+from dlux.files.media import APP_ONLY_MEDIA, PUBLIC_MEDIA, backup_folder_is_public, media_decision, media_name
 from dlux.files.registry import register_document_file, unregister_document_file
-from dlux.models import Scope, ScopeSettings, SystemSettings
+from dlux.models import ReportBackup, Scope, ScopeSettings, SystemBackup, SystemSettings
+from dlux.system.normalizers import normalize_backup_config
 from dlux.tests.document_files_app.models import Paper
 
 PROXY_TEMPLATES = Path(__file__).resolve().parents[1] / 'scaffold' / 'templates' / 'project' / '.proxy'
@@ -262,6 +263,87 @@ class MediaAccessTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.post(reverse('dlux_media_access'), HTTP_X_FORWARDED_URI='/media/public/a.pdf')
         self.assertEqual(response.status_code, 405)
+
+
+class BackupMediaTests(TestCase):
+    """Backups are refused wherever they are written, not only in `dlux_backups/`."""
+
+    def setUp(self):
+        self.settings_obj = SystemSettings.load()
+        self.settings_obj.is_configured = True
+        self.settings_obj.save()
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.admin = get_user_model().objects.create_superuser('backup-admin', 'backup-admin@example.com', 'pw12345!')
+
+    def use_folder(self, folder):
+        self.settings_obj.backup_config = normalize_backup_config({'auto_export_target': folder})
+        self.settings_obj.save(update_fields=['backup_config'])
+        cache.clear()
+
+    def decide(self, user, name):
+        request = RequestFactory().get('/sys/files/media-access/')
+        request.user = user
+        return media_decision(request, name)
+
+    def test_the_configured_backup_folder_is_refused_even_to_a_superuser(self):
+        self.use_folder('backups/system')
+        for name in ('backups/system/system-abc.dlb', 'backups/system/system-abc.idx',
+                     'backups/system/uploaded-20261106-101500.dlb', 'backups/system/notes.txt',
+                     'BACKUPS/System/system-abc.idx'):
+            with self.subTest(name=name):
+                self.assertFalse(self.decide(self.admin, name))
+        self.assertTrue(self.decide(self.admin, 'backups/other/notes.txt'))
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse('dlux_media_access'), HTTP_X_FORWARDED_URI='/media/backups/system/system-abc.idx')
+        self.assertEqual(response.status_code, 403)
+
+    def test_the_folder_is_read_per_request(self):
+        self.use_folder('vault')
+        self.assertFalse(self.decide(self.admin, 'vault/system-abc.idx'))
+        self.use_folder('dlux_backups')
+        self.assertTrue(self.decide(self.admin, 'vault/notes.txt'))
+
+    def test_a_backup_archive_is_refused_in_any_folder(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        for name in ('papers/system-abc.dlb', 'public/full.dlb', 'Exports/FULL.DLB'):
+            with self.subTest(name=name):
+                self.assertFalse(self.decide(self.admin, name))
+                self.assertFalse(self.decide(AnonymousUser(), name))
+
+    def test_backups_left_in_a_former_folder_stay_refused(self):
+        SystemBackup.objects.create(requested_by_username='system', file_path='old_vault/system-abc.dlb')
+        ReportBackup.objects.create(user=self.admin, file_path='old_reports/report-abc.zip')
+        self.use_folder('new_vault')
+        for name in ('old_vault/system-abc.idx', 'OLD_VAULT/system-abc.IDX', 'old_reports/report-abc.zip'):
+            with self.subTest(name=name):
+                self.assertFalse(self.decide(self.admin, name))
+        self.assertTrue(self.decide(self.admin, 'old_vault/notes.txt'))
+
+    @override_settings(DLUX_PUBLIC_MEDIA=['exports/'], DLUX_CONFIG={'reports': {'backup_storage_prefix': 'exports/reports'}})
+    def test_the_report_backup_folder_is_refused_even_inside_a_public_folder(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        self.assertFalse(self.decide(AnonymousUser(), 'exports/reports/abc.zip'))
+        self.assertFalse(self.decide(self.admin, 'exports/reports/abc.zip'))
+        self.assertTrue(self.decide(AnonymousUser(), 'exports/catalogue.pdf'))
+
+    def test_refusals_to_signed_out_visitors_stay_query_free(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        with self.assertNumQueries(0):
+            self.assertFalse(self.decide(AnonymousUser(), 'backups/system/system-abc.idx'))
+
+    @override_settings(DLUX_PUBLIC_MEDIA=['exports/', 'gallery/*'])
+    def test_public_folders_cannot_hold_backups(self):
+        for folder in ('public', 'public/backups', 'PUBLIC/backups', 'dlux/branding', 'dlux/assets/image/x',
+                       'dlux/assets/font', 'exports', 'exports/system', 'gallery'):
+            with self.subTest(folder=folder):
+                self.assertTrue(backup_folder_is_public(folder))
+        for folder in ('dlux_backups', 'backups/system', 'publicity', 'dlux', 'dlux/assets', 'gallery/old', ''):
+            with self.subTest(folder=folder):
+                self.assertFalse(backup_folder_is_public(folder))
 
 
 class ProxyTemplateTests(SimpleTestCase):
