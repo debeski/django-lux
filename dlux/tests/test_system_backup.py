@@ -6,6 +6,7 @@ from dlux.tests.harness import setup_test_environment
 
 setup_test_environment()
 
+import shutil
 import tempfile
 from unittest import mock
 
@@ -68,6 +69,29 @@ class SystemBackupPolicyTests(TestCase):
         self.assertEqual(normalize_backup_config({'auto_export_target': '../escape'})['auto_export_target'], 'dlux_backups')
         self._save_config(auto_export_target='protected/dlux')
         self.assertEqual(get_system_backup_storage_prefix(), 'protected/dlux')
+
+    @override_settings(DLUX_PUBLIC_MEDIA=['exports/'])
+    def test_the_backup_folder_cannot_be_a_public_folder(self):
+        for folder in ('public', 'public/backups', 'dlux/branding', 'dlux/assets/image', 'Dlux/Assets/Font/x',
+                       'exports', 'exports/system'):
+            with self.subTest(folder=folder):
+                self.assertEqual(normalize_backup_config({'auto_export_target': folder})['auto_export_target'], 'dlux_backups')
+        self.assertEqual(normalize_backup_config({'auto_export_target': 'backups/system'})['auto_export_target'], 'backups/system')
+
+    @override_settings(DLUX_PUBLIC_MEDIA=['exports/'])
+    def test_the_settings_form_refuses_a_public_backup_folder(self):
+        from django.core.exceptions import ValidationError
+
+        from dlux.forms.system_settings_groups.backup import BackupCleanMixin
+
+        form = BackupCleanMixin()
+        form.instance = self.settings_obj
+        for folder in ('public/backups', 'dlux/branding', 'exports'):
+            form.cleaned_data = {'backup_auto_export_target': folder}
+            with self.subTest(folder=folder), self.assertRaises(ValidationError):
+                form.clean_backup_auto_export_target()
+        form.cleaned_data = {'backup_auto_export_target': '/backups/system/'}
+        self.assertEqual(form.clean_backup_auto_export_target(), 'backups/system')
 
     def test_count_retention_keeps_newest_completed_backups(self):
         self._save_config(max_backups_to_keep=2)
@@ -616,6 +640,16 @@ class DlbUploadViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(notify.error.call_args.kwargs['action'], 'backup_upload_invalid')
+
+    def test_an_uploaded_backup_gets_an_unguessable_name(self):
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, True)
+        with override_settings(MEDIA_ROOT=media), mock.patch('dlux.views.backup.read_dlb_metadata', return_value={}):
+            _response, notify = self._post(backup_file=ContentFile(b'DLB', name='mine.dlb'))
+            _dirs, files = default_storage.listdir(get_system_backup_storage_prefix())
+        self.assertEqual(notify.success.call_args.kwargs['action'], 'backup_upload_done')
+        self.assertEqual(len(files), 1)
+        self.assertRegex(files[0], r'^uploaded-\d{8}-\d{6}-[A-Za-z0-9_-]{22}\.dlb$')
 
     def test_page_shows_the_copy_into_backup_folder_route(self):
         response = self.client.get(reverse('system_backup_page'))
