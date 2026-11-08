@@ -9,6 +9,10 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+## v1.15.5
+
+- **Stable 1.15.5**: Promote the accepted 1.15.5b1: backups stay private in any backup folder and System Settings refuses a public one, files left beside document files are refused at `/media/`, asset clean-up keeps assets that are still in use, and updates and rollbacks wait for the old web server to stop (with a rebuilt image). Requires Composer `>=1.9.0b2`; no migrations, and no runtime or dependency changes from 1.15.5b1. From 1.15.2 or earlier, run `./start.sh check --fix` (Composer 1.9.2+) afterwards.
+
 ## v1.15.5b1
 
 - **1.15.5 Candidate 1**: Patch beta on 1.15.4 with the stored-file, asset and updater-supervisor fixes below. No migrations, dependency or runtime-requirement changes; Composer `>=1.9.0b2` still suffices, and there is no paired Composer or ScanLink beta.

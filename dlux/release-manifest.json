@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.15.5b1",
+  "version": "1.15.5",
   "display": {
     "summary": "Stored-file and asset fixes: backups stay private in any backup folder, files left beside document files are refused at /media/, and asset clean-up keeps assets that are still in use. Updates now wait for the old web server to stop.",
     "highlights": [
@@ -12,7 +12,7 @@
       "Updates and rollbacks wait for the old web server to exit before starting the new one; this takes effect with a rebuilt image.",
       "From 1.15.2 or earlier? This includes the 1.15.3 security fix: afterwards run ./start.sh check --fix (Composer 1.9.2+) so stored files stay private."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.5b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.5"
   },
   "requires": {
     "updater_schema": ">=1",
