@@ -89,8 +89,11 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
   rotation, timings), page count, mean confidence, timings, duration, attempts,
   error, and `file_version` (the `FileVersion` whose save produced this file).
 - **Flow**: `post_save` on a registered model schedules after commit
-  (`dlux.ocr.service.schedule`). The Celery task `dlux.tasks.ocr_file` runs at
-  Redis priority 6 (automatic), 0 (Run OCR) or 9 (backfill). It retries a busy or
+  (`dlux.ocr.service.schedule`). The task `dlux.tasks.ocr_file` (defined in
+  `dlux.jobs`) runs at priority -6 (automatic), 0 (Run OCR) or -9 (backfill) in
+  `django.tasks` terms, which Celery's Redis transport receives as 6, 0 and 9. It
+  is `requeue_lost` (Celery `acks_late`), so a run lost with a dead worker is
+  queued again. It retries a busy or
   unreachable service after 30 s, 1, 2, 5, 10, 15, 30 and 60 minutes before
   marking the row `failed`; a `422`-type refusal fails at once; a file changed
   before the worker ran is `skipped`.
@@ -110,9 +113,10 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
 ### Background catch-up and model selection
 
 Celery is optional for importing the core/PDF package and reading saved text.
-Viewer-triggered, automatic and background OCR need a configured Celery worker;
-their task entrypoints are disabled when Celery is absent. Synchronous CLI
-backfill still runs without it.
+Viewer-triggered, automatic and background OCR need a task worker: Celery by
+default, or `dlux_worker` under `DLUX_TASK_BACKEND = "dlux"` (see
+[Task Runner](task-runner.md)). Under Celery the task entrypoints are disabled
+when Celery is absent. Synchronous CLI backfill runs without either.
 
 **Read older files in the background** (off by default) finds registered files
 with no finished result while OCR is enabled, including entries created before
@@ -136,11 +140,13 @@ background/CLI backfill. An empty selection disables all automatic reads.
 - Existing text stays readable and searchable, and replacing an excluded file
   still invalidates stale current text.
 
-The scanner is `dlux.tasks.ocr_background`, which Celery Beat runs once per
-minute, gated by the configured interval. It:
+The scanner is `dlux.tasks.ocr_background`, which runs once per minute (Celery
+Beat, or the `dlux-ocr-background` entry of `DLUX_TASK_SCHEDULE`), gated by the
+configured interval. It:
 
 - rotates across registered fields, using a shared-cache lock and checkpoints,
-  limits scan work, and sends `backfill` tasks at priority 9;
+  limits scan work, and sends `backfill` tasks at the lowest priority (Celery 9,
+  dlux -9);
 - does not re-read completed, failed or skipped results; failed files can be
   retried manually or with `dlux_ocr_backfill --retry-failed` for included
   models;

@@ -4,6 +4,15 @@ This page records live compatibility contracts and their concrete removal target
 
 ## Active through v1.x
 
+### Celery as DjangoLux's task backend
+
+DjangoLux owns the task manager from 1.16.0, and every DjangoLux-side and Composer-side task runs on it. Celery stays only for project-side tasks. See [Task Runner](task-runner.md).
+- **1.16.0:** `DLUX_TASK_BACKEND` defaults to `"dlux"`, and the scaffolds and Composer run `dlux_worker`.
+- **1.17.0:** running DjangoLux's own work on Celery is deprecated: the `DLUX_TASK_BACKEND = "celery"` value, `dlux/tasks.py` (the Celery task attributes `build_system_backup_task`, `ocr_file`, ...) and the Celery twins of `@task`. The deprecation also covers the Celery branches of `dlux.taskrunner.enqueue` and `worker_alive`, `dlux.updater.celery_control`, the Celery Options row, and `dlux_settings()` adding DjangoLux's entries to `CELERY_BEAT_SCHEDULE`.
+- **Removal:** version not set yet. Celery itself stays available to projects.
+
+Task names stay `dlux.tasks.*`.
+
 ### Homepage settings aliases
 
 `SystemSettings.homepage_config` is canonical. The legacy `home_url`, `public_root_config`, and profile landing-page permission paths are mirrored on save, accepted by runtime configuration/import, and scheduled for removal in v2.0. Move host code to `homepage_config` now; user-facing copy should call the anonymous destination the public page.

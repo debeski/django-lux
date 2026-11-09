@@ -160,6 +160,9 @@ LOG_FORCED_EXCLUDED_MODEL_KEYS = {
     'contenttypes.contenttype',
     'admin.logentry',
     'auth.permission',
+    # Task-queue bookkeeping, written every few seconds by the worker.
+    'dlux.dluxtaskrun',
+    'dlux.dluxtaskworker',
 }
 
 # Synthetic config/catalog key for the unified user identity (User + Profile changes). The

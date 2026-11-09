@@ -1268,6 +1268,8 @@ STRINGS = {
     'service_celery_workers_online': '{count} worker(s) responded to the health ping.',
     'service_celery_recheck': 'Check worker health',
     'service_celery_check_failed': 'Check failed',
+    'service_task_worker_offline': 'No dlux_worker has sent a heartbeat in the last {seconds} seconds; queued tasks wait until one runs.',
+    'service_task_workers_online': '{count} worker(s) running; {ready} task(s) due, {failed} failed.',
     'database': 'Database',
     'cache': 'Cache',
     'tasks': 'Task Server',

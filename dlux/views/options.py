@@ -669,6 +669,41 @@ def _get_email_service():
     return _service_status(state, detail=detail, note_key=note_key)
 
 
+def _get_dlux_worker_service():
+    """The Tasks row under ``DLUX_TASK_BACKEND = "dlux"``: worker heartbeats, read from the database."""
+    from ..taskrunner.config import runner_config
+    from ..taskrunner.queue import live_dlux_workers, queue_summary
+
+    detail = 'dlux_worker'
+    try:
+        count = live_dlux_workers().count()
+        summary = queue_summary()
+    except Exception as exc:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note=f'Error: {exc}',
+            note_key='service_error_detail',
+            note_context={'error': str(exc)},
+        )
+    if not count:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note='No dlux_worker has sent a heartbeat in the last {seconds} seconds; queued tasks wait until one runs.',
+            note_key='service_task_worker_offline',
+            note_context={'seconds': runner_config()['stale_after']},
+        )
+    failed = summary['failed'] + summary['schedules_failing']
+    return _service_status(
+        'degraded' if failed else 'online',
+        detail=detail,
+        note='{count} worker(s) running; {ready} task(s) due, {failed} failed.',
+        note_key='service_task_workers_online',
+        note_context={'count': count, 'ready': summary['ready'], 'failed': failed},
+    )
+
+
 def _get_celery_service(probe=False):
     """Resolve the Tasks (Celery) service status.
 
@@ -679,7 +714,14 @@ def _get_celery_service(probe=False):
     pinged ONLY when ``probe=True`` (the on-demand recheck endpoint). On a normal
     page load (``probe=False``) the last persisted result is shown, or a neutral
     "not checked yet" state when no check has been run.
+
+    Under ``DLUX_TASK_BACKEND = "dlux"`` the row reports ``dlux_worker``
+    heartbeats instead: a database read, so it is always current.
     """
+    from ..taskrunner import uses_dlux_backend
+
+    if uses_dlux_backend():
+        return _get_dlux_worker_service()
     is_configured = any([
         getattr(settings, 'CELERY_BROKER_URL', ''),
         getattr(settings, 'CELERY_RESULT_BACKEND', ''),

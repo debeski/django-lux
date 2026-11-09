@@ -67,6 +67,8 @@ class DluxConfig(AppConfig):
             import dlux.updater.celery_control
         except ImportError:
             pass
+        # DLUX_TASK_BACKEND / DLUX_TASK_SCHEDULE system checks.
+        import dlux.taskrunner.checks  # noqa: F401
 
         # Auto-inject scope handling into ModelForm / FilterSet / Table
         from dlux.patches import apply_scoped_patches, apply_global_translation_patches

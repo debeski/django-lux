@@ -117,6 +117,17 @@ keeps both pointed at one runtime volume.
 See the [Verified Inline Updater](inline-updater.md) for volume ownership,
 release verification, maintenance, recovery, and rollback behavior.
 
+## Background Tasks
+
+| Setting | Source | Type / default | Purpose |
+|---|---|---|---|
+| `DLUX_TASK_BACKEND` | Django setting or environment through `dlux_settings()` | `"celery"` (default) or `"dlux"` | Where DjangoLux's own tasks run. `celery` runs them on the Celery worker and beat. `dlux` queues them in the database and runs them with `python manage.py dlux_worker`; no broker is needed for DjangoLux's tasks, and `dlux_settings()` takes DjangoLux's entries out of `CELERY_BEAT_SCHEDULE`, so a Celery worker kept for project tasks never runs them too. See [Deprecation Countdown](deprecation-countdown.md) for the planned default. Any other value fails the `dlux.E101` system check and is treated as `celery`. Under `dlux` on Django 6.0+, `dlux_settings()` also points the project's `TASKS["default"]` at the same queue unless the project set `TASKS` itself. |
+| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | The `dlux_worker` schedule: DjangoLux adds its four entries (state tick, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. Only read under the `dlux` backend. |
+| `DLUX_TASK_RUNNER` | Django setting | dict, see defaults | Worker tuning: `threads` (4), `queues` (`["default"]`), `poll_interval` (1 s), `heartbeat_interval` (10 s), `stale_after` (60 s, when a silent worker's runs count as lost), `keep_successful` (1 day) and `keep_failed` (7 days) retention, `max_recoveries` (3), `shutdown_grace` (25 s). |
+
+See [Task Runner](task-runner.md) for the queue, retries and recovery, and
+[Deprecation Countdown](deprecation-countdown.md) for the planned default.
+
 ## Names That Are Not Deployment Settings
 
 The following names may appear in templates, JavaScript, tests, or historical

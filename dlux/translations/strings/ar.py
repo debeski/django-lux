@@ -1263,6 +1263,8 @@ STRINGS = {
     'service_celery_workers_online': 'استجاب {count} عامل (worker) لفحص السلامة.',
     'service_celery_recheck': 'فحص حالة العمّال (workers)',
     'service_celery_check_failed': 'فشل الفحص',
+    'service_task_worker_offline': 'لم يرسل أي عامل dlux_worker نبضة خلال آخر {seconds} ثانية؛ تنتظر المهام في الطابور حتى يعمل أحدها.',
+    'service_task_workers_online': '{count} عامل (worker) قيد التشغيل؛ {ready} مهمة مستحقة، و{failed} فشلت.',
     'database': 'قاعدة البيانات (Database)',
     'cache': 'التخزين المؤقت (Cache)',
     'tasks': 'خادم المهام (Tasks)',

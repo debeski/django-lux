@@ -16,6 +16,10 @@ _SYSTEM_BACKUP_EXCLUDED = {
     "dlux.systemrestore",
     "dlux.dluxupdatestate",
     "dlux.dluxupdaterun",
+    # The task queue: a restore runs as one of its rows, so it must never
+    # replace the table it is recorded in, and queued work is not data.
+    "dlux.dluxtaskrun",
+    "dlux.dluxtaskworker",
 }
 
 

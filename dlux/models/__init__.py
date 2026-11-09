@@ -100,6 +100,10 @@ from .updater import (  # noqa: F401
     DluxUpdateRun,
     DluxUpdateState,
 )
+from .taskrunner import (  # noqa: F401
+    DluxTaskRun,
+    DluxTaskWorker,
+)
 from .activity import (  # noqa: F401
     ActivityLog,
     Section,
@@ -117,6 +121,8 @@ __all__ = [
     'DluxOpsRun',
     'DluxUpdateRun',
     'DluxUpdateState',
+    'DluxTaskRun',
+    'DluxTaskWorker',
     'GroupMembership',
     'GroupProfile',
     'DEFAULT_ASSET_NAMESPACE',

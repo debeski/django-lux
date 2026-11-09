@@ -190,31 +190,21 @@ def _report_backup_model():
 
 def report_backup_celery_available():
     """True when the backup task can actually run in the background right now:
-    celery importable, broker reachable, and at least one live worker."""
+    background builds on, and a live task worker (Celery or ``dlux_worker``)."""
     if not _reports_config().get("backup_use_celery", True):
         return False
-    try:
-        from ..tasks import build_report_backup_task
-    except Exception:
-        return False
-    if build_report_backup_task is None:
-        return False
-    try:
-        app = build_report_backup_task.app
-        with app.connection_for_write() as conn:
-            conn.ensure_connection(max_retries=0, timeout=2)
-        return bool(app.control.ping(timeout=1.0))
-    except Exception:
-        return False
+    from ..taskrunner import worker_alive
+
+    return worker_alive()
 
 
 def dispatch_report_backup(backup):
-    """Queue the backup build on Celery. Returns True when queued."""
+    """Queue the backup build on the task worker. Returns True when queued."""
     if not report_backup_celery_available():
         return False
-    from ..tasks import build_report_backup_task
+    from ..taskrunner import enqueue
     try:
-        build_report_backup_task.apply_async(args=[backup.pk], retry=False)
+        enqueue("dlux.tasks.build_report_backup", args=[backup.pk])
         return True
     except Exception:
         logger.exception("Failed to queue report backup pk=%s", backup.pk)

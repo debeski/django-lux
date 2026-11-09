@@ -45,6 +45,11 @@ tags and helpers are in the [Reference](reference.md).
   [DLB viewer](../tools/dlb-viewer/README.md).
 - **Managed assets:** uploaded images, WOFF2 fonts and protected installer files.
   See [Managed Assets](managed-assets.md).
+- **Built-in task runner:** `DLUX_TASK_BACKEND = "dlux"` runs DjangoLux's tasks
+  from a database queue with `python manage.py dlux_worker`. It has a thread pool, a
+  beat-style `DLUX_TASK_SCHEDULE` with `crontab`, retries with delays, at-least-once
+  recovery for OCR, heartbeats, and a `django.tasks` backend on Django 6+. A
+  project's own tasks stay on Celery. See [Task Runner](task-runner.md).
 
 ## Tables, forms and UI
 

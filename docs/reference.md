@@ -139,6 +139,14 @@ Generated app scaffold baseline:
 | `python manage.py dlux_image_gate --baked-dlux-version X.Y.Z` | Print, as JSON, whether a candidate image adopts, keeps or blocks the active DjangoLux release. |
 | `python manage.py dlux_update_worker` | Legacy update queue worker. Generated stacks do not run it: Celery Beat hands update intent to Composer. |
 
+### Task worker
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_worker [--threads N] [--queue NAME] [--no-schedule]` | Run the DjangoLux task worker under `DLUX_TASK_BACKEND = "dlux"`. It runs queued tasks in a thread pool plus `DLUX_TASK_SCHEDULE`, sends a heartbeat, recovers runs lost with a dead worker and prunes finished runs. On SIGTERM it exits after running tasks finish. See [Task Runner](task-runner.md). |
+| `python manage.py dlux_worker --burst` | Run what is due now in this process, then exit. |
+| `python manage.py dlux_worker --check` | Exit 0 when a worker on this host has a fresh heartbeat (container healthcheck). |
+
 ### Migrating from microsys
 
 | Command | Purpose |

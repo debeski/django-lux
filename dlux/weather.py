@@ -203,32 +203,16 @@ def _search_key(token):
     return 'dlux:weather:search-result:' + token
 
 
-def _celery_app():
-    """The project's Celery app. Tasks are sent by name, so this module never
-    imports ``dlux.tasks`` (which imports this one)."""
-    if not getattr(settings, 'CELERY_BROKER_URL', ''):
-        return None
-    try:
-        from celery import current_app
-    except Exception:
-        return None
-    return current_app
-
-
 def _worker_reachable():
-    app = _celery_app()
-    if app is None:
+    from .taskrunner import task_backend, worker_alive
+
+    if task_backend() == 'celery' and not getattr(settings, 'CELERY_BROKER_URL', ''):
         return False
-    try:
-        with app.connection_for_write() as conn:
-            conn.ensure_connection(max_retries=0, timeout=2)
-        return bool(app.control.ping(timeout=1.0))
-    except Exception:
-        return False
+    return worker_alive()
 
 
 def weather_worker_available():
-    """Whether a Celery worker can make the calls. Asked once a minute, not per read."""
+    """Whether a task worker can make the calls. Asked once a minute, not per read."""
     cached = cache.get('dlux:weather:worker')
     if cached is not None:
         return cached
@@ -238,11 +222,13 @@ def weather_worker_available():
 
 
 def _dispatch(task_name, args):
-    """Queue a weather task by name; False when there is no worker to run it."""
+    """Queue a weather task by name (this module never imports the task module); False without a worker."""
     if not weather_worker_available():
         return False
     try:
-        _celery_app().send_task(task_name, args=args, retry=False)
+        from .taskrunner import enqueue
+
+        enqueue(task_name, args=args)
         return True
     except Exception:
         logger.exception('Could not queue %s; making the weather call in this process.', task_name)

@@ -502,6 +502,10 @@ def _check_email_reachable(ctx):
 
 @check('celery.configured', 'services', 'Celery broker is configured')
 def _check_celery(ctx):
+    from .taskrunner import uses_dlux_backend
+
+    if uses_dlux_backend():
+        return skip('Skipped: DLUX_TASK_BACKEND is "dlux", so DjangoLux\'s tasks do not use Celery (see tasks.worker).')
     broker = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker:
         return warn('CELERY_BROKER_URL is empty; scheduled work (update checks, backups) will not run.')
@@ -509,6 +513,53 @@ def _check_celery(ctx):
         return warn('CELERY_BROKER_URL is set but the celery package is not importable.')
     scheme = broker.split('://', 1)[0]
     return ok(f'Broker configured over {scheme}.')
+
+
+@check('tasks.worker', 'services', 'DjangoLux task worker is running')
+def _check_task_worker(ctx):
+    from .taskrunner.config import TASK_BACKENDS, configured_task_backend, runner_config
+
+    backend = configured_task_backend()
+    if backend not in TASK_BACKENDS:
+        return fail(
+            f'DLUX_TASK_BACKEND is {backend!r}; DjangoLux treats it as "celery".',
+            'Set DLUX_TASK_BACKEND to "celery" or "dlux".',
+        )
+    if backend == 'celery':
+        return skip('Skipped: DLUX_TASK_BACKEND is "celery" (see celery.configured).')
+    from .taskrunner.queue import live_dlux_workers, queue_summary
+
+    try:
+        workers = list(live_dlux_workers().values_list('version', flat=True))
+        summary = queue_summary()
+    except Exception as exc:
+        return fail(
+            f'The task queue tables cannot be read: {type(exc).__name__}: {exc}.',
+            'Apply pending migrations: python manage.py migrate',
+        )
+    if not workers:
+        return warn(
+            f'No dlux_worker has sent a heartbeat in the last {runner_config()["stale_after"]} s, so queued and '
+            f'scheduled tasks are not running ({summary["ready"]} due now).',
+            'Run: python manage.py dlux_worker',
+        )
+    beat = getattr(settings, 'CELERY_BEAT_SCHEDULE', None) or {}
+    task_schedule = getattr(settings, 'DLUX_TASK_SCHEDULE', None) or {}
+    stranded = sorted(name for name in beat if name not in task_schedule)
+    if stranded and not getattr(settings, 'CELERY_BROKER_URL', ''):
+        return warn(
+            'CELERY_BEAT_SCHEDULE entries nothing will run (no CELERY_BROKER_URL, and the dlux worker '
+            'only runs DLUX_TASK_SCHEDULE): ' + ', '.join(stranded) + '.',
+            'Keep them on Celery (set CELERY_BROKER_URL and run a Celery worker with beat), or move them to '
+            'DLUX_TASK_SCHEDULE (dlux.taskrunner.crontab replaces celery.schedules.crontab).',
+        )
+    if summary['failed'] or summary['schedules_failing']:
+        return warn(
+            f'{len(workers)} worker(s) alive, but {summary["failed"]} task run(s) failed and '
+            f'{summary["schedules_failing"]} scheduled task(s) failed their last run.',
+            'See the Tasks row on the Options page, or the dlux_worker log.',
+        )
+    return ok(f'{len(workers)} worker(s) alive (DjangoLux {", ".join(sorted(set(workers)))}); {summary["ready"]} task(s) due.')
 
 
 @check('static.collected', 'static', 'Static files are collected')

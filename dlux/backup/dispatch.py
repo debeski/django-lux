@@ -239,9 +239,9 @@ def incremental_backup_row(head, *, requested_by, trigger):
 def dispatch_system_backup(backup, *, passphrase=None):
     if not system_backup_celery_available():
         return False
-    from ..tasks import build_system_backup_task
+    from ..taskrunner import enqueue
     try:
-        build_system_backup_task.apply_async(args=[backup.pk, _clean_passphrase(passphrase)], retry=False)
+        enqueue("dlux.tasks.build_system_backup", args=[backup.pk, _clean_passphrase(passphrase)], sensitive=True)
         return True
     except Exception:
         logger.exception("Failed to queue system backup pk=%s", backup.pk)
@@ -251,9 +251,9 @@ def dispatch_system_backup(backup, *, passphrase=None):
 def dispatch_system_restore(restore, *, passphrase=None):
     if not system_backup_celery_available():
         return False
-    from ..tasks import restore_system_backup_task
+    from ..taskrunner import enqueue
     try:
-        restore_system_backup_task.apply_async(args=[restore.pk, _clean_passphrase(passphrase)], retry=False)
+        enqueue("dlux.tasks.restore_system_backup", args=[restore.pk, _clean_passphrase(passphrase)], sensitive=True)
         return True
     except Exception:
         logger.exception("Failed to queue system restore pk=%s", restore.pk)

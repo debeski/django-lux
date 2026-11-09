@@ -169,6 +169,41 @@ def _reject_placeholder_secret_key(scope):
     )
 
 
+# DjangoLux's own schedule for ``dlux_worker``: the beat entries above, with
+# priorities in django.tasks terms (higher first; beat's 9 is -9 here).
+DLUX_BUILTIN_TASK_SCHEDULE = {
+    "dlux-scheduled-system-backup-check": {"task": "dlux.tasks.run_scheduled_system_backup", "schedule": 900.0},
+    "dlux-update-check": {"task": "dlux.tasks.dlux_update_check", "schedule": 3600.0},
+    "dlux-state-tick": {"task": "dlux.tasks.dlux_state_tick", "schedule": 5.0},
+    "dlux-ocr-background": {"task": "dlux.tasks.ocr_background", "schedule": 60.0, "options": {"priority": -9}},
+}
+
+
+def _apply_task_runner_settings(scope):
+    """``DLUX_TASK_BACKEND`` (env-overridable), DjangoLux's ``DLUX_TASK_SCHEDULE`` entries and,
+    on Django 6+ with the dlux backend, a ``django.tasks`` default backend over the same queue."""
+    scope.setdefault("DLUX_TASK_BACKEND", (os.getenv("DLUX_TASK_BACKEND", "") or "celery").strip().lower())
+    task_schedule = scope.get("DLUX_TASK_SCHEDULE")
+    task_schedule = dict(task_schedule) if isinstance(task_schedule, dict) else {}
+    for name, entry in DLUX_BUILTIN_TASK_SCHEDULE.items():
+        task_schedule.setdefault(name, deepcopy(entry))
+    scope["DLUX_TASK_SCHEDULE"] = task_schedule
+    if str(scope["DLUX_TASK_BACKEND"]).strip().lower() != "dlux":
+        return
+    # Celery stays for project tasks, so its beat may still run; it must not
+    # also fire DjangoLux's entries, which dlux_worker now runs.
+    beat = scope.get("CELERY_BEAT_SCHEDULE")
+    if isinstance(beat, dict):
+        scope["CELERY_BEAT_SCHEDULE"] = {
+            name: entry for name, entry in beat.items() if name not in DLUX_BUILTIN_TASK_SCHEDULE
+        }
+    if "TASKS" not in scope:
+        import django
+
+        if django.VERSION >= (6, 0):
+            scope["TASKS"] = {"default": {"BACKEND": "dlux.taskrunner.backend.DatabaseBackend"}}
+
+
 def dlux_settings(scope):
     """
     Apply the default DjangoLux settings requirements to a Django settings module.
@@ -321,6 +356,7 @@ def dlux_settings(scope):
         "options": {"priority": 9},
     })
     scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
+    _apply_task_runner_settings(scope)
 
     message_tags = scope.get("MESSAGE_TAGS")
     if not isinstance(message_tags, dict):

@@ -18,8 +18,9 @@ from .client import OCRRejected, OCRUnavailable, call_service
 
 log = logging.getLogger('dlux')
 
-# Redis transport: lower runs first; tasks sent without a priority run at 0.
-PRIORITY = {'manual': 0, 'auto': 6, 'backfill': 9}
+# django.tasks priorities, higher first. On Celery's Redis transport these become
+# 0 / 6 / 9 (lower runs first), the numbers sent before the task runner existed.
+PRIORITY = {'manual': 0, 'auto': -6, 'backfill': -9}
 ACTIVE_STATUSES = ('pending', 'running')
 
 
@@ -149,15 +150,15 @@ def schedule(document, field_name='pdf_file', *, source='auto', user=None, force
 
 def _queue(result_id, priority):
     """Send ``dlux.tasks.ocr_file`` by name, so this module never imports the task module."""
-    from celery import current_app
+    from dlux.taskrunner import enqueue
 
-    current_app.send_task('dlux.tasks.ocr_file', args=(result_id,), priority=priority)
+    enqueue('dlux.tasks.ocr_file', args=(result_id,), priority=priority)
 
 
 def send_task(result):
     def send():
         try:
-            _queue(result.pk, PRIORITY.get(result.source, 6))
+            _queue(result.pk, PRIORITY.get(result.source, PRIORITY['auto']))
         except Exception:
             log.warning('Could not queue OCR for file text %s; it stays queued for the backfill.', result.pk, exc_info=True)
 

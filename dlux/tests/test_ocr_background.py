@@ -45,7 +45,7 @@ class BackgroundOCRTests(OCRTestCase):
             self.assertEqual(self.tick()['queued'], 0)
         hashing.assert_not_called()
         self.assertEqual(self.apply_async.call_count, 3)
-        self.assertTrue(all(call.args[1] == 9 for call in self.apply_async.call_args_list))
+        self.assertTrue(all(call.args[1] == service.PRIORITY['backfill'] for call in self.apply_async.call_args_list))
 
     def test_interval_queue_limit_and_service_health_pause_scans(self):
         first, second = self.paper(), self.paper()

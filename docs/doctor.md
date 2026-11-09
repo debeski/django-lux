@@ -111,7 +111,7 @@ it. Generated stack files record the schema they were written for; the
 | `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
-| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, Celery broker |
+| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, Celery broker (skipped under `DLUX_TASK_BACKEND = "dlux"`), DjangoLux task worker (`tasks.worker`: fresh `dlux_worker` heartbeat, project beat entries that nothing runs because there is no `CELERY_BROKER_URL` and no `DLUX_TASK_SCHEDULE` twin, failed runs; skipped under Celery; see [Task Runner](task-runner.md)) |
 | `static` | `STATIC_ROOT` configured, populated, contains dlux assets |
 | `security` | `DEBUG`, placeholder `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, proxy SSL header, secure cookies |
 | `packages` | optional extras present |

@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from dlux.tests.harness import setup_test_environment
@@ -282,7 +283,15 @@ class WeatherWorkerTests(TestCase):
                 weather.run_search(*args)
 
         app.send_task.side_effect = send_task
-        return app, patch.multiple('dlux.weather', weather_worker_available=lambda: True, _celery_app=lambda: app)
+
+        @contextmanager
+        def sending():
+            # Tasks go out through the task-runner facade, which owns the Celery app lookup.
+            with patch('dlux.weather.weather_worker_available', lambda: True), \
+                    patch('dlux.taskrunner.dispatch.celery_app', lambda: app):
+                yield
+
+        return app, sending()
 
     def reading(self):
         return {'main': {'temp': 21.0, 'feels_like': 20.0},
