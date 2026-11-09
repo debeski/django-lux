@@ -478,7 +478,9 @@ docker stop dlux-pg-tests
 Test-only apps under `dlux/tests/` that define models need migrations: Django
 creates an unmigrated app's tables before the migrated ones, so a foreign key to a
 dlux table (every `ScopedModel` has one to `dlux_scope`) fails on PostgreSQL.
-`document_files_app` has `0001_initial` for this reason.
+`document_files_app` is migrated for this reason. When you change its models, run
+`makemigrations document_files_app` with `DJANGO_SETTINGS_MODULE=dlux.tests.settings`;
+`dlux.tests.test_fixture_migrations` fails while the migrations lag behind.
 
 Projects that call `dlux_settings(globals())` automatically replace the default
 cache with a process-local memory cache during `manage.py test` and pytest runs.

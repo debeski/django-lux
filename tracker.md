@@ -75,7 +75,7 @@
   - [x] Scaffolded `composer-executor` uses `DAC_OVERRIDE`, not `DAC_READ_SEARCH`; shipped in 1.9.5b4. Template comment must keep the word `DAC_READ_SEARCH`: Composer <=1.5.3 substring-checks for it.
 
 ### One-line info about last verified Tests:
-- 2026-11-09 `1.16/postgres_ci` (PENDING RUN)
+- 2026-11-09 `1.16/postgres_ci` (on `1.16/task-runner` e567e86, unpushed): full suite 3249 OK on PostgreSQL 17 (0 skipped, throwaway container removed) and on SQLite (6 skipped), django check clean; `document_files_app` migrated, `test_fixture_migrations` guards it, CI `test-postgres` job; docs `RELEASING.md` CI test suite, `CONTRIBUTING.md`.
 - 2026-11-09 `1.16/task-runner` Celery removal (PR #59): full suite 3248 OK (6 skipped); `test_task_runner` + `test_task_worker_health` 59 OK on PostgreSQL 17 (throwaway container, removed); docs hygiene, django check, `makemigrations --check` clean; `startproject` + `startapp --register` generate no Celery and `docker compose config` lists `worker`. Not run yet: Composer pair, testbed acceptance.
 - 2026-11-08 release gate `1.15/release_1_15_5` (main `f326710` + renumber): full suite 3192 OK (6 skipped), django check OK; classify v1.15.5 = stable, latest (beta-first gate found 1.15.5b1 on PyPI); `release_check --base-tag v1.15.4` and bare PASS; build + twine check PASS; wheel `980d7d94…` differs from the PyPI 1.15.5b1 wheel only in METADATA/RECORD version and the manifest's version + release_url. 1.15.5b1 post-publish on testbed-dlux 2026-11-08: UI update + rollback, CLI re-update, installed = PyPI wheel (705), `/media/` 22/22.
 ### One-line info about last time edited Docs:

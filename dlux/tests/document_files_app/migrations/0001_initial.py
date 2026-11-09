@@ -90,6 +90,7 @@ class Migration(migrations.Migration):
                 ('deleted_at', models.DateTimeField(blank=True, editable=False, null=True, verbose_name='Deleted At')),
                 ('title', models.CharField(max_length=100)),
                 ('pdf_file', models.FileField(blank=True, upload_to='papers/')),
+                ('attachment', models.FileField(blank=True, upload_to='papers/')),
                 ('created_by', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Created By')),
                 ('deleted_by', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Deleted By')),
                 ('scope', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='dlux.scope', verbose_name='Scope')),

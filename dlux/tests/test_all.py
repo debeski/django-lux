@@ -55,6 +55,7 @@ TEST_LABELS = [
     'dlux.tests.test_doctor',
     'dlux.tests.test_downstream_compat',
     'dlux.tests.test_email_step',
+    'dlux.tests.test_fixture_migrations',
     'dlux.tests.test_groups',
     'dlux.tests.test_import_graph',
     'dlux.tests.test_inspector_shell',
