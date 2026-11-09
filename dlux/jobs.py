@@ -1,10 +1,9 @@
-"""DjangoLux's background tasks, defined once for either backend.
+"""DjangoLux's background tasks, run by ``dlux_worker``.
 
-``DLUX_TASK_BACKEND`` decides whether they run on Celery (``dlux.tasks`` exposes
-the Celery tasks under their historical attribute names) or on ``dlux_worker``.
-The names stay ``dlux.tasks.*`` so messages already in a broker keep resolving.
-Callers send by name through ``dlux.taskrunner.enqueue`` and never import this
-module, which is what keeps it out of the backup/reports/updater import knot.
+Their names stay ``dlux.tasks.*`` (``dlux.tasks`` also exposes them under their
+historical attribute names). Callers send by name through
+``dlux.taskrunner.enqueue`` and never import this module, which is what keeps it
+out of the backup/reports/updater import knot.
 """
 
 import logging
@@ -92,10 +91,9 @@ def dlux_state_tick():
     worker is already resident, already runs under the release supervisor, and
     is not network-facing.
 
-    Guarded by a short cache lock: Celery beat can fire the next tick before
-    this one finishes, and two concurrent ticks would race over the same files.
-    (``dlux_worker`` never overlaps a schedule entry with itself; the lock still
-    covers a Celery beat left running during a migration.) `process_next()` is
+    Guarded by a short cache lock so two concurrent ticks never race over the
+    same files. (``dlux_worker`` never overlaps a schedule entry with itself;
+    the lock also covers an operator running the task by hand.) `process_next()` is
     separately safe (it claims rows with `select_for_update`), but the bridge
     writes are not.
     """

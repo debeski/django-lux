@@ -169,34 +169,38 @@ def _reject_placeholder_secret_key(scope):
     )
 
 
-# DjangoLux's own schedule for ``dlux_worker``: the beat entries above, with
-# priorities in django.tasks terms (higher first; beat's 9 is -9 here).
+# DjangoLux's own schedule for ``dlux_worker`` (priorities in django.tasks
+# terms: higher runs first).
 DLUX_BUILTIN_TASK_SCHEDULE = {
     "dlux-scheduled-system-backup-check": {"task": "dlux.tasks.run_scheduled_system_backup", "schedule": 900.0},
+    # The task is a cheap no-op when updates are disabled or the check is not yet
+    # due (it gates on last_checked_at against DLUX_UPDATE_CHECK_INTERVAL).
     "dlux-update-check": {"task": "dlux.tasks.dlux_update_check", "schedule": 3600.0},
+    # The DjangoLux write-side loop: small JSON state files on the runtime
+    # volume. Short interval because the update panel reflects the transitions
+    # it publishes; a cheap no-op when nothing is queued.
     "dlux-state-tick": {"task": "dlux.tasks.dlux_state_tick", "schedule": 5.0},
     "dlux-ocr-background": {"task": "dlux.tasks.ocr_background", "schedule": 60.0, "options": {"priority": -9}},
 }
 
 
 def _apply_task_runner_settings(scope):
-    """``DLUX_TASK_BACKEND`` (env-overridable), DjangoLux's ``DLUX_TASK_SCHEDULE`` entries and,
-    on Django 6+ with the dlux backend, a ``django.tasks`` default backend over the same queue."""
-    scope.setdefault("DLUX_TASK_BACKEND", (os.getenv("DLUX_TASK_BACKEND", "") or "celery").strip().lower())
+    """DjangoLux's ``DLUX_TASK_SCHEDULE`` entries and, on Django 6+, a ``django.tasks``
+    default backend over the same queue."""
     task_schedule = scope.get("DLUX_TASK_SCHEDULE")
     task_schedule = dict(task_schedule) if isinstance(task_schedule, dict) else {}
     for name, entry in DLUX_BUILTIN_TASK_SCHEDULE.items():
         task_schedule.setdefault(name, deepcopy(entry))
     scope["DLUX_TASK_SCHEDULE"] = task_schedule
-    if str(scope["DLUX_TASK_BACKEND"]).strip().lower() != "dlux":
-        return
-    # Celery stays for project tasks, so its beat may still run; it must not
-    # also fire DjangoLux's entries, which dlux_worker now runs.
+    # Kept as a dict for projects that still add their own Celery beat entries
+    # to it after this call (deprecated with project Celery; see the
+    # deprecation countdown). DjangoLux's entries never go there: a project
+    # Celery beat must not fire tasks dlux_worker runs.
     beat = scope.get("CELERY_BEAT_SCHEDULE")
-    if isinstance(beat, dict):
-        scope["CELERY_BEAT_SCHEDULE"] = {
-            name: entry for name, entry in beat.items() if name not in DLUX_BUILTIN_TASK_SCHEDULE
-        }
+    beat = dict(beat) if isinstance(beat, dict) else {}
+    scope["CELERY_BEAT_SCHEDULE"] = {
+        name: entry for name, entry in beat.items() if name not in DLUX_BUILTIN_TASK_SCHEDULE
+    }
     if "TASKS" not in scope:
         import django
 
@@ -319,43 +323,6 @@ def dlux_settings(scope):
         "DLUX_UPDATE_RUNTIME_ROOT",
         os.getenv("DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"),
     )
-    beat_schedule = scope.get("CELERY_BEAT_SCHEDULE")
-    beat_schedule = dict(beat_schedule) if isinstance(beat_schedule, dict) else {}
-    beat_schedule.setdefault(
-        "dlux-scheduled-system-backup-check",
-        {
-            "task": "dlux.tasks.run_scheduled_system_backup",
-            "schedule": 900.0,
-        },
-    )
-    # Reliable daily update-check trigger. The task itself is a cheap no-op when
-    # updates are disabled or the check is not yet due (it gates on the persisted
-    # last_checked_at against DLUX_UPDATE_CHECK_INTERVAL), so an hourly poll only
-    # enqueues a real check once the interval has elapsed.
-    beat_schedule.setdefault(
-        "dlux-update-check",
-        {
-            "task": "dlux.tasks.dlux_update_check",
-            "schedule": 3600.0,
-        },
-    )
-    # The DjangoLux write-side loop. Since 1.8.0 Composer executes updates, so
-    # what remains is writing small JSON state files — this replaced the
-    # dedicated `dlux-updater` service's worker loop. Short interval because the
-    # update panel reflects the transitions it publishes; the task is a cheap
-    # no-op when there is nothing queued.
-    beat_schedule.setdefault(
-        "dlux-state-tick",
-        {
-            "task": "dlux.tasks.dlux_state_tick",
-            "schedule": 5.0,
-        },
-    )
-    beat_schedule.setdefault("dlux-ocr-background", {
-        "task": "dlux.tasks.ocr_background", "schedule": 60.0,
-        "options": {"priority": 9},
-    })
-    scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
     _apply_task_runner_settings(scope)
 
     message_tags = scope.get("MESSAGE_TAGS")

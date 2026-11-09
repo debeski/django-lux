@@ -24,7 +24,7 @@ _ALL_NETWORKS = frozenset({"frontend", "egress", "internal", "docker_proxy"})
 
 # Every generated stack file records the contract schema it was written for, in
 # one of three spellings: the `DLUX_STACK_SCHEMA` entry of compose.yml's shared
-# environment (which also puts it in web/celery's environment), the Dockerfile's
+# environment (which also puts it in web/worker's environment), the Dockerfile's
 # `org.dlux.stack-schema` label, or a `dlux stack schema N` header comment.
 STACK_SCHEMA_ENV = "DLUX_STACK_SCHEMA"
 STACK_SCHEMA_LABEL = "org.dlux.stack-schema"

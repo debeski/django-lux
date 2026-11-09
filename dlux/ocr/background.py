@@ -1,4 +1,4 @@
-"""Bounded catch-up scans for registered document files, driven by Celery Beat."""
+"""Bounded catch-up scans for registered document files, driven by the task schedule."""
 
 import time
 from datetime import timedelta

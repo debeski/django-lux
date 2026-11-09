@@ -329,14 +329,14 @@ def _chain_start(backup, passphrase):
 
 
 def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=False):
-    """Celery-or-inline runner that builds the .dlb for a SystemBackup row.
+    """Task-or-inline runner that builds the .dlb for a SystemBackup row.
 
     Scope and encryption are read off the row (``media_included``,
     ``system_data_included``, ``encryption``), set by the caller when the row is
-    created, so the choice survives a Celery handoff — the task only receives
+    created, so the choice survives the task handoff — the task only receives
     the pk (and the passphrase, which is stored nowhere).
 
-    ``allow_passphrase_retry`` is set only by the Celery task, which can arm an
+    ``allow_passphrase_retry`` is set only by the backup task, which can arm an
     automatic retry for a passphrase-protected backup because it re-queues itself
     with the same arguments; no other caller can reproduce that passphrase.
     """

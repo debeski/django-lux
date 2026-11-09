@@ -8,7 +8,7 @@ until nc -z -v -w30 db 5432; do
 done
 
 # Do not serve against an unmigrated database. Compose applies migrations as
-# init containers (celery's pre_start) before that service starts; this gate is
+# init containers (worker's pre_start) before that service starts; this gate is
 # the net for the path pre_start does NOT cover — Compose skips a step when the
 # container restarts under its restart policy, which is what a host reboot does.
 # It is also what lets `web` wait for the migrations themselves rather than
@@ -22,9 +22,9 @@ done
 # Three modes:
 #   off    - the pre_start steps that APPLY the migrations. A step inherits this
 #            entrypoint, so without it that container would wait on itself.
-#   apply  - the designated applier (celery). Waiting was not enough: Compose
+#   apply  - the designated applier (worker). Waiting was not enough: Compose
 #            skips pre_start on a restart-policy restart, and then NOTHING
-#            applies while web and celery both wait, so the stack wedges until
+#            applies while web and worker both wait, so the stack wedges until
 #            someone migrates by hand. The applier now applies.
 #   on     - everyone else. Wait; never apply, so only one service migrates.
 case "${DLUX_BOOT_GATE:-on}" in
@@ -42,7 +42,7 @@ case "${DLUX_BOOT_GATE:-on}" in
     ;;
   *)
     until python -m dlux.updater.supervisor --no-watch -- python manage.py migrate --check >/dev/null 2>&1; do
-      echo "Waiting for migrations (celery applies them)..."
+      echo "Waiting for migrations (worker applies them)..."
       sleep 2
     done
     ;;

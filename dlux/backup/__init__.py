@@ -11,6 +11,7 @@ from ._shared import (  # noqa: F401
     get_current_migration_state,
     logger,
     system_backup_celery_available,
+    system_backup_worker_available,
 )
 from .config import (  # noqa: F401
     SYSTEM_DATA_MODELS,
@@ -121,6 +122,7 @@ __all__ = [
     'run_system_backup',
     'run_system_restore',
     'system_backup_celery_available',
+    'system_backup_worker_available',
     'write_dlb_container',
     'write_system_backup',
 ]

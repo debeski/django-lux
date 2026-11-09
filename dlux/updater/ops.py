@@ -112,7 +112,7 @@ OPERATIONS = {
     },
     "service-recreate": {
         # Recreating runs the service's pre_start hooks, which is what applies
-        # migrations on celery; only allow-listed services, as for a restart.
+        # migrations on worker; only allow-listed services, as for a restart.
         # 1.7.0b2–b4 recreated on compose defaults (no secrets): web could not start.
         "min_composer": "1.7.0b5",
         "changes_deployment": True,
@@ -326,7 +326,7 @@ def normalize_digest(value):
 
 
 def write_request(store, token, operation, *, compose_digest="", params=None):
-    """Ask Composer to perform ``operation``. Celery only — ``store`` required."""
+    """Ask Composer to perform ``operation``. Task worker only — ``store`` required."""
     if store is None:
         raise UpdaterError("Requesting a deployment operation requires the runtime store.")
     operation = normalize_operation(operation)

@@ -24,8 +24,10 @@ Project state, tasks and known bugs: see `tracker.md`.
 - **Release lines: 1.15 and the 1.16 task manager** (owner, 2026-11-06). DjangoLux
   owns the task manager from 1.16.0. 1.16.0 moves every DjangoLux-side and
   Composer-side task onto it (DjangoLux checks, commands, helpers and scaffolds;
-  Composer checks, commands and helpers). Celery stays for project-side tasks only
-  and is deprecated for DjangoLux use in 1.17.0. Until 1.16.0 is published,
+  Composer checks, commands and helpers). Celery stays for project-side tasks only:
+  warned as deprecated from 1.16.0, no longer installed with generated stacks from
+  1.17.0. 1.16 betas are tagged on the 1.16 branch while `main` ships 1.15.x; the
+  1.16 branch merges into `main` for 1.16.0 stable. Until 1.16.0 is published,
   `1.16/*` branches carry task-manager work only; every other fix, patch or
   feature ships on the 1.15 line (`1.15/<work>`, released as 1.15.x).
 - **Retire merged branches without asking.** Once a branch is merged into `main`
@@ -74,9 +76,9 @@ Project state, tasks and known bugs: see `tracker.md`.
   `stack-schema.md`). `dlux/tests/test_docs_hygiene.py` enforces links, anchors,
   index coverage and no prerelease tokens.
 - **Outbound network calls.** Never open a connection to a public host from code
-  that runs in `web` or `celery`; route it through the Composer relay
+  that runs in `web` or `worker`; route it through the Composer relay
   (`docs/outbound-requests.md`). New features that need the internet ship as relay
-  operations, not as a `celery` `egress` requirement. The relay shipped in
+  operations, not as a `worker` `egress` requirement. The relay shipped in
   DjangoLux 1.10.0 (`dlux.relay`) with Composer 1.6.0.
 - **Removed/deprecated APIs** are tracked in `docs/deprecation-countdown.md` with a
   removal target version — keep it current.

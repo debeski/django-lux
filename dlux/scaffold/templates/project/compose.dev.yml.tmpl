@@ -41,7 +41,7 @@ services:
       # if you are working on the updater itself.
       DLUX_INLINE_UPDATES_ENABLED: "False"
 
-  celery:
+  worker:
     build: .
     image: !reset null
     volumes: !override
@@ -51,7 +51,7 @@ services:
       - ./logs/:/app/logs:rw
       - dlux_runtime:/opt/dlux-runtime:rw
     environment:
-      # celery hosts the update worker, so it needs the same switch as web —
+      # worker runs the update tasks, so it needs the same switch as web —
       # the shared anchor in compose.yml sets it for both.
       DLUX_INLINE_UPDATES_ENABLED: "False"
 

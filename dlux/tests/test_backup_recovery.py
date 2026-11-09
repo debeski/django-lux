@@ -70,7 +70,7 @@ class BackupRecoveryTestCase(TestCase):
 
     def _with_worker(self):
         """Pretend a Celery worker is reachable — automatic retries need one."""
-        return mock.patch('dlux.backup.retry.system_backup_celery_available', return_value=True)
+        return mock.patch('dlux.backup.retry.system_backup_worker_available', return_value=True)
 
 
 class StallReaperTests(BackupRecoveryTestCase):
@@ -185,7 +185,7 @@ class AutomaticRetryTests(BackupRecoveryTestCase):
         self._save_config(auto_retry_enabled=True, max_attempts=3)
         backup = self._running()
 
-        with mock.patch('dlux.backup.retry.system_backup_celery_available', return_value=False):
+        with mock.patch('dlux.backup.retry.system_backup_worker_available', return_value=False):
             self.assertIsNone(fail_system_backup(backup, 'inline build failed'))
 
         backup.refresh_from_db()

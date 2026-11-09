@@ -213,7 +213,7 @@ class DoctorStackSchemaTests(TestCase):
 
         finding = self._run(str(stack_schema() - 1))
         self.assertIn('This service runs with stack schema', finding.detail)
-        self.assertIn('recreate web and celery', finding.remedy)
+        self.assertIn('recreate web and worker', finding.remedy)
         self.assertIn('docs/stack-schema.md', finding.remedy)
 
     def test_a_newer_stamp_asks_for_a_newer_djangolux(self):

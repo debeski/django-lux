@@ -44,7 +44,7 @@ class BackupCommandTests(TestCase):
 
     def test_a_failure_exits_non_zero_and_arms_no_retry(self):
         with mock.patch('dlux.backup.create.write_system_backup', side_effect=RuntimeError('disk full')), \
-                mock.patch('dlux.backup.retry.system_backup_celery_available', return_value=True):
+                mock.patch('dlux.backup.retry.system_backup_worker_available', return_value=True):
             with self.assertRaises(CommandError):
                 self._run('--trigger', 'update')
         row = self.SystemBackup.objects.get()

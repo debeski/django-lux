@@ -1,4 +1,4 @@
-"""Worker lifecycle signals (the dlux backend's counterpart of Celery's ``worker_ready``)."""
+"""Worker lifecycle signals: ``worker_started`` (sent when a worker is ready, like Celery's ``worker_ready``) and ``worker_stopping``."""
 
 from django.dispatch import Signal
 

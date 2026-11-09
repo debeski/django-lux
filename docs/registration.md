@@ -64,7 +64,7 @@ In production, use a real email backend with `EMAIL_HOST`,
 console, locmem, and file-based backends are accepted.
 
 Generated Docker projects default to an internal SMTP relay so the `web` and
-`celery` containers can remain on the internal Docker network. The app talks to
+`worker` containers can remain on the internal Docker network. The app talks to
 `smtp-relay:1025`; only the `smtp-relay` service joins the public network for
 outbound SMTP egress, and the scaffold does not publish an inbound relay port.
 The relay can fall back to these upstream env settings before UI-managed relay

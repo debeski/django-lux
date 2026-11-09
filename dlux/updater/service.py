@@ -56,7 +56,7 @@ def local_runtime_volume_problem():
     A pure stat probe — no mkdir — so the panel can call it per request.
 
     It answers for the calling process only. Since 1.8.0 the web container
-    mounts the runtime volume read-only and Celery owns every write, so a
+    mounts the runtime volume read-only and the task worker owns every write, so a
     failure here is the normal healthy arrangement in web and says nothing about
     whether updates can run. ``runtime_volume_problem()`` is the deployment-wide
     verdict; call this one only when you mean the current process.
@@ -223,7 +223,7 @@ def queue_ops_run(operation, username="", params=None):
         raise UpdaterError(
             "The DjangoLux update worker has not reported for over "
             f"{WORKER_REPORT_STALE_AFTER // 60} minutes, so a queued operation would "
-            "not be picked up. Check that the Celery worker and beat services are running."
+            "not be picked up. Check that the worker service (dlux_worker) is running."
         )
     Ops = _ops_model()
     if ops.OPERATIONS[operation]["needs_preview"] and not _latest_preview_digest():
@@ -494,7 +494,7 @@ def worker_volume_report(state=None):
 def record_worker_volume_report(problem=""):
     """Stamp the writer's own runtime-volume verdict on the state row.
 
-    Celery owns the write side of the runtime volume, so it is the only process
+    The task worker owns the write side of the runtime volume, so it is the only process
     whose writability probe describes the mount updates actually run against.
     Recording the verdict here is what lets web decide from a read-only mount:
     it reads this instead of probing a volume it is deliberately not given write
@@ -523,8 +523,8 @@ def record_worker_volume_report(problem=""):
 def runtime_volume_problem(state=None):
     """Why inline updates cannot proceed in this deployment, or "" when they can.
 
-    The authority is whichever process writes the runtime volume — Celery since
-    1.8.0 — because only its probe reflects the mount an update runs against.
+    The authority is whichever process writes the runtime volume — the task
+    worker — because only its probe reflects the mount an update runs against.
     Web mounts the same volume read-only by design, so its own probe answers a
     different question and must never decide for the deployment; that leftover
     is what disabled the panel and refused queueing on a perfectly healthy
@@ -777,7 +777,7 @@ def queue_run(action, username="", backup_mode=None):
         raise UpdaterError(
             "The DjangoLux update worker has not reported for over "
             f"{WORKER_REPORT_STALE_AFTER // 60} minutes, so a queued run would not be "
-            "picked up. Check that the Celery worker and beat services are running."
+            "picked up. Check that the worker service (dlux_worker) is running."
         )
     Run = _run_model()
     if action not in {Run.ACTION_CHECK, Run.ACTION_APPLY, Run.ACTION_ROLLBACK}:
@@ -862,7 +862,7 @@ def reconcile_state_if_due(service):
 
     ``UpdateService.reconcile()`` is what keeps ``baked_version``,
     ``active_version`` and the rollback target true. Its only caller was
-    ``dlux_update_worker`` at startup, and when the Celery state tick replaced
+    ``dlux_update_worker`` at startup, and when the scheduled state tick replaced
     that worker in 1.8.0 the call was not carried over — so an upgraded
     deployment kept rendering the versions recorded before the upgrade and kept
     offering a rollback to a release that is no longer installed anywhere. The
@@ -1673,7 +1673,7 @@ class UpdateService:
         Returns the SystemBackup, or None when the operator chose to skip it.
         Quick (data-only) is the default; an inline update never touches media on
         disk, so copying unchanged uploads would only slow a quick update. The
-        runner reads media_included off the row so the choice is Celery-safe.
+        runner reads media_included off the row so the choice survives the task handoff.
         """
         from dlux.backup import run_system_backup
 

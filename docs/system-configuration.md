@@ -354,8 +354,9 @@ documented in [Project Configuration](project-configuration.md#themes-and-fonts)
 `/sys/options/` is the operational hub after setup. It provides personal display
 preferences to ordinary users and superuser-only System Settings, setup export,
 backup, Extra Features, and update actions. The System Information card presents
-deployment facts and on-demand service diagnostics; the Celery check is manual and
-stores its last result rather than probing on every page load.
+deployment facts and on-demand service diagnostics; the Tasks row reads the
+`dlux_worker` heartbeats and queue counts from the database and rereads them on
+demand (see [Task Runner](task-runner.md)).
 
 For operational procedures, use [Operations](operations.md). For assets, use
 [Managed Assets](managed-assets.md). For deploy/update safety, use

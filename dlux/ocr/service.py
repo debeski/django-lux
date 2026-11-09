@@ -18,8 +18,7 @@ from .client import OCRRejected, OCRUnavailable, call_service
 
 log = logging.getLogger('dlux')
 
-# django.tasks priorities, higher first. On Celery's Redis transport these become
-# 0 / 6 / 9 (lower runs first), the numbers sent before the task runner existed.
+# django.tasks priorities, higher first: Run OCR, then automatic reads, then backfill.
 PRIORITY = {'manual': 0, 'auto': -6, 'backfill': -9}
 ACTIVE_STATUSES = ('pending', 'running')
 

@@ -2,7 +2,7 @@
 
     TASKS = {"default": {"BACKEND": "dlux.taskrunner.backend.DatabaseBackend"}}
 
-``dlux_settings()`` sets exactly that when ``DLUX_TASK_BACKEND = "dlux"`` and the
+``dlux_settings()`` sets exactly that on Django 6.0+ when the
 project has no ``TASKS`` of its own, so ``@django.tasks.task`` functions run on
 ``dlux_worker`` with priority, ``run_after`` and ``get_result``. On Django
 before 6.0 this module cannot be imported; DjangoLux's own tasks do not need it.

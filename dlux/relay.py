@@ -1,14 +1,14 @@
 """Ask the Composer agent to make outbound calls for the project.
 
 In a generated stack only ``composer-agent`` can reach the internet; ``web`` and
-``celery`` cannot. Code that needs something from the outside world asks the agent
+``worker`` cannot. Code that needs something from the outside world asks the agent
 for a *named operation* through the runtime volume:
 
-    celery  -> state/relay/requests/<uuid>.json
-    agent   -> state/relay/results/<uuid>.json      (web and celery may read it)
+    worker  -> state/relay/requests/<uuid>.json
+    agent   -> state/relay/results/<uuid>.json      (web and worker may read it)
 
-Only ``celery`` may write: ``web`` mounts the volume read-only, so a web request
-that needs a call queues a Celery task, exactly as any other slow work. A request
+Only the task worker may write: ``web`` mounts the volume read-only, so a web
+request that needs a call queues a task, exactly as any other slow work. A request
 names an operation and its parameters, never a URL. The operation is either built
 into Composer or declared by the project in ``relay/operations.json`` and approved
 with ``composer relay approve``; see ``docs/outbound-requests.md``.
@@ -17,7 +17,7 @@ A secret (an API key) is sealed to a public key that only the agent holds, so it
 never on the volume in the clear.
 
     from dlux import relay
-    data = relay.fetch('finance.cbl_page', secret=None, timeout=20)   # in a Celery task
+    data = relay.fetch('finance.cbl_page', secret=None, timeout=20)   # in a task
 """
 
 from __future__ import annotations
@@ -148,13 +148,13 @@ def seal(secret, operation_id, operation, public_key_document):
 
 
 def submit(operation, params=None, *, secret=None, ttl=DEFAULT_TTL, store=None):
-    """Write one request and return its ``Ticket``. Celery only: ``store`` is required.
+    """Write one request and return its ``Ticket``. Task worker only: ``store`` is required.
 
     Refuses at once, with the reason, when the agent does not offer the operation,
     rather than leaving a request nobody will answer.
     """
     if store is None:
-        raise RelayError("writer", "Only the Celery worker may write relay requests; queue a task from web.")
+        raise RelayError("writer", "Only the task worker may write relay requests; queue a task from web.")
     document = capabilities(store)
     if operation not in (document.get("operations") or {}):
         raise _why_unavailable(operation, document)
@@ -181,7 +181,7 @@ def submit(operation, params=None, *, secret=None, ttl=DEFAULT_TTL, store=None):
     try:
         _atomic_json(path, request)
     except OSError as exc:
-        raise RelayError("writer", "This process cannot write to the runtime volume: run the call in a Celery task.") from exc
+        raise RelayError("writer", "This process cannot write to the runtime volume: run the call in a task.") from exc
     return Ticket(operation_id, hashlib.sha256(path.read_bytes()).hexdigest(), operation)
 
 
@@ -228,11 +228,11 @@ def _writable_store():
     try:
         return RuntimeStore(root).ensure()
     except OSError as exc:
-        raise RelayError("writer", "The runtime volume is not writable here: run the call in a Celery task.") from exc
+        raise RelayError("writer", "The runtime volume is not writable here: run the call in a task.") from exc
 
 
 def fetch(operation, params=None, *, secret=None, timeout=15, ttl=DEFAULT_TTL, store=None):
-    """Ask the agent and wait for the data. For a Celery task or management command."""
+    """Ask the agent and wait for the data. For a task or management command."""
     if store is None:
         store = _writable_store()
     return wait(submit(operation, params, secret=secret, ttl=ttl, store=store), timeout, store)

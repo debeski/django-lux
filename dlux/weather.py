@@ -1,14 +1,14 @@
 """Server-side OpenWeather adapter and shared, bounded weather cache.
 
-In a Dlux-generated stack neither web nor celery has a route to the internet:
+In a Dlux-generated stack neither web nor worker has a route to the internet:
 only smtp-relay and the Composer agent sit on the egress network. The calls to
-OpenWeather run in a Celery task that writes to the shared cache, and web only
-reads that cache. The task asks the Composer agent to make the call through the
-egress relay (``weather.geocode`` / ``weather.current``, see dlux/relay.py); where
-the agent does not offer it, a worker that has its own route out (a project that
-gave celery the egress network) calls OpenWeather itself. Celery is part of every
-Dlux stack, so web does not make the calls itself, except under DEBUG where a
-development server can reach the internet.
+OpenWeather run in a task that writes to the shared cache, and web only reads
+that cache. The task asks the Composer agent to make the call through the egress
+relay (``weather.geocode`` / ``weather.current``, see dlux/relay.py); where the
+agent does not offer it, a worker that has its own route out calls OpenWeather
+itself. The task worker is part of every Dlux stack, so web does not make the
+calls itself, except under DEBUG where a development server can reach the
+internet.
 """
 import base64
 import hashlib
@@ -204,10 +204,8 @@ def _search_key(token):
 
 
 def _worker_reachable():
-    from .taskrunner import task_backend, worker_alive
+    from .taskrunner import worker_alive
 
-    if task_backend() == 'celery' and not getattr(settings, 'CELERY_BROKER_URL', ''):
-        return False
     return worker_alive()
 
 
@@ -236,7 +234,7 @@ def _dispatch(task_name, args):
 
 
 def refresh_reading(location, units, language, encrypted_api_key):
-    """Fetch one reading into the shared cache. Runs in the Celery worker."""
+    """Fetch one reading into the shared cache. Runs in the task worker."""
     key = _reading_key(location, units, language, encrypted_api_key)
     try:
         reading = _reading(units, location, language, decrypt_api_key(encrypted_api_key))
@@ -263,7 +261,7 @@ def current_weather(config, location, language):
     if cache.add(key + ':refresh', True, BACKOFF_SECONDS):
         if not _dispatch('dlux.tasks.weather_refresh', args):
             if not settings.DEBUG:
-                # Celery is part of every Dlux stack; web has no route out to make the call itself.
+                # The task worker is part of every Dlux stack; web has no route out to make the call itself.
                 cache.set(key + ':error', 'worker', BACKOFF_SECONDS)
                 if not saved:
                     raise WeatherUnavailable('worker')

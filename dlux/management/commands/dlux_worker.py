@@ -1,4 +1,4 @@
-"""Run DjangoLux's task worker (``DLUX_TASK_BACKEND = "dlux"``)."""
+"""Run DjangoLux's task worker: queued tasks and ``DLUX_TASK_SCHEDULE``."""
 
 import signal
 
@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = "Run queued and scheduled tasks from the DjangoLux task queue (DLUX_TASK_BACKEND=dlux)."
+    help = "Run queued and scheduled tasks from the DjangoLux task queue."
 
     def add_arguments(self, parser):
         parser.add_argument("--threads", type=int, default=None, help="Tasks run at once (default DLUX_TASK_RUNNER['threads']).")
@@ -17,11 +17,8 @@ class Command(BaseCommand):
                             help="Exit 0 when a worker on this host has a fresh heartbeat (a container healthcheck).")
 
     def handle(self, *args, **options):
-        from dlux.taskrunner import uses_dlux_backend
         from dlux.taskrunner.worker import Worker
 
-        if not uses_dlux_backend():
-            raise CommandError("DLUX_TASK_BACKEND is not 'dlux'; DjangoLux's tasks are being sent to Celery.")
         if options["check"]:
             import socket
 

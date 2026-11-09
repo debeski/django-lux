@@ -52,7 +52,7 @@ class DluxUpdateState(models.Model):
     check_interval_minutes = models.PositiveIntegerField(
         default=15, db_default=15, verbose_name="Update Check Interval (minutes)",
     )
-    # The runtime-volume writer's own verdict. Celery owns the write side, so
+    # The runtime-volume writer's own verdict. The task worker owns the write side, so
     # only it can say whether the volume updates run against is usable; web
     # mounts that volume read-only and reads this instead of probing it.
     worker_seen_at = models.DateTimeField(blank=True, null=True, verbose_name="Update Worker Seen At")

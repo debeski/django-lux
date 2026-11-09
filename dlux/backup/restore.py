@@ -336,7 +336,7 @@ def _restore_files(zf, manifest, reporter=None, *, span=(70, 92)):
 
 
 def run_system_restore(restore_pk, passphrase=None):
-    """Celery-or-inline runner that fully replaces system data from an .dlb file."""
+    """Task-or-inline runner that fully replaces system data from an .dlb file."""
     SystemRestore = apps.get_model("dlux", "SystemRestore")
     restore = SystemRestore.objects.filter(pk=restore_pk).first()
     if restore is None or restore.status != SystemRestore.STATUS_PENDING:

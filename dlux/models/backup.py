@@ -11,7 +11,7 @@ def generate_report_backup_token():
 
 
 class ReportBackup(models.Model):
-    """A requested reports backup zip build (background via Celery when available).
+    """A requested reports backup zip build (background on the task worker when available).
 
     State is kept in the DB so the requesting web process and the worker only
     need a shared database + shared default storage to hand off the result.
@@ -155,7 +155,7 @@ class SystemBackup(models.Model):
     )
     # Whether this snapshot includes uploaded media blobs. False = a fast data-only
     # backup (database + migration state only). The runner reads this off the row so
-    # the choice survives a Celery handoff (the task only receives the pk). db_default
+    # the choice survives the task handoff (the task only receives the pk). db_default
     # keeps it insert-safe for any code that doesn't set it.
     media_included = models.BooleanField(default=True, db_default=True, verbose_name="Media Included")
     # False = a portable snapshot of project data only: Dlux's own bookkeeping

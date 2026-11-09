@@ -214,8 +214,9 @@ recovery boundaries.
 Start and Stop apply to services approved by `COMPOSER_AGENT_RESTART_SERVICES`. Both
 require a superuser, a CSRF-protected POST, the current password and an audit event.
 Composer and its executor independently enforce the allowlist, protected labels and
-current state. Web/Celery, standard worker/beat/proxy names, data stores and
-Composer services remain protected so a later Start stays reachable. Restart and
+current state. `web`, `worker`, a project's own `celery` and beat services, the
+standard proxy names, data stores and Composer services remain protected so a later
+Start stays reachable. Restart and
 Recreate keep their own permissions.
 
 Start operates on an existing stopped/created container without recreation; use

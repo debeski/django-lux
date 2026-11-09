@@ -174,7 +174,7 @@ SAFE_INLINE_EFFECTS = frozenset({"none", "state_only", "additive"})
 #: dependency floors are deliberately absent: the wheel already declares them in
 #: `Requires-Python`/`Requires-Dist`, pip enforces them, and a second copy here
 #: could only ever disagree with the authority.
-KNOWN_REQUIREMENT_KEYS = frozenset({"baked_image", "migration_baseline", "updater_schema", "services"})
+KNOWN_REQUIREMENT_KEYS = frozenset({"baked_image", "migration_baseline", "updater_schema", "services", "stack_schema"})
 
 
 def _v2_to_internal(manifest):
@@ -234,6 +234,11 @@ def _v2_to_internal(manifest):
     baked = requires.get("baked_image")
     if baked:
         internal["image_baseline"] = str(baked).lstrip(">=").strip()
+    # The generated stack files this release needs (the DLUX_STACK_SCHEMA stamp).
+    # Composer's `check --fix` migrates a stack; an inline update cannot.
+    if requires.get("stack_schema") is not None:
+        internal["minimum_stack_schema"] = _requirement_floor(
+            requires.get("stack_schema"), default=1, what="stack schema")
     # The highest release at or below this one that introduced a migration. A
     # manifest's own `migrations.effect` covers one hop, so a deployment several
     # versions behind cannot tell from it that the span crosses a migration.
@@ -245,7 +250,7 @@ def _v2_to_internal(manifest):
     return internal
 
 
-def _requirement_floor(value, default=1):
+def _requirement_floor(value, default=1, what="updater schema"):
     """Read `">=N"` (or a bare N) as an integer floor."""
     if value is None:
         return default
@@ -253,7 +258,7 @@ def _requirement_floor(value, default=1):
     try:
         return int(text)
     except (TypeError, ValueError) as exc:
-        raise UpdaterError("The release manifest has an invalid updater schema requirement.") from exc
+        raise UpdaterError(f"The release manifest has an invalid {what} requirement.") from exc
 
 
 SUMMARY_LIMIT = 1000
@@ -401,6 +406,9 @@ def validate_release_manifest(manifest, expected_version):
             except InvalidVersion as exc:
                 raise UpdaterError("The release manifest has an invalid image baseline.") from exc
             manifest["image_baseline"] = baseline_text
+    stack_floor = manifest.get("minimum_stack_schema")
+    if stack_floor is not None and (type(stack_floor) is not int or stack_floor < 1):
+        raise UpdaterError("The release manifest has an invalid stack schema requirement.")
     migration_baseline = manifest.get("migration_baseline")
     if migration_baseline is not None:
         floor_text = str(migration_baseline).strip()
@@ -463,6 +471,19 @@ def _check_dependency_contract(metadata):
     return []
 
 
+def deployment_stack_schema():
+    """The stack schema this container was created with (``DLUX_STACK_SCHEMA``), or None."""
+    import os
+
+    from ..contracts.stack import STACK_SCHEMA_ENV
+
+    raw = os.environ.get(STACK_SCHEMA_ENV, "").strip()
+    try:
+        return int(raw) if raw else None
+    except ValueError:
+        return None
+
+
 def assess_wheel(candidate, wheel_path, baked_version=None, active_version=None):
     manifest, metadata = inspect_wheel(wheel_path)
     manifest = validate_release_manifest(manifest, candidate.version)
@@ -501,6 +522,15 @@ def assess_wheel(candidate, wheel_path, baked_version=None, active_version=None)
             reasons.append(image_message)
     if manifest["minimum_updater_schema"] > UPDATER_SCHEMA_VERSION:
         reasons.append("This release requires a newer updater bootstrap.")
+    stack_floor = manifest.get("minimum_stack_schema")
+    if stack_floor:
+        stamp = deployment_stack_schema()
+        if stamp is None or stamp < stack_floor:
+            reasons.append(
+                f"This release needs stack schema {stack_floor}"
+                + (f" (this stack is on {stamp})" if stamp is not None else " (this stack is unstamped)")
+                + "; run ./start.sh check --fix with an up-to-date Composer first."
+            )
     if manifest["migration_policy"] != "backward_compatible":
         reasons.append("This release contains migrations that are not inline-safe.")
     requires_python = candidate.requires_python or str(metadata.get("Requires-Python") or "")

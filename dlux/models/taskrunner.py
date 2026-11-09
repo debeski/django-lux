@@ -1,4 +1,4 @@
-"""The DjangoLux task runner's queue and worker heartbeat tables (``DLUX_TASK_BACKEND="dlux"``).
+"""The DjangoLux task runner's queue and worker heartbeat tables.
 
 Neither table has a foreign key to project or user data, so a system restore can
 leave them alone, and both are excluded from system backups, reports and the

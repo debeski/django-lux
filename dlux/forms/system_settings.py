@@ -1565,7 +1565,7 @@ class SystemSettingsForm(
             self.fields['pdf_max_source_mb'].label = s.get('pdf_option_max_source_mb', 'Maximum combined PDF size (MB)')
         self.fields['scanlink_enabled'].help_text = s.get('help_sys_scanlink_enabled', 'Adds a Scan button to file fields, driven by the ScanLink helper installed on each operator workstation. Leave this off where the helper is not installed: the browser logs a failed connection for every scan attempt.')
         self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
-        self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically through Celery beat.')
+        self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically on the task worker\'s schedule.')
         self.fields['backup_schedule_interval_hours'].label = s.get('form_sys_backup_schedule_interval_hours', 'Backup interval (hours)')
         self.fields['backup_schedule_interval_hours'].help_text = s.get('help_sys_backup_schedule_interval_hours', 'How often a scheduled backup becomes due. The scheduler checks every 15 minutes.')
         self.fields['backup_retention_days'].label = s.get('form_sys_backup_retention_days', 'Retention age (days)')
@@ -2076,7 +2076,7 @@ class SystemSettingsForm(
                 option_meta={
                     'relay': {
                         'icon': 'bi-hdd-network',
-                        'description': s.get('email_transport_relay_desc', 'Web and Celery hand mail to smtp-relay:1025; the relay reaches the provider.'),
+                        'description': s.get('email_transport_relay_desc', 'Web and the task worker hand mail to smtp-relay:1025; the relay reaches the provider.'),
                     },
                     'direct': {
                         'icon': 'bi-send',

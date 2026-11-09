@@ -1,9 +1,6 @@
-"""Settings of the task runner: which backend runs DjangoLux's tasks, and worker tuning."""
+"""Worker tuning for ``dlux_worker`` (``DLUX_TASK_RUNNER``)."""
 
 from django.conf import settings
-
-TASK_BACKENDS = ("celery", "dlux")
-DEFAULT_TASK_BACKEND = "celery"
 
 RUNNER_DEFAULTS = {
     "threads": 4,
@@ -20,21 +17,6 @@ RUNNER_DEFAULTS = {
     # Seconds a stopping worker waits for its running tasks.
     "shutdown_grace": 25,
 }
-
-
-def configured_task_backend():
-    """The raw ``DLUX_TASK_BACKEND`` value, normalised; may be invalid."""
-    return str(getattr(settings, "DLUX_TASK_BACKEND", DEFAULT_TASK_BACKEND) or DEFAULT_TASK_BACKEND).strip().lower()
-
-
-def task_backend():
-    """``"celery"`` or ``"dlux"``. An invalid value counts as Celery (and fails the system check)."""
-    value = configured_task_backend()
-    return value if value in TASK_BACKENDS else DEFAULT_TASK_BACKEND
-
-
-def uses_dlux_backend():
-    return task_backend() == "dlux"
 
 
 def runner_config():

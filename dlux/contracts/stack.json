@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "networks": {
     "frontend": {
       "internal": false
@@ -34,13 +34,21 @@
       "restart": "safe",
       "command_module": "dlux.updater.supervisor"
     },
-    "celery": {
+    "worker": {
       "networks": [
         "internal"
       ],
       "restart": "safe",
       "command_module": "dlux.updater.supervisor",
       "writes_runtime_state": true
+    },
+    "celery": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "safe",
+      "optional": true,
+      "project_only": true
     },
     "smtp-relay": {
       "networks": [
@@ -99,7 +107,8 @@
       "db",
       "ocr",
       "redis",
-      "web"
+      "web",
+      "worker"
     ],
     "frontend_egress_disjoint": true,
     "docker_socket": {
@@ -116,6 +125,7 @@
     "runtime_volume": {
       "volume": "dlux_runtime",
       "read_write_services": [
+        "worker",
         "celery",
         "composer-agent",
         "composer-executor"
@@ -129,6 +139,7 @@
       "label": "org.dlux.restart",
       "safe": [
         "web",
+        "worker",
         "celery",
         "smtp-relay",
         "caddy",
@@ -154,6 +165,7 @@
       "entrypoint_gate": "python manage.py migrate --check",
       "gated_services": [
         "web",
+        "worker",
         "celery"
       ],
       "bypass_env": {
@@ -161,7 +173,7 @@
         "value": "off"
       },
       "init_containers": {
-        "service": "celery",
+        "service": "worker",
         "mechanism": "compose pre_start",
         "minimum_compose_version": "5.3.0",
         "steps": [
@@ -171,10 +183,11 @@
         "flags_env": "DLUX_MIGRATOR_FLAGS"
       },
       "runner": "compose",
-      "note": "Compose runs the reconcile and migrator steps as init containers before celery starts; each must exit 0. They are declared on celery, not web, because a pre_start step inherits its service's mounts and dlux_reconcile writes the runtime pointer, which is read-only on web. A step also inherits the entrypoint, so DLUX_BOOT_GATE=off keeps it from waiting on the migrations it applies. The entrypoint gate remains the net for paths Compose skips pre_start on: a container restarting under its restart policy, i.e. a host reboot."
+      "note": "Compose runs the reconcile and migrator steps as init containers before worker starts; each must exit 0. They are declared on worker, not web, because a pre_start step inherits its service's mounts and dlux_reconcile writes the runtime pointer, which is read-only on web. A step also inherits the entrypoint, so DLUX_BOOT_GATE=off keeps it from waiting on the migrations it applies. The entrypoint gate remains the net for paths Compose skips pre_start on: a container restarting under its restart policy, i.e. a host reboot."
     },
     "optional_services": [
-      "ocr"
+      "ocr",
+      "celery"
     ]
   },
   "removed_services": {

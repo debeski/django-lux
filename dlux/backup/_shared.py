@@ -46,10 +46,17 @@ def _log_system_action(username, action, details):
         pass
 
 
-def system_backup_celery_available():
-    """Background builds are on and a task worker (Celery or ``dlux_worker``) is alive."""
+def system_backup_worker_available():
+    """Background builds are on and a ``dlux_worker`` is alive.
+
+    ``use_celery`` is the stored name of the "build in the background" switch.
+    """
     if not _backup_config().get("use_celery", True):
         return False
     from ..taskrunner import worker_alive
 
     return worker_alive()
+
+
+# Deprecated name, kept for code written against it (see the deprecation countdown).
+system_backup_celery_available = system_backup_worker_available

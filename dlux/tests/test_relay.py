@@ -166,7 +166,7 @@ class RelayTests(SimpleTestCase):
             with self.assertRaises(RelayError) as caught:
                 relay.submit("finance.cbl_page", store=self.store)
         self.assertEqual(caught.exception.code, "writer")
-        self.assertIn("Celery", caught.exception.detail)
+        self.assertIn("run the call in a task", caught.exception.detail)
 
     def test_fetch_without_a_usable_store_is_a_writer_error(self):
         import os
@@ -177,7 +177,7 @@ class RelayTests(SimpleTestCase):
             with self.assertRaises(RelayError) as caught:
                 relay.fetch("finance.cbl_page")
         self.assertEqual(caught.exception.code, "writer")
-        self.assertIn("Celery", caught.exception.detail)
+        self.assertIn("run the call in a task", caught.exception.detail)
 
     def test_status_summarises_the_agent(self):
         self.assertFalse(relay.status(self.store)["answering"])

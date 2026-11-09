@@ -214,23 +214,23 @@
                         </td>
                     </tr>
                     {% endif %}
-                    {% if celery_service %}
+                    {% if tasks_service %}
                     <tr>
                         <th>{{ DLUX_STRINGS.tasks }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
-                                 data-dlux-celery-health
-                                 data-check-url="{% url 'celery_health_check' %}"
-                                 data-error-label="{{ DLUX_STRINGS.service_celery_check_failed|default:'Check failed' }}">
-                                {% if celery_service.detail %}
-                                <span class="font-monospace" data-celery-detail>{{ celery_service.detail }}</span>
+                                 data-dlux-task-health
+                                 data-check-url="{% url 'task_worker_health' %}"
+                                 data-error-label="{{ DLUX_STRINGS.service_task_check_failed|default:'Check failed' }}">
+                                {% if tasks_service.detail %}
+                                <span class="font-monospace" data-task-detail>{{ tasks_service.detail }}</span>
                                 {% endif %}
-                                <span class="badge {{ celery_service.badge_class }}" data-celery-badge title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
-                                <button type="button" class="dlux-upd-ic" data-celery-recheck
-                                        title="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"
-                                        aria-label="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"><i class="bi bi-arrow-clockwise"></i></button>
+                                <span class="badge {{ tasks_service.badge_class }}" data-task-badge title="{{ tasks_service.note|default:'' }}">{{ tasks_service.label }}</span>
+                                <button type="button" class="dlux-upd-ic" data-task-recheck
+                                        title="{{ DLUX_STRINGS.service_task_recheck|default:'Check worker health' }}"
+                                        aria-label="{{ DLUX_STRINGS.service_task_recheck|default:'Check worker health' }}"><i class="bi bi-arrow-clockwise"></i></button>
                             </div>
-                            <div class="small text-muted mt-1" data-celery-note>{{ celery_service.note }}</div>
+                            <div class="small text-muted mt-1" data-task-note>{{ tasks_service.note }}</div>
                         </td>
                     </tr>
                     {% endif %}

@@ -188,9 +188,9 @@ def _report_backup_model():
     return apps.get_model("dlux", "ReportBackup")
 
 
-def report_backup_celery_available():
+def report_backup_worker_available():
     """True when the backup task can actually run in the background right now:
-    background builds on, and a live task worker (Celery or ``dlux_worker``)."""
+    background builds on (stored as ``backup_use_celery``), and a live ``dlux_worker``."""
     if not _reports_config().get("backup_use_celery", True):
         return False
     from ..taskrunner import worker_alive
@@ -198,9 +198,13 @@ def report_backup_celery_available():
     return worker_alive()
 
 
+# Deprecated name, kept for code written against it (see the deprecation countdown).
+report_backup_celery_available = report_backup_worker_available
+
+
 def dispatch_report_backup(backup):
     """Queue the backup build on the task worker. Returns True when queued."""
-    if not report_backup_celery_available():
+    if not report_backup_worker_available():
         return False
     from ..taskrunner import enqueue
     try:
@@ -235,7 +239,7 @@ def _prune_report_backups(user, keep=3):
 def run_report_backup(backup_pk):
     """Build the zip for a ReportBackup row and store it under the backup prefix.
 
-    Runs inside the Celery worker (or inline as a last resort). Status/result
+    Runs inside the task worker (or inline as a last resort). Status/result
     are persisted on the row so the web process can poll over the shared DB.
     """
     ReportBackup = _report_backup_model()

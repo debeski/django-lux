@@ -1,10 +1,7 @@
-"""Backend-neutral task definitions.
+"""Task definitions: ``@task`` declares a function that ``dlux_worker`` runs.
 
-``@task(name=...)`` declares a function once. Enqueueing goes through
-``dispatch.enqueue``, which sends it to Celery or to the DjangoLux queue
-according to ``DLUX_TASK_BACKEND``. While Celery is importable the same function
-is also registered as a Celery task under the same name, so a Celery worker can
-run it and messages already in a broker keep resolving during a migration.
+``@task(name=...)`` registers the function under a stable name; ``enqueue()``
+(or ``delay()``) inserts a row in the DjangoLux queue for the worker.
 
 The API mirrors ``django.tasks`` (``enqueue``, ``using``, ``call``,
 ``takes_context``, priority -100..100 with higher first) so tasks move to plain
@@ -27,9 +24,8 @@ PRIORITY_MAX = 100
 class Retry(Exception):
     """Raise inside a task to run it again after ``delay`` seconds.
 
-    Under the dlux backend the same queue row goes back to READY, keeping its
-    priority. Under Celery it becomes ``self.retry(countdown=delay)`` with the
-    message's delivery priority, exactly as before.
+    The same queue row goes back to READY, keeping its priority, until the
+    task's ``max_retries`` is used up.
     """
 
     def __init__(self, delay=0, message=""):
@@ -60,7 +56,7 @@ class DluxTask:
     queue_name: str = "default"
     run_after: datetime | None = None
     takes_context: bool = False
-    # Upper bound on Retry under the dlux backend (and Celery's max_retries).
+    # Upper bound on Retry; one more Retry fails the run.
     max_retries: int | None = None
     # At-least-once: a run whose worker died is put back instead of failed.
     requeue_lost: bool = False
@@ -80,10 +76,14 @@ class DluxTask:
         return replace(self, **changes)
 
     def enqueue(self, *args, **kwargs):
-        """Queue the task. Returns the dlux run id, or Celery's ``AsyncResult``."""
+        """Queue the task and return its run id."""
         from .dispatch import enqueue_task
 
         return enqueue_task(self, args, kwargs)
+
+    def delay(self, *args, **kwargs):
+        """``enqueue()`` under Celery's name, so moved call sites and their mocks keep working."""
+        return self.enqueue(*args, **kwargs)
 
     def call(self, *args, **kwargs):
         """Run the function in this process, now."""
@@ -100,13 +100,6 @@ class DluxTask:
     def module_path(self):
         return f"{self.func.__module__}.{self.func.__qualname__}"
 
-    @property
-    def celery(self):
-        """The Celery task registered under ``name``, or None without Celery."""
-        return _CELERY_TWINS.get(self.name)
-
-
-_CELERY_TWINS = {}
 
 
 def _checked_priority(priority):
@@ -132,46 +125,11 @@ def task(function=None, *, name=None, priority=None, queue_name="default", takes
             sensitive=sensitive,
         )
         _REGISTRY[definition.name] = definition
-        twin = _celery_twin(definition)
-        if twin is not None:
-            _CELERY_TWINS[definition.name] = twin
         return definition
 
     if function is not None:
         return wrapper(function)
     return wrapper
-
-
-def _celery_twin(definition):
-    try:
-        from celery import shared_task
-    except Exception:
-        return None
-
-    def run(self, *args, **kwargs):
-        priority = (getattr(self.request, "delivery_info", None) or {}).get("priority")
-        context = TaskContext(
-            task_name=definition.name,
-            attempt=int(getattr(self.request, "retries", 0) or 0) + 1,
-            priority=priority,
-            run_id=str(getattr(self.request, "id", "") or ""),
-            backend="celery",
-        )
-        try:
-            return definition.invoke(context, args, kwargs)
-        except Retry as exc:
-            raise self.retry(exc=exc.__cause__ or exc, countdown=exc.delay, priority=priority)
-
-    run.__name__ = definition.func.__name__
-    run.__qualname__ = definition.func.__qualname__
-    run.__module__ = definition.func.__module__
-    run.__doc__ = definition.func.__doc__
-    options = {"name": definition.name, "bind": True, "ignore_result": True}
-    if definition.requeue_lost:
-        options["acks_late"] = True
-    if definition.max_retries is not None:
-        options["max_retries"] = definition.max_retries
-    return shared_task(**options)(run)
 
 
 def get_task(name):

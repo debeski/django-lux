@@ -194,7 +194,7 @@ its version, summary, release URL, updater schema, and migration policy. Set
 
 `v1.2.7` is the current repaired updater bootstrap baseline and is installed
 through a normal image rebuild. It supersedes v1.2.4-v1.2.6 because the health
-orchestration that races Celery startup runs from the baked updater and cannot
+orchestration that races service startup runs from the baked updater and cannot
 repair itself from a candidate wheel. The unchanged-dependency rule governs
 subsequent releases that can actually be selected by the repaired inline updater.
 

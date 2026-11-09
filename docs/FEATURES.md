@@ -45,11 +45,12 @@ tags and helpers are in the [Reference](reference.md).
   [DLB viewer](../tools/dlb-viewer/README.md).
 - **Managed assets:** uploaded images, WOFF2 fonts and protected installer files.
   See [Managed Assets](managed-assets.md).
-- **Built-in task runner:** `DLUX_TASK_BACKEND = "dlux"` runs DjangoLux's tasks
-  from a database queue with `python manage.py dlux_worker`. It has a thread pool, a
+- **Built-in task runner:** DjangoLux's background work runs from a database
+  queue with `python manage.py dlux_worker` (the `worker` service), and projects
+  use the same API for their own tasks. It has a thread pool, a
   beat-style `DLUX_TASK_SCHEDULE` with `crontab`, retries with delays, at-least-once
-  recovery for OCR, heartbeats, and a `django.tasks` backend on Django 6+. A
-  project's own tasks stay on Celery. See [Task Runner](task-runner.md).
+  recovery for OCR, heartbeats, and a `django.tasks` backend on Django 6+. Celery
+  for project tasks is deprecated. See [Task Runner](task-runner.md).
 
 ## Tables, forms and UI
 
@@ -83,7 +84,7 @@ tags and helpers are in the [Reference](reference.md).
 
 ## Deployment and updates
 
-- **Generated stack:** `startproject` writes a Compose stack with `web`, `celery`,
+- **Generated stack:** `startproject` writes a Compose stack with `web`, `worker`,
   `db`, `redis`, Caddy, the SMTP relay and Composer's agent. See
   [Getting Started](getting-started.md) and [Stack Schema](stack-schema.md).
 - **Verified inline updates:** stable and beta channels, official-PyPI provenance
@@ -94,7 +95,7 @@ tags and helpers are in the [Reference](reference.md).
   audited Composer operations. See [Operations](operations.md).
 - **Deployment doctor:** a diagnostic report with safe repairs. See
   [Doctor](doctor.md).
-- **Outbound requests** go through the Composer relay; `web` and `celery` have no
+- **Outbound requests** go through the Composer relay; `web` and `worker` have no
   internet access. See [Outbound Requests](outbound-requests.md).
 
 ## Developer integration

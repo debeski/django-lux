@@ -284,11 +284,14 @@ class WeatherWorkerTests(TestCase):
 
         app.send_task.side_effect = send_task
 
+        def enqueue(name, args=(), **_options):
+            # Stands in for the queue plus a worker running the task at once.
+            app.send_task(name, args=list(args), retry=False)
+
         @contextmanager
         def sending():
-            # Tasks go out through the task-runner facade, which owns the Celery app lookup.
             with patch('dlux.weather.weather_worker_available', lambda: True), \
-                    patch('dlux.taskrunner.dispatch.celery_app', lambda: app):
+                    patch('dlux.taskrunner.enqueue', enqueue):
                 yield
 
         return app, sending()
@@ -381,8 +384,6 @@ class WeatherWorkerTests(TestCase):
 
     def test_the_tasks_are_registered_under_the_names_web_sends(self):
         from dlux import tasks
-        if tasks.shared_task is None:
-            self.skipTest('celery is not installed')
         self.assertEqual(tasks.weather_refresh_task.name, 'dlux.tasks.weather_refresh')
         self.assertEqual(tasks.weather_search_task.name, 'dlux.tasks.weather_search')
 

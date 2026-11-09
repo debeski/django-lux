@@ -102,7 +102,6 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "project/tests/test_scaffold.py.tmpl": target_root / "tests" / "test_scaffold.py",
         "project/package/__init__.py.tmpl": target_root / config_package / "__init__.py",
         "project/package/asgi.py.tmpl": target_root / config_package / "asgi.py",
-        "project/package/celery.py.tmpl": target_root / config_package / "celery.py",
         "project/package/settings.py.tmpl": target_root / config_package / "settings.py",
         "project/package/urls.py.tmpl": target_root / config_package / "urls.py",
         "project/package/wsgi.py.tmpl": target_root / config_package / "wsgi.py",

@@ -16,7 +16,7 @@ how a project developer asks for an outbound call.
    internet
       ^
       |  egress
- composer-agent  <--- runtime volume (files) --->  celery  (writes requests)
+ composer-agent  <--- runtime volume (files) --->  worker  (writes requests)
       ^                                              |
       | docker_proxy (read-only Docker API)          | Redis / DB   (internal)
  composer-executor  (Docker write authority,         |
@@ -29,7 +29,8 @@ how a project developer asks for an outbound call.
 | --- | --- | --- |
 | `composer-agent` | yes (`egress`) | results, keys, capabilities |
 | `composer-executor` | no | no |
-| `celery` | no | requests only |
+| `worker` | no | requests only |
+| `celery` (project-only, on a stack migrated from schema 4) | no | requests only |
 | `web` | no | never (read-only mount) |
 | `db`, `redis`, `caddy` | no (`caddy` faces users on `frontend`) | no |
 
@@ -38,8 +39,9 @@ how a project developer asks for an outbound call.
 ## The rule
 
 **Project code must not open a network connection to the outside world from `web`
-or `celery`.** No `requests`, `urllib`, `httpx` or `socket` call to a public host in
-a view, a signal, a task or a management command that runs in those containers.
+or `worker`** (or a project's own `celery` service on a stack migrated from schema
+4). No `requests`, `urllib`, `httpx` or `socket` call to a public host in a view, a
+signal, a task or a management command that runs in those containers.
 Under `runserver` it will appear to work, which is exactly how it ships broken:
 in a generated stack the DNS lookup fails.
 
@@ -53,7 +55,7 @@ only the fields the operation defines.
    `weather.geocode` and `weather.current`, which [Weather](weather.md) uses.
 2. **Declare your own** in `relay/operations.json` in the project directory. The
    agent already mounts that directory read-only (`${PWD}:${PWD}:ro`) and `web` and
-   `celery` do not, so application code can never widen its own network access, and
+   `worker` do not, so application code can never widen its own network access, and
    no compose change is needed. Each operation pins one https host (port 443), typed
    parameters, an optional secret, a timeout and size limit, what the response
    returns (`text`, or `json` with only the listed fields), and a rate limit; the
@@ -74,7 +76,9 @@ only the fields the operation defines.
    declarations. The agent runs only operations whose digest is locked, and a
    reviewer sees every new or changed host in the lock diff. `composer relay list`
    shows what is declared and approved.
-3. **Call it from a Celery task or a management command**:
+3. **Call it from a task or a management command**: a `@dlux.taskrunner.task`
+   runs in the task worker (see [Task Runner](task-runner.md)), the process that
+   writes relay requests.
 
    ```python
    from dlux import relay
@@ -89,8 +93,7 @@ only the fields the operation defines.
    `credentials`, `network`, `provider`, `response`, `blocked`, `limit`, `expired`,
    `timeout`, and `writer` for a process that cannot write the channel) and a
    message that names the fix. A `web` request cannot write to the channel: queue a
-   Celery task by name, cache its result, and read the cache in the request, as
-   weather does.
+   task, cache its result, and read the cache in the request, as weather does.
 
 Secrets (API keys, tokens) are never placed on the volume in the clear: `secret=`
 is sealed to a public key only the agent holds, bound to that request and operation.
@@ -116,7 +119,7 @@ secrets.
 On a Composer older than 1.6.0 the agent offers no operations. Update Composer
 (`./start.sh self update`, then `./start.sh agent update`) rather than working
 around it. Until then, [Weather](weather.md) falls back to calling OpenWeather
-from the Celery worker, which works only if the project put `celery` on the
+from the task worker, which works only if the project put `worker` on the
 `egress` network the scaffold already declares. That is a deliberate exception to
-the topology above and a stopgap: it lets every Celery task reach the internet. Do
-not use the same workaround for new features; ask for an operation instead.
+the topology above and a stopgap: it lets every task reach the internet. Do not use
+the same workaround for new features; ask for an operation instead.

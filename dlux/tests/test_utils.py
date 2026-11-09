@@ -136,9 +136,10 @@ class UtilsTests(TestCase):
         self.assertEqual(scope['MESSAGE_TAGS'][messages.ERROR], 'danger')
         self.assertEqual(scope['MESSAGE_TAGS'][messages.INFO], 'info-custom')
         self.assertEqual(
-            scope['CELERY_BEAT_SCHEDULE']['dlux-scheduled-system-backup-check'],
+            scope['DLUX_TASK_SCHEDULE']['dlux-scheduled-system-backup-check'],
             {'task': 'dlux.tasks.run_scheduled_system_backup', 'schedule': 900.0},
         )
+        self.assertEqual(scope['CELERY_BEAT_SCHEDULE'], {})
 
     def test_dlux_settings_preserves_existing_scalar_defaults(self):
         scope = {
@@ -161,7 +162,8 @@ class UtilsTests(TestCase):
         self.assertEqual(scope['DEFAULT_CHARSET'], 'latin-1')
         self.assertEqual(scope['FORMAT_MODULE_PATH'], ['project.formats', 'dlux.formats'])
         self.assertIn('project-task', scope['CELERY_BEAT_SCHEDULE'])
-        self.assertIn('dlux-scheduled-system-backup-check', scope['CELERY_BEAT_SCHEDULE'])
+        self.assertNotIn('dlux-scheduled-system-backup-check', scope['CELERY_BEAT_SCHEDULE'])
+        self.assertIn('dlux-scheduled-system-backup-check', scope['DLUX_TASK_SCHEDULE'])
 
     def test_dlux_settings_isolates_manage_py_tests_from_shared_cache(self):
         shared_cache = {

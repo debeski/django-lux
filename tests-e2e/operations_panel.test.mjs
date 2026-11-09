@@ -61,7 +61,7 @@ const SERVICES = {
   services: [
     { name: 'web', state: 'running', health: 'healthy', can_restart: true },
     { name: 'db', state: 'running', health: 'healthy', can_restart: false },
-    { name: 'celery', state: 'absent', health: '', can_restart: true },
+    { name: 'worker', state: 'absent', health: '', can_restart: true },
   ],
 };
 
@@ -312,15 +312,15 @@ describe('services in the panel', () => {
   test('logs of every service load from the header icon and survive later runs', async () => {
     const logs = {
       token: 'l1', operation: 'logs-tail', status: 'completed', active: false, error: '',
-      params: { lines: 200 }, logs: 'web | up\ncelery | up',
+      params: { lines: 200 }, logs: 'web | up\nworker | up',
     };
     await load({ services: SERVICES, logs, run: { ...SERVICES } });
     assert.equal(await page.locator('[data-dlux-ops-panel-logs-title]').textContent(), 'Last 200 lines of all services');
-    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\ncelery | up');
+    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\nworker | up');
     await page.locator('[data-dlux-ops-panel-logs-all]').click();
     await waitForAction();
     assert.deepEqual((await actions())[0], { operation: 'logs-tail', lines: '200' });
-    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\ncelery | up',
+    assert.equal(await page.locator('[data-dlux-ops-panel-logs]').textContent(), 'web | up\nworker | up',
       'starting another run keeps the logs on screen');
   });
 

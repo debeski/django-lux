@@ -20,9 +20,8 @@ from django.utils import timezone
 
 from dlux.models import DluxTaskRun, DluxTaskWorker
 from dlux.ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
-from dlux.taskrunner import Retry, crontab, enqueue, queue, task, task_backend, worker_alive
-from dlux.taskrunner.checks import check_task_backend
-from dlux.taskrunner.dispatch import celery_priority
+from dlux.taskrunner import Retry, crontab, enqueue, queue, task, worker_alive
+from dlux.taskrunner.checks import check_task_schedule
 from dlux.taskrunner.registry import resolve_task
 from dlux.taskrunner.schedules import as_schedule, interval, parse_schedule
 from dlux.taskrunner.worker import Worker
@@ -57,7 +56,7 @@ def at_least_once():
     CALLS.append("ran")
 
 
-DLUX = override_settings(DLUX_TASK_BACKEND="dlux")
+DLUX = override_settings()
 UTC = dt_timezone.utc
 
 
@@ -78,39 +77,40 @@ class TaskRunnerTestCase(TestCase):
         CALLS.clear()
 
 
-def celery_app_mock(workers=1):
-    app = mock.MagicMock()
-    app.control.ping.return_value = [{"w%s" % n: "pong"} for n in range(workers)]
-    return app
-
-
 class DispatchTests(TaskRunnerTestCase):
-    def test_celery_stays_the_default_backend(self):
-        self.assertEqual(task_backend(), "celery")
-
-    @DLUX
-    def test_the_dlux_backend_queues_one_ready_row(self):
+    def test_enqueue_queues_one_ready_row(self):
         run_id = record.enqueue(5)
         run = DluxTaskRun.objects.get()
         self.assertEqual((run.pk, run.task_name, run.args, run.status, run.priority),
                          (run_id, "tests.taskrunner.record", [5], "READY", 0))
 
-    def test_celery_gets_the_same_message_it_got_before(self):
-        app = celery_app_mock()
-        with mock.patch("dlux.taskrunner.dispatch.celery_app", return_value=app):
-            enqueue("dlux.tasks.ocr_file", args=(7,), priority=-6)
-            enqueue("dlux.tasks.build_report_backup", args=[3])
-            enqueue("dlux.tasks.build_system_backup", args=[4, ""], countdown=30, sensitive=True)
-        first, second, third = app.send_task.call_args_list
-        self.assertEqual(first, mock.call("dlux.tasks.ocr_file", args=[7], retry=False, priority=6))
-        self.assertEqual(second, mock.call("dlux.tasks.build_report_backup", args=[3], retry=False))
-        self.assertEqual(third.kwargs["args"], [4, ""])
-        self.assertAlmostEqual(third.kwargs["countdown"], 30, delta=2)
+    def test_delay_is_enqueue_and_sending_by_name_is_the_same_row(self):
+        record.delay(6)
+        enqueue("tests.taskrunner.record", args=[7], priority=-6, countdown=30)
+        first, second = DluxTaskRun.objects.order_by("enqueued_at", "pk")
+        self.assertEqual((first.args, second.args, second.priority), ([6], [7], -6))
+        self.assertGreater(second.run_after, timezone.now() + timedelta(seconds=25))
 
-    def test_priorities_map_onto_the_redis_transport(self):
-        self.assertEqual([celery_priority(p) for p in (0, -6, -9, -50, 10)], [0, 6, 9, 9, 0])
+    def test_the_public_api(self):
+        import dlux.taskrunner as api
 
-    @DLUX
+        self.assertEqual(sorted(api.__all__), sorted([
+            "DluxTask", "Retry", "TaskContext", "crontab", "enqueue", "registered_tasks",
+            "runner_config", "task", "worker_alive", "worker_started", "worker_stopping",
+        ]))
+        for name in api.__all__:
+            self.assertTrue(hasattr(api, name), name)
+        self.assertIn("tests.taskrunner.record", api.registered_tasks())
+
+    def test_dlux_tasks_keeps_its_names_and_registers_nothing_with_celery(self):
+        from dlux import jobs, tasks
+
+        self.assertIs(tasks.ocr_file, jobs.ocr_file)
+        self.assertIs(tasks.build_system_backup_task, jobs.build_system_backup)
+        self.assertEqual(tasks.ocr_file.name, "dlux.tasks.ocr_file")
+        self.assertFalse(hasattr(tasks, "worker_ready"))
+        self.assertFalse(hasattr(jobs.ocr_file, "celery"))
+
     def test_sensitive_arguments_are_encrypted_at_rest_and_cleared_after_the_run(self):
         secret.enqueue("hunter2")
         raw = DluxTaskRun.objects.values("args", "kwargs", "sealed_arguments").get()
@@ -121,7 +121,6 @@ class DispatchTests(TaskRunnerTestCase):
         run = DluxTaskRun.objects.get()
         self.assertEqual((run.status, run.sealed_arguments), ("SUCCESSFUL", ""))
 
-    @DLUX
     def test_a_system_backup_passphrase_never_reaches_the_queue_in_clear(self):
         from dlux.backup import dispatch_system_backup
 
@@ -134,18 +133,6 @@ class DispatchTests(TaskRunnerTestCase):
         self.assertNotIn("pw-123456", str(DluxTaskRun.objects.values().get()))
         self.assertEqual(queue.run_arguments(run)[0], [backup.pk, "pw-123456"])
 
-    def test_system_backup_dispatch_on_celery_sends_what_it_always_sent(self):
-        from dlux.backup import dispatch_system_backup
-
-        SystemBackup = apps.get_model("dlux", "SystemBackup")
-        backup = SystemBackup.objects.create(requested_by_username="root")
-        app = celery_app_mock()
-        with mock.patch("dlux.taskrunner.dispatch.celery_app", return_value=app):
-            self.assertTrue(dispatch_system_backup(backup))
-        app.send_task.assert_called_once_with("dlux.tasks.build_system_backup", args=[backup.pk, ""], retry=False)
-        self.assertFalse(DluxTaskRun.objects.exists())
-
-    @DLUX
     def test_worker_alive_means_a_fresh_heartbeat(self):
         self.assertFalse(worker_alive())
         worker = live_worker(heartbeat_at=timezone.now() - timedelta(minutes=2))
@@ -156,15 +143,6 @@ class DispatchTests(TaskRunnerTestCase):
         worker.stopped_at = timezone.now()
         worker.save()
         self.assertFalse(worker_alive())
-
-    def test_worker_alive_on_celery_pings_the_workers(self):
-        with mock.patch("dlux.taskrunner.dispatch.celery_app", return_value=celery_app_mock(workers=0)):
-            self.assertFalse(worker_alive())
-        with mock.patch("dlux.taskrunner.dispatch.celery_app", return_value=celery_app_mock(workers=2)):
-            self.assertTrue(worker_alive())
-        live_worker()
-        with mock.patch("dlux.taskrunner.dispatch.celery_app", return_value=None):
-            self.assertFalse(worker_alive(), "a dlux heartbeat says nothing about Celery")
 
 
 class ClaimTests(TaskRunnerTestCase):
@@ -311,7 +289,7 @@ class RecoveryTests(TaskRunnerTestCase):
         self.assertEqual(self.recover(), (0, 1))
         self.assertEqual(DluxTaskRun.objects.get(pk=run.pk).status, "FAILED")
 
-    def test_ocr_file_is_requeued_like_a_late_acked_celery_message(self):
+    def test_ocr_file_is_requeued_when_its_worker_dies(self):
         import dlux.jobs  # noqa: F401
 
         self.running("dlux.tasks.ocr_file", args=[1])
@@ -469,60 +447,49 @@ class CrontabTests(SimpleTestCase):
         with self.assertRaisesRegex(ValueError, "'nightly'"):
             parse_schedule({"nightly": {"task": "t", "schedule": -1}})
 
-    def test_the_system_check_reports_bad_settings(self):
-        with override_settings(DLUX_TASK_BACKEND="rabbit"):
-            self.assertEqual([e.id for e in check_task_backend()], ["dlux.E101"])
+    def test_the_system_check_reports_a_bad_schedule(self):
         with override_settings(DLUX_TASK_SCHEDULE={"x": {"task": "t", "schedule": "often"}}):
-            self.assertEqual([e.id for e in check_task_backend()], ["dlux.E102"])
-        self.assertEqual(check_task_backend(), [])
+            self.assertEqual([e.id for e in check_task_schedule()], ["dlux.E102"])
+        self.assertEqual(check_task_schedule(), [])
 
 
 class SettingsTests(SimpleTestCase):
-    def test_dlux_settings_mirrors_the_beat_schedule_for_the_worker(self):
-        from dlux.utils.settings import dlux_settings
+    def test_dlux_settings_schedules_djangolux_on_the_worker_only(self):
+        from dlux.utils.settings import DLUX_BUILTIN_TASK_SCHEDULE, dlux_settings
 
         scope = {}
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("DLUX_TASK_BACKEND", None)
-            dlux_settings(scope)
-        self.assertEqual(scope["DLUX_TASK_BACKEND"], "celery")
-        self.assertNotIn("TASKS", scope)
-        beat, own = scope["CELERY_BEAT_SCHEDULE"], scope["DLUX_TASK_SCHEDULE"]
-        self.assertEqual(set(own), set(beat))
-        for name, entry in own.items():
-            self.assertEqual(entry["task"], beat[name]["task"])
-            self.assertEqual(entry["schedule"], beat[name]["schedule"])
+        dlux_settings(scope)
+        own = scope["DLUX_TASK_SCHEDULE"]
+        self.assertEqual(set(own), set(DLUX_BUILTIN_TASK_SCHEDULE))
         self.assertEqual(own["dlux-ocr-background"]["options"]["priority"], -9)
         parse_schedule(own)
+        self.assertNotIn("DLUX_TASK_BACKEND", scope)
+        # Kept as an (empty) dict for projects that still add Celery beat entries to it.
+        self.assertEqual(scope["CELERY_BEAT_SCHEDULE"], {})
+        if django.VERSION >= (6, 0):
+            self.assertEqual(scope["TASKS"]["default"]["BACKEND"], "dlux.taskrunner.backend.DatabaseBackend")
 
-    def test_project_entries_backend_and_tasks_setting_are_kept(self):
+    def test_project_entries_and_tasks_setting_are_kept(self):
         from dlux.utils.settings import dlux_settings
 
         mine = {"refresh": {"task": "crm.tasks.refresh", "schedule": crontab(minute=0, hour="*/3")}}
-        scope = {"DLUX_TASK_BACKEND": "dlux", "DLUX_TASK_SCHEDULE": dict(mine)}
+        scope = {"DLUX_TASK_SCHEDULE": dict(mine)}
         dlux_settings(scope)
         self.assertIn("refresh", scope["DLUX_TASK_SCHEDULE"])
         self.assertIn("dlux-state-tick", scope["DLUX_TASK_SCHEDULE"])
-        if django.VERSION >= (6, 0):
-            self.assertEqual(scope["TASKS"]["default"]["BACKEND"], "dlux.taskrunner.backend.DatabaseBackend")
-        self.assertEqual(scope["CELERY_BEAT_SCHEDULE"], {}, "the dlux worker, not Celery Beat, runs DjangoLux's entries")
-        project_beat = {"crm-refresh": {"task": "crm.tasks.refresh", "schedule": 60}}
-        scope = {"DLUX_TASK_BACKEND": "dlux", "CELERY_BEAT_SCHEDULE": dict(project_beat)}
+        # A project's own Celery beat entries stay; DjangoLux's never reach Celery,
+        # even when a project copied them there.
+        project_beat = {
+            "crm-refresh": {"task": "crm.tasks.refresh", "schedule": 60},
+            "dlux-state-tick": {"task": "dlux.tasks.dlux_state_tick", "schedule": 5.0},
+        }
+        scope = {"CELERY_BEAT_SCHEDULE": dict(project_beat)}
         dlux_settings(scope)
-        self.assertEqual(scope["CELERY_BEAT_SCHEDULE"], project_beat)
-        self.assertIn("dlux-state-tick", scope["DLUX_TASK_SCHEDULE"])
+        self.assertEqual(scope["CELERY_BEAT_SCHEDULE"], {"crm-refresh": project_beat["crm-refresh"]})
         own_tasks = {"default": {"BACKEND": "django.tasks.backends.immediate.ImmediateBackend"}}
-        scope = {"DLUX_TASK_BACKEND": "dlux", "TASKS": own_tasks}
+        scope = {"TASKS": own_tasks}
         dlux_settings(scope)
         self.assertIs(scope["TASKS"], own_tasks)
-
-    def test_the_environment_can_select_the_backend(self):
-        from dlux.utils.settings import dlux_settings
-
-        scope = {}
-        with mock.patch.dict(os.environ, {"DLUX_TASK_BACKEND": "dlux"}):
-            dlux_settings(scope)
-        self.assertEqual(scope["DLUX_TASK_BACKEND"], "dlux")
 
 
 class PruneTests(TaskRunnerTestCase):
@@ -597,42 +564,37 @@ class DoctorAndOptionsTests(TaskRunnerTestCase):
 
         return doctor._check_task_worker(None)
 
-    def test_doctor_on_celery_leaves_it_to_the_celery_check(self):
-        self.assertEqual(self.finding().status, "skipped")
+    def test_doctor_task_worker(self):
+        finding = self.finding()
+        self.assertEqual(finding.status, "warning")
+        self.assertIn("check --fix", finding.remedy)
+        live_worker(version="1.16.0b1")
+        self.assertEqual(self.finding().status, "ok")
+        DluxTaskRun.objects.create(task_name="t", status="FAILED", finished_at=timezone.now())
+        self.assertEqual(self.finding().status, "warning")
 
-    @DLUX
-    def test_doctor_on_dlux(self):
+    def test_doctor_warns_while_the_project_still_uses_celery(self):
         from dlux import doctor
 
-        self.assertEqual(doctor._check_celery(None).status, "skipped")
-        self.assertEqual(self.finding().status, "warning")
-        live_worker(version="1.16.0b1")
+        with override_settings(CELERY_BEAT_SCHEDULE={}, CELERY_BROKER_URL=""), \
+                mock.patch.dict(os.environ, {"DJANGO_SETTINGS_MODULE": "dlux.tests.settings"}):
+            self.assertEqual(doctor._check_project_celery(None).status, "ok")
         project_beat = {"crm-refresh": {"task": "crm.tasks.refresh", "schedule": 60}}
-        with override_settings(CELERY_BEAT_SCHEDULE=project_beat, DLUX_TASK_SCHEDULE={}, CELERY_BROKER_URL=""):
-            finding = self.finding()
+        with override_settings(CELERY_BEAT_SCHEDULE=project_beat, CELERY_BROKER_URL="redis://redis:6379/2"):
+            finding = doctor._check_project_celery(None)
         self.assertEqual(finding.status, "warning")
         self.assertIn("crm-refresh", finding.detail)
-        with override_settings(CELERY_BEAT_SCHEDULE=project_beat, DLUX_TASK_SCHEDULE={},
-                               CELERY_BROKER_URL="redis://redis:6379/0"):
-            self.assertEqual(self.finding().status, "ok", "project beat entries stay on Celery")
-        with override_settings(CELERY_BEAT_SCHEDULE={}, DLUX_TASK_SCHEDULE={}):
-            self.assertEqual(self.finding().status, "ok")
-            DluxTaskRun.objects.create(task_name="t", status="FAILED", finished_at=timezone.now())
-            self.assertEqual(self.finding().status, "warning")
+        self.assertIn("CELERY_BROKER_URL", finding.detail)
+        self.assertIn("dlux.taskrunner.task", finding.remedy)
 
-    @override_settings(DLUX_TASK_BACKEND="rabbit")
-    def test_doctor_fails_an_invalid_backend(self):
-        self.assertEqual(self.finding().status, "error")
-
-    @DLUX
     def test_the_options_tasks_row_reads_worker_heartbeats(self):
         from dlux.views import options
 
-        service = options._get_celery_service()
+        service = options._get_tasks_service()
         self.assertEqual((service["state"], service["note_key"]), ("offline", "service_task_worker_offline"))
         live_worker()
         record.enqueue(1)
-        service = options._get_celery_service(probe=True)
+        service = options._get_tasks_service()
         self.assertEqual((service["state"], service["note_context"]["count"], service["note_context"]["ready"]),
                          ("online", 1, 1))
 
@@ -666,30 +628,3 @@ class DjangoTasksBackendTests(TaskRunnerTestCase):
         run = DluxTaskRun.objects.get(pk=result.id)
         self.assertEqual((run.priority, run.run_after), (7, later))
         self.assertEqual(burst(), 0)
-
-
-class CeleryTwinTests(SimpleTestCase):
-    def test_every_task_keeps_its_celery_name_and_options(self):
-        from dlux import tasks
-
-        if tasks.shared_task is None:
-            self.skipTest("celery is not installed")
-        names = {
-            "build_report_backup_task": "build_report_backup",
-            "build_system_backup_task": "build_system_backup",
-            "restore_system_backup_task": "restore_system_backup",
-            "run_scheduled_system_backup_task": "run_scheduled_system_backup",
-            "weather_refresh_task": "weather_refresh",
-            "weather_search_task": "weather_search",
-            "dlux_update_check_task": "dlux_update_check",
-            "dlux_state_tick_task": "dlux_state_tick",
-            "ocr_background": "ocr_background",
-            "ocr_file": "ocr_file",
-            "reap_stalled_system_backups_task": "reap_stalled_system_backups",
-        }
-        for attribute, name in names.items():
-            celery_task = getattr(tasks, attribute)
-            self.assertEqual(celery_task.name, f"dlux.tasks.{name}")
-            self.assertTrue(celery_task.ignore_result)
-        self.assertTrue(tasks.ocr_file.acks_late)
-        self.assertEqual(tasks.ocr_file.max_retries, len(OCR_RETRY_DELAYS))

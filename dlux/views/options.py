@@ -1,7 +1,7 @@
 """System options views.
 
 Serves `sys/options/` (`options_view`) and the system administration actions
-that hang off it: the live service probes (database, cache, DRF/API, Celery,
+that hang off it: the live service probes (database, cache, DRF/API, task worker,
 email), the System Settings dynamic modal, first-run setup, settings export,
 email configuration and test sends, and the two destructive admin actions. Was
 named `general.py` until 1.8.0, which undersold it — nothing here is general,
@@ -12,7 +12,6 @@ import os
 import platform
 import sys
 import json
-import importlib
 import logging
 import urllib.error
 import urllib.request
@@ -222,12 +221,6 @@ try:
     import rest_framework
 except ImportError:
     rest_framework = None
-
-try:
-    import celery
-except ImportError:
-    celery = None
-
 
 SERVICE_BADGE_CLASSES = {
     'online': 'bg-success',
@@ -542,94 +535,6 @@ def _get_api_service():
         )
 
 
-def _get_celery_app():
-    """Resolve the project's Celery app so worker health can be inspected in-process."""
-    settings_module = str(os.environ.get('DJANGO_SETTINGS_MODULE') or '')
-    project = settings_module.split('.', 1)[0]
-    if project:
-        try:
-            return importlib.import_module(f'{project}.celery').app
-        except Exception:
-            pass
-    try:
-        from celery import current_app
-        return current_app
-    except Exception:
-        return None
-
-
-# A worker ping hits the broker and blocks the request for up to a second, so it
-# is NEVER run on a normal Options page load. The check is on-demand only
-# (triggered by the recheck button → `celery_health_check_view`); its result is
-# persisted so the panel keeps showing the last outcome until the next manual
-# check, instead of re-pinging on every visit.
-CELERY_HEALTH_RESULT_KEY = 'dlux:health:celery-workers:last-result'
-
-
-def _probe_celery_workers(app):
-    """Return ``(ok, worker_count, error)`` from a single live worker ping.
-
-    ``ok`` is False only when the ping itself raised (broker unreachable); a
-    reachable broker with zero live workers returns ``(True, 0, '')``. No
-    caching — the caller decides when to probe (on demand only).
-    """
-    try:
-        replies = app.control.ping(timeout=1.0)
-        return (True, len(replies or []), '')
-    except Exception as exc:
-        return (False, 0, str(exc))
-
-
-def _load_celery_probe_result():
-    """Return the last persisted on-demand probe result, or None if never run."""
-    try:
-        cached = caches['default'].get(CELERY_HEALTH_RESULT_KEY)
-    except Exception:
-        return None
-    if not cached:
-        return None
-    try:
-        ok, worker_count, error = cached
-        return (bool(ok), int(worker_count), str(error or ''))
-    except Exception:
-        return None
-
-
-def _store_celery_probe_result(result):
-    """Persist the on-demand probe result until the next manual check (no TTL)."""
-    try:
-        caches['default'].set(CELERY_HEALTH_RESULT_KEY, list(result), timeout=None)
-    except Exception:
-        pass
-
-
-def _celery_status_from_result(detail, result):
-    """Build a service-status dict from a ``(ok, worker_count, error)`` probe."""
-    ok, worker_count, error = result
-    if not ok:
-        return _service_status(
-            'offline',
-            detail=detail,
-            note=f'Error: {error}',
-            note_key='service_error_detail',
-            note_context={'error': error},
-        )
-    if worker_count == 0:
-        return _service_status(
-            'offline',
-            detail=detail,
-            note='Celery is configured, but no workers responded to the health ping.',
-            note_key='service_celery_no_workers',
-        )
-    return _service_status(
-        'online',
-        detail=detail,
-        note='{count} worker(s) responded to the health ping.',
-        note_key='service_celery_workers_online',
-        note_context={'count': worker_count},
-    )
-
-
 def _get_email_service():
     """Resolve the Email service status for the admin panel.
 
@@ -669,8 +574,8 @@ def _get_email_service():
     return _service_status(state, detail=detail, note_key=note_key)
 
 
-def _get_dlux_worker_service():
-    """The Tasks row under ``DLUX_TASK_BACKEND = "dlux"``: worker heartbeats, read from the database."""
+def _get_tasks_service():
+    """The Tasks row: ``dlux_worker`` heartbeats and queue counts, read from the database."""
     from ..taskrunner.config import runner_config
     from ..taskrunner.queue import live_dlux_workers, queue_summary
 
@@ -702,75 +607,6 @@ def _get_dlux_worker_service():
         note_key='service_task_workers_online',
         note_context={'count': count, 'ready': summary['ready'], 'failed': failed},
     )
-
-
-def _get_celery_service(probe=False):
-    """Resolve the Tasks (Celery) service status.
-
-    Celery is part of every Dlux stack, so a project with no Celery settings is
-    reported as offline rather than hidden: scheduled backups, weather, update
-    handling and other background work will not run. The cheap
-    configuration/package/app checks always run, but the broker is
-    pinged ONLY when ``probe=True`` (the on-demand recheck endpoint). On a normal
-    page load (``probe=False``) the last persisted result is shown, or a neutral
-    "not checked yet" state when no check has been run.
-
-    Under ``DLUX_TASK_BACKEND = "dlux"`` the row reports ``dlux_worker``
-    heartbeats instead: a database read, so it is always current.
-    """
-    from ..taskrunner import uses_dlux_backend
-
-    if uses_dlux_backend():
-        return _get_dlux_worker_service()
-    is_configured = any([
-        getattr(settings, 'CELERY_BROKER_URL', ''),
-        getattr(settings, 'CELERY_RESULT_BACKEND', ''),
-        apps.is_installed('django_celery_beat'),
-        apps.is_installed('django_celery_results'),
-    ])
-    if not is_configured:
-        return _service_status(
-            'offline',
-            detail='Celery',
-            note='Celery is not configured. It is part of every Dlux stack: scheduled backups, weather and update handling will not run.',
-            note_key='service_celery_not_configured',
-        )
-
-    if not celery:
-        return _service_status(
-            'offline',
-            detail='Celery',
-            note='Celery-related settings were detected, but the celery package is not installed.',
-            note_key='service_celery_missing_package',
-        )
-
-    version = getattr(celery, '__version__', '')
-    detail = f'Celery {version}'.strip() or 'Celery'
-
-    app = _get_celery_app()
-    if app is None:
-        return _service_status(
-            'configured',
-            detail=detail,
-            note='Celery settings were detected, but the Celery app could not be loaded to check worker health.',
-            note_key='service_celery_app_unavailable',
-        )
-
-    if probe:
-        result = _probe_celery_workers(app)
-        _store_celery_probe_result(result)
-        return _celery_status_from_result(detail, result)
-
-    stored = _load_celery_probe_result()
-    if stored is None:
-        # Never checked (or the store was cleared) — neutral, not-green state.
-        return _service_status(
-            'unknown',
-            detail=detail,
-            note='Celery settings were detected. Worker health is not auto-checked here.',
-            note_key='service_celery_configured',
-        )
-    return _celery_status_from_result(detail, stored)
 
 
 def _get_system_backup_summary():
@@ -822,7 +658,7 @@ def options_view(request):
         db_service = _localize_service_status(_get_database_service(), strings)
         cache_service = _localize_service_status(_get_cache_service(), strings)
         api_service = _localize_service_status(_get_api_service(), strings)
-        celery_service = _localize_service_status(_get_celery_service(), strings)
+        tasks_service = _localize_service_status(_get_tasks_service(), strings)
         email_service = _localize_service_status(_get_email_service(), strings)
         drf_service = _get_drf_service()
         os_info = f"{platform.system()} {platform.release()}"
@@ -873,7 +709,7 @@ def options_view(request):
             'api_service': api_service,
             'db_service': db_service,
             'cache_service': cache_service,
-            'celery_service': celery_service,
+            'tasks_service': tasks_service,
             'email_service': email_service,
             'version': __version__,
             'ram_total': f"{ram_total_gb:.1f}",
@@ -1081,19 +917,17 @@ def email_health_check_view(request):
 
 @login_required
 @require_POST
-def celery_health_check_view(request):
-    """On-demand Celery worker health probe (superuser / global-staff only).
+def task_worker_health_view(request):
+    """Re-read the Tasks row on demand (superuser / global-staff only).
 
-    Pings the broker once, persists the result so the Options panel keeps showing
-    it until the next manual check, and returns the localized status for the JS
-    to paint the Tasks badge. This is the ONLY place a ping is issued — normal
-    Options loads never touch the broker.
+    One database read of the worker heartbeats and queue counts; returns the
+    localized status for the JS to paint the Tasks badge.
     """
     if not (request.user.is_superuser or is_global_staff(request.user)):
         raise PermissionDenied
 
     strings = get_strings(get_current_language_code(request))
-    service = _localize_service_status(_get_celery_service(probe=True), strings)
+    service = _localize_service_status(_get_tasks_service(), strings)
     return JsonResponse({
         'status': 'ok',
         'service': {

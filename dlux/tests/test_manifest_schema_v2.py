@@ -89,6 +89,36 @@ class NormalisationTests(SimpleTestCase):
         self.assertTrue(validate_release_manifest(v1, '1.8.0')['inline_safe'])
 
 
+class StackSchemaRequirementTests(SimpleTestCase):
+    """`requires.stack_schema`: a release that needs regenerated stack files (1.16's
+    `worker` service) is never installed inline onto an older stack."""
+
+    def test_it_normalises_to_an_integer_floor(self):
+        out = validate_release_manifest(
+            _manifest(requires={**V2['requires'], 'stack_schema': '>=5'}), '1.8.0')
+        self.assertEqual(out['minimum_stack_schema'], 5)
+        self.assertIn('stack_schema', KNOWN_REQUIREMENT_KEYS)
+
+    def test_a_manifest_without_it_carries_no_floor(self):
+        self.assertNotIn('minimum_stack_schema', validate_release_manifest(_manifest(), '1.8.0'))
+
+    def test_a_malformed_floor_is_refused(self):
+        with self.assertRaises(UpdaterError):
+            validate_release_manifest(
+                _manifest(requires={**V2['requires'], 'stack_schema': '>=five'}), '1.8.0')
+
+    def test_the_deployment_stamp_is_read_from_the_environment(self):
+        import os
+        from unittest import mock
+
+        from dlux.updater.manifest import deployment_stack_schema
+
+        with mock.patch.dict(os.environ, {'DLUX_STACK_SCHEMA': '4'}):
+            self.assertEqual(deployment_stack_schema(), 4)
+        with mock.patch.dict(os.environ, {'DLUX_STACK_SCHEMA': ''}):
+            self.assertIsNone(deployment_stack_schema())
+
+
 class InlineAdmissionTests(SimpleTestCase):
     def test_the_author_cannot_wave_through_a_destructive_migration(self):
         """`install.inline` is a permission, not an override.
