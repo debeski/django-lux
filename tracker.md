@@ -42,6 +42,7 @@
 - e2e on `5ecb2a9` (2026-10-12): the same 10 failures as d362ee7, all stale tests (e.g. `wizard_security` calls `selectOption` on the now-radio `client_ip_mode`); backup page, global search, tutorial, email, security.
 - Composer `dlux rollback` targets the newest staged release below the active one even when it is below the baked image (testbed-dlux 2026-11-10: "Activating DjangoLux 1.15.5b1" from b2). DjangoLux's supervisor ignores a volume release not newer than the image, so 1.16.0b1 ran; fixed by composer#19 (merged, unreleased).
 - Backup tables show status and trigger values ("Completed", "Manual") in English in the Arabic UI, on the page and in the pollers (seen 2026-11-10).
+- Seen 2026-10-31 in a static render, unfixed: the ribbon Clear chip is a light cream pill in every dark theme; `dlux/static/dlux/forms/css/form_actions.css` `.dlux-filter .btn.dlux-filter-clear.btn-warning` sets a cream gradient with no dark-theme override.
 ### Incomplete Tasks:
 - **Priority 1:**
   - [ ] **#55 advisory (owner decision)**: GHSA-w9cm-w67h-j969 (backup folders, #53; Moderate 5.3, `< 1.15.5`) published 2026-11-09; the files-beside-documents fix (#55) has none drafted. Decrees' own proxy serves all `dlux/assets/*` + `profile_pictures/*` (a backup folder there stays public).
