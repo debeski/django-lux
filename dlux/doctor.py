@@ -517,8 +517,8 @@ def _check_task_worker(ctx):
         return warn(
             f'No dlux_worker has sent a heartbeat in the last {runner_config()["stale_after"]} s, so queued and '
             f'scheduled tasks (backups, update checks, OCR) are not running ({summary["ready"]} due now).',
-            'Start the worker service. A stack generated before stack schema 5 has none: run '
-            './start.sh check --fix (Composer 1.10+), then recreate the stack. Outside Docker: '
+            'Start the worker service. A stack generated before stack schema 5 has none: with this '
+            'image deployed, run ./start.sh check --fix (Composer 1.10+), then recreate the stack. Outside Docker: '
             'python manage.py dlux_worker',
         )
     if summary['failed'] or summary['schedules_failing']:

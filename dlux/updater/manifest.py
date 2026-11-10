@@ -529,7 +529,8 @@ def assess_wheel(candidate, wheel_path, baked_version=None, active_version=None)
             reasons.append(
                 f"This release needs stack schema {stack_floor}"
                 + (f" (this stack is on {stamp})" if stamp is not None else " (this stack is unstamped)")
-                + "; run ./start.sh check --fix with an up-to-date Composer first."
+                + "; it is installed by pulling or rebuilding the project image, then running"
+                " ./start.sh check --fix with an up-to-date Composer and recreating the stack."
             )
     if manifest["migration_policy"] != "backward_compatible":
         reasons.append("This release contains migrations that are not inline-safe.")

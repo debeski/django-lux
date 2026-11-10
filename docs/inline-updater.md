@@ -32,9 +32,12 @@ For an existing generated stack, run `./start.sh check`, review what it reports,
 and apply the recognized repairs with `./start.sh check --fix` when Composer
 reports missing infrastructure: it installs the Composer services and migrates
 obsolete `dlux-updater` wiring. A stack below schema 5 has no `worker` service to
-run DjangoLux's tasks, so this DjangoLux is not installed inline onto it: migrate it with
-`./start.sh check --fix` (Composer 1.10 or later), which adds `worker`, then
-rebuild the project image (see
+run DjangoLux's tasks, so this DjangoLux is not installed inline onto it. Move it
+with Composer 1.10 or later: put the project image on this DjangoLux first
+(pull it, or bump the pin and rebuild it), then run `./start.sh check --fix`,
+which adds `worker` once the image has `dlux_worker`, and recreate the stack. A
+development stack bumps the pin, runs `./start.sh -d check --fix` (which reads
+the pinned version) and then `./start.sh -d -b` (see
 [Stack Schema Stamps](stack-schema.md#changes-by-schema)).
 
 There is no in-container executor: `DLUX_UPDATE_EXECUTOR` is ignored (see

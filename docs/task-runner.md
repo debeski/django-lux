@@ -356,8 +356,12 @@ suite runs on Django 6.x only.
   the init containers (`dlux_reconcile`, then `migrator`), applies migrations on
   a restart (`DLUX_BOOT_GATE: apply`), and has the healthcheck
   `python manage.py dlux_worker --check` and `stop_grace_period: 30s`. A stack
-  generated before stack schema 5 has no `worker`; `./start.sh check --fix`
-  (Composer 1.10 or later) adds it. See [Stack Schema Stamps](stack-schema.md).
+  generated before stack schema 5 has no `worker`. With the project image on
+  DjangoLux 1.16 (pulled, or rebuilt after bumping the pin), `./start.sh check
+  --fix` (Composer 1.10 or later) adds it, and the next deploy starts it; a
+  development stack runs `./start.sh -d check --fix`, then `./start.sh -d -b`.
+  Without `worker`, queued DjangoLux tasks wait in the queue. See
+  [Stack Schema Stamps](stack-schema.md).
 - **Options page, Tasks row**: shows `dlux_worker`, online with the worker count
   and the due and failed counts, degraded when runs or schedule entries failed,
   offline when no heartbeat is fresh. It is a database read, so it is always
