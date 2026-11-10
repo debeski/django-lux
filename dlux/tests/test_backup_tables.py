@@ -10,6 +10,7 @@ setup_test_environment()
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -95,6 +96,40 @@ class BackupTablePageTests(TestCase):
             self.SystemRestore.objects.create(requested_by_username='boss', backup_file_path='x.dlb', status='completed')
         payload = self.client.get(reverse('system_restore_list_status'), {'restores-page': 2}).json()
         self.assertEqual(len(_rows(payload['html'], 'data-system-restore-row')), 2)
+
+    def _prefer_arabic(self):
+        profile = User.objects.get(username='boss').profile
+        profile.preferences = {**(profile.preferences or {}), 'language': 'ar'}
+        profile.save()
+        cache.clear()
+
+    def test_the_restore_poller_renders_an_empty_history(self):
+        # The poll answered 500 on every fresh deployment: as_html() renders without
+        # context processors, and the empty state reads DLUX_STRINGS as a filter argument.
+        self._prefer_arabic()
+        response = self.client.get(reverse('system_restore_list_status'))
+        self.assertEqual(response.status_code, 200)
+        markup = response.json()['html']
+        self.assertIn('dlux-table-empty-state', markup)
+        self.assertIn('لا توجد سجلات', markup)
+        self.assertNotIn('No records found', markup)
+
+    def test_the_backup_poller_renders_an_empty_history(self):
+        self._prefer_arabic()
+        response = self.client.get(reverse('system_backup_list_status'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('لا توجد سجلات', response.json()['html'])
+
+    def test_the_pollers_render_in_the_viewers_language(self):
+        self._backups(1)
+        self.SystemRestore.objects.create(requested_by_username='boss', backup_file_path='x.dlb', status='completed')
+        self._prefer_arabic()
+        page = self.client.get(reverse('system_backup_page')).content.decode()
+        self.assertIn('إجمالي السجلات', page)
+        for name in ('system_backup_list_status', 'system_restore_list_status'):
+            markup = self.client.get(reverse(name)).json()['html']
+            self.assertIn('إجمالي السجلات', markup, name)
+            self.assertNotIn('Total records', markup, name)
 
     def test_rows_carry_actions_not_buttons(self):
         (backup,) = self._backups(1)

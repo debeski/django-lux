@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Backup Page Pollers Render Like The Page**: `system_restore_list_status_view` (`GET /sys/backup/restore/status/`) answered 500 while the restore history was empty, so on a fresh deployment the restore table never live-refreshed (since 1.13.2). It and `system_backup_list_status_view` built their `html` with django-tables2's `Table.as_html(request)`, which renders from a bare dict: no context processor ran, so `DLUX_STRINGS` was missing, and `dlux/tables/table.html`'s empty state uses it as a filter argument. Both now render through `_table_html()` in `dlux/views/backup.py`, a `RequestContext` shared with template columns as `{% render_table %}` does, so the refreshed fragment carries the viewer's strings (empty state, footer, density and pagination labels) instead of English fallbacks. No migrations.
+
 ## v1.16.0b1
 
 - **1.16.0 Candidate 1**: First 1.16 beta, tagged on `1.16/task-runner` while `main` ships 1.15.x. DjangoLux owns its task manager: nothing on the DjangoLux side uses Celery any more. Pairs with Composer 1.10.0b1: the manifest requires `services.composer >=1.10.0b1` and `stack_schema >=5`, forbids an inline install (`baked_image >=1.16.0b1`) and carries migration `0030_task_runner` (additive). Upgrade path, with Composer 1.10: put the project image on 1.16 (pull, or bump the pin and rebuild), then `./start.sh check --fix` (stack schema 4 to 5; it adds `worker` only once the image has `dlux_worker`), then recreate the stack; a development stack runs `./start.sh -d check --fix`, then `./start.sh -d -b`.
