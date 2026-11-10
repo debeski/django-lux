@@ -97,7 +97,7 @@ lossy shrinking is not offered.
 | Viewer | `{% load dlux_files %}{% dlux_document_viewer object 'pdf_file' %}` renders `dlux/pdf/viewer.html` with these routes; edit and history buttons follow the user's access and the PDF tools settings. `dlux.files.views.document_file_context()` gives the same context to a project template. |
 | Page editor | The built-in `DocumentFileAdapter` behind `PdfEditorView` (accept = the registration's kinds). Images join as pages; pages can be selected, rotated and fitted to A4; Scan uses ScanLink (§5). Saving keeps the previous file in history. |
 | Forms | Every form the dynamic modal builds gets, for each registered field, the DjangoLux file card with Scan, the `accept` attribute and the server-side type check (`dlux.files.forms.apply_document_file_fields(form)`; a project form can call it too). |
-| Modal save | The modal save and the history write share one transaction: a replaced file goes to history (`replace`, or `clear` when emptied), a new PDF gets metadata and its target name, and an accepted image uploaded through the form becomes the PDF (the uploaded image itself is not kept). |
+| Modal save | The modal save and the history write share one transaction: a replaced file goes to history (`replace`, or `clear` when emptied) and stays in place, a new PDF gets metadata and its target name while the upload itself stays beside it, and an accepted image uploaded through the form becomes the PDF (the uploaded image itself is not kept). |
 | Direct `/media/` links | On a stack-schema-4 proxy, the file's own `/media/` path is served only to users who may view the document: the same scope and `can_access('view')` check as `source/`. Other files in that folder, and earlier files of any document, are refused to everyone; an attachment on the document model needs a signed-in user. See [Stored files](deployment-configuration.md#stored-files-media). |
 | Soft delete | Deleting a registered document (`instance.delete()` or `queryset.delete()`) soft-deletes its history rows with the same time and actor; `restore()` brings back exactly those rows. |
 
@@ -141,9 +141,10 @@ unchanged file again.
   (form saves), `archive_previous(...)`, `versions_for(document, field)`,
   `next_version_number(...)`. The previous file is always copied byte-for-byte
   before the new one is written under a new storage name; nothing is
-  overwritten. A missing original stops the save. Once the transaction commits,
-  the replaced file is removed from the document's folder, unless a file field
-  still names it; a rollback keeps it.
+  overwritten. A missing original stops the save. Earlier files are never
+  deleted: the replaced file and a PDF upload stay in the document's folder
+  beside their history copy, so they remain available for audits. `/media/`
+  refuses them to everyone, and the history views serve the copies.
 - Soft-delete wiring uses `dlux.models.soft_delete_signals` (`soft_deleted`,
   `restored`). `ScopedModel` and `ScopedQuerySet` gather the arguments only when
   a receiver is connected for that model, so unregistered models pay nothing.

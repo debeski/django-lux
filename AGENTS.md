@@ -21,15 +21,14 @@ Project state, tasks and known bugs: see `tracker.md`.
 - **Branch names.** Name a branch `<release line>/<work>` in snake_case, for
   example `1.13/operations_panel` or `1.14/table_builder`. Its checkout directory
   is the last path segment (`../operations_panel`).
-- **Release lines: 1.15 and the 1.16 task manager** (owner, 2026-11-06). DjangoLux
-  owns the task manager from 1.16.0. 1.16.0 moves every DjangoLux-side and
-  Composer-side task onto it (DjangoLux checks, commands, helpers and scaffolds;
-  Composer checks, commands and helpers). Celery stays for project-side tasks only:
-  warned as deprecated from 1.16.0, no longer installed with generated stacks from
-  1.17.0. 1.16 betas are tagged on the 1.16 branch while `main` ships 1.15.x; the
-  1.16 branch merges into `main` for 1.16.0 stable. Until 1.16.0 is published,
-  `1.16/*` branches carry task-manager work only; every other fix, patch or
-  feature ships on the 1.15 line (`1.15/<work>`, released as 1.15.x).
+- **Release line: 1.16; 1.15 is closed** (owner, 2026-11-06 and 2026-11-10).
+  DjangoLux owns the task manager from 1.16.0. 1.16.0 moves every DjangoLux-side
+  and Composer-side task onto it (DjangoLux checks, commands, helpers and
+  scaffolds; Composer checks, commands and helpers). Celery stays for project-side
+  tasks only: warned as deprecated from 1.16.0, no longer installed with generated
+  stacks from 1.17.0. The task manager is merged into `main`, which carries the
+  1.16 betas up to 1.16.0 stable. There are no more 1.15.x releases: every fix,
+  patch or feature ships on a `1.16/<work>` branch.
 - **Retire merged branches without asking.** Once a branch is merged into `main`
   and safe to discard, retire it: move its ignored leftovers (`.xclude/`, venv
   links, e2e state and screenshots) into
