@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Backup Page Pollers Render Like The Page**: `system_restore_list_status_view` (`GET /sys/backup/restore/status/`) answered 500 while the restore history was empty, so on a fresh deployment the restore table never live-refreshed (since 1.13.2). It and `system_backup_list_status_view` built their `html` with django-tables2's `Table.as_html(request)`, which renders from a bare dict: no context processor ran, so `DLUX_STRINGS` was missing, and `dlux/tables/table.html`'s empty state uses it as a filter argument. Both now render through `_table_html()` in `dlux/views/backup.py`, a `RequestContext` shared with template columns as `{% render_table %}` does, so the refreshed fragment carries the viewer's strings (empty state, footer, density and pagination labels) instead of English fallbacks. No migrations.
 - **Replaced Document Files Stay For Audits**: Reverts 1.15.5's "Replaced Document Files Leave The Folder". `save_new_version()` and `record_upload()` in `dlux.files.history` no longer delete the replaced file after the transaction commits (`_drop_replaced` and `_still_named` are removed). The replaced file and a PDF upload stay in the document's folder beside their byte-for-byte history copy, as they did before 1.15.5, so earlier files remain available for audits. `/media/` still refuses them to everyone. Installs that ran 1.15.5 kept every replaced file's bytes in its `FileVersion.archived_file` copy. No migrations.
 
 ## v1.16.0b1
