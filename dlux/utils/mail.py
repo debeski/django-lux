@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import re
+import threading
+import time
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -62,11 +64,75 @@ DLUX_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 
 DLUX_INTERNAL_SMTP_RELAY_PORT = 1025
 
-# How long the relay reachability probe waits. It runs while a settings page is
-# being rendered, so it has to fail fast: the relay either sits on the same
-# internal network (a millisecond away) or is not deployed at all, and there is
-# no middle case worth waiting for.
+# How long the relay reachability probe waits in total, name lookup included. It
+# runs while a settings page is being rendered, so it has to fail fast: the relay
+# either sits on the same internal network (a millisecond away) or is not
+# deployed at all, and there is no middle case worth waiting for.
 DLUX_SMTP_RELAY_PROBE_TIMEOUT = 1.5
+
+# Probes still running, by (host, port). A caller that finds one waits on it
+# instead of starting another.
+_relay_probes = {}
+_relay_probes_lock = threading.Lock()
+
+
+def _smtp_relay_greets(host, port, timeout):
+    """One unbounded check: resolve ``host``, connect and read the greeting."""
+    import smtplib
+
+    try:
+        # The probe never says EHLO, so naming the local host skips smtplib's
+        # getfqdn(), which would be a second resolver call.
+        client = smtplib.SMTP(host, port, timeout=timeout, local_hostname='localhost')
+    except (OSError, smtplib.SMTPException):
+        return False
+    try:
+        client.quit()
+    except (OSError, smtplib.SMTPException):
+        pass
+    return True
+
+
+class _RelayProbe:
+    """A relay check in a daemon thread, so its caller can stop waiting.
+
+    Socket timeouts bound the connection and the greeting, not ``getaddrinfo``:
+    a resolver that has stopped answering holds a lookup for its whole retry
+    cycle (glibc: 5 s, two attempts).
+    """
+
+    def __init__(self, host, port, timeout):
+        self.key = (host, port)
+        self.timeout = timeout
+        self.deadline = time.monotonic() + timeout
+        self.finished = threading.Event()
+        self.available = False
+        self.error = None
+        self._thread = threading.Thread(
+            target=self._run, name=f'dlux-relay-probe {host}:{port}', daemon=True)
+
+    def start(self):
+        self._thread.start()
+
+    def _run(self):
+        try:
+            self.available = _smtp_relay_greets(*self.key, self.timeout)
+        except Exception as exc:
+            self.error = exc
+        finally:
+            with _relay_probes_lock:
+                if _relay_probes.get(self.key) is self:
+                    del _relay_probes[self.key]
+            self.finished.set()
+
+    def wait(self, timeout):
+        """The answer, or False once this probe's deadline or ``timeout`` passes."""
+        remaining = min(timeout, self.deadline - time.monotonic())
+        if not self.finished.wait(max(remaining, 0)):
+            return False
+        if self.error is not None:
+            raise self.error
+        return self.available
 
 
 def internal_smtp_relay_available(host=None, port=None, timeout=None):
@@ -82,24 +148,32 @@ def internal_smtp_relay_available(host=None, port=None, timeout=None):
     something else holding the port does not read as a relay. Sends no mail and
     needs no credentials: the listener speaks plaintext with no auth, because
     only the app can reach it.
-    """
-    import smtplib
-    import socket
 
+    Returns within ``timeout`` (DLUX_SMTP_RELAY_PROBE_TIMEOUT) in total, name
+    lookup included: the check runs in a daemon thread and a check still
+    running at its deadline answers False. Calls for the same host and port
+    share a check that is still running, and once its deadline has passed they
+    answer False at once. So a stalled resolver costs one timeout per lookup it
+    holds rather than one per settings page, and leaves at most one thread per
+    target behind. Nothing is cached: the first call after a check finishes
+    starts a new one.
+    """
     from django.conf import settings as django_settings
 
     host = host or getattr(django_settings, 'DLUX_SMTP_RELAY_HOST', DLUX_INTERNAL_SMTP_RELAY_HOST)
-    port = port or getattr(django_settings, 'DLUX_SMTP_RELAY_PORT', DLUX_INTERNAL_SMTP_RELAY_PORT)
+    port = int(port or getattr(django_settings, 'DLUX_SMTP_RELAY_PORT', DLUX_INTERNAL_SMTP_RELAY_PORT))
     timeout = timeout or DLUX_SMTP_RELAY_PROBE_TIMEOUT
-    try:
-        client = smtplib.SMTP(host, int(port), timeout=timeout)
-    except (OSError, socket.timeout, smtplib.SMTPException):
-        return False
-    try:
-        client.quit()
-    except (OSError, smtplib.SMTPException):
-        pass
-    return True
+    key = (host, port)
+    with _relay_probes_lock:
+        probe = _relay_probes.get(key)
+        if probe is None or probe.finished.is_set():
+            probe = _relay_probes[key] = _RelayProbe(host, port, timeout)
+            try:
+                probe.start()
+            except RuntimeError:
+                del _relay_probes[key]
+                raise
+    return probe.wait(timeout)
 
 # Client-side SMTP timeouts. These are deliberately a *pair* with the relay's own
 # upstream timeout (DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT, used by the scaffolded

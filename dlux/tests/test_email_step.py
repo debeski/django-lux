@@ -655,6 +655,72 @@ class InternalRelayAvailabilityTests(TestCase):
             self.assertFalse(internal_smtp_relay_available(**kwargs), kwargs)
             self.assertLess(time.monotonic() - started, 5, kwargs)
 
+    def test_the_relay_is_found_by_its_stack_name(self):
+        """The default name, once it resolves to a listening relay, reads as one."""
+        import socket
+
+        resolve = socket.getaddrinfo
+        asked = []
+
+        def stack_resolver(host, *args, **kwargs):
+            asked.append(host)
+            return resolve('127.0.0.1' if host == 'smtp-relay' else host, *args, **kwargs)
+
+        def no_fqdn(*args, **kwargs):
+            raise AssertionError('the probe looked up the local FQDN')
+
+        listener, port = self._fake_relay()
+        try:
+            with patch('socket.getaddrinfo', stack_resolver), patch('socket.getfqdn', no_fqdn), \
+                    override_settings(DLUX_SMTP_RELAY_PORT=port):
+                self.assertTrue(internal_smtp_relay_available())
+        finally:
+            listener.close()
+        self.assertEqual(asked, ['smtp-relay'])
+
+    def test_a_stalled_resolver_reads_as_no_relay_within_the_timeout(self):
+        """Socket timeouts do not cover the name lookup; the probe's deadline does.
+
+        A resolver that stopped answering held every lookup of `smtp-relay` for
+        glibc's 10 s, once per settings form build. Probes of that name share
+        the stalled check and answer at once, and the first probe after the
+        resolver answers asks it again rather than reusing an old answer.
+        """
+        import socket
+        import threading
+        import time
+
+        from dlux.utils import mail
+
+        host, port, timeout = 'stalled-resolver.test', 1025, 0.5
+        answered = threading.Event()
+        self.addCleanup(answered.set)
+        resolve = socket.getaddrinfo
+        asked = []
+
+        def stalled_resolver(name, *args, **kwargs):
+            if name != host:
+                return resolve(name, *args, **kwargs)
+            asked.append(name)
+            answered.wait(30)
+            raise socket.gaierror(socket.EAI_NONAME, 'Name or service not known')
+
+        with patch('socket.getaddrinfo', stalled_resolver):
+            started = time.monotonic()
+            self.assertFalse(internal_smtp_relay_available(host=host, port=port, timeout=timeout))
+            self.assertLess(time.monotonic() - started, timeout + 1)
+
+            started = time.monotonic()
+            self.assertFalse(internal_smtp_relay_available(host=host, port=port, timeout=timeout))
+            self.assertLess(time.monotonic() - started, 0.2)
+            self.assertEqual(asked, [host])
+
+            stalled = mail._relay_probes[(host, port)]
+            answered.set()
+            self.assertTrue(stalled.finished.wait(5))
+            self.assertFalse(internal_smtp_relay_available(host=host, port=port, timeout=timeout))
+            self.assertEqual(asked, [host, host])
+
     def _transport_widget(self, transport='direct'):
         from dlux.models import SystemSettings
 

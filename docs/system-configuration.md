@@ -187,7 +187,9 @@ The Email step is grouped as:
 Each choice is a Dlux selector rather than a dropdown, so every option and its
 consequence is visible before it is picked. When the internal SMTP relay is not
 listening, the relay option is locked with the reason attached — unless it is
-already the stored delivery path, which is never taken away.
+already the stored delivery path, which is never taken away. The page waits at most
+1.5 seconds for that check; when the stack's name resolver does not answer in time,
+the relay reads as not listening.
 
 Save the Email step before using **Send test email**. The test intentionally uses
 the stored configuration, which is the only way to validate the separate SMTP relay
