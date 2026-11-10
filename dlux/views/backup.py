@@ -10,7 +10,8 @@ from django.core.files.storage import default_storage
 from django.db import transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
-from django.template.loader import render_to_string
+from django.template import RequestContext
+from django.template.loader import get_template, render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -96,6 +97,23 @@ def _system_restore_table(request):
     from .backup_tables import SystemRestoreTable
 
     return SystemRestoreTable(_system_restore_model().objects.all(), request=request, prefix='restores-')
+
+
+def _table_html(request, table):
+    """The table as ``{% render_table %}`` draws it on the page, for a poller to swap in.
+
+    Not ``table.as_html(request)``: django-tables2 renders that from a bare dict,
+    so no context processor runs and template columns get an empty context. The
+    fragment then lost ``DLUX_STRINGS`` (English labels in any language, and a 500
+    on an empty table, whose empty state reads it as a filter argument).
+    """
+    context = RequestContext(request, {'table': table})
+    table.context = context
+    try:
+        table.before_render(request)
+        return get_template(table.template_name).template.render(context)
+    finally:
+        del table.context
 
 
 def _page_rows(table):
@@ -243,7 +261,7 @@ def _backup_list_payload(request, table):
             }
             for backup in backups
         ],
-        'html': table.as_html(request),
+        'html': _table_html(request, table),
     }
 
 
@@ -771,5 +789,5 @@ def system_restore_list_status_view(request):
     return JsonResponse({
         'revision': _system_restore_revision(restores),
         'active': any(restore.is_active for restore in restores),
-        'html': table.as_html(request),
+        'html': _table_html(request, table),
     })
