@@ -74,51 +74,48 @@ class HistoryServiceTests(MediaMixin, TestCase):
         self.assertEqual((len(reader.pages), reader.metadata['/Title'], reader.metadata['/Author']), (1, 'Annual report', 'Records'))
         self.assertEqual(pages, 1)
 
-    def test_the_replaced_file_leaves_the_folder_once_committed(self):
+    def test_an_editor_save_keeps_the_replaced_file_in_place_for_audits(self):
         original = pdf_bytes(2)
         paper = self.paper(original)
         before = paper.pdf_file.name
         storage = paper.pdf_file.storage
         with self.captureOnCommitCallbacks(execute=True):
-            save_new_version(paper, pdf_bytes(1), user=self.user)
-            self.assertTrue(storage.exists(before))
-        self.assertFalse(storage.exists(before))
+            saved, _ = save_new_version(paper, pdf_bytes(1), user=self.user)
+        self.assertNotEqual(saved, before)
+        with storage.open(before, 'rb') as stream:
+            self.assertEqual(stream.read(), original)
         self.assertEqual(versions_for(paper).get().archived_file.read(), original)
 
     def test_a_rolled_back_save_keeps_the_replaced_file(self):
         paper = self.paper(pdf_bytes(2))
         before = paper.pdf_file.name
-        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+        with self.captureOnCommitCallbacks(execute=True):
             with self.assertRaises(RuntimeError), transaction.atomic():
                 save_new_version(paper, pdf_bytes(1), user=self.user)
                 raise RuntimeError
-        self.assertEqual(callbacks, [])
         self.assertTrue(paper.pdf_file.storage.exists(before))
 
-    def test_a_replaced_file_another_row_still_names_stays(self):
-        paper = self.paper(pdf_bytes(2))
-        before = paper.pdf_file.name
-        Paper.objects.create(title='Copy', pdf_file=before)
-        with self.captureOnCommitCallbacks(execute=True):
-            save_new_version(paper, pdf_bytes(1), user=self.user)
-        self.assertTrue(paper.pdf_file.storage.exists(before))
-
-    def test_an_upload_or_clear_removes_the_file_it_replaced_once_committed(self):
-        paper = self.paper(pdf_bytes(2))
+    def test_an_upload_or_clear_keeps_the_replaced_file_and_the_upload(self):
+        original = pdf_bytes(2)
+        paper = self.paper(original)
         storage = paper.pdf_file.storage
         previous = paper.pdf_file.name
-        paper.pdf_file.save('replacement.pdf', ContentFile(pdf_bytes(1)))
+        upload = pdf_bytes(1)
+        paper.pdf_file.save('replacement.pdf', ContentFile(upload))
+        uploaded = paper.pdf_file.name
         with self.captureOnCommitCallbacks(execute=True):
             record_upload(paper, previous, user=self.user)
-        self.assertFalse(storage.exists(previous))
-        self.assertTrue(storage.exists(paper.pdf_file.name))
+        self.assertNotEqual(paper.pdf_file.name, uploaded)
+        for name, data in ((previous, original), (uploaded, upload)):
+            with storage.open(name, 'rb') as stream:
+                self.assertEqual(stream.read(), data)
 
-        previous = paper.pdf_file.name
+        cleared = paper.pdf_file.name
         paper.pdf_file = None
         paper.save()
         with self.captureOnCommitCallbacks(execute=True):
-            record_upload(paper, previous, user=self.user)
-        self.assertFalse(storage.exists(previous))
+            record_upload(paper, cleared, user=self.user)
+        self.assertTrue(all(storage.exists(name) for name in (previous, uploaded, cleared)))
         self.assertEqual([v.archived_file.storage.exists(v.archived_file.name) for v in versions_for(paper)], [True, True])
 
     def test_history_rows_follow_the_document_scope_not_the_actor(self):

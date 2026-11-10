@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Replaced Document Files Stay For Audits**: Reverts 1.15.5's "Replaced Document Files Leave The Folder". `save_new_version()` and `record_upload()` in `dlux.files.history` no longer delete the replaced file after the transaction commits (`_drop_replaced` and `_still_named` are removed). The replaced file and a PDF upload stay in the document's folder beside their byte-for-byte history copy, as they did before 1.15.5, so earlier files remain available for audits. `/media/` still refuses them to everyone. Installs that ran 1.15.5 kept every replaced file's bytes in its `FileVersion.archived_file` copy. No migrations.
+
 ## v1.16.0b1
 
 - **1.16.0 Candidate 1**: First 1.16 beta, tagged on `1.16/task-runner` while `main` ships 1.15.x. DjangoLux owns its task manager: nothing on the DjangoLux side uses Celery any more. Pairs with Composer 1.10.0b1: the manifest requires `services.composer >=1.10.0b1` and `stack_schema >=5`, forbids an inline install (`baked_image >=1.16.0b1`) and carries migration `0030_task_runner` (additive). Upgrade path, with Composer 1.10: put the project image on 1.16 (pull, or bump the pin and rebuild), then `./start.sh check --fix` (stack schema 4 to 5; it adds `worker` only once the image has `dlux_worker`), then recreate the stack; a development stack runs `./start.sh -d check --fix`, then `./start.sh -d -b`.

@@ -74,7 +74,8 @@ tags and helpers are in the [Reference](reference.md).
 
 - **Document files:** one `register_document_file()` call connects upload, scan,
   viewer, page editor, downloads and file history to a model field, with
-  permission-checked serving of stored files. See [Document Files](document-files.md).
+  permission-checked serving of stored files. Earlier files are never deleted,
+  so they stay available for audits. See [Document Files](document-files.md).
 - **Scanning:** workstation scanning through the ScanLink helper. See
   [ScanLink](scanlink.md).
 - **OCR:** text extraction for document files through the optional `ocr` service,
