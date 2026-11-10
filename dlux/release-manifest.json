@@ -1,17 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.16.0b1",
+  "version": "1.16.0b2",
   "display": {
-    "summary": "DjangoLux runs its own tasks: a built-in task manager (manage.py dlux_worker in a new worker service) replaces Celery for every DjangoLux task, and projects get a public task API. Needs Composer 1.10 and stack schema 5, so it installs with the project image, not inline.",
+    "summary": "Second 1.16 beta: fixes on top of 1.16.0b1's built-in task manager. Replaced document files stay on disk for audits again, the backup page's restore history refreshes on a deployment with no restores yet, and System Settings no longer stalls when the mail relay's name does not resolve. A 1.16.0b1 deployment updates inline; from 1.15.x, follow the 1.16.0b1 upgrade path.",
     "highlights": [
-      "DjangoLux's backups, update checks, OCR, weather and state tick run from a database queue in a new worker service; DjangoLux no longer uses Celery.",
-      "Upgrade: put the project image on 1.16 (pull or rebuild), run ./start.sh check --fix with Composer 1.10+, then recreate the stack.",
-      "Project tasks can move to dlux.taskrunner: @task, .enqueue() and .delay(), Retry, crontab and DLUX_TASK_SCHEDULE.",
-      "Project Celery keeps running in 1.16 with a doctor warning; from 1.17.0 generated stacks no longer install it.",
-      "Options shows the task worker's health, and the doctor's tasks.worker check reports a stopped worker or failed runs.",
-      "New projects are generated without Celery."
+      "Document history keeps the replaced file and the PDF upload in the document's folder again, beside their history copy, for audits.",
+      "Backup page: the restore history refreshes live on a deployment with no restores yet; its status poller returned an error.",
+      "System Settings opens without delay when the mail relay's name does not resolve: the relay check waits at most 1.5 seconds in total.",
+      "From 1.16.0b1 this beta installs inline. From 1.15.x: put the project image on 1.16, run ./start.sh check --fix with Composer 1.10+, recreate.",
+      "Includes 1.16.0b1: DjangoLux runs its own tasks in a worker service instead of Celery, and projects get the dlux.taskrunner API."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b2"
   },
   "requires": {
     "updater_schema": ">=1",
@@ -28,7 +27,7 @@
     "downtime": "none"
   },
   "install": {
-    "inline": "forbidden"
+    "inline": "allowed"
   },
   "rollback": {
     "supported": true
