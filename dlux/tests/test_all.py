@@ -108,6 +108,7 @@ TEST_LABELS = [
     'dlux.tests.test_smtp_relay',
     'dlux.tests.test_smtp_timeouts',
     'dlux.tests.test_suite_registration',
+    'dlux.tests.test_offline_dns',
     'dlux.tests.test_system_backup',
     'dlux.tests.test_report_user_activity',
     'dlux.tests.test_report_builder',

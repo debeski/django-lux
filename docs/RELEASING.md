@@ -457,6 +457,23 @@ which runs only `dlux.tests.test_settings_persistence` on PostgreSQL; distributi
 builds depend on it so the concurrent-writer contract cannot silently skip on
 SQLite.
 
+Every test step runs under `timeout --signal=ABRT` with `PYTHONFAULTHANDLER=1`,
+and every test job has a `timeout-minutes` ceiling above it: 20 minutes for the
+full suite in a 30-minute job, 10 minutes for `settings-postgres` in a 15-minute
+job. The full suite normally takes 7–8 minutes. A hung or stalled test therefore
+fails its job with every thread's Python stack in the log, which names the
+blocking call and any thread an earlier test left running. Locally,
+`timeout -s ABRT 20m` with `python -X faulthandler` gives the same dump.
+
+The suite resolves no hostnames. `dlux.tests.settings` installs
+`dlux.tests.offline_dns`, which answers every name except `localhost` at once with
+"no such host" (`EAI_NONAME`), as a stack without that service would. Stack
+service names such as `smtp-relay`, which the System Settings form probes every
+time it is built, and `ocr` never reach the machine's resolver, so a resolver
+that stops answering cannot add its timeout to each lookup. A test that needs a
+listening service binds it on `127.0.0.1` and passes that address, as the relay
+availability tests in `test_email_step` do.
+
 `dlux.tests.settings_postgres` is `dlux.tests.settings` with a PostgreSQL
 `DATABASES`. It requires `DLUX_TEST_POSTGRES_DB`, `DLUX_TEST_POSTGRES_USER`,
 `DLUX_TEST_POSTGRES_PASSWORD`, and `DLUX_TEST_POSTGRES_HOST`; the optional

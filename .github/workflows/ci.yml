@@ -19,6 +19,7 @@ jobs:
   # settings-postgres.yml gate is left to release.yml.
   test-postgres:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -52,10 +53,15 @@ jobs:
           pip install -e '.[pdf]' psycopg2-binary
 
       - name: Run package Django test suite on PostgreSQL
-        run: python dlux/tests/test_all.py --noinput
+        # A hang dumps every thread's Python stack (faulthandler on SIGABRT)
+        # and fails the step, well inside the job's timeout-minutes.
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: timeout --signal=ABRT --kill-after=1m 20m python dlux/tests/test_all.py --noinput
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -74,5 +80,8 @@ jobs:
           pip install -e '.[pdf]'
 
       - name: Run package Django test suite
-        run: |
-          python dlux/tests/test_all.py
+        # A hang dumps every thread's Python stack (faulthandler on SIGABRT)
+        # and fails the step, well inside the job's timeout-minutes.
+        env:
+          PYTHONFAULTHANDLER: "1"
+        run: timeout --signal=ABRT --kill-after=1m 20m python dlux/tests/test_all.py
