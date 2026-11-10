@@ -70,6 +70,14 @@ atexit.register(shutil.rmtree, MEDIA_ROOT, ignore_errors=True)
 # root in CI and fails on a developer's machine.
 DLUX_UPDATE_RUNTIME_ROOT = tempfile.mkdtemp(prefix='dlux-test-runtime-')
 atexit.register(shutil.rmtree, DLUX_UPDATE_RUNTIME_ROOT, ignore_errors=True)
+
+# Stack service names (`smtp-relay`, `ocr`) and every other hostname but localhost
+# fail at once instead of asking the machine's resolver, so the suite's run time
+# never depends on DNS. See `dlux.tests.offline_dns`.
+from .offline_dns import install as _install_offline_dns  # noqa: E402
+
+_install_offline_dns()
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 USE_TZ = True
 
