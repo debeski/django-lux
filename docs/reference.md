@@ -35,15 +35,15 @@ is in [Deployment Configuration](deployment-configuration.md).
 Generated project baseline:
 
 - `.secrets/.env` with scaffolded bootstrap secret values
-- `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
+- `config/settings.py` wired for env-driven Django secret, Postgres and Redis cache
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter
   CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, outbound-only `composer-agent`
+- a generated Docker baseline with `web`, `worker` (DjangoLux's task worker), outbound-only `composer-agent`
   (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the
   isolated `composer-executor` that holds the real Docker socket and performs all
   writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
-  `smtp-relay` services. Compose 5.3.0 or later is required for the `celery`
+  `smtp-relay` services. Compose 5.3.0 or later is required for the `worker`
   `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
 - `requirements.txt` pinned to the generated stable `django-lux` release
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a
@@ -131,13 +131,21 @@ Generated app scaffold baseline:
 
 | Command | Purpose |
 | --- | --- |
-| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command, run by Celery's Compose `pre_start` hook under the runtime supervisor. |
+| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command, run by the `worker` service's Compose `pre_start` hook under the runtime supervisor. |
 | `python manage.py migrator -mm` | Force makemigrations for every target app, then migrate, then collectstatic. |
 | `python manage.py migrator -nm` | Skip makemigrations and migrate; still collect static. Mutually exclusive with `-mm`. |
 | `python manage.py migrator -a APP` | Scope the target-app list instead of auto-discovering local apps. |
 | `python manage.py dlux_reconcile` | Reset the active runtime pointer to the baked image when a volume-pinned release is not newer than it. Touches only the runtime volume and always exits 0, so it runs before migrations. |
 | `python manage.py dlux_image_gate --baked-dlux-version X.Y.Z` | Print, as JSON, whether a candidate image adopts, keeps or blocks the active DjangoLux release. |
-| `python manage.py dlux_update_worker` | Legacy update queue worker. Generated stacks do not run it: Celery Beat hands update intent to Composer. |
+| `python manage.py dlux_update_worker` | Legacy update queue worker. Generated stacks do not run it: the scheduled state tick hands update intent to Composer. |
+
+### Task worker
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py dlux_worker [--threads N] [--queue NAME] [--no-schedule]` | Run the DjangoLux task worker (the `worker` service of a generated stack). It runs queued tasks in a thread pool plus `DLUX_TASK_SCHEDULE`, sends a heartbeat, recovers runs lost with a dead worker and prunes finished runs. On SIGTERM it exits after running tasks finish. See [Task Runner](task-runner.md). |
+| `python manage.py dlux_worker --burst` | Run what is due now in this process, then exit. |
+| `python manage.py dlux_worker --check` | Exit 0 when a worker on this host has a fresh heartbeat (container healthcheck). |
 
 ### Migrating from microsys
 
@@ -230,6 +238,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/sys/groups/<int:pk>/members/` | Preset membership modal + who/which/when history |
 | `/sys/sections/` | Section management |
 | `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated version health of the running processes, read by the updater |
+| `/sys/api/task-worker-health/` | POST-only, staff: re-read the Options Tasks row (`dlux_worker` heartbeats, due and failed runs) as JSON |
 
 ### Route Access Contracts
 
@@ -929,6 +938,25 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `dlux.forms.keep_hidden_permissions(form, current, submitted)` | `submitted` plus the `current` permissions the form hid; the group and user forms save through it. |
 
 See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-feature).
+
+### Task API (`dlux.taskrunner`)
+
+| API | Purpose |
+| --- | --- |
+| `@task(name=, priority=, queue_name=, takes_context=, max_retries=, requeue_lost=, sensitive=)` | Declare a task in an app's `tasks.py`; returns a `DluxTask`. |
+| `DluxTask.enqueue(*args, **kwargs)` / `.delay(...)` | Queue a run; returns its id. |
+| `DluxTask.using(priority=, queue_name=, run_after=, countdown=)` | A copy with other options, e.g. `.using(countdown=60).enqueue(...)`. |
+| `DluxTask.call(*args, **kwargs)` | Run it in this process, now. |
+| `enqueue(name, args=, kwargs=, priority=, run_after=, countdown=, queue_name=, sensitive=)` | Queue a task by name without importing its module. |
+| `Retry(delay)` | Raise in a task to run it again after `delay` seconds, up to `max_retries`. |
+| `TaskContext` | First argument of a `takes_context` task: `attempt`, `retries`, `priority`, `run_id`. |
+| `crontab(minute=, hour=, day_of_week=, day_of_month=, month_of_year=)` | Cron schedule for `DLUX_TASK_SCHEDULE`, Celery's arguments, in `TIME_ZONE`. |
+| `worker_alive()` | Whether a `dlux_worker` heartbeat is fresh (one query). |
+| `worker_started` / `worker_stopping` | Signals sent with `worker=` when a worker is ready to claim and when it stops claiming. |
+| `registered_tasks()` | The tasks this process has imported, by name. |
+| `dlux.taskrunner.backend.DatabaseBackend` | `django.tasks` backend over the same queue (Django 6.0+; the default `TASKS` backend unless the project sets `TASKS`). |
+
+See [Task Runner](task-runner.md).
 
 ## Template Tags and Filters
 

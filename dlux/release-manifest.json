@@ -1,26 +1,26 @@
 {
   "schema_version": 2,
-  "version": "1.15.5",
+  "version": "1.16.0b1",
   "display": {
-    "summary": "Stored-file and asset fixes: backups stay private in any backup folder, files left beside document files are refused at /media/, and asset clean-up keeps assets that are still in use. Updates now wait for the old web server to stop.",
+    "summary": "DjangoLux runs its own tasks: a built-in task manager (manage.py dlux_worker in a new worker service) replaces Celery for every DjangoLux task, and projects get a public task API. Needs Composer 1.10 and stack schema 5, so it installs with the project image, not inline.",
     "highlights": [
-      "Stored files: backups in a custom backup folder, .dlb archives anywhere and files a backup record names are never served from /media/.",
-      "System Settings refuses a public folder as the backup folder; uploaded restore files get unguessable names.",
-      "Stored files: a replaced document file, a project's own history copy or an orphan beside document files is refused at /media/.",
-      "Editing or replacing a document's file removes the old file from its folder once the save commits; file history keeps its copy.",
-      "dlux_prune_assets --apply and the Asset Manager's Clean up unused keep assets any relation still uses, including trashed records.",
-      "Updates and rollbacks wait for the old web server to exit before starting the new one; this takes effect with a rebuilt image.",
-      "From 1.15.2 or earlier? This includes the 1.15.3 security fix: afterwards run ./start.sh check --fix (Composer 1.9.2+) so stored files stay private."
+      "DjangoLux's backups, update checks, OCR, weather and state tick run from a database queue in a new worker service; DjangoLux no longer uses Celery.",
+      "Upgrade: put the project image on 1.16 (pull or rebuild), run ./start.sh check --fix with Composer 1.10+, then recreate the stack.",
+      "Project tasks can move to dlux.taskrunner: @task, .enqueue() and .delay(), Retry, crontab and DLUX_TASK_SCHEDULE.",
+      "Project Celery keeps running in 1.16 with a doctor warning; from 1.17.0 generated stacks no longer install it.",
+      "Options shows the task worker's health, and the doctor's tasks.worker check reports a stopped worker or failed runs.",
+      "New projects are generated without Celery."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.15.5"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b1"
   },
   "requires": {
     "updater_schema": ">=1",
-    "baked_image": ">=1.15.0b1",
+    "baked_image": ">=1.16.0b1",
     "services": {
-      "composer": ">=1.9.0b2"
+      "composer": ">=1.10.0b1"
     },
-    "migration_baseline": ">=1.14.0"
+    "stack_schema": ">=5",
+    "migration_baseline": ">=1.16.0b1"
   },
   "migrations": {
     "effect": "additive",
@@ -28,7 +28,7 @@
     "downtime": "none"
   },
   "install": {
-    "inline": "allowed"
+    "inline": "forbidden"
   },
   "rollback": {
     "supported": true

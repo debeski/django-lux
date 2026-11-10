@@ -122,6 +122,7 @@ from .archive import (  # noqa: F401
     dispatch_report_backup,
     get_backup_storage_prefix,
     report_backup_celery_available,
+    report_backup_worker_available,
     run_report_backup,
     write_backup_zip,
 )
@@ -165,6 +166,7 @@ __all__ = [
     'normalize_backup_window',
     'normalize_report_window',
     'report_backup_celery_available',
+    'report_backup_worker_available',
     'run_report_backup',
     'stream_model_into_zip',
     'write_backup_zip',

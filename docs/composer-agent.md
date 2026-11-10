@@ -24,17 +24,18 @@ executor adds back only `DAC_OVERRIDE`, so it can read the project's `0600`
 
 `egress` is deliberately separate from published `frontend`. The public proxy
 does not share a bridge with services that need outbound access. The internal
-application network remains isolated for `db`, `redis`, `web`, and `celery`.
+application network remains isolated for `db`, `redis`, `web`, and `worker`.
 
 The rule this topology enforces is stated in
 [Outbound Requests](outbound-requests.md): the agent is the only service with
-internet access, `celery` is the only project-side writer to the local bridge, and
-`web` reads it but never writes. Project code asks the agent for outbound calls
-instead of opening connections itself.
+internet access, `worker` is the only DjangoLux service that writes the local
+bridge (a project-only `celery` kept on a stack migrated from schema 4 may write
+relay requests too), and `web` reads it but never writes. Project code asks the
+agent for outbound calls instead of opening connections itself.
 
 The scaffold has no `dlux-updater` service. Runtime reconciliation and migrations
-run as `celery` `pre_start` steps, and Celery Beat handles the small state and
-intent tick (see
+run as `worker` `pre_start` steps, and the task worker's schedule runs the small
+state and intent tick (see
 [Verified Inline Updates](inline-updater.md#deployment-architecture)). Do not add
 the service back to a stack; `./start.sh check` reports one left in an older
 stack's `compose.yml`.

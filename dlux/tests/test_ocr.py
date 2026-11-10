@@ -246,17 +246,17 @@ class RunTests(OCRTestCase):
         self.assertEqual(row.status, 'skipped')
 
     def test_task_retries_with_growing_delay_then_gives_up(self):
+        from dlux.taskrunner import Retry, TaskContext
         from dlux.tasks import OCR_RETRY_DELAYS, ocr_file
 
-        if ocr_file is None:
-            self.skipTest('Celery is an optional dependency and is not installed.')
         row = self.rows(self.paper()).get()
         with patch('dlux.ocr.service.run', side_effect=ocr.client.OCRUnavailable('down')), \
-                patch.object(ocr_file, 'retry', side_effect=RuntimeError('retry')) as retry, self.assertRaises(RuntimeError):
-            ocr_file.apply(args=(row.pk,), throw=True)
-        self.assertEqual(retry.call_args.kwargs['countdown'], OCR_RETRY_DELAYS[0])
+                self.assertRaises(Retry) as caught:
+            ocr_file.call(row.pk)
+        self.assertEqual(caught.exception.delay, OCR_RETRY_DELAYS[0])
+        last = TaskContext(task_name=ocr_file.name, attempt=ocr_file.max_retries + 1)
         with patch('dlux.ocr.service.run', side_effect=ocr.client.OCRUnavailable('down')):
-            ocr_file.apply(args=(row.pk,), retries=ocr_file.max_retries, throw=True)
+            ocr_file.invoke(last, (row.pk,), {})
         row.refresh_from_db()
         self.assertIn('gave up', row.error)
 
@@ -268,8 +268,8 @@ class RunTests(OCRTestCase):
 import sys
 sys.modules['celery'] = None
 import dlux.tasks as tasks
-assert tasks.ocr_file is None
-assert tasks.ocr_background is None
+assert tasks.ocr_file.name == 'dlux.tasks.ocr_file'
+assert tasks.ocr_background.name == 'dlux.tasks.ocr_background'
 assert tasks.OCR_RETRY_DELAYS == (30, 60, 120, 300, 600, 900, 1800, 3600)
 '''], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -567,7 +567,7 @@ class ContractTests(TestCase):
         self.assertIn('django-lux[updater,ocr]==', (root / 'requirements.txt.tmpl').read_text())
         self.assertIn('RUN python -m dlux.ocr.fetch_models --if-installed', (root / 'Dockerfile.tmpl').read_text())
         self.assertIn('  ocr:\n    build: .\n    image: !reset null\n', (root / 'compose.dev.yml.tmpl').read_text())
-        self.assertEqual(template.count('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"'), 2)
+        self.assertEqual(template.count('COMPOSER_AGENT_RESTART_SERVICES: "web,worker,smtp-relay,caddy,ocr"'), 2)
         launcher = (Path(scaffold_init).parent / 'templates' / 'project' / 'start.ps1.tmpl').read_bytes()
         self.assertTrue(all(byte < 128 for byte in launcher))
 

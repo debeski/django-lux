@@ -7,11 +7,11 @@
 - Build full-page forms on `dlux/form_base.html`
 - Build list/filter pages on `dlux/list_base.html`
 - Use `translations.py`, `forms.py`, `filters.py`, and `tables.py` in each app so discovery stays predictable
-- Use `{{ config_package }}/celery.py` as the shared Celery entrypoint and keep app tasks in app-local `tasks.py`
+- Declare background work with `@dlux.taskrunner.task` in app-local `tasks.py` and schedule it in `DLUX_TASK_SCHEDULE`; the `worker` service runs it
 - Use `/health/` as the project health endpoint when checking container readiness
 - Keep secret bootstrap values in `.secrets/.env`; the generated compose file itself stays in the standard inline-env pattern
 - Check the [DjangoLux Deployment Configuration reference](https://github.com/debeski/django-lux/blob/v{{ dlux_version }}/docs/deployment-configuration.md) before adding `DLUX_*` settings or environment variables
-- Keep `dlux_runtime` read-only in web/proxy and writable only where state is owned (`celery` and Composer services); do not add a Docker socket or published update port to DjangoLux services
+- Keep `dlux_runtime` read-only in web/proxy and writable only where state is owned (`worker` and Composer services); do not add a Docker socket or published update port to DjangoLux services
 - Operate Dlux updates from the superuser System Info card; checks may run daily, but apply and rollback are always explicit
 
 ## Suggested App Pattern

@@ -393,7 +393,7 @@ def _check_updater_runtime_volume(ctx):
     Without this the failure is invisible until someone clicks Update: the run
     queues and nothing can drain it.
 
-    "Writable" means writable *by the process that writes it* — Celery. Doctor
+    "Writable" means writable *by the process that writes it* — the task worker. Doctor
     usually runs in web, whose mount is read-only by design, so it reports the
     worker's recorded verdict rather than its own probe.
     """
@@ -421,7 +421,7 @@ def _check_updater_runtime_volume(ctx):
         return warn(
             f"The update worker last reported the runtime volume at {root} writable "
             f"at {report['seen_at'].isoformat()}, and has not reported since.",
-            'Check that the celery worker and beat services are running.',
+            'Check that the worker service (python manage.py dlux_worker) is running.',
         )
     if local_runtime_volume_problem():
         return ok(f'The update worker reports the runtime volume at {root} writable '
@@ -457,7 +457,7 @@ def _check_stack_schema(ctx):
         return warn(
             f'This service runs with stack schema {declared}; this DjangoLux expects {expected}.',
             f'If compose.yml already sets {STACK_SCHEMA_ENV}: "{expected}" (composer check --fix '
-            'updates it), recreate web and celery to pick it up: Recreate in the Operations panel, '
+            'updates it), recreate web and worker to pick it up: Recreate in the Operations panel, '
             'or ./start.sh. Otherwise apply the changes docs/stack-schema.md lists between the two '
             f'schemas, then set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
         )
@@ -500,15 +500,68 @@ def _check_email_reachable(ctx):
     return ok(f'{host}:{port} accepted a TCP connection.')
 
 
-@check('celery.configured', 'services', 'Celery broker is configured')
-def _check_celery(ctx):
-    broker = getattr(settings, 'CELERY_BROKER_URL', '')
-    if not broker:
-        return warn('CELERY_BROKER_URL is empty; scheduled work (update checks, backups) will not run.')
-    if not _installed('celery'):
-        return warn('CELERY_BROKER_URL is set but the celery package is not importable.')
-    scheme = broker.split('://', 1)[0]
-    return ok(f'Broker configured over {scheme}.')
+@check('tasks.worker', 'services', 'DjangoLux task worker is running')
+def _check_task_worker(ctx):
+    from .taskrunner.config import runner_config
+    from .taskrunner.queue import live_dlux_workers, queue_summary
+
+    try:
+        workers = list(live_dlux_workers().values_list('version', flat=True))
+        summary = queue_summary()
+    except Exception as exc:
+        return fail(
+            f'The task queue tables cannot be read: {type(exc).__name__}: {exc}.',
+            'Apply pending migrations: python manage.py migrate',
+        )
+    if not workers:
+        return warn(
+            f'No dlux_worker has sent a heartbeat in the last {runner_config()["stale_after"]} s, so queued and '
+            f'scheduled tasks (backups, update checks, OCR) are not running ({summary["ready"]} due now).',
+            'Start the worker service. A stack generated before stack schema 5 has none: with this '
+            'image deployed, run ./start.sh check --fix (Composer 1.10+), then recreate the stack. Outside Docker: '
+            'python manage.py dlux_worker',
+        )
+    if summary['failed'] or summary['schedules_failing']:
+        return warn(
+            f'{len(workers)} worker(s) alive, but {summary["failed"]} task run(s) failed and '
+            f'{summary["schedules_failing"]} scheduled task(s) failed their last run.',
+            'See the Tasks row on the Options page, or the worker log.',
+        )
+    return ok(f'{len(workers)} worker(s) alive (DjangoLux {", ".join(sorted(set(workers)))}); {summary["ready"]} task(s) due.')
+
+
+def _project_celery_signals():
+    """What still ties this project to Celery: settings, beat entries, its Celery app."""
+    import importlib.util
+
+    signals = []
+    if getattr(settings, 'CELERY_BROKER_URL', ''):
+        signals.append('CELERY_BROKER_URL is set')
+    beat = getattr(settings, 'CELERY_BEAT_SCHEDULE', None) or {}
+    if beat:
+        signals.append('CELERY_BEAT_SCHEDULE has ' + ', '.join(sorted(beat)))
+    package = (os.environ.get('DJANGO_SETTINGS_MODULE') or '').rpartition('.')[0]
+    if package:
+        try:
+            if importlib.util.find_spec(f'{package}.celery') is not None:
+                signals.append(f'{package}/celery.py defines a Celery app')
+        except (ImportError, ValueError):
+            pass
+    return signals
+
+
+@check('tasks.celery_deprecated', 'services', 'Project tasks do not depend on Celery')
+def _check_project_celery(ctx):
+    signals = _project_celery_signals()
+    if not signals:
+        return ok('This project has no Celery app, beat entries or broker setting.')
+    return warn(
+        'Celery for project tasks is deprecated, and generated stacks stop installing it in 1.17: '
+        + '; '.join(signals) + '.',
+        'Move project tasks to @dlux.taskrunner.task and their schedule to DLUX_TASK_SCHEDULE, then '
+        'remove the celery service, celery.py and the CELERY_* settings (docs/task-runner.md, '
+        '"Moving project tasks from Celery").',
+    )
 
 
 @check('static.collected', 'static', 'Static files are collected')
@@ -636,8 +689,7 @@ def _check_optional_packages(ctx):
     optional = {
         'pypi_attestations': 'inline updater attestation verification',
         'dlux_sso': 'single sign-on',
-        'celery': 'scheduled tasks',
-        'redis': 'cache and broker client',
+        'redis': 'cache client',
     }
     present = [name for name in optional if _installed(name)]
     missing = {name: purpose for name, purpose in optional.items() if name not in present}

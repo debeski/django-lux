@@ -388,7 +388,7 @@
     }
 
     function initEmailHealthCheck() {
-        // Re-reads configuration + verification state. Unlike the Celery probe this
+        // Re-reads configuration + verification state. Unlike the task worker check this
         // touches no network and sends no mail — proving delivery is the Email
         // step's test-send button, not a status widget.
         const container = document.querySelector('[data-dlux-email-health]');
@@ -451,21 +451,19 @@
         });
     }
 
-    function initCeleryHealthCheck() {
-        // On-demand Celery worker check. Nothing pings the broker until the user
-        // clicks the recheck arrow; the server persists the result, so the badge
-        // keeps its last outcome across visits until the next manual check.
-        const container = document.querySelector('[data-dlux-celery-health]');
+    function initTaskWorkerHealthCheck() {
+        // Re-reads the task worker row (heartbeats and queue counts) on demand.
+        const container = document.querySelector('[data-dlux-task-health]');
         if (!container) {
             return;
         }
-        const button = container.querySelector('[data-celery-recheck]');
-        const badge = container.querySelector('[data-celery-badge]');
+        const button = container.querySelector('[data-task-recheck]');
+        const badge = container.querySelector('[data-task-badge]');
         if (!button || !badge) {
             return;
         }
-        const detail = container.querySelector('[data-celery-detail]');
-        const note = container.querySelector('[data-celery-note]');
+        const detail = container.querySelector('[data-task-detail]');
+        const note = container.querySelector('[data-task-note]');
         const checkUrl = container.getAttribute('data-check-url');
         const errorLabel = container.getAttribute('data-error-label') || 'Check failed';
 
@@ -481,7 +479,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || data.status !== 'ok' || !data.service) {
-                throw new Error('celery check failed');
+                throw new Error('task worker check failed');
             }
             const svc = data.service;
             badge.className = 'badge ' + (svc.badge_class || 'bg-secondary');
@@ -832,7 +830,7 @@
         initAdminCommandLauncher();
         initForcePasswordChangeAll();
         initEmailHealthCheck();
-        initCeleryHealthCheck();
+        initTaskWorkerHealthCheck();
         focusHashCard();
 
         // Lifecycle hook: app-contributed Options cards attach their behaviour

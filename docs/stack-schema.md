@@ -15,7 +15,7 @@ version that wrote them (`Generated with django-lux X.Y.Z.`).
 
 | File | Stamp |
 | --- | --- |
-| `compose.yml` | `DLUX_STACK_SCHEMA: "N"` in the shared `x-environment` block, so it also reaches `web`, `celery` and `smtp-relay`. Since 1.15.4 the scaffold's `db` takes only `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`, so a restamp or a new `WEB_IMAGE` tag no longer recreates the database. An older stack can make the same change to its `db` service; Postgres restarts once when it does. |
+| `compose.yml` | `DLUX_STACK_SCHEMA: "N"` in the shared `x-environment` block, so it also reaches `web`, `worker` and `smtp-relay`. Since 1.15.4 the scaffold's `db` takes only `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD`, so a restamp or a new `WEB_IMAGE` tag no longer recreates the database. An older stack can make the same change to its `db` service; Postgres restarts once when it does. |
 | `Dockerfile` | `LABEL org.dlux.stack-schema="N"` (readable with `docker image inspect`) |
 | `compose.dev.yml`, `entrypoint.sh`, `gunicorn.py`, `.secrets/.env`, `.proxy/Caddyfile`, `.proxy/default.conf.template` | `# dlux stack schema N` header comment |
 
@@ -37,7 +37,7 @@ from the app container's environment, which comes from `compose.yml`:
 | --- | --- |
 | No `DLUX_STACK_SCHEMA` (stack generated before stamping) | `skipped`, informational |
 | Matches the running contract | `ok` |
-| Older than the running contract | `warning`: recreate web and celery if compose.yml is already current, otherwise apply the changes listed here |
+| Older than the running contract | `warning`: recreate web and worker if compose.yml is already current, otherwise apply the changes listed here |
 | Newer than the running contract | `warning`: update DjangoLux |
 | Not a number | `warning`, pointing here |
 
@@ -71,6 +71,7 @@ on the current number, and each bump adds a row below.
 
 | Schema | Since | Change to existing stacks |
 | --- | --- | --- |
+| 5 | 1.16.0 | DjangoLux's tasks run in a `worker` service (`python -m dlux.updater.supervisor -- python manage.py dlux_worker`, healthcheck `python manage.py dlux_worker --check`, `stop_grace_period: 30s`). It takes over the `pre_start` init containers, `DLUX_BOOT_GATE: apply`, the read-write `dlux_runtime` mount and the `worker` entry in `COMPOSER_AGENT_RESTART_SERVICES`. `celery` becomes an optional, project-only service: no `pre_start`, gated like `web`, kept read-write on the runtime volume for relay requests from project tasks; new stacks have none. DjangoLux 1.16 needs this schema (its manifest's `requires.stack_schema`), so it is not installed inline onto an older stack. With Composer 1.10.0+, put the project image on DjangoLux 1.16 (pull it, or bump the pin and rebuild), run `./start.sh check --fix`, which adds `worker` only once the image has `dlux_worker`, then recreate the stack; a development stack runs `./start.sh -d check --fix` (it reads the pinned version), then `./start.sh -d -b`. |
 | 4 | 1.15.3 | Stored files become private: the proxy serves only the public `/media/` folders directly and asks `/sys/files/media-access/` before serving any other file (`forward_auth` in `.proxy/Caddyfile`, `auth_request` in `.proxy/default.conf.template`). Composer 1.9.2+ `check --fix` does this for an unmodified generated proxy once DjangoLux is 1.15.3+; otherwise copy the `/media/` blocks from a fresh scaffold, restamp, and run `./start.sh restart caddy` (or `nginx`); `./start.sh` alone doesn't reload a changed proxy file. See [Stored files](deployment-configuration.md#stored-files-media). |
 | 3 | 1.13.0 | The maintenance page leaves the project: `.proxy/maintenance.html` and its proxy bind mount go, the proxy serves the page Composer publishes on `dlux_runtime` (`proxy/maintenance/`, assets under `/_dlux/maintenance/`). `composer check --fix` (Composer 1.7.0+) migrates the proxy config and compose, keeps a customised page as `.proxy/maintenance/`, and restamps a schema-2 stack to 3. |
 | 2 | 1.7.0 | Each DjangoLux-owned service's command module is part of the contract; the retired `tools.smtp_relay` and `tools.dlux_runtime_supervisor` entrypoints must be replaced (`composer check --fix` does this). |

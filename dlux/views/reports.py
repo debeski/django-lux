@@ -288,7 +288,7 @@ def _report_backup_page_state(user):
 
 @login_required
 def reports_backup_zip_view(request):
-    """Synchronous, window-aware backup download (fallback when Celery is absent).
+    """Synchronous, window-aware backup download (fallback when no task worker is alive).
 
     Streams the zip from a temp file instead of building it in RAM; large 'all'
     backups may still exceed reverse-proxy timeouts, which is why the UI prefers
@@ -336,7 +336,7 @@ def reports_backup_zip_view(request):
 @login_required
 @require_POST
 def reports_backup_start_view(request):
-    """Start a backup build. Queues it on Celery when a live worker is reachable;
+    """Start a backup build. Queues it on the task worker when one is alive;
     otherwise tells the client to use the synchronous download URL."""
     if not user_can_download_backup(request.user):
         raise PermissionDenied

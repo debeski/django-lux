@@ -13,8 +13,46 @@ permissions:
   contents: read
 
 jobs:
-  settings-postgres:
-    uses: ./.github/workflows/settings-postgres.yml
+  # The same suite on PostgreSQL, which every deployed stack runs: foreign keys
+  # are checked at once, SELECT ... FOR UPDATE really locks, closed connections
+  # stay closed. It includes test_settings_persistence, so the narrower
+  # settings-postgres.yml gate is left to release.yml.
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dlux_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dlux_tests"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: dlux.tests.settings_postgres
+      DLUX_TEST_POSTGRES_DB: dlux_tests
+      DLUX_TEST_POSTGRES_USER: postgres
+      DLUX_TEST_POSTGRES_PASSWORD: test-only
+      DLUX_TEST_POSTGRES_HOST: localhost
+      DLUX_TEST_POSTGRES_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install package, dependencies and PostgreSQL driver
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[pdf]' psycopg2-binary
+
+      - name: Run package Django test suite on PostgreSQL
+        run: python dlux/tests/test_all.py --noinput
 
   test:
     runs-on: ubuntu-latest

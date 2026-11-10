@@ -5,8 +5,8 @@
 from .options import (
     data_reset_execute_view,
     data_reset_preview_view,
-    celery_health_check_view,
     ribbon_tabs_preview_view,
+    task_worker_health_view,
     debug_notifications_view,
     email_config_apply_view,
     email_health_check_view,

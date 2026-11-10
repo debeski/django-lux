@@ -4,6 +4,34 @@ This page records live compatibility contracts and their concrete removal target
 
 ## Active through v1.x
 
+### Celery for project tasks
+
+DjangoLux runs none of its own work on Celery: its tasks run on `dlux_worker`
+(the `worker` service, stack schema 5), and new projects get no Celery. See
+[Task Runner](task-runner.md).
+- **1.16.0:** Celery for project tasks is deprecated. Doctor check
+  `tasks.celery_deprecated` warns while a project has a Celery app, beat entries
+  or `CELERY_BROKER_URL`. A stack migrated by `./start.sh check --fix` keeps a
+  project-only `celery` service for the project's own tasks.
+- **1.17.0:** generated stacks stop installing Celery. A project that still uses
+  it is warned to move to `@dlux.taskrunner.task` and `DLUX_TASK_SCHEDULE`
+  ([Moving project tasks from Celery](task-runner.md#moving-project-tasks-from-celery)).
+
+Compatibility kept until **1.17.0**:
+- `dlux_settings()` still defines `CELERY_BEAT_SCHEDULE` (as a dict without
+  DjangoLux's entries) for projects that add their own beat entries to it after
+  the call.
+- `dlux.backup.system_backup_celery_available` and
+  `dlux.reports.report_backup_celery_available` alias
+  `system_backup_worker_available` and `report_backup_worker_available`.
+- The `dlux.tasks` attribute names (`build_system_backup_task`, `ocr_file`, ...)
+  are the `DluxTask` objects from `dlux.jobs`; send by name with
+  `dlux.taskrunner.enqueue()` instead.
+
+Task names stay `dlux.tasks.*`. The stored config keys `use_celery` (backups)
+and `backup_use_celery` (reports) keep their names; they switch background
+builds on the task worker.
+
 ### Homepage settings aliases
 
 `SystemSettings.homepage_config` is canonical. The legacy `home_url`, `public_root_config`, and profile landing-page permission paths are mirrored on save, accepted by runtime configuration/import, and scheduled for removal in v2.0. Move host code to `homepage_config` now; user-facing copy should call the anonymous destination the public page.

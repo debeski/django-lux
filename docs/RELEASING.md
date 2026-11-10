@@ -194,7 +194,7 @@ its version, summary, release URL, updater schema, and migration policy. Set
 
 `v1.2.7` is the current repaired updater bootstrap baseline and is installed
 through a normal image rebuild. It supersedes v1.2.4-v1.2.6 because the health
-orchestration that races Celery startup runs from the baked updater and cannot
+orchestration that races service startup runs from the baked updater and cannot
 repair itself from a candidate wheel. The unchanged-dependency rule governs
 subsequent releases that can actually be selected by the repaired inline updater.
 
@@ -449,14 +449,38 @@ the curated package Django suite through
 includes `test_defaults_and_urls`, scaffold checks, backup/report coverage,
 notifications, permissions, middleware, and utility tests.
 
-Both CI and the release workflow also call `settings-postgres.yml` to run
-`dlux.tests.test_settings_persistence` against PostgreSQL 17. Distribution builds
-depend on this gate so the concurrent-writer contract cannot silently skip on
-SQLite. The isolated `dlux.tests.settings_postgres` module requires
-`DLUX_TEST_POSTGRES_DB`, `DLUX_TEST_POSTGRES_USER`,
+CI's `test-postgres` job runs the same suite against PostgreSQL 17, the database
+every deployed stack uses. SQLite hides what PostgreSQL enforces: foreign keys are
+checked at once, `SELECT ... FOR UPDATE` really locks, and a closed connection
+stays closed. The release workflow calls the narrower `settings-postgres.yml`,
+which runs only `dlux.tests.test_settings_persistence` on PostgreSQL; distribution
+builds depend on it so the concurrent-writer contract cannot silently skip on
+SQLite.
+
+`dlux.tests.settings_postgres` is `dlux.tests.settings` with a PostgreSQL
+`DATABASES`. It requires `DLUX_TEST_POSTGRES_DB`, `DLUX_TEST_POSTGRES_USER`,
 `DLUX_TEST_POSTGRES_PASSWORD`, and `DLUX_TEST_POSTGRES_HOST`; the optional
 `DLUX_TEST_POSTGRES_PORT` defaults to 5432. Use a disposable database server with
-permission to create test databases. These variables are test-only.
+permission to create test databases. These variables are test-only. To run the
+suite locally against a throwaway server (install `psycopg2-binary` first):
+
+```bash
+docker run -d --rm --name dlux-pg-tests -e POSTGRES_DB=dlux_tests \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test-only \
+  -p 127.0.0.1:55432:5432 postgres:17
+DJANGO_SETTINGS_MODULE=dlux.tests.settings_postgres \
+  DLUX_TEST_POSTGRES_DB=dlux_tests DLUX_TEST_POSTGRES_USER=postgres \
+  DLUX_TEST_POSTGRES_PASSWORD=test-only DLUX_TEST_POSTGRES_HOST=127.0.0.1 \
+  DLUX_TEST_POSTGRES_PORT=55432 .venv/bin/python dlux/tests/test_all.py --noinput
+docker stop dlux-pg-tests
+```
+
+Test-only apps under `dlux/tests/` that define models need migrations: Django
+creates an unmigrated app's tables before the migrated ones, so a foreign key to a
+dlux table (every `ScopedModel` has one to `dlux_scope`) fails on PostgreSQL.
+`document_files_app` is migrated for this reason. When you change its models, run
+`makemigrations document_files_app` with `DJANGO_SETTINGS_MODULE=dlux.tests.settings`;
+`dlux.tests.test_fixture_migrations` fails while the migrations lag behind.
 
 Projects that call `dlux_settings(globals())` automatically replace the default
 cache with a process-local memory cache during `manage.py test` and pytest runs.

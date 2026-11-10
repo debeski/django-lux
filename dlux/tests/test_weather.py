@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from dlux.tests.harness import setup_test_environment
@@ -282,7 +283,18 @@ class WeatherWorkerTests(TestCase):
                 weather.run_search(*args)
 
         app.send_task.side_effect = send_task
-        return app, patch.multiple('dlux.weather', weather_worker_available=lambda: True, _celery_app=lambda: app)
+
+        def enqueue(name, args=(), **_options):
+            # Stands in for the queue plus a worker running the task at once.
+            app.send_task(name, args=list(args), retry=False)
+
+        @contextmanager
+        def sending():
+            with patch('dlux.weather.weather_worker_available', lambda: True), \
+                    patch('dlux.taskrunner.enqueue', enqueue):
+                yield
+
+        return app, sending()
 
     def reading(self):
         return {'main': {'temp': 21.0, 'feels_like': 20.0},
@@ -372,8 +384,6 @@ class WeatherWorkerTests(TestCase):
 
     def test_the_tasks_are_registered_under_the_names_web_sends(self):
         from dlux import tasks
-        if tasks.shared_task is None:
-            self.skipTest('celery is not installed')
         self.assertEqual(tasks.weather_refresh_task.name, 'dlux.tasks.weather_refresh')
         self.assertEqual(tasks.weather_search_task.name, 'dlux.tasks.weather_search')
 

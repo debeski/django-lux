@@ -1,208 +1,24 @@
-"""Celery tasks for Dlux.
+"""DjangoLux's tasks under their historical attribute names.
 
-Celery is an optional dependency: when it isn't installed (or no broker/worker
-is reachable) the features that use these tasks fall back to synchronous
-execution. Host projects that run Celery pick this module up automatically via
-``app.autodiscover_tasks()``.
+The tasks are declared in ``dlux.jobs`` with ``@dlux.taskrunner.task`` and run
+by ``dlux_worker``; their queue names stay ``dlux.tasks.<name>``. The
+``*_task`` attributes below are the same ``DluxTask`` objects (``.enqueue()``,
+``.delay()``), kept for code written against the old names; they are deprecated
+(see ``docs/deprecation-countdown.md``). Nothing here registers with Celery: a
+project's own Celery worker that autodiscovers this module finds no tasks.
 """
 
-import logging
+from . import jobs
+from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS  # noqa: F401
 
-from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
-
-logger = logging.getLogger('dlux')
-
-try:
-    from celery import shared_task
-    from celery.signals import worker_ready
-except Exception:  # pragma: no cover - celery not installed
-    shared_task = None
-    worker_ready = None
-
-
-if shared_task is not None:
-    @shared_task(name='dlux.tasks.build_report_backup', ignore_result=True)
-    def build_report_backup_task(backup_pk):
-        from .reports import run_report_backup
-        run_report_backup(backup_pk)
-
-    @shared_task(name='dlux.tasks.build_system_backup', ignore_result=True)
-    def build_system_backup_task(backup_pk, passphrase=''):
-        from .backup import retry_countdown_for, run_system_backup
-        run_system_backup(backup_pk, passphrase=passphrase, allow_passphrase_retry=True)
-        # Re-queue ourselves rather than blocking the worker for the retry delay.
-        # Carrying the original arguments is also the only way a passphrase-
-        # protected backup can be retried at all — the passphrase is never stored.
-        countdown = retry_countdown_for(backup_pk)
-        if countdown is not None:
-            build_system_backup_task.apply_async(
-                args=[backup_pk, passphrase],
-                countdown=countdown,
-                retry=False,
-            )
-
-    @shared_task(name='dlux.tasks.restore_system_backup', ignore_result=True)
-    def restore_system_backup_task(restore_pk, passphrase=''):
-        from .backup import run_system_restore
-        run_system_restore(restore_pk, passphrase=passphrase)
-
-    @shared_task(name='dlux.tasks.run_scheduled_system_backup', ignore_result=True)
-    def run_scheduled_system_backup_task():
-        from .backup import run_scheduled_system_backup
-        run_scheduled_system_backup()
-
-    # Weather: web has no route to the internet in a generated stack, the worker
-    # does. Both write their answer to the shared cache for web to read.
-    @shared_task(name='dlux.tasks.weather_refresh', ignore_result=True)
-    def weather_refresh_task(location, units, language, encrypted_api_key):
-        from .weather import WeatherUnavailable, refresh_reading
-        try:
-            refresh_reading(location, units, language, encrypted_api_key)
-        except WeatherUnavailable:
-            pass  # recorded in the cache for web to report
-
-    @shared_task(name='dlux.tasks.weather_search', ignore_result=True)
-    def weather_search_task(token, query, encrypted_api_key):
-        from .weather import run_search
-        run_search(token, query, encrypted_api_key)
-
-    @shared_task(name='dlux.tasks.dlux_update_check', ignore_result=True)
-    def dlux_update_check_task():
-        # Reliable, persistent trigger for the daily DjangoLux update check. The
-        # isolated updater worker still *processes* the queued check; this only
-        # enqueues one when due, so the schedule survives updater-worker restarts
-        # instead of living solely in that worker's in-memory countdown.
-        from .updater.service import queue_daily_check_if_due
-        queue_daily_check_if_due()
-
-    @shared_task(name='dlux.tasks.dlux_state_tick', ignore_result=True)
-    def dlux_state_tick_task():
-        """One iteration of the DjangoLux write-side loop, run under Celery.
-
-        This is what the `dlux-updater` service's worker loop used to do. It
-        moved here once Composer took over executing updates: the only writes
-        left are small JSON files in the runtime volume's `state/` directory —
-        update intents, the agent bridge, control-link pairing and the snapshot
-        — so a dedicated always-on container is no longer warranted. Celery is
-        already resident, already runs under the release supervisor, and is not
-        network-facing.
-
-        Guarded by a short cache lock: beat can fire the next tick before this
-        one finishes, and two concurrent ticks would race over the same files.
-        `process_next()` is separately safe (it claims rows with
-        `select_for_update`), but the bridge writes are not.
-        """
-        from django.core.cache import cache
-
-        # add() is atomic; the timeout bounds a tick that dies mid-flight.
-        if not cache.add('dlux.state_tick.lock', '1', 120):
-            return
-        try:
-            from .updater import UpdaterError
-            from .updater.agent_bridge import (
-                consume_agent_requests, publish_agent_results, publish_agent_snapshot,
-            )
-            from .updater.service import (
-                UpdateService, reconcile_channel_policy, reconcile_check_policy,
-                reconcile_state_if_due, record_worker_volume_report, tick_ops_run,
-            )
-
-            try:
-                service = UpdateService()
-            except UpdaterError as exc:
-                # Celery owns the runtime volume, so this is the only process
-                # whose writability verdict means anything. Record it and stop:
-                # web reads it from the state row instead of probing a mount it
-                # is deliberately given read-only.
-                record_worker_volume_report(str(exc))
-                return
-            record_worker_volume_report()
-            # Before any intent is processed: the versions the Options card shows
-            # (and the rollback target it offers) come from the state row, and
-            # nothing else refreshes it against the installed package.
-            reconcile_state_if_due(service)
-            # Celery is the only writer of the channel policy. Applying a
-            # pending request before any intent is processed means a check
-            # queued in the same tick already resolves against the new channel.
-            try:
-                reconcile_channel_policy(service)
-            except UpdaterError:
-                pass
-            try:
-                reconcile_check_policy(service)
-            except (UpdaterError, OSError):
-                pass
-            consume_agent_requests(service)
-            service.process_next()
-            # A manual check waits for Composer's fresh report; this finishes it.
-            service.tick_check_request()
-            # Operations card: hand a queued operation to Composer, or finish one.
-            tick_ops_run(service)
-            # Composer executes an inline package update; this reads back its ack
-            # and finishes the run. Without it a handed-off run never ends.
-            service.tick_package_update()
-            service.tick_image_update()
-            service.tick_control_link()
-            publish_agent_results(service.store)
-            publish_agent_snapshot(service.store)
-        finally:
-            cache.delete('dlux.state_tick.lock')
-
-    @shared_task(name='dlux.tasks.ocr_background', ignore_result=True)
-    def ocr_background():
-        from .ocr.background import tick
-        return tick()
-
-    @shared_task(name='dlux.tasks.ocr_file', bind=True, acks_late=True, ignore_result=True,
-                 max_retries=len(OCR_RETRY_DELAYS))
-    def ocr_file(self, result_id):
-        """Read one ``FileText`` row's file; waits out a busy or unavailable service with growing delays."""
-        from .ocr.client import OCRUnavailable
-        from .ocr.service import give_up, run
-
-        try:
-            run(result_id)
-        except OCRUnavailable as exc:
-            if self.request.retries >= self.max_retries:
-                give_up(result_id, f'{exc} (gave up after {self.request.retries} retries)')
-                return
-            priority = (self.request.delivery_info or {}).get('priority')
-            raise self.retry(exc=exc, countdown=OCR_RETRY_DELAYS[self.request.retries], priority=priority)
-
-    @shared_task(name='dlux.tasks.reap_stalled_system_backups', ignore_result=True)
-    def reap_stalled_system_backups_task():
-        from .backup import reap_stalled_system_backups
-        reap_stalled_system_backups()
-
-    if worker_ready is not None:
-        @worker_ready.connect
-        def _reap_backups_on_worker_start(**_kwargs):
-            """Clear backups abandoned by the worker instance we are replacing.
-
-            A worker that is OOM-killed or restarted mid-build never runs the
-            failure path, so its row stays 'running' with no error and no file —
-            the ghost that blocks later scheduled backups. Its heartbeat stopped
-            when the process died, so the reaper can retire it safely; a backup
-            genuinely running in a sibling worker heartbeats every few seconds and
-            is never inside the stall window.
-            """
-            try:
-                from .backup import reap_stalled_system_backups
-
-                reaped, requeued = reap_stalled_system_backups()
-                if reaped or requeued:
-                    logger.warning(
-                        'Worker startup retired %s stalled system backup(s) and restarted %s.',
-                        reaped, requeued,
-                    )
-            except Exception:
-                logger.warning('Could not reap stalled system backups on worker startup', exc_info=True)
-else:  # pragma: no cover - celery not installed
-    build_report_backup_task = None
-    build_system_backup_task = None
-    restore_system_backup_task = None
-    run_scheduled_system_backup_task = None
-    dlux_update_check_task = None
-    reap_stalled_system_backups_task = None
-    ocr_file = None
-    ocr_background = None
+build_report_backup_task = jobs.build_report_backup
+build_system_backup_task = jobs.build_system_backup
+restore_system_backup_task = jobs.restore_system_backup
+run_scheduled_system_backup_task = jobs.run_scheduled_system_backup
+weather_refresh_task = jobs.weather_refresh
+weather_search_task = jobs.weather_search
+dlux_update_check_task = jobs.dlux_update_check
+dlux_state_tick_task = jobs.dlux_state_tick
+ocr_background = jobs.ocr_background
+ocr_file = jobs.ocr_file
+reap_stalled_system_backups_task = jobs.reap_stalled_system_backups

@@ -1,4 +1,4 @@
-"""Entry points that start work: Celery dispatch, retry runs and resumption.
+"""Entry points that start work: task dispatch, retry runs and resumption.
 
 Re-running a backup lives here rather than in `retry` so the policy module stays
 free of a dependency back on `create` — running a backup reports failures to
@@ -9,7 +9,7 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
-from ._shared import _log_system_action, logger, system_backup_celery_available
+from ._shared import _log_system_action, logger, system_backup_worker_available
 from .chain import chain_policy, open_chain_head
 from .config import _backup_config
 from .create import run_system_backup
@@ -75,7 +75,7 @@ def dispatch_due_backup_retries(*, now=None, allow_inline=True):
     SystemBackup = apps.get_model("dlux", "SystemBackup")
     now = now or timezone.now()
     started = 0
-    # Passphrase-protected rows are excluded on purpose: only the Celery task that
+    # Passphrase-protected rows are excluded on purpose: only the backup task that
     # still holds the passphrase may re-queue one, and starting it from here would
     # quietly fall back to secret-key encryption.
     due = SystemBackup.objects.filter(
@@ -88,7 +88,7 @@ def dispatch_due_backup_retries(*, now=None, allow_inline=True):
         # Claim the row before doing anything: two pollers (a browser refresh and
         # the beat task, say) can reach this at the same moment, and a backup must
         # never run twice concurrently.
-        if not allow_inline and not system_backup_celery_available():
+        if not allow_inline and not system_backup_worker_available():
             continue
         claimed = SystemBackup.objects.filter(
             pk=backup.pk,
@@ -178,7 +178,7 @@ def cancel_system_backup(backup, *, requested_by=None):
 
 
 def run_scheduled_system_backup(*, now=None):
-    """Create one due scheduled backup; safe for frequent Celery-beat polling."""
+    """Create one due scheduled backup; safe for frequent scheduled polling."""
     config = _backup_config()
     if not config["scheduled_enabled"]:
         return None
@@ -237,11 +237,11 @@ def incremental_backup_row(head, *, requested_by, trigger):
 
 
 def dispatch_system_backup(backup, *, passphrase=None):
-    if not system_backup_celery_available():
+    if not system_backup_worker_available():
         return False
-    from ..tasks import build_system_backup_task
+    from ..taskrunner import enqueue
     try:
-        build_system_backup_task.apply_async(args=[backup.pk, _clean_passphrase(passphrase)], retry=False)
+        enqueue("dlux.tasks.build_system_backup", args=[backup.pk, _clean_passphrase(passphrase)], sensitive=True)
         return True
     except Exception:
         logger.exception("Failed to queue system backup pk=%s", backup.pk)
@@ -249,11 +249,11 @@ def dispatch_system_backup(backup, *, passphrase=None):
 
 
 def dispatch_system_restore(restore, *, passphrase=None):
-    if not system_backup_celery_available():
+    if not system_backup_worker_available():
         return False
-    from ..tasks import restore_system_backup_task
+    from ..taskrunner import enqueue
     try:
-        restore_system_backup_task.apply_async(args=[restore.pk, _clean_passphrase(passphrase)], retry=False)
+        enqueue("dlux.tasks.restore_system_backup", args=[restore.pk, _clean_passphrase(passphrase)], sensitive=True)
         return True
     except Exception:
         logger.exception("Failed to queue system restore pk=%s", restore.pk)

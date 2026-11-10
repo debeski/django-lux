@@ -15,7 +15,7 @@ class Command(BaseCommand):
         parser.add_argument('--files', default='', help='Comma-separated app_label.model.field keys (default: every OCR file).')
         parser.add_argument('--batch-size', type=int, default=50)
         parser.add_argument('--limit', type=int, default=0, help='Stop after this many documents in this run (0: no limit).')
-        parser.add_argument('--enqueue', action='store_true', help='Queue the files on Celery at backfill priority instead of reading them here.')
+        parser.add_argument('--enqueue', action='store_true', help='Queue the files on the task worker at backfill priority instead of reading them here.')
         parser.add_argument('--retry-failed', action='store_true', help='Read files whose last OCR failed again.')
         parser.add_argument('--restart', action='store_true', help='Ignore the saved position and start from the first document.')
         parser.add_argument('--state-file', default='', help='Checkpoint file (default: <BASE_DIR>/logs/dlux-ocr-backfill.json).')

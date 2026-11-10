@@ -840,11 +840,11 @@ For the full contract and more examples, use:
 
 ## Outbound network access
 
-`web` and `celery` have no route to the internet in a generated stack; only
+`web` and `worker` have no route to the internet in a generated stack; only
 `composer-agent` does. Do not call a public host from a view, signal, task or
 management command. Outbound calls go through the Composer relay as named, pinned
 operations, and project-specific ones are declared in `relay/operations.json`. The
-rule, the topology and the (planned) developer API are in [Outbound
+rule, the topology and the developer API are in [Outbound
 Requests](outbound-requests.md).
 
 ## Where to Go Next

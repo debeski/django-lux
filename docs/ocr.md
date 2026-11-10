@@ -89,11 +89,13 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
   rotation, timings), page count, mean confidence, timings, duration, attempts,
   error, and `file_version` (the `FileVersion` whose save produced this file).
 - **Flow**: `post_save` on a registered model schedules after commit
-  (`dlux.ocr.service.schedule`). The Celery task `dlux.tasks.ocr_file` runs at
-  Redis priority 6 (automatic), 0 (Run OCR) or 9 (backfill). It retries a busy or
-  unreachable service after 30 s, 1, 2, 5, 10, 15, 30 and 60 minutes before
-  marking the row `failed`; a `422`-type refusal fails at once; a file changed
-  before the worker ran is `skipped`.
+  (`dlux.ocr.service.schedule`). The task `dlux.tasks.ocr_file` (defined in
+  `dlux.jobs`) runs on the [Task Runner](task-runner.md) at priority 0 (Run OCR),
+  -6 (automatic) or -9 (backfill) in `django.tasks` terms, higher first. It is
+  `requeue_lost`, so a run lost with a dead worker goes back to the queue. It
+  retries a busy or unreachable service after 30 s, 1, 2, 5, 10, 15, 30 and 60
+  minutes before marking the row `failed`; a `422`-type refusal fails at once; a
+  file changed before the worker ran is `skipped`.
 - **Provider seam**: `dlux.ocr.client.call_service(content, mode=None)` is the
   only call to the engine. Replacing Indra means an adapter in
   `dlux/ocr/engine.py` that returns the same JSON, selected with `OCR_ENGINE`.
@@ -109,10 +111,10 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
 
 ### Background catch-up and model selection
 
-Celery is optional for importing the core/PDF package and reading saved text.
-Viewer-triggered, automatic and background OCR need a configured Celery worker;
-their task entrypoints are disabled when Celery is absent. Synchronous CLI
-backfill still runs without it.
+Importing the core/PDF package and reading saved text need no task worker.
+Viewer-triggered, automatic and background OCR need
+`python manage.py dlux_worker` (the `worker` service in a generated stack; see
+[Task Runner](task-runner.md)). Synchronous CLI backfill runs without it.
 
 **Read older files in the background** (off by default) finds registered files
 with no finished result while OCR is enabled, including entries created before
@@ -136,11 +138,12 @@ background/CLI backfill. An empty selection disables all automatic reads.
 - Existing text stays readable and searchable, and replacing an excluded file
   still invalidates stale current text.
 
-The scanner is `dlux.tasks.ocr_background`, which Celery Beat runs once per
-minute, gated by the configured interval. It:
+The scanner is `dlux.tasks.ocr_background`, which runs once per minute (the
+`dlux-ocr-background` entry of `DLUX_TASK_SCHEDULE`), gated by the configured
+interval. It:
 
 - rotates across registered fields, using a shared-cache lock and checkpoints,
-  limits scan work, and sends `backfill` tasks at priority 9;
+  limits scan work, and sends `backfill` tasks at the lowest priority (-9);
 - does not re-read completed, failed or skipped results; failed files can be
   retried manually or with `dlux_ocr_backfill --retry-failed` for included
   models;
@@ -176,12 +179,12 @@ python manage.py dlux_adopt_ocr_text documents.DocumentOCR            # dry run
 python manage.py dlux_adopt_ocr_text documents.DocumentOCR --apply
 ```
 
-`dlux_ocr_backfill` reads existing files in the command's own process (Celery
-stays free). It saves its position per file key after every document in
+`dlux_ocr_backfill` reads existing files in the command's own process (the task
+worker stays free). It saves its position per file key after every document in
 `logs/dlux-ocr-backfill.json` (`--state-file` to change it); rerun to continue,
 `--restart` to start over. When the service stays unavailable (`--wait`, default
 60 seconds, up to `--max-waits`, default 10, per file), it stops with "rerun to
-resume". `--enqueue` queues on Celery at backfill priority instead.
+resume". `--enqueue` queues on the task worker at backfill priority instead.
 
 `dlux_adopt_ocr_text` copies a project's own OCR rows (shaped like Archive's
 `documents.DocumentOCR`) into `FileText`. It is a dry run by default, idempotent
@@ -195,8 +198,9 @@ copies re-link to adopted file versions.
   `internal` only, `restart: safe`, in `invariants.restart.lifecycle`
   (startable/stoppable) and `invariants.optional_services`. Drift checks skip it
   when a deployment does not have it.
-- **Scaffold `compose.yml`**: `ocr` uses the same `WEB_IMAGE` as Web/Celery, with
-  `entrypoint: []` and `command: ["python", "-m", "dlux.ocr.serve"]`. Its
+- **Scaffold `compose.yml`**: `ocr` uses the same `WEB_IMAGE` as `web` and
+  `worker`, with `entrypoint: []` and
+  `command: ["python", "-m", "dlux.ocr.serve"]`. Its
   read-only root, temporary `/tmp`, dropped capabilities, internal-only network
   and memory/CPU limits isolate engine execution. `ocr` is included in
   `COMPOSER_AGENT_RESTART_SERVICES`. Existing projects add the same service and
@@ -205,13 +209,13 @@ copies re-link to adopted file versions.
   `django-lux[updater,ocr]`). The scaffold includes the extra by default;
   projects without OCR can omit it. Set `INDRA_OCR_MODEL_DIR=/opt/indra/models`
   and run `python -m dlux.ocr.fetch_models --if-installed` during the image
-  build. Runtime sets `HF_HUB_OFFLINE=1`; models are never downloaded by Web or
-  Celery. Only the OCR process loads the engine. Credits and model-license
+  build. Runtime sets `HF_HUB_OFFLINE=1`; models are never downloaded by `web` or
+  `worker`. Only the OCR process loads the engine. Credits and model-license
   location: `dlux/ocr/NOTICE`.
 - **Upgrades**: adding or changing the OCR extra requires a project image
   rebuild; inline package installation cannot supply engine dependencies or
   model files. After that rebuild, compatible DjangoLux changes can be installed
-  inline for Web/Celery. The OCR service keeps running its baked version until
+  inline for `web`/`worker`. The OCR service keeps running its baked version until
   the project image is updated or the container is recreated, so keep its HTTP
   contract compatible.
 - **Releases**: no separate OCR image, Docker Hub secrets or OCR release

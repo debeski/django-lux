@@ -1779,22 +1779,20 @@ class AutoUpdateCheckSchedulingTests(TestCase):
         self.assertIsNone(queue_daily_check_if_due())
         self.assertEqual(self._checks().count(), 0)
 
-    def test_beat_schedule_registers_the_update_check(self):
+    def test_the_schedule_registers_the_update_check(self):
         from dlux.utils.settings import dlux_settings
 
         scope = {}
         dlux_settings(scope)
-        entry = scope["CELERY_BEAT_SCHEDULE"]["dlux-update-check"]
+        entry = scope["DLUX_TASK_SCHEDULE"]["dlux-update-check"]
         self.assertEqual(entry["task"], "dlux.tasks.dlux_update_check")
         self.assertGreater(entry["schedule"], 0)
 
     @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
-    def test_beat_task_enqueues_a_check(self):
+    def test_the_scheduled_task_enqueues_a_check(self):
         from dlux.tasks import dlux_update_check_task
 
-        if dlux_update_check_task is None:
-            self.skipTest("Celery is not installed in this environment.")
-        dlux_update_check_task()
+        dlux_update_check_task.call()
         self.assertEqual(self._checks().count(), 1)
 
 
@@ -2525,6 +2523,21 @@ class InlineFloorTests(SimpleTestCase):
             blocked = assess_wheel(candidate, wheel, baked_version="1.6.8")
             self.assertFalse(blocked["compatible"])
             self.assertIn("needs the v1.7.0 project image", blocked["reason"])
+
+    def test_a_stack_schema_floor_blocks_an_older_or_unstamped_stack(self):
+        with tempfile.TemporaryDirectory() as temp_dir, \
+                mock.patch("dlux.updater.manifest._check_dependency_contract", return_value=[]), \
+                mock.patch("dlux.updater.manifest._check_dependencies", return_value=[]):
+            wheel = make_wheel(Path(temp_dir) / "candidate.whl", version="1.7.1",
+                               manifest=release_manifest(version="1.7.1", minimum_stack_schema=5))
+            candidate = ReleaseCandidate("1.7.1", wheel.name, "https://files.pythonhosted.org/a.whl", "a" * 64)
+            for stamp, compatible in (("4", False), ("", False), ("5", True), ("6", True)):
+                with mock.patch.dict(os.environ, {"DLUX_STACK_SCHEMA": stamp}):
+                    assessment = assess_wheel(candidate, wheel, baked_version="1.7.1")
+                self.assertEqual(assessment["compatible"], compatible, stamp)
+                if not compatible:
+                    self.assertIn("needs stack schema 5", assessment["reason"])
+                    self.assertIn("check --fix", assessment["reason"])
 
     def test_inline_floor_allows_a_box_at_or_above_the_baseline(self):
         with tempfile.TemporaryDirectory() as temp_dir, \

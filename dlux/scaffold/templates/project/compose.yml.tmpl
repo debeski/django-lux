@@ -9,10 +9,8 @@ x-environment:
   POSTGRES_DB: "${POSTGRES_DB:-{{ project_slug }}_db}"
   POSTGRES_PORT: "5432"
   POSTGRES_HOST: "db"
-  # Redis / Celery
+  # Redis (cache)
   REDIS_URL_DB: "redis://redis:6379/1"
-  CELERY_BROKER_URL: "redis://redis:6379/2"
-  CELERY_RESULT_BACKEND: "redis://redis:6379/3"
   # Web app settings (override these in compose.dev.yml or .env)
   ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,caddy,nginx,localhost,127.0.0.1}"
   ALLOWED_URLS: "${ALLOWED_URLS:-http://localhost:81}"
@@ -230,15 +228,17 @@ services:
     networks:
       - internal
 
-  celery:
+  worker:
     image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
     labels:
       org.dlux.restart: "safe"
-    # The beat schedule carries the DjangoLux write-side loop,
-    # dlux.tasks.dlux_state_tick — small JSON writes on the runtime volume, which
-    # is why this service mounts it rw.
-    command: ["python", "-m", "dlux.updater.supervisor", "--", "python", "-m", "celery", "-A", "{{ config_package }}", "worker", "-B", "--loglevel=info"]
+    # DjangoLux's task worker: queued tasks and DLUX_TASK_SCHEDULE, including
+    # the write-side loop dlux.tasks.dlux_state_tick (small JSON writes on the
+    # runtime volume, which is why this service mounts it rw).
+    command: ["python", "-m", "dlux.updater.supervisor", "--", "python", "manage.py", "dlux_worker"]
+    # dlux_worker lets running tasks finish for up to 25 s after SIGTERM.
+    stop_grace_period: 30s
     entrypoint: ["/app/entrypoint.sh"]
     # Init containers (Compose 5.3+): runtime reconcile, then migrations, each in
     # its own ephemeral container that must exit 0 before this service starts.
@@ -275,7 +275,7 @@ services:
       <<: *de
       # This is the service that applies migrations. pre_start remains the fast
       # path; `apply` is what covers the restart-policy restart Compose skips it
-      # on, where web and celery would otherwise both wait for a migration
+      # on, where web and worker would otherwise both wait for a migration
       # nothing was left to run.
       DLUX_BOOT_GATE: "apply"
       POSTGRES_USER: ${POSTGRES_USER:-admin}
@@ -283,7 +283,7 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local_secret}
       ADMIN_PASS: ${ADMIN_PASS:-admin}
     healthcheck:
-      test: ["CMD", "python", "-m", "celery", "-A", "{{ config_package }}", "inspect", "ping"]
+      test: ["CMD", "python", "manage.py", "dlux_worker", "--check"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -403,7 +403,7 @@ services:
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
       COMPOSER_WATCH_SELF_SERVICE: "composer-executor"
       COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
-      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,worker,smtp-relay,caddy,ocr"
     volumes:
       - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw
@@ -456,7 +456,7 @@ services:
       COMPOSER_WATCH_SELF_SERVICE: "composer-agent"
       COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
       COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
-      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,worker,smtp-relay,caddy,ocr"
     volumes:
       - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw
@@ -495,7 +495,7 @@ networks:
   # them; nothing may sit on both.
   egress:
     driver: bridge
-  # Inter-service traffic with NO internet access — db, redis, web, celery, …
+  # Inter-service traffic with NO internet access — db, redis, web, worker, …
   internal:
     internal: true
   # Isolated, internet-less path for the Docker-control services: the agent's

@@ -14,8 +14,9 @@ This architecture applies only to generated Compose stacks. It requires:
 - the Composer service topology (`composer-agent`, `composer-executor` and
   `docker-socket-proxy`) running as services in the deployment, at or above the
   Composer version the running release declares in `requires.services.composer`;
-  and
-- a writable `dlux_runtime` volume for the state owner, `celery`.
+- a writable `dlux_runtime` volume for the state owner, `worker`; and
+- stack schema 5, whose `worker` service runs DjangoLux's
+  [Task Runner](task-runner.md).
 
 Each release manifest declares the Composer it needs. A Composer below the floor
 of the release it is offered reports that requirement instead of attempting an
@@ -30,8 +31,16 @@ updates, and `DLUX_INLINE_UPDATES_ENABLED` defaults to off for them.
 For an existing generated stack, run `./start.sh check`, review what it reports,
 and apply the recognized repairs with `./start.sh check --fix` when Composer
 reports missing infrastructure: it installs the Composer services and migrates
-obsolete `dlux-updater` wiring. There is no in-container executor:
-`DLUX_UPDATE_EXECUTOR` is ignored (see
+obsolete `dlux-updater` wiring. A stack below schema 5 has no `worker` service to
+run DjangoLux's tasks, so this DjangoLux is not installed inline onto it. Move it
+with Composer 1.10 or later: put the project image on this DjangoLux first
+(pull it, or bump the pin and rebuild it), then run `./start.sh check --fix`,
+which adds `worker` once the image has `dlux_worker`, and recreate the stack. A
+development stack bumps the pin, runs `./start.sh -d check --fix` (which reads
+the pinned version) and then `./start.sh -d -b` (see
+[Stack Schema Stamps](stack-schema.md#changes-by-schema)).
+
+There is no in-container executor: `DLUX_UPDATE_EXECUTOR` is ignored (see
 [Deprecation Countdown](deprecation-countdown.md#in-container-update-executor)),
 and a deployment without Composer gets a card that reports it rather than a
 fallback.
@@ -40,7 +49,7 @@ fallback.
 
 ### Who does what
 
-| DjangoLux (`web` and `celery`) | Composer (`composer-agent` and `composer-executor`) |
+| DjangoLux (`web` and `worker`) | Composer (`composer-agent` and `composer-executor`) |
 | --- | --- |
 | Update policy: release channel, skip list, check interval, and whether an offered release is admitted | Network fetch and verification of releases from PyPI, including whether a release is inline-safe |
 | Locking: one operation at a time, serialized through the `DluxUpdateState` row | Staging: the agent downloads and stages the wheel |
@@ -53,20 +62,21 @@ wheel itself; the agent, which has egress, stages it. Because Composer performs
 all network and container operations from outside the application container, a
 failed candidate is rolled back by a process that is not being replaced.
 
-DjangoLux's side runs in Celery. Beat runs `dlux.tasks.dlux_state_tick` every five
-seconds: a small write-side loop that publishes state and intent on the runtime
-volume and reads Composer's answers back. `web` mounts `dlux_runtime` read-only
-and records an administrator's intent in the database; `celery` mounts it
-read-write and is the only project-side writer. The services, networks and
-privileges are described in
+DjangoLux's side runs on its [Task Runner](task-runner.md) in the `worker`
+service (`python manage.py dlux_worker`). The `dlux-state-tick` schedule entry
+runs `dlux.tasks.dlux_state_tick` every five seconds: a small write-side loop that
+publishes state and intent on the runtime volume and reads Composer's answers
+back. `web` mounts `dlux_runtime` read-only and records an administrator's intent
+in the database; `worker` mounts it read-write and is the only DjangoLux service
+that writes it. The services, networks and privileges are described in
 [Composer Agent Integration](composer-agent.md#generated-topology).
 
 The scaffold has no `dlux-updater` service. Do not add it back to a stack.
 
 ### Boot and ownership
 
-Compose runs two `pre_start` steps on `celery`, each in its own ephemeral
-container that must exit 0 before `celery` starts:
+Compose runs two `pre_start` steps on `worker`, each in its own ephemeral
+container that must exit 0 before `worker` starts:
 
 1. `dlux_reconcile` repairs the runtime pointer. When a volume release is not
    strictly newer than the release baked into the image, it points the runtime
@@ -77,7 +87,7 @@ container that must exit 0 before `celery` starts:
 Both run under the runtime supervisor (`python -m dlux.updater.supervisor
 --no-watch`), so they use the same runtime-active release gunicorn serves
 templates from; run raw, `collectstatic` would collect from the baked image. They
-live on `celery` because a step inherits its service's mounts, and `web`'s runtime
+live on `worker` because a step inherits its service's mounts, and `web`'s runtime
 mount is read-only. Composer passes a deploy's migrator flags to the second step
 through `DLUX_MIGRATOR_FLAGS`.
 
@@ -88,10 +98,10 @@ reboot does.
 | Value | Used by | Behaviour |
 | --- | --- | --- |
 | `off` | the `pre_start` steps | No gate. A step inherits the entrypoint and would otherwise wait for the migrations it applies. |
-| `apply` | `celery` | When `migrate --check` finds unapplied migrations, runs `dlux_reconcile` and `migrate` itself, and refuses to start if they fail. |
+| `apply` | `worker` | When `migrate --check` finds unapplied migrations, runs `dlux_reconcile` and `migrate` itself, and refuses to start if they fail. |
 | `on` (default) | `web` and every other service | Waits until `migrate --check` passes; never applies. |
 
-`web` does not depend on `celery`; it waits on the migrations themselves, so a sick
+`web` does not depend on `worker`; it waits on the migrations themselves, so a sick
 worker delays nothing once they are applied.
 
 ### Who decides the runtime volume is usable
@@ -100,7 +110,7 @@ Only the process that writes the volume. `web` mounts `dlux_runtime` read-only,
 which is the intended arrangement, so a writability probe in `web` describes the
 web mount, not the mount an update runs against. Do not grant `web` write access.
 
-Celery records its own verdict on the update state row each tick
+The worker records its own verdict on the update state row each tick
 (`worker_seen_at`, `worker_volume_problem`, refreshed at most once a minute while
 unchanged). The update panel, the queue guard and the `updater.runtime_volume`
 check in [Deployment Doctor](doctor.md) all read that recorded verdict; `web` never
@@ -116,12 +126,12 @@ accepting a run nothing would drain, and the state exposes `worker_stale`.
 
 `dlux_reconcile` runs before migrations and only repairs the runtime pointer on the
 volume; it never writes the database. The database side is
-`UpdateService.reconcile()`. The Celery state tick runs it once per worker process
+`UpdateService.reconcile()`. The worker's state tick runs it once per worker process
 (so after `migrator`), and again whenever the recorded baked version stops
 matching the installed package (an image swap under a running worker) or the
 runtime volume's generation advances (a release activated by Composer).
 
-### How `web` and `celery` restart on a new release
+### How `web` and `worker` restart on a new release
 
 Both services run their command under the supervisor:
 `python -m dlux.updater.supervisor -- <command>`. The supervisor puts the active
@@ -175,7 +185,7 @@ Three processes need the same answer and none of them can own it alone:
 | | reads | writes |
 | --- | --- | --- |
 | Options UI (`web`) | the database column | nothing; the runtime volume is read-only there |
-| Celery worker | both | the database column and `state/channel-policy.json` |
+| Task worker (`worker`) | both | the database column and `state/channel-policy.json` |
 | Composer | `state/channel-policy.json` | nothing |
 
 So the administrator's choice is recorded in `DluxUpdateState.update_channel`, and
@@ -219,7 +229,8 @@ the run falls back to its last report and says so in the run log. A repeat click
 within 10 seconds of a finished check returns that check's result.
 
 DjangoLux also queues a check run of its own once `DLUX_UPDATE_CHECK_INTERVAL`
-seconds (default one day) have passed since the last check; Beat looks hourly.
+seconds (default one day) have passed since the last check; the
+`dlux-update-check` schedule entry looks hourly.
 
 The card ends a check on whichever request sees the run finish: the run poll, any
 state read (the 60-second background refresh, or the poll's own fallback when the
@@ -261,7 +272,7 @@ concurrently. When a pre-update backup is requested, DjangoLux finishes it befor
 the update intent is written.
 
 An inline apply or rollback started from DjangoLux (the Options card or
-`/sys/api/dlux-update/`) runs in the Celery worker:
+`/sys/api/dlux-update/`) runs in the task worker:
 
 1. **Backing up.** The worker takes the backup the run asked for: `backup_mode` is
    `data` (default), `full` or `skip`; a rollback takes a data-only one. The run
@@ -284,7 +295,7 @@ through `manage.py dlux_backup` (see the Composer docs for `--backup`).
 ### What finishes a handed-off run
 
 Writing `package-update-request.json` is the end of DjangoLux's part: nothing in
-the web or worker process can observe what Composer does next. The Celery tick's
+the web or worker process can observe what Composer does next. The worker tick's
 `tick_package_update()` reads the answer back from
 `package-update-request.json.ack` (the token and the exit code), reconciles the
 versions the Options card reports, and finishes the run:
@@ -359,7 +370,7 @@ Closing after a failure leaves the page as it is.
 
 An image update has two finish lines. Composer writes `ready` to
 `state/deploy-status.json` once the containers are recreated and migrated; the new
-web container's DjangoLux then marks the `DluxImageUpdate` completed (the Celery
+web container's DjangoLux then marks the `DluxImageUpdate` completed (the worker's
 state tick runs `_finalize_image_update`) and lowers the maintenance flag. Until
 then the proxy answers 503 with the maintenance page Composer publishes on the
 runtime volume (`proxy/maintenance/`).
@@ -474,7 +485,7 @@ the resident Composer agent reports its version. Day-to-day use is described in
 * **Services**: every Compose service with its state and health. Services the
   stack allow-lists (`COMPOSER_AGENT_RESTART_SERVICES`, never one labelled
   `org.dlux.restart: "protected"`) offer **Restart** and **Recreate**; recreating
-  runs the service's `pre_start` hooks, which on `celery` applies migrations.
+  runs the service's `pre_start` hooks, which on `worker` applies migrations.
   Approved auxiliary services also offer **Start** and **Stop**, following the
   `can_start` and `can_stop` flags Composer reports beside `can_restart`. All of
   them are password-confirmed; every service offers **Logs**.
@@ -672,12 +683,12 @@ is the canonical list of `DLUX_*` settings. The ones this page relies on:
 
 | Name | Default | Purpose |
 | --- | --- | --- |
-| `DLUX_INLINE_UPDATES_ENABLED` | `False` | Enables update checks and operator-approved apply and rollback. Generated `compose.yml` sets `True`; `compose.dev.yml` sets it back to `False` on `web` and `celery`, because development runs a bind-mounted checkout rather than an installed release. |
+| `DLUX_INLINE_UPDATES_ENABLED` | `False` | Enables update checks and operator-approved apply and rollback. Generated `compose.yml` sets `True`; `compose.dev.yml` sets it back to `False` on `web` and `worker`, because development runs a bind-mounted checkout rather than an installed release. |
 | `DLUX_UPDATE_CHECK_INTERVAL` | `86400` (minimum `300`) | Seconds between the check runs DjangoLux queues itself. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | `/opt/dlux-runtime` | Where `dlux_runtime` is mounted. |
 | `DLUX_BOOT_GATE` | `on` | Entrypoint migration gate: `off`, `apply` or `on` (see [Boot and ownership](#boot-and-ownership)). |
 | `DLUX_MIGRATOR_FLAGS` | empty | Flags Composer passes to the `migrator` init step. |
-| `COMPOSER_AGENT_RESTART_SERVICES` | `web,celery,smtp-relay,caddy,ocr` in the scaffold | Services the Operations panel may restart and recreate. |
+| `COMPOSER_AGENT_RESTART_SERVICES` | `web,worker,smtp-relay,caddy,ocr` in the scaffold | Services the Operations panel may restart and recreate. |
 | `COMPOSER_RUNTIME_GATE_SERVICE` | `web` | The service Composer asks for `dlux_image_gate`. |
 
 The update index is fixed to official PyPI and is not configurable.

@@ -90,7 +90,8 @@ authorization decision.
 - Inline updates default off outside recognized generated Compose deployments.
 - The updater has no Docker socket and publishes no ports. Only its dedicated
   egress bridge can reach PyPI; database/Redis access stays on the internal
-  network. Web, Celery, and nginx mount `dlux_runtime` read-only.
+  network. Web and nginx mount `dlux_runtime` read-only; `worker` is the only
+  DjangoLux service that mounts it read-write.
 - Discovery and redirects are allowlisted to official PyPI hosts. A wheel is
   accepted only after SHA-256 and PyPI attestation verification for
   `debeski/django-lux` plus `.github/workflows/release.yml`; the integrity API's

@@ -63,8 +63,9 @@
   },
   "mounts": {
     "web": "ro",
-    "celery": "ro",
+    "worker": "rw",
+    "celery": "rw",
     "composer-executor": "rw",
-    "note": "Only the executor writes the volume. Application containers mount it read-only and must never create directories."
+    "note": "Composer writes releases and the active pointer. worker writes DjangoLux's state files (state tick, update intents, relay requests); a project-only celery service keeps rw for relay requests from project tasks. web mounts it read-only. Application containers never create directories outside state/."
   }
 }

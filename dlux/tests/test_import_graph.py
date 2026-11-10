@@ -61,13 +61,9 @@ BASELINE_DEFERRED_CLUSTERS = {
         'dlux.models.files',
     }),
     frozenset({
-        # The backup/reports/updater/tasks knot. Splitting `backup.py` and
-        # `reports.py` into packages did not add coupling — it attributes the
-        # existing deferred edges to the sub-modules that actually own them
-        # (`.tasks` dispatch in archive/dispatch, progress reporting in create).
-        'dlux.backup', 'dlux.backup._shared', 'dlux.backup.create',
-        'dlux.backup.dispatch', 'dlux.backup.restore', 'dlux.backup.retry',
-        'dlux.reports', 'dlux.reports.archive', 'dlux.tasks',
+        # What is left of the backup/reports/updater/tasks knot. Backups and
+        # reports left it in 1.16 when they began sending tasks by name through
+        # `dlux.taskrunner` instead of importing `dlux.tasks`.
         'dlux.updater.agent_bridge', 'dlux.updater.control_link',
         'dlux.updater.image_update', 'dlux.updater.service',
         # The 1.8.0 hand-off writer: service.py imports it inside the apply and

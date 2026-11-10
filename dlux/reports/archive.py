@@ -188,33 +188,27 @@ def _report_backup_model():
     return apps.get_model("dlux", "ReportBackup")
 
 
-def report_backup_celery_available():
+def report_backup_worker_available():
     """True when the backup task can actually run in the background right now:
-    celery importable, broker reachable, and at least one live worker."""
+    background builds on (stored as ``backup_use_celery``), and a live ``dlux_worker``."""
     if not _reports_config().get("backup_use_celery", True):
         return False
-    try:
-        from ..tasks import build_report_backup_task
-    except Exception:
-        return False
-    if build_report_backup_task is None:
-        return False
-    try:
-        app = build_report_backup_task.app
-        with app.connection_for_write() as conn:
-            conn.ensure_connection(max_retries=0, timeout=2)
-        return bool(app.control.ping(timeout=1.0))
-    except Exception:
-        return False
+    from ..taskrunner import worker_alive
+
+    return worker_alive()
+
+
+# Deprecated name, kept for code written against it (see the deprecation countdown).
+report_backup_celery_available = report_backup_worker_available
 
 
 def dispatch_report_backup(backup):
-    """Queue the backup build on Celery. Returns True when queued."""
-    if not report_backup_celery_available():
+    """Queue the backup build on the task worker. Returns True when queued."""
+    if not report_backup_worker_available():
         return False
-    from ..tasks import build_report_backup_task
+    from ..taskrunner import enqueue
     try:
-        build_report_backup_task.apply_async(args=[backup.pk], retry=False)
+        enqueue("dlux.tasks.build_report_backup", args=[backup.pk])
         return True
     except Exception:
         logger.exception("Failed to queue report backup pk=%s", backup.pk)
@@ -245,7 +239,7 @@ def _prune_report_backups(user, keep=3):
 def run_report_backup(backup_pk):
     """Build the zip for a ReportBackup row and store it under the backup prefix.
 
-    Runs inside the Celery worker (or inline as a last resort). Status/result
+    Runs inside the task worker (or inline as a last resort). Status/result
     are persisted on the row so the web process can poll over the shared DB.
     """
     ReportBackup = _report_backup_model()

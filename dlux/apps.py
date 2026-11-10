@@ -63,10 +63,8 @@ class DluxConfig(AppConfig):
         from django.db.models.signals import post_save
         from dlux.ocr.control import settings_saved
         post_save.connect(settings_saved, sender='dlux.SystemSettings', dispatch_uid='dlux.ocr.settings_saved', weak=False)
-        try:
-            import dlux.updater.celery_control
-        except ImportError:
-            pass
+        # DLUX_TASK_SCHEDULE system check.
+        import dlux.taskrunner.checks  # noqa: F401
 
         # Auto-inject scope handling into ModelForm / FilterSet / Table
         from dlux.patches import apply_scoped_patches, apply_global_translation_patches

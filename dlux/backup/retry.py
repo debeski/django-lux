@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.apps import apps
 from django.utils import timezone
 
-from ._shared import system_backup_celery_available
+from ._shared import system_backup_worker_available
 from .config import _backup_config
 
 
@@ -25,7 +25,7 @@ def _can_auto_retry(backup, policy=None, *, passphrase_in_hand=False):
     A passphrase-protected backup normally cannot: the passphrase is deliberately
     stored nowhere, so re-running it blind would silently produce a backup
     encrypted with the Django secret key instead of the passphrase the operator
-    chose. The one exception is a retry queued from inside the Celery task that
+    chose. The one exception is a retry queued from inside the task that
     still holds the original passphrase in its arguments.
     """
     policy = policy or backup_retry_policy()
@@ -38,7 +38,7 @@ def _can_auto_retry(backup, policy=None, *, passphrase_in_hand=False):
     # Without a worker there is nothing that could run a delayed attempt — the
     # only executor is the web request that just failed. Promising a retry we
     # cannot start would leave the row pending until the reaper failed it again.
-    return bool(passphrase_in_hand or system_backup_celery_available())
+    return bool(passphrase_in_hand or system_backup_worker_available())
 
 
 def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_hand=False, retryable=True):
@@ -93,7 +93,7 @@ def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_
 def retry_countdown_for(backup_pk, *, now=None):
     """Seconds until this row's armed retry, or ``None`` if none is armed.
 
-    The Celery task uses this to re-queue itself with its original arguments —
+    The backup task uses this to re-queue itself with its original arguments —
     the only path that can auto-retry a passphrase-protected backup, because the
     passphrase lives in the task arguments and nowhere else.
     """

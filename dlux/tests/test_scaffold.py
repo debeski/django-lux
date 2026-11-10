@@ -52,7 +52,7 @@ class ScaffoldTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertTrue((target / "manage.py").exists())
-            self.assertTrue((target / "config" / "celery.py").exists())
+            self.assertFalse((target / "config" / "celery.py").exists(), "new projects get no Celery app")
             self.assertTrue((target / "config" / "settings.py").exists())
             self.assertTrue((target / "docs" / "README.md").exists())
             self.assertTrue((target / ".gitattributes").exists())
@@ -77,7 +77,6 @@ class ScaffoldTests(unittest.TestCase):
 
             manage_contents = (target / "manage.py").read_text(encoding="utf-8")
             config_init_contents = (target / "config" / "__init__.py").read_text(encoding="utf-8")
-            celery_contents = (target / "config" / "celery.py").read_text(encoding="utf-8")
             settings_contents = (target / "config" / "settings.py").read_text(encoding="utf-8")
             urls_contents = (target / "config" / "urls.py").read_text(encoding="utf-8")
             gitattributes_contents = (target / ".gitattributes").read_text(encoding="utf-8")
@@ -102,9 +101,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn(f"Generated with django-lux {__version__}.", manage_contents)
             self.assertIn("Project name: demo_project.", manage_contents)
             self.assertIn(f"Generated on: {date.today().isoformat()}.", manage_contents)
-            self.assertIn("from .celery import app as celery_app", config_init_contents)
-            self.assertIn('os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")', celery_contents)
-            self.assertIn('app = Celery("demo_project")', celery_contents)
+            self.assertNotIn("celery", config_init_contents)
+            self.assertNotIn("CELERY_", settings_contents)
             settings_import = re.search(
                 r"^from dlux\.utils import (.+)$", settings_contents, re.MULTILINE
             )
@@ -123,7 +121,6 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('"csp.middleware.CSPMiddleware"', settings_contents)
             self.assertIn('CORS_ALLOW_ALL_ORIGINS = DEBUG', settings_contents)
             self.assertIn('CORS_ALLOWED_ORIGINS = TRUSTED_ORIGINS', settings_contents)
-            self.assertIn('CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/2")', settings_contents)
             self.assertIn('CONTENT_SECURITY_POLICY = {', settings_contents)
             self.assertIn('"default-src": [SELF]', settings_contents)
             self.assertIn('path("", include("dlux.urls"))', urls_contents)
@@ -206,18 +203,18 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('POSTGRES_USER: ${POSTGRES_USER:-admin}', compose_contents)
             self.assertIn('DJANGO_SETTINGS_MODULE: "config.settings"', compose_contents)
             self.assertIn('command: ["python", "-m", "dlux.smtp_relay"]', compose_contents)
-            self.assertIn("celery:", compose_contents)
-            # The dlux-updater service is retired. Celery is a plain worker
-            # (beat carries the DjangoLux state loop); Composer owns runtime
-            # reconcile and migrations via the pre-start label, and the
-            # entrypoint gate keeps web from serving before they are applied.
+            # DjangoLux's tasks run in `worker` (dlux_worker under the runtime
+            # supervisor); new projects get no Celery service, app or broker.
+            self.assertIn("\n  worker:", compose_contents)
+            self.assertNotIn("celery", compose_contents.lower())
             self.assertNotIn("  dlux-updater:", compose_contents)
             self.assertIn(
                 'command: ["python", "-m", "dlux.updater.supervisor", "--", '
-                '"python", "-m", "celery", "-A", "config", "worker", "-B", '
-                '"--loglevel=info"]',
+                '"python", "manage.py", "dlux_worker"]',
                 compose_contents,
             )
+            self.assertIn('test: ["CMD", "python", "manage.py", "dlux_worker", "--check"]', compose_contents)
+            self.assertIn("stop_grace_period: 30s", compose_contents)
             # The web wrapper execs its server, so the supervisor's direct child
             # is the server itself and a restart waits for it to release :8000.
             self.assertIn("python -m dlux.updater.supervisor -- bash -c", compose_contents)
@@ -250,7 +247,7 @@ class ScaffoldTests(unittest.TestCase):
             # Composer <=1.5.3 heals any executor body lacking this substring by
             # inserting a second cap_add key; the template's comment satisfies it.
             self.assertIn("DAC_READ_SEARCH", executor_block)
-            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy,ocr"', compose_contents)
+            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,worker,smtp-relay,caddy,ocr"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
             self.assertNotIn("db-backup:", compose_contents)
@@ -268,19 +265,19 @@ class ScaffoldTests(unittest.TestCase):
             # the same runtime-active DjangoLux release gunicorn serves templates
             # from; run raw it collects from the baked image and, running last on
             # recreate, leaves version-mismatched static.
-            # The steps are declared on celery, not web: a pre_start step
+            # The steps are declared on worker, not web: a pre_start step
             # inherits its service's mounts, and dlux_reconcile writes the
             # runtime pointer, which is read-only on web.
-            celery_block = compose_contents[compose_contents.index("\n  celery:"):]
-            self.assertIn("pre_start:", celery_block)
-            self.assertIn("dlux_reconcile", celery_block)
-            self.assertIn('DLUX_BOOT_GATE: "off"', celery_block)
+            worker_block = compose_contents[compose_contents.index("\n  worker:"):]
+            self.assertIn("pre_start:", worker_block)
+            self.assertIn("dlux_reconcile", worker_block)
+            self.assertIn('DLUX_BOOT_GATE: "off"', worker_block)
             web_block = compose_contents[
-                compose_contents.index("\n  web:"):compose_contents.index("\n  celery:")]
+                compose_contents.index("\n  web:"):compose_contents.index("\n  worker:")]
             self.assertNotIn("pre_start:", web_block)
             self.assertNotIn("- command: python manage.py migrator\n", compose_contents)
             self.assertIn('image: !reset null', compose_dev_contents)
-            self.assertIn("celery:", compose_dev_contents)
+            self.assertIn("worker:", compose_dev_contents)
             self.assertIn('published: "90"', compose_dev_contents)
             self.assertIn('BASE_URL: "http://localhost:90"', compose_dev_contents)
             # Postgres takes only its own keys, so a new image tag or schema
@@ -294,10 +291,10 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "True"', compose_contents)
             self.assertEqual(
                 compose_dev_contents.count('DLUX_INLINE_UPDATES_ENABLED: "False"'), 2,
-                "compose.dev.yml must disable inline updates on web AND celery",
+                "compose.dev.yml must disable inline updates on web AND worker",
             )
             dev_web = compose_dev_contents[
-                compose_dev_contents.index("\n  web:"):compose_dev_contents.index("\n  celery:")]
+                compose_dev_contents.index("\n  web:"):compose_dev_contents.index("\n  worker:")]
             self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "False"', dev_web)
             self.assertIn("server_name ${NGINX_SERVER_NAME};", nginx_contents)
             self.assertIn("client_max_body_size ${NGINX_MAX_SIZE};", nginx_contents)
@@ -328,7 +325,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("handle /_dlux/maintenance/*", caddy_contents)
             self.assertNotIn("/usr/share/caddy/maintenance", caddy_contents)
             self.assertNotIn("maintenance.html:", compose_contents)
-            self.assertIn("celery", requirements_contents)
+            self.assertNotIn("celery", requirements_contents)
             self.assertIn(f"django-lux[updater,ocr]=={__version__}", requirements_contents)
             self.assertIn("django-cors-headers", requirements_contents)
             self.assertIn("django-csp", requirements_contents)
@@ -568,18 +565,20 @@ class InitContainerTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_the_generated_file_is_valid_to_compose_itself(self):
-        self.assertIn("celery", self._resolved()["services"])
+        services = self._resolved()["services"]
+        self.assertIn("worker", services)
+        self.assertNotIn("celery", services)
 
-    def test_the_init_containers_are_declared_on_celery(self):
+    def test_the_init_containers_are_declared_on_the_worker(self):
         services = self._resolved()["services"]
 
-        self.assertIn("pre_start", services["celery"])
+        self.assertIn("pre_start", services["worker"])
         self.assertNotIn("pre_start", services["web"])
 
     def test_they_run_reconcile_then_migrate_in_that_order(self):
         """Reconcile resets a stale pinned release; migrating first would run
         against exactly the release it exists to step away from."""
-        steps = self._resolved()["services"]["celery"]["pre_start"]
+        steps = self._resolved()["services"]["worker"]["pre_start"]
         rendered = [" ".join(step["command"]) for step in steps]
 
         self.assertEqual(len(rendered), 2)
@@ -588,18 +587,18 @@ class InitContainerTests(unittest.TestCase):
 
     def test_every_step_bypasses_the_boot_gate(self):
         """A step inherits the entrypoint, whose gate waits on these migrations."""
-        for step in self._resolved()["services"]["celery"]["pre_start"]:
+        for step in self._resolved()["services"]["worker"]["pre_start"]:
             with self.subTest(command=step["command"][-1][:40]):
                 self.assertEqual(step.get("environment", {}).get("DLUX_BOOT_GATE"), "off")
 
     def test_migrator_flags_reach_the_step(self):
         steps = self._resolved({"DLUX_MIGRATOR_FLAGS": "-mm -a inventory"})[
-            "services"]["celery"]["pre_start"]
+            "services"]["worker"]["pre_start"]
 
         self.assertIn("-mm -a inventory", " ".join(steps[1]["command"]))
 
     def test_absent_flags_leave_a_bare_migrator(self):
-        steps = self._resolved({"DLUX_MIGRATOR_FLAGS": ""})["services"]["celery"]["pre_start"]
+        steps = self._resolved({"DLUX_MIGRATOR_FLAGS": ""})["services"]["worker"]["pre_start"]
         rendered = " ".join(steps[1]["command"])
 
         self.assertIn("manage.py migrator", rendered)
@@ -609,9 +608,9 @@ class InitContainerTests(unittest.TestCase):
     def test_the_steps_inherit_the_project_image(self):
         """They must run the project's code, not some other image."""
         resolved = self._resolved()
-        expected = resolved["services"]["celery"]["image"]
+        expected = resolved["services"]["worker"]["image"]
 
-        for step in resolved["services"]["celery"]["pre_start"]:
+        for step in resolved["services"]["worker"]["pre_start"]:
             self.assertEqual(step.get("image"), expected)
 
 
@@ -626,8 +625,11 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
 
         self.contract = stack_contract.load_contract()
         self.stack_contract = stack_contract
+        # Project-only services (celery on a stack migrated from schema 4) are in
+        # the contract so Composer recognises them; the scaffold never makes them.
+        self.PROJECT_ONLY = {n for n, spec in self.contract["services"].items() if spec.get("project_only")}
         self.EGRESS_SERVICES = set(self.contract["invariants"]["egress_services"])
-        self.INTERNAL_ONLY_SERVICES = set(self.contract["invariants"]["internal_only_services"])
+        self.INTERNAL_ONLY_SERVICES = set(self.contract["invariants"]["internal_only_services"]) - self.PROJECT_ONLY
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         target = create_project(
@@ -679,7 +681,8 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
         return labels
 
     def test_restart_labels_match_the_contract(self):
-        expected = {name: spec["restart"] for name, spec in self.contract["services"].items()}
+        expected = {name: spec["restart"] for name, spec in self.contract["services"].items()
+                    if name not in self.PROJECT_ONLY}
         self.assertEqual(self._parse_restart_labels(self.compose), expected)
 
     def test_safe_restart_label_matches_the_composer_restart_env(self):
@@ -781,7 +784,7 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
             mount = re.match(rf"^\s+- {volume}:/opt/dlux-runtime:(rw|ro)\s*$", line)
             if mount and service:
                 (rw if mount.group(1) == "rw" else ro).add(service)
-        self.assertEqual(rw, set(rule["read_write_services"]))
+        self.assertEqual(rw, set(rule["read_write_services"]) - self.PROJECT_ONLY)
         self.assertEqual(ro, set(rule["read_only_services"]))
 
     def test_contract_env_keys_and_volumes_match_the_scaffold(self):
@@ -831,7 +834,10 @@ class StackContractTests(unittest.TestCase):
         # check and fix retired entrypoints. 3: the maintenance page moved into
         # the Composer image (no .proxy/maintenance.html bind mount). 4: stored
         # files are private; the proxy asks /sys/files/media-access/ first.
-        self.assertEqual(self.contract["schema_version"], 4)
+        # 5: DjangoLux's tasks run in a `worker` service (dlux_worker), which
+        # takes over the init containers and runtime writes; celery is optional
+        # and project-only.
+        self.assertEqual(self.contract["schema_version"], 5)
 
     def test_read_stamp_spellings(self):
         read = self.stack_contract.read_stamp
@@ -957,7 +963,7 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
             compose = (target / "compose.yml").read_text(encoding="utf-8")
             self.assertNotIn("demo_project:latest", compose)
             # +1 vs pre-executor: composer-executor also carries a WEB_IMAGE default.
-            # The dlux-updater service was retired into celery; the ocr service
+            # The dlux-updater service was retired into worker; the ocr service
             # (1.15) runs on the project image like smtp-relay, so it counts too.
             self.assertEqual(compose.count("acme/demo:stable"), 8)
             workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")

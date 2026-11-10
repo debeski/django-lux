@@ -94,16 +94,16 @@ disabled and `POST sys/backup/create/` answers HTTP 409. The check is repeated u
 the settings-row lock that the scheduler also takes, so two simultaneous submits
 create one backup.
 
-A manual backup is queued on Celery when a worker answers. Otherwise, or with
-`use_celery` off, it runs inline in the web request, which suits small installs
-only.
+A manual backup is queued on the [Task Runner](task-runner.md) when a
+`dlux_worker` is running (a fresh heartbeat). Otherwise, or with `use_celery` off,
+it runs inline in the web request, which suits small installs only.
 
 ## Policy (`backup_config`)
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `scheduled_enabled` | `false` | Create backups on a schedule through Celery beat. |
-| `schedule_interval_hours` | `24` | Hours between scheduled backups, 1–8760. Beat checks every 15 minutes. |
+| `scheduled_enabled` | `false` | Create backups on a schedule, run by the task worker. |
+| `schedule_interval_hours` | `24` | Hours between scheduled backups, 1–8760. The schedule checks every 15 minutes. |
 | `retention_days` | `0` | Delete completed backups older than this many days, 0–3650. `0` keeps them indefinitely. |
 | `max_backups_to_keep` | `0` | Keep only the newest completed backups, 0–10000, counting a chain as one. `0` means no count limit. |
 | `auto_export_target` | `dlux_backups` | The folder, relative to Django `default_storage`, that holds every backup and that restore reads. |
@@ -114,7 +114,7 @@ only.
 | `incremental_enabled` | `false` | Scheduled runs continue the open [chain](#incremental-chains) as increments. |
 | `full_every_days` | `7` | 1–365. A chain whose full backup is older than this is closed. |
 | `max_chain_length` | `24` | Increments per chain, 1–500, before the next backup is full. |
-| `use_celery` | `true` | Queue backups and restores on Celery when a worker answers. Off runs them inline and disables automatic retries. |
+| `use_celery` | `true` | Build backups and restores in the background on the task worker when one is running. Off runs them inline and disables automatic retries. The key keeps its stored name and needs no Celery. |
 | `exclude_models` | `[]` | Extra `app_label.model_name` keys, lower-cased, to leave out of every backup. |
 
 Numbers outside their range are clamped to it. The settings form rejects an invalid
@@ -137,8 +137,8 @@ app: the settings form refuses one.
 
 ## Schedules and retention
 
-DjangoLux adds the beat entry `dlux-scheduled-system-backup-check` to
-`CELERY_BEAT_SCHEDULE`, unless the project defines an entry of that name. It runs
+DjangoLux adds the schedule entry `dlux-scheduled-system-backup-check` to
+`DLUX_TASK_SCHEDULE`, unless the project defines an entry of that name. It runs
 every 15 minutes. With `scheduled_enabled` on, each check first reaps
 [stalled backups](#stalled-backups). It then creates a backup when no scheduled
 backup is pending or running and the last one is older than
@@ -239,8 +239,8 @@ time is not stalled.
 The reaper runs from:
 
 - the Backup & Restore page and its status poller;
-- the scheduled-backup beat task;
-- Celery's `worker_ready` signal, when a worker starts.
+- the scheduled-backup check;
+- the task runner's `worker_started` signal, when a `dlux_worker` starts.
 
 A restarted worker therefore retires exactly the backups it abandoned: a run in a
 sibling worker heartbeats every few seconds and never falls inside the window.
@@ -253,7 +253,7 @@ A failed or stalled attempt is retried automatically when all of these hold:
 
 - `auto_retry_enabled` is on;
 - fewer than `max_attempts` attempts have run;
-- a Celery worker is available to run it;
+- a `dlux_worker` is running;
 - the backup has no passphrase (see [Passphrases](#passphrases)).
 
 The row returns to `pending` with `next_attempt_at` set `retry_delay_minutes` ahead.
@@ -283,12 +283,13 @@ A cancelled backup can be retried. A running backup offers **Cancel** instead of
 ## Passphrases
 
 A passphrase is entered twice and cleared from the form as soon as the backup
-starts. It is stored nowhere: not on the row and not in the file. It reaches the run
-only as an argument of the Celery task, or of the inline call.
+starts. It is never kept on the backup row or in the file. It reaches the run only
+as an argument of the backup task, which the task runner keeps encrypted in its
+queue row and clears when the run ends, or of the inline call.
 
 - **Never retried unattended.** A blind re-run cannot reproduce the passphrase and
   would silently write a server-key file instead. The one exception is a retry that
-  the Celery task queues for itself, because it still holds the passphrase in its
+  the backup task queues for itself, because it still holds the passphrase in its
   arguments. Every other path leaves the row failed, with a **Retry** action that
   asks for the passphrase.
 - **One per chain.** Every increment of a passphrase chain needs the same passphrase.
@@ -309,7 +310,7 @@ Uploads are capped by `DLUX_DLB_UPLOAD_MAX_MB` (default 512), and the reverse
 proxy's body limit applies first. See
 [Deployment Configuration](deployment-configuration.md).
 
-A restore runs on Celery when a worker answers, otherwise inline. It:
+A restore runs on the task worker when one is running, otherwise inline. It:
 
 1. Reads and decrypts the file and, for an increment, every earlier member of its
    chain.

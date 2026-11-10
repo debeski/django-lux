@@ -3,9 +3,9 @@
 Composer's resident agent checks PyPI (DjangoLux releases) and the registry
 (project images) on an interval. The administrator chooses that interval in
 Options; it is recorded on ``DluxUpdateState.check_interval_minutes`` and the
-Celery worker mirrors it to ``state/check-policy.json``, which the agent reads on
+task worker mirrors it to ``state/check-policy.json``, which the agent reads on
 every loop tick — the same split as the release channel (see ``channel``): web
-mounts the runtime volume read-only, Celery owns the write side, Composer never
+mounts the runtime volume read-only, the task worker owns the write side, Composer never
 touches the database.
 
 A manual check is a request, not a read: the worker writes
@@ -70,7 +70,7 @@ def read_policy(store=None):
 
 
 def publish_policy(store, minutes):
-    """Write the policy file atomically. Celery only — ``store`` is required."""
+    """Write the policy file atomically. Task worker only — ``store`` is required."""
     if store is None:
         raise UpdaterError("Publishing the update check policy requires the runtime store.")
     minutes = normalize_interval(minutes)
@@ -83,7 +83,7 @@ def publish_policy(store, minutes):
 
 
 def write_request(store, token):
-    """Ask Composer to check now. Celery only — ``store`` is required."""
+    """Ask Composer to check now. Task worker only — ``store`` is required."""
     if store is None:
         raise UpdaterError("Requesting an update check requires the runtime store.")
     _atomic_json(request_path(store), {

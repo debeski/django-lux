@@ -117,6 +117,17 @@ keeps both pointed at one runtime volume.
 See the [Verified Inline Updater](inline-updater.md) for volume ownership,
 release verification, maintenance, recovery, and rollback behavior.
 
+## Background Tasks
+
+| Setting | Source | Type / default | Purpose |
+|---|---|---|---|
+| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | What `dlux_worker` runs on a schedule: DjangoLux adds its four entries (state tick, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. |
+| `DLUX_TASK_RUNNER` | Django setting | dict, see defaults | Worker tuning: `threads` (4), `queues` (`["default"]`), `poll_interval` (1 s), `heartbeat_interval` (10 s), `stale_after` (60 s, when a silent worker's runs count as lost), `keep_successful` (1 day) and `keep_failed` (7 days) retention, `max_recoveries` (3), `shutdown_grace` (25 s). |
+
+DjangoLux's own background work always runs on `dlux_worker` (the `worker`
+service of a generated stack). See [Task Runner](task-runner.md) for the queue,
+retries, recovery and the public task API.
+
 ## Names That Are Not Deployment Settings
 
 The following names may appear in templates, JavaScript, tests, or historical

@@ -108,9 +108,10 @@ field blank to retain it. Enter it again after rotating `SECRET_KEY` or importin
 settings into a new deployment. Imports retain an existing destination key.
 
 **The calls to OpenWeather are made by the Composer agent.** In a Dlux-generated
-stack neither web nor celery can reach the internet: only the Composer agent (and
-`smtp-relay`, for mail) sits on the `egress` network. Celery is part of every Dlux
-stack, so web never makes the calls itself. Web queues a Celery task; the task asks
+stack neither `web` nor `worker` can reach the internet: only the Composer agent
+(and `smtp-relay`, for mail) sits on the `egress` network. The task worker
+(`dlux_worker`, see [Task Runner](task-runner.md)) is part of every Dlux stack, so
+web never makes the calls itself. Web queues a task; the task asks
 the agent to make the call through the [egress relay](outbound-requests.md) using the
 built-in operations `weather.geocode` and `weather.current`; and the answer goes into
 the shared cache, which web reads. The API key is sealed to a key only the agent
@@ -119,10 +120,10 @@ the fields weather reads. This requires **Composer 1.6.0 or later**; nothing has
 to change in `compose.yml`.
 
 If the agent does not offer the operation (an older Composer), the worker tries the
-call itself, which works only if you gave `celery` a route out:
+call itself, which works only if you gave `worker` a route out:
 
 ```yaml
-  celery:
+  worker:
     networks:
       - internal
       - egress
@@ -130,8 +131,8 @@ call itself, which works only if you gave `celery` a route out:
 
 That is a stopgap and an exception to the network rule in
 [Outbound Requests](outbound-requests.md): granting the worker egress lets every
-Celery task reach the internet. Update Composer instead. Keep `web` off `egress`.
-Under `DEBUG` (a development server with no Celery worker) web makes the calls
+task reach the internet. Update Composer instead. Keep `web` off `egress`.
+Under `DEBUG` (a development server with no task worker) web makes the calls
 itself, which works where your machine can reach the internet.
 
 The settings page tells you which of these applies when a search fails:
@@ -139,9 +140,9 @@ The settings page tells you which of these applies when a search fails:
 | Reason | Meaning and fix |
 | --- | --- |
 | `credentials` | OpenWeather refused the key; check it is active and has Geocoding access. |
-| `network` | The worker has no route out and no agent offered the operation: update Composer, or give `celery` the `egress` network. |
+| `network` | The worker has no route out and no agent offered the operation: update Composer, or give `worker` the `egress` network. |
 | `relay` | The agent did not answer in time: check `composer-agent` is running and up to date. |
-| `worker` | No Celery worker answered: check the `celery` service is running. |
+| `worker` | No `dlux_worker` is running or it did not answer in time: check the `worker` service is running. |
 | `provider` | OpenWeather answered with an error (or an unexpected reply); try again. |
 
 `python manage.py dlux_relay weather.geocode weather.current` shows whether the
@@ -156,11 +157,12 @@ agent offers both.
   stale, for up to 24 hours; an observation older than two hours is also stale.
 - **City search** (superusers only). Web queues `dlux.tasks.weather_search` and
   waits up to ten seconds for its answer. An unsaved key is encrypted before it
-  reaches the broker and sealed again for the agent.
+  reaches the task queue and sealed again for the agent.
 
 Tasks are sent by name, so the worker must run a DjangoLux release that registers
-them. A deployment's web and celery run the same release, so they always match.
-Web checks for a live worker once a minute.
+them. A deployment's `web` and `worker` run the same release, so they always
+match. Web checks for a live worker (a fresh `dlux_worker` heartbeat) once a
+minute.
 
 The worker and web share Django's default cache, so it must be a shared backend
 (Redis, as generated stacks use); LocMemCache is per process and would never see

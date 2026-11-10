@@ -72,7 +72,7 @@ ingress, where the Docker socket may be mounted (`ro`, socket-proxy only), the
 volumes and env keys.
 
 Every service carries an `org.dlux.restart` label — `safe` (stateless / owns no
-in-flight operation: web, celery, smtp-relay, caddy, ocr) or `protected` (data store,
+in-flight operation: web, worker, celery, smtp-relay, caddy, ocr) or `protected` (data store,
 holds state, or manages its own lifecycle: db, redis, docker-socket-proxy,
 composer-agent, composer-executor). Composer classifies restart safety from
 these labels instead of a hardcoded name list; the `safe` set mirrors
@@ -111,7 +111,7 @@ it. Generated stack files record the schema they were written for; the
 | `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
-| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, Celery broker |
+| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email backend, SMTP reachability, DjangoLux task worker (`tasks.worker`: fresh `dlux_worker` heartbeat, failed runs), project Celery (`tasks.celery_deprecated`: warns while the project still has a Celery app, beat entries or `CELERY_BROKER_URL`; see [Task Runner](task-runner.md#moving-project-tasks-from-celery)) |
 | `static` | `STATIC_ROOT` configured, populated, contains dlux assets |
 | `security` | `DEBUG`, placeholder `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, proxy SSL header, secure cookies |
 | `packages` | optional extras present |
@@ -119,7 +119,7 @@ it. Generated stack files record the schema they were written for; the
 `--group <name>` (repeatable) runs only the named groups.
 
 `updater.runtime_volume` is skipped while inline updates are disabled. Otherwise it
-reports the verdict the Celery worker recorded, because `web` (where the doctor
+reports the verdict the task worker recorded, because `web` (where the doctor
 usually runs) holds the runtime volume read-only by design, and warns when the
 worker has stopped reporting (see
 [Who decides the runtime volume is usable](inline-updater.md#who-decides-the-runtime-volume-is-usable)).

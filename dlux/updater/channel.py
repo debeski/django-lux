@@ -8,14 +8,14 @@ attestation, manifest and migration checks are identical on both channels.
 Three processes need the same answer and none of them can be the sole owner:
 
 * the Options UI runs on ``web``, which mounts the runtime volume read-only;
-* the Celery worker owns the write side of that volume;
+* the task worker (``dlux_worker``) owns the write side of that volume;
 * Composer resolves the actual candidate and never touches the database.
 
 So the database column is where the administrator's choice is recorded, and
 ``state/channel-policy.json`` on the runtime volume is the published mirror
-Composer reads. Celery is the only writer of that file. Anything that cannot
+Composer reads. The task worker is the only writer of that file. Anything that cannot
 write it — the web container, and Composer's host CLI — submits a request that
-Celery applies and acknowledges, exactly as package and image updates already do.
+the task worker applies and acknowledges, exactly as package and image updates do.
 
 Failure modes are deliberate: a missing policy file reads as *stable*, because a
 deployment that has never opted in must never be handed a prerelease; a
@@ -115,7 +115,7 @@ def read_policy(store=None):
 
 
 def publish_policy(store, channel, *, source="", token=""):
-    """Write the policy file atomically. Celery only — ``store`` is required.
+    """Write the policy file atomically. Task worker only — ``store`` is required.
 
     Passing an ensured store is the whole guard: the read-only web mount cannot
     produce one, so this cannot be called from a process that has no business

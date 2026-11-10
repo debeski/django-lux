@@ -46,19 +46,17 @@ def _log_system_action(username, action, details):
         pass
 
 
-def system_backup_celery_available():
+def system_backup_worker_available():
+    """Background builds are on and a ``dlux_worker`` is alive.
+
+    ``use_celery`` is the stored name of the "build in the background" switch.
+    """
     if not _backup_config().get("use_celery", True):
         return False
-    try:
-        from ..tasks import build_system_backup_task
-    except Exception:
-        return False
-    if build_system_backup_task is None:
-        return False
-    try:
-        app = build_system_backup_task.app
-        with app.connection_for_write() as conn:
-            conn.ensure_connection(max_retries=0, timeout=2)
-        return bool(app.control.ping(timeout=1.0))
-    except Exception:
-        return False
+    from ..taskrunner import worker_alive
+
+    return worker_alive()
+
+
+# Deprecated name, kept for code written against it (see the deprecation countdown).
+system_backup_celery_available = system_backup_worker_available

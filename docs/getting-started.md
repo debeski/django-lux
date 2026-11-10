@@ -56,19 +56,24 @@ python -m dlux startapp billing
 python -m dlux startapp billing --register
 ```
 
-The generated project already includes a Docker baseline, a `config/celery.py`
-entrypoint, `celery`, outbound-only `composer-agent`, isolated
-`composer-executor`, and read-only `docker-socket-proxy` services, persistent
-`dlux_runtime` and private agent-state volumes, a Caddy proxy (nginx fallback)
-with a maintenance/progress page, a `/health/` endpoint, a generated
+The generated project already includes a Docker baseline, a `worker` service
+running DjangoLux's [Task Runner](task-runner.md) (`dlux_worker`), outbound-only
+`composer-agent`, isolated `composer-executor`, and read-only
+`docker-socket-proxy` services, persistent `dlux_runtime` and private agent-state
+volumes, a Caddy proxy (nginx fallback) with a maintenance/progress page, a `/health/` endpoint, a generated
 `.secrets/.env` file with the bootstrap secret values, baseline
 `django-cors-headers` / `django-csp` setup in `config/settings.py`, and a
 tag-driven release pipeline (`release-manifest.json`,
 `.github/workflows/release.yml`, and `tools/validate_project_release_manifest.py`).
+It has no Celery: declare the project's own background work with
+`@dlux.taskrunner.task` and schedule it in `DLUX_TASK_SCHEDULE`. Celery for project
+tasks is deprecated; a project that still uses it moves its tasks as
+[Task Runner](task-runner.md#moving-project-tasks-from-celery) describes.
 
 The deployment timezone is driven by the `TIME_ZONE` variable (IANA name, e.g.
 `Africa/Tripoli`) in `.secrets/.env`, passed through the Compose `x-environment`
-block into `settings.TIME_ZONE` and `CELERY_TIMEZONE`; it defaults to `UTC`.
+block into `settings.TIME_ZONE`, which cron entries in `DLUX_TASK_SCHEDULE` also
+use; it defaults to `UTC`.
 See [Deployment Configuration](deployment-configuration.md) for the canonical
 list of accepted `DLUX_*` Django settings and environment variables.
 

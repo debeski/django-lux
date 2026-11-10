@@ -87,9 +87,9 @@ in place, without data loss.
    Confirm your deployment's Django cache URL before running the command. Use
    the database number from `REDIS_URL_DB` if it is not `/1`, and do not flush a
    Redis database shared with another application. Use `FLUSHDB`, not
-   `FLUSHALL`: the latter would also erase unrelated Redis databases such as the
-   generated Celery broker/result databases (`2` and `3`). This operation does
-   not alter PostgreSQL application data.
+   `FLUSHALL`: the latter would also erase unrelated Redis databases such as a
+   project's own Celery broker/result databases. This operation does not alter
+   PostgreSQL application data.
 
 ## Notes & caveats
 

@@ -215,3 +215,42 @@ class ImportCompatTests(SimpleTestCase):
                     f'{func.__name__} stopped applying the reports label resolver — '
                     'record folders would silently change name.',
                 )
+
+
+class CeleryEraNamesTests(SimpleTestCase):
+    """Kept until 1.17.0 (deprecation countdown, "Celery for project tasks")."""
+
+    def test_the_backup_availability_aliases_still_import(self):
+        from dlux.backup import system_backup_celery_available, system_backup_worker_available
+        from dlux.reports import report_backup_celery_available, report_backup_worker_available
+
+        self.assertIs(system_backup_celery_available, system_backup_worker_available)
+        self.assertIs(report_backup_celery_available, report_backup_worker_available)
+
+    def test_dlux_tasks_keeps_its_attribute_names(self):
+        from dlux import jobs, tasks
+
+        for attribute, name in (
+            ("build_report_backup_task", "build_report_backup"),
+            ("build_system_backup_task", "build_system_backup"),
+            ("restore_system_backup_task", "restore_system_backup"),
+            ("run_scheduled_system_backup_task", "run_scheduled_system_backup"),
+            ("weather_refresh_task", "weather_refresh"),
+            ("weather_search_task", "weather_search"),
+            ("dlux_update_check_task", "dlux_update_check"),
+            ("dlux_state_tick_task", "dlux_state_tick"),
+            ("ocr_background", "ocr_background"),
+            ("ocr_file", "ocr_file"),
+            ("reap_stalled_system_backups_task", "reap_stalled_system_backups"),
+        ):
+            self.assertIs(getattr(tasks, attribute), getattr(jobs, name), attribute)
+            self.assertEqual(getattr(tasks, attribute).name, f"dlux.tasks.{name}")
+
+    def test_dlux_settings_still_defines_a_beat_schedule_projects_can_add_to(self):
+        """dlux-panel assigns CELERY_BEAT_SCHEDULE[...] right after dlux_settings()."""
+        from dlux.utils.settings import dlux_settings
+
+        scope = {}
+        dlux_settings(scope)
+        scope["CELERY_BEAT_SCHEDULE"]["fleet-prune-operation-logs"] = {"task": "fleet.prune", "schedule": 86400}
+        self.assertNotIn("dlux-state-tick", scope["CELERY_BEAT_SCHEDULE"])

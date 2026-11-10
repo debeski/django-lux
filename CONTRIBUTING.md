@@ -39,7 +39,7 @@ python -m pip install -e ".[pdf,ocr]"
 
 - Prefer existing Dlux helpers, templates, settings patterns, and translation systems over one-off implementations.
 - Keep backend authorization aligned with UI visibility; hidden controls are not authorization.
-- Never open a connection to a public host from code that runs in `web` or `celery`: in a generated stack only `composer-agent` has internet access. Outbound calls go through the Composer relay as named, pinned operations; see [`docs/outbound-requests.md`](docs/outbound-requests.md).
+- Never open a connection to a public host from code that runs in `web` or `worker` (the [task runner](docs/task-runner.md)): in a generated stack only `composer-agent` has internet access. Outbound calls go through the Composer relay as named, pinned operations; see [`docs/outbound-requests.md`](docs/outbound-requests.md).
 - Keep user-facing copy translation-ready and avoid hardcoded runtime text where Dlux translations are expected.
 - Keep templates, CSS, and JavaScript theme-aware, language-aware, and direction-aware.
 - Avoid inline CSS and JavaScript unless there is a documented reason.
@@ -54,6 +54,11 @@ Run the narrowest relevant checks first, then broaden based on the change:
 DJANGO_SETTINGS_MODULE=dlux.tests.settings python -m django check
 python dlux/tests/test_all.py
 ```
+
+CI also runs the suite on PostgreSQL. For changes to queries, locking,
+transactions, migrations or test models, run it there too
+(`dlux.tests.settings_postgres`; see "CI test suite" in
+[`docs/RELEASING.md`](docs/RELEASING.md)).
 
 For generated-project changes, also verify the scaffold commands:
 

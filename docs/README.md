@@ -22,6 +22,9 @@ map.
 - [Backups](backups.md): full, data-only, portable and incremental backups,
   schedules, retention and restore.
 - [Managed Assets](managed-assets.md): uploaded images, fonts and installer files.
+- [Task Runner](task-runner.md): `dlux_worker`, the database task queue that runs
+  DjangoLux's background work, schedules, retries and recovery, and moving project
+  tasks from Celery.
 - [Data & Privacy](data-privacy.md): the personal data DjangoLux stores, retention,
   and the privacy and consent controls.
 - [Public Registration](registration.md): the disabled-by-default, email-verified

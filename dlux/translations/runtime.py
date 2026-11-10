@@ -315,7 +315,7 @@ def _language_config():
     Memoised on the request rather than the process, so a settings change is
     live on the next request. Only present keys are copied, so callers' own
     ``.get(key, default)`` fallbacks still behave. Outside a request (management
-    commands, Celery) there is nothing to memoise on and it resolves as before.
+    commands, tasks) there is nothing to memoise on and it resolves as before.
     """
     from dlux.utils import get_system_config
 
