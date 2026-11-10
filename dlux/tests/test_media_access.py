@@ -152,7 +152,7 @@ class MediaAccessTests(TestCase):
         papers = [q['sql'] for q in queries.captured_queries if Paper._meta.db_table in q['sql']]
         self.assertEqual(len(papers), 1, papers)
 
-    def test_the_editor_leaves_nothing_fetchable_beside_the_new_file(self):
+    def test_the_file_the_editor_replaced_stays_on_disk_but_no_one_fetches_it(self):
         from dlux.files.history import save_new_version
         from dlux.tests.test_document_history import PdfWriter, pdf_bytes
 
@@ -162,8 +162,9 @@ class MediaAccessTests(TestCase):
         before = self.paper.pdf_file.name
         with self.captureOnCommitCallbacks(execute=True):
             saved, _ = save_new_version(self.paper, pdf_bytes(1), user=self.admin)
-        self.assertFalse(self.paper.pdf_file.storage.exists(before))
-        self.assertFalse(self.decide(self.stranger, before))
+        self.assertTrue(self.paper.pdf_file.storage.exists(before))
+        for user in (self.stranger, self.reader, self.admin):
+            self.assertFalse(self.decide(user, before))
         self.assertFalse(self.decide(self.stranger, saved))
         self.assertTrue(self.decide(self.reader, saved))
 
