@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **DLB Viewer Page Requires Its Token**: `tools/dlb-viewer` served `/`, which embeds the API token, to any request, so another local user or process could read the token and then the decrypted backup. The page now needs the `?token=` URL the viewer prints and a local `Host`; anything else gets `403`.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.

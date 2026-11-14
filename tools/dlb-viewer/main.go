@@ -173,15 +173,11 @@ func main() {
 // mitigating DNS-rebinding / drive-by access from other local processes.
 func (a *App) guard(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !isLocalHost(r.Host) {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
-		}
 		tok := r.Header.Get("X-DLB-Token")
 		if tok == "" {
 			tok = r.URL.Query().Get("token")
 		}
-		if subtle.ConstantTimeCompare([]byte(tok), []byte(a.token)) != 1 {
+		if !a.authorized(r, tok) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -189,9 +185,19 @@ func (a *App) guard(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (a *App) authorized(r *http.Request, tok string) bool {
+	return isLocalHost(r.Host) && subtle.ConstantTimeCompare([]byte(tok), []byte(a.token)) == 1
+}
+
 func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
+	}
+	// The page embeds the API token, so it is served only to a request that
+	// already carries it (the URL the viewer prints and opens).
+	if !a.authorized(r, r.URL.Query().Get("token")) {
+		http.Error(w, "Open the address the viewer printed in its terminal: it carries this session's access token.", http.StatusForbidden)
 		return
 	}
 	raw, err := webFS.ReadFile("web/index.html")
@@ -905,7 +911,7 @@ func isLocalHost(host string) bool {
 func randomToken() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		return "dlb-static-token"
+		log.Fatalf("cannot create an access token: %v", err)
 	}
 	return hex.EncodeToString(b)
 }

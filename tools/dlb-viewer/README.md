@@ -170,8 +170,10 @@ The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 
 ## Security notes
 
-- Binds to `127.0.0.1` only; API calls require a random per-run token and a
-  local `Host` header (basic DNS-rebinding protection).
+- Binds to `127.0.0.1` only. The page and every API call require the random
+  per-run token in the URL the viewer prints and opens, and a local `Host`
+  header (basic DNS-rebinding protection); without the token the viewer answers
+  `403`, so another local user or process cannot read the decrypted backup.
 - Read-only: the viewer never writes back to the backup or to any system.
 - Treat the decrypted contents as sensitive — they include user records and
   settings. Run it on a trusted machine.
