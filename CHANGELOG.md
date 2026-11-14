@@ -18,6 +18,7 @@ This file owns the release history for `django-lux`.
 - **DLB Viewer Response Hardening**: Every viewer response now carries `Cache-Control: no-store`, so decrypted records and files no longer land in the browser's disk cache, plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The page also gets a strict `Content-Security-Policy` and `X-Frame-Options: DENY`.
 - **DLB Viewer Names Uploaded Backups**: A backup dropped into the viewer showed its temporary buffer name (`dlbview-src-….dlb`) in the top bar instead of the file the user picked.
 - **DLB Viewer Field Names Like `constructor`**: With *Resolve relations* on, a field named `constructor`, `toString` or `__proto__` was treated as a relation column, and a key with such a name rendered as `function Object()` or `[object Object]`. Lookups now use only the backup's own keys.
+- **DLB Viewer Resolves Natural Keys With `&`, `<`, `>`**: Natural-key references containing `&`, `<`, `>` or a line separator (a group named `R&D`) never resolved to a label, because the server HTML-escaped the key the page looks up.
 
 ## v1.16.0b2
 

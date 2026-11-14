@@ -162,3 +162,16 @@ func TestHandleLabelsNoSchemaFallsBack(t *testing.T) {
 		t.Errorf("expected empty by_pk without schema, got %v", out.ByPK)
 	}
 }
+
+// The UI looks natural keys up by JSON.stringify(value), which leaves & < >
+// and U+2028 as they are; json.Marshal escapes them, so such keys never resolved.
+func TestNaturalKeyMatchesJSONStringify(t *testing.T) {
+	fields := map[string]json.RawMessage{
+		"name": json.RawMessage(`"R&D <Sales>"`),
+		"code": json.RawMessage(`"a` + " " + `b"`),
+		"n":    json.RawMessage(`7`),
+	}
+	if got, want := naturalKeyOf(fields, []string{"name", "code", "n"}), `["R&D <Sales>","a`+" "+`b",7]`; got != want {
+		t.Fatalf("naturalKeyOf = %s, want %s", got, want)
+	}
+}

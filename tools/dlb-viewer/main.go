@@ -12,6 +12,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
 	"embed"
@@ -645,11 +646,15 @@ func naturalKeyOf(fields map[string]json.RawMessage, nkFields []string) string {
 		}
 		parts = append(parts, v)
 	}
-	out, err := json.Marshal(parts)
-	if err != nil {
+	// The UI looks this up by JSON.stringify(value), which escapes neither
+	// HTML characters nor U+2028/U+2029 as json.Marshal does.
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(parts); err != nil {
 		return ""
 	}
-	return string(out)
+	return strings.TrimSuffix(out.String(), "\n")
 }
 
 // rawScalarString renders a JSON scalar as a plain display string; non-scalars
