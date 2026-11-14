@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **A Busy OCR Engine No Longer Fails Files**: The OCR service runs one file at a time and answers others `503` with `Retry-After`; each answer used one of `ocr_file`'s 8 retries, so a backfill larger than the engine gave files up (stress run: 2,176 of 2,278 queued files at their 5th retry). Busy answers now raise `dlux.ocr.client.OCRBusy` and are waited out without counting; outages keep the growing delays. The service answers busy before reading the upload, so a large file's upload used to end in a broken pipe that counted as an outage (b3 candidate on Trademarks: 150 files given up this way); the client now reads that early `503` instead.
+- **`Retry(delay, counts=False)`**: A task can wait for a busy resource without using its `max_retries`; the queue gives the claimed attempt back.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.

@@ -46,6 +46,14 @@ def flaky(context):
     raise Retry(30)
 
 
+@task(name="tests.taskrunner.patient", takes_context=True, max_retries=1)
+def patient(context):
+    CALLS.append(context.attempt)
+    if len(CALLS) < 4:
+        raise Retry(5, counts=False)
+    return "done"
+
+
 @task(name="tests.taskrunner.secret", sensitive=True)
 def secret(passphrase):
     CALLS.append(passphrase)
@@ -214,6 +222,38 @@ class RetryAndFailureTests(TaskRunnerTestCase):
         self.assertEqual(CALLS, [1, 2])
         self.assertEqual((run.status, run.attempts), ("FAILED", 2), "max_retries=1 allows one retry")
         self.assertEqual(DluxTaskRun.objects.count(), 1)
+
+    def test_an_uncounted_retry_leaves_the_retry_budget_alone(self):
+        patient.enqueue()
+        for _ in range(3):
+            burst()
+            run = DluxTaskRun.objects.get()
+            self.assertEqual((run.status, run.attempts), ("READY", 0))
+            self.assertAlmostEqual((run.run_after - timezone.now()).total_seconds(), 5, delta=3)
+            make_due()
+        burst()
+        run = DluxTaskRun.objects.get()
+        self.assertEqual(CALLS, [1, 1, 1, 1], "every call is the first counted attempt")
+        self.assertEqual((run.status, run.return_value), ("SUCCESSFUL", "done"))
+
+    def test_ocr_file_waits_out_a_busy_engine_without_using_its_retries(self):
+        from dlux.ocr.client import OCRBusy
+
+        enqueue("dlux.tasks.ocr_file", args=(123,), priority=-9)
+        with mock.patch("dlux.ocr.service.run", side_effect=OCRBusy("The OCR engine is busy.", retry_after=30)), \
+                mock.patch("dlux.ocr.service.give_up") as give_up:
+            for _ in range(len(OCR_RETRY_DELAYS) + 3):
+                burst()
+                run = DluxTaskRun.objects.get()
+                self.assertEqual((run.status, run.attempts), ("READY", 0))
+                wait = (run.run_after - timezone.now()).total_seconds()
+                self.assertTrue(25 <= wait <= 65, wait)
+                make_due()
+            give_up.assert_not_called()
+        with mock.patch("dlux.ocr.service.run") as ran:
+            burst()
+        ran.assert_called_once_with(123)
+        self.assertEqual(DluxTaskRun.objects.get().status, "SUCCESSFUL")
 
     def test_ocr_file_waits_out_the_service_with_growing_delays_then_gives_up(self):
         from dlux.ocr.client import OCRUnavailable

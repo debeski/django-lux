@@ -14,7 +14,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from . import RETRY_DELAYS, automatic_model_allowed, config
-from .client import OCRRejected, OCRUnavailable, call_service
+from .client import OCRBusy, OCRRejected, OCRUnavailable, call_service
 
 log = logging.getLogger('dlux')
 
@@ -192,7 +192,11 @@ def run(result_id):
     try:
         payload = call_service(content)
     except OCRUnavailable as exc:
-        _finish(result, 'pending', error=str(exc))
+        extra = ()
+        if isinstance(exc, OCRBusy):
+            # A busy engine is reading someone else's file: not an attempt on this one.
+            result.attempts, extra = max(0, result.attempts - 1), ('attempts',)
+        _finish(result, 'pending', error=str(exc), extra=extra)
         raise
     except OCRRejected as exc:
         return _finish(result, 'failed', error=str(exc))
@@ -207,10 +211,10 @@ def give_up(result_id, error):
         _finish(result, 'failed', error=error)
 
 
-def _finish(result, status, error=''):
+def _finish(result, status, error='', extra=()):
     result.status, result.error = status, error[:2000]
     result.finished_at = timezone.now() if status != 'pending' else None
-    result.save(update_fields=['status', 'error', 'finished_at', 'updated_at'])
+    result.save(update_fields=['status', 'error', 'finished_at', 'updated_at', *extra])
     return result
 
 

@@ -25,12 +25,14 @@ class Retry(Exception):
     """Raise inside a task to run it again after ``delay`` seconds.
 
     The same queue row goes back to READY, keeping its priority, until the
-    task's ``max_retries`` is used up.
+    task's ``max_retries`` is used up. ``counts=False`` waits without using
+    any of that budget: for a resource that is busy rather than failing.
     """
 
-    def __init__(self, delay=0, message=""):
+    def __init__(self, delay=0, message="", *, counts=True):
         super().__init__(message or f"retry in {delay}s")
         self.delay = max(0, int(delay or 0))
+        self.counts = bool(counts)
 
 
 @dataclass(frozen=True)
