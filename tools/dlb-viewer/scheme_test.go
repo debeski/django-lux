@@ -37,6 +37,7 @@ func TestUnencryptedBackupUnlocksWithoutPassword(t *testing.T) {
 	}
 
 	app := &App{token: "t"}
+	defer app.reset()
 	if err := app.openPath(path); err != nil {
 		t.Fatal(err)
 	}
