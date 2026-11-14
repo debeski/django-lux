@@ -200,6 +200,8 @@ guarantee.
   index construction and cached deep-page access.
 - `BenchmarkChainMerge` merges a 100,000-record base with 5,000 updated records
   and keeps its synthetic ZIP inputs in `.xclude/benchmark-chain/`.
+- `BenchmarkChainMergeFiles` merges a base holding 40,000 stored files with a
+  small increment.
 - `BenchmarkPasswordDerivation` uses the format's 390,000-iteration default.
 
 The viewer's PBKDF2-SHA256 derives the same backup keys as `dlux/backup.py` and

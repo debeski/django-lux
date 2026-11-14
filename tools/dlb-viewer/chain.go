@@ -354,21 +354,27 @@ func mergeChain(zipPaths []string, out io.Writer) error {
 
 	written := map[string]bool{}
 	mergedFiles := make([]map[string]json.RawMessage, 0, len(fileKeys))
+	byName := make([]map[string]*zip.File, len(readers))
 	for _, k := range fileKeys {
 		item := files[k]
 		name := rawScalarString(item.entry["path"])
 		if name == "" || written[name] {
 			continue
 		}
-		for _, f := range readers[item.member].File {
-			if f.Name == name {
-				if err := zw.Copy(f); err != nil {
-					return err
+		if byName[item.member] == nil {
+			byName[item.member] = make(map[string]*zip.File, len(readers[item.member].File))
+			for _, f := range readers[item.member].File {
+				if _, dup := byName[item.member][f.Name]; !dup {
+					byName[item.member][f.Name] = f
 				}
-				written[name] = true
-				mergedFiles = append(mergedFiles, item.entry)
-				break
 			}
+		}
+		if f := byName[item.member][name]; f != nil {
+			if err := zw.Copy(f); err != nil {
+				return err
+			}
+			written[name] = true
+			mergedFiles = append(mergedFiles, item.entry)
 		}
 	}
 	mergedMissing := make([]map[string]json.RawMessage, 0, len(missingKeys))
