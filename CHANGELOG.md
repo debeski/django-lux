@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **ScanLink Asks Before A Website Scans (security, pairs with ScanLink 0.8.0)**: ScanLink no longer lets every website the operator opens scan; a site is allowed once, in ScanLink's own window. `window.DluxScan.scan()` links an unlinked site on its first scan (`POST /link`) and shows *Choose Allow in the ScanLink window*, and `DluxScan.link()` backs the new **Allow this site in ScanLink** button on Options → ScanLink. System Settings → Extra Features adds **Other websites that may use ScanLink** (`extra_config['scanlink']['sites']`, website origins, at most 19; `normalize_scanlink_origin()`, `scanlink_sites()`), sent to every page as `json_script` `dlux-scanlink-sites` and to ScanLink when it no longer matches. `main.js` reports `origin_not_allowed` instead of `helper_unavailable` and adds `ScanLink.link(sites)`; `link_declined`, `link_timeout` and `link_pending` are translated. ScanLink 0.8.0 needs this release to scan.
 - **Scan Waits Outlast ScanLink, And Its Errors Are Translated**: `scan_button.js` gave up after 5 minutes while ScanLink's job deadline is 10 minutes plus 15 s, so the page said "took too long" while the scanner kept going and a retry reported busy. It now waits 11 minutes. `no_pages_scanned`, `acquire_failed`, `scan_worker_crashed`, `origin_not_allowed` and `scan_idle_timeout` show translated messages (en + ar) instead of ScanLink's English text.
 
 ## v1.16.0b2

@@ -54,6 +54,13 @@ var ScanLink = window.ScanLink || class ScanLink {
                 this.onConnectionChange(true);
                 return health;
             } catch (error) {
+                if (error instanceof ScanLinkError && error.code === "origin_not_allowed") {
+                    // ScanLink answered, but this website is not linked: link() can fix that.
+                    this._setPreferredUrl(baseUrl);
+                    this.connectionError = error;
+                    this.onConnectionChange(false);
+                    return null;
+                }
                 continue;
             }
         }
@@ -71,6 +78,11 @@ var ScanLink = window.ScanLink || class ScanLink {
                 method: "GET", mode: "cors", signal: controller.signal,
             });
             // Read the body before clearing the timeout, including stalled responses.
+            if (response.status === 403) {
+                const refusal = await this._responseToError(response, "ScanLink refused this website.");
+                if (refusal.code === "origin_not_allowed") throw refusal;
+                return null;
+            }
             return response.ok ? await response.json() : null;
         } finally {
             clearTimeout(timer);
@@ -228,6 +240,28 @@ var ScanLink = window.ScanLink || class ScanLink {
         }
 
         window.location.href = url;
+    }
+
+    async link(sites = []) {
+        // Resolves once the operator approves in ScanLink's own window (or at once
+        // for a website that is already linked); rejects with link_declined,
+        // link_pending or link_timeout otherwise.
+        if (!this.preferredUrl) await this.checkHealth(true);
+        let response;
+        try {
+            response = await this._fetchResponse("/link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sites }),
+                mode: "cors",
+            });
+        } catch (error) {
+            throw this._connectionFailure(error);
+        }
+        if (!response.ok) {
+            throw await this._responseToError(response, "ScanLink did not link this website.");
+        }
+        return response.json();
     }
 
     _uncertainRequest(cause) {

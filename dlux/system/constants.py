@@ -130,7 +130,7 @@ SECURITY_NUDGE_VALUES = {value for value, _label in SECURITY_NUDGE_CHOICES}
 #: the live preview behind the Options modal for a draft render; the draft that
 #: is submitted still carries their values.
 NONVISUAL_PREVIEW_FIELDS = frozenset({
-    'scanlink_enabled',
+    'scanlink_enabled', 'scanlink_sites',
     'entry_clipboard_enabled',
     'pdf_editing_enabled', 'pdf_history_enabled', 'pdf_max_pages', 'pdf_max_source_mb',
 })

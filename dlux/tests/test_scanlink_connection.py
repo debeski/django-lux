@@ -31,6 +31,10 @@ class ScanLinkConnectionTests(SimpleTestCase):
             "data-scan-acquire-failed": "scan_acquire_failed_message",
             "data-scan-worker-crashed": "scan_worker_crashed_message",
             "data-scan-origin-not-allowed": "scan_origin_not_allowed_message",
+            "data-scan-linking": "scan_linking_message",
+            "data-scan-link-declined": "scan_link_declined_message",
+            "data-scan-link-timeout": "scan_link_timeout_message",
+            "data-scan-link-pending": "scan_link_pending_message",
         }
         for strings in (EN_STRINGS, AR_STRINGS):
             rendered = render_to_string("dlux/helpers/scanlink/scan_messages.html", {"DLUX_STRINGS": strings})
@@ -49,4 +53,4 @@ class ScanLinkConnectionTests(SimpleTestCase):
             capture_output=True, text=True, timeout=30, cwd=root,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["passed"], 23)
+        self.assertEqual(json.loads(result.stdout)["passed"], 29)

@@ -137,6 +137,21 @@ PLACEHOLDER_SECRET_KEYS = frozenset({
 })
 
 
+
+def scanlink_sites():
+    """Other websites this deployment lets use ScanLink, from
+    ``SystemSettings.extra_config['scanlink']['sites']``.
+
+    The page sends them to ScanLink when it links this site; ScanLink always
+    allows the linking site itself, so it is never listed here.
+    """
+    from .config import get_system_config
+    from ..system.normalizers import normalize_scanlink_sites
+
+    extra = get_system_config().get("extra_config") or {}
+    scanlink = extra.get("scanlink") if isinstance(extra, dict) else None
+    return normalize_scanlink_sites(scanlink.get("sites")) if isinstance(scanlink, dict) else []
+
 def _reject_placeholder_secret_key(scope):
     """Refuse to boot a non-DEBUG deployment on a placeholder ``SECRET_KEY``.
 
