@@ -7,6 +7,7 @@ out of the backup/reports/updater import knot.
 """
 
 import logging
+import random
 
 from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
 from .taskrunner import Retry, task, worker_started
@@ -21,7 +22,21 @@ def build_report_backup(backup_pk):
     run_report_backup(backup_pk)
 
 
-@task(name="dlux.tasks.build_system_backup", sensitive=True)
+def system_backup_lost(backup_pk, passphrase=""):
+    """``on_lost`` for a backup run: fail its row now instead of after the stall timeout."""
+    from .backup import fail_lost_system_backup
+
+    fail_lost_system_backup(backup_pk)
+
+
+def system_restore_lost(restore_pk, passphrase=""):
+    """``on_lost`` for a restore run: a restore has no stall reaper, so this is its only guard."""
+    from .backup import fail_lost_system_restore
+
+    fail_lost_system_restore(restore_pk)
+
+
+@task(name="dlux.tasks.build_system_backup", sensitive=True, on_lost=system_backup_lost)
 def build_system_backup(backup_pk, passphrase=""):
     from .backup import retry_countdown_for, run_system_backup
 
@@ -35,7 +50,7 @@ def build_system_backup(backup_pk, passphrase=""):
         build_system_backup.using(countdown=countdown).enqueue(backup_pk, passphrase)
 
 
-@task(name="dlux.tasks.restore_system_backup", sensitive=True)
+@task(name="dlux.tasks.restore_system_backup", sensitive=True, on_lost=system_restore_lost)
 def restore_system_backup(restore_pk, passphrase=""):
     from .backup import run_system_restore
 
@@ -163,12 +178,21 @@ def ocr_background():
 
 @task(name="dlux.tasks.ocr_file", takes_context=True, requeue_lost=True, max_retries=len(OCR_RETRY_DELAYS))
 def ocr_file(context, result_id):
-    """Read one ``FileText`` row's file; waits out a busy or unavailable service with growing delays."""
-    from .ocr.client import OCRUnavailable
+    """Read one ``FileText`` row's file.
+
+    A busy engine (it is reading another file) is waited out with short, spread
+    retries that do not count: a backlog larger than the engine's capacity would
+    otherwise give files up for no fault. An unavailable service is waited out
+    with growing delays, and the file is given up once they are used.
+    """
+    from .ocr.client import OCRBusy, OCRUnavailable
     from .ocr.service import give_up, run
 
     try:
         run(result_id)
+    except OCRBusy as exc:
+        wait = max(1, int(exc.retry_after or 30))
+        raise Retry(wait + random.randint(0, wait), counts=False) from exc
     except OCRUnavailable as exc:
         if context.retries >= len(OCR_RETRY_DELAYS):
             give_up(result_id, f"{exc} (gave up after {context.retries} retries)")

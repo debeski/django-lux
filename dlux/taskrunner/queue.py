@@ -194,7 +194,8 @@ def complete_run(run, *, return_value=None, error=None, next_due=None, now=None)
     return _fenced(run).update(**updates) == 1
 
 
-def retry_run(run, delay, *, error=None, now=None):
+def retry_run(run, delay, *, error=None, now=None, counted=True):
+    """Put a run back to READY after ``delay``; an uncounted retry gives back the claim's attempt."""
     now = now or timezone.now()
     updates = {
         "status": READY,
@@ -202,6 +203,8 @@ def retry_run(run, delay, *, error=None, now=None):
         "run_after": now + timedelta(seconds=max(0, int(delay))),
         "last_status": FAILED,
     }
+    if not counted:
+        updates["attempts"] = F("attempts") - 1
     if error is not None:
         updates["errors"] = _with_error(run.errors, error)
     return _fenced(run).update(**updates) == 1
@@ -242,6 +245,14 @@ def recover_lost_runs(*, resolve, now=None, exclude_worker=None):
             updates = {"status": READY, "run_after": now, "recoveries": F("recoveries") + 1}
         else:
             updates = {"status": FAILED, "last_status": FAILED, "finished_at": now, "sealed_arguments": ""}
+        on_lost = getattr(definition, "on_lost", None) if updates["status"] == FAILED else None
+        arguments = None
+        if callable(on_lost):
+            # Read before the update clears sealed arguments.
+            try:
+                arguments = run_arguments(run)
+            except Exception:
+                logger.warning("Could not read the arguments of lost run %s.", run.pk, exc_info=True)
         if _fenced(run).update(claim_token="", errors=errors, **updates):
             if updates["status"] == READY:
                 requeued += 1
@@ -249,6 +260,12 @@ def recover_lost_runs(*, resolve, now=None, exclude_worker=None):
                 failed += 1
             logger.warning("Task run %s (%s) was lost with worker %s: %s.", run.pk, run.task_name,
                            run.worker_id, "requeued" if updates["status"] == READY else "failed")
+            if arguments is not None:
+                args, kwargs = arguments
+                try:
+                    on_lost(*args, **kwargs)
+                except Exception:
+                    logger.exception("The on_lost handler of %s failed for run %s.", run.task_name, run.pk)
     return requeued, failed
 
 
