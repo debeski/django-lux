@@ -38,6 +38,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+	"unicode"
 )
 
 const (
@@ -147,7 +149,16 @@ func deriveKey(enc Encryption, password string) ([]byte, error) {
 	if iterations > maxKDFIterations {
 		return nil, fmt.Errorf("unsupported key derivation: %d iterations is over the viewer's %d limit", iterations, maxKDFIterations)
 	}
+	if enc.KeySource == "passphrase" {
+		password = strings.TrimFunc(password, isPythonSpace)
+	}
 	return pbkdf2SHA256([]byte(password), salt, iterations, 32), nil
+}
+
+// isPythonSpace matches str.strip(), which DjangoLux applies to a passphrase:
+// Unicode white space plus the separators U+001C..U+001F.
+func isPythonSpace(r rune) bool {
+	return unicode.IsSpace(r) || (r >= 0x1c && r <= 0x1f)
 }
 
 // unknownEncryption names encryption parameters this viewer does not know.

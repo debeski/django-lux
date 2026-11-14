@@ -241,3 +241,26 @@ func TestUnknownEncryptionParametersAreNamed(t *testing.T) {
 		}
 	}
 }
+
+// DjangoLux strips a passphrase (Python str.strip) before deriving the key, at
+// backup and at restore; a SECRET_KEY is used as stored.
+func TestPassphraseIsTrimmedLikeDjangoLux(t *testing.T) {
+	dir := t.TempDir()
+	p := writeTemp(t, dir, "pass.dlb", encryptedDLB(testPassword, 1, 64, sampleZip(t), nil))
+	for _, pw := range []string{testPassword, " " + testPassword, testPassword + "\n", "\t" + testPassword + " \r\n", " " + testPassword + "　", testPassword + "\x1c\x1f"} {
+		code, body, app := tryUnlock(t, p, pw)
+		app.reset()
+		if code != http.StatusOK {
+			t.Fatalf("passphrase %q: %d %s", pw, code, body)
+		}
+	}
+	secret := writeTemp(t, dir, "secret.dlb", encryptedDLB(" key ", 1, 64, sampleZip(t),
+		map[string]any{"encryption": encryptionBlock("django-secret-key", 1)}))
+	for pw, want := range map[string]int{" key ": http.StatusOK, "key": http.StatusUnauthorized} {
+		code, body, app := tryUnlock(t, secret, pw)
+		app.reset()
+		if code != want {
+			t.Fatalf("SECRET_KEY %q: %d %s", pw, code, body)
+		}
+	}
+}
