@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Restore Checks Chain Headers Against The Encrypted Manifest (security)**: Restore found chain members by their cleartext headers alone. An increment whose header was edited to look like a full backup was restored as one, emptying every model it held no rows for; a member could also be hung on another chain. `verify_chain_members()` in `dlux.backup.chain` now refuses a header that disagrees with its encrypted manifest, before any data is replaced.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.
