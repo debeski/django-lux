@@ -142,6 +142,52 @@ class OCRHTTPTests(TestCase):
             self.assertEqual(first.result()[0], 200)
         self.assertEqual(self.request()[0], 200)
 
+    def call_service(self, body, address=None):
+        from dlux.ocr import client
+
+        host, port = (address or self.server.server_address)[:2]
+        options = {'service_url': f'http://{host}:{port}', 'mode': 'auto', 'threads': 1, 'timeout': 5}
+        with patch.object(client, 'config', return_value=options):
+            return client.call_service(body)
+
+    def assert_busy_while_uploading(self):
+        from dlux.ocr.client import OCRBusy
+
+        self.engine.release.clear()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first = executor.submit(self.request)
+            self.assertTrue(self.engine.started.wait(1))
+            try:
+                with self.assertRaises(OCRBusy) as caught:
+                    self.call_service(PDF + b'0' * (16 * 1024 * 1024))
+            finally:
+                self.engine.release.set()
+            self.assertEqual(first.result()[0], 200)
+        self.assertEqual(caught.exception.retry_after, 30)
+
+    def test_client_reads_the_busy_answer_of_a_full_queue_mid_upload(self):
+        self.assert_busy_while_uploading()
+
+    def test_client_reads_the_busy_answer_of_the_connection_limit_mid_upload(self):
+        self.server._connections = threading.BoundedSemaphore(1)
+        self.assert_busy_while_uploading()
+
+    def test_client_counts_a_connection_closed_without_an_answer_as_an_outage(self):
+        from dlux.ocr.client import OCRBusy, OCRUnavailable
+
+        listener = socket.create_server(('127.0.0.1', 0))
+        self.addCleanup(listener.close)
+
+        def hang_up():
+            connection, _ = listener.accept()
+            with connection:
+                connection.recv(1024)
+
+        threading.Thread(target=hang_up, daemon=True).start()
+        with self.assertRaises(OCRUnavailable) as caught:
+            self.call_service(PDF + b'0' * (16 * 1024 * 1024), listener.getsockname())
+        self.assertNotIsInstance(caught.exception, OCRBusy)
+
     def test_concurrent_requests_respect_engine_limit(self):
         def request_or_rejection(_):
             try:

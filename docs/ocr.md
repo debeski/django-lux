@@ -242,10 +242,11 @@ copies re-link to adopted file versions.
 
 Connections beyond the queue, and requests that wait longer than `OCR_QUEUE_WAIT`
 for a slot, receive `503` with `Retry-After: 30` ("The OCR engine is busy."),
-which DjangoLux waits out without counting it against the file. They may be
-closed before upload: a client still uploading can observe a broken pipe or reset
-instead of reading that response, which DjangoLux retries as an unavailable
-service. Waiting requests do not buffer their files.
+which DjangoLux waits out without counting it against the file. The answer comes
+before the upload is read and the connection then closes; DjangoLux reads it even
+when the rest of its upload fails with a broken pipe or reset. A connection that
+closes without any answer is retried as an unavailable service. Waiting requests
+do not buffer their files.
 
 Uploads need a single `Content-Length` header, without `Transfer-Encoding`;
 truncated, stalled and oversized uploads are refused.

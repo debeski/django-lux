@@ -6,9 +6,10 @@ public host, and ignores proxy environment variables on purpose.
 
 import json
 import socket
+from http.client import HTTPConnection
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from django.core.cache import cache
 
@@ -20,7 +21,29 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-_opener = build_opener(ProxyHandler({}), _NoRedirect())
+class _EarlyAnswerConnection(HTTPConnection):
+    """Reads the service's answer even when it stops reading the upload first.
+
+    A busy service answers ``503`` and closes without reading the file, so the
+    rest of the upload fails with a broken pipe or reset while the answer is
+    already on the socket. Letting the send error pass hands ``getresponse`` that
+    answer; a connection closed without one still fails there, as an outage.
+    """
+
+    def send(self, data):
+        try:
+            super().send(data)
+        except (BrokenPipeError, ConnectionResetError):
+            if self.sock is None:
+                raise
+
+
+class _EarlyAnswerHandler(HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_EarlyAnswerConnection, req)
+
+
+_opener = build_opener(ProxyHandler({}), _NoRedirect(), _EarlyAnswerHandler())
 
 
 class OCRUnavailable(Exception):
