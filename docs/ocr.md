@@ -92,9 +92,12 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
   (`dlux.ocr.service.schedule`). The task `dlux.tasks.ocr_file` (defined in
   `dlux.jobs`) runs on the [Task Runner](task-runner.md) at priority 0 (Run OCR),
   -6 (automatic) or -9 (backfill) in `django.tasks` terms, higher first. It is
-  `requeue_lost`, so a run lost with a dead worker goes back to the queue. It
-  retries a busy or unreachable service after 30 s, 1, 2, 5, 10, 15, 30 and 60
-  minutes before marking the row `failed`; a `422`-type refusal fails at once; a
+  `requeue_lost`, so a run lost with a dead worker goes back to the queue. A busy
+  engine (`503` with `Retry-After`, or `429`) is reading another file: the run
+  waits one to two `Retry-After` intervals and asks again, without using any of
+  its retries, so a backlog larger than the engine never fails files. An
+  unreachable or failing service is retried after 30 s, 1, 2, 5, 10, 15, 30 and 60
+  minutes before the row is marked `failed`; a `422`-type refusal fails at once; a
   file changed before the worker ran is `skipped`.
 - **Provider seam**: `dlux.ocr.client.call_service(content, mode=None)` is the
   only call to the engine. Replacing Indra means an adapter in
@@ -237,10 +240,13 @@ copies re-link to adopted file versions.
 | `OCR_MAX_PAGES` | `500` | Pages per request. |
 | `OCR_MAX_THREADS` | CPU count (`4` in the generated Compose service) | Threads per request; caps the *CPU threads per file* option. |
 
-Connections beyond the queue receive a retryable `503` and may be closed before
-upload. A client still uploading can observe a broken pipe or reset instead of
-reading that response; DjangoLux treats an unavailable connection as retryable
-too. Waiting requests do not buffer their files.
+Connections beyond the queue, and requests that wait longer than `OCR_QUEUE_WAIT`
+for a slot, receive `503` with `Retry-After: 30` ("The OCR engine is busy."),
+which DjangoLux waits out without counting it against the file. The answer comes
+before the upload is read and the connection then closes; DjangoLux reads it even
+when the rest of its upload fails with a broken pipe or reset. A connection that
+closes without any answer is retried as an unavailable service. Waiting requests
+do not buffer their files.
 
 Uploads need a single `Content-Length` header, without `Transfer-Encoding`;
 truncated, stalled and oversized uploads are refused.

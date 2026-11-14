@@ -28,6 +28,8 @@ from dlux.taskrunner import Retry, task
 def ocr_file(context, result_id):
     try:
         run(result_id)
+    except OCRBusy as exc:            # busy, not broken: wait without using a retry
+        raise Retry(exc.retry_after, counts=False) from exc
     except OCRUnavailable as exc:
         if context.retries >= 8:
             give_up(result_id, ...)
@@ -44,6 +46,7 @@ def ocr_file(context, result_id):
 | `max_retries` | Upper bound on `Retry`; one more `Retry` fails the run. |
 | `requeue_lost` | At-least-once: a run whose worker died goes back to the queue. |
 | `sensitive` | Arguments are encrypted at rest and cleared when the run ends (backup passphrases). |
+| `on_lost` | A callable given the run's arguments when its worker died and the run failed (not requeued), so the task's own records can say so at once. Exceptions are logged, never raised. |
 
 The API deliberately mirrors `django.tasks`: `enqueue(*args, **kwargs)`,
 `using(priority=, run_after=, queue_name=)` (plus `countdown=`), `call()` to run
@@ -263,12 +266,13 @@ newer outcome; its late result is logged and dropped.
 |---|---|---|
 | Task returns | `SUCCESSFUL`, return value kept | `READY` at the next slot, `last_status = SUCCESSFUL` |
 | Task raises `Retry(delay)` | Same row back to `READY`, `run_after = now + delay`, priority kept, error recorded | same, within the tick |
+| Task raises `Retry(delay, counts=False)` | Same as `Retry(delay)`, but the attempt is given back: it never uses `max_retries` (a busy resource, not a failure) | same, within the tick |
 | `Retry` past `max_retries` | `FAILED` | `READY` at the next slot, `last_status = FAILED` |
 | Task raises anything else | `FAILED` with traceback (no automatic retries) | `READY` at the next slot, `last_status = FAILED` |
 | Unknown task name | `FAILED` (`dlux.taskrunner.UnknownTask`) | same, re-armed |
 | Sealed arguments unreadable (changed `SECRET_KEY`) | `FAILED` | n/a |
 | Worker dies mid-run, task `requeue_lost` | Back to `READY` (due now), up to `max_recoveries` (3), then `FAILED` | `READY`, due now |
-| Worker dies mid-run, other tasks | `FAILED` (`dlux.taskrunner.WorkerLost`) | `READY`, due now |
+| Worker dies mid-run, other tasks | `FAILED` (`dlux.taskrunner.WorkerLost`), then the task's `on_lost` is called | `READY`, due now |
 
 A worker is dead when its heartbeat is older than `stale_after` (60 s) or its
 row is marked stopped. Delivery is **at-least-once** for `requeue_lost` tasks
