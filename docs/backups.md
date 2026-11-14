@@ -16,6 +16,8 @@ setup wizard (step 18 of 19) and the same group in System Settings. It is stored
 A backup is a snapshot of every concrete, managed model in the project. Rows are
 written as Django JSON fixtures with natural foreign keys, in dependency order
 (foreign-key and many-to-many targets before the rows that point at them).
+Datetimes and times keep their full microsecond precision, so a restore brings
+back exactly the values that were backed up.
 
 These are never included:
 
