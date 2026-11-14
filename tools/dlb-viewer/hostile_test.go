@@ -288,3 +288,41 @@ func TestLargeIntegerKeysStayDistinctInAChain(t *testing.T) {
 		t.Fatalf("file of a surviving large-key record dropped: %+v", app.manifest.Files)
 	}
 }
+
+// The cleartext header links a member into its chain, but only the payload is
+// authenticated; DjangoLux writes the same chain block into manifest.json, so a
+// member whose header was edited to splice it onto another chain is refused.
+func TestSplicedChainMemberIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	withChain := func(models, chain string) string {
+		return `{"models":[` + models + `],"files":[],"missing_files":[],"chain":` + chain + `}`
+	}
+	member(t, dir, "base.dlb", ChainInfo{ID: "c", Sequence: 0, Root: "r0"}, map[string]string{
+		"manifest.json":       withChain(`{"model":"auth.user","count":1}`, `{"id":"c","sequence":0,"root":"r0"}`),
+		"data/auth/user.json": `[{"pk":1,"fields":{"username":"alice"}}]`,
+	})
+	genuine := member(t, dir, "inc1.dlb", ChainInfo{ID: "c", Sequence: 1, Root: "r1", ParentRoot: "r0"}, map[string]string{
+		"manifest.json":       withChain(`{"model":"auth.user","count":1}`, `{"id":"c","sequence":1,"root":"r1","parent_root":"r0"}`),
+		"data/auth/user.json": `[{"pk":2,"fields":{"username":"bob"}}]`,
+	})
+	if got := strings.Join(usernames(t, openUnlocked(t, genuine, false)), ","); got != "alice,bob" {
+		t.Fatalf("genuine chain users = %s", got)
+	}
+	// An increment of chain "d" whose header now claims to continue "c".
+	spliced := member(t, t.TempDir(), "spliced.dlb", ChainInfo{ID: "c", Sequence: 1, Root: "s1", ParentRoot: "r0"}, map[string]string{
+		"manifest.json":          withChain(`{"model":"auth.user","count":1}`, `{"id":"d","sequence":1,"root":"s1","parent_root":"d0"}`),
+		"data/auth/user.json":    `[{"pk":3,"fields":{"username":"mallory"}}]`,
+		"deleted/auth/user.json": `["1"]`,
+	})
+	data, _ := os.ReadFile(spliced)
+	spliced = writeTemp(t, dir, "spliced.dlb", data)
+	for _, p := range []string{spliced, writeTemp(t, t.TempDir(), "alone.dlb", data)} {
+		check := privateTemp(t)
+		code, body, app := tryUnlock(t, p, "")
+		if code != http.StatusBadRequest || !strings.Contains(body, "altered") || app.zipReader != nil {
+			t.Fatalf("%s (%s): %d %s", p, app.chainMode, code, body)
+		}
+		app.reset()
+		check()
+	}
+}

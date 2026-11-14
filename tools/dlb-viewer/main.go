@@ -443,6 +443,9 @@ func decryptMember(member, password string) (string, error) {
 		}
 	}
 	zf.Close()
+	if err == nil && meta.Chain != nil {
+		err = checkChainHeader(zf.Name(), meta.Chain)
+	}
 	if err != nil {
 		os.Remove(zf.Name())
 		return "", err

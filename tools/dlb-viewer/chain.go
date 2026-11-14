@@ -186,6 +186,33 @@ func extractChainZip(p string) ([]string, *Metadata, []string, error) {
 	return paths, target.meta, temps, nil
 }
 
+// checkChainHeader compares the chain identity in a member's cleartext header,
+// which decides how members are linked, with the copy DjangoLux writes into the
+// encrypted, authenticated manifest. A member whose header was edited, e.g. to
+// splice it onto another chain, is refused. Manifests without one are older.
+func checkChainHeader(zipPath string, header *ChainInfo) error {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil // reported as an invalid archive when it is opened
+	}
+	defer zr.Close()
+	raw, err := readZipMember(&zr.Reader, "manifest.json")
+	if err != nil {
+		return nil
+	}
+	var mani struct {
+		Chain *ChainInfo `json:"chain"`
+	}
+	if json.Unmarshal(raw, &mani) != nil || mani.Chain == nil {
+		return nil
+	}
+	m := mani.Chain
+	if m.ID != header.ID || m.Sequence != header.Sequence || m.Root != header.Root || m.ParentRoot != header.ParentRoot {
+		return errors.New("the backup's cleartext header does not match its encrypted manifest: the chain identity was altered")
+	}
+	return nil
+}
+
 func seqOf(m *Metadata) int {
 	if m == nil || m.Chain == nil {
 		return 0

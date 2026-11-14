@@ -145,6 +145,10 @@ backups were merged. Opening an increment any other way — uploaded alone, or
 with a member missing — shows **changes only**: a banner says so and why, and
 each model lists the primary keys deleted since the previous backup.
 
+A member's chain identity is read from its cleartext header to find the others,
+then checked against the copy inside its encrypted manifest; a backup whose
+header was altered (for example to splice it onto another chain) is refused.
+
 ## Container format (reference)
 
 ```
