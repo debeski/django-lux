@@ -2177,6 +2177,8 @@ STRINGS = {
     'sysbackup_recovery_manual': 'أعد المحاولة يدوياً',
     'sysbackup_stall_warning': 'لم يُسجَّل أي تقدم. ستُعلَّم النسخة كفاشلة بعد انتهاء مهلة التوقف.',
     'sysbackup_stalled_note': 'لم يُسجَّل أي تقدم منذ {seconds} ثانية.',
+    'sysbackup_worker_lost_error': 'توقف عامل المهام أثناء إنشاء هذه النسخة عند {percent}%. لم يُكتب أي شيء.',
+    'sysrestore_worker_lost_error': 'توقف عامل المهام أثناء هذه الاستعادة عند {percent}%. تحقق من البيانات قبل الاعتماد عليها، وأعد الاستعادة إن كانت غير مكتملة.',
     'sysbackup_stalled_error': 'توقفت النسخة عن تسجيل أي تقدم عند {percent}% لأكثر من {minutes} دقيقة؛ عملية المعالجة لم تعد موجودة. لم يُكتب أي ملف.',
     'sysbackup_retry_scheduled': 'فشلت المحاولة {attempt} من {max} ({error}). ستُعاد المحاولة خلال {minutes} دقيقة.',
     'sysbackup_resume': 'إعادة المحاولة',

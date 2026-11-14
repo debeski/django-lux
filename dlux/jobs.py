@@ -21,7 +21,21 @@ def build_report_backup(backup_pk):
     run_report_backup(backup_pk)
 
 
-@task(name="dlux.tasks.build_system_backup", sensitive=True)
+def system_backup_lost(backup_pk, passphrase=""):
+    """``on_lost`` for a backup run: fail its row now instead of after the stall timeout."""
+    from .backup import fail_lost_system_backup
+
+    fail_lost_system_backup(backup_pk)
+
+
+def system_restore_lost(restore_pk, passphrase=""):
+    """``on_lost`` for a restore run: a restore has no stall reaper, so this is its only guard."""
+    from .backup import fail_lost_system_restore
+
+    fail_lost_system_restore(restore_pk)
+
+
+@task(name="dlux.tasks.build_system_backup", sensitive=True, on_lost=system_backup_lost)
 def build_system_backup(backup_pk, passphrase=""):
     from .backup import retry_countdown_for, run_system_backup
 
@@ -35,7 +49,7 @@ def build_system_backup(backup_pk, passphrase=""):
         build_system_backup.using(countdown=countdown).enqueue(backup_pk, passphrase)
 
 
-@task(name="dlux.tasks.restore_system_backup", sensitive=True)
+@task(name="dlux.tasks.restore_system_backup", sensitive=True, on_lost=system_restore_lost)
 def restore_system_backup(restore_pk, passphrase=""):
     from .backup import run_system_restore
 

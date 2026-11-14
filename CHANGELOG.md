@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **A Backup Or Restore Lost With Its Worker Fails At Once**: When a `dlux_worker` died mid-backup, the row stayed `running` and blocked every new backup until the 30-minute stall timeout; a lost restore stayed `running` for good. The task runner now calls the new `@task(on_lost=...)` hook once it declares the worker lost (about a minute), and the backup and restore tasks fail their row with a translated reason.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.

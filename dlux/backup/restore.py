@@ -335,6 +335,34 @@ def _restore_files(zf, manifest, reporter=None, *, span=(70, 92)):
     return restored, failed
 
 
+def fail_lost_system_restore(restore_pk):
+    """Fail a restore whose task-worker run was lost with its worker. Returns whether a row was failed.
+
+    The data load is one transaction, so a worker that died inside it changed
+    nothing; one that died while copying files may have restored some of them.
+    """
+    SystemRestore = apps.get_model("dlux", "SystemRestore")
+    restore = SystemRestore.objects.filter(
+        pk=restore_pk, status__in=(SystemRestore.STATUS_PENDING, SystemRestore.STATUS_RUNNING),
+    ).first()
+    if restore is None:
+        return False
+    from ..translations import get_strings
+    from ..utils.backup_progress import finish_restore_progress
+
+    restore.error = get_strings().get(
+        "sysrestore_worker_lost_error",
+        "The task worker stopped during this restore at {percent}%. Check the data before relying on it, "
+        "and run the restore again if it is incomplete.",
+    ).format(percent=restore.progress_percent)[:1000]
+    restore.status = SystemRestore.STATUS_FAILED
+    restore.completed_at = timezone.now()
+    restore.save(update_fields=["status", "completed_at", "error"])
+    logger.warning("System restore pk=%s was lost with its task worker at %s%%.", restore.pk, restore.progress_percent)
+    finish_restore_progress(restore, success=False, error=restore.error)
+    return True
+
+
 def run_system_restore(restore_pk, passphrase=None):
     """Task-or-inline runner that fully replaces system data from an .dlb file."""
     SystemRestore = apps.get_model("dlux", "SystemRestore")

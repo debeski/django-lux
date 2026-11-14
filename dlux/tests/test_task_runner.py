@@ -56,6 +56,25 @@ def at_least_once():
     CALLS.append("ran")
 
 
+LOST = []
+
+
+def remember_lost(token, secret=""):
+    LOST.append((token, secret))
+    if token == "explode":
+        raise RuntimeError("the callback failed")
+
+
+@task(name="tests.taskrunner.watched", sensitive=True, on_lost=remember_lost)
+def watched(token, secret=""):
+    CALLS.append(token)
+
+
+@task(name="tests.taskrunner.watched_requeue", requeue_lost=True, on_lost=remember_lost)
+def watched_requeue(token, secret=""):
+    CALLS.append(token)
+
+
 DLUX = override_settings()
 UTC = dt_timezone.utc
 
@@ -274,7 +293,32 @@ class RecoveryTests(TaskRunnerTestCase):
 
     def setUp(self):
         super().setUp()
+        LOST.clear()
         live_worker("dead", heartbeat_at=timezone.now() - timedelta(minutes=5))
+
+    def lose(self, task_name, *args, **kwargs):
+        run_id = enqueue(task_name, args=args, kwargs=kwargs, sensitive=True)
+        DluxTaskRun.objects.filter(pk=run_id).update(status="RUNNING", worker_id="dead", claim_token="tok", attempts=1)
+        return run_id
+
+    def test_a_lost_run_that_fails_tells_its_task_with_its_arguments(self):
+        run_id = self.lose("tests.taskrunner.watched", "w1", secret="s3cret")
+        self.assertEqual(self.recover(), (0, 1))
+        self.assertEqual(LOST, [("w1", "s3cret")])
+        run = DluxTaskRun.objects.get(pk=run_id)
+        self.assertEqual((run.status, run.sealed_arguments), ("FAILED", ""))
+
+    def test_a_requeued_run_is_not_reported_lost(self):
+        self.lose("tests.taskrunner.watched_requeue", "w2")
+        self.assertEqual(self.recover(), (1, 0))
+        self.assertEqual(LOST, [])
+
+    def test_a_failing_on_lost_does_not_stop_recovery(self):
+        self.lose("tests.taskrunner.watched", "explode")
+        self.lose("tests.taskrunner.watched", "w3")
+        self.assertEqual(self.recover(), (0, 2))
+        self.assertEqual(sorted(token for token, _ in LOST), ["explode", "w3"])
+        self.assertFalse(DluxTaskRun.objects.filter(status="RUNNING").exists())
 
     def recover(self):
         return queue.recover_lost_runs(resolve=resolve_task)

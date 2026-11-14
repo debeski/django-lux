@@ -65,6 +65,7 @@ from .restore import (  # noqa: F401
     _wipe_and_load,
     _zip_data_member,
     build_migration_report,
+    fail_lost_system_restore,
     run_system_restore,
 )
 from .retry import (  # noqa: F401
@@ -86,6 +87,7 @@ from .dispatch import (  # noqa: F401
     dispatch_due_backup_retries,
     dispatch_system_backup,
     dispatch_system_restore,
+    fail_lost_system_backup,
     reap_stalled_system_backups,
     resume_system_backup,
     run_scheduled_system_backup,
@@ -109,6 +111,8 @@ __all__ = [
     'dispatch_due_backup_retries',
     'dispatch_system_backup',
     'dispatch_system_restore',
+    'fail_lost_system_backup',
+    'fail_lost_system_restore',
     'fail_system_backup',
     'get_current_migration_state',
     'get_system_backup_models',
