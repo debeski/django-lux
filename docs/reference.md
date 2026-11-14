@@ -946,7 +946,7 @@ See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-featur
 
 | API | Purpose |
 | --- | --- |
-| `@task(name=, priority=, queue_name=, takes_context=, max_retries=, requeue_lost=, sensitive=)` | Declare a task in an app's `tasks.py`; returns a `DluxTask`. |
+| `@task(name=, priority=, queue_name=, takes_context=, max_retries=, requeue_lost=, sensitive=, on_lost=)` | Declare a task in an app's `tasks.py`; returns a `DluxTask`. |
 | `DluxTask.enqueue(*args, **kwargs)` / `.delay(...)` | Queue a run; returns its id. |
 | `DluxTask.using(priority=, queue_name=, run_after=, countdown=)` | A copy with other options, e.g. `.using(countdown=60).enqueue(...)`. |
 | `DluxTask.call(*args, **kwargs)` | Run it in this process, now. |
