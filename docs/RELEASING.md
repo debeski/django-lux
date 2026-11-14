@@ -447,7 +447,9 @@ the curated package Django suite through
 [`dlux/tests/test_all.py`](../dlux/tests/test_all.py). That runner uses
 `dlux.tests.settings` as the shared package-local test settings module and
 includes `test_defaults_and_urls`, scaffold checks, backup/report coverage,
-notifications, permissions, middleware, and utility tests.
+notifications, permissions, middleware, and utility tests. Its `dlb-viewer` job
+runs `go vet` and `go test -race` for the backup viewer in `tools/dlb-viewer`,
+with the Go version the release build uses.
 
 CI's `test-postgres` job runs the same suite against PostgreSQL 17, the database
 every deployed stack uses. SQLite hides what PostgreSQL enforces: foreign keys are

@@ -85,3 +85,21 @@ jobs:
         env:
           PYTHONFAULTHANDLER: "1"
         run: timeout --signal=ABRT --kill-after=1m 20m python dlux/tests/test_all.py
+
+  dlb-viewer:
+    # The backup viewer ships in every release (release.yml cross-compiles it);
+    # its own tests, race detector and vet run on every change.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Test the viewer
+        working-directory: tools/dlb-viewer
+        run: |
+          go vet ./...
+          go test -race ./...
