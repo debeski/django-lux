@@ -7,6 +7,20 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **DLB Viewer Page Requires Its Token**: `tools/dlb-viewer` served `/`, which embeds the API token, to any request, so another local user or process could read the token and then the decrypted backup. The page now needs the `?token=` URL the viewer prints and a local `Host`; anything else gets `403`.
+- **DLB Viewer Bounds Frame Lengths**: A corrupt or hostile `.dlb` frame length made the viewer allocate whatever it claimed (gigabytes, or a `makeslice` panic that left decrypted temp files behind). Frames over 64 MiB are now refused as corruption, and a damaged frame after the first no longer reports a wrong password.
+- **DLB Viewer Caps PBKDF2 Iterations**: A `.dlb` header asking for more than 10,000,000 PBKDF2 iterations (DjangoLux writes 390,000) is refused instead of keeping unlock busy for hours. A failed unlock of a backup with an encryption scheme or KDF the viewer does not know now names it.
+- **DLB Viewer Trims Passphrases Like Restore**: DjangoLux strips a backup passphrase before deriving its key, but the viewer used it as typed, so a passphrase pasted with a trailing newline or space was rejected by the viewer while restore accepted it. A `SECRET_KEY` is still used exactly as entered.
+- **DLB Viewer Keeps Large Primary Keys Exact**: Merging an incremental chain read integer primary keys as floating point, so keys above 2^53 collided and rows vanished from the merged view, and their `deleted/` entries never matched. Keys now keep every digit, as DjangoLux writes them.
+- **DLB Viewer Merges File-Heavy Chains Faster**: Opening an incremental chain looked up every stored file by scanning its member's whole archive, so merge time grew with the square of the file count (2.8 s at 40,000 files). Files are now found by name: 0.5 s.
+- **DLB Viewer Response Hardening**: Every viewer response now carries `Cache-Control: no-store`, so decrypted records and files no longer land in the browser's disk cache, plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The page also gets a strict `Content-Security-Policy` and `X-Frame-Options: DENY`.
+- **DLB Viewer Names Uploaded Backups**: A backup dropped into the viewer showed its temporary buffer name (`dlbview-src-….dlb`) in the top bar instead of the file the user picked.
+- **DLB Viewer Field Names Like `constructor`**: With *Resolve relations* on, a field named `constructor`, `toString` or `__proto__` was treated as a relation column, and a key with such a name rendered as `function Object()` or `[object Object]`. Lookups now use only the backup's own keys.
+- **DLB Viewer Resolves Natural Keys With `&`, `<`, `>`**: Natural-key references containing `&`, `<`, `>` or a line separator (a group named `R&D`) never resolved to a label, because the server HTML-escaped the key the page looks up.
+- **DLB Viewer Refuses Spliced Chain Members**: Chain members are linked by their cleartext header, which the encryption does not cover, so an increment whose header was edited merged onto another chain's backups. Unlock now checks the header's chain identity against the encrypted `manifest.json` and refuses a mismatch.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.

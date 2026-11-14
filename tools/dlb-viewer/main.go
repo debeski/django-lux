@@ -12,6 +12,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
 	"embed"
@@ -28,6 +29,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -94,6 +96,7 @@ type App struct {
 	mu        sync.Mutex
 	srcPath   string // path to the .dlb on disk
 	srcIsTemp bool   // true when the source was uploaded into a temp file
+	srcName   string // the name shown for the source: the opened or uploaded file
 	meta      *Metadata
 
 	// members are the .dlb paths to unlock, base -> opened member; a single
@@ -131,21 +134,7 @@ func main() {
 	addr := ln.Addr().(*net.TCPAddr)
 	url := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", addr.Port, app.token)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.handleIndex)
-	staticSub, _ := fs.Sub(webFS, "web")
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
-	mux.HandleFunc("/api/state", app.guard(app.handleState))
-	mux.HandleFunc("/api/open-path", app.guard(app.handleOpenPath))
-	mux.HandleFunc("/api/open-upload", app.guard(app.handleOpenUpload))
-	mux.HandleFunc("/api/unlock", app.guard(app.handleUnlock))
-	mux.HandleFunc("/api/manifest", app.guard(app.handleManifest))
-	mux.HandleFunc("/api/model", app.guard(app.handleModel))
-	mux.HandleFunc("/api/labels", app.guard(app.handleLabels))
-	mux.HandleFunc("/api/file", app.guard(app.handleFile))
-	mux.HandleFunc("/api/deleted", app.guard(app.handleDeleted))
-
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: app.routes()}
 
 	// Clean up temp files on Ctrl-C.
 	sig := make(chan os.Signal, 1)
@@ -169,19 +158,48 @@ func main() {
 
 // ── HTTP plumbing ────────────────────────────────────────────────────────────
 
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", a.handleIndex)
+	staticSub, _ := fs.Sub(webFS, "web")
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	mux.HandleFunc("/api/state", a.guard(a.handleState))
+	mux.HandleFunc("/api/open-path", a.guard(a.handleOpenPath))
+	mux.HandleFunc("/api/open-upload", a.guard(a.handleOpenUpload))
+	mux.HandleFunc("/api/unlock", a.guard(a.handleUnlock))
+	mux.HandleFunc("/api/manifest", a.guard(a.handleManifest))
+	mux.HandleFunc("/api/model", a.guard(a.handleModel))
+	mux.HandleFunc("/api/labels", a.guard(a.handleLabels))
+	mux.HandleFunc("/api/file", a.guard(a.handleFile))
+	mux.HandleFunc("/api/deleted", a.guard(a.handleDeleted))
+	return securityHeaders(mux)
+}
+
+// pageCSP allows only the viewer's own script, style and API calls.
+const pageCSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
+	"img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+// securityHeaders keeps decrypted responses out of the browser's disk cache,
+// and disables content sniffing and referrers (the URL carries the token).
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Cache-Control", "no-store")
+		h.Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // guard restricts API calls to local requests carrying the session token,
 // mitigating DNS-rebinding / drive-by access from other local processes.
 func (a *App) guard(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !isLocalHost(r.Host) {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
-		}
 		tok := r.Header.Get("X-DLB-Token")
 		if tok == "" {
 			tok = r.URL.Query().Get("token")
 		}
-		if subtle.ConstantTimeCompare([]byte(tok), []byte(a.token)) != 1 {
+		if !a.authorized(r, tok) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -189,9 +207,19 @@ func (a *App) guard(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (a *App) authorized(r *http.Request, tok string) bool {
+	return isLocalHost(r.Host) && subtle.ConstantTimeCompare([]byte(tok), []byte(a.token)) == 1
+}
+
 func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
+	}
+	// The page embeds the API token, so it is served only to a request that
+	// already carries it (the URL the viewer prints and opens).
+	if !a.authorized(r, r.URL.Query().Get("token")) {
+		http.Error(w, "Open the address the viewer printed in its terminal: it carries this session's access token.", http.StatusForbidden)
 		return
 	}
 	raw, err := webFS.ReadFile("web/index.html")
@@ -201,6 +229,8 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	out := strings.ReplaceAll(string(raw), "__DLB_TOKEN__", a.token)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", pageCSP)
+	w.Header().Set("X-Frame-Options", "DENY")
 	_, _ = io.WriteString(w, out)
 }
 
@@ -226,7 +256,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.meta != nil {
 		resp["meta"] = a.meta
-		resp["source"] = path.Base(a.srcPath)
+		resp["source"] = a.srcName
 		resp["chain"] = map[string]any{
 			"mode":     a.chainMode,
 			"sequence": seqOf(a.meta),
@@ -316,7 +346,7 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cleanup()
 			if errors.Is(err, ErrBadPassword) {
-				writeErr(w, http.StatusUnauthorized, ErrBadPassword.Error())
+				writeErr(w, http.StatusUnauthorized, err.Error())
 				return
 			}
 			if len(members) > 1 {
@@ -408,8 +438,14 @@ func decryptMember(member, password string) (string, error) {
 		if key, err = deriveKey(meta.Encryption, password); err == nil {
 			err = decryptToFile(src, key, zf)
 		}
+		if unknown := unknownEncryption(meta.Encryption); unknown != "" && errors.Is(err, ErrBadPassword) {
+			err = fmt.Errorf("%w; the backup uses %s, which this viewer does not know", err, unknown)
+		}
 	}
 	zf.Close()
+	if err == nil && meta.Chain != nil {
+		err = checkChainHeader(zf.Name(), meta.Chain)
+	}
 	if err != nil {
 		os.Remove(zf.Name())
 		return "", err
@@ -613,11 +649,15 @@ func naturalKeyOf(fields map[string]json.RawMessage, nkFields []string) string {
 		}
 		parts = append(parts, v)
 	}
-	out, err := json.Marshal(parts)
-	if err != nil {
+	// The UI looks this up by JSON.stringify(value), which escapes neither
+	// HTML characters nor U+2028/U+2029 as json.Marshal does.
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(parts); err != nil {
 		return ""
 	}
-	return string(out)
+	return strings.TrimSuffix(out.String(), "\n")
 }
 
 // rawScalarString renders a JSON scalar as a plain display string; non-scalars
@@ -761,12 +801,12 @@ func (a *App) adoptSource(p string, isTemp bool, displayName string) error {
 	a.resetLocked()
 	a.srcPath = p
 	a.srcIsTemp = isTemp
+	a.srcName = filepath.Base(displayName)
 	a.meta = meta
 	a.members = members
 	a.chainTemps = temps
 	a.chainMode = mode
 	a.chainNote = note
-	_ = displayName
 	return nil
 }
 
@@ -817,6 +857,7 @@ func (a *App) resetLocked() {
 	}
 	a.srcPath = ""
 	a.srcIsTemp = false
+	a.srcName = ""
 	a.meta = nil
 	a.members = nil
 	a.chainTemps = nil
@@ -905,7 +946,7 @@ func isLocalHost(host string) bool {
 func randomToken() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		return "dlb-static-token"
+		log.Fatalf("cannot create an access token: %v", err)
 	}
 	return hex.EncodeToString(b)
 }

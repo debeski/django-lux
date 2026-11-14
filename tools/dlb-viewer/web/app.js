@@ -31,6 +31,12 @@ function fileURL(zipPath, download) {
   return "/api/file?" + q.toString();
 }
 
+// Keys below come from backup content, so only own properties count: a field
+// or key named "constructor" or "__proto__" must not reach Object.prototype.
+function own(obj, key) {
+  return obj != null && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
+}
+
 function baseName(p) {
   const s = String(p == null ? "" : p);
   const i = s.lastIndexOf("/");
@@ -87,10 +93,10 @@ function fileIndex() {
 let SCHEMA = null;
 let RESOLVE_RELATIONS = localStorage.getItem("dlb-resolve-relations") === "1";
 // Cache of label maps per target model: key -> Promise<{by_pk, by_nk}>.
-const LABEL_CACHE = {};
+const LABEL_CACHE = new Map();
 
 function schemaFor(key) {
-  return (SCHEMA && SCHEMA[String(key).toLowerCase()]) || null;
+  return own(SCHEMA, String(key).toLowerCase()) || null;
 }
 
 function hasRelations() {
@@ -102,23 +108,23 @@ function hasRelations() {
 
 async function getLabels(key) {
   const k = String(key).toLowerCase();
-  if (!LABEL_CACHE[k]) {
-    LABEL_CACHE[k] = api("/api/labels?key=" + encodeURIComponent(k)).catch(
+  if (!LABEL_CACHE.has(k)) {
+    LABEL_CACHE.set(k, api("/api/labels?key=" + encodeURIComponent(k)).catch(
       () => ({ by_pk: {}, by_nk: {} }),
-    );
+    ));
   }
-  return LABEL_CACHE[k];
+  return LABEL_CACHE.get(k);
 }
 
 // Resolve one relation reference to a display label, falling back to the raw
 // reference. `value` is a PK scalar or a natural-key array (e.g. ["alice"]).
 function resolveRef(to, value, maps) {
-  const m = maps[String(to).toLowerCase()] || { by_pk: {}, by_nk: {} };
+  const m = maps.get(String(to).toLowerCase()) || { by_pk: {}, by_nk: {} };
   if (Array.isArray(value)) {
-    const nk = (m.by_nk || {})[JSON.stringify(value)];
+    const nk = own(m.by_nk, JSON.stringify(value));
     return nk != null ? nk : value.join(" / ");
   }
-  const pk = (m.by_pk || {})[String(value)];
+  const pk = own(m.by_pk, String(value));
   return pk != null ? pk : String(value);
 }
 
@@ -349,7 +355,7 @@ function chainBanner() {
 function enterBrowse() {
   SCHEMA = (SUMMARY && SUMMARY.schema) || null;
   FILE_INDEX = null;
-  for (const k of Object.keys(LABEL_CACHE)) delete LABEL_CACHE[k];
+  LABEL_CACHE.clear();
   setupRelToggle();
   buildSidebar();
   show("screen-browse");
@@ -623,18 +629,18 @@ async function renderModelTable(c, data) {
   // Relation columns for this model, and the label maps they need (loaded only
   // when the user has opted to resolve relations).
   const relations = (schemaFor(data.key) || {}).relations || {};
-  let maps = {};
+  const maps = new Map();
   if (RESOLVE_RELATIONS) {
     const targets = [...new Set(
-      cols.filter((col) => relations[col]).map((col) => relations[col].to),
+      cols.filter((col) => own(relations, col)).map((col) => relations[col].to),
     )];
     const loaded = await Promise.all(targets.map(getLabels));
-    targets.forEach((t, i) => { maps[String(t).toLowerCase()] = loaded[i]; });
+    targets.forEach((t, i) => { maps.set(String(t).toLowerCase(), loaded[i]); });
   }
 
   const head = el("tr", {}, cols.map((col) => {
     const th = el("th", { text: col });
-    if (relations[col]) {
+    if (own(relations, col)) {
       th.classList.add("rel-col");
       th.title = `${relations[col].kind} → ${relations[col].to}`;
     }
@@ -643,7 +649,7 @@ async function renderModelTable(c, data) {
 
   const body = recs.map((r) => {
     const cells = cols.map((col) => {
-      const v = col === "pk" ? r.pk : (r.fields || {})[col];
+      const v = col === "pk" ? r.pk : own(r.fields, col);
       if (v === null || v === undefined) return el("td", { class: "muted", text: "—" });
 
       // File-field cell: if this record's (model, pk, field) has an archived
@@ -668,7 +674,7 @@ async function renderModelTable(c, data) {
         }
       }
 
-      const rel = relations[col];
+      const rel = own(relations, col);
       if (rel && RESOLVE_RELATIONS) {
         const name = resolveRelation(rel, v, maps);
         const raw = typeof v === "object" ? JSON.stringify(v) : String(v);

@@ -145,6 +145,10 @@ backups were merged. Opening an increment any other way — uploaded alone, or
 with a member missing — shows **changes only**: a banner says so and why, and
 each model lists the primary keys deleted since the previous backup.
 
+A member's chain identity is read from its cleartext header to find the others,
+then checked against the copy inside its encrypted manifest; a backup whose
+header was altered (for example to splice it onto another chain) is refused.
+
 ## Container format (reference)
 
 ```
@@ -170,8 +174,10 @@ The decrypted payload is a ZIP with `manifest.json`, `data/<app>/<model>.json`
 
 ## Security notes
 
-- Binds to `127.0.0.1` only; API calls require a random per-run token and a
-  local `Host` header (basic DNS-rebinding protection).
+- Binds to `127.0.0.1` only. The page and every API call require the random
+  per-run token in the URL the viewer prints and opens, and a local `Host`
+  header (basic DNS-rebinding protection); without the token the viewer answers
+  `403`, so another local user or process cannot read the decrypted backup.
 - Read-only: the viewer never writes back to the backup or to any system.
 - Treat the decrypted contents as sensitive — they include user records and
   settings. Run it on a trusted machine.
@@ -198,6 +204,8 @@ guarantee.
   index construction and cached deep-page access.
 - `BenchmarkChainMerge` merges a 100,000-record base with 5,000 updated records
   and keeps its synthetic ZIP inputs in `.xclude/benchmark-chain/`.
+- `BenchmarkChainMergeFiles` merges a base holding 40,000 stored files with a
+  small increment.
 - `BenchmarkPasswordDerivation` uses the format's 390,000-iteration default.
 
 The viewer's PBKDF2-SHA256 derives the same backup keys as `dlux/backup.py` and
