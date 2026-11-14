@@ -31,6 +31,22 @@ Status and result reads (`GET /scan/<job_id>` and `/scan/<job_id>/result`) keep
 the HTTPS/HTTP fallback. File fields and the PDF editor share the English/Arabic
 guidance in `dlux/helpers/scanlink/scan_messages.html`.
 
+The page waits up to 11 minutes for a scan, longer than ScanLink's own job deadline
+(10 minutes plus 15 s), so a slow scan ends with ScanLink's reason rather than the
+page giving up while the scanner keeps going. ScanLink's error codes are shown
+translated:
+
+| Code | Message |
+|---|---|
+| `no_pages_scanned` | The scanner returned no pages; check the paper. |
+| `acquire_failed` | The scanner stopped before the scan finished. |
+| `scan_worker_crashed` | ScanLink's scanning process stopped; try again, then restart ScanLink. |
+| `origin_not_allowed` | ScanLink does not accept scans from this site; add it to ScanLink's allowed sites. |
+| `acquire_timeout`, `scan_timeout`, `scan_idle_timeout` | The scan took too long. |
+| `payload_too_large`, `invalid_host`, `local_only` | The scan could not be completed. |
+
+A code the page does not know shows ScanLink's own message.
+
 On the helper side, ScanLink keeps a job in `generating_pdf` until the child
 process exits and the PDF is stored, and enforces the parent scan deadline even
 while progress keeps arriving. It rejects malformed scan bodies before queueing

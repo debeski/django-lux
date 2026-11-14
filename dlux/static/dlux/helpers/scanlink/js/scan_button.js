@@ -4,6 +4,8 @@
     // ScanLink health checks, scanner selection, progress and error wording.
     if (window.DluxScan) return;
 
+    const SCAN_WAIT_MS = 11 * 60 * 1000;
+
     function messagesFor(element) {
         const data = (element && element.dataset) || {};
         const strings = window.DLUX_STRINGS || {};
@@ -23,6 +25,10 @@
             timeout: data.scanTimeout || "The scan took too long to finish.",
             noScanners: data.scanNoScanners || "No TWAIN scanner is available on this computer.",
             openSource: data.scanOpenSource || "The selected scanner could not be opened.",
+            noPages: data.scanNoPages || strings.scan_no_pages_message || "The scanner returned no pages. Check that paper is loaded, then try again.",
+            acquireFailed: data.scanAcquireFailed || strings.scan_acquire_failed_message || "The scanner stopped before the scan finished. Check the scanner and try again.",
+            workerCrashed: data.scanWorkerCrashed || strings.scan_worker_crashed_message || "ScanLink's scanning process stopped unexpectedly. Try again; if it happens again, restart ScanLink.",
+            originNotAllowed: data.scanOriginNotAllowed || strings.scan_origin_not_allowed_message || "ScanLink on this computer does not accept scans from this site. Add this site's address to ScanLink's allowed sites.",
             failed: data.scanFailed || "The scan could not be completed.",
         };
     }
@@ -42,12 +48,25 @@
                 return messages.cancelled;
             case "acquire_timeout":
             case "scan_timeout":
+            case "scan_idle_timeout":
                 return messages.timeout;
             case "no_scanners":
             case "twain_unavailable":
                 return messages.noScanners;
             case "open_source_failed":
                 return messages.openSource;
+            case "no_pages_scanned":
+                return messages.noPages;
+            case "acquire_failed":
+                return messages.acquireFailed;
+            case "scan_worker_crashed":
+                return messages.workerCrashed;
+            case "origin_not_allowed":
+                return messages.originNotAllowed;
+            case "payload_too_large":
+            case "invalid_host":
+            case "local_only":
+                return messages.failed;
             default:
                 return (error && error.message) || messages.failed;
         }
@@ -115,7 +134,10 @@
                 const text = statusMessage(messages, data);
                 if (text) onProgress(text, data);
             });
-            return await scanLink.waitForResult(jobId, { timeoutMs: 5 * 60 * 1000 });
+            // Longer than ScanLink's own job deadline (10 minutes plus 15 s), so a
+            // slow scan ends with ScanLink's reason instead of the page giving up
+            // while the scanner keeps going.
+            return await scanLink.waitForResult(jobId, { timeoutMs: SCAN_WAIT_MS });
         } catch (error) {
             const translated = new window.ScanLinkError(errorMessage(messages, error), (error && error.code) || "scan_failed");
             throw translated;
@@ -124,7 +146,7 @@
         }
     }
 
-    window.DluxScan = { scan: scan, messagesFor: messagesFor, errorMessage: errorMessage };
+    window.DluxScan = { scan: scan, messagesFor: messagesFor, errorMessage: errorMessage, waitMs: SCAN_WAIT_MS };
 
     // File card Scan buttons (`.scan-btn[data-target]`), including ones inside
     // modals loaded after the page: the scanned PDF becomes the input's file.
