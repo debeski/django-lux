@@ -5,7 +5,6 @@ then sends the sites listed here, and ScanLink allows them too. The list is
 stored in ``extra_config['scanlink']['sites']`` as website origins, exactly as
 browsers send them, because ScanLink compares them that way.
 """
-from django.template import Context, Template
 
 from dlux.models import SystemSettings
 from dlux.system.normalizers import (
@@ -111,14 +110,24 @@ class SettingsFormTests(ScanLinkTestCase):
 
 
 class PageDataTests(ScanLinkTestCase):
-    def _render(self, enabled, sites):
-        return Template('{% include "dlux/forms/assets_scripts.html" %}').render(Context({
-            'DLUX_SCANLINK_ENABLED': enabled, 'scanlink_sites': sites,
-        }))
+    def _page(self):
+        from django.contrib.auth import get_user_model
 
-    def test_the_list_reaches_the_page_as_json_data(self):
-        html = self._render(True, ['https://crm.example.org'])
+        record = SystemSettings.load()
+        record.is_configured = True
+        record.save()
+        user = get_user_model().objects.create_superuser('scan-admin', 'scan@example.org', 'pw-for-tests-only')
+        self.client.force_login(user)
+        response = self.client.get('/accounts/profile/')
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_the_list_reaches_every_page_once_as_json_data(self):
+        _store({'enabled': True, 'sites': ['https://crm.example.org']})
+        html = self._page()
+        self.assertEqual(html.count('id="dlux-scanlink-sites"'), 1)
         self.assertIn('<script id="dlux-scanlink-sites" type="application/json">["https://crm.example.org"]</script>', html)
 
     def test_nothing_is_sent_while_scanlink_is_off(self):
-        self.assertNotIn('dlux-scanlink-sites', self._render(False, ['https://crm.example.org']))
+        _store({'enabled': False, 'sites': ['https://crm.example.org']})
+        self.assertNotIn('dlux-scanlink-sites', self._page())
