@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **A Busy OCR Engine No Longer Fails Files**: The OCR service runs one file at a time and answers others `503` with `Retry-After`; each answer used one of `ocr_file`'s 8 retries, so a backfill larger than the engine gave files up (stress run: 2,176 of 2,278 queued files at their 5th retry). Busy answers now raise `dlux.ocr.client.OCRBusy` and are waited out without counting; outages keep the growing delays. The service answers busy before reading the upload, so a large file's upload used to end in a broken pipe that counted as an outage (b3 candidate on Trademarks: 150 files given up this way); the client now reads that early `503` instead.
+- **`Retry(delay, counts=False)`**: A task can wait for a busy resource without using its `max_retries`; the queue gives the claimed attempt back.
 - **Scan Waits Outlast ScanLink, And Its Errors Are Translated**: `scan_button.js` gave up after 5 minutes while ScanLink's job deadline is 10 minutes plus 15 s, so the page said "took too long" while the scanner kept going and a retry reported busy. It now waits 11 minutes. `no_pages_scanned`, `acquire_failed`, `scan_worker_crashed`, `origin_not_allowed` and `scan_idle_timeout` show translated messages (en + ar) instead of ScanLink's English text.
 
 ## v1.16.0b2

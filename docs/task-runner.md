@@ -28,6 +28,8 @@ from dlux.taskrunner import Retry, task
 def ocr_file(context, result_id):
     try:
         run(result_id)
+    except OCRBusy as exc:            # busy, not broken: wait without using a retry
+        raise Retry(exc.retry_after, counts=False) from exc
     except OCRUnavailable as exc:
         if context.retries >= 8:
             give_up(result_id, ...)
@@ -263,6 +265,7 @@ newer outcome; its late result is logged and dropped.
 |---|---|---|
 | Task returns | `SUCCESSFUL`, return value kept | `READY` at the next slot, `last_status = SUCCESSFUL` |
 | Task raises `Retry(delay)` | Same row back to `READY`, `run_after = now + delay`, priority kept, error recorded | same, within the tick |
+| Task raises `Retry(delay, counts=False)` | Same as `Retry(delay)`, but the attempt is given back: it never uses `max_retries` (a busy resource, not a failure) | same, within the tick |
 | `Retry` past `max_retries` | `FAILED` | `READY` at the next slot, `last_status = FAILED` |
 | Task raises anything else | `FAILED` with traceback (no automatic retries) | `READY` at the next slot, `last_status = FAILED` |
 | Unknown task name | `FAILED` (`dlux.taskrunner.UnknownTask`) | same, re-armed |
