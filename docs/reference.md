@@ -951,7 +951,7 @@ See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-featur
 | `DluxTask.using(priority=, queue_name=, run_after=, countdown=)` | A copy with other options, e.g. `.using(countdown=60).enqueue(...)`. |
 | `DluxTask.call(*args, **kwargs)` | Run it in this process, now. |
 | `enqueue(name, args=, kwargs=, priority=, run_after=, countdown=, queue_name=, sensitive=)` | Queue a task by name without importing its module. |
-| `Retry(delay)` | Raise in a task to run it again after `delay` seconds, up to `max_retries`. |
+| `Retry(delay, counts=True)` | Raise in a task to run it again after `delay` seconds, up to `max_retries`; `counts=False` waits without using that budget. |
 | `TaskContext` | First argument of a `takes_context` task: `attempt`, `retries`, `priority`, `run_id`. |
 | `crontab(minute=, hour=, day_of_week=, day_of_month=, month_of_year=)` | Cron schedule for `DLUX_TASK_SCHEDULE`, Celery's arguments, in `TIME_ZONE`. |
 | `worker_alive()` | Whether a `dlux_worker` heartbeat is fresh (one query). |
