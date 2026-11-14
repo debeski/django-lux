@@ -504,6 +504,10 @@ class SystemSettingsForm(
     # Extra Features. Not a model field: it lives in the dlux-owned top level of
     # `extra_config`, alongside the `app` namespace that projects own.
     scanlink_enabled = forms.BooleanField(required=False, initial=False)
+    scanlink_sites = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control glass-input', 'dir': 'ltr', 'rows': 3, 'spellcheck': 'false'}),
+    )
     entry_clipboard_enabled = forms.BooleanField(required=False, initial=False)
     # PDF tools: present only once a project calls dlux.pdf.register_pdf_options();
     # stored in the `dlux.pdf` app namespace that get_pdf_features() reads.
@@ -942,6 +946,27 @@ class SystemSettingsForm(
 
         return table_column_catalog(request=self.request)
 
+    def clean_scanlink_sites(self):
+        from ..system.normalizers import SCANLINK_MAX_SITES, normalize_scanlink_origin
+
+        s = get_strings()
+        sites = []
+        for line in str(self.cleaned_data.get('scanlink_sites') or '').splitlines():
+            value = line.strip()
+            if not value:
+                continue
+            origin = normalize_scanlink_origin(value)
+            if origin is None:
+                raise ValidationError(s.get(
+                    'form_sys_scanlink_sites_invalid',
+                    '"{value}" is not a website address such as https://crm.example.org.',
+                ).format(value=value[:80]))
+            if origin not in sites:
+                sites.append(origin)
+        if len(sites) > SCANLINK_MAX_SITES:
+            raise ValidationError(s.get('form_sys_scanlink_sites_too_many', 'List at most {count} websites.').format(count=SCANLINK_MAX_SITES))
+        return sites
+
     def clean_tables_config(self):
         from ..system.table_columns import normalize_tables_config
 
@@ -1048,6 +1073,11 @@ class SystemSettingsForm(
         self.initial.setdefault(
             'scanlink_enabled',
             bool(scanlink_config.get('enabled', False)) if isinstance(scanlink_config, dict) else False,
+        )
+        from ..system.normalizers import normalize_scanlink_sites
+        self.initial.setdefault(
+            'scanlink_sites',
+            '\n'.join(normalize_scanlink_sites(scanlink_config.get('sites'))) if isinstance(scanlink_config, dict) else '',
         )
         self.fields['allowed_fonts'].choices = get_font_choices()
         self._row_signature = _settings_row_signature(self.instance)
@@ -1563,6 +1593,8 @@ class SystemSettingsForm(
             self.fields['pdf_history_enabled'].label = s.get('pdf_option_history_enabled', 'Enable file history')
             self.fields['pdf_max_pages'].label = s.get('pdf_option_max_pages', 'Maximum editable pages')
             self.fields['pdf_max_source_mb'].label = s.get('pdf_option_max_source_mb', 'Maximum combined PDF size (MB)')
+        self.fields['scanlink_sites'].label = s.get('form_sys_scanlink_sites', 'Other websites that may use ScanLink')
+        self.fields['scanlink_sites'].help_text = s.get('help_sys_scanlink_sites', 'One address per line, such as https://crm.example.org. This site is always allowed. The first time an operator scans here, ScanLink asks them once to allow this site and these websites; later changes reach their ScanLink at the next scan.')
         self.fields['scanlink_enabled'].help_text = s.get('help_sys_scanlink_enabled', 'Adds a Scan button to file fields, driven by the ScanLink helper installed on each operator workstation. Leave this off where the helper is not installed: the browser logs a failed connection for every scan attempt.')
         self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
         self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically on the task worker\'s schedule.')
@@ -4830,6 +4862,8 @@ class SystemSettingsForm(
         if 'scanlink_enabled' in self.cleaned_data:
             scanlink = dict(extra_config.get('scanlink') or {}) if isinstance(extra_config.get('scanlink'), dict) else {}
             scanlink['enabled'] = bool(self.cleaned_data['scanlink_enabled'])
+            if 'scanlink_sites' in self.cleaned_data:
+                scanlink['sites'] = list(self.cleaned_data['scanlink_sites'] or [])
             extra_config['scanlink'] = scanlink
         if 'entry_clipboard_enabled' in self.cleaned_data:
             from ..system.normalizers import normalize_entry_clipboard_config

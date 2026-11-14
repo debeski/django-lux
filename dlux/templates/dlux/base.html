@@ -20,6 +20,7 @@
     {{ DLUX_THEME_NAMES|json_script:"dlux-theme-names" }}
     {{ config|json_script:"dlux-config-data" }}
     {{ font_families|json_script:"dlux-font-families" }}
+    {% if DLUX_SCANLINK_ENABLED %}{{ scanlink_sites|json_script:"dlux-scanlink-sites" }}{% endif %}
     <style id="dlux-dynamic-fonts" nonce="{{ request.csp_nonce }}">
         {{ font_face_css|safe }}
         :root {

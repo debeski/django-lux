@@ -906,6 +906,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
 | `dlux_settings()` | Apply the default DjangoLux settings requirements from a project `settings.py` via `dlux_settings(globals())`, including app stack, locale and activity middleware, context processor, Crispy defaults, `MESSAGE_TAGS`, and core language/format defaults |
 | `get_secret()` | Read a Docker secret file first, then fall back to an environment variable |
+| `scanlink_enabled()`, `scanlink_sites()` | Whether ScanLink is on, and the other websites the administrator lets use it (`extra_config['scanlink']`); see [ScanLink](scanlink.md#allowed-websites) |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |

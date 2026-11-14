@@ -119,6 +119,7 @@ from .settings import (
     get_project_version,
     get_secret,
     scanlink_enabled,
+    scanlink_sites,
 )
 from .discovery import (
     LazyModelClasses,
@@ -369,6 +370,7 @@ __all__ = [
     "get_app_system_config",
     "get_secret",
     "scanlink_enabled",
+    "scanlink_sites",
     "get_system_config",
     "get_user_linked_models",
     "get_user_management_tier_state",

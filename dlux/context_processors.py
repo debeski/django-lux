@@ -626,6 +626,8 @@ def dlux_context(request):
         import json as _json
         from .system.constants import SCANLINK_CONNECT_ORIGINS
         context['scanlink_connect_origins_json'] = _json.dumps(list(SCANLINK_CONNECT_ORIGINS))
+        from .utils import scanlink_sites
+        context['scanlink_sites'] = scanlink_sites()
 
     context['DLUX_SHOW_INITIAL_USER_SETUP'] = bool(
         profile_obj is not None

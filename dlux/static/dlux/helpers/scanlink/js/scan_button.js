@@ -28,7 +28,11 @@
             noPages: data.scanNoPages || strings.scan_no_pages_message || "The scanner returned no pages. Check that paper is loaded, then try again.",
             acquireFailed: data.scanAcquireFailed || strings.scan_acquire_failed_message || "The scanner stopped before the scan finished. Check the scanner and try again.",
             workerCrashed: data.scanWorkerCrashed || strings.scan_worker_crashed_message || "ScanLink's scanning process stopped unexpectedly. Try again; if it happens again, restart ScanLink.",
-            originNotAllowed: data.scanOriginNotAllowed || strings.scan_origin_not_allowed_message || "ScanLink on this computer does not accept scans from this site. Add this site's address to ScanLink's allowed sites.",
+            originNotAllowed: data.scanOriginNotAllowed || strings.scan_origin_not_allowed_message || "ScanLink on this computer has not allowed this site. Scan again and choose Allow in the ScanLink window.",
+            linking: data.scanLinking || strings.scan_linking_message || "Choose Allow in the ScanLink window on this computer to let this site scan.",
+            linkDeclined: data.scanLinkDeclined || strings.scan_link_declined_message || "ScanLink was not allowed to scan for this site. Wait a few minutes, scan again and choose Allow.",
+            linkTimeout: data.scanLinkTimeout || strings.scan_link_timeout_message || "Nobody answered the ScanLink window. Scan again and choose Allow.",
+            linkPending: data.scanLinkPending || strings.scan_link_pending_message || "ScanLink is waiting for an answer about another site. Answer its window, then scan again.",
             failed: data.scanFailed || "The scan could not be completed.",
         };
     }
@@ -63,6 +67,18 @@
                 return messages.workerCrashed;
             case "origin_not_allowed":
                 return messages.originNotAllowed;
+            case "link_declined":
+                return messages.linkDeclined;
+            case "link_timeout":
+                return messages.linkTimeout;
+            case "link_pending":
+                return messages.linkPending;
+            case "too_many_links":
+            case "origin_required":
+            case "invalid_payload":
+            case "invalid_sites":
+            case "invalid_site":
+            case "too_many_sites":
             case "payload_too_large":
             case "invalid_host":
             case "local_only":
@@ -90,6 +106,46 @@
             default:
                 return "";
         }
+    }
+
+    // Other websites the administrator lets use ScanLink (System Settings); this
+    // site is always included by ScanLink itself.
+    function adminSites() {
+        const element = typeof document !== "undefined" && document.getElementById
+            ? document.getElementById("dlux-scanlink-sites") : null;
+        try {
+            const sites = JSON.parse((element && element.textContent) || "[]");
+            return Array.isArray(sites) ? sites.filter((site) => typeof site === "string") : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function sameSites(linked, sites) {
+        const have = new Set(linked || []);
+        const want = new Set([window.location.origin].concat(sites));
+        return have.size === want.size && Array.from(want).every((site) => have.has(site));
+    }
+
+    // A healthy, linked ScanLink, or a rejection. An unlinked site asks ScanLink
+    // to link it, which opens ScanLink's approval window; a linked site whose
+    // administrator changed the list updates it without asking again.
+    async function linkedHealth(scanLink, messages, onProgress) {
+        let health = await scanLink.checkHealth(true);
+        const sites = adminSites();
+        if (!health && scanLink.connectionError && scanLink.connectionError.code === "origin_not_allowed") {
+            onProgress(messages.linking, { status: "linking" });
+            await scanLink.link(sites);
+            health = await scanLink.checkHealth(true);
+        } else if (health && health.link && health.link.linked && !sameSites(health.link.sites, sites)) {
+            try {
+                await scanLink.link(sites);
+            } catch (error) {
+                // The site stays linked with its previous list; scanning goes on.
+            }
+        }
+        if (!health) throw scanLink.connectionError || new window.ScanLinkError(messages.helperUnavailable, "helper_unavailable");
+        return health;
     }
 
     const listeners = new Map();
@@ -123,8 +179,7 @@
         try {
             const scanLink = client();
             onProgress(messages.preparing, { status: "queued" });
-            const health = await scanLink.checkHealth(true);
-            if (!health) throw scanLink.connectionError || new window.ScanLinkError(messages.helperUnavailable, "helper_unavailable");
+            const health = await linkedHealth(scanLink, messages, onProgress);
             if (health.twain_available === false) throw new window.ScanLinkError(messages.noScanners, "twain_unavailable");
             if (health.busy) throw new window.ScanLinkError(messages.busy, "busy");
 
@@ -146,7 +201,17 @@
         }
     }
 
-    window.DluxScan = { scan: scan, messagesFor: messagesFor, errorMessage: errorMessage, waitMs: SCAN_WAIT_MS };
+    // Links this site without scanning (the Options ScanLink card's Allow button).
+    async function link(options) {
+        const messages = (options && options.messages) || messagesFor(null);
+        try {
+            return await linkedHealth(client(), messages, (options && options.onProgress) || function () {});
+        } catch (error) {
+            throw new window.ScanLinkError(errorMessage(messages, error), (error && error.code) || "scan_failed");
+        }
+    }
+
+    window.DluxScan = { scan: scan, link: link, messagesFor: messagesFor, errorMessage: errorMessage, waitMs: SCAN_WAIT_MS };
 
     // File card Scan buttons (`.scan-btn[data-target]`), including ones inside
     // modals loaded after the page: the scanned PDF becomes the input's file.

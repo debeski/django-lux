@@ -11,8 +11,9 @@ const updatePath = path.join(root, 'dlux/static/dlux/system/js/scanlink_update.j
 let passed = 0;
 
 function runtime(file, fetch, secure = true, extra = {}) {
-    const window = { isSecureContext: secure, location: { protocol: 'https:' }, setTimeout, DLUX_STRINGS: {}, ...extra.window };
-    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, MutationObserver: class { observe() {} }, ...extra });
+    const { window: windowExtra, ...globals } = extra;
+    const window = { isSecureContext: secure, location: { protocol: 'https:' }, setTimeout, DLUX_STRINGS: {}, ...windowExtra };
+    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, MutationObserver: class { observe() {} }, ...globals });
     vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return context;
 }
@@ -145,6 +146,29 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
     assert.deepEqual(healthyPosts, ['http://localhost:5000/scan']);
     passed++;
+
+    // A refused website learns why, so the page can link instead of saying ScanLink is not running.
+    const refusal = { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed', message: 'This website is not linked to ScanLink.' } }) };
+    const linkBodies = [];
+    let linkAnswer = response({ linked: true, prompted: true, sites: ['https://archive.example', 'https://crm.example'] });
+    context = runtime(file, async (url, options) => {
+        if (url.endsWith('/link')) {
+            linkBodies.push([url, JSON.parse(options.body)]);
+            return linkAnswer;
+        }
+        if (url.startsWith('http:')) throw new TypeError('HTTP not used');
+        return refusal;
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    assert.equal(await client.checkHealth(true), null);
+    assert.equal(client.connectionError.code, 'origin_not_allowed');
+    assert.match(client.baseUrl, /^https:/);
+    await assert.rejects(client.startScan(), (error) => error.code === 'origin_not_allowed');
+    assert.equal((await client.link(['https://crm.example'])).prompted, true);
+    assert.deepEqual(linkBodies, [['https://localhost:5443/link', { sites: ['https://crm.example'] }]]);
+    linkAnswer = { ok: false, status: 403, json: async () => ({ error: { code: 'link_declined', message: 'declined' } }) };
+    await assert.rejects(client.link([]), (error) => error.code === 'link_declined');
+    passed++;
 }
 
 {
@@ -222,6 +246,63 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     passed++;
 }
 
+function linkingPage(adminSites, state) {
+    const document = {
+        querySelectorAll: () => [], addEventListener() {},
+        getElementById: (id) => (id === 'dlux-scanlink-sites' ? { textContent: JSON.stringify(adminSites) } : null),
+    };
+    const context = runtime(clientPath, async (url, options) => {
+        state.calls.push(`${options.method} ${url.replace(/^https:\/\/localhost:5443/, '')}`);
+        if (url.endsWith('/link')) {
+            state.linkBodies.push(JSON.parse(options.body));
+            if (state.declined) return { ok: false, status: 403, json: async () => ({ error: { code: 'link_declined', message: 'declined' } }) };
+            state.linked = ['https://archive.example', ...JSON.parse(options.body).sites];
+            return response({ linked: true, prompted: !state.wasLinked, sites: state.linked });
+        }
+        if (url.endsWith('/health')) {
+            if (!state.linked) return { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed', message: 'not linked' } }) };
+            return response({ status: 'ok', twain_available: true, busy: false, link: { linked: true, sites: state.linked } });
+        }
+        if (options.method === 'POST') return response({ job_id: 'linked-job', status: 'queued' });
+        return response({});
+    }, true, { document, window: { location: { protocol: 'https:', origin: 'https://archive.example', pathname: '/archive/1/' } } });
+    Object.assign(context.window.DLUX_STRINGS, { scan_linking_message: 'اختر السماح في نافذة ScanLink', scan_link_declined_message: 'لم يُسمح' });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    context.window.ScanLink.prototype.waitForResult = async () => 'pdf';
+    return context.window.DluxScan;
+}
+
+{
+    // First scan from an unlinked site links it with the administrator's list, then scans.
+    const state = { calls: [], linkBodies: [], linked: null };
+    const scan = linkingPage(['https://crm.example'], state);
+    const progress = [];
+    assert.equal(await scan.scan({ messages: scan.messagesFor(null), onProgress: (text) => progress.push(text) }), 'pdf');
+    assert.deepEqual(state.linkBodies, [{ sites: ['https://crm.example'] }]);
+    assert.ok(progress.includes('اختر السماح في نافذة ScanLink'));
+    assert.deepEqual(state.calls.filter((call) => call.startsWith('POST')), ['POST /link', 'POST /scan']);
+    passed++;
+
+    // The same list does not link again; a changed list is sent without stopping the scan.
+    state.calls.length = 0;
+    state.wasLinked = true;
+    assert.equal(await scan.scan({ messages: scan.messagesFor(null) }), 'pdf');
+    assert.deepEqual(state.calls.filter((call) => call.startsWith('POST')), ['POST /scan']);
+    passed++;
+    const changedState = { calls: [], linkBodies: [], linked: ['https://archive.example', 'https://crm.example'], wasLinked: true };
+    const resync = linkingPage(['https://sales.example'], changedState);
+    assert.equal(await resync.scan({ messages: resync.messagesFor(null) }), 'pdf');
+    assert.deepEqual(changedState.linkBodies, [{ sites: ['https://sales.example'] }]);
+    passed++;
+
+    // A declined link ends the scan with the translated reason and starts nothing.
+    const declinedState = { calls: [], linkBodies: [], linked: null, declined: true };
+    const declined = linkingPage([], declinedState);
+    await assert.rejects(declined.scan({ messages: declined.messagesFor(null) }), (error) => error.code === 'link_declined' && error.message === 'لم يُسمح');
+    assert.ok(!declinedState.calls.includes('POST /scan'));
+    passed++;
+}
+
 async function updateScenario(secure, health, failed = false, latest = '0.7.5') {
     const calls = [];
     const nodes = new Map();
@@ -266,6 +347,35 @@ for (const [installed, latest, expected] of [
 ]) {
     result = await updateScenario(true, { version: installed, https_setup: 'ready' }, false, latest);
     assert.equal(result.nodes.get('[data-scanlink-status]').textContent, expected);
+    passed++;
+}
+{
+    const nodes = new Map();
+    for (const name of ['connection', 'local-version', 'latest-version', 'status', 'actions', 'notice']) {
+        nodes.set(`[data-scanlink-${name}]`, { textContent: '', hidden: true, children: [], replaceChildren() { this.children = []; }, appendChild(node) { this.children.push(node); } });
+    }
+    const card = {
+        dataset: { origins: JSON.stringify(['https://localhost:5443']), manifestUrl: '/manifest' },
+        querySelector: (selector) => nodes.get(selector), isConnected: true,
+    };
+    let linked = false;
+    const clicks = [];
+    const document = {
+        readyState: 'complete', querySelectorAll: () => [card],
+        createElement: () => ({ setAttribute() {}, addEventListener(type, handler) { clicks.push(handler); } }),
+    };
+    const DluxScan = { messagesFor: () => ({ linking: 'Choose Allow' }), link: async () => { linked = true; } };
+    runtime(updatePath, async (url) => {
+        if (url === '/manifest') return response({ latest_version: '0.8.0', downloads: { x64: '/installer' } });
+        if (!linked) return { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed' } }) };
+        return response({ version: '0.8.0', https_setup: 'ready' });
+    }, true, { document, window: { DluxScan } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(nodes.get('[data-scanlink-connection]').textContent, 'Not allowed here');
+    assert.match(nodes.get('[data-scanlink-status]').textContent, /has not allowed this site/);
+    assert.equal(nodes.get('[data-scanlink-actions]').children.length, 1);
+    await clicks[0]();
+    assert.equal(nodes.get('[data-scanlink-connection]').textContent, 'Connected');
     passed++;
 }
 console.log(JSON.stringify({ passed }));

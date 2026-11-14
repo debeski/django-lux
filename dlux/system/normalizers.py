@@ -648,12 +648,52 @@ def normalize_entry_clipboard_config(value):
     return config
 
 
+# ScanLink caps one link at 20 sites, this site included.
+SCANLINK_MAX_SITES = 19
+
+
+def normalize_scanlink_origin(value):
+    """``scheme://host[:port]`` for an http(s) website origin, as browsers send it and
+    ScanLink compares it; None for anything else (wildcards, paths, credentials)."""
+    if not isinstance(value, str) or not value or len(value) > 255:
+        return None
+    try:
+        parts = urlsplit(value.strip())
+        port = parts.port
+    except ValueError:
+        return None
+    if parts.scheme not in ('http', 'https') or not parts.hostname:
+        return None
+    if parts.username or parts.password or parts.query or parts.fragment or parts.path not in ('', '/'):
+        return None
+    host = parts.hostname.lower()
+    if '*' in host or any(ch.isspace() for ch in host):
+        return None
+    if ':' in host:
+        host = f'[{host}]'
+    default_port = 443 if parts.scheme == 'https' else 80
+    return f'{parts.scheme}://{host}' + (f':{port}' if port and port != default_port else '')
+
+
+def normalize_scanlink_sites(values):
+    sites = []
+    for value in values if isinstance(values, (list, tuple)) else ():
+        origin = normalize_scanlink_origin(value)
+        if origin and origin not in sites:
+            sites.append(origin)
+    return sites[:SCANLINK_MAX_SITES]
+
+
 def normalize_extra_config(value):
     """Normalize framework extras when present; preserve opaque project namespaces."""
     from .weather import normalize_weather_config
     result = dict(value) if isinstance(value, dict) else {}
     if isinstance(result.get('scanlink'), dict):
-        result['scanlink'] = {**result['scanlink'], 'enabled': _to_bool(result['scanlink'].get('enabled'))}
+        result['scanlink'] = {
+            **result['scanlink'],
+            'enabled': _to_bool(result['scanlink'].get('enabled')),
+            'sites': normalize_scanlink_sites(result['scanlink'].get('sites')),
+        }
     if 'entry_clipboard' in result:
         result['entry_clipboard'] = normalize_entry_clipboard_config(result['entry_clipboard'])
     if 'weather' in result:
