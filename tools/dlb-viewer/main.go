@@ -131,21 +131,7 @@ func main() {
 	addr := ln.Addr().(*net.TCPAddr)
 	url := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", addr.Port, app.token)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.handleIndex)
-	staticSub, _ := fs.Sub(webFS, "web")
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
-	mux.HandleFunc("/api/state", app.guard(app.handleState))
-	mux.HandleFunc("/api/open-path", app.guard(app.handleOpenPath))
-	mux.HandleFunc("/api/open-upload", app.guard(app.handleOpenUpload))
-	mux.HandleFunc("/api/unlock", app.guard(app.handleUnlock))
-	mux.HandleFunc("/api/manifest", app.guard(app.handleManifest))
-	mux.HandleFunc("/api/model", app.guard(app.handleModel))
-	mux.HandleFunc("/api/labels", app.guard(app.handleLabels))
-	mux.HandleFunc("/api/file", app.guard(app.handleFile))
-	mux.HandleFunc("/api/deleted", app.guard(app.handleDeleted))
-
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: app.routes()}
 
 	// Clean up temp files on Ctrl-C.
 	sig := make(chan os.Signal, 1)
@@ -168,6 +154,39 @@ func main() {
 }
 
 // ── HTTP plumbing ────────────────────────────────────────────────────────────
+
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", a.handleIndex)
+	staticSub, _ := fs.Sub(webFS, "web")
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	mux.HandleFunc("/api/state", a.guard(a.handleState))
+	mux.HandleFunc("/api/open-path", a.guard(a.handleOpenPath))
+	mux.HandleFunc("/api/open-upload", a.guard(a.handleOpenUpload))
+	mux.HandleFunc("/api/unlock", a.guard(a.handleUnlock))
+	mux.HandleFunc("/api/manifest", a.guard(a.handleManifest))
+	mux.HandleFunc("/api/model", a.guard(a.handleModel))
+	mux.HandleFunc("/api/labels", a.guard(a.handleLabels))
+	mux.HandleFunc("/api/file", a.guard(a.handleFile))
+	mux.HandleFunc("/api/deleted", a.guard(a.handleDeleted))
+	return securityHeaders(mux)
+}
+
+// pageCSP allows only the viewer's own script, style and API calls.
+const pageCSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
+	"img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+// securityHeaders keeps decrypted responses out of the browser's disk cache,
+// and disables content sniffing and referrers (the URL carries the token).
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Cache-Control", "no-store")
+		h.Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
 
 // guard restricts API calls to local requests carrying the session token,
 // mitigating DNS-rebinding / drive-by access from other local processes.
@@ -207,6 +226,8 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	out := strings.ReplaceAll(string(raw), "__DLB_TOKEN__", a.token)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", pageCSP)
+	w.Header().Set("X-Frame-Options", "DENY")
 	_, _ = io.WriteString(w, out)
 }
 
