@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Restore Checks Chain Headers Against The Encrypted Manifest (security)**: Restore found chain members by their cleartext headers alone. An increment whose header was edited to look like a full backup was restored as one, emptying every model it held no rows for; a member could also be hung on another chain. `verify_chain_members()` in `dlux.backup.chain` now refuses a header that disagrees with its encrypted manifest, before any data is replaced.
 - **DLB Viewer Page Requires Its Token**: `tools/dlb-viewer` served `/`, which embeds the API token, to any request, so another local user or process could read the token and then the decrypted backup. The page now needs the `?token=` URL the viewer prints and a local `Host`; anything else gets `403`.
 - **DLB Viewer Bounds Frame Lengths**: A corrupt or hostile `.dlb` frame length made the viewer allocate whatever it claimed (gigabytes, or a `makeslice` panic that left decrypted temp files behind). Frames over 64 MiB are now refused as corruption, and a damaged frame after the first no longer reports a wrong password.
 - **DLB Viewer Caps PBKDF2 Iterations**: A `.dlb` header asking for more than 10,000,000 PBKDF2 iterations (DjangoLux writes 390,000) is refused instead of keeping unlock busy for hours. A failed unlock of a backup with an encryption scheme or KDF the viewer does not know now names it.

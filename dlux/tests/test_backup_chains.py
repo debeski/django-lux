@@ -227,6 +227,57 @@ class ChainRestoreTests(ChainTestCase):
         self.assertEqual(restore.status, 'failed')
         self.assertIn('chain', restore.error.lower())
 
+    def _rewrite_header(self, path, mutate):
+        """Edit a member's cleartext header the way anyone with write access to the folder could."""
+        import struct
+
+        from dlux.backup import DLB_MAGIC
+
+        with default_storage.open(path, 'rb') as fh:
+            data = fh.read()
+        (length,) = struct.unpack('>I', data[len(DLB_MAGIC):len(DLB_MAGIC) + 4])
+        start = len(DLB_MAGIC) + 4
+        header = json.loads(data[start:start + length].decode('utf-8'))
+        mutate(header)
+        payload = json.dumps(header).encode('utf-8')
+        default_storage.delete(path)
+        default_storage.save(path, io.BytesIO(DLB_MAGIC + struct.pack('>I', len(payload)) + payload + data[start + length:]))
+
+    def test_an_increment_whose_header_claims_to_be_a_full_backup_is_refused(self):
+        # Restored as a full backup, an increment would empty every model it holds no rows for.
+        alice = User.objects.create_user('alice', password='x')
+        self._full()
+        alice.first_name = 'A'
+        alice.save()
+        inc = self._increment()
+
+        def as_full(header):
+            header['kind'] = 'dlux-system-backup'
+            header.pop('chain', None)
+
+        self._rewrite_header(inc.file_path, as_full)
+        User.objects.create_user('kept', password='x')
+        restore = self._restore(inc)
+        self.assertEqual(restore.status, 'failed')
+        self.assertIn('altered', restore.error)
+        self.assertTrue(User.objects.filter(username='kept').exists())
+
+    def test_a_member_spliced_onto_another_chain_is_refused(self):
+        alice = User.objects.create_user('alice', password='x')
+        self._full()
+        alice.first_name = 'A'
+        alice.save()
+        inc_a = self._increment()
+        other = self._full()
+
+        def onto_other(header):
+            header['chain'].update(id=other.chain_id, parent_root=other.index_root)
+
+        self._rewrite_header(inc_a.file_path, onto_other)
+        restore = self._restore(inc_a)
+        self.assertEqual(restore.status, 'failed')
+        self.assertIn('altered', restore.error)
+
     def test_passphrase_chain_keeps_one_passphrase(self):
         User.objects.create_user('alice', password='x')
         base = self.SystemBackup.objects.create(
