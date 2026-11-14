@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from ._shared import _dlux_version, _log_system_action, get_current_migration_state, logger
 from .config import _is_user_model, get_system_backup_models
-from .chain import resolve_chain_paths
+from .chain import resolve_chain_paths, verify_chain_members
 from .crypto import decrypt_dlb_to_tempfile, read_dlb_metadata
 from .reporters import _format_count
 
@@ -335,6 +335,34 @@ def _restore_files(zf, manifest, reporter=None, *, span=(70, 92)):
     return restored, failed
 
 
+def fail_lost_system_restore(restore_pk):
+    """Fail a restore whose task-worker run was lost with its worker. Returns whether a row was failed.
+
+    The data load is one transaction, so a worker that died inside it changed
+    nothing; one that died while copying files may have restored some of them.
+    """
+    SystemRestore = apps.get_model("dlux", "SystemRestore")
+    restore = SystemRestore.objects.filter(
+        pk=restore_pk, status__in=(SystemRestore.STATUS_PENDING, SystemRestore.STATUS_RUNNING),
+    ).first()
+    if restore is None:
+        return False
+    from ..translations import get_strings
+    from ..utils.backup_progress import finish_restore_progress
+
+    restore.error = get_strings().get(
+        "sysrestore_worker_lost_error",
+        "The task worker stopped during this restore at {percent}%. Check the data before relying on it, "
+        "and run the restore again if it is incomplete.",
+    ).format(percent=restore.progress_percent)[:1000]
+    restore.status = SystemRestore.STATUS_FAILED
+    restore.completed_at = timezone.now()
+    restore.save(update_fields=["status", "completed_at", "error"])
+    logger.warning("System restore pk=%s was lost with its task worker at %s%%.", restore.pk, restore.progress_percent)
+    finish_restore_progress(restore, success=False, error=restore.error)
+    return True
+
+
 def run_system_restore(restore_pk, passphrase=None):
     """Task-or-inline runner that fully replaces system data from an .dlb file."""
     SystemRestore = apps.get_model("dlux", "SystemRestore")
@@ -380,7 +408,7 @@ def run_system_restore(restore_pk, passphrase=None):
                 message = f"{decrypt_label} {filesizeformat(consumed)}"
             reporter.tick(percent, message, stage=SystemRestore.STAGE_DECRYPTING)
 
-        temps, archives = [], []
+        temps, archives, headers = [], [], []
         try:
             for path, size in zip(member_paths, sizes):
                 with default_storage.open(path, "rb") as fh:
@@ -388,6 +416,7 @@ def run_system_restore(restore_pk, passphrase=None):
                         fh, passphrase=passphrase, on_chunk=_on_decrypt,
                     )
                 temps.append(zip_tmp)
+                headers.append(metadata)
                 archives.append(zipfile.ZipFile(zip_tmp))
                 done_before[0] += size
             reporter.checkpoint(
@@ -396,6 +425,7 @@ def run_system_restore(restore_pk, passphrase=None):
                 stage=SystemRestore.STAGE_READING,
             )
             manifests = [json.loads(zf.read("manifest.json")) for zf in archives]
+            verify_chain_members(headers, manifests)
             base_manifest = manifests[0]
             migration_report = build_migration_report(base_manifest)
             report = {"metadata": target_meta, "migrations": migration_report, "chain_members": len(archives)}

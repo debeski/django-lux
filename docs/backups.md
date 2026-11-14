@@ -16,6 +16,8 @@ setup wizard (step 18 of 19) and the same group in System Settings. It is stored
 A backup is a snapshot of every concrete, managed model in the project. Rows are
 written as Django JSON fixtures with natural foreign keys, in dependency order
 (foreign-key and many-to-many targets before the rows that point at them).
+Datetimes and times keep their full microsecond precision, so a restore brings
+back exactly the values that were backed up.
 
 These are never included:
 
@@ -244,6 +246,12 @@ The reaper runs from:
 
 A restarted worker therefore retires exactly the backups it abandoned: a run in a
 sibling worker heartbeats every few seconds and never falls inside the window.
+
+A backup or restore whose `dlux_worker` dies is failed sooner, as soon as the task
+runner declares that worker lost (about one minute, `stale_after`): the task's
+`on_lost` hook fails the row with "The task worker stopped …" and the backup
+follows the same retry rules as a stalled one. The stall timeout still covers
+backups built outside the worker, such as `dlux_backup` from the command line.
 Retries started from the web tier go to a worker or wait. The page never builds a
 backup inside a status request.
 
@@ -313,7 +321,11 @@ proxy's body limit applies first. See
 A restore runs on the task worker when one is running, otherwise inline. It:
 
 1. Reads and decrypts the file and, for an increment, every earlier member of its
-   chain.
+   chain. Members are found by their cleartext headers, which the encryption does
+   not cover, so each header's chain identity (chain id, position, index root and
+   parent) must match the encrypted manifest inside it, and each member must follow
+   the one before. A header edited to make an increment pass as a full backup, or to
+   hang a member on another chain, fails the restore before any data is replaced.
 2. Compares the backup's applied migrations with this system's. A mismatch fails
    the restore unless **Ignore version mismatch** was chosen. A chain whose members
    span a schema change is always refused.
@@ -323,6 +335,11 @@ A restore runs on the task worker when one is running, otherwise inline. It:
    verified before commit.
 4. Restores the media files, replacing any stored file of the same name.
 5. Clears the cache.
+
+If the task worker dies during a restore, the restore is marked failed as soon as
+the worker is declared lost. A worker that died during step 3 changed no data; one
+that died during step 4 may have restored some files, so check them and run the
+restore again.
 
 A portable backup replaces only the tables it carries and keeps this system's
 settings, logs and notifications. A kept row that points at a user the backup does
