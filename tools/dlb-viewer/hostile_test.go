@@ -205,3 +205,39 @@ func TestCorruptFrameAfterTheFirstIsNotAWrongPassword(t *testing.T) {
 		t.Fatalf("corruption past the first frame: %d %s", code, body)
 	}
 }
+
+// A scheme or KDF the viewer does not know is still tried as Fernet + PBKDF2,
+// as DjangoLux's reader does, but the failure names it; a hostile iteration
+// count used to keep unlock busy for hours.
+func TestUnknownEncryptionParametersAreNamed(t *testing.T) {
+	salt := "00ff"
+	for _, tc := range []struct {
+		enc  map[string]any
+		code int
+		want string
+	}{
+		{map[string]any{"scheme": "aes-256-gcm", "kdf": "pbkdf2-sha256", "salt": salt, "iterations": 1}, 401, `scheme \"aes-256-gcm\"`},
+		{map[string]any{"scheme": "fernet-chunked", "kdf": "argon2id", "salt": salt, "iterations": 1}, 401, `derivation \"argon2id\"`},
+		{map[string]any{"scheme": "fernet-chunked", "kdf": "pbkdf2-sha256", "salt": salt, "iterations": maxKDFIterations + 1}, 400, "over the viewer's"},
+		{map[string]any{"scheme": "fernet-chunked", "kdf": "pbkdf2-sha256", "salt": salt, "iterations": 1 << 40}, 400, "over the viewer's"},
+	} {
+		header := dlbHeader(map[string]any{"kind": "dlux-system-backup", "format": 1, "encryption": tc.enc})
+		code, body, app := tryUnlock(t, writeTemp(t, t.TempDir(), "x.dlb", append(header, make([]byte, 64)...)), testPassword)
+		app.reset()
+		if code != tc.code || !strings.Contains(body, tc.want) {
+			t.Fatalf("%v: %d %s", tc.enc, code, body)
+		}
+	}
+	for _, enc := range []Encryption{
+		{Scheme: "fernet", KDF: "pbkdf2-sha256", Salt: salt, Iterations: 1},
+		{Scheme: "fernet-chunked", KDF: "pbkdf2-sha256", Salt: salt}, // the 390,000 default
+		{KDF: "sha256-salt-seed", Salt: salt},
+	} {
+		if unknownEncryption(enc) != "" {
+			t.Fatalf("%+v reported as unknown", enc)
+		}
+		if _, err := deriveKey(enc, "x"); err != nil {
+			t.Fatalf("%+v refused: %v", enc, err)
+		}
+	}
+}

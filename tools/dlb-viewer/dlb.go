@@ -43,7 +43,10 @@ import (
 const (
 	dlbMagic             = "DLB1"
 	defaultKDFIterations = 390000
-	maxMetadataLen       = 10 * 1024 * 1024
+	// About a second of PBKDF2 per member, 25 times the format default; a
+	// larger count in a hostile header would keep unlock busy for hours.
+	maxKDFIterations = 10_000_000
+	maxMetadataLen   = 10 * 1024 * 1024
 	// DjangoLux encrypts at most 32 MiB of plaintext per frame, about 44.7 MiB
 	// as a Fernet token; a longer claimed length is corruption, not a frame.
 	maxFrameLen        = 64 << 20
@@ -141,7 +144,23 @@ func deriveKey(enc Encryption, password string) ([]byte, error) {
 	if iterations <= 0 {
 		iterations = defaultKDFIterations
 	}
+	if iterations > maxKDFIterations {
+		return nil, fmt.Errorf("unsupported key derivation: %d iterations is over the viewer's %d limit", iterations, maxKDFIterations)
+	}
 	return pbkdf2SHA256([]byte(password), salt, iterations, 32), nil
+}
+
+// unknownEncryption names encryption parameters this viewer does not know.
+// Like DjangoLux's reader it still tries Fernet with PBKDF2 on them, but a
+// failure may then mean a newer format rather than a wrong password.
+func unknownEncryption(enc Encryption) string {
+	switch {
+	case enc.Scheme != "" && enc.Scheme != "fernet-chunked" && enc.Scheme != "fernet":
+		return fmt.Sprintf("encryption scheme %q", enc.Scheme)
+	case enc.KDF != "" && enc.KDF != "pbkdf2-sha256" && enc.KDF != "sha256-salt-seed":
+		return fmt.Sprintf("key derivation %q", enc.KDF)
+	}
+	return ""
 }
 
 // decryptToFile reads every encrypted frame from r and writes the recovered

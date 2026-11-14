@@ -322,7 +322,7 @@ func (a *App) handleUnlock(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cleanup()
 			if errors.Is(err, ErrBadPassword) {
-				writeErr(w, http.StatusUnauthorized, ErrBadPassword.Error())
+				writeErr(w, http.StatusUnauthorized, err.Error())
 				return
 			}
 			if len(members) > 1 {
@@ -413,6 +413,9 @@ func decryptMember(member, password string) (string, error) {
 		var key []byte
 		if key, err = deriveKey(meta.Encryption, password); err == nil {
 			err = decryptToFile(src, key, zf)
+		}
+		if unknown := unknownEncryption(meta.Encryption); unknown != "" && errors.Is(err, ErrBadPassword) {
+			err = fmt.Errorf("%w; the backup uses %s, which this viewer does not know", err, unknown)
 		}
 	}
 	zf.Close()
