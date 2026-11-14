@@ -51,8 +51,8 @@ class FakeResponse:
         return False
 
 
-def http_error(code, message):
-    return HTTPError('http://ocr:8080/v1/ocr', code, 'error', {}, BytesIO(json.dumps({'error': message}).encode()))
+def http_error(code, message, headers=None):
+    return HTTPError('http://ocr:8080/v1/ocr', code, 'error', headers or {}, BytesIO(json.dumps({'error': message}).encode()))
 
 
 def configure(**values):
@@ -234,6 +234,32 @@ class RunTests(OCRTestCase):
             service.run(row.pk)
         row.refresh_from_db()
         self.assertEqual((row.status, row.error), ('failed', 'cannot open the PDF'))
+
+    def test_a_busy_engine_is_told_apart_from_an_outage(self):
+        from dlux.ocr.client import OCRBusy, call_service
+
+        busy = (http_error(503, 'The OCR engine is busy.', {'Retry-After': '30'}),
+                http_error(429, 'slow down', {'Retry-After': '12'}))
+        for error in busy:
+            with patch('dlux.ocr.client._opener.open', side_effect=error), self.assertRaises(OCRBusy) as caught:
+                call_service(b'%PDF')
+            self.assertIsInstance(caught.exception, ocr.client.OCRUnavailable)
+        self.assertEqual(caught.exception.retry_after, 12)
+        for error in (http_error(503, 'down'), http_error(502, 'bad gateway'), URLError(ConnectionRefusedError())):
+            with patch('dlux.ocr.client._opener.open', side_effect=error), \
+                    self.assertRaises(ocr.client.OCRUnavailable) as caught:
+                call_service(b'%PDF')
+            self.assertNotIsInstance(caught.exception, OCRBusy)
+
+    def test_a_busy_engine_does_not_count_as_an_attempt_on_the_file(self):
+        row = self.rows(self.paper()).get()
+        busy = http_error(503, 'The OCR engine is busy.', {'Retry-After': '30'})
+        for _ in range(3):
+            with patch('dlux.ocr.client._opener.open', side_effect=busy), \
+                    self.assertRaises(ocr.client.OCRBusy):
+                service.run(row.pk)
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.attempts), ('pending', 0))
 
     def test_changed_or_deleted_file_is_skipped_without_calling_the_service(self):
         paper = self.paper()

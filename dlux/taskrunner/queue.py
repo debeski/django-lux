@@ -194,7 +194,8 @@ def complete_run(run, *, return_value=None, error=None, next_due=None, now=None)
     return _fenced(run).update(**updates) == 1
 
 
-def retry_run(run, delay, *, error=None, now=None):
+def retry_run(run, delay, *, error=None, now=None, counted=True):
+    """Put a run back to READY after ``delay``; an uncounted retry gives back the claim's attempt."""
     now = now or timezone.now()
     updates = {
         "status": READY,
@@ -202,6 +203,8 @@ def retry_run(run, delay, *, error=None, now=None):
         "run_after": now + timedelta(seconds=max(0, int(delay))),
         "last_status": FAILED,
     }
+    if not counted:
+        updates["attempts"] = F("attempts") - 1
     if error is not None:
         updates["errors"] = _with_error(run.errors, error)
     return _fenced(run).update(**updates) == 1

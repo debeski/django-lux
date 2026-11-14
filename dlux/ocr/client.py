@@ -27,6 +27,23 @@ class OCRUnavailable(Exception):
     """The service is off, unreachable or busy; the same request may succeed later."""
 
 
+class OCRBusy(OCRUnavailable):
+    """The engine is up but reading another file: it answered 429, or 503 with ``Retry-After``."""
+
+    def __init__(self, message, retry_after=30):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def _retry_after(headers):
+    """The ``Retry-After`` seconds the service sent (1 to 300), or None when it sent none."""
+    value = (headers.get('Retry-After') if headers is not None else None) or ''
+    try:
+        return min(max(int(str(value).strip()), 1), 300)
+    except ValueError:
+        return None
+
+
 class OCRRejected(Exception):
     """The service read the request and refused the file; retrying the same file will not help."""
 
@@ -72,7 +89,10 @@ def call_service(content, mode=None):
     except HTTPError as exc:
         payload = _json(exc.read())
         message = payload.get('error') or f'OCR service returned {exc.code}'
-        if exc.code in (429, 502, 503, 504):
+        wait = _retry_after(exc.headers)
+        if exc.code == 429 or (exc.code == 503 and wait is not None):
+            raise OCRBusy(message, retry_after=wait or 30) from exc
+        if exc.code in (502, 503, 504):
             raise OCRUnavailable(message) from exc
         raise OCRRejected(message) from exc
     except (URLError, socket.timeout, ConnectionError) as exc:

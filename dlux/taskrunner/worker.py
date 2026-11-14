@@ -248,10 +248,11 @@ class Worker:
             value = self._invoke(definition, run, args, kwargs)
         except Retry as exc:
             limit = getattr(definition, "max_retries", None)
-            if limit is not None and run.attempts > limit:
+            if exc.counts and limit is not None and run.attempts > limit:
                 self._record(run, entry, error=queue.error_entry(exc))
             else:
-                queue.retry_run(run, exc.delay, error=queue.error_entry(exc.__cause__ or exc))
+                queue.retry_run(run, exc.delay, error=queue.error_entry(exc.__cause__ or exc),
+                                counted=exc.counts)
             return
         except Exception as exc:
             logger.exception("Task %s (run %s) failed.", run.task_name, run.pk)
