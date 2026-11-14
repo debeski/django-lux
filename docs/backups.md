@@ -313,7 +313,11 @@ proxy's body limit applies first. See
 A restore runs on the task worker when one is running, otherwise inline. It:
 
 1. Reads and decrypts the file and, for an increment, every earlier member of its
-   chain.
+   chain. Members are found by their cleartext headers, which the encryption does
+   not cover, so each header's chain identity (chain id, position, index root and
+   parent) must match the encrypted manifest inside it, and each member must follow
+   the one before. A header edited to make an increment pass as a full backup, or to
+   hang a member on another chain, fails the restore before any data is replaced.
 2. Compares the backup's applied migrations with this system's. A mismatch fails
    the restore unless **Ignore version mismatch** was chosen. A chain whose members
    span a schema change is always refused.

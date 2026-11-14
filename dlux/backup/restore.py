@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from ._shared import _dlux_version, _log_system_action, get_current_migration_state, logger
 from .config import _is_user_model, get_system_backup_models
-from .chain import resolve_chain_paths
+from .chain import resolve_chain_paths, verify_chain_members
 from .crypto import decrypt_dlb_to_tempfile, read_dlb_metadata
 from .reporters import _format_count
 
@@ -380,7 +380,7 @@ def run_system_restore(restore_pk, passphrase=None):
                 message = f"{decrypt_label} {filesizeformat(consumed)}"
             reporter.tick(percent, message, stage=SystemRestore.STAGE_DECRYPTING)
 
-        temps, archives = [], []
+        temps, archives, headers = [], [], []
         try:
             for path, size in zip(member_paths, sizes):
                 with default_storage.open(path, "rb") as fh:
@@ -388,6 +388,7 @@ def run_system_restore(restore_pk, passphrase=None):
                         fh, passphrase=passphrase, on_chunk=_on_decrypt,
                     )
                 temps.append(zip_tmp)
+                headers.append(metadata)
                 archives.append(zipfile.ZipFile(zip_tmp))
                 done_before[0] += size
             reporter.checkpoint(
@@ -396,6 +397,7 @@ def run_system_restore(restore_pk, passphrase=None):
                 stage=SystemRestore.STAGE_READING,
             )
             manifests = [json.loads(zf.read("manifest.json")) for zf in archives]
+            verify_chain_members(headers, manifests)
             base_manifest = manifests[0]
             migration_report = build_migration_report(base_manifest)
             report = {"metadata": target_meta, "migrations": migration_report, "chain_members": len(archives)}
