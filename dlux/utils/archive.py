@@ -10,6 +10,7 @@ a record folder is named. The reports archive passes its config-driven resolver;
 the system backup passes nothing and gets flat pk folders.
 """
 
+import datetime
 import io
 import json
 import re
@@ -17,10 +18,26 @@ import shutil
 import unicodedata
 
 from django.core.files.storage import default_storage
-from django.core.serializers.json import Serializer as JsonSerializer
+from django.core.serializers.json import DjangoJSONEncoder, Serializer as JsonSerializer
 from django.db import models
+from django.utils.timezone import is_aware
 
 from .common import _iter_queryset_by_pk
+
+
+class _ExactJSONEncoder(DjangoJSONEncoder):
+    """``DjangoJSONEncoder`` without its millisecond rounding: a backup keeps every microsecond."""
+
+    def default(self, o):
+        if isinstance(o, datetime.datetime):
+            text = o.isoformat()
+            return text.removesuffix("+00:00") + "Z" if text.endswith("+00:00") else text
+        if isinstance(o, datetime.time):
+            if is_aware(o):
+                raise ValueError("JSON can't represent timezone-aware times.")
+            return o.isoformat()
+        return super().default(o)
+
 
 class _CursorlessJSONSerializer(JsonSerializer):
     """Backup serializer variant that avoids QuerySet.iterator() entirely.
@@ -38,6 +55,10 @@ class _CursorlessJSONSerializer(JsonSerializer):
     # keep only the ones that changed.
     row_observer = None
     _written = False
+
+    def _init_options(self):
+        super()._init_options()
+        self.json_kwargs["cls"] = _ExactJSONEncoder
 
     def end_object(self, obj):
         if self.row_observer is None:

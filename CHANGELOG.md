@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Backups Keep Timestamps To The Microsecond**: Backups were written with `DjangoJSONEncoder`, which rounds datetimes and times to milliseconds, so every restore shifted timestamps (stress run: `2026-10-30 15:52:34.319663` came back as `.319`, and fields 22 µs apart became equal). The backup serializer in `dlux.utils.archive` now writes full ISO precision. The first incremental backup after upgrading includes every row once, because every row's digest changes.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.
