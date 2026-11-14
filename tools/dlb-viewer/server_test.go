@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,5 +62,25 @@ func TestResponsesCarrySecurityHeaders(t *testing.T) {
 		if !strings.Contains(csp, want) {
 			t.Fatalf("page CSP %q lacks %q", csp, want)
 		}
+	}
+}
+
+// An uploaded backup is buffered in a temp file; the page names the file the
+// user picked, not the temp file.
+func TestUploadShowsTheUploadedFileName(t *testing.T) {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	part, _ := mw.CreateFormFile("file", "نسخة احتياطية.dlb")
+	part.Write(encryptedDLB(testPassword, 1, 64, sampleZip(t), nil))
+	mw.Close()
+	app := &App{token: "t"}
+	defer app.reset()
+	req := httptest.NewRequest(http.MethodPost, "/api/open-upload", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	rec := httptest.NewRecorder()
+	app.handleOpenUpload(rec, req)
+	var state struct{ Source string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &state); err != nil || state.Source != "نسخة احتياطية.dlb" {
+		t.Fatalf("%d source %q (%v)", rec.Code, state.Source, err)
 	}
 }

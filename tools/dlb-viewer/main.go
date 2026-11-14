@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -94,6 +95,7 @@ type App struct {
 	mu        sync.Mutex
 	srcPath   string // path to the .dlb on disk
 	srcIsTemp bool   // true when the source was uploaded into a temp file
+	srcName   string // the name shown for the source: the opened or uploaded file
 	meta      *Metadata
 
 	// members are the .dlb paths to unlock, base -> opened member; a single
@@ -253,7 +255,7 @@ func (a *App) handleState(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.meta != nil {
 		resp["meta"] = a.meta
-		resp["source"] = path.Base(a.srcPath)
+		resp["source"] = a.srcName
 		resp["chain"] = map[string]any{
 			"mode":     a.chainMode,
 			"sequence": seqOf(a.meta),
@@ -791,12 +793,12 @@ func (a *App) adoptSource(p string, isTemp bool, displayName string) error {
 	a.resetLocked()
 	a.srcPath = p
 	a.srcIsTemp = isTemp
+	a.srcName = filepath.Base(displayName)
 	a.meta = meta
 	a.members = members
 	a.chainTemps = temps
 	a.chainMode = mode
 	a.chainNote = note
-	_ = displayName
 	return nil
 }
 
@@ -847,6 +849,7 @@ func (a *App) resetLocked() {
 	}
 	a.srcPath = ""
 	a.srcIsTemp = false
+	a.srcName = ""
 	a.meta = nil
 	a.members = nil
 	a.chainTemps = nil

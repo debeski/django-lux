@@ -16,6 +16,7 @@ This file owns the release history for `django-lux`.
 - **DLB Viewer Keeps Large Primary Keys Exact**: Merging an incremental chain read integer primary keys as floating point, so keys above 2^53 collided and rows vanished from the merged view, and their `deleted/` entries never matched. Keys now keep every digit, as DjangoLux writes them.
 - **DLB Viewer Merges File-Heavy Chains Faster**: Opening an incremental chain looked up every stored file by scanning its member's whole archive, so merge time grew with the square of the file count (2.8 s at 40,000 files). Files are now found by name: 0.5 s.
 - **DLB Viewer Response Hardening**: Every viewer response now carries `Cache-Control: no-store`, so decrypted records and files no longer land in the browser's disk cache, plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The page also gets a strict `Content-Security-Policy` and `X-Frame-Options: DENY`.
+- **DLB Viewer Names Uploaded Backups**: A backup dropped into the viewer showed its temporary buffer name (`dlbview-src-….dlb`) in the top bar instead of the file the user picked.
 
 ## v1.16.0b2
 
