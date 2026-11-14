@@ -2180,6 +2180,8 @@ STRINGS = {
     'sysbackup_recovery_manual': 'retry manually',
     'sysbackup_stall_warning': 'No progress reported. It will be marked failed after the stall timeout.',
     'sysbackup_stalled_note': 'No progress reported for {seconds}s.',
+    'sysbackup_worker_lost_error': 'The task worker stopped while building this backup at {percent}%. Nothing was written.',
+    'sysrestore_worker_lost_error': 'The task worker stopped during this restore at {percent}%. Check the data before relying on it, and run the restore again if it is incomplete.',
     'sysbackup_stalled_error': 'Backup stopped reporting progress at {percent}% for over {minutes} minutes; its worker process is gone. Nothing was written.',
     'sysbackup_retry_scheduled': 'Attempt {attempt} of {max} failed ({error}). Retrying in {minutes} minutes.',
     'sysbackup_resume': 'Retry',

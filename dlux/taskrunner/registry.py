@@ -62,6 +62,9 @@ class DluxTask:
     requeue_lost: bool = False
     # Arguments are encrypted at rest and cleared when the run finishes.
     sensitive: bool = False
+    # Called with the run's arguments when its worker died and the run failed
+    # (not requeued): the task's own records can say so at once.
+    on_lost: object = None
 
     def using(self, *, priority=None, queue_name=None, run_after=None, countdown=None):
         changes = {}
@@ -110,7 +113,7 @@ def _checked_priority(priority):
 
 
 def task(function=None, *, name=None, priority=None, queue_name="default", takes_context=False,
-         max_retries=None, requeue_lost=False, sensitive=False):
+         max_retries=None, requeue_lost=False, sensitive=False, on_lost=None):
     """Declare a task. ``name`` defaults to the function's import path."""
 
     def wrapper(func):
@@ -123,6 +126,7 @@ def task(function=None, *, name=None, priority=None, queue_name="default", takes
             max_retries=max_retries,
             requeue_lost=requeue_lost,
             sensitive=sensitive,
+            on_lost=on_lost,
         )
         _REGISTRY[definition.name] = definition
         return definition

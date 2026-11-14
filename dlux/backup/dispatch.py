@@ -65,6 +65,30 @@ def reap_stalled_system_backups(*, now=None, dispatch=True, allow_inline=True):
     return reaped, requeued
 
 
+def fail_lost_system_backup(backup_pk, *, now=None):
+    """Fail a backup whose task-worker run was lost with its worker.
+
+    The task runner knows within its stale window that the worker died, so the
+    row does not wait out the stall timeout and block the next backup. Retries
+    follow the same policy as a reaped stall. Returns whether a row was failed.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    backup = SystemBackup.objects.filter(
+        pk=backup_pk, status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
+    ).first()
+    if backup is None:
+        return False
+    from ..translations import get_strings
+
+    error = get_strings().get(
+        "sysbackup_worker_lost_error",
+        "The task worker stopped while building this backup at {percent}%. Nothing was written.",
+    ).format(percent=backup.progress_percent)
+    logger.warning("System backup pk=%s was lost with its task worker at %s%%.", backup.pk, backup.progress_percent)
+    fail_system_backup(backup, error, now=now, stalled=True)
+    return True
+
+
 def dispatch_due_backup_retries(*, now=None, allow_inline=True):
     """Start any backup whose scheduled retry time has arrived.
 

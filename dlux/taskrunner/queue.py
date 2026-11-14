@@ -242,6 +242,14 @@ def recover_lost_runs(*, resolve, now=None, exclude_worker=None):
             updates = {"status": READY, "run_after": now, "recoveries": F("recoveries") + 1}
         else:
             updates = {"status": FAILED, "last_status": FAILED, "finished_at": now, "sealed_arguments": ""}
+        on_lost = getattr(definition, "on_lost", None) if updates["status"] == FAILED else None
+        arguments = None
+        if callable(on_lost):
+            # Read before the update clears sealed arguments.
+            try:
+                arguments = run_arguments(run)
+            except Exception:
+                logger.warning("Could not read the arguments of lost run %s.", run.pk, exc_info=True)
         if _fenced(run).update(claim_token="", errors=errors, **updates):
             if updates["status"] == READY:
                 requeued += 1
@@ -249,6 +257,12 @@ def recover_lost_runs(*, resolve, now=None, exclude_worker=None):
                 failed += 1
             logger.warning("Task run %s (%s) was lost with worker %s: %s.", run.pk, run.task_name,
                            run.worker_id, "requeued" if updates["status"] == READY else "failed")
+            if arguments is not None:
+                args, kwargs = arguments
+                try:
+                    on_lost(*args, **kwargs)
+                except Exception:
+                    logger.exception("The on_lost handler of %s failed for run %s.", run.task_name, run.pk)
     return requeued, failed
 
 
