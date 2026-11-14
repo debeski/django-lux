@@ -385,6 +385,41 @@ class SystemRestoreRoundTripTests(TestCase):
                 self.assertEqual(restore_log.model_key, 'dlux.systemrestore')
                 self.assertEqual(restore_log.model_name, 'Dlux System Restore')
 
+    def test_timestamps_survive_a_round_trip_to_the_microsecond(self):
+        import datetime
+
+        exact = datetime.datetime(2026, 10, 30, 15, 52, 34, 319663, tzinfo=datetime.timezone.utc)
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                User.objects.create_superuser('root', 'root@example.com', 'rootpass123')
+                clerk = User.objects.create_user('clerk', 'c@example.com', 'clerkpass1')
+                User.objects.filter(pk=clerk.pk).update(date_joined=exact, last_login=exact + datetime.timedelta(microseconds=22))
+                SystemBackup = apps.get_model('dlux', 'SystemBackup')
+                backup = SystemBackup.objects.create(requested_by_username='root', media_included=False)
+                run_system_backup(backup.pk)
+                backup.refresh_from_db()
+                self.assertEqual(backup.status, SystemBackup.STATUS_COMPLETED, backup.error)
+
+                User.objects.filter(pk=clerk.pk).update(date_joined=timezone.now(), last_login=None)
+                SystemRestore = apps.get_model('dlux', 'SystemRestore')
+                restore = SystemRestore.objects.create(requested_by_username='root', backup_file_path=backup.file_path)
+                run_system_restore(restore.pk)
+                restore.refresh_from_db()
+                self.assertEqual(restore.status, SystemRestore.STATUS_COMPLETED, restore.error)
+
+                restored = User.objects.get(username='clerk')
+                self.assertEqual(restored.date_joined, exact)
+                self.assertEqual(restored.last_login, exact + datetime.timedelta(microseconds=22))
+
+    def test_the_backup_serializer_keeps_microseconds_and_utc(self):
+        import datetime
+
+        from dlux.utils.archive import _ExactJSONEncoder
+
+        moment = datetime.datetime(2026, 1, 2, 3, 4, 5, 123456, tzinfo=datetime.timezone.utc)
+        encoded = json.dumps({'at': moment, 'time': datetime.time(9, 30, 0, 654321)}, cls=_ExactJSONEncoder)
+        self.assertEqual(json.loads(encoded), {'at': '2026-01-02T03:04:05.123456Z', 'time': '09:30:00.654321'})
+
     def test_restore_blocks_on_migration_mismatch(self):
         with tempfile.TemporaryDirectory() as media_root:
             with override_settings(MEDIA_ROOT=media_root):
