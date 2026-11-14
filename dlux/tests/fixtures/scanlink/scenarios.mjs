@@ -162,6 +162,39 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
 }
 
 {
+    // ScanLink's own error codes reach the operator translated, and the page waits
+    // longer than ScanLink's 10-minute job deadline so ScanLink reports first.
+    const document = { querySelectorAll: () => [], addEventListener() {} };
+    const context = runtime(clientPath, async (url, options) => {
+        if (options.method === 'POST') return response({ job_id: 'slow-job', status: 'queued' });
+        return response({ status: 'ok', twain_available: true, busy: false });
+    }, true, { document });
+    Object.assign(context.window.DLUX_STRINGS, {
+        scan_no_pages_message: 'لا صفحات', scan_acquire_failed_message: 'توقف الماسح',
+        scan_worker_crashed_message: 'توقفت العملية', scan_origin_not_allowed_message: 'موقع غير مسموح',
+        scan_timeout_message: 'استغرق طويلا',
+    });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    const scan = context.window.DluxScan;
+    const messages = scan.messagesFor(null);
+    const expected = {
+        no_pages_scanned: 'لا صفحات', acquire_failed: 'توقف الماسح', scan_worker_crashed: 'توقفت العملية',
+        origin_not_allowed: 'موقع غير مسموح', payload_too_large: messages.failed, invalid_host: messages.failed,
+    };
+    for (const [code, text] of Object.entries(expected)) {
+        assert.equal(scan.errorMessage(messages, { code, message: 'English from ScanLink' }), text, code);
+    }
+    messages.timeout = 'استغرق طويلا';
+    assert.equal(scan.errorMessage(messages, { code: 'scan_idle_timeout', message: 'English' }), 'استغرق طويلا');
+    let waited = null;
+    context.window.ScanLink.prototype.waitForResult = async (jobId, options) => { waited = [jobId, options.timeoutMs]; return 'pdf'; };
+    assert.equal(await scan.scan({ messages }), 'pdf');
+    assert.deepEqual(waited, ['slow-job', 11 * 60 * 1000]);
+    assert.ok(scan.waitMs > 615 * 1000, 'longer than ScanLink\'s job deadline');
+    passed++;
+}
+
+{
     const posts = [];
     let httpsUp = true;
     let helperUp = true;

@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Scan Waits Outlast ScanLink, And Its Errors Are Translated**: `scan_button.js` gave up after 5 minutes while ScanLink's job deadline is 10 minutes plus 15 s, so the page said "took too long" while the scanner kept going and a retry reported busy. It now waits 11 minutes. `no_pages_scanned`, `acquire_failed`, `scan_worker_crashed`, `origin_not_allowed` and `scan_idle_timeout` show translated messages (en + ar) instead of ScanLink's English text.
+
 ## v1.16.0b2
 
 - **1.16.0 Candidate 2**: Second 1.16 beta, the first tagged on `main`. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 deployment updates inline (`install.inline: allowed`); the manifest keeps `stack_schema >=5`, Composer `>=1.10.0b1` and the `baked_image >=1.16.0b1` floor. From 1.15.x, follow 1.16.0b1's upgrade path.
