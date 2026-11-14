@@ -10,6 +10,7 @@ This file owns the release history for `django-lux`.
 ## Unreleased
 
 - **DLB Viewer Page Requires Its Token**: `tools/dlb-viewer` served `/`, which embeds the API token, to any request, so another local user or process could read the token and then the decrypted backup. The page now needs the `?token=` URL the viewer prints and a local `Host`; anything else gets `403`.
+- **DLB Viewer Bounds Frame Lengths**: A corrupt or hostile `.dlb` frame length made the viewer allocate whatever it claimed (gigabytes, or a `makeslice` panic that left decrypted temp files behind). Frames over 64 MiB are now refused as corruption, and a damaged frame after the first no longer reports a wrong password.
 
 ## v1.16.0b2
 

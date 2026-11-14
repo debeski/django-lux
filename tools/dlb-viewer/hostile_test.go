@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -141,5 +144,64 @@ func TestDuplicateRecordsAcrossAChainMergeOnce(t *testing.T) {
 	app := openUnlocked(t, inc, false)
 	if got := strings.Join(usernames(t, app), ","); got != "a-dup" {
 		t.Fatalf("merged users = %s", got)
+	}
+}
+
+func TestFlippedFrameBytesNeverUnlock(t *testing.T) {
+	check := privateTemp(t)
+	data, headerEnd := validEncrypted(t)
+	dir := t.TempDir()
+	for i := headerEnd; i < len(data); i += 5 {
+		bad := append([]byte(nil), data...)
+		bad[i] ^= 0x41
+		p := writeTemp(t, dir, "flip.dlb", bad)
+		code, body, app := tryUnlock(t, p, testPassword)
+		if code == http.StatusOK {
+			t.Fatalf("flip at %d unlocked: %s", i, body)
+		}
+		app.reset()
+	}
+	check()
+}
+
+// A frame length is a cleartext u64; one flipped bit used to allocate up to the
+// claimed size or panic with "makeslice: len out of range".
+func TestHugeFrameLengthIsRejectedWithoutAllocating(t *testing.T) {
+	check := privateTemp(t)
+	dir := t.TempDir()
+	key := pbkdf2SHA256([]byte(testPassword), testSalt, 1, 32)
+	data, headerEnd := validEncrypted(t)
+	for _, n := range []uint64{maxFrameLen + 1, 1 << 40, 1<<63 - 1, ^uint64(0)} {
+		frames := binary.BigEndian.AppendUint64(nil, n)
+		frames = append(frames, "short"...)
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		err := decryptToFile(bytes.NewReader(frames), key, &bytes.Buffer{})
+		runtime.ReadMemStats(&after)
+		if err == nil || errors.Is(err, ErrBadPassword) {
+			t.Fatalf("length %d: %v", n, err)
+		}
+		if grew := after.TotalAlloc - before.TotalAlloc; grew > 8<<20 {
+			t.Fatalf("length %d allocated %d MiB", n, grew>>20)
+		}
+		p := writeTemp(t, dir, "bomb.dlb", append(data[:headerEnd:headerEnd], frames...))
+		code, body, app := tryUnlock(t, p, testPassword)
+		app.reset()
+		if code != http.StatusBadRequest {
+			t.Fatalf("length %d: %d %s", n, code, body)
+		}
+	}
+	check()
+}
+
+func TestCorruptFrameAfterTheFirstIsNotAWrongPassword(t *testing.T) {
+	data, headerEnd := validEncrypted(t)
+	firstLen := int(binary.BigEndian.Uint64(data[headerEnd:]))
+	second := headerEnd + 8 + firstLen + 8
+	data[second+20] ^= 1
+	code, body, app := tryUnlock(t, writeTemp(t, t.TempDir(), "x.dlb", data), testPassword)
+	defer app.reset()
+	if code != http.StatusBadRequest || !strings.Contains(body, "corrupted") || strings.Contains(body, "password") {
+		t.Fatalf("corruption past the first frame: %d %s", code, body)
 	}
 }

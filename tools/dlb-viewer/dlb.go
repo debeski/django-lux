@@ -41,16 +41,21 @@ import (
 )
 
 const (
-	dlbMagic                  = "DLB1"
-	defaultKDFIterations      = 390000
-	maxMetadataLen            = 10 * 1024 * 1024
-	fernetVersion        byte = 0x80
-	schemeNone                = "none"
+	dlbMagic             = "DLB1"
+	defaultKDFIterations = 390000
+	maxMetadataLen       = 10 * 1024 * 1024
+	// DjangoLux encrypts at most 32 MiB of plaintext per frame, about 44.7 MiB
+	// as a Fernet token; a longer claimed length is corruption, not a frame.
+	maxFrameLen        = 64 << 20
+	fernetVersion byte = 0x80
+	schemeNone         = "none"
 )
 
 // ErrBadPassword is returned when the supplied password fails Fernet's HMAC
 // check on the first chunk — i.e. wrong passphrase / SECRET_KEY (or corruption).
 var ErrBadPassword = errors.New("incorrect password or corrupted backup")
+
+var errCorruptFrame = errors.New("corrupted backup: an encrypted frame is damaged")
 
 // Encryption mirrors the "encryption" block written by write_dlb_container.
 type Encryption struct {
@@ -144,6 +149,7 @@ func deriveKey(enc Encryption, password string) ([]byte, error) {
 func decryptToFile(r io.Reader, key []byte, dst io.Writer) error {
 	br := bufio.NewReaderSize(r, 1<<20)
 	var lenBuf [8]byte
+	var buf []byte
 	first := true
 	for {
 		_, err := io.ReadFull(br, lenBuf[:])
@@ -154,7 +160,13 @@ func decryptToFile(r io.Reader, key []byte, dst io.Writer) error {
 			return errors.New("truncated backup container")
 		}
 		n := binary.BigEndian.Uint64(lenBuf[:])
-		token := make([]byte, n)
+		if n > maxFrameLen {
+			return errCorruptFrame
+		}
+		if uint64(cap(buf)) < n {
+			buf = make([]byte, n)
+		}
+		token := buf[:n]
 		if _, err := io.ReadFull(br, token); err != nil {
 			return errors.New("truncated backup container")
 		}
@@ -163,7 +175,7 @@ func decryptToFile(r io.Reader, key []byte, dst io.Writer) error {
 			if first {
 				return ErrBadPassword
 			}
-			return err
+			return errCorruptFrame
 		}
 		if _, err := dst.Write(plain); err != nil {
 			return err
