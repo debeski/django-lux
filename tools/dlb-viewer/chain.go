@@ -186,6 +186,33 @@ func extractChainZip(p string) ([]string, *Metadata, []string, error) {
 	return paths, target.meta, temps, nil
 }
 
+// checkChainHeader compares the chain identity in a member's cleartext header,
+// which decides how members are linked, with the copy DjangoLux writes into the
+// encrypted, authenticated manifest. A member whose header was edited, e.g. to
+// splice it onto another chain, is refused. Manifests without one are older.
+func checkChainHeader(zipPath string, header *ChainInfo) error {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil // reported as an invalid archive when it is opened
+	}
+	defer zr.Close()
+	raw, err := readZipMember(&zr.Reader, "manifest.json")
+	if err != nil {
+		return nil
+	}
+	var mani struct {
+		Chain *ChainInfo `json:"chain"`
+	}
+	if json.Unmarshal(raw, &mani) != nil || mani.Chain == nil {
+		return nil
+	}
+	m := mani.Chain
+	if m.ID != header.ID || m.Sequence != header.Sequence || m.Root != header.Root || m.ParentRoot != header.ParentRoot {
+		return errors.New("the backup's cleartext header does not match its encrypted manifest: the chain identity was altered")
+	}
+	return nil
+}
+
 func seqOf(m *Metadata) int {
 	if m == nil || m.Chain == nil {
 		return 0
@@ -203,9 +230,22 @@ type memberManifest struct {
 	GeneratedAt  string                       `json:"generated_at"`
 }
 
+// pkKey renders a primary key as DjangoLux's deleted/ lists and index.json
+// do (Python str(pk)): a number keeps every digit instead of passing through
+// float64, where keys above 2^53 collide.
+func pkKey(raw json.RawMessage) string {
+	if n := bytes.TrimSpace(raw); len(n) > 0 && (n[0] == '-' || (n[0] >= '0' && n[0] <= '9')) {
+		var num json.Number
+		if json.Unmarshal(n, &num) == nil {
+			return num.String()
+		}
+	}
+	return rawScalarString(raw)
+}
+
 func fileEntryKey(entry map[string]json.RawMessage) (string, string, string) {
 	model := strings.ToLower(rawScalarString(entry["model"]))
-	pk := rawScalarString(entry["pk"])
+	pk := pkKey(entry["pk"])
 	return model + "\x00" + pk + "\x00" + rawScalarString(entry["field"]), model, pk
 }
 
@@ -341,21 +381,27 @@ func mergeChain(zipPaths []string, out io.Writer) error {
 
 	written := map[string]bool{}
 	mergedFiles := make([]map[string]json.RawMessage, 0, len(fileKeys))
+	byName := make([]map[string]*zip.File, len(readers))
 	for _, k := range fileKeys {
 		item := files[k]
 		name := rawScalarString(item.entry["path"])
 		if name == "" || written[name] {
 			continue
 		}
-		for _, f := range readers[item.member].File {
-			if f.Name == name {
-				if err := zw.Copy(f); err != nil {
-					return err
+		if byName[item.member] == nil {
+			byName[item.member] = make(map[string]*zip.File, len(readers[item.member].File))
+			for _, f := range readers[item.member].File {
+				if _, dup := byName[item.member][f.Name]; !dup {
+					byName[item.member][f.Name] = f
 				}
-				written[name] = true
-				mergedFiles = append(mergedFiles, item.entry)
-				break
 			}
+		}
+		if f := byName[item.member][name]; f != nil {
+			if err := zw.Copy(f); err != nil {
+				return err
+			}
+			written[name] = true
+			mergedFiles = append(mergedFiles, item.entry)
 		}
 	}
 	mergedMissing := make([]map[string]json.RawMessage, 0, len(missingKeys))
@@ -413,7 +459,7 @@ func eachRecord(r io.Reader, fn func(pk string, raw json.RawMessage)) error {
 		if err := json.Unmarshal(raw, &head); err != nil {
 			return err
 		}
-		fn(rawScalarString(head.PK), raw)
+		fn(pkKey(head.PK), raw)
 	}
 	return nil
 }

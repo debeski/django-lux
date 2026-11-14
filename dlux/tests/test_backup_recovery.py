@@ -132,6 +132,63 @@ class StallReaperTests(BackupRecoveryTestCase):
         self.assertNotEqual(created.pk, ghost.pk)
 
 
+class LostWorkerTests(BackupRecoveryTestCase):
+    """The task worker knows its run was lost long before a 30-minute stall timeout."""
+
+    def _lose(self, task_name, *args):
+        import dlux.jobs  # noqa: F401  registers the tasks
+        from dlux.models import DluxTaskRun, DluxTaskWorker
+        from dlux.taskrunner import enqueue
+
+        DluxTaskWorker.objects.create(id='dead', heartbeat_at=timezone.now() - timedelta(minutes=5))
+        run_id = enqueue(task_name, args=list(args), sensitive=True)
+        DluxTaskRun.objects.filter(pk=run_id).update(status='RUNNING', worker_id='dead', claim_token='tok', attempts=1)
+
+    def _recover(self):
+        from dlux.taskrunner import queue
+        from dlux.taskrunner.registry import resolve_task
+
+        return queue.recover_lost_runs(resolve=resolve_task)
+
+    def test_a_backup_whose_worker_died_fails_at_once(self):
+        self._save_config(stall_timeout_minutes=30, auto_retry_enabled=False)
+        backup = self._running(quiet_minutes=0, trigger=self.SystemBackup.TRIGGER_MANUAL)
+        self._lose('dlux.tasks.build_system_backup', backup.pk, 'pass')
+
+        self.assertEqual(self._recover(), (0, 1))
+
+        backup.refresh_from_db()
+        self.assertEqual(backup.status, self.SystemBackup.STATUS_FAILED)
+        self.assertIn('66%', backup.error)
+        self.assertIsNotNone(backup.completed_at)
+        self.assertEqual(reap_stalled_system_backups()[0], 0, 'nothing left for the stall reaper')
+
+    def test_a_restore_whose_worker_died_fails_at_once(self):
+        SystemRestore = apps.get_model('dlux', 'SystemRestore')
+        restore = SystemRestore.objects.create(requested_by_username='boss', backup_file_path='x.dlb')
+        SystemRestore.objects.filter(pk=restore.pk).update(
+            status=SystemRestore.STATUS_RUNNING, started_at=timezone.now(), progress_percent=40,
+        )
+        self._lose('dlux.tasks.restore_system_backup', restore.pk, '')
+
+        self.assertEqual(self._recover(), (0, 1))
+
+        restore.refresh_from_db()
+        self.assertEqual(restore.status, SystemRestore.STATUS_FAILED)
+        self.assertIn('40%', restore.error)
+        self.assertIsNotNone(restore.completed_at)
+
+    def test_a_finished_backup_is_left_alone(self):
+        backup = self._running(quiet_minutes=0, trigger=self.SystemBackup.TRIGGER_MANUAL)
+        self.SystemBackup.objects.filter(pk=backup.pk).update(status=self.SystemBackup.STATUS_COMPLETED)
+        self._lose('dlux.tasks.build_system_backup', backup.pk, '')
+
+        self._recover()
+
+        backup.refresh_from_db()
+        self.assertEqual(backup.status, self.SystemBackup.STATUS_COMPLETED)
+
+
 class AutomaticRetryTests(BackupRecoveryTestCase):
     def test_failure_arms_a_delayed_retry_within_the_attempt_budget(self):
         self._save_config(auto_retry_enabled=True, max_attempts=3, retry_delay_minutes=5)
