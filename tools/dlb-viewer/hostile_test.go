@@ -264,3 +264,27 @@ func TestPassphraseIsTrimmedLikeDjangoLux(t *testing.T) {
 		}
 	}
 }
+
+// Primary keys above 2^53 went through float64, so neighbours collided in the
+// merge and deleted/ lists (DjangoLux writes Python str(pk)) missed them.
+func TestLargeIntegerKeysStayDistinctInAChain(t *testing.T) {
+	dir := t.TempDir()
+	member(t, dir, "base.dlb", ChainInfo{ID: "c", Sequence: 0, Root: "r0"}, map[string]string{
+		"manifest.json": manifestJSON(`{"model":"auth.user","count":3}`,
+			`{"model":"auth.user","pk":9007199254740993,"field":"pic","path":"files/b.png","name":"b.png"}`),
+		"data/auth/user.json": `[{"pk":9007199254740992,"fields":{"username":"a"}}, {"pk":9007199254740993,"fields":{"username":"b"}}, {"pk":12345678901234567890,"fields":{"username":"c"}}]`,
+		"files/b.png":         "B",
+	})
+	inc := member(t, dir, "inc.dlb", ChainInfo{ID: "c", Sequence: 1, Root: "r1", ParentRoot: "r0"}, map[string]string{
+		"manifest.json":          manifestJSON(`{"model":"auth.user","count":0}`, ``),
+		"data/auth/user.json":    `[]`,
+		"deleted/auth/user.json": `["9007199254740992"]`,
+	})
+	app := openUnlocked(t, inc, false)
+	if got := strings.Join(usernames(t, app), ","); got != "b,c" {
+		t.Fatalf("merged users = %s", got)
+	}
+	if len(app.manifest.Files) != 1 {
+		t.Fatalf("file of a surviving large-key record dropped: %+v", app.manifest.Files)
+	}
+}

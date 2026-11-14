@@ -13,6 +13,7 @@ This file owns the release history for `django-lux`.
 - **DLB Viewer Bounds Frame Lengths**: A corrupt or hostile `.dlb` frame length made the viewer allocate whatever it claimed (gigabytes, or a `makeslice` panic that left decrypted temp files behind). Frames over 64 MiB are now refused as corruption, and a damaged frame after the first no longer reports a wrong password.
 - **DLB Viewer Caps PBKDF2 Iterations**: A `.dlb` header asking for more than 10,000,000 PBKDF2 iterations (DjangoLux writes 390,000) is refused instead of keeping unlock busy for hours. A failed unlock of a backup with an encryption scheme or KDF the viewer does not know now names it.
 - **DLB Viewer Trims Passphrases Like Restore**: DjangoLux strips a backup passphrase before deriving its key, but the viewer used it as typed, so a passphrase pasted with a trailing newline or space was rejected by the viewer while restore accepted it. A `SECRET_KEY` is still used exactly as entered.
+- **DLB Viewer Keeps Large Primary Keys Exact**: Merging an incremental chain read integer primary keys as floating point, so keys above 2^53 collided and rows vanished from the merged view, and their `deleted/` entries never matched. Keys now keep every digit, as DjangoLux writes them.
 
 ## v1.16.0b2
 

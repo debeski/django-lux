@@ -203,9 +203,22 @@ type memberManifest struct {
 	GeneratedAt  string                       `json:"generated_at"`
 }
 
+// pkKey renders a primary key as DjangoLux's deleted/ lists and index.json
+// do (Python str(pk)): a number keeps every digit instead of passing through
+// float64, where keys above 2^53 collide.
+func pkKey(raw json.RawMessage) string {
+	if n := bytes.TrimSpace(raw); len(n) > 0 && (n[0] == '-' || (n[0] >= '0' && n[0] <= '9')) {
+		var num json.Number
+		if json.Unmarshal(n, &num) == nil {
+			return num.String()
+		}
+	}
+	return rawScalarString(raw)
+}
+
 func fileEntryKey(entry map[string]json.RawMessage) (string, string, string) {
 	model := strings.ToLower(rawScalarString(entry["model"]))
-	pk := rawScalarString(entry["pk"])
+	pk := pkKey(entry["pk"])
 	return model + "\x00" + pk + "\x00" + rawScalarString(entry["field"]), model, pk
 }
 
@@ -413,7 +426,7 @@ func eachRecord(r io.Reader, fn func(pk string, raw json.RawMessage)) error {
 		if err := json.Unmarshal(raw, &head); err != nil {
 			return err
 		}
-		fn(rawScalarString(head.PK), raw)
+		fn(pkKey(head.PK), raw)
 	}
 	return nil
 }
