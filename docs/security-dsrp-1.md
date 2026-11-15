@@ -39,6 +39,10 @@ authorization decision.
 - XLSX exports (`fetch_excel()`, Export Entries, user reports) write strings as
   text cells through `append_text_safe_row()`, so a stored value, activity-log
   entry or user agent that starts with `=` never becomes a formula.
+- Browser code that builds markup keeps data text. The section manager's View and
+  blocked-Delete modals escape record names, field values and related rows;
+  row-action labels and dynamic-modal errors are set as text; the login hero's
+  markdown escapes quotes, so a link URL cannot leave its `href`.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.

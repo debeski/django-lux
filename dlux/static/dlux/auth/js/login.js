@@ -2,8 +2,9 @@
 function dluxLoginMarkdown(text) {
     if (!text) return '';
     let html = text
-        // Escape existing HTML
+        // Escape existing HTML, quotes included: link URLs land in an attribute
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
         // Headings (must come before inline patterns)
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
@@ -22,7 +23,7 @@ function dluxLoginMarkdown(text) {
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/(?<![a-zA-Z0-9])_([^_]+?)_(?![a-zA-Z0-9])/g, '<em>$1</em>')
         // Links [text](url)
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         // Unordered lists (- or * followed by a space)
         .replace(/^[*] (.+)$/gm, '<li>$1</li>')
         .replace(/^- (.+)$/gm, '<li>$1</li>')
