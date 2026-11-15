@@ -126,6 +126,18 @@ SECURITY_NUDGE_CHOICES = (
 )
 SECURITY_NUDGE_VALUES = {value for value, _label in SECURITY_NUDGE_CHOICES}
 
+#: The only system settings a page hands its scripts (`window.DLUX_CONFIG`). Every
+#: visitor receives them, signed in or not, so nothing secret or operational
+#: (mail transport, lockout thresholds, backups, proxies) may be added here.
+CLIENT_CONFIG_KEYS = (
+    'default_theme',
+    'allowed_fonts',
+    'enforce_strong_passwords',
+    'strong_password_min_length',
+    'inactivity_timeout_enabled',
+    'inactivity_timeout_minutes',
+)
+
 #: Settings controls that change no page's appearance. Editing one must not swap
 #: the live preview behind the Options modal for a draft render; the draft that
 #: is submitted still carries their values.

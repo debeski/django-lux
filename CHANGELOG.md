@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Pages No Longer Embed The System Configuration (security)**: `dlux/base.html` serialised the whole configuration into every page, the anonymous login page included: SMTP host, username and encrypted password, lockout thresholds, backup and proxy settings. `window.DLUX_CONFIG` now carries only `CLIENT_CONFIG_KEYS` (theme, fonts, password rules, inactivity timeout).
+- **Detail Modal Escapes Stored Values (security)**: The generic detail modal rendered any value containing `<a` or `<i` unescaped, so a stored `<img onerror>` ran script in staff sessions wherever `script-src` allows inline code. `_build_generic_detail_context()` now marks only its own links and icons safe.
+- **XLSX Exports Write Text, Not Formulas (security)**: `fetch_excel()`, Export Entries and the user report wrote strings starting with `=` as live formulas, including user agents from the activity log. Every row now goes through `append_text_safe_row()`.
 - **Public Form Limits (security)**: New `dlux.utils.ratelimit` limits anonymous public form POSTs per client address and in total per form: the `@public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` decorator and `count_public_form_post()`. A POST over its sender's limit does not count toward the total. Addresses come from `get_client_ip()`, IPv6 counts per /64, and cache keys hold a `SECRET_KEY`-keyed HMAC of the address that expires with its window. A refused POST gets 429 with `Retry-After` and the translated `msg_public_form_rate_limited` (en + ar), JSON for script requests, or the view's `on_limited` response. `DLUX_PUBLIC_FORM_LIMITS` overrides a form's limits per deployment.
 
 ## v1.16.0b3

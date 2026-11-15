@@ -25,7 +25,9 @@ from django.forms import modelform_factory
 from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
+from django.utils.html import format_html
 from django.utils.module_loading import import_string
+from django.utils.safestring import SafeData, mark_safe
 from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -184,7 +186,14 @@ def collect_related_objects(instance, ignore_relations=None):
                 
     return related_data
 
+_BOOLEAN_DETAIL_ICONS = {
+    True: mark_safe('<i class="bi bi-check-circle-fill text-success"></i>'),
+    False: mark_safe('<i class="bi bi-x-circle text-danger"></i>'),
+}
+
+
 # Generic Detail - Helper builds field rows for fallback detail views.
+# Only markup built here is marked safe; every stored value renders escaped.
 def _build_generic_detail_context(instance, request=None):
     """
     Dynamically generates a list of {'label': ..., 'value': ...} dictionaries 
@@ -227,11 +236,15 @@ def _build_generic_detail_context(instance, request=None):
                         value = "-"
             elif isinstance(value,FieldFile):
                 if value and value.name:
-                    value = f'<a href="{value.url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> {s.get("btn_download", "تحميل")}</a>'
+                    value = format_html(
+                        '<a href="{}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> {}</a>',
+                        value.url,
+                        s.get("btn_download", "تحميل"),
+                    )
                 else:
                     value = "-"
             elif isinstance(value, bool):
-                value = f'<i class="bi bi-check-circle-fill text-success"></i>' if value else f'<i class="bi bi-x-circle text-danger"></i>'
+                value = _BOOLEAN_DETAIL_ICONS[value]
             elif value is None or value == "":
                 value = "-"
             elif hasattr(field, 'choices') and field.choices:
@@ -245,7 +258,7 @@ def _build_generic_detail_context(instance, request=None):
             fields_data.append({
                 'label': str(label).capitalize(),
                 'value': value,
-                'is_html': isinstance(value, str) and ('<a' in value or '<i' in value)
+                'is_html': isinstance(value, SafeData),
             })
         except Exception:
             pass
@@ -274,14 +287,14 @@ def _build_generic_detail_context(instance, request=None):
                 field = _CompatField(field_name)
                 value = getattr(instance, field_name, None)
                 if isinstance(value, bool):
-                    value = f'<i class="bi bi-check-circle-fill text-success"></i>' if value else f'<i class="bi bi-x-circle text-danger"></i>'
+                    value = _BOOLEAN_DETAIL_ICONS[value]
                 elif value is None or value == "":
                     value = "-"
                 label = resolve_detail_field_label(instance, field, request=request, strings=s)
                 fields_data.append({
                     'label': str(label).capitalize(),
                     'value': value,
-                    'is_html': isinstance(value, str) and ('<a' in value or '<i' in value)
+                    'is_html': isinstance(value, SafeData),
                 })
             except Exception:
                 pass

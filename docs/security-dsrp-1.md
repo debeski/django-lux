@@ -28,6 +28,17 @@ authorization decision.
 
 ## Applied Dlux Measures
 
+- Pages hand their scripts only `CLIENT_CONFIG_KEYS` (`window.DLUX_CONFIG`: theme,
+  fonts, password rules, inactivity timeout). The system configuration, with mail
+  transport, lockout thresholds, backup and proxy settings, stays server-side for
+  every visitor, signed in or not.
+- The generic detail modal escapes stored values. Only markup DjangoLux builds
+  itself (download links, boolean icons) is marked safe. A model's
+  `extra_detail_fields` row with `is_html` renders unescaped, so its value is built
+  with `format_html()`, never from raw input.
+- XLSX exports (`fetch_excel()`, Export Entries, user reports) write strings as
+  text cells through `append_text_safe_row()`, so a stored value, activity-log
+  entry or user agent that starts with `=` never becomes a formula.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
