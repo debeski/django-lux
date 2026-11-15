@@ -6,13 +6,7 @@
         <div class="col-md-6 col-lg-4">
             <div class="mb-3">
                 <div class="info-label text-muted small fw-bold text-uppercase tracking-wider mb-1">{{ field.label }}</div>
-                <div class="info-value text-dark">
-                    {% if field.is_html %}
-                        {{ field.value|safe }}
-                    {% else %}
-                        {{ field.value }}
-                    {% endif %}
-                </div>
+                <div class="info-value text-dark">{{ field.value }}</div>
             </div>
         </div>
     {% empty %}
@@ -31,7 +25,8 @@
     that context is merged, so a model cannot append to it — a derived value
     (a price converted at today's rate, a total that is a property) has nowhere
     else to go. Returning `extra_detail_fields` is how a model adds one, and
-    they render after the generated rows.
+    they render after the generated rows. A row with `is_html` renders its value
+    unescaped, so build that value with `format_html()`, never from raw input.
     {% endcomment %}
     {% for field in extra_detail_fields %}
         <div class="col-md-6 col-lg-4">

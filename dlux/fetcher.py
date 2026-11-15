@@ -11,6 +11,7 @@ import zipfile
 from .notifications import notify
 from .translations import get_strings
 from .utils import log_user_action
+from .utils.spreadsheets import append_text_safe_row
 
 def _safe_referer(request, fallback='/'):
     referer = request.META.get('HTTP_REFERER')
@@ -346,7 +347,7 @@ def fetch_excel(request, queryset, exclude_fields=None, hidden_fields=None, shee
     ws.title = sheet_title or "Export"
 
     # Write Header Row
-    ws.append([f['verbose'] for f in final_fields])
+    append_text_safe_row(ws, [f['verbose'] for f in final_fields])
 
     # Write Data Rows
     for obj in data_list:
@@ -366,7 +367,7 @@ def fetch_excel(request, queryset, exclude_fields=None, hidden_fields=None, shee
                 row.append(str(val))
             else:
                 row.append("")
-        ws.append(row)
+        append_text_safe_row(ws, row)
 
     # Apply Hidden Columns
     # openpyxl columns are 1-indexed (A=1, B=2...)

@@ -984,7 +984,9 @@ trigger reuses that same payload.
 Use `fetch_file()` for controlled file downloads and `fetch_excel()` for XLSX
 exports. They keep request handling, feedback, and activity logging aligned with
 the platform. Do not implement a second browser download flow when these helpers
-fit the operation.
+fit the operation. `fetch_excel()` writes every string as a text cell, so a stored
+value such as `=HYPERLINK(...)` is never a formula; a project that builds its own
+workbook appends rows with `dlux.utils.spreadsheets.append_text_safe_row()`.
 
 ## Notifications
 
@@ -1164,6 +1166,7 @@ and the framework's event conventions.
 | --- | --- |
 | `window.DLUX_URL_PREFIX` | The path prefix Dlux is mounted under: `/` at the root, or e.g. `/en/` behind an i18n language prefix or a sub-path mount. |
 | `window.DLUX_URLS` | Reversed Dlux route templates, such as `preferencesUpdate` and `appPreference`. |
+| `window.DLUX_CONFIG` | The few system settings scripts need: `default_theme`, `allowed_fonts`, the password rules and the inactivity timeout (`CLIENT_CONFIG_KEYS` in `dlux.system.constants`). Every visitor receives it, signed in or not, so it never carries the rest of the system configuration; templates read that server-side from `config`. |
 | `window.dluxUrl(path)` | Rewrites a root-relative path onto that prefix; absolute and already-prefixed URLs pass through. |
 | `window.dluxEndpoint(name, params, fallbackPath)` | Fills the `__param__` placeholders of a named template from `DLUX_URLS` (or `fallbackPath`), then prefixes it. |
 | `window.dluxParseJson(text, fallback)` | Parses a JSON string, returning `fallback` when it is empty or invalid. |

@@ -2,6 +2,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .system.constants import (
+    CLIENT_CONFIG_KEYS,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
@@ -731,6 +732,7 @@ def dlux_context(request):
     context['sidebar_density'] = user_prefs.get('sidebar_density', sidebar_runtime_config.get('density', 'balanced'))
     context['user_preferences'] = user_prefs
     context['config'] = final_config
+    context['client_config'] = {key: final_config.get(key) for key in CLIENT_CONFIG_KEYS}
     context['user'] = request.user
     context['languages'] = languages
     context['translations'] = dlux_strings

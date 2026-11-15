@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Pages No Longer Embed The System Configuration (security)**: `dlux/base.html` serialised the whole configuration into every page, the anonymous login page included: SMTP host, username and encrypted password, lockout thresholds, backup and proxy settings. `window.DLUX_CONFIG` now carries only `CLIENT_CONFIG_KEYS` (theme, fonts, password rules, inactivity timeout).
+- **Detail Modal Escapes Stored Values (security)**: The generic detail modal rendered any value containing `<a` or `<i` unescaped, so a stored `<img onerror>` ran script in staff sessions wherever `script-src` allows inline code. `_build_generic_detail_context()` now marks only its own links and icons safe.
+- **XLSX Exports Write Text, Not Formulas (security)**: `fetch_excel()`, Export Entries and the user report wrote strings starting with `=` as live formulas, including user agents from the activity log. Every row now goes through `append_text_safe_row()`.
+
 ## v1.16.0b3
 
 - **1.16.0 Candidate 3**: Third 1.16 beta, with the fixes from a stress run of 1.16.0b2. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 or b2 deployment updates inline. Pairs with Composer 1.10.0b4 and ScanLink 0.8.0b3.
