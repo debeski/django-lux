@@ -137,6 +137,22 @@ fallbacks when runtime configuration cannot be resolved.
   and `login_lockout_enabled` gates the policy (default on).
   `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` and `DLUX_LOGIN_LOCKOUT_SECONDS` are legacy
   fallbacks used only when resolved System Settings cannot be read.
+- **Public form limits.** Anonymous public forms (reviews, complaints, contact
+  forms) limit their POSTs with `dlux.utils.ratelimit`, per client address and in
+  total for each form, over fixed windows:
+  `@public_form_limit(bucket, per_address=5, total=300, window=3600)` by default.
+  A POST counts against its sender first, and only a POST inside its sender's
+  limit counts toward the total, so one sender cannot spend the budget every other
+  sender shares. The address comes from the centralized client-IP resolution, and
+  IPv6 addresses count per /64. Cache keys hold a `SECRET_KEY`-keyed HMAC of the
+  address, never the address, and expire when their window ends; log lines name
+  the form, not the sender. A refused POST gets HTTP 429 with `Retry-After` and the
+  translated `msg_public_form_rate_limited` message (JSON for script requests), or
+  the response of the view's own `on_limited` handler. `DLUX_PUBLIC_FORM_LIMITS`
+  overrides a form's limits per deployment. Windows are aligned to the clock, so a
+  sender can fit up to twice its limit around a window boundary. Exact counts under
+  concurrency need a cache with an atomic `incr` (Redis in generated stacks). A
+  cache that cannot be reached lets the POST through and logs the error.
 - **2FA completion window.** The pre-2FA challenge carries a server timestamp and
   is abandoned after `DLUX_2FA_CHALLENGE_WINDOW_SECONDS` (default 300s), so a
   half-finished challenge cannot persist for the whole session lifetime. This is

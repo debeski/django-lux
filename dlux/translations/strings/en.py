@@ -2589,6 +2589,7 @@ STRINGS = {
     'err_no_delete_permission_user': 'You do not have permission to delete this user!',
     'msg_registration_not_configured': 'Registration email delivery is not configured.',
     'msg_verification_email_failed': 'We could not send the verification email. Please try again later.',
+    'msg_public_form_rate_limited': 'Too many submissions. Please try again later.',
     'msg_registration_approved': 'Registration approved.',
     'msg_registration_rejected': 'Registration rejected.',
     'err_invalid_method': 'Invalid method.',

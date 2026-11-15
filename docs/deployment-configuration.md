@@ -57,6 +57,7 @@ uses `setdefault`, so explicitly declared Django settings win.
 | `DLUX_2FA_IP_VERIFY_WINDOW` | Django setting | integer seconds, `600` | Cache window for the per-IP OTP verification limit. |
 | `DLUX_2FA_IP_SEND_LIMIT` | Django setting | integer, `10` | Maximum OTP sends per client IP during the send window. |
 | `DLUX_2FA_IP_SEND_WINDOW` | Django setting | integer seconds, `3600` | Cache window for the per-IP OTP send limit. |
+| `DLUX_PUBLIC_FORM_LIMITS` | Django setting | dict of form bucket to `{'per_address', 'total', 'window'}`, unset | Overrides the limits a `@public_form_limit` view declares, per bucket. `None` turns that limit off; an invalid value is logged and the view's own value applies. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls). |
 
 The challenge window and four per-IP 2FA values are read when the two-factor
 view module loads. Configure them before Django starts; changing them at runtime
