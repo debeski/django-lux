@@ -648,8 +648,9 @@ document.addEventListener('DOMContentLoaded', function() {
         modalBody.innerHTML = `
             <div class="text-center p-5 text-danger">
                 <i class="bi bi-exclamation-circle display-1 mb-3"></i>
-                <p>${msg}</p>
+                <p></p>
             </div>`;
+        modalBody.querySelector('p').textContent = msg;
     }
 
     // 6. Context Menu Integration (Catch events fired by auto-generated tables)
