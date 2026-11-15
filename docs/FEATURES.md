@@ -29,6 +29,8 @@ tags and helpers are in the [Reference](reference.md).
   [DSRP-1](security-dsrp-1.md).
 - **Optional public registration** with mandatory email verification and optional
   approval. See [Registration](registration.md).
+- **Public form limits:** per-address and global POST limits for anonymous public
+  forms. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls).
 - **Privacy:** client-IP resolution, privacy and consent notices, and a record of the
   personal data DjangoLux stores. See [Data & Privacy](data-privacy.md).
 - **Optional SSO:** separate OIDC provider and client packages. See [SSO](sso.md).

@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Public Form Limits (security)**: New `dlux.utils.ratelimit` limits anonymous public form POSTs per client address and in total per form: the `@public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` decorator and `count_public_form_post()`. A POST over its sender's limit does not count toward the total. Addresses come from `get_client_ip()`, IPv6 counts per /64, and cache keys hold a `SECRET_KEY`-keyed HMAC of the address that expires with its window. A refused POST gets 429 with `Retry-After` and the translated `msg_public_form_rate_limited` (en + ar), JSON for script requests, or the view's `on_limited` response. `DLUX_PUBLIC_FORM_LIMITS` overrides a form's limits per deployment.
+
 ## v1.16.0b3
 
 - **1.16.0 Candidate 3**: Third 1.16 beta, with the fixes from a stress run of 1.16.0b2. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 or b2 deployment updates inline. Pairs with Composer 1.10.0b4 and ScanLink 0.8.0b3.

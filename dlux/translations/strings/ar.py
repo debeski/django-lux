@@ -2589,6 +2589,7 @@ STRINGS = {
     'err_no_delete_permission_user': 'ليس لديك صلاحية لحذف هذا المستخدم!',
     'msg_registration_not_configured': 'إرسال بريد التسجيل غير مهيأ.',
     'msg_verification_email_failed': 'لم نتمكن من إرسال بريد التحقق. يرجى المحاولة لاحقاً.',
+    'msg_public_form_rate_limited': 'عدد المحاولات كبير. الرجاء المحاولة لاحقاً.',
     'msg_registration_approved': 'تمت الموافقة على التسجيل.',
     'msg_registration_rejected': 'تم رفض التسجيل.',
     'err_invalid_method': 'طريقة غير صالحة.',
