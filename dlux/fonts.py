@@ -219,6 +219,52 @@ def get_default_font_family():
         return default_font['family']
     return DEFAULT_FONT_FAMILY
 
+
+def resolve_font_slug(allowed_fonts, default_fonts, language, preferred=None):
+    """The font a page uses: ``preferred`` if allowed, else the language default.
+
+    ``allowed_fonts`` is the normalized allowlist and ``default_fonts`` maps a
+    language to its default slug. Falls back to Cairo, then to the first allowed
+    font, so the result is always one System Settings allows.
+    """
+    default_fonts = default_fonts if isinstance(default_fonts, dict) else {}
+    for candidate in (preferred, default_fonts.get(language), DEFAULT_FONT_SLUG):
+        if candidate and candidate in allowed_fonts:
+            return candidate
+    return allowed_fonts[0] if allowed_fonts else DEFAULT_FONT_SLUG
+
+
+_STYLESHEET_URL_RE = re.compile(r'^(?:https?://[A-Za-z0-9.-]+(?::\d{1,5})?)?/[A-Za-z0-9_./@+%~-]+$')
+
+
+def font_stylesheet_css(font):
+    """``@font-face`` rules for one registered font, as a standalone stylesheet.
+
+    Sets ``--dlux-main-font`` and ``--dlux-font-fallback`` the way ``base.html``
+    does inline, so pages that allow no inline style can link this instead.
+    Returns ``None`` when the family name is unsafe to place in CSS; a variant
+    whose URL is unsafe is left out.
+    """
+    if not _FONT_FAMILY_RE.fullmatch(font['family']):
+        return None
+    rules = []
+    for variant in font['variants']:
+        url = variant.get('url') or static(variant['path'])
+        style = variant.get('style', 'normal')
+        if not _STYLESHEET_URL_RE.fullmatch(url) or not str(variant.get('weight', '')).isdigit():
+            continue
+        rules.append(
+            "@font-face{font-family:'%s';font-weight:%d;font-style:%s;src:url('%s') format('woff2');font-display:swap}"
+            % (font['family'], int(variant['weight']), style if style in ('normal', 'italic') else 'normal', url)
+        )
+    fallback = get_default_font_family()
+    if not _FONT_FAMILY_RE.fullmatch(fallback):
+        fallback = DEFAULT_FONT_FAMILY
+    rules.append(
+        ":root{--dlux-main-font:'%s',sans-serif;--dlux-font-fallback:'%s',sans-serif}" % (font['family'], fallback)
+    )
+    return "\n".join(rules) + "\n"
+
 def generate_font_face_css(allowed_fonts=None):
     """
     Generates the @font-face CSS block for all allowed fonts.

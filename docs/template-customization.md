@@ -63,8 +63,43 @@ prevent browsers from filling unrelated titlebar controls with saved credentials
 
 Anonymous public page presentation is configured in System Settings: its theme,
 title, description, sidebar, and titlebar are category-owned controls beneath the
-public-homepage configuration. Do not hand-code a second public page chrome; the
-shared context flags drive the normal base template.
+public-homepage configuration. Both public shells read those settings. Do not
+hand-code a third public page chrome.
+
+| Shell | Use it for | What it carries |
+| --- | --- | --- |
+| `dlux/base.html`, public mode | The public homepage and any public page that needs the sidebar, the titlebar's controls, the dynamic modal or other DjangoLux scripts. | The full DjangoLux runtime: client settings, URL map, strings and nonce-carrying scripts and styles. It needs a `script-src` with the request nonce and a `style-src` that allows inline styles. |
+| `dlux/public_base.html` | Citizen-facing project pages such as catalogues, notices and public forms, served under a strict policy (`script-src 'self'; style-src 'self'`). | Markup and stylesheets only. No configuration, URL map, preferences, strings or staff scripts, and nothing inline, so it renders the same for every visitor, signed in or not. |
+
+`dlux/public_base.html` follows the public page settings:
+
+- **Title and description:** the public title fills `<title>` (falling back to the
+  system name) and the brand. The public description fills `<meta name="description">`.
+- **Theme:** the public theme, or the system default theme when none is set. The
+  `<html>` element carries `theme-<slug>` and that theme's stylesheet is linked.
+- **Titlebar:** the default header, logo plus public title linking to the public
+  page, shows only when **Show titlebar** is on for the public page. The shell has
+  no sidebar, so a public page that must show it extends `dlux/base.html`.
+- **Identity:** the logo and favicon. The footer is `dlux/system/footer.html`, so it
+  follows Identity → Footer.
+- **Font:** the current language's default font from the registry, linked from
+  `/fonts/<slug>.css`. Visitor preferences (theme, font) never apply.
+
+Its blocks are `title`, `meta`, `extra_css`, `header`, `content`, `footer` and
+`scripts`. Overriding `title` replaces the whole title. A project's own scripts go
+in `scripts` as same-origin files (`<script src="..." defer>`), which a strict
+policy allows without a nonce:
+
+```django
+{% extends "dlux/public_base.html" %}
+{% load static %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'catalog/css/public.css' %}">{% endblock %}
+{% block content %}...{% endblock %}
+{% block scripts %}<script src="{% static 'catalog/js/public.js' %}" defer></script>{% endblock %}
+```
+
+The shell does not decide who may see a page: the project's view does. The public
+page's **Enabled** switch governs DjangoLux's own public homepage route only.
 
 Use logical CSS properties and framework classes so layout mirrors in RTL. In
 particular, do not position title actions, back links, or rails with physical

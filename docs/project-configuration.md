@@ -38,7 +38,8 @@ overwrite host-project data.
 
 Register project-owned themes with `DLUX_CUSTOM_THEMES` and WOFF2 font families with
 `DLUX_CUSTOM_FONTS`. Registered items join the same registry used by setup,
-validation, allowlists, previews, and per-user selection; do not add a parallel
+validation, allowlists, previews, per-user selection and the `/fonts/<slug>.css`
+stylesheet that `dlux/public_base.html` links; do not add a parallel
 selector or stylesheet loading path.
 
 A rule that applies to one named theme (`:root.theme-dark .x`) lives in that theme's

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+{% load static dlux_tags %}{% dlux_public_shell as dlux_public %}
+{% comment %}
+Thin public shell for citizen-facing pages (catalogues, forms, notices).
+
+It follows System Settings' public page settings: title, meta description,
+theme, and the titlebar switch (the default header shows only when the public
+titlebar is on). Branding comes from Identity (logo, favicon) and the footer
+from Identity → Footer. The font is the language default from the registry,
+linked as a stylesheet.
+
+It emits no system configuration, URL map, preferences, strings or staff
+scripts, and no inline script, style or event handler, so it renders the same
+for every visitor and passes `script-src 'self'; style-src 'self'`. Pages that
+need the sidebar, the DjangoLux runtime or the dynamic modal extend
+`dlux/base.html` instead.
+
+Blocks: title, meta, extra_css, header, content, footer, scripts.
+{% endcomment %}
+<html lang="{{ CURRENT_LANG|default:'en' }}" dir="{{ CURRENT_DIR|default:'ltr' }}"{% if dlux_public.theme %} class="theme-{{ dlux_public.theme.slug }}"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ dlux_public.title }}{% endblock %}</title>
+    {% block meta %}{% if dlux_public.public.meta_description %}<meta name="description" content="{{ dlux_public.public.meta_description }}">{% endif %}{% endblock %}
+    <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/img/base_logo.svg' }}">
+    {% if CURRENT_DIR == 'rtl' %}
+    <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}">
+    {% else %}
+    <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}">
+    {% endif %}
+    <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
+    {% if dlux_public.theme %}<link rel="stylesheet" href="{% dlux_static dlux_public.theme.css_path %}">{% endif %}
+    {% if dlux_public.font %}<link rel="stylesheet" href="{% url 'font_stylesheet' dlux_public.font %}">{% endif %}
+    <link rel="stylesheet" href="{% dlux_static 'dlux/system/css/footer.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/public/css/public_base.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="dlux-public">
+    <a class="visually-hidden-focusable dlux-public-skip" href="#mainContent">{{ DLUX_STRINGS.public_skip_to_content|default:"Skip to content" }}</a>
+    {% block header %}{% if dlux_public.public.show_titlebar %}
+    <header class="dlux-public-header">
+        <div class="container dlux-public-header__inner">
+            <a class="dlux-public-brand" href="{{ dlux_public.home_url }}">
+                {% if APP_CONFIG.logo_url %}<img class="dlux-public-brand__logo" src="{{ APP_CONFIG.logo_url }}" alt="" width="40" height="40">{% endif %}
+                <span class="dlux-public-brand__name">{{ dlux_public.title }}</span>
+            </a>
+        </div>
+    </header>
+    {% endif %}{% endblock %}
+    <main class="dlux-public-main" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+    {% block footer %}{% include 'dlux/system/footer.html' %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>
