@@ -92,6 +92,7 @@ TEST_LABELS = [
     'dlux.tests.test_scanlink_gate',
     'dlux.tests.test_scanlink_releases',
     'dlux.tests.test_scanlink_sites',
+    'dlux.tests.test_output_safety',
     'dlux.tests.test_public_base',
     'dlux.tests.test_scope_default_theme',
     'dlux.tests.test_search',

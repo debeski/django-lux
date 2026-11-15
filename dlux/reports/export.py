@@ -9,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 from ..translations import get_strings
 from ..utils import normalize_activity_log_model_key
+from ..utils.spreadsheets import append_text_safe_row
 
 from .config import _reports_config, get_report_entries_row_limit
 from .eligibility import _model_keys, get_report_eligible_models
@@ -181,7 +182,7 @@ def build_model_entries_xlsx(actor, overview):
         title = _unique_sheet_title(str(model._meta.verbose_name_plural), used_titles)
         ws = wb.create_sheet(title)
         headers = [_xlsx_text(field.verbose_name or field.name) for field in fields]
-        ws.append(headers)
+        append_text_safe_row(ws, headers)
         widths = [len(header) for header in headers]
 
         exported = 0
@@ -190,14 +191,14 @@ def build_model_entries_xlsx(actor, overview):
             if exported >= row_limit:
                 break
             row = [_xlsx_cell_value(_export_field_value(record, field)) for field in fields]
-            ws.append(row)
+            append_text_safe_row(ws, row)
             exported += 1
             for column, value in enumerate(row):
                 widths[column] = max(widths[column], len(str(value or "")))
 
         total = qs.count()
         if not exported:
-            ws.append([strings.get("reports_export_empty_model", "No entries in the selected period.")])
+            append_text_safe_row(ws, [strings.get("reports_export_empty_model", "No entries in the selected period.")])
         for cell in ws[1]:
             cell.font = Font(bold=True)
         ws.freeze_panes = "A2"
@@ -237,7 +238,7 @@ def build_model_entries_xlsx(actor, overview):
             strings.get("reports_export_no_models", "No models were selected, so no entry sheets were produced."),
         ])
     for row in info_rows:
-        info.append(row)
+        append_text_safe_row(info, row)
     for cell in info[1]:
         cell.font = Font(bold=True)
     if index_rows:

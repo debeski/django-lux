@@ -9,6 +9,9 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Pages No Longer Embed The System Configuration (security)**: `dlux/base.html` serialised the whole configuration into every page, the anonymous login page included: SMTP host, username and encrypted password, lockout thresholds, backup and proxy settings. `window.DLUX_CONFIG` now carries only `CLIENT_CONFIG_KEYS` (theme, fonts, password rules, inactivity timeout).
+- **Detail Modal Escapes Stored Values (security)**: The generic detail modal rendered any value containing `<a` or `<i` unescaped, so a stored `<img onerror>` ran script in staff sessions wherever `script-src` allows inline code. `_build_generic_detail_context()` now marks only its own links and icons safe.
+- **XLSX Exports Write Text, Not Formulas (security)**: `fetch_excel()`, Export Entries and the user report wrote strings starting with `=` as live formulas, including user agents from the activity log. Every row now goes through `append_text_safe_row()`.
 - **Thin Public Shell**: `dlux/public_base.html` serves citizen-facing pages under `script-src 'self'; style-src 'self'`. It follows the public page settings (title, description, theme, titlebar), the identity logo, favicon and footer, and the language's default font, and emits no configuration, URL map, preferences, strings or inline code. Blocks: `title`, `meta`, `extra_css`, `header`, `content`, `footer`, `scripts`.
 - **Font Stylesheet Route**: `/fonts/<slug>.css` (`font_stylesheet`) serves an allowed registry font's `@font-face` rules and `--dlux-main-font` as a cached stylesheet, so pages without inline styles need no project endpoint. `resolve_font_slug()` and `font_stylesheet_css()` join `dlux.fonts`.
 

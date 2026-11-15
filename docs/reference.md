@@ -932,6 +932,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
 | `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
+| `dlux.utils.spreadsheets.append_text_safe_row()` | Append an openpyxl row whose strings stay text cells, never formulas |
 
 ### Permission Visibility
 

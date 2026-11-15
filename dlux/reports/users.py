@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from ..translations import get_strings
 from ..utils import get_user_management_tier_state_for_user
+from ..utils.spreadsheets import append_text_safe_row
 from . import (
     _report_period_details,
     apply_report_scope,
@@ -264,7 +265,7 @@ def build_user_report_xlsx(report, window=None):
 
     def write_rows(ws, rows):
         for row in rows:
-            ws.append([clean_cell_value(value) for value in row])
+            append_text_safe_row(ws, [clean_cell_value(value) for value in row])
         for cell in ws[1]:
             cell.font = Font(bold=True)
         for column in ws.columns:
