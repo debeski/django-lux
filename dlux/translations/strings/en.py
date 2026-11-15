@@ -2733,4 +2733,5 @@ STRINGS = {
     'personal_columns_restore': 'Restore',
     'personal_columns_expired': 'This table control expired. Reload the table and try again.',
     'personal_columns_invalid': 'Choose available columns and keep at least one column visible.',
+    'public_skip_to_content': 'Skip to content',
 }

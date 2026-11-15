@@ -46,6 +46,35 @@ def dlux_static(path):
     return f"{url}{separator}v={revision}"
 
 @register.simple_tag(takes_context=True)
+def dlux_public_shell(context):
+    """What ``dlux/public_base.html`` takes from System Settings' public page settings.
+
+    Theme, font and home link come from the settings alone, never from the
+    visitor's preferences, so every visitor gets the same page.
+    """
+    from ..fonts import resolve_font_slug
+    from ..system.normalizers import normalize_allowed_fonts, normalize_homepage_config
+    from ..themes import get_theme_options
+    from ..utils import get_system_config
+
+    config = context.get('APP_CONFIG') or get_system_config()
+    public = normalize_homepage_config(config.get('homepage_config') or config)['public']
+    theme_slug = public['theme'] or config.get('default_theme') or ''
+    themes = get_theme_options(allowed_themes=[theme_slug]) if theme_slug else []
+    language = context.get('CURRENT_LANG') or config.get('default_language') or 'en'
+    identity = config.get('identity') if isinstance(config.get('identity'), dict) else {}
+    return {
+        'public': public,
+        'title': public['title'] or identity.get('display_name') or 'DjangoLux',
+        'theme': themes[0] if themes else None,
+        'font': resolve_font_slug(
+            normalize_allowed_fonts(config.get('allowed_fonts')), config.get('default_fonts'), language,
+        ),
+        'home_url': public['url'] if public['separate_url'] and public['url'] else '/',
+    }
+
+
+@register.simple_tag(takes_context=True)
 def dlux_timesince(context, value, arg=None):
     """
     Standard timesince but translates units using DLUX_STRINGS.

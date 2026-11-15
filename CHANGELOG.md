@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Thin Public Shell**: `dlux/public_base.html` serves citizen-facing pages under `script-src 'self'; style-src 'self'`. It follows the public page settings (title, description, theme, titlebar), the identity logo, favicon and footer, and the language's default font, and emits no configuration, URL map, preferences, strings or inline code. Blocks: `title`, `meta`, `extra_css`, `header`, `content`, `footer`, `scripts`.
+- **Font Stylesheet Route**: `/fonts/<slug>.css` (`font_stylesheet`) serves an allowed registry font's `@font-face` rules and `--dlux-main-font` as a cached stylesheet, so pages without inline styles need no project endpoint. `resolve_font_slug()` and `font_stylesheet_css()` join `dlux.fonts`.
+
 ## v1.16.0b3
 
 - **1.16.0 Candidate 3**: Third 1.16 beta, with the fixes from a stress run of 1.16.0b2. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1 or b2 deployment updates inline. Pairs with Composer 1.10.0b4 and ScanLink 0.8.0b3.

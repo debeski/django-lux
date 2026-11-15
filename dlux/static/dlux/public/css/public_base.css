@@ -1,0 +1,61 @@
+/* DjangoLux thin public shell (dlux/public_base.html).
+   Colours come from the public theme's stylesheet (`:root.theme-<slug>`), the
+   font from the registry stylesheet (`--dlux-main-font`). Logical properties
+   only, so the shell mirrors in RTL. */
+.dlux-public {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    padding-block-end: 1.5rem;
+    background-color: var(--body, #f8fafc);
+    color: var(--title, #334155);
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, system-ui, sans-serif));
+}
+
+.dlux-public-skip {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-start: 0.75rem;
+    z-index: 1080;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: var(--hbody, #f1f5f9);
+    color: var(--title, #334155);
+}
+
+.dlux-public-header {
+    background: var(--hbody, #f1f5f9);
+    border-block-end: 1px solid color-mix(in srgb, var(--htitle, #64748b) 25%, transparent);
+}
+
+.dlux-public-header__inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-block: 0.75rem;
+}
+
+.dlux-public-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--title, #334155);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.dlux-public-brand:hover,
+.dlux-public-brand:focus-visible {
+    color: var(--primal, #475569);
+}
+
+.dlux-public-brand__logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.dlux-public-main {
+    flex: 1 0 auto;
+}
