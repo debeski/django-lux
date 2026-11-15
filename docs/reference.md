@@ -209,6 +209,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/accounts/profile/` | User profile |
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
+| `/fonts/<slug>.css` | `@font-face` rules for one font System Settings allows, plus `--dlux-main-font`; public, cached for an hour; 404 for any other font. Linked by `dlux/public_base.html` |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |
@@ -970,6 +971,7 @@ See [Task Runner](task-runner.md).
 | Name | Type | Purpose |
 | --- | --- | --- |
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
+| `dlux_public_shell` | simple tag | What `dlux/public_base.html` takes from the public page settings: `{% dlux_public_shell as shell %}` gives `public`, `title`, `theme`, `font` and `home_url`, never from visitor preferences. See [Template Customization](template-customization.md#public-page-and-layout-behavior). |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
 | `dlux_ribbon` | simple tag | Render a list page's ribbon — title, filters and actions — from the `ribbon` context object put there by `dlux.ribbon.RibbonMixin`; `{% dlux_ribbon %}`, or pass one explicitly. Renders nothing when there is no ribbon. See [Ribbon](ribbon.md). |

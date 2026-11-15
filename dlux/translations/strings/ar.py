@@ -2733,4 +2733,5 @@ STRINGS = {
     'personal_columns_restore': 'استعادة',
     'personal_columns_expired': 'انتهت صلاحية هذا الخيار. أعد تحميل الجدول وحاول مجدداً.',
     'personal_columns_invalid': 'اختر من الأعمدة المتاحة وأبقِ عموداً واحداً ظاهراً على الأقل.',
+    'public_skip_to_content': 'انتقل إلى المحتوى',
 }
