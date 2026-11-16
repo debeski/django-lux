@@ -73,6 +73,12 @@
                         method: 'GET', mode: 'cors', signal: controller.signal,
                     });
                     if (response.ok) return await response.json();
+                    if (response.status === 403) {
+                        const payload = await response.json().catch(() => null);
+                        if (payload && payload.error && payload.error.code === 'origin_not_allowed') {
+                            return { linkRequired: true };
+                        }
+                    }
                 } catch (error) {
                     // Try the other transport before reporting an unavailable helper.
                 } finally {
@@ -112,6 +118,41 @@
             els.actions.appendChild(link);
         }
 
+        function addActionButton(label, onClick) {
+            if (!els.actions) return null;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn rounded-pill px-4 btn-primary';
+            button.textContent = label;
+            button.addEventListener('click', onClick);
+            els.actions.appendChild(button);
+            return button;
+        }
+
+        function renderLinkRequired(manifest) {
+            if (els.conn) {
+                els.conn.textContent = t('scanlink_not_linked', 'Not allowed here');
+                els.conn.className = 'badge bg-warning text-dark';
+            }
+            if (els.local) els.local.textContent = t('scanlink_unknown', 'Unknown');
+            if (els.status) {
+                els.status.textContent = t('scanlink_link_required', 'ScanLink is running on this computer but has not allowed this site yet.');
+            }
+            if (!window.DluxScan || typeof window.DluxScan.link !== 'function') return;
+            const button = addActionButton(t('scanlink_link_button', 'Allow this site in ScanLink'), async () => {
+                button.disabled = true;
+                const messages = window.DluxScan.messagesFor(null);
+                if (els.status) els.status.textContent = messages.linking;
+                try {
+                    await window.DluxScan.link({ messages: messages });
+                    render(await checkLocalHealth(), manifest);
+                } catch (error) {
+                    if (els.status) els.status.textContent = error.message;
+                    button.disabled = false;
+                }
+            });
+        }
+
         function render(health, manifest) {
             if (els.actions) els.actions.replaceChildren();
             setNotice('');
@@ -126,6 +167,10 @@
             }
             const latest = manifest && manifest.latest_version;
             if (els.latest) els.latest.textContent = latest || t('scanlink_none', '—');
+            if (health && health.linkRequired) {
+                renderLinkRequired(manifest);
+                return;
+            }
 
             if (!health) {
                 if (els.conn) {

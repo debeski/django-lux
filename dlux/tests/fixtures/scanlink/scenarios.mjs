@@ -11,8 +11,9 @@ const updatePath = path.join(root, 'dlux/static/dlux/system/js/scanlink_update.j
 let passed = 0;
 
 function runtime(file, fetch, secure = true, extra = {}) {
-    const window = { isSecureContext: secure, location: { protocol: 'https:' }, setTimeout, DLUX_STRINGS: {}, ...extra.window };
-    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, MutationObserver: class { observe() {} }, ...extra });
+    const { window: windowExtra, ...globals } = extra;
+    const window = { isSecureContext: secure, location: { protocol: 'https:' }, setTimeout, DLUX_STRINGS: {}, ...windowExtra };
+    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, MutationObserver: class { observe() {} }, ...globals });
     vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return context;
 }
@@ -145,6 +146,29 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     await assert.rejects(client.startScan(), (error) => error.code === 'scan_request_uncertain');
     assert.deepEqual(healthyPosts, ['http://localhost:5000/scan']);
     passed++;
+
+    // A refused website learns why, so the page can link instead of saying ScanLink is not running.
+    const refusal = { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed', message: 'This website is not linked to ScanLink.' } }) };
+    const linkBodies = [];
+    let linkAnswer = response({ linked: true, prompted: true, sites: ['https://archive.example', 'https://crm.example'] });
+    context = runtime(file, async (url, options) => {
+        if (url.endsWith('/link')) {
+            linkBodies.push([url, JSON.parse(options.body)]);
+            return linkAnswer;
+        }
+        if (url.startsWith('http:')) throw new TypeError('HTTP not used');
+        return refusal;
+    });
+    client = vm.runInContext('new ScanLink()', context);
+    assert.equal(await client.checkHealth(true), null);
+    assert.equal(client.connectionError.code, 'origin_not_allowed');
+    assert.match(client.baseUrl, /^https:/);
+    await assert.rejects(client.startScan(), (error) => error.code === 'origin_not_allowed');
+    assert.equal((await client.link(['https://crm.example'])).prompted, true);
+    assert.deepEqual(linkBodies, [['https://localhost:5443/link', { sites: ['https://crm.example'] }]]);
+    linkAnswer = { ok: false, status: 403, json: async () => ({ error: { code: 'link_declined', message: 'declined' } }) };
+    await assert.rejects(client.link([]), (error) => error.code === 'link_declined');
+    passed++;
 }
 
 {
@@ -158,6 +182,39 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     assert.equal(context.window.DluxScan.errorMessage(messages, { code: 'scan_request_uncertain' }), 'تحقق من ScanLink قبل بدء مسح آخر');
     assert.equal(context.window.DluxScan.errorMessage(messages, error), 'افتح العنوان الآمن');
     await assert.rejects(context.window.DluxScan.scan({ messages }), (err) => err.code === 'insecure_origin' && err.message === 'افتح العنوان الآمن');
+    passed++;
+}
+
+{
+    // ScanLink's own error codes reach the operator translated, and the page waits
+    // longer than ScanLink's 10-minute job deadline so ScanLink reports first.
+    const document = { querySelectorAll: () => [], addEventListener() {} };
+    const context = runtime(clientPath, async (url, options) => {
+        if (options.method === 'POST') return response({ job_id: 'slow-job', status: 'queued' });
+        return response({ status: 'ok', twain_available: true, busy: false });
+    }, true, { document });
+    Object.assign(context.window.DLUX_STRINGS, {
+        scan_no_pages_message: 'لا صفحات', scan_acquire_failed_message: 'توقف الماسح',
+        scan_worker_crashed_message: 'توقفت العملية', scan_origin_not_allowed_message: 'موقع غير مسموح',
+        scan_timeout_message: 'استغرق طويلا',
+    });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    const scan = context.window.DluxScan;
+    const messages = scan.messagesFor(null);
+    const expected = {
+        no_pages_scanned: 'لا صفحات', acquire_failed: 'توقف الماسح', scan_worker_crashed: 'توقفت العملية',
+        origin_not_allowed: 'موقع غير مسموح', payload_too_large: messages.failed, invalid_host: messages.failed,
+    };
+    for (const [code, text] of Object.entries(expected)) {
+        assert.equal(scan.errorMessage(messages, { code, message: 'English from ScanLink' }), text, code);
+    }
+    messages.timeout = 'استغرق طويلا';
+    assert.equal(scan.errorMessage(messages, { code: 'scan_idle_timeout', message: 'English' }), 'استغرق طويلا');
+    let waited = null;
+    context.window.ScanLink.prototype.waitForResult = async (jobId, options) => { waited = [jobId, options.timeoutMs]; return 'pdf'; };
+    assert.equal(await scan.scan({ messages }), 'pdf');
+    assert.deepEqual(waited, ['slow-job', 11 * 60 * 1000]);
+    assert.ok(scan.waitMs > 615 * 1000, 'longer than ScanLink\'s job deadline');
     passed++;
 }
 
@@ -186,6 +243,63 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
     helperUp = false;
     await assert.rejects(scan(), (err) => err.code === 'helper_unavailable');
     assert.equal(posts.length, 2);
+    passed++;
+}
+
+function linkingPage(adminSites, state) {
+    const document = {
+        querySelectorAll: () => [], addEventListener() {},
+        getElementById: (id) => (id === 'dlux-scanlink-sites' ? { textContent: JSON.stringify(adminSites) } : null),
+    };
+    const context = runtime(clientPath, async (url, options) => {
+        state.calls.push(`${options.method} ${url.replace(/^https:\/\/localhost:5443/, '')}`);
+        if (url.endsWith('/link')) {
+            state.linkBodies.push(JSON.parse(options.body));
+            if (state.declined) return { ok: false, status: 403, json: async () => ({ error: { code: 'link_declined', message: 'declined' } }) };
+            state.linked = ['https://archive.example', ...JSON.parse(options.body).sites];
+            return response({ linked: true, prompted: !state.wasLinked, sites: state.linked });
+        }
+        if (url.endsWith('/health')) {
+            if (!state.linked) return { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed', message: 'not linked' } }) };
+            return response({ status: 'ok', twain_available: true, busy: false, link: { linked: true, sites: state.linked } });
+        }
+        if (options.method === 'POST') return response({ job_id: 'linked-job', status: 'queued' });
+        return response({});
+    }, true, { document, window: { location: { protocol: 'https:', origin: 'https://archive.example', pathname: '/archive/1/' } } });
+    Object.assign(context.window.DLUX_STRINGS, { scan_linking_message: 'اختر السماح في نافذة ScanLink', scan_link_declined_message: 'لم يُسمح' });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    context.window.ScanLink.prototype.waitForResult = async () => 'pdf';
+    return context.window.DluxScan;
+}
+
+{
+    // First scan from an unlinked site links it with the administrator's list, then scans.
+    const state = { calls: [], linkBodies: [], linked: null };
+    const scan = linkingPage(['https://crm.example'], state);
+    const progress = [];
+    assert.equal(await scan.scan({ messages: scan.messagesFor(null), onProgress: (text) => progress.push(text) }), 'pdf');
+    assert.deepEqual(state.linkBodies, [{ sites: ['https://crm.example'] }]);
+    assert.ok(progress.includes('اختر السماح في نافذة ScanLink'));
+    assert.deepEqual(state.calls.filter((call) => call.startsWith('POST')), ['POST /link', 'POST /scan']);
+    passed++;
+
+    // The same list does not link again; a changed list is sent without stopping the scan.
+    state.calls.length = 0;
+    state.wasLinked = true;
+    assert.equal(await scan.scan({ messages: scan.messagesFor(null) }), 'pdf');
+    assert.deepEqual(state.calls.filter((call) => call.startsWith('POST')), ['POST /scan']);
+    passed++;
+    const changedState = { calls: [], linkBodies: [], linked: ['https://archive.example', 'https://crm.example'], wasLinked: true };
+    const resync = linkingPage(['https://sales.example'], changedState);
+    assert.equal(await resync.scan({ messages: resync.messagesFor(null) }), 'pdf');
+    assert.deepEqual(changedState.linkBodies, [{ sites: ['https://sales.example'] }]);
+    passed++;
+
+    // A declined link ends the scan with the translated reason and starts nothing.
+    const declinedState = { calls: [], linkBodies: [], linked: null, declined: true };
+    const declined = linkingPage([], declinedState);
+    await assert.rejects(declined.scan({ messages: declined.messagesFor(null) }), (error) => error.code === 'link_declined' && error.message === 'لم يُسمح');
+    assert.ok(!declinedState.calls.includes('POST /scan'));
     passed++;
 }
 
@@ -233,6 +347,35 @@ for (const [installed, latest, expected] of [
 ]) {
     result = await updateScenario(true, { version: installed, https_setup: 'ready' }, false, latest);
     assert.equal(result.nodes.get('[data-scanlink-status]').textContent, expected);
+    passed++;
+}
+{
+    const nodes = new Map();
+    for (const name of ['connection', 'local-version', 'latest-version', 'status', 'actions', 'notice']) {
+        nodes.set(`[data-scanlink-${name}]`, { textContent: '', hidden: true, children: [], replaceChildren() { this.children = []; }, appendChild(node) { this.children.push(node); } });
+    }
+    const card = {
+        dataset: { origins: JSON.stringify(['https://localhost:5443']), manifestUrl: '/manifest' },
+        querySelector: (selector) => nodes.get(selector), isConnected: true,
+    };
+    let linked = false;
+    const clicks = [];
+    const document = {
+        readyState: 'complete', querySelectorAll: () => [card],
+        createElement: () => ({ setAttribute() {}, addEventListener(type, handler) { clicks.push(handler); } }),
+    };
+    const DluxScan = { messagesFor: () => ({ linking: 'Choose Allow' }), link: async () => { linked = true; } };
+    runtime(updatePath, async (url) => {
+        if (url === '/manifest') return response({ latest_version: '0.8.0', downloads: { x64: '/installer' } });
+        if (!linked) return { ok: false, status: 403, json: async () => ({ error: { code: 'origin_not_allowed' } }) };
+        return response({ version: '0.8.0', https_setup: 'ready' });
+    }, true, { document, window: { DluxScan } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(nodes.get('[data-scanlink-connection]').textContent, 'Not allowed here');
+    assert.match(nodes.get('[data-scanlink-status]').textContent, /has not allowed this site/);
+    assert.equal(nodes.get('[data-scanlink-actions]').children.length, 1);
+    await clicks[0]();
+    assert.equal(nodes.get('[data-scanlink-connection]').textContent, 'Connected');
     passed++;
 }
 console.log(JSON.stringify({ passed }));

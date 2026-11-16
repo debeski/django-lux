@@ -244,3 +244,33 @@ def resolve_chain_paths(target_path, target_meta=None):
             )
         ordered.insert(0, match)
     return [path for path, _info in ordered]
+
+
+CHAIN_IDENTITY = ("id", "sequence", "root", "parent_root")
+
+
+def verify_chain_members(headers, manifests):
+    """Check the members resolved from cleartext headers against their encrypted manifests.
+
+    ``resolve_chain_paths`` can only read headers, which the encryption does not
+    cover. A header edited to make an increment look like a full backup (which a
+    restore would then apply as a full replacement) or to hang a member on another
+    chain is caught here, before any data is touched. Raises ``ValueError``.
+    """
+    previous = None
+    for position, (header, manifest) in enumerate(zip(headers, manifests)):
+        claimed = header.get("chain") or {}
+        actual = manifest.get("chain") or {}
+        for key in CHAIN_IDENTITY:
+            if (claimed.get(key) or None) != (actual.get(key) or None):
+                raise ValueError(
+                    f"Backup chain member {position} was altered: its header does not match "
+                    f"its encrypted contents ({key})"
+                )
+        if int(actual.get("sequence") or 0) != position:
+            raise ValueError(f"Backup chain member {position} was altered: it is not member {position} of its chain")
+        if previous is not None and (
+            actual.get("id") != previous.get("id") or actual.get("parent_root") != previous.get("root")
+        ):
+            raise ValueError(f"Backup chain member {position} was altered: it does not follow member {position - 1}")
+        previous = actual

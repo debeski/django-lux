@@ -18,7 +18,15 @@
         return cookieValue;
     }
 
-    // Modal Builder
+    // Record names, field values and related rows are stored data; they reach
+    // the markup below only through this.
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[ch]);
+    }
+
+    // Modal Builder: `title` is text; `bodyContent` and `footerContent` are markup.
     function showModal(title, bodyContent, footerContent, variant = 'primary') {
         const modalId = 'sectionManagerModal';
         let modalEl = document.getElementById(modalId);
@@ -32,7 +40,7 @@
                 <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content glass-card border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
                         <div class="modal-header border-0 pb-0">
-                            <h5 class="modal-title fw-bold text-${variant}"><i class="bi bi-info-circle me-2"></i> ${title}</h5>
+                            <h5 class="modal-title fw-bold text-${variant}"><i class="bi bi-info-circle me-2"></i> ${escapeHtml(title)}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body p-4">
@@ -67,10 +75,10 @@
                 <div class="col-sm-12">
                     <div class="glass-card h-100 p-3">
                         <div class="info-label-sm mb-2 text-primary fw-bold border-bottom pb-1" style="font-size: 0.8rem;">
-                            <i class="bi bi-diagram-2 me-1"></i> ${modelName}
+                            <i class="bi bi-diagram-2 me-1"></i> ${escapeHtml(modelName)}
                         </div>
                         <ul class="list-group list-group-flush bg-transparent">
-                            ${items.map(item => `<li class="list-group-item bg-transparent border-0 py-1 px-1 small text-muted"><i class="bi bi-dot me-1"></i> ${item}</li>`).join('')}
+                            ${items.map(item => `<li class="list-group-item bg-transparent border-0 py-1 px-1 small text-muted"><i class="bi bi-dot me-1"></i> ${escapeHtml(item)}</li>`).join('')}
                         </ul>
                     </div>
                 </div>
@@ -177,8 +185,8 @@
                         fieldsHtml += `
                             <div class="col-md-6">
                                 <div class="mb-2 px-2">
-                                    <div class="info-label">${label}</div>
-                                    <div class="info-value" style="font-size: 1rem;">${value || '-'}</div>
+                                    <div class="info-label">${escapeHtml(label)}</div>
+                                    <div class="info-value" style="font-size: 1rem;">${escapeHtml(value || '-')}</div>
                                 </div>
                             </div>
                         `;

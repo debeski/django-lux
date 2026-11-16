@@ -25,12 +25,14 @@ class Retry(Exception):
     """Raise inside a task to run it again after ``delay`` seconds.
 
     The same queue row goes back to READY, keeping its priority, until the
-    task's ``max_retries`` is used up.
+    task's ``max_retries`` is used up. ``counts=False`` waits without using
+    any of that budget: for a resource that is busy rather than failing.
     """
 
-    def __init__(self, delay=0, message=""):
+    def __init__(self, delay=0, message="", *, counts=True):
         super().__init__(message or f"retry in {delay}s")
         self.delay = max(0, int(delay or 0))
+        self.counts = bool(counts)
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,9 @@ class DluxTask:
     requeue_lost: bool = False
     # Arguments are encrypted at rest and cleared when the run finishes.
     sensitive: bool = False
+    # Called with the run's arguments when its worker died and the run failed
+    # (not requeued): the task's own records can say so at once.
+    on_lost: object = None
 
     def using(self, *, priority=None, queue_name=None, run_after=None, countdown=None):
         changes = {}
@@ -110,7 +115,7 @@ def _checked_priority(priority):
 
 
 def task(function=None, *, name=None, priority=None, queue_name="default", takes_context=False,
-         max_retries=None, requeue_lost=False, sensitive=False):
+         max_retries=None, requeue_lost=False, sensitive=False, on_lost=None):
     """Declare a task. ``name`` defaults to the function's import path."""
 
     def wrapper(func):
@@ -123,6 +128,7 @@ def task(function=None, *, name=None, priority=None, queue_name="default", takes
             max_retries=max_retries,
             requeue_lost=requeue_lost,
             sensitive=sensitive,
+            on_lost=on_lost,
         )
         _REGISTRY[definition.name] = definition
         return definition

@@ -115,7 +115,9 @@ General Reports produce three outputs:
   one sheet per model filtered by period and scope, plus an Export Info index sheet.
   Credential-named fields (password, passphrase, secret, token, API key) are always
   dropped. `DLUX_CONFIG['reports']['entries_exclude_fields'] = {'app.model': ['field']}`
-  drops more, and `entries_row_limit` (default `20000`) caps each sheet.
+  drops more, and `entries_row_limit` (default `20000`) caps each sheet. Every
+  workbook here, the user report's included, writes strings as text cells, so a
+  stored value or user agent that starts with `=` is never a formula.
 - **Archive ZIP**: `entries.xlsx` (the Export Entries workbook), the referenced media
   under `files/`, and `manifest.json`, whose `selection` records the exact
   normalized criteria. Downloading it needs `dlux.download_backup`.

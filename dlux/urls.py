@@ -3,6 +3,7 @@
 from django.urls import path
 from . import views, api
 from django.contrib.auth import views as auth_views
+from .views.public import font_stylesheet
 from .views.weather import weather_current, weather_locations
 from .files import media as media_views
 from .files import views as file_views
@@ -11,6 +12,7 @@ from .ocr import views as ocr_views
 # app_name = 'dlux'
 
 urlpatterns = [
+    path('fonts/<slug:slug>.css', font_stylesheet, name='font_stylesheet'),
     path('sys/api/weather/', weather_current, name='weather_current'),
     path('sys/api/weather/locations/', weather_locations, name='weather_locations'),
     # Auth URLs (Django defaults - no prefix needed when mounted at root)

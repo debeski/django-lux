@@ -997,6 +997,7 @@ class LayoutMixin:
                         *self._pdf_settings_layout(s),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('scanlink_settings_title', 'ScanLink Scanning')}</h6>"),
                         build_settings_toggle_field(self, 'scanlink_enabled', css_class='col-12'),
+                        Div(Field('scanlink_sites', dir='ltr'), css_class='col-12 mt-2'),
                         HTML(
                             f"<div class='mt-3'>"
                             f"<button type='button' class='btn btn-outline-primary rounded-pill px-4'"

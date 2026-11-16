@@ -3,7 +3,36 @@
 Enable ScanLink in System Settings → Extra Features, then publish the Windows
 installer through Options → ScanLink. Operators download the installer from the
 project they use, install it, open ScanLink, and approve any Windows or browser
-prompt. They do not run commands or import certificates.
+prompt. The first time they scan from this site, ScanLink asks them once to allow
+it (see [Allowed websites](#allowed-websites)). They do not run commands or import
+certificates.
+
+## Allowed websites
+
+ScanLink lets no website scan until it is allowed, so a page the operator opens
+elsewhere cannot use their scanner. Allowing happens once per site and computer:
+
+1. The first scan from a site that ScanLink has not allowed (or **Allow this site
+   in ScanLink** on Options → ScanLink) sends `POST /link` to the helper.
+2. ScanLink opens its own window naming the site as the browser reported it, and
+   the websites this site's administrator also allows. The page shows *Choose Allow
+   in the ScanLink window on this computer to let this site scan.*
+3. When the operator chooses **Allow**, the scan carries on. **Don't allow** stops
+   it (`link_declined`), and the site cannot ask again for 10 minutes. An
+   unanswered window closes after two minutes (`link_timeout`), and only one window
+   is open at a time (`link_pending`).
+
+The administrator lists the other websites in System Settings → Extra Features →
+**Other websites that may use ScanLink**, one address per line (stored as website
+origins in `extra_config['scanlink']['sites']`, at most 19). Use it when the same
+workstations scan for another DjangoLux site. This site is always allowed and is
+not listed. Every page sends the list (`json_script` `dlux-scanlink-sites`); when it
+no longer matches what ScanLink holds for this site, the next scan updates ScanLink
+without asking again.
+
+Operators remove a site from the ScanLink tray menu (**Linked Websites → Unlink**).
+IT can allow sites without the window by listing them in `cors_origins` in
+ScanLink's `config.json`; ScanLink ignores `"*"` there.
 
 ## How a scan connects
 
@@ -31,6 +60,23 @@ Status and result reads (`GET /scan/<job_id>` and `/scan/<job_id>/result`) keep
 the HTTPS/HTTP fallback. File fields and the PDF editor share the English/Arabic
 guidance in `dlux/helpers/scanlink/scan_messages.html`.
 
+The page waits up to 11 minutes for a scan, longer than ScanLink's own job deadline
+(10 minutes plus 15 s), so a slow scan ends with ScanLink's reason rather than the
+page giving up while the scanner keeps going. ScanLink's error codes are shown
+translated:
+
+| Code | Message |
+|---|---|
+| `no_pages_scanned` | The scanner returned no pages; check the paper. |
+| `acquire_failed` | The scanner stopped before the scan finished. |
+| `scan_worker_crashed` | ScanLink's scanning process stopped; try again, then restart ScanLink. |
+| `origin_not_allowed` | ScanLink has not allowed this site; scan again and choose Allow in its window. |
+| `link_declined`, `link_timeout`, `link_pending` | The operator chose Don't allow, did not answer, or another site's window is open. |
+| `acquire_timeout`, `scan_timeout`, `scan_idle_timeout` | The scan took too long. |
+| `payload_too_large`, `invalid_host`, `local_only`, `too_many_links` | The scan could not be completed. |
+
+A code the page does not know shows ScanLink's own message.
+
 On the helper side, ScanLink keeps a job in `generating_pdf` until the child
 process exits and the PDF is stored, and enforces the parent scan deadline even
 while progress keeps arriving. It rejects malformed scan bodies before queueing
@@ -41,7 +87,12 @@ result download gets the same single-use answer.
 
 The client keeps health, status and result compatibility with ScanLink 0.7.4 or
 later. ScanLink 0.7.4 does not report certificate setup progress, so the
-installer panel shows no setup guidance for it.
+installer panel shows no setup guidance for it. Releases before ScanLink 0.8.0
+allow every website and have no `POST /link`; the page scans with them unchanged.
+
+ScanLink 0.8.0 or later needs DjangoLux 1.16.0 or later to scan: an older page
+cannot link the site and reports ScanLink as not running. Publish its installer
+only on deployments that run DjangoLux 1.16.0 or later.
 
 `dlux/tests/fixtures/scanlink/scenarios.mjs` holds the paired connection
 scenarios; `dlux/tests/test_scanlink_connection.py` runs them against the

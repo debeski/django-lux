@@ -209,6 +209,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/accounts/profile/` | User profile |
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
+| `/fonts/<slug>.css` | `@font-face` rules for one font System Settings allows, plus `--dlux-main-font`; public, cached for an hour; 404 for any other font. Linked by `dlux/public_base.html` |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |
@@ -866,6 +867,8 @@ The system records several action families out of the box, including:
 | --- | --- |
 | `require_current_password(request)` | Reusable backend guard for destructive profile/security actions. Returns a failure response or `None`. |
 | `set_profile_totp_state(profile, raw_secret=..., enabled=...)` | Persist encrypted TOTP secret and/or enabled state directly without routing through the full `Profile.save()` path. |
+| `public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` | Decorator from `dlux.utils.ratelimit`: limits a public form view's POSTs per client address and in total, answering 429 with `Retry-After` and the translated message, or with `on_limited(request, result, *args, **kwargs)`. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls). |
+| `count_public_form_post(request, bucket, per_address=5, total=300, window=3600)` | Counts one POST against the same limits and returns `PublicFormLimitResult(allowed, limit, retry_after)`, for views that decide their own refusal. `rate_limited_response(request, result)` builds the default 429. |
 
 Typical current-password guard usage:
 
@@ -888,6 +891,21 @@ from dlux.utils import set_profile_totp_state
 set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=True)
 ```
 
+Typical public form limit usage, re-rendering the form with a notice:
+
+```python
+from dlux.utils.ratelimit import public_form_limit
+
+
+def complaint_limited(request, result):
+    return render(request, "public/complaint.html", {"form": ComplaintForm(), "rate_limited": True}, status=429)
+
+
+@public_form_limit("complaint", per_address=3, total=150, on_limited=complaint_limited)
+def complaint(request):
+    ...
+```
+
 ### Form and UI Helpers
 
 | Helper | Purpose |
@@ -906,6 +924,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
 | `dlux_settings()` | Apply the default DjangoLux settings requirements from a project `settings.py` via `dlux_settings(globals())`, including app stack, locale and activity middleware, context processor, Crispy defaults, `MESSAGE_TAGS`, and core language/format defaults |
 | `get_secret()` | Read a Docker secret file first, then fall back to an environment variable |
+| `scanlink_enabled()`, `scanlink_sites()` | Whether ScanLink is on, and the other websites the administrator lets use it (`extra_config['scanlink']`); see [ScanLink](scanlink.md#allowed-websites) |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |
@@ -930,6 +949,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
 | `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
+| `dlux.utils.spreadsheets.append_text_safe_row()` | Append an openpyxl row whose strings stay text cells, never formulas |
 
 ### Permission Visibility
 
@@ -946,12 +966,12 @@ See [Developer Guide](developer-guide.md#hiding-permissions-of-a-disabled-featur
 
 | API | Purpose |
 | --- | --- |
-| `@task(name=, priority=, queue_name=, takes_context=, max_retries=, requeue_lost=, sensitive=)` | Declare a task in an app's `tasks.py`; returns a `DluxTask`. |
+| `@task(name=, priority=, queue_name=, takes_context=, max_retries=, requeue_lost=, sensitive=, on_lost=)` | Declare a task in an app's `tasks.py`; returns a `DluxTask`. |
 | `DluxTask.enqueue(*args, **kwargs)` / `.delay(...)` | Queue a run; returns its id. |
 | `DluxTask.using(priority=, queue_name=, run_after=, countdown=)` | A copy with other options, e.g. `.using(countdown=60).enqueue(...)`. |
 | `DluxTask.call(*args, **kwargs)` | Run it in this process, now. |
 | `enqueue(name, args=, kwargs=, priority=, run_after=, countdown=, queue_name=, sensitive=)` | Queue a task by name without importing its module. |
-| `Retry(delay)` | Raise in a task to run it again after `delay` seconds, up to `max_retries`. |
+| `Retry(delay, counts=True)` | Raise in a task to run it again after `delay` seconds, up to `max_retries`; `counts=False` waits without using that budget. |
 | `TaskContext` | First argument of a `takes_context` task: `attempt`, `retries`, `priority`, `run_id`. |
 | `crontab(minute=, hour=, day_of_week=, day_of_month=, month_of_year=)` | Cron schedule for `DLUX_TASK_SCHEDULE`, Celery's arguments, in `TIME_ZONE`. |
 | `worker_alive()` | Whether a `dlux_worker` heartbeat is fresh (one query). |
@@ -968,6 +988,7 @@ See [Task Runner](task-runner.md).
 | Name | Type | Purpose |
 | --- | --- | --- |
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
+| `dlux_public_shell` | simple tag | What `dlux/public_base.html` takes from the public page settings: `{% dlux_public_shell as shell %}` gives `public`, `title`, `theme`, `font` and `home_url`, never from visitor preferences. See [Template Customization](template-customization.md#public-page-and-layout-behavior). |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
 | `dlux_ribbon` | simple tag | Render a list page's ribbon — title, filters and actions — from the `ribbon` context object put there by `dlux.ribbon.RibbonMixin`; `{% dlux_ribbon %}`, or pass one explicitly. Renders nothing when there is no ribbon. See [Ribbon](ribbon.md). |

@@ -169,3 +169,40 @@ func BenchmarkChainMerge(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkChainMergeFiles merges a base holding 40,000 stored files with a
+// small increment; every file is looked up in its member's ZIP directory.
+func BenchmarkChainMergeFiles(b *testing.B) {
+	dir := b.TempDir()
+	paths := []string{filepath.Join(dir, "base.zip"), filepath.Join(dir, "increment.zip")}
+	for i, n := range []int{40000, 0} {
+		var archive bytes.Buffer
+		zw := zip.NewWriter(&archive)
+		var records, files strings.Builder
+		for pk := 0; pk < n; pk++ {
+			sep := map[bool]string{true: "", false: ","}[pk == 0]
+			name := fmt.Sprintf("files/sample/document/%d/scan/scan-%d.pdf", pk, pk)
+			fmt.Fprintf(&records, `%s{"pk":%d,"fields":{"scan":"scan-%d.pdf"}}`, sep, pk, pk)
+			fmt.Fprintf(&files, `%s{"model":"sample.document","pk":%d,"field":"scan","path":%q,"name":"scan-%d.pdf"}`, sep, pk, name, pk)
+			w, _ := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+			w.Write([]byte("%PDF"))
+		}
+		w, _ := zw.Create("data/sample/document.json")
+		fmt.Fprintf(w, "[%s]", records.String())
+		w, _ = zw.Create("manifest.json")
+		fmt.Fprintf(w, `{"models":[{"model":"sample.document","count":%d}],"files":[%s],"missing_files":[]}`, n, files.String())
+		if err := zw.Close(); err != nil {
+			b.Fatal(err)
+		}
+		if err := os.WriteFile(paths[i], archive.Bytes(), 0600); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := mergeChain(paths, io.Discard); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

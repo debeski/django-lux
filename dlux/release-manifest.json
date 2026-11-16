@@ -1,16 +1,17 @@
 {
   "schema_version": 2,
-  "version": "1.16.0b2",
+  "version": "1.16.0b4",
   "display": {
-    "summary": "Second 1.16 beta: fixes on top of 1.16.0b1's built-in task manager. Replaced document files stay on disk for audits again, the backup page's restore history refreshes on a deployment with no restores yet, and System Settings no longer stalls when the mail relay's name does not resolve. A 1.16.0b1 deployment updates inline; from 1.15.x, follow the 1.16.0b1 upgrade path.",
+    "summary": "Fourth 1.16 beta. Pages no longer send the system configuration to visitors, detail views and the section manager escape stored values, and XLSX exports write text instead of formulas. Citizen-facing pages get a thin public shell that runs under a strict content security policy, and public forms get per-address and total rate limits. A 1.16.0b1, b2 or b3 deployment updates inline; from 1.15.x, follow the 1.16.0b1 upgrade path.",
     "highlights": [
-      "Document history keeps the replaced file and the PDF upload in the document's folder again, beside their history copy, for audits.",
-      "Backup page: the restore history refreshes live on a deployment with no restores yet; its status poller returned an error.",
-      "System Settings opens without delay when the mail relay's name does not resolve: the relay check waits at most 1.5 seconds in total.",
-      "From 1.16.0b1 this beta installs inline. From 1.15.x: put the project image on 1.16, run ./start.sh check --fix with Composer 1.10+, recreate.",
-      "Includes 1.16.0b1: DjangoLux runs its own tasks in a worker service instead of Celery, and projects get the dlux.taskrunner API."
+      "Security: pages no longer embed the system configuration; scripts get only theme, fonts, password rules and the inactivity timeout.",
+      "Security: the detail view and the section manager's modals escape stored values, so a stored tag cannot run script for staff.",
+      "Security: XLSX exports write values that start with = as text, never as formulas.",
+      "Security: public forms are rate-limited per address and in total; a refused post gets 429 with Retry-After.",
+      "Public pages: dlux/public_base.html, a thin shell under script-src 'self' and style-src 'self', and a /fonts/<slug>.css route.",
+      "From 1.16.0b1, b2 or b3 this beta installs inline. From 1.15.x: image on 1.16, ./start.sh check --fix with Composer 1.10+, recreate."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b4"
   },
   "requires": {
     "updater_schema": ">=1",

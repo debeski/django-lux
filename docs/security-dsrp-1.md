@@ -28,6 +28,21 @@ authorization decision.
 
 ## Applied Dlux Measures
 
+- Pages hand their scripts only `CLIENT_CONFIG_KEYS` (`window.DLUX_CONFIG`: theme,
+  fonts, password rules, inactivity timeout). The system configuration, with mail
+  transport, lockout thresholds, backup and proxy settings, stays server-side for
+  every visitor, signed in or not.
+- The generic detail modal escapes stored values. Only markup DjangoLux builds
+  itself (download links, boolean icons) is marked safe. A model's
+  `extra_detail_fields` row with `is_html` renders unescaped, so its value is built
+  with `format_html()`, never from raw input.
+- XLSX exports (`fetch_excel()`, Export Entries, user reports) write strings as
+  text cells through `append_text_safe_row()`, so a stored value, activity-log
+  entry or user agent that starts with `=` never becomes a formula.
+- Browser code that builds markup keeps data text. The section manager's View and
+  blocked-Delete modals escape record names, field values and related rows;
+  row-action labels and dynamic-modal errors are set as text; the login hero's
+  markdown escapes quotes, so a link URL cannot leave its `href`.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
@@ -126,6 +141,22 @@ fallbacks when runtime configuration cannot be resolved.
   and `login_lockout_enabled` gates the policy (default on).
   `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` and `DLUX_LOGIN_LOCKOUT_SECONDS` are legacy
   fallbacks used only when resolved System Settings cannot be read.
+- **Public form limits.** Anonymous public forms (reviews, complaints, contact
+  forms) limit their POSTs with `dlux.utils.ratelimit`, per client address and in
+  total for each form, over fixed windows:
+  `@public_form_limit(bucket, per_address=5, total=300, window=3600)` by default.
+  A POST counts against its sender first, and only a POST inside its sender's
+  limit counts toward the total, so one sender cannot spend the budget every other
+  sender shares. The address comes from the centralized client-IP resolution, and
+  IPv6 addresses count per /64. Cache keys hold a `SECRET_KEY`-keyed HMAC of the
+  address, never the address, and expire when their window ends; log lines name
+  the form, not the sender. A refused POST gets HTTP 429 with `Retry-After` and the
+  translated `msg_public_form_rate_limited` message (JSON for script requests), or
+  the response of the view's own `on_limited` handler. `DLUX_PUBLIC_FORM_LIMITS`
+  overrides a form's limits per deployment. Windows are aligned to the clock, so a
+  sender can fit up to twice its limit around a window boundary. Exact counts under
+  concurrency need a cache with an atomic `incr` (Redis in generated stacks). A
+  cache that cannot be reached lets the POST through and logs the error.
 - **2FA completion window.** The pre-2FA challenge carries a server timestamp and
   is abandoned after `DLUX_2FA_CHALLENGE_WINDOW_SECONDS` (default 300s), so a
   half-finished challenge cannot persist for the whole session lifetime. This is

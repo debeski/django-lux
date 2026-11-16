@@ -2,6 +2,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .system.constants import (
+    CLIENT_CONFIG_KEYS,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
@@ -626,6 +627,8 @@ def dlux_context(request):
         import json as _json
         from .system.constants import SCANLINK_CONNECT_ORIGINS
         context['scanlink_connect_origins_json'] = _json.dumps(list(SCANLINK_CONNECT_ORIGINS))
+        from .utils import scanlink_sites
+        context['scanlink_sites'] = scanlink_sites()
 
     context['DLUX_SHOW_INITIAL_USER_SETUP'] = bool(
         profile_obj is not None
@@ -729,6 +732,7 @@ def dlux_context(request):
     context['sidebar_density'] = user_prefs.get('sidebar_density', sidebar_runtime_config.get('density', 'balanced'))
     context['user_preferences'] = user_prefs
     context['config'] = final_config
+    context['client_config'] = {key: final_config.get(key) for key in CLIENT_CONFIG_KEYS}
     context['user'] = request.user
     context['languages'] = languages
     context['translations'] = dlux_strings
@@ -787,11 +791,11 @@ def dlux_context(request):
     )
     # 8. Font Resolution
     from .fonts import (
-        DEFAULT_FONT_SLUG,
         generate_font_face_css,
         get_available_fonts,
         get_default_font_family,
         get_font_by_slug,
+        resolve_font_slug,
     )
     available_fonts = get_available_fonts()
     allowed_fonts = normalize_allowed_fonts(final_config.get('allowed_fonts'))
@@ -804,23 +808,12 @@ def dlux_context(request):
     context['option_fonts'] = [font for font in available_fonts if font.get('slug') in allowed_fonts]
     
     allow_user_font_override = bool(final_config.get('allow_user_font_override', True))
-    default_fonts_by_lang = final_config.get('default_fonts', {})
-    
-    active_font = None
-    if allow_user_font_override:
-        active_font = user_prefs.get('font')
-    
-    if not active_font or active_font not in allowed_fonts:
-        active_font = default_fonts_by_lang.get(current_lang)
-    
-    if not active_font or active_font not in allowed_fonts:
-        active_font = DEFAULT_FONT_SLUG
-
-    # Ensure active_font is valid, else hard fallback to cairo
-    if active_font not in allowed_fonts and allowed_fonts:
-        active_font = allowed_fonts[0]
-    elif not active_font:
-        active_font = DEFAULT_FONT_SLUG
+    active_font = resolve_font_slug(
+        allowed_fonts,
+        final_config.get('default_fonts'),
+        current_lang,
+        preferred=user_prefs.get('font') if allow_user_font_override else None,
+    )
 
     active_font_config = get_font_by_slug(active_font) if active_font else None
     context['active_font'] = active_font

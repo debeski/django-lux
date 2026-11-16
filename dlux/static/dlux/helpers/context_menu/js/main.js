@@ -240,13 +240,14 @@
             btn.className = `context-menu-item ${action.cls || ''}`;
             if (action.textClass) btn.classList.add(action.textClass);
             
-            // Icon
-            let iconHtml = '';
+            // A project's row actions may label themselves with record data, so
+            // the label is text and the icon only ever a class list.
             if (action.icon) {
-                iconHtml = `<i class="${action.icon}"></i> `;
+                const icon = document.createElement('i');
+                icon.className = action.icon;
+                btn.append(icon, ' ');
             }
-
-            btn.innerHTML = `${iconHtml}${action.label}`;
+            btn.append(String(action.label ?? ''));
             
             // Store action data on button for click handler
             btn.dataset.actionIndex = actions.indexOf(action);
