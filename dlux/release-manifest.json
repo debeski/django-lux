@@ -1,19 +1,16 @@
 {
   "schema_version": 2,
-  "version": "1.16.0",
+  "version": "1.16.1b1",
   "display": {
-    "summary": "DjangoLux runs its own tasks: a built-in task manager (manage.py dlux_worker in a new worker service) replaces Celery for every DjangoLux task, and projects get a public task API. Pages no longer carry the system configuration, detail views and the section manager escape stored values, XLSX exports write text instead of formulas, and public forms get rate limits and a thin public page shell. OCR backfills, backups and restores get fixes from two stress runs. From 1.15.x it installs with the project image and Composer 1.10's ./start.sh check --fix; a 1.16 beta deployment updates inline.",
+    "summary": "Two fixes from the 1.16.0b4 stress run. Public form limits keep each counter a few seconds past its window, so a flood no longer gets extra posts through at window boundaries. Caddy in new projects reads DLUX_FRONT_PROXY from .secrets/.env to choose which front proxies may forward client addresses; unset keeps trusting every private address, as before. Existing stacks get the same change from Composer 1.10.1's ./start.sh check --fix, and ./start.sh check warns while it is unset. Updates inline from any 1.16 release; no migrations.",
     "highlights": [
-      "DjangoLux's backups, update checks, OCR, weather and state tick run from a database queue in a new worker service; DjangoLux no longer uses Celery.",
-      "Upgrade from 1.15.x: put the project image on 1.16, run ./start.sh check --fix with Composer 1.10+, then recreate. 1.16 betas update inline.",
-      "Project tasks can move to dlux.taskrunner: @task, .enqueue(), .delay(), Retry and DLUX_TASK_SCHEDULE. Project Celery is warned; 1.17 stacks drop it.",
-      "Security: pages no longer embed the system configuration, and detail views and the section manager escape stored values.",
-      "Security: XLSX exports write = values as text, public forms are rate-limited, and restore refuses an altered incremental chain.",
-      "Public pages: dlux/public_base.html, a thin shell under script-src 'self' and style-src 'self', and a /fonts/<slug>.css route.",
-      "OCR backfills finish instead of giving files up, a backup or restore whose worker dies fails at once, and restores keep exact timestamps.",
-      "ScanLink 0.8.0: a website scans only after the operator allows it once. Document history keeps replaced files for audits again."
+      "Public form limits: each counter outlives its window by 5 seconds, so a flood no longer gets extra posts through at window boundaries.",
+      "DLUX_FRONT_PROXY in .secrets/.env names the front proxies Caddy trusts for client addresses; unset keeps trusting every private address.",
+      "No front proxy? Set DLUX_FRONT_PROXY= (empty) so users on your network cannot choose the address used for login lockout and the audit log.",
+      "Existing stacks: Composer 1.10.1's ./start.sh check warns while it is unset, and check --fix moves the Caddyfile and compose to the variable.",
+      "Or firewall the server so only the front proxy reaches Caddy's port. Updates inline from any 1.16 release, with no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.1b1"
   },
   "requires": {
     "updater_schema": ">=1",

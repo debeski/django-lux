@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.16.1b1
 
 - **Public form limits, window boundaries**: `dlux.utils.ratelimit` keeps each counter `KEY_GRACE_SECONDS` (5 s) past its window, so a POST that read the window just before it ended counts against that window's counter instead of starting a new one at 1. Under a flood, 32 processes over 5 windows of 50 had admitted 259 instead of 250.
 - **Scaffold front-proxy trust (`DLUX_FRONT_PROXY`)**: the scaffolded `.proxy/Caddyfile` reads `trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges}` and the `caddy` service passes `DLUX_FRONT_PROXY: "${DLUX_FRONT_PROXY-private_ranges}"` from `.secrets/.env`. Unset keeps today's trust of every private address; a space-separated list trusts only those proxies; empty trusts none. It closes the private-network `X-Forwarded-For` spoof found in the 1.16.0b4 stress run (a LAN client choosing the recorded address) once a deployment names its front proxy. Paired with Composer's `check` warning and `check --fix` rewrite.
