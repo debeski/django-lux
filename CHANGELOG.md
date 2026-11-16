@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.0
+
+- **Stable 1.16.0**: Promote the accepted 1.16.0b4. DjangoLux runs its own tasks in a `worker` service instead of Celery (stack schema 5), with the 1.16 security, OCR and backup fixes. Requires Composer `>=1.10.0b1`; no runtime or dependency changes from 1.16.0b4. From 1.15.x: image on 1.16, `./start.sh check --fix` (Composer 1.10+), recreate; 1.16 betas update inline.
+
 ## v1.16.0b4
 
 - **1.16.0 Candidate 4**: Fourth 1.16 beta: output-safety fixes (no configuration in pages, two stored-XSS paths, XLSX formulas), a thin public shell for citizen-facing pages and public form rate limits. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1, b2 or b3 deployment updates inline. Pairs with Composer 1.10.0b4 and ScanLink 0.8.0b3.

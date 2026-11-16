@@ -1,17 +1,19 @@
 {
   "schema_version": 2,
-  "version": "1.16.0b4",
+  "version": "1.16.0",
   "display": {
-    "summary": "Fourth 1.16 beta. Pages no longer send the system configuration to visitors, detail views and the section manager escape stored values, and XLSX exports write text instead of formulas. Citizen-facing pages get a thin public shell that runs under a strict content security policy, and public forms get per-address and total rate limits. A 1.16.0b1, b2 or b3 deployment updates inline; from 1.15.x, follow the 1.16.0b1 upgrade path.",
+    "summary": "DjangoLux runs its own tasks: a built-in task manager (manage.py dlux_worker in a new worker service) replaces Celery for every DjangoLux task, and projects get a public task API. Pages no longer carry the system configuration, detail views and the section manager escape stored values, XLSX exports write text instead of formulas, and public forms get rate limits and a thin public page shell. OCR backfills, backups and restores get fixes from two stress runs. From 1.15.x it installs with the project image and Composer 1.10's ./start.sh check --fix; a 1.16 beta deployment updates inline.",
     "highlights": [
-      "Security: pages no longer embed the system configuration; scripts get only theme, fonts, password rules and the inactivity timeout.",
-      "Security: the detail view and the section manager's modals escape stored values, so a stored tag cannot run script for staff.",
-      "Security: XLSX exports write values that start with = as text, never as formulas.",
-      "Security: public forms are rate-limited per address and in total; a refused post gets 429 with Retry-After.",
+      "DjangoLux's backups, update checks, OCR, weather and state tick run from a database queue in a new worker service; DjangoLux no longer uses Celery.",
+      "Upgrade from 1.15.x: put the project image on 1.16, run ./start.sh check --fix with Composer 1.10+, then recreate. 1.16 betas update inline.",
+      "Project tasks can move to dlux.taskrunner: @task, .enqueue(), .delay(), Retry and DLUX_TASK_SCHEDULE. Project Celery is warned; 1.17 stacks drop it.",
+      "Security: pages no longer embed the system configuration, and detail views and the section manager escape stored values.",
+      "Security: XLSX exports write = values as text, public forms are rate-limited, and restore refuses an altered incremental chain.",
       "Public pages: dlux/public_base.html, a thin shell under script-src 'self' and style-src 'self', and a /fonts/<slug>.css route.",
-      "From 1.16.0b1, b2 or b3 this beta installs inline. From 1.15.x: image on 1.16, ./start.sh check --fix with Composer 1.10+, recreate."
+      "OCR backfills finish instead of giving files up, a backup or restore whose worker dies fails at once, and restores keep exact timestamps.",
+      "ScanLink 0.8.0: a website scans only after the operator allows it once. Document history keeps replaced files for audits again."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0b4"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.0"
   },
   "requires": {
     "updater_schema": ">=1",
