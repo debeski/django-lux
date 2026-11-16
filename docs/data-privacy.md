@@ -39,7 +39,7 @@ DjangoLux does not do.
 | **Trusted devices (2FA)** | `TrustedDevice` | Hashed device token, session key, device label, **IP address**, **user agent**, expiry (30-day 2FA trust) |
 | **Presence / online status** | `UserPresenceSession` | Per-user last-seen, device label, **IP address list**, **user-agent list** |
 | **Login lockout** | Django cache (not the DB) | Rolling per-**IP** and per-**username** failed-attempt counters; expire with the configured window/lock duration |
-| **Public form limits** | Django cache (not the DB) | Per-form POST counters keyed by a `SECRET_KEY`-keyed HMAC of the client address (IPv6: its /64), never the address itself; expire when their window ends |
+| **Public form limits** | Django cache (not the DB) | Per-form POST counters keyed by a `SECRET_KEY`-keyed HMAC of the client address (IPv6: its /64), never the address itself; expire a few seconds after their window ends |
 | **Public registration** | `PublicRegistration` | Email, hashed verification token, **IP address**, **user agent**, activation/approval metadata (only when public registration is enabled) |
 | **Notifications** | `DluxNotification` | User-facing event content and target metadata, delivered only through per-recipient state after scope and view-permission checks |
 
@@ -55,8 +55,8 @@ itself configurable in step 4, **Access & Security**, of
 - **Trusted devices** expire after 30 days; users can revoke device trust and
   individual sessions from their Profile → Signed-in Devices card.
 - **Login-lockout** counters live only in the cache and expire automatically.
-- **Public form limit** counters live only in the cache and expire when their
-  window ends (one hour unless the form sets another).
+- **Public form limit** counters live only in the cache and expire a few seconds
+  after their window ends (one hour unless the form sets another).
 
 ## Data subject rights (what already helps)
 

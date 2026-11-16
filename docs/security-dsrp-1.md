@@ -149,8 +149,10 @@ fallbacks when runtime configuration cannot be resolved.
   limit counts toward the total, so one sender cannot spend the budget every other
   sender shares. The address comes from the centralized client-IP resolution, and
   IPv6 addresses count per /64. Cache keys hold a `SECRET_KEY`-keyed HMAC of the
-  address, never the address, and expire when their window ends; log lines name
-  the form, not the sender. A refused POST gets HTTP 429 with `Retry-After` and the
+  address, never the address, and expire a few seconds after their window ends,
+  so a request that read the window just before it ended still counts against
+  it. Log lines name the form, not the sender. A refused POST gets HTTP 429 with
+  `Retry-After` and the
   translated `msg_public_form_rate_limited` message (JSON for script requests), or
   the response of the view's own `on_limited` handler. `DLUX_PUBLIC_FORM_LIMITS`
   overrides a form's limits per deployment. Windows are aligned to the clock, so a
