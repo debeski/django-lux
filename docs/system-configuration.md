@@ -213,7 +213,9 @@ mode that uses them.
 Configure client-IP resolution to match the proxy chain you control:
 
 - **Proxy-aware X-Forwarded-For** is the default; set trusted proxy hops to the
-  number of trusted hops at the right of the chain.
+  number of trusted hops at the right of the chain. The bundled Caddy passes on
+  forwarded addresses only from the proxies `DLUX_FRONT_PROXY` trusts (see
+  [Getting Started → Behind a Front Proxy](getting-started.md#behind-a-front-proxy--tls-terminator)).
 - **Direct** uses `REMOTE_ADDR` for a directly exposed web service.
 - **X-Real-IP**, **Cloudflare**, and **Custom header** select an explicit source.
 - **Auto-detect** is a compatibility fallback, not a substitute for correctly

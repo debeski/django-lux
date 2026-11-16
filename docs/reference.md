@@ -521,8 +521,9 @@ Common keys in `get_system_config()`:
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
   Resolution is only as good as the proxy chain feeding it: each proxy hop must
-  append the client to `X-Forwarded-For` (the scaffold's Caddy trusts
-  private-range upstreams; a front terminator needs e.g. HAProxy
+  append the client to `X-Forwarded-For` (the scaffold's Caddy trusts the
+  upstreams in `DLUX_FRONT_PROXY`, every private address while it is unset; a
+  front terminator needs e.g. HAProxy
   `option forwardfor`), and `trusted_proxy_hops` must equal the number of
   trusted hops that append — the scaffold default of `1` matches one front
   proxy ahead of the bundled Caddy/nginx. See

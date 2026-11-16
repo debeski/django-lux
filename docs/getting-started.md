@@ -89,11 +89,11 @@ and security boundaries.
 
 The scaffold's Caddy (and the nginx fallback) listens on plain HTTP and expects
 a front proxy or TLS terminator (pfSense/HAProxy, another nginx, a cloud load
-balancer) in production. Caddy trusts private-range upstreams
-(`servers { trusted_proxies static private_ranges }`), and the nginx fallback
-appends to `X-Forwarded-For` and passes an incoming `X-Forwarded-Proto`
-through — so forwarded headers from the front hop reach Django instead of
-being replaced. The front proxy must do its half:
+balancer) in production. Caddy trusts the upstreams named by `DLUX_FRONT_PROXY`
+(`servers { trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges} }`), and
+the nginx fallback appends to `X-Forwarded-For` and passes an incoming
+`X-Forwarded-Proto` through — so forwarded headers from the front hop reach
+Django instead of being replaced. The front proxy must do its half:
 
 - **Overwrite `X-Forwarded-Proto`** on the TLS frontend (HAProxy:
   `http-request set-header X-Forwarded-Proto https`; in pfSense's HAProxy
@@ -109,6 +109,25 @@ and dlux's default `client_ip_config` (`x_forwarded_for` mode,
 `trusted_proxy_hops = 1`) resolves the real client IP — required for correct
 per-IP login lockout, registration/2FA throttling, and audit-log attribution.
 Without them, every visitor appears as the front proxy's address.
+
+Caddy accepts forwarded headers only from the peers it trusts, and any trusted
+peer can write its own `X-Forwarded-For`. `DLUX_FRONT_PROXY` in `.secrets/.env`
+sets that trust:
+
+| `DLUX_FRONT_PROXY` | Caddy trusts | Use when |
+|---|---|---|
+| unset | every private address | a front proxy on a private address that is not pinned yet |
+| `10.0.0.5` (addresses or networks, space-separated, no quotes) | only those | users reach the server only through that front proxy |
+| empty (`DLUX_FRONT_PROXY=`) | no one | users reach Caddy directly, with no front proxy |
+
+While it is unset, a user who reaches Caddy's published port directly from a
+private network chooses the address DjangoLux records, which gets around the
+per-address login lockout and form limits. Name the front proxy, or firewall
+the server so only the front proxy reaches that port. `./start.sh check`
+reports the current trust, warns while it is unset and fails on a value Caddy
+cannot start with (commas, quotes); run `./start.sh` after changing the value
+so `caddy` is recreated. Composer's `./start.sh check --fix` moves an older
+Caddyfile and compose file to this variable without changing their behaviour.
 
 ## Minimum Django Configuration
 

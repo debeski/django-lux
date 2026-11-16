@@ -24,16 +24,19 @@
 {
 	# TLS handled elsewhere by default; never attempt ACME here.
 	auto_https off
-	# Trust a front proxy / TLS terminator on a private address (pfSense/HAProxy,
-	# another nginx, a cloud LB, ...) so its X-Forwarded-For / X-Forwarded-Proto
-	# are forwarded (client IP appended) instead of replaced with the peer
-	# address. Public clients are never trusted, so they cannot spoof either
-	# header. The front proxy must append the real client IP itself (HAProxy
+	# Trust a front proxy / TLS terminator (pfSense/HAProxy, another nginx, a
+	# cloud LB, ...) so its X-Forwarded-For / X-Forwarded-Proto are forwarded
+	# (client IP appended) instead of replaced with the peer address.
+	# DLUX_FRONT_PROXY in .secrets/.env names the trusted proxies: unset trusts
+	# every private address, a space-separated list of addresses or networks (no
+	# quotes) trusts only those, and an empty value trusts none (users reach Caddy
+	# directly). A client Caddy does not trust cannot spoof either header. The
+	# front proxy must append the real client IP itself (HAProxy
 	# `option forwardfor`, nginx `$proxy_add_x_forwarded_for`); dlux's default
 	# `trusted_proxy_hops = 1` then resolves the real client IP for per-IP login
 	# lockout and audit logging.
 	servers {
-		trusted_proxies static private_ranges
+		trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges}
 	}
 }
 
