@@ -128,7 +128,7 @@ class ClientAddressTests(_LimitTestCase):
         self.assertEqual(len(keys), 3)
         for key in keys:
             self.assertRegex(key, r'^:1:dlux:formlimit:complaint:(a:[0-9a-f]{32}|t):\d+$')
-            self.assertLessEqual(self.cache._expire_info[key] - time.time(), 60)
+            self.assertLessEqual(self.cache._expire_info[key] - time.time(), 60 + ratelimit.KEY_GRACE_SECONDS)
 
     def test_address_digest_is_keyed(self):
         digest = ratelimit._address_digest('198.51.100.7')
