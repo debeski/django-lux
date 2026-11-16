@@ -156,6 +156,17 @@ class WindowTests(_LimitTestCase):
         with self.at(6060.0):
             self.assertEqual(view(self.post()).status_code, 200)
 
+    def test_a_request_late_for_its_window_still_counts_against_it(self):
+        view = public_form_limit('complaint', per_address=1, total=1, window=60)(_ok)
+        cache_clock = mock.Mock(time=mock.Mock(return_value=time.time() + 2))
+        with self.at(6059.5):
+            self.assertEqual(view(self.post()).status_code, 200)
+            with mock.patch('django.core.cache.backends.locmem.time', cache_clock):
+                self.assertEqual(view(self.post()).status_code, 429)
+                self.assertEqual(view(self.post('198.51.100.8')).status_code, 429)
+        with self.at(6060.0):
+            self.assertEqual(view(self.post()).status_code, 200)
+
     def test_retry_after_counts_to_the_window_end(self):
         with self.at(6015.2):
             result = count_public_form_post(self.post(), 'complaint', window=60)

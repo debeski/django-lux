@@ -8,8 +8,9 @@ limit, so one sender cannot spend the budget every other sender shares.
 
 The address comes from ``get_client_ip()``, so the limiter follows the deployment's
 Client IP policy. IPv6 addresses count per /64 network. Cache keys carry a keyed
-HMAC of the network (``SECRET_KEY``-derived), never the address itself, and every
-key expires when its window ends.
+HMAC of the network (``SECRET_KEY``-derived), never the address itself. Every key
+expires a few seconds after its window ends, so a request that read the window
+just before the boundary still counts against that window's counter.
 
 ``DLUX_PUBLIC_FORM_LIMITS`` overrides a bucket's code values per deployment:
 ``{'complaint': {'per_address': 3, 'total': 150, 'window': 3600}}``. ``None``
@@ -42,6 +43,7 @@ DEFAULT_PER_ADDRESS = 5
 DEFAULT_TOTAL = 300
 DEFAULT_WINDOW = 3600
 IPV6_PREFIX_LENGTH = 64
+KEY_GRACE_SECONDS = 5
 LIMIT_ADDRESS = 'address'
 LIMIT_TOTAL = 'total'
 MESSAGE_KEY = 'msg_public_form_rate_limited'
@@ -130,7 +132,10 @@ def _address_digest(address):
 
 
 def _increment(cache, key, ttl):
-    """Count one hit on ``key``, which expires ``ttl`` seconds from its first hit."""
+    """Count one hit on ``key``, which expires ``ttl`` seconds from its first hit.
+
+    A key that is gone by the time ``incr`` runs starts again at 1.
+    """
     if cache.add(key, 1, timeout=ttl):
         return 1
     try:
@@ -168,17 +173,18 @@ def count_public_form_post(
     now = time.time()
     index = int(now // window)
     retry_after = max(1, math.ceil((index + 1) * window - now))
+    ttl = retry_after + KEY_GRACE_SECONDS
     cache = caches[DEFAULT_CACHE_ALIAS]
     try:
         if limits['per_address'] is not None:
             key = f'{CACHE_PREFIX}{bucket}:a:{_address_digest(get_client_ip(request))}:{index}'
-            count = _increment(cache, key, retry_after)
+            count = _increment(cache, key, ttl)
             if count > limits['per_address']:
                 if count == limits['per_address'] + 1:
                     logger.warning('Public form %r: one sender reached its limit for this window.', bucket)
                 return PublicFormLimitResult(False, LIMIT_ADDRESS, retry_after)
         if limits['total'] is not None:
-            count = _increment(cache, f'{CACHE_PREFIX}{bucket}:t:{index}', retry_after)
+            count = _increment(cache, f'{CACHE_PREFIX}{bucket}:t:{index}', ttl)
             if count > limits['total']:
                 if count == limits['total'] + 1:
                     logger.warning('Public form %r: the global limit is reached for this window.', bucket)
