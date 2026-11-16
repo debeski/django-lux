@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.1
+
+- **Stable 1.16.1**: Promote the accepted 1.16.1b1: public form limit counters outlive their window by `KEY_GRACE_SECONDS`, and the scaffold's Caddy trusts the front proxies named in `DLUX_FRONT_PROXY` (unset keeps every private address). Composer 1.10.1's `./start.sh check` warns while it is unset and `check --fix` moves an existing stack onto it. Requires Composer `>=1.10.0b1`; updates inline from any 1.16 release, with no migrations and no runtime or dependency changes from 1.16.1b1.
+
 ## v1.16.1b1
 
 - **Public form limits, window boundaries**: `dlux.utils.ratelimit` keeps each counter `KEY_GRACE_SECONDS` (5 s) past its window, so a POST that read the window just before it ended counts against that window's counter instead of starting a new one at 1. Under a flood, 32 processes over 5 windows of 50 had admitted 259 instead of 250.
