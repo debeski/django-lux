@@ -128,7 +128,7 @@ class ClientAddressTests(_LimitTestCase):
         self.assertEqual(len(keys), 3)
         for key in keys:
             self.assertRegex(key, r'^:1:dlux:formlimit:complaint:(a:[0-9a-f]{32}|t):\d+$')
-            self.assertLessEqual(self.cache._expire_info[key] - time.time(), 60)
+            self.assertLessEqual(self.cache._expire_info[key] - time.time(), 60 + ratelimit.KEY_GRACE_SECONDS)
 
     def test_address_digest_is_keyed(self):
         digest = ratelimit._address_digest('198.51.100.7')
@@ -153,6 +153,17 @@ class WindowTests(_LimitTestCase):
             self.assertEqual(self.statuses(view, [self.post(), self.post()]), [200, 429])
         with self.at(6059.5):
             self.assertEqual(view(self.post()).status_code, 429)
+        with self.at(6060.0):
+            self.assertEqual(view(self.post()).status_code, 200)
+
+    def test_a_request_late_for_its_window_still_counts_against_it(self):
+        view = public_form_limit('complaint', per_address=1, total=1, window=60)(_ok)
+        cache_clock = mock.Mock(time=mock.Mock(return_value=time.time() + 2))
+        with self.at(6059.5):
+            self.assertEqual(view(self.post()).status_code, 200)
+            with mock.patch('django.core.cache.backends.locmem.time', cache_clock):
+                self.assertEqual(view(self.post()).status_code, 429)
+                self.assertEqual(view(self.post('198.51.100.8')).status_code, 429)
         with self.at(6060.0):
             self.assertEqual(view(self.post()).status_code, 200)
 

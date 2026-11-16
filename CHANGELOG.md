@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Public form limits, window boundaries**: `dlux.utils.ratelimit` keeps each counter `KEY_GRACE_SECONDS` (5 s) past its window, so a POST that read the window just before it ended counts against that window's counter instead of starting a new one at 1. Under a flood, 32 processes over 5 windows of 50 had admitted 259 instead of 250.
+
 ## v1.16.0
 
 - **Stable 1.16.0**: Promote the accepted 1.16.0b4. DjangoLux runs its own tasks in a `worker` service instead of Celery (stack schema 5), with the 1.16 security, OCR and backup fixes. Requires Composer `>=1.10.0b1`; no runtime or dependency changes from 1.16.0b4. From 1.15.x: image on 1.16, `./start.sh check --fix` (Composer 1.10+), recreate; 1.16 betas update inline.
