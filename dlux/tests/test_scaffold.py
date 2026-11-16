@@ -318,7 +318,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("/_edge-alive", caddy_contents)
             self.assertIn("handle_errors", caddy_contents)
             # Caddy equivalent of the front-proxy header handling.
-            self.assertIn("trusted_proxies static private_ranges", caddy_contents)
+            self.assertIn("trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges}", caddy_contents)
             # composer-agent publishes the page on dlux_runtime; Caddy serves it
             # and its assets from there, never from a project bind mount.
             self.assertIn("root * /opt/dlux-runtime/proxy/maintenance", caddy_contents)

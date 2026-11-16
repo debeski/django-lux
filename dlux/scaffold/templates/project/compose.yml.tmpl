@@ -166,6 +166,7 @@ services:
     environment:
       CADDY_SITE_ADDRESS: "${CADDY_SITE_ADDRESS:-:80}"
       CADDY_MAX_SIZE: "${CADDY_MAX_SIZE:-10MB}"
+      DLUX_FRONT_PROXY: "${DLUX_FRONT_PROXY-private_ranges}"
     volumes:
       - ./.proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

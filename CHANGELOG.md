@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Scaffold front-proxy trust (`DLUX_FRONT_PROXY`)**: the scaffolded `.proxy/Caddyfile` reads `trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges}` and the `caddy` service passes `DLUX_FRONT_PROXY: "${DLUX_FRONT_PROXY-private_ranges}"` from `.secrets/.env`. Unset keeps today's trust of every private address; a space-separated list trusts only those proxies; empty trusts none. It closes the private-network `X-Forwarded-For` spoof found in the 1.16.0b4 stress run (a LAN client choosing the recorded address) once a deployment names its front proxy. Paired with Composer's `check` warning and `check --fix` rewrite.
+
 ## v1.16.0
 
 - **Stable 1.16.0**: Promote the accepted 1.16.0b4. DjangoLux runs its own tasks in a `worker` service instead of Celery (stack schema 5), with the 1.16 security, OCR and backup fixes. Requires Composer `>=1.10.0b1`; no runtime or dependency changes from 1.16.0b4. From 1.15.x: image on 1.16, `./start.sh check --fix` (Composer 1.10+), recreate; 1.16 betas update inline.
