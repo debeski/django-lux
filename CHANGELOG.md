@@ -7,15 +7,16 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.16.0b4
 
+- **1.16.0 Candidate 4**: Fourth 1.16 beta: output-safety fixes (no configuration in pages, two stored-XSS paths, XLSX formulas), a thin public shell for citizen-facing pages and public form rate limits. No migrations and no dependency changes since 1.16.0b1, so a 1.16.0b1, b2 or b3 deployment updates inline. Pairs with Composer 1.10.0b4 and ScanLink 0.8.0b3.
 - **Pages No Longer Embed The System Configuration (security)**: `dlux/base.html` serialised the whole configuration into every page, the anonymous login page included: SMTP host, username and encrypted password, lockout thresholds, backup and proxy settings. `window.DLUX_CONFIG` now carries only `CLIENT_CONFIG_KEYS` (theme, fonts, password rules, inactivity timeout).
 - **Detail Modal Escapes Stored Values (security)**: The generic detail modal rendered any value containing `<a` or `<i` unescaped, so a stored `<img onerror>` ran script in staff sessions wherever `script-src` allows inline code. `_build_generic_detail_context()` now marks only its own links and icons safe.
 - **Section Manager Modals Show Stored Data As Text (security)**: The section manager's View and blocked-Delete modals inserted record names, field values and related rows as HTML, so a stored `<img onerror>` ran script for staff who opened them. `section_manager.js` now escapes them. Row-action labels and dynamic-modal errors are set as text, and the login hero's markdown escapes quotes in link URLs.
 - **XLSX Exports Write Text, Not Formulas (security)**: `fetch_excel()`, Export Entries and the user report wrote strings starting with `=` as live formulas, including user agents from the activity log. Every row now goes through `append_text_safe_row()`.
 - **Thin Public Shell**: `dlux/public_base.html` serves citizen-facing pages under `script-src 'self'; style-src 'self'`. It follows the public page settings (title, description, theme, titlebar), the identity logo, favicon and footer, and the language's default font, and emits no configuration, URL map, preferences, strings or inline code. Blocks: `title`, `meta`, `extra_css`, `header`, `content`, `footer`, `scripts`.
 - **Font Stylesheet Route**: `/fonts/<slug>.css` (`font_stylesheet`) serves an allowed registry font's `@font-face` rules and `--dlux-main-font` as a cached stylesheet, so pages without inline styles need no project endpoint. `resolve_font_slug()` and `font_stylesheet_css()` join `dlux.fonts`.
-- **Public Form Limits (security)**: New `dlux.utils.ratelimit` limits anonymous public form POSTs per client address and in total per form: the `@public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` decorator and `count_public_form_post()`. A POST over its sender's limit does not count toward the total. Addresses come from `get_client_ip()`, IPv6 counts per /64, and cache keys hold a `SECRET_KEY`-keyed HMAC of the address that expires with its window. A refused POST gets 429 with `Retry-After` and the translated `msg_public_form_rate_limited` (en + ar), JSON for script requests, or the view's `on_limited` response. `DLUX_PUBLIC_FORM_LIMITS` overrides a form's limits per deployment.
+- **Public Form Limits (security)**: `@public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` and `count_public_form_post()` in `dlux.utils.ratelimit` limit anonymous public form POSTs per client address (IPv6 per /64, kept as a keyed HMAC) and in total per form. A refused POST gets 429 with `Retry-After` and a translated message; `DLUX_PUBLIC_FORM_LIMITS` overrides the limits per deployment.
 
 ## v1.16.0b3
 
