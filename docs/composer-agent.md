@@ -22,6 +22,12 @@ Composer services drop all capabilities and run with `no-new-privileges`. The
 executor adds back only `DAC_OVERRIDE`, so it can read the project's `0600`
 `.secrets/.env` to deploy; the project directory is mounted read-only in both.
 
+Each service's `command` is Composer's nested form: the role, then `run`, then
+the flags (`agent run --trigger-file ...`, `executor run --socket ...`). The flat
+form (`agent --trigger-file ...`) makes Composer print its usage and exit, so the
+service restart-loops and the stack has no update path. Keep `run` when editing
+either block.
+
 `egress` is deliberately separate from published `frontend`. The public proxy
 does not share a bridge with services that need outbound access. The internal
 application network remains isolated for `db`, `redis`, `web`, and `worker`.
@@ -116,11 +122,13 @@ Run Composer through the generated wrapper:
 ./start.sh check --fix
 ```
 
-`check` reports missing Composer services, obsolete `dlux-updater` wiring, or
-runtime-volume drift. Review the proposed change before `--fix`; Composer
-preserves modified project files under `.xclude/` and validates the resulting
-Compose configuration. Compose 5.3.0 or newer is required because DjangoLux uses
-`pre_start` hooks.
+`check` reports missing Composer services, obsolete `dlux-updater` wiring,
+runtime-volume drift, or a resident service still started with the flat
+`agent --flag` / `executor --flag` command (`resident-commands`, a failure).
+`--fix` inserts `run` after the role and names the services to recreate. Review
+the proposed change before `--fix`; Composer preserves modified project files
+under `.xclude/` and validates the resulting Compose configuration. Compose 5.3.0
+or newer is required because DjangoLux uses `pre_start` hooks.
 
 For update behavior and recovery, see [Verified Inline Updates](inline-updater.md).
 

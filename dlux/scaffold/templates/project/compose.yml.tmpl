@@ -401,6 +401,7 @@ services:
     working_dir: "${PWD}"
     command:
       - executor
+      - run
       - --socket
       - /run/composer-exec/composer-exec.sock
       - --trigger-file
@@ -444,6 +445,7 @@ services:
     working_dir: "${PWD}"
     command:
       - agent
+      - run
       - --trigger-file
       - /opt/dlux-runtime/state/image-update-request.json
       - --status-file
