@@ -110,7 +110,7 @@ class RelayTimeoutTests(_IsolatedSettingsTestCase):
 class RelayDeliveryStepTests(_IsolatedSettingsTestCase):
     """Real sockets against a local server; short timeouts keep them fast."""
 
-    def _deliver(self, server_port, **env):
+    def _deliver(self, server_port, ca_file='', **env):
         settings_env = {
             'SMTP_RELAY_HOST': '127.0.0.1',
             'SMTP_RELAY_PORT': str(server_port),
@@ -119,6 +119,8 @@ class RelayDeliveryStepTests(_IsolatedSettingsTestCase):
             'SMTP_RELAY_PASSWORD': '',
             'SMTP_RELAY_USE_TLS': 'True',
             'SMTP_RELAY_USE_SSL': '',
+            'SMTP_RELAY_TLS_VERIFY': 'True',
+            'SMTP_RELAY_CA_FILE': ca_file,
             **env,
         }
         _store(transport='relay', secret_storage='env')
@@ -127,13 +129,15 @@ class RelayDeliveryStepTests(_IsolatedSettingsTestCase):
 
     def test_implicit_tls_delivers_with_credentials(self):
         with MockSMTPServer(implicit_tls=True, username='u', password='p') as server:
-            self._deliver(server.port, SMTP_RELAY_USE_SSL='True', SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='p')
+            self._deliver(
+                server.port, server.ca_file, SMTP_RELAY_USE_SSL='True', SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='p',
+            )
         self.assertEqual(len(server.messages), 1)
         self.assertTrue(server.messages[0]['tls'])
 
     def test_starttls_delivers_with_credentials(self):
         with MockSMTPServer(starttls=True, username='u', password='p') as server:
-            self._deliver(server.port, SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='p')
+            self._deliver(server.port, server.ca_file, SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='p')
         self.assertTrue(server.messages[0]['tls'])
 
     def test_a_closed_port_fails_at_connect(self):
@@ -161,7 +165,7 @@ class RelayDeliveryStepTests(_IsolatedSettingsTestCase):
     def test_wrong_credentials_fail_at_auth(self):
         with MockSMTPServer(starttls=True, username='u', password='p') as server:
             with self.assertRaises(smtp_relay.SMTPStepError) as caught:
-                self._deliver(server.port, SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='wrong')
+                self._deliver(server.port, server.ca_file, SMTP_RELAY_USER='u', SMTP_RELAY_PASSWORD='wrong')
         self.assertEqual((caught.exception.step, caught.exception.reason), ('auth', 'rejected'))
         self.assertIn('535', str(caught.exception))
         self.assertNotIn('wrong', str(caught.exception))
@@ -521,7 +525,7 @@ class FailureMessageTests(_IsolatedSettingsTestCase):
         self.assertEqual(caught.exception.dlux_step, 'connect')
 
     def test_a_direct_send_refuses_an_untrusted_certificate_at_tls(self):
-        """Django's backend verifies certificates; the mock's is self-signed."""
+        """Django's backend verifies certificates; the mock's CA is private."""
         import ssl
 
         from django.core.mail import EmailMessage

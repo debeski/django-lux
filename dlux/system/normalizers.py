@@ -266,6 +266,9 @@ def normalize_email_config(value, *, redact_secret=False):
     if normalized['use_ssl']:
         normalized['use_tls'] = False
     normalized['username'] = str(config.get('username') or '').strip()
+    # Only an explicit false switches certificate checks off.
+    raw_tls_verify = config.get('tls_verify')
+    normalized['tls_verify'] = True if raw_tls_verify in (None, '') else _to_bool(raw_tls_verify, True)
     normalized['default_from_email'] = str(config.get('default_from_email') or '').strip()
     encrypted_password = str(config.get('encrypted_password') or '').strip()
     normalized['encrypted_password'] = encrypted_password
@@ -319,11 +322,15 @@ def normalize_email_config(value, *, redact_secret=False):
 
 
 def email_config_fingerprint(config):
-    """Stable digest of the connection fields a verification test vouches for."""
-    payload = json.dumps(
-        [str(config.get(field, '')) for field in EMAIL_CONFIG_VERIFIED_FIELDS],
-        separators=(',', ':'),
-    )
+    """Stable digest of the connection fields a verification test vouches for.
+
+    Certificate checks join the digest only when switched off, so the digest of a
+    verifying configuration is the one stored before the switch existed.
+    """
+    fields = [str(config.get(field, '')) for field in EMAIL_CONFIG_VERIFIED_FIELDS]
+    if config.get('tls_verify') is False:
+        fields.append('tls_verify=off')
+    payload = json.dumps(fields, separators=(',', ':'))
     return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
 

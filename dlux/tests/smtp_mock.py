@@ -1,14 +1,17 @@
 """A local SMTP server for mail tests: plaintext with STARTTLS, or implicit TLS.
 
 Speaks just enough SMTP for smtplib and Django's backend: greeting, EHLO,
-STARTTLS, AUTH PLAIN/LOGIN, MAIL, RCPT, DATA, QUIT. The certificate is a
-throwaway self-signed one made at start, so nothing is read from or written to
-disk outside a temporary directory. ``silent=True`` accepts connections and
-never greets, which is what a client speaking the wrong protocol sees.
+STARTTLS, AUTH PLAIN/LOGIN, MAIL, RCPT, DATA, QUIT. Its certificate is signed by
+a throwaway private CA made at start, the case ``SMTP_RELAY_CA_FILE`` exists for:
+no system store trusts it, and ``ca_file`` (the CA's PEM, in a temporary
+directory removed on exit) does. ``cert_names`` are the host names and addresses
+the certificate is issued for. ``silent=True`` accepts connections and never
+greets, which is what a client speaking the wrong protocol sees.
 """
 
 import base64
 import datetime
+import ipaddress
 import socket
 import ssl
 import tempfile
@@ -16,49 +19,101 @@ import threading
 from pathlib import Path
 
 
-def _self_signed_context():
-    from cryptography import x509
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.x509.oid import NameOID
+def _write_pem(path, key, cert):
+    from cryptography.hazmat.primitives import serialization
 
-    key = ec.generate_private_key(ec.SECP256R1())
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'localhost')])
-    now = datetime.datetime.now(datetime.timezone.utc)
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(now - datetime.timedelta(minutes=1))
-        .not_valid_after(now + datetime.timedelta(hours=1))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName('localhost')]), critical=False)
-        .sign(key, hashes.SHA256())
-    )
-    with tempfile.TemporaryDirectory() as tmp:
-        cert_path = Path(tmp) / 'cert.pem'
-        key_path = Path(tmp) / 'key.pem'
-        cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    if key is not None:
+        key_path = path.with_suffix('.key')
         key_path.write_bytes(key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
             serialization.NoEncryption(),
         ))
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(cert_path, key_path)
-    return context
+        return key_path
+    return None
+
+
+def _private_ca_context(directory, names):
+    """A server context whose certificate a fresh private CA signed; writes ``ca.pem``."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    ca_key = ec.generate_private_key(ec.SECP256R1())
+    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'dlux test private CA')])
+    ca_cert = (
+        x509.CertificateBuilder()
+        .subject_name(ca_name)
+        .issuer_name(ca_name)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=1))
+        .not_valid_after(now + datetime.timedelta(hours=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+        .add_extension(x509.KeyUsage(
+            digital_signature=False, content_commitment=False, key_encipherment=False,
+            data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=True,
+            encipher_only=False, decipher_only=False,
+        ), critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), critical=False)
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    alt_names = []
+    for name in names:
+        try:
+            alt_names.append(x509.IPAddress(ipaddress.ip_address(name)))
+        except ValueError:
+            alt_names.append(x509.DNSName(name))
+    key = ec.generate_private_key(ec.SECP256R1())
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, names[0])]))
+        .issuer_name(ca_name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=1))
+        .not_valid_after(now + datetime.timedelta(hours=1))
+        .add_extension(x509.SubjectAlternativeName(alt_names), critical=False)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False,
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
+    directory = Path(directory)
+    ca_file = directory / 'ca.pem'
+    _write_pem(ca_file, None, ca_cert)
+    cert_path = directory / 'server.pem'
+    key_path = _write_pem(cert_path, key, cert)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert_path, key_path)
+    return context, str(ca_file)
 
 
 class MockSMTPServer:
-    def __init__(self, *, implicit_tls=False, starttls=True, username='', password='', silent=False):
+    def __init__(
+        self, *, implicit_tls=False, starttls=True, username='', password='', silent=False,
+        cert_names=('localhost', '127.0.0.1'),
+    ):
         self.implicit_tls = implicit_tls
         self.offer_starttls = starttls and not implicit_tls
         self.username = username
         self.password = password
         self.silent = silent
         self.messages = []
-        self.context = _self_signed_context() if (implicit_tls or starttls) else None
+        # Every AUTH command, so a test can tell no credentials left the client.
+        self.auth_attempts = 0
+        self.context = None
+        self.ca_file = ''
+        self._tmp = tempfile.TemporaryDirectory()
+        if implicit_tls or starttls:
+            self.context, self.ca_file = _private_ca_context(self._tmp.name, list(cert_names))
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind(('127.0.0.1', 0))
@@ -79,6 +134,7 @@ class MockSMTPServer:
             pass
         self._sock.close()
         self._thread.join(2)
+        self._tmp.cleanup()
 
     def _serve(self):
         while not self._stop.is_set():
@@ -139,6 +195,7 @@ class MockSMTPServer:
                 reader = conn.makefile('rb')
                 tls_active = True
             elif verb == 'AUTH':
+                self.auth_attempts += 1
                 parts = line.split()
                 if parts[1].upper() == 'PLAIN':
                     payload = parts[2] if len(parts) > 2 else ''

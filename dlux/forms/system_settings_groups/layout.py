@@ -315,6 +315,14 @@ class LayoutMixin:
                         Row(
                             build_email_toggle_field(self, 'email_config_use_tls', css_class='col-6 col-lg-3'),
                             build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-6 col-lg-3'),
+                            Div(
+                                build_email_toggle_field(self, 'email_config_tls_verify'),
+                                HTML("<input type='hidden' name='email_config_tls_verify_shown' value='1'>"),
+                                css_class='col-12 col-lg-6' + (
+                                    '' if (self.initial.get('email_config_transport') or 'direct') == 'relay'
+                                    else ' d-none'
+                                ),
+                            ),
                             css_class='g-3 mb-3',
                         ),
                         Row(

@@ -1950,6 +1950,7 @@
             setNamedFieldValue(form, 'email_config_port', emailConfig.port || '587');
             setCheckboxField(form, 'email_config_use_tls', emailConfig.use_tls !== false);
             setCheckboxField(form, 'email_config_use_ssl', emailConfig.use_ssl === true);
+            setCheckboxField(form, 'email_config_tls_verify', emailConfig.tls_verify !== false);
             setNamedFieldValue(form, 'email_config_username', emailConfig.username || '');
             setNamedFieldValue(form, 'email_config_default_from_email', emailConfig.default_from_email || '');
             // Only require re-entering the redacted SMTP password when the server actually

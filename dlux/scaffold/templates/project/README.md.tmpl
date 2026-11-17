@@ -74,6 +74,8 @@ The generated `.secrets/.env` includes only these bootstrap values:
 - `SMTP_RELAY_USE_SSL`
 - `SMTP_RELAY_USER`
 - `SMTP_RELAY_PASSWORD`
+- `SMTP_RELAY_TLS_VERIFY`
+- `SMTP_RELAY_CA_FILE`
 
 The URL and host values define the generated project's public origin, additional
 trusted origins, and accepted hostnames. `TIME_ZONE` takes an IANA name (e.g.
@@ -86,6 +88,13 @@ step of System Setup, choose delivery path `Internal SMTP relay` and provider
 settings `Environment`; the step shows what the relay uses, password excepted. To
 manage the provider in the UI instead, choose `Entered here` and fill in the
 provider server there.
+
+The relay signs in only to a provider whose certificate a trusted CA issued for its
+host. If your provider's certificate comes from a private CA, save that CA's bundle
+as `.secrets/smtp-relay-ca.pem`, uncomment the `volumes:` lines under `smtp-relay`
+in `compose.yml` and set `SMTP_RELAY_CA_FILE=/etc/dlux/smtp-relay-ca.pem`.
+`SMTP_RELAY_TLS_VERIFY=False` accepts any certificate; use it only when you accept
+an unverified provider.
 
 Keep `.secrets/.env` out of version control and replace all default passwords before deployment.
 

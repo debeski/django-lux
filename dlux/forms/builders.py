@@ -268,13 +268,28 @@ def build_email_effective_panel(effective, strings, *, panel):
         password = conditional_escape(s.get('email_effective_password_not_set', 'not set'))
     else:
         password = conditional_escape(s.get('email_effective_unknown', 'unknown'))
-    rows = (
+    rows = [
         (s.get('form_sys_email_host', 'Provider SMTP host'), value(effective.get('host'))),
         (s.get('form_sys_email_port', 'Provider SMTP port'), value(effective.get('port'))),
         (s.get('email_effective_encryption', 'Encryption'), conditional_escape(encryption)),
         (s.get('form_sys_email_username', 'Provider SMTP username'), value(effective.get('username'))),
         (s.get('form_sys_email_password', 'Provider SMTP password'), password),
-    )
+    ]
+    if panel == 'relay':
+        if effective.get('tls_verify', True) is False:
+            certificate = (
+                "<span class='text-warning-emphasis'>"
+                + conditional_escape(s.get('email_effective_tls_verify_off', 'off: any certificate is accepted'))
+                + "</span>"
+            )
+        elif effective.get('ca_file'):
+            certificate = (
+                conditional_escape(s.get('email_effective_tls_verify_ca', 'checked against the system CAs and'))
+                + " " + value(effective.get('ca_file'))
+            )
+        else:
+            certificate = conditional_escape(s.get('email_effective_tls_verify_on', 'checked against the system CAs'))
+        rows.append((s.get('email_effective_tls_verify', 'Certificate check'), certificate))
     if effective.get('visible', True):
         body = "<dl class='row small mb-0 dlux-email-effective__values'>" + "".join(
             f"<dt class='col-5 col-lg-4 fw-semibold'>{conditional_escape(label)}</dt>"

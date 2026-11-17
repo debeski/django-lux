@@ -130,7 +130,7 @@ class UiConfiguredTimeoutTests(TestCase):
         captured = {}
 
         class _FakeSMTP:
-            def __init__(self, host, port, timeout=None, dlux_tracker=None):
+            def __init__(self, host, port, timeout=None, dlux_tracker=None, context=None):
                 captured['timeout'] = timeout
 
             def ehlo(self):
