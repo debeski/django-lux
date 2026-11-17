@@ -617,6 +617,44 @@ class InitContainerTests(unittest.TestCase):
             self.assertEqual(step.get("image"), expected)
 
 
+class ComposeResidentCommandTests(unittest.TestCase):
+    """Composer's CLI is nested: `agent run ...` and `executor run ...`. The flat
+    `agent --flag` form exits with the usage text, so the service restart-loops and
+    the stack has no update path (`composer check` fails `resident-commands`)."""
+
+    ROLES = {"composer-agent": "agent", "composer-executor": "executor"}
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        target = create_project(
+            "demo_project", Path(self._tmp.name) / "demo_project", image="acme/demo"
+        )
+        self.compose = (target / "compose.yml").read_text(encoding="utf-8")
+
+    def _command(self, service):
+        body = self.compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        block = re.search(
+            rf"^  {re.escape(service)}:\s*$(.*?)(?=^  [A-Za-z][\w-]*:\s*$|\Z)",
+            body, re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(block, f"{service} is not in the generated compose.yml")
+        listing = re.search(r"^    command:\s*$((?:\n      - .*)+)", block.group(1), re.MULTILINE)
+        self.assertIsNotNone(listing, f"{service} has no list-form command")
+        return [item.strip().strip('"') for item in re.findall(r"^      - (.*)$", listing.group(1), re.MULTILINE)]
+
+    def test_resident_services_start_with_their_role_then_run(self):
+        for service, role in self.ROLES.items():
+            with self.subTest(service=service):
+                self.assertEqual(self._command(service)[:2], [role, "run"])
+
+    def test_the_flags_follow_the_run_subcommand(self):
+        for service in self.ROLES:
+            with self.subTest(service=service):
+                rest = self._command(service)[2:]
+                self.assertTrue(rest and rest[0].startswith("--"), rest)
+
+
 class ComposeNetworkTopologyTests(unittest.TestCase):
     """The generated Compose file segregates traffic into four networks. Substring
     assertions cannot catch a service attached to the wrong one, so parse the
