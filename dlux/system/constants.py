@@ -634,15 +634,20 @@ EMAIL_CONFIG_VERIFIED_FIELDS = (
 
 # Provider presets prefill host/port/TLS/SSL in the UI; 'custom' leaves the
 # entered values untouched. Stored on email_config so the picker survives reloads.
+# Every preset names a provider's server: the delivery path selector, not a
+# preset, decides whether mail goes through the internal relay.
 EMAIL_CONFIG_PROVIDER_PRESETS = {
     'custom': {'host': '', 'port': 587, 'use_tls': True, 'use_ssl': False},
     'gmail': {'host': 'smtp.gmail.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
     'outlook': {'host': 'smtp.office365.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
     'ses': {'host': 'email-smtp.us-east-1.amazonaws.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
     'mailgun': {'host': 'smtp.mailgun.org', 'port': 587, 'use_tls': True, 'use_ssl': False},
-    'relay': {'host': '', 'port': 1025, 'use_tls': False, 'use_ssl': False},
 }
 EMAIL_CONFIG_PROVIDER_PRESET_VALUES = set(EMAIL_CONFIG_PROVIDER_PRESETS)
+# The internal relay's own listener. A stored provider port equal to it, with no
+# provider host, is the relay hop leaking into the provider fields.
+EMAIL_CONFIG_INTERNAL_RELAY_PORT = 1025
+EMAIL_CONFIG_INTERNAL_RELAY_HOSTS = {'', 'smtp-relay'}
 # Cap stored failure-alert recipients to keep the JSON config bounded.
 EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS = 10
 

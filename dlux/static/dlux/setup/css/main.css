@@ -1390,6 +1390,17 @@
     cursor: progress;
 }
 
+/* Environment route: the provider settings the relay or web service will use,
+   read-only. Host names and user names are long and unbroken. */
+.dlux-email-effective {
+    border-color: var(--dlux-setup-item-border) !important;
+    background: var(--dlux-setup-item-bg);
+}
+
+.dlux-email-effective__values code {
+    word-break: break-all;
+}
+
 /* Profile step: its toggles are hand-rolled rather than built by
    build_settings_toggle_field, and used Bootstrap's `bg-light`, which ignores
    the theme and made the step look foreign next to the others. */

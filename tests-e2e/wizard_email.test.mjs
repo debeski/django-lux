@@ -88,6 +88,18 @@ const disabled = (page, name) => page.evaluate((n) => {
   return els.every((el) => el.disabled);
 }, name);
 const value = (page, name) => page.inputValue(`.dlux-system-setup-form [name="${name}"]`);
+// The test recipient is an argument of the test, not a setting: it has no name.
+const recipientDisabled = (page) => page.evaluate(() => (
+  document.querySelector('.dlux-system-setup-form [data-email-test-recipient]').disabled
+));
+async function setRecipient(page, address) {
+  await page.evaluate((v) => {
+    const el = document.querySelector('.dlux-system-setup-form [data-email-test-recipient]');
+    if (!el) throw new Error('test recipient not found');
+    el.value = v;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, address);
+}
 
 describe('wizard email cluster', { concurrency: 1 }, () => {
   test('the email master gates the whole delivery block', async () => {
@@ -96,10 +108,13 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       const gated = [
         'email_config_transport', 'email_config_host', 'email_config_port',
         'email_config_username', 'email_config_default_from_email',
-        'email_config_test_recipient',
       ];
 
       await setToggle(page, 'email_config_enabled', true);
+      // Provider-server fields exist for values entered here; the environment
+      // route shows read-only values instead.
+      await setField(page, 'email_config_secret_storage', 'encrypted_db');
+      assert.equal(await recipientDisabled(page), false, 'the test recipient should be editable while email is on');
       for (const f of gated) {
         assert.equal(await disabled(page, f), false, `${f} should be editable while email is on`);
       }
@@ -108,6 +123,7 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       for (const f of gated) {
         assert.equal(await disabled(page, f), true, `${f} must lock while email is off`);
       }
+      assert.equal(await recipientDisabled(page), true, 'the test recipient must lock while email is off');
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
@@ -150,6 +166,7 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
     const { ctx, page, errors } = await wizard();
     try {
       await setToggle(page, 'email_config_enabled', true);
+      await setField(page, 'email_config_secret_storage', 'encrypted_db');
       const preset = '.dlux-system-setup-form [name="email_config_provider_preset"]';
       assert.ok(await page.$(preset), 'provider preset control missing');
 
@@ -159,10 +176,8 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       assert.equal(await page.isChecked('.dlux-system-setup-form [name="email_config_use_tls"]'), true);
       assert.equal(await page.isChecked('.dlux-system-setup-form [name="email_config_use_ssl"]'), false);
 
-      // The relay preset deliberately clears the host and uses the local port.
-      await setField(page, 'email_config_provider_preset', 'relay');
-      assert.equal(await value(page, 'email_config_port'), '1025');
-      assert.equal(await page.isChecked('.dlux-system-setup-form [name="email_config_use_tls"]'), false);
+      // Presets name providers only; the delivery path picks the relay.
+      assert.equal(await page.$('.dlux-system-setup-form [name="email_config_provider_preset"][value="relay"]'), null);
       assert.deepEqual(errors, []);
     } finally { await ctx.close(); }
   });
@@ -179,7 +194,7 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       });
 
       await setToggle(page, 'email_config_enabled', true);
-      await setField(page, 'email_config_test_recipient', '');
+      await setRecipient(page, '');
       await stepContaining(page, '[data-email-send-test]');
       await page.click('[data-email-send-test]');
       await page.waitForTimeout(400);
@@ -204,7 +219,7 @@ describe('wizard email cluster', { concurrency: 1 }, () => {
       });
 
       await setToggle(page, 'email_config_enabled', true);
-      await setField(page, 'email_config_test_recipient', 'ops@example.com');
+      await setRecipient(page, 'ops@example.com');
       await stepContaining(page, '[data-email-send-test]');
       await page.click('[data-email-send-test]');
       await page.waitForTimeout(600);

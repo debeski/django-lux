@@ -178,6 +178,7 @@ class ScaffoldTests(unittest.TestCase):
                 "SMTP_RELAY_HOST",
                 "SMTP_RELAY_PORT",
                 "SMTP_RELAY_USE_TLS",
+                "SMTP_RELAY_USE_SSL",
                 "SMTP_RELAY_USER",
                 "SMTP_RELAY_PASSWORD",
             }

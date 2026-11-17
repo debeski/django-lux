@@ -46,7 +46,7 @@ The wizard has nineteen steps, in the order of `SETUP_STEPS`
 1. **Branding** — localized names, logo, favicon, footer, and configuration import.
 2. **Languages** — language catalog, default language, user overrides, and
    translation overrides.
-3. **Email** — delivery path, provider preset, secrets, test send, and failure
+3. **Email** — delivery path, provider settings source, provider server, test send, and failure
    alerts.
 4. **Access and Security** — authentication, sessions, registration, consent, and
    client-IP policy.
@@ -180,27 +180,74 @@ representation; their Preview is disabled with an explanatory tooltip.
 
 The Email step is grouped as:
 
-- **Delivery Path** — delivery path, secret storage, provider preset;
-- **SMTP Connection** — STARTTLS/SSL, host, port, timeout, credentials;
+- **Delivery Path** — the hop (Internal SMTP relay or Direct SMTP) and where the
+  provider settings come from (Entered here or Environment);
+- **Provider Server** — provider preset, STARTTLS/SSL, host, port, credentials
+  (Entered here only);
 - **Sender & Alerts** — default from address, failure recipients.
 
-Each choice is a Dlux selector rather than a dropdown, so every option and its
-consequence is visible before it is picked. When the internal SMTP relay is not
-listening, the relay option is locked with the reason attached — unless it is
-already the stored delivery path, which is never taken away. The page waits at most
-1.5 seconds for that check; when the stack's name resolver does not answer in time,
-the relay reads as not listening.
+The first selector decides the hop. **Internal SMTP relay** is the route for
+generated stacks: web and the task worker have no internet access and hand mail to
+the relay service, which connects to the provider. **Direct SMTP** has the web
+service connect to the provider itself. The relay's own listener is an internal
+detail and never appears on the page; every other field describes the provider's
+server.
 
-Save the Email step before using **Send test email**. The test intentionally uses
-the stored configuration, which is the only way to validate the separate SMTP relay
-when that delivery path is selected. A successful send verifies the exact connection
-fingerprint; changing transport, secret storage, host, port, TLS/SSL, credentials,
-or sender requires another test.
+The second selector decides where the provider settings come from:
+
+| Provider settings | Delivery path | The step shows | A send uses |
+|---|---|---|---|
+| Entered here | either | editable provider fields; the password is stored encrypted | the stored values |
+| Environment | Internal SMTP relay | read-only: the relay's host, port, encryption, user, password set or not set | `SMTP_RELAY_*` in `.secrets/.env` |
+| Environment | Direct SMTP | read-only: the web service's `EMAIL_*` settings | Django's `EMAIL_*` settings |
+
+With Environment nothing is typed: the step reads what the relay or web service
+will use and checks readiness against those values. The password never reaches
+the page, only whether one is set. Values typed under Entered here stay stored, so
+switching back restores them. When web cannot see the relay's variables (a
+`compose.yml` that does not share them, see
+[Deployment Configuration](deployment-configuration.md#secret-and-email-settings)),
+the panel says how to fix it and a test send is still allowed: the relay holds its
+own settings.
+
+Each choice is a Dlux selector rather than a dropdown, so every option and its
+consequence is visible before it is picked. Provider presets (Gmail, Outlook /
+Office 365, Amazon SES, Mailgun) prefill a provider's host, port and encryption.
+When the internal SMTP relay is not listening, the relay option is locked with
+the reason attached — unless it is already the stored delivery path, which is
+never taken away. The page waits at most 1.5 seconds for that check; when the
+stack's name resolver does not answer in time, the relay reads as not listening.
+
+**SMTP timeout** is how long to wait for the provider, through the relay or
+directly, on either settings route. Blank keeps the default: 60 seconds through
+the relay, 30 seconds direct. Through the relay, web waits 15 seconds longer than
+the relay, so the relay's reason arrives first.
+
+**Apply email settings** saves the Email step, timeout included, without leaving
+it; **Send test email** then sends with the applied configuration, which is the
+only way to validate the separate relay. The test address is an argument of the
+test, not a setting: it is never saved. A successful send verifies the exact
+connection fingerprint; changing delivery path, provider settings source, host,
+port, TLS/SSL, credentials, or sender requires another test.
+
+A failed test names the hop and the SMTP step that failed, and the likeliest fix:
+
+| Hop | Steps |
+|---|---|
+| Internal relay (web to the relay service) | connect, greeting, send |
+| Provider server, through the internal relay | config, connect, TLS handshake, greeting, sign-in, send |
+| Provider server, from the web service | connect, TLS handshake, greeting, sign-in, send |
+
+For example, a connection that gets no answer on port 465 reads "connecting to
+smtp.example.com:465 failed — no answer within 60 seconds", followed by a firewall
+hint; plain SMTP against an implicit-TLS port fails at the greeting with a hint to
+turn SSL on. The same text goes to the failure-alert recipients and the audit log
+when transactional mail fails.
 
 Email 2FA, password reset, public registration, and notification-email controls are
 locked until delivery is enabled and verified. They retain their saved values while
-locked. Direct environment-managed SMTP and local debug backends are supported too;
-see [Deployment Configuration](deployment-configuration.md) for the runtime settings.
+locked. Local debug backends are supported too; see
+[Deployment Configuration](deployment-configuration.md) for the runtime settings.
 
 ## Access and security
 

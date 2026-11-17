@@ -27,6 +27,8 @@ from .constants import (
     DEFAULT_TABLE_DENSITY,
     DEFAULT_TABLE_EDGES,
     DEFAULT_CARD_EDGES,
+    EMAIL_CONFIG_INTERNAL_RELAY_HOSTS,
+    EMAIL_CONFIG_INTERNAL_RELAY_PORT,
     EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
     EMAIL_CONFIG_PROVIDER_PRESET_VALUES,
     EMAIL_CONFIG_SECRET_STORAGES,
@@ -280,14 +282,27 @@ def normalize_email_config(value, *, redact_secret=False):
         normalized['timeout'] = 5
     normalized['enabled'] = _coerce_import_bool(config.get('enabled', False))
 
+    # The retired 'relay' preset wrote the internal relay's own port into the
+    # provider port. Clear it, keeping any verification: the relay never used it.
+    legacy_fingerprint = None
+    leaked_relay_port = (
+        normalized['transport'] == 'relay'
+        and normalized['port'] == EMAIL_CONFIG_INTERNAL_RELAY_PORT
+        and normalized['host'].lower() in EMAIL_CONFIG_INTERNAL_RELAY_HOSTS
+    )
+    if leaked_relay_port:
+        legacy_fingerprint = email_config_fingerprint(normalized)
+        normalized['port'] = default_email_config()['port']
+
     # Verification vouches for one exact connection configuration. Recomputing the
     # fingerprint here means *every* write path — form save, import, config.json
     # bootstrap, a hand-edited row — re-arms it on change; there is no path that
     # can leave a stale "verified" claiming an untested server.
     fingerprint = email_config_fingerprint(normalized)
+    stored_fingerprint = str(config.get('verified_fingerprint') or '')
     still_verified = (
         _coerce_import_bool(config.get('verified', False))
-        and str(config.get('verified_fingerprint') or '') == fingerprint
+        and stored_fingerprint in {fingerprint, legacy_fingerprint}
     )
     normalized['verified'] = still_verified
     normalized['verified_at'] = str(config.get('verified_at') or '') if still_verified else ''

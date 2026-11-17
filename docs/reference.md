@@ -487,7 +487,13 @@ Common keys in `get_system_config()`:
   `inactivity_timeout_enabled` is on (1–1440, default 10).
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport`
   (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never
-  include SMTP secrets.
+  include SMTP secrets. `provider_preset` is `custom`, `gmail`, `outlook`, `ses` or
+  `mailgun`; a stored `relay` preset reads as `custom`, and a relay-transport port of
+  1025 with no provider host reads as 587, keeping its verification.
+  `dlux.utils.effective_email_settings()` returns the connection a send uses
+  (`source` `database`, `relay_env` or `django`; never the password, only
+  `password_set`), and `dlux.utils.describe_mail_failure(exc)` names the failed hop
+  and step of a send.
   The `relay` option is offered only while the internal relay answers on
   `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`, overridable via
   `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally

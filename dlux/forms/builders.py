@@ -183,7 +183,7 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None, *,
     return HTML(wrapper_html)
 
 
-def build_email_test_control(form, send_url, button_label):
+def build_email_test_control(form, send_url, button_label, strings=None):
     """Recipient input and Send-test button as a single Bootstrap input-group.
 
     Two grid columns will not stay level here: the field column carries a label
@@ -191,19 +191,32 @@ def build_email_test_control(form, send_url, button_label):
     alignment picks the wrong edge — `end` drops the button below the input,
     `start` lifts it above. An input-group makes them one control, so they are
     level by construction no matter how much text sits above or below.
+
+    The recipient is an argument of the test, not a setting: the input has no
+    ``name``, so saving the step never posts it, the unsaved-changes guard
+    ignores it, and the browser keeps no form history for it.
     """
-    bound_field = form['email_config_test_recipient']
-    field = bound_field.field
-    label = conditional_escape(field.label or 'Send a test email to')
-    help_text = str(field.help_text or '').strip()
+    if strings is None:
+        from ..translations import get_strings
+
+        strings = get_strings()
+    label = conditional_escape(strings.get('form_sys_email_test_recipient', 'Send a test email to'))
+    help_text = str(strings.get(
+        'help_sys_email_test_recipient',
+        'Sends a one-off message with the applied settings. Apply them first; the address is not saved.',
+    ) or '').strip()
+    input_id = 'id_email_test_recipient'
+    help_id = f'{input_id}_helptext'
     help_html = (
-        f"<div class='form-text'>{conditional_escape(help_text)}</div>" if help_text else ""
+        f"<div class='form-text' id='{help_id}'>{conditional_escape(help_text)}</div>" if help_text else ""
     )
+    described_by = f" aria-describedby='{help_id}'" if help_text else ""
     return Div(
         HTML(
-            f"<label class='form-label' for='{conditional_escape(bound_field.auto_id)}'>{label}</label>"
+            f"<label class='form-label' for='{input_id}'>{label}</label>"
             f"<div class='input-group dlux-email-test-group'>"
-            f"{bound_field}"
+            f"<input type='email' id='{input_id}' class='form-control glass-input' dir='ltr' "
+            f"autocomplete='off' data-email-test-recipient data-dlux-unsaved-ignore{described_by}>"
             f"<button type='button' class='btn btn-outline-primary dlux-email-test-btn' "
             f"data-email-send-test "
             f"data-email-dependent-fields='{','.join(EMAIL_DEPENDENT_SETTING_FIELDS)}' "
@@ -215,6 +228,76 @@ def build_email_test_control(form, send_url, button_label):
             f"{help_html}"
         ),
         css_class='col-12',
+    )
+
+
+def build_email_effective_panel(effective, strings, *, panel):
+    """Read-only provider settings for one environment route, as HTML.
+
+    ``panel`` is ``relay`` (the smtp-relay service's ``SMTP_RELAY_*``) or
+    ``direct`` (the web service's ``EMAIL_*`` settings). Values are escaped; the
+    password is reported only as set or not set.
+    """
+    s = strings
+    title = s.get(
+        f'email_effective_title_{panel}',
+        'Provider settings from the relay environment' if panel == 'relay' else 'Provider settings from the web service',
+    )
+    source = s.get(
+        f'email_effective_source_{panel}',
+        'SMTP_RELAY_* in .secrets/.env, as the smtp-relay service sees them.'
+        if panel == 'relay' else 'EMAIL_* Django settings of the web service.',
+    )
+    unset = conditional_escape(s.get('email_effective_unset', 'not set'))
+
+    def value(raw):
+        raw = '' if raw is None else str(raw)
+        return f"<code dir='ltr'>{conditional_escape(raw)}</code>" if raw else f"<span class='text-muted'>{unset}</span>"
+
+    encryption = {
+        'ssl': s.get('email_encryption_ssl', 'SSL (implicit TLS)'),
+        'starttls': s.get('email_encryption_starttls', 'STARTTLS'),
+        'none': s.get('email_encryption_none', 'None'),
+    }.get(effective.get('encryption'), '')
+    if effective.get('encryption_derived'):
+        encryption = f"{encryption} · {s.get('email_encryption_from_port', 'chosen from the port')}"
+    password_set = effective.get('password_set')
+    if password_set is True:
+        password = conditional_escape(s.get('email_effective_password_set', 'set'))
+    elif password_set is False:
+        password = conditional_escape(s.get('email_effective_password_not_set', 'not set'))
+    else:
+        password = conditional_escape(s.get('email_effective_unknown', 'unknown'))
+    rows = (
+        (s.get('form_sys_email_host', 'Provider SMTP host'), value(effective.get('host'))),
+        (s.get('form_sys_email_port', 'Provider SMTP port'), value(effective.get('port'))),
+        (s.get('email_effective_encryption', 'Encryption'), conditional_escape(encryption)),
+        (s.get('form_sys_email_username', 'Provider SMTP username'), value(effective.get('username'))),
+        (s.get('form_sys_email_password', 'Provider SMTP password'), password),
+    )
+    if effective.get('visible', True):
+        body = "<dl class='row small mb-0 dlux-email-effective__values'>" + "".join(
+            f"<dt class='col-5 col-lg-4 fw-semibold'>{conditional_escape(label)}</dt>"
+            f"<dd class='col-7 col-lg-8 mb-1'>{content}</dd>"
+            for label, content in rows
+        ) + "</dl>"
+    else:
+        body = (
+            "<div class='alert alert-warning small mb-0' role='status'>"
+            + conditional_escape(s.get(
+                'email_effective_not_visible',
+                'The web service cannot see the relay settings yet. Run ./start.sh check --fix, then '
+                './start.sh to recreate the services, and reload this page. A test email still uses '
+                'whatever the relay has.',
+            ))
+            + "</div>"
+        )
+    return (
+        f"<div class='dlux-email-effective border rounded-3 p-3 mb-3' data-email-env-panel='{panel}'>"
+        f"<div class='fw-semibold mb-1'><i class='bi bi-file-earmark-lock me-1' aria-hidden='true'></i>"
+        f"{conditional_escape(title)}</div>"
+        f"<p class='small text-muted mb-2'>{conditional_escape(source)}</p>"
+        f"{body}</div>"
     )
 
 

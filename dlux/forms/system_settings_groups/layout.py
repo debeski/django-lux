@@ -129,7 +129,8 @@ from ...utils import (
     seed_navbar_config_from_sidebar,
 )
 from django.urls import reverse
-from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
+from django.utils.html import conditional_escape
+from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_effective_panel, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 class _Prerendered:
@@ -149,6 +150,32 @@ class _Prerendered:
 
 
 class LayoutMixin:
+    def _email_storage_initial(self):
+        return self.initial.get('email_config_secret_storage') or 'env'
+
+    def _email_effective_panels_html(self, strings):
+        """Both environment routes' read-only panels; the step's JS shows the one in use.
+
+        Rendered at page time from the process environment and Django settings,
+        so it shows what a send would use, not what was last typed.
+        """
+        from ...utils import effective_email_settings
+
+        storage = self._email_storage_initial()
+        transport = self.initial.get('email_config_transport') or 'direct'
+        panels = []
+        for panel, panel_transport in (('relay', 'relay'), ('direct', 'direct')):
+            effective = effective_email_settings({'transport': panel_transport, 'secret_storage': 'env'})
+            html = build_email_effective_panel(effective, strings, panel=panel)
+            if storage != 'env' or transport != panel_transport:
+                html = html.replace("class='dlux-email-effective ", "class='dlux-email-effective d-none ", 1)
+            panels.append(html)
+        return ''.join(panels)
+
+    def _email_status_text(self, strings):
+        reason = str(get_email_service_status().get('reason') or 'unknown')
+        return conditional_escape(strings.get(f'email_status_{reason}', reason.replace('_', ' ')))
+
     def _step_badge(self, strings, slug, fallback):
         """The "Step N: Name" pill inside a wizard panel.
 
@@ -266,7 +293,7 @@ class LayoutMixin:
                             f"aria-disabled='{'false' if self.initial.get('email_config_enabled', False) else 'true'}' "
                             f"data-email-config-section>"
                             f"<p class='small text-muted mb-3'>"
-                            f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
+                            f"{s.get('email_delivery_settings_desc', 'Choose the delivery path first. Internal SMTP relay is the route for projects created with python -m dlux startproject: web and the task worker have no internet access, and the relay service connects to your provider. Then choose where the provider settings come from: entered here, or the deployment environment.')}"
                             f"</p>"
                         ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('email_delivery_path_title', 'Delivery Path')}</h6>"),
@@ -275,25 +302,35 @@ class LayoutMixin:
                             Div(Field('email_config_secret_storage'), css_class='col-12 col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
+                        HTML(
+                            "<div class='dlux-email-provider-fields"
+                            f"{'' if self._email_storage_initial() == 'encrypted_db' else ' d-none'}' "
+                            "data-email-provider-fields>"
+                        ),
                         Row(
                             Div(Field('email_config_provider_preset'), css_class='col-12'),
                             css_class='g-3 mb-3',
                         ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('email_connection_settings_title', 'SMTP Connection')}</h6>"),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('email_connection_settings_title', 'Provider Server')}</h6>"),
                         Row(
                             build_email_toggle_field(self, 'email_config_use_tls', css_class='col-6 col-lg-3'),
                             build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-6 col-lg-3'),
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            Div(Field('email_config_host'), css_class='col-12 col-lg-6'),
-                            Div(Field('email_config_port'), css_class='col-6 col-lg-3'),
-                            Div(Field('email_config_timeout'), css_class='col-6 col-lg-3'),
+                            Div(Field('email_config_host'), css_class='col-12 col-lg-8'),
+                            Div(Field('email_config_port'), css_class='col-6 col-lg-4'),
                             css_class='g-3 mb-3',
                         ),
                         Row(
                             Div(Field('email_config_username'), css_class='col-12 col-lg-6'),
                             Div(Field('email_config_password'), css_class=email_password_field_class),
+                            css_class='g-3 mb-3',
+                        ),
+                        HTML("</div>"),
+                        _Prerendered(lambda: self._email_effective_panels_html(s)),
+                        Row(
+                            Div(Field('email_config_timeout'), css_class='col-12 col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('email_sender_settings_title', 'Sender & Alerts')}</h6>"),
@@ -307,7 +344,7 @@ class LayoutMixin:
                             "<div class='d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3'>"
                             "<span class='dlux-email-status small text-muted'>"
                             f"<i class='bi bi-info-circle me-1'></i>{s.get('email_service_status_label', 'Email service')}: "
-                            f"<code>{get_email_service_status().get('reason', 'unknown')}</code></span>"
+                            f"<span data-email-service-reason>{self._email_status_text(s)}</span></span>"
                             "<button type='button' class='btn btn-outline-secondary dlux-email-apply-btn' "
                             "data-email-apply "
                             f"data-email-apply-url='{reverse('email_config_apply')}'>"
@@ -321,6 +358,7 @@ class LayoutMixin:
                             build_email_test_control(
                                 self, reverse('email_send_test'),
                                 s.get('email_send_test_button', 'Send test email'),
+                                strings=s,
                             ),
                             css_class='g-3',
                         ),

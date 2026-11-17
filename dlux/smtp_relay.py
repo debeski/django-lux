@@ -13,8 +13,12 @@ runtime supervisor into ``dlux.updater.supervisor``.
 
 Configuration comes from the Dlux UI (``SystemSettings.email_config``) when relay
 transport is selected with an encrypted-database secret, and from ``SMTP_RELAY_*``
-environment variables otherwise. Nothing here is project-specific: the settings
-module is read from ``DJANGO_SETTINGS_MODULE``, which the container already sets.
+environment variables otherwise. The UI's timeout applies either way. Nothing here
+is project-specific: the settings module is read from ``DJANGO_SETTINGS_MODULE``,
+which the container already sets.
+
+The encryption rule, step tracking and failure codes live in
+``dlux.smtp_session``, which the web process shares.
 """
 
 import asyncio
@@ -22,12 +26,37 @@ import os
 import smtplib
 import sys
 
+from dlux.smtp_session import (  # noqa: F401 — re-exported for the relay's callers
+    DEFAULT_UPSTREAM_PORT,
+    IMPLICIT_TLS_PORT,
+    SMTPStepError,
+    STEP_AUTH,
+    STEP_CONFIG,
+    STEP_CONNECT,
+    STEP_GREETING,
+    STEP_SEND,
+    STEP_TLS,
+    StagedSMTP,
+    StagedSMTP_SSL,
+    StepTracker,
+    _coerce_bool,
+    _env,
+    _env_int,
+    env_flag,
+    env_upstream_config,
+    failure_hint,
+    failure_reason,
+    parse_failure_reply,
+    resolve_encryption,
+    server_detail,
+    step_error,
+)
+
 # Bind address for the plaintext listener the app talks to. Never exposed off the
 # internal network — it deliberately speaks no TLS and requires no auth, because
 # the only thing that can reach it is the app itself.
 DEFAULT_LISTEN_HOST = "0.0.0.0"
 DEFAULT_LISTEN_PORT = 1025
-DEFAULT_UPSTREAM_PORT = 587
 DEFAULT_MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 # Must stay BELOW dlux's relay-transport client timeout
 # (dlux.utils.mail.DLUX_SMTP_RELAY_CLIENT_TIMEOUT). Delivery is two hops and only
@@ -37,26 +66,6 @@ DEFAULT_MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 # upstream: servers that scan mail in-line often answer connect/EHLO/AUTH instantly
 # and then take 30-60s on DATA.
 DEFAULT_UPSTREAM_TIMEOUT = 60
-
-
-def _env(name, default=None):
-    value = os.getenv(name)
-    return default if value is None or value == "" else value
-
-
-def _env_int(name, default):
-    try:
-        return int(_env(name, default))
-    except (TypeError, ValueError):
-        return default
-
-
-def _coerce_bool(value, default=False):
-    if value is None:
-        return default
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
 def listen_address():
     return _env("SMTP_RELAY_LISTEN_HOST", DEFAULT_LISTEN_HOST), _env_int(
         "SMTP_RELAY_LISTEN_PORT", DEFAULT_LISTEN_PORT
@@ -71,25 +80,12 @@ def upstream_timeout():
     return _env_int("SMTP_RELAY_UPSTREAM_TIMEOUT", DEFAULT_UPSTREAM_TIMEOUT)
 
 
-def env_upstream_config():
-    """Bootstrap/fallback configuration for deployments not using UI-managed mail."""
-    return {
-        "host": _env("SMTP_RELAY_HOST", ""),
-        "port": _env_int("SMTP_RELAY_PORT", DEFAULT_UPSTREAM_PORT),
-        "use_tls": _coerce_bool(os.getenv("SMTP_RELAY_USE_TLS"), True),
-        "use_ssl": _coerce_bool(os.getenv("SMTP_RELAY_USE_SSL"), False),
-        "username": _env("SMTP_RELAY_USER", ""),
-        "password": _env("SMTP_RELAY_PASSWORD", ""),
-    }
-
-
-def django_upstream_config():
-    """UI-managed relay settings from Dlux System Settings, or ``None``.
+def stored_email_config():
+    """The normalized ``email_config`` from Dlux System Settings, or ``None``.
 
     The relay runs in the project image, so it shares the app's Django settings,
     database and secret key — the last of which is what lets it decrypt the stored
-    SMTP password. Returns ``None`` (falling back to the environment) when the UI is
-    not the source of truth for this deployment.
+    SMTP password.
     """
     try:
         import django
@@ -99,22 +95,9 @@ def django_upstream_config():
         django.setup()
 
         from dlux.models import SystemSettings
-        from dlux.utils import decrypt_email_secret, normalize_email_config
+        from dlux.utils import normalize_email_config
 
-        email_config = normalize_email_config(SystemSettings.load().email_config)
-        if email_config.get("transport") != "relay":
-            return None
-        if email_config.get("secret_storage") != "encrypted_db":
-            return None
-        return {
-            "host": email_config.get("host", ""),
-            "port": int(email_config.get("port") or DEFAULT_UPSTREAM_PORT),
-            "use_tls": bool(email_config.get("use_tls", True)),
-            "use_ssl": bool(email_config.get("use_ssl", False)),
-            "username": email_config.get("username", ""),
-            "password": decrypt_email_secret(email_config.get("encrypted_password", "")),
-            "timeout": int(email_config.get("timeout") or 0),
-        }
+        return normalize_email_config(SystemSettings.load().email_config)
     except Exception as exc:
         print(
             f"SMTP relay could not read Dlux UI config, using env fallback: {exc}",
@@ -124,8 +107,52 @@ def django_upstream_config():
         return None
 
 
+def django_upstream_config(email_config=None):
+    """UI-managed relay settings from Dlux System Settings, or ``None``.
+
+    Returns ``None`` (falling back to the environment) unless relay transport is
+    selected with an encrypted-database secret.
+    """
+    if email_config is None:
+        email_config = stored_email_config()
+    if not email_config:
+        return None
+    if email_config.get("transport") != "relay":
+        return None
+    if email_config.get("secret_storage") != "encrypted_db":
+        return None
+    try:
+        from dlux.utils import decrypt_email_secret
+
+        password = decrypt_email_secret(email_config.get("encrypted_password", ""))
+    except Exception as exc:
+        print(f"SMTP relay could not decrypt the stored password: {exc}", file=sys.stderr, flush=True)
+        password = ""
+    return {
+        "host": email_config.get("host", ""),
+        "port": int(email_config.get("port") or DEFAULT_UPSTREAM_PORT),
+        "use_tls": bool(email_config.get("use_tls", True)),
+        "use_ssl": bool(email_config.get("use_ssl", False)),
+        "encryption_derived": False,
+        "username": email_config.get("username", ""),
+        "password": password,
+        "timeout": int(email_config.get("timeout") or 0),
+        "source": "database",
+    }
+
+
 def upstream_config():
-    return django_upstream_config() or env_upstream_config()
+    """Provider settings for one delivery: the UI's, else this container's environment.
+
+    The UI timeout applies to the environment route too. It is not a secret, and
+    the app waits for the relay on that same number, so ignoring it left every
+    environment-configured send capped at the relay's own default.
+    """
+    email_config = stored_email_config()
+    config = django_upstream_config(email_config) or env_upstream_config()
+    if email_config and email_config.get("transport") == "relay" and not config.get("timeout"):
+        config["timeout"] = int(email_config.get("timeout") or 0)
+    return config
 
 
 def parse_address(command):
@@ -142,8 +169,10 @@ def deliver(mail_from, recipients, message_bytes):
     port = int(upstream.get("port") or DEFAULT_UPSTREAM_PORT)
     username = upstream.get("username", "")
     password = upstream.get("password", "")
+    use_ssl = bool(upstream.get("use_ssl"))
+    use_tls = bool(upstream.get("use_tls")) and not use_ssl
     if not host:
-        raise RuntimeError("SMTP_RELAY_HOST is not configured")
+        raise SMTPStepError(STEP_CONFIG, "missing_host", detail="SMTP_RELAY_HOST is not configured")
     if not mail_from:
         raise RuntimeError("MAIL FROM is missing")
     if not recipients:
@@ -152,15 +181,30 @@ def deliver(mail_from, recipients, message_bytes):
     # A timeout set in the UI wins over the environment, so an operator can widen
     # it for a slow provider without editing compose and recreating the service.
     timeout = int(upstream.get("timeout") or 0) or upstream_timeout()
-    smtp_class = smtplib.SMTP_SSL if upstream.get("use_ssl") else smtplib.SMTP
-    with smtp_class(host, port, timeout=timeout) as smtp:
+    smtp_class = StagedSMTP_SSL if use_ssl else StagedSMTP
+    tracker = StepTracker()
+    smtp = None
+    try:
+        smtp = smtp_class(host, port, timeout=timeout, dlux_tracker=tracker)
         smtp.ehlo()
-        if upstream.get("use_tls") and not upstream.get("use_ssl"):
+        if use_tls:
             smtp.starttls()
             smtp.ehlo()
         if username or password:
             smtp.login(username, password)
         smtp.sendmail(mail_from, recipients, message_bytes)
+    except Exception as exc:
+        # No QUIT after a failure: on a stalled server it waits a whole second
+        # timeout, and the app stops listening before the reason arrives.
+        if smtp is not None:
+            smtp.close()
+        raise step_error(
+            exc, tracker.step, host=host, port=port, use_tls=use_tls, use_ssl=use_ssl, timeout=timeout,
+        ) from exc
+    try:
+        smtp.quit()
+    except (OSError, smtplib.SMTPException):
+        smtp.close()
 
 
 def smtp_reason(exc):
@@ -181,6 +225,45 @@ async def _send(writer, line):
 
 async def handle_client(reader, writer):
     peer = writer.get_extra_info("peername")
+    try:
+        await _converse(reader, writer, peer)
+    except (ConnectionError, asyncio.IncompleteReadError):
+        # A health check or reachability probe that hangs up without QUIT is
+        # routine, not a fault worth a traceback.
+        pass
+    finally:
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except (ConnectionError, OSError):
+            pass
+
+
+async def _read_data(reader, size_limit):
+    """The DATA payload, read to its terminator: ``(chunks, oversized, terminated)``."""
+    chunks = []
+    total = 0
+    oversized = False
+    while True:
+        line = await reader.readline()
+        if not line:
+            return chunks, oversized, False
+        if line in {b".\r\n", b".\n"}:
+            return chunks, oversized, True
+        # Undo dot-stuffing (RFC 5321 §4.5.2) before the body is forwarded.
+        if line.startswith(b".."):
+            line = line[1:]
+        total += len(line)
+        if total > size_limit:
+            # Keep reading to the terminator, or the rest of the body would be
+            # read back as commands.
+            oversized = True
+            chunks = []
+            continue
+        chunks.append(line)
+
+
+async def _converse(reader, writer, peer):
     size_limit = max_message_bytes()
     mail_from = ""
     recipients = []
@@ -214,45 +297,29 @@ async def handle_client(reader, writer):
             await _send(writer, "250 OK")
         elif upper == "DATA":
             await _send(writer, "354 End data with <CR><LF>.<CR><LF>")
-            chunks = []
-            total = 0
-            while True:
-                line = await reader.readline()
-                if not line:
-                    break
-                if line in {b".\r\n", b".\n"}:
-                    break
-                # Undo dot-stuffing (RFC 5321 §4.5.2) before the body is forwarded.
-                if line.startswith(b".."):
-                    line = line[1:]
-                total += len(line)
-                if total > size_limit:
-                    await _send(writer, "552 Message exceeds configured size limit")
-                    chunks = []
-                    break
-                chunks.append(line)
-
-            if chunks:
-                try:
-                    # Blocking smtplib work belongs off the event loop, or one slow
-                    # upstream would stall every other connection.
-                    await asyncio.to_thread(deliver, mail_from, recipients, b"".join(chunks))
-                    await _send(writer, "250 Message accepted")
-                except Exception as exc:
-                    print(
-                        f"SMTP relay delivery failed for {peer}: {exc}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                    await _send(writer, f"451 Relay delivery failed: {smtp_reason(exc)}")
+            chunks, oversized, terminated = await _read_data(reader, size_limit)
+            if not terminated:
+                break
+            if oversized:
+                await _send(writer, "552 Message exceeds configured size limit")
+                continue
+            try:
+                # Blocking smtplib work belongs off the event loop, or one slow
+                # upstream would stall every other connection.
+                await asyncio.to_thread(deliver, mail_from, recipients, b"".join(chunks))
+                await _send(writer, "250 Message accepted")
+            except Exception as exc:
+                print(
+                    f"SMTP relay delivery failed for {peer}: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                await _send(writer, f"451 Relay delivery failed: {smtp_reason(exc)}")
         elif upper == "QUIT":
             await _send(writer, "221 Bye")
             break
         else:
             await _send(writer, "502 Command not implemented")
-
-    writer.close()
-    await writer.wait_closed()
 
 
 async def serve():

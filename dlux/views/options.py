@@ -1440,10 +1440,28 @@ def email_send_test_view(request):
     try:
         sent = send_dlux_mail(subject, body, [recipient], fail_silently=False, alert_on_failure=False)
     except Exception as exc:  # noqa: BLE001 — surface any backend/SMTP error to the operator
-        logger.warning("Dlux test email to %s failed: %s", recipient, exc)
+        from ..utils import describe_mail_failure
+
+        try:
+            failure = describe_mail_failure(exc, strings, email_config=stored)
+        except Exception:  # noqa: BLE001 — the description must never hide the failure
+            failure = {
+                'hop': '', 'step': '', 'reason': '',
+                'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.'),
+            }
+        logger.warning(
+            "Dlux test email to %s failed at %s/%s (%s): %s",
+            recipient, failure['hop'], failure['step'], failure['reason'], exc,
+        )
         _record_email_verification(False)
         return JsonResponse(
-            {'ok': False, 'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.')},
+            {
+                'ok': False,
+                'message': failure['message'],
+                'hop': failure['hop'],
+                'step': failure['step'],
+                'reason': failure['reason'],
+            },
             status=502,
         )
 
