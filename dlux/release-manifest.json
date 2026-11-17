@@ -1,16 +1,18 @@
 {
   "schema_version": 2,
-  "version": "1.16.1",
+  "version": "1.16.2b1",
   "display": {
-    "summary": "Two fixes from a stress test of 1.16.0. Public form limits keep each counter a few seconds past its window, so a flood no longer gets extra posts through at window boundaries. Caddy in new projects reads DLUX_FRONT_PROXY from .secrets/.env to choose which front proxies may forward client addresses; unset keeps trusting every private address, as before. Existing stacks get the same change from Composer 1.10.1's ./start.sh check --fix, and ./start.sh check warns while it is unset. Updates inline from any 1.16 release; no migrations.",
+    "summary": "Email setup for the internal SMTP relay, and the relay now checks the provider's certificate. With delivery path Internal SMTP relay and provider settings Environment, the Email step shows the relay's host, port, encryption, user and whether a password is set, read from the stack; existing stacks get the compose lines from Composer 1.10.2's ./start.sh check --fix. Encryption follows the port (SSL on 465, STARTTLS otherwise) unless SMTP_RELAY_USE_SSL says otherwise, the Email step's timeout applies on every route, and a failed send names the hop, the step and the likeliest fix. The relay now verifies the provider's certificate: a provider with a private or self-signed certificate needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False. Relay changes take effect once the project image is rebuilt on 1.16.2; web and worker update inline from any 1.16 release, with no migrations. New projects' composer-agent and composer-executor start instead of restart-looping.",
     "highlights": [
-      "Public form limits: each counter outlives its window by 5 seconds, so a flood no longer gets extra posts through at window boundaries.",
-      "DLUX_FRONT_PROXY in .secrets/.env names the front proxies Caddy trusts for client addresses; unset keeps trusting every private address.",
-      "No front proxy? Set DLUX_FRONT_PROXY= (empty) so users on your network cannot choose the address used for login lockout and the audit log.",
-      "Existing stacks: Composer 1.10.1's ./start.sh check warns while it is unset, and check --fix moves the Caddyfile and compose to the variable.",
-      "Or firewall the server so only the front proxy reaches Caddy's port. Updates inline from any 1.16 release, with no migrations."
+      "Email step, Environment route: shows the relay's host, port, encryption, user and whether a password is set; nothing to type.",
+      "Existing stacks: Composer 1.10.2's ./start.sh check --fix shares the relay's settings with web and worker; the password stays with the relay.",
+      "The relay verifies the provider's certificate. A private or self-signed one needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False.",
+      "Encryption follows the port (SSL on 465, STARTTLS otherwise), and the Email step's timeout applies on every route.",
+      "A failed send names the hop (relay or provider), the step (connect, TLS, sign-in, send) and the likeliest fix.",
+      "Relay changes need the project image rebuilt on 1.16.2; web and worker update inline from any 1.16 release, with no migrations.",
+      "New projects: composer-agent and composer-executor start with `run` instead of restart-looping on Composer's usage text."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.2b1"
   },
   "requires": {
     "updater_schema": ">=1",
