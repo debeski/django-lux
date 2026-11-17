@@ -42,11 +42,12 @@ step 3 includes an **Email delivery** subsection with two independent choices:
 | --- | --- |
 | Delivery path: `direct` | The web process connects to the SMTP provider itself. Use this when the web service has egress to the SMTP host. |
 | Delivery path: `relay` | The web process sends to the generated internal `smtp-relay:1025` service. Use this when the web service is isolated and only the relay has internet egress. |
-| Secret storage: `encrypted_db` | Dlux stores the SMTP password encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
-| Secret storage: `env` | Environment/secrets-owned mode. The UI may store/export non-sensitive hints such as host, port, username, and from address, but the SMTP password stays in environment variables or secrets. |
+| Provider settings: Entered here (`encrypted_db`) | The provider server is entered on the step and the SMTP password is stored encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
+| Provider settings: Environment (`env`) | The provider comes from the deployment: the relay's `SMTP_RELAY_*` variables, or the web service's `EMAIL_*` settings for direct delivery. The step shows them read-only and asks only for the sender, which defaults to `DEFAULT_FROM_EMAIL`. |
 
-Generated projects can still read standard Django email settings when secret
-storage is environment/secrets-owned:
+See [System Configuration](system-configuration.md#email-delivery) for the step
+itself. Direct delivery with environment settings reads the standard Django email
+settings:
 
 ```text
 EMAIL_BACKEND
@@ -67,26 +68,26 @@ Generated Docker projects default to an internal SMTP relay so the `web` and
 `worker` containers can remain on the internal Docker network. The app talks to
 `smtp-relay:1025`; only the `smtp-relay` service joins the public network for
 outbound SMTP egress, and the scaffold does not publish an inbound relay port.
-The relay can fall back to these upstream env settings before UI-managed relay
-delivery is configured:
+The relay's provider can live in `.secrets/.env`:
 
 ```text
 DEFAULT_FROM_EMAIL
 SMTP_RELAY_HOST
 SMTP_RELAY_PORT
+SMTP_RELAY_USE_SSL
 SMTP_RELAY_USE_TLS
 SMTP_RELAY_USER
 SMTP_RELAY_PASSWORD
 ```
 
-With this layout, choose delivery path `Internal SMTP relay`, choose secret
-storage `Encrypted database secret`, and enter the upstream provider settings,
-for example Gmail host `smtp.gmail.com`, port `587`, TLS enabled, SMTP
-username, app password, and default-from address. The web container still sends
-only to the internal `smtp-relay:1025` listener; the relay loads the upstream
-settings from `SystemSettings.email_config` on delivery. If the web process can
-reach the SMTP server directly, choose delivery path `Direct SMTP from web
-service`; encrypted DB secrets still work in that mode.
+With this layout, choose delivery path `Internal SMTP relay`, then either
+provider settings `Environment`, which uses those variables with nothing typed,
+or `Entered here` with the provider server, for example Gmail host
+`smtp.gmail.com`, port `587`, STARTTLS, SMTP username, app password, and
+default-from address. The web container still sends only to the internal relay
+listener; the relay loads the step's settings on each delivery. If the web
+process can reach the SMTP server directly, choose delivery path `Direct SMTP
+from web service`; both provider settings sources work in that mode.
 
 The setup/System Settings security step refuses to enable public registration
 or email 2FA when the selected Dlux email delivery path and secret storage

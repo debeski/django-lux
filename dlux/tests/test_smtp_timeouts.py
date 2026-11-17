@@ -130,14 +130,8 @@ class UiConfiguredTimeoutTests(TestCase):
         captured = {}
 
         class _FakeSMTP:
-            def __init__(self, host, port, timeout=None):
+            def __init__(self, host, port, timeout=None, dlux_tracker=None):
                 captured['timeout'] = timeout
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
 
             def ehlo(self):
                 pass
@@ -145,9 +139,12 @@ class UiConfiguredTimeoutTests(TestCase):
             def sendmail(self, *args):
                 pass
 
+            def quit(self):
+                pass
+
         upstream = {'host': 'mail.example.com', 'port': 465, 'use_ssl': True, 'timeout': 111}
         with patch.object(smtp_relay, 'upstream_config', return_value=upstream), \
-                patch.object(smtplib, 'SMTP_SSL', _FakeSMTP), \
+                patch.object(smtp_relay, 'StagedSMTP_SSL', _FakeSMTP), \
                 patch.dict('os.environ', {'SMTP_RELAY_UPSTREAM_TIMEOUT': '30'}, clear=False):
             smtp_relay.deliver('a@b.com', ['c@d.com'], b'hi')
 

@@ -2531,7 +2531,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dlux-email-config-password-field d-none', html)
+        # Environment storage: no provider inputs, the relay's read-only panel instead.
+        self.assertIn("class='dlux-email-provider-fields d-none'", html)
+        self.assertIn("class='dlux-email-effective border rounded-3 p-3 mb-3' data-email-env-panel='relay'", html)
+        self.assertIn("class='dlux-email-effective d-none border rounded-3 p-3 mb-3' data-email-env-panel='direct'", html)
 
     @override_settings(
         DEFAULT_FROM_EMAIL='deployer@example.com',
@@ -2720,7 +2723,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('dlux-email-config-password-field', contents)
-        self.assertIn("const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage');", contents)
+        self.assertIn("const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage') || 'env';", contents)
         self.assertIn("secretStorage === 'encrypted_db'", contents)
         self.assertIn("input.dataset.dluxSelectorLocked === 'true'", contents)
         self.assertIn('input.disabled = locked || Boolean(isDisabled);', contents)
@@ -4019,7 +4022,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         DEFAULT_FROM_EMAIL='settings@example.com',
     )
     @patch('dlux.models.SystemSettings.load')
-    def test_env_email_mode_uses_ui_hints_with_env_secret(self, mock_load):
+    def test_env_email_mode_uses_the_web_services_email_settings(self, mock_load):
+        """Direct + environment: EMAIL_* is the connection; only the sender comes from the step."""
         mock_load.return_value = SimpleNamespace(email_config={
             'transport': 'direct',
             'secret_storage': 'env',
@@ -4034,10 +4038,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertEqual(email_config['transport'], 'direct')
         self.assertEqual(email_config['secret_storage'], 'env')
-        self.assertEqual(email_config['host'], 'ui-smtp.example.com')
-        self.assertEqual(email_config['port'], 587)
-        self.assertTrue(email_config['use_tls'])
-        self.assertEqual(email_config['username'], 'ui-user')
+        self.assertEqual(email_config['host'], 'settings-smtp.example.com')
+        self.assertEqual(email_config['port'], 2525)
+        self.assertFalse(email_config['use_tls'])
+        self.assertEqual(email_config['username'], 'settings-user')
         self.assertEqual(email_config['from_email'], 'ui@example.com')
         self.assertEqual(email_config['password'], 'env-secret')
 

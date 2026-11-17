@@ -190,7 +190,7 @@ def _system_settings_sidebar_tools_available(cleaned_data):
 
 
 
-from .system_settings_groups.email import EMAIL_CONNECTION_FIELDS
+from .system_settings_groups.email import EMAIL_CONNECTION_FIELDS, pack_email_config
 from .system_settings_groups import (
     PreservedValueMixin,
     IdentityCleanMixin,
@@ -455,7 +455,6 @@ class SystemSettingsForm(
             ('outlook', 'Outlook / Office 365'),
             ('ses', 'Amazon SES'),
             ('mailgun', 'Mailgun'),
-            ('relay', 'Internal relay'),
         ),
     )
     email_config_host = forms.CharField(required=False, max_length=255)
@@ -472,7 +471,6 @@ class SystemSettingsForm(
         required=False,
         widget=forms.Textarea(attrs={'rows': 2}),
     )
-    email_config_test_recipient = forms.EmailField(required=False)
     email_config_enabled = forms.BooleanField(required=False, initial=False)
     email_config_timeout = forms.IntegerField(required=False, min_value=0, max_value=300)
     # Declared last on purpose: Django cleans fields in declaration order and
@@ -2108,7 +2106,7 @@ class SystemSettingsForm(
                 option_meta={
                     'relay': {
                         'icon': 'bi-hdd-network',
-                        'description': s.get('email_transport_relay_desc', 'Web and the task worker hand mail to smtp-relay:1025; the relay reaches the provider.'),
+                        'description': s.get('email_transport_relay_desc', 'Web and the task worker hand mail to the internal relay service, which connects to your provider.'),
                     },
                     'direct': {
                         'icon': 'bi-send',
@@ -2117,10 +2115,10 @@ class SystemSettingsForm(
                 },
             ),
         )
-        self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
+        self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Provider settings')
         self.fields['email_config_secret_storage'].choices = (
-            ('encrypted_db', s.get('email_secret_storage_encrypted_db', 'Encrypted database secret')),
-            ('env', s.get('email_secret_storage_env', 'Environment / secrets')),
+            ('encrypted_db', s.get('email_secret_storage_encrypted_db', 'Entered here')),
+            ('env', s.get('email_secret_storage_env', 'Environment (.secrets/.env)')),
         )
         _bind_choice_selector_widget(
             self.fields['email_config_secret_storage'],
@@ -2129,11 +2127,11 @@ class SystemSettingsForm(
                 option_meta={
                     'encrypted_db': {
                         'icon': 'bi-shield-lock',
-                        'description': s.get('email_secret_storage_encrypted_db_desc', 'Keep the SMTP password encrypted in the database and manage it here.'),
+                        'description': s.get('email_secret_storage_encrypted_db_desc', 'Enter the provider server here; the password is stored encrypted in the database.'),
                     },
                     'env': {
                         'icon': 'bi-file-earmark-lock',
-                        'description': s.get('email_secret_storage_env_desc', 'Read the SMTP password from environment variables or deployment secrets.'),
+                        'description': s.get('email_secret_storage_env_desc', 'Use the provider settings in the deployment environment (.secrets/.env). Nothing is entered here.'),
                     },
                 },
             ),
@@ -2145,6 +2143,13 @@ class SystemSettingsForm(
         self.fields['email_config_username'].label = s.get('form_sys_email_username', 'Provider SMTP username')
         self.fields['email_config_password'].label = s.get('form_sys_email_password', 'Provider SMTP password')
         self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
+        self.fields['email_config_default_from_email'].help_text = s.get(
+            'help_sys_email_default_from',
+            'The sender address of Dlux mail. Leave blank to use DEFAULT_FROM_EMAIL.',
+        )
+        default_sender = getattr(settings, 'DEFAULT_FROM_EMAIL', '') or os.getenv('DEFAULT_FROM_EMAIL', '') or ''
+        if default_sender:
+            self.fields['email_config_default_from_email'].widget.attrs['placeholder'] = default_sender
         self.fields['email_config_provider_preset'].label = s.get('form_sys_email_provider_preset', 'Provider preset')
         self.fields['email_config_provider_preset'].help_text = s.get(
             'help_sys_email_provider_preset',
@@ -2168,18 +2173,12 @@ class SystemSettingsForm(
             'help_sys_email_config_enabled',
             'Turn on to configure SMTP. Features that send mail stay locked until a test email succeeds.',
         )
-        self.fields['email_config_test_recipient'].label = s.get('form_sys_email_test_recipient', 'Send a test email to')
-        self.fields['email_config_test_recipient'].help_text = s.get(
-            'help_sys_email_test_recipient',
-            'Sends a one-off message using the saved configuration. Save the form before testing.',
-        )
         for field_name in (
             'email_config_host',
             'email_config_username',
             'email_config_password',
             'email_config_default_from_email',
             'email_config_failure_recipients',
-            'email_config_test_recipient',
             'email_config_enabled',
             'email_config_timeout',
         ):
@@ -2191,7 +2190,6 @@ class SystemSettingsForm(
             ('outlook', s.get('email_provider_preset_outlook', 'Outlook / Office 365')),
             ('ses', s.get('email_provider_preset_ses', 'Amazon SES')),
             ('mailgun', s.get('email_provider_preset_mailgun', 'Mailgun')),
-            ('relay', s.get('email_provider_preset_relay', 'Internal relay')),
         )
         _bind_choice_selector_widget(
             self.fields['email_config_provider_preset'],
@@ -2210,14 +2208,9 @@ class SystemSettingsForm(
                     'outlook': {'icon': 'bi-microsoft', 'description': 'smtp.office365.com:587'},
                     'ses': {'icon': 'bi-amazon', 'description': 'email-smtp.us-east-1.amazonaws.com:587'},
                     'mailgun': {'icon': 'bi-envelope-paper', 'description': 'smtp.mailgun.org:587'},
-                    'relay': {'icon': 'bi-hdd-network', 'description': 'smtp-relay:1025'},
                 },
             ),
         )
-        self.fields['email_config_test_recipient'].widget.attrs.update({
-            'data-email-test-recipient': '',
-            'class': 'form-control glass-input',
-        })
         self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Page Access')
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
@@ -3783,8 +3776,6 @@ class SystemSettingsForm(
 
 
         email_password_field_class = 'col-12 col-lg-6 dlux-email-config-password-field'
-        if self.initial.get('email_config_secret_storage') != 'encrypted_db':
-            email_password_field_class += ' d-none'
 
         # Build step 1 fields dynamically - import only shown in initial setup
         step_1_fields = [
@@ -4355,44 +4346,7 @@ class SystemSettingsForm(
             )
             cleaned['email_config'] = normalize_email_config(preserved_email_config)
         else:
-            email_transport = cleaned.get('email_config_transport') or existing_email_config.get('transport', 'direct')
-            email_secret_storage = cleaned.get('email_config_secret_storage') or existing_email_config.get('secret_storage', 'env')
-            existing_verified = existing_email_config if isinstance(existing_email_config, dict) else {}
-            _payload = {
-                'transport': email_transport,
-                'secret_storage': email_secret_storage,
-                'provider_preset': cleaned.get('email_config_provider_preset') or existing_email_config.get('provider_preset', 'custom'),
-                'host': cleaned.get('email_config_host') or '',
-                'port': cleaned.get('email_config_port') or 587,
-                'use_tls': cleaned.get('email_config_use_tls'),
-                'use_ssl': cleaned.get('email_config_use_ssl'),
-                'username': cleaned.get('email_config_username') or '',
-                'default_from_email': cleaned.get('email_config_default_from_email') or '',
-                'failure_notification_recipients': cleaned.get('email_config_failure_recipients') or '',
-                'enabled': cleaned.get('email_config_enabled', False),
-            'timeout': cleaned.get('email_config_timeout') or 0,
-                'verified': existing_verified.get('verified', False),
-                'verified_at': existing_verified.get('verified_at', ''),
-                'verified_fingerprint': existing_verified.get('verified_fingerprint', ''),
-            }
-            # Normalize once to resolve the canonical transport/secret_storage, attach the
-            # secret to the *payload*, then normalize again. The verification fingerprint is
-            # computed inside normalize over encrypted_password, so a secret attached after
-            # normalizing would fingerprint an empty password and revoke verification on the
-            # very next read.
-            _probe = normalize_email_config(_payload)
-            if _probe['secret_storage'] == 'encrypted_db':
-                raw_password = cleaned.get('email_config_password') or ''
-                if raw_password:
-                    _payload['encrypted_password'] = encrypt_email_secret(raw_password)
-                elif (
-                    existing_email_config.get('transport') == _probe['transport']
-                    and existing_email_config.get('secret_storage') == 'encrypted_db'
-                ):
-                    _payload['encrypted_password'] = existing_email_config.get('encrypted_password', '')
-            email_config = normalize_email_config(_payload)
-            email_config['password_configured'] = bool(email_config.get('encrypted_password'))
-            cleaned['email_config'] = email_config
+            cleaned['email_config'] = pack_email_config(cleaned, existing_email_config)
         email_config = normalize_email_config(cleaned.get('email_config') or existing_email_config)
         client_ip_config = self._schema_group_from_cleaned('client_ip_config')
         cleaned['client_ip_config'] = client_ip_config
@@ -4525,7 +4479,6 @@ class SystemSettingsForm(
             })
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
             cleaned['registration_activation_mode'] = 'auto_login_after_verify'
-        email_ready = get_email_service_status().get('available')
         backend = getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
         local_backends = {
             'django.core.mail.backends.console.EmailBackend',
@@ -4534,35 +4487,8 @@ class SystemSettingsForm(
         }
         if backend in local_backends and getattr(settings, 'DEBUG', False):
             email_ready = True
-        elif email_config.get('transport') == 'relay':
-            relay_host = str(email_config.get('host') or os.getenv('SMTP_RELAY_HOST') or '').strip()
-            relay_port = email_config.get('port')
-            relay_from_email = str(
-                email_config.get('default_from_email')
-                or getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-                or os.getenv('DEFAULT_FROM_EMAIL')
-                or ''
-            ).strip()
-            relay_password_ok = True
-            if email_config.get('secret_storage') == 'encrypted_db' and email_config.get('username'):
-                relay_password_ok = bool(email_config.get('encrypted_password'))
-            email_ready = bool(relay_host and relay_port and relay_from_email and relay_password_ok)
-        elif email_config.get('secret_storage') == 'encrypted_db':
-            email_ready = bool(
-                email_config.get('host')
-                and email_config.get('port')
-                and email_config.get('default_from_email')
-                and (not email_config.get('username') or email_config.get('encrypted_password'))
-            )
-        elif backend == 'django.core.mail.backends.smtp.EmailBackend':
-            email_ready = bool(
-                (email_config.get('host') or getattr(settings, 'EMAIL_HOST', ''))
-                and (email_config.get('port') or getattr(settings, 'EMAIL_PORT', None))
-                and (
-                    email_config.get('default_from_email')
-                    or getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-                )
-            )
+        else:
+            email_ready = get_email_service_status(email_config=email_config).get('available')
         if not email_ready:
             cleaned['notification_email_enabled'] = False
             cleaned['notification_email_default'] = False
@@ -4579,7 +4505,10 @@ class SystemSettingsForm(
         if (cleaned.get('public_registration_enabled') or cleaned.get('email_2fa')) and not email_ready:
             self.add_error(
                 'email_config',
-                "Public registration and email 2FA require configured email delivery. Use env/secrets, the generated internal SMTP relay with a saved upstream secret, local debug email backends during development, or encrypted DB mode with a saved SMTP secret.",
+                get_strings().get(
+                    'email_required_for_features',
+                    'Public registration and email 2FA need working email delivery. Finish the Email step and send a test email first.',
+                ),
             )
         return cleaned
 

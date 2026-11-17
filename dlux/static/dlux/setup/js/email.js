@@ -88,6 +88,10 @@
                 .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
                 .then(({ ok, data }) => {
                     show(Boolean(ok && data && data.ok), (data && data.message) || '');
+                    const reasonNode = form.querySelector('[data-email-service-reason]');
+                    if (reasonNode && data && data.service_reason) {
+                        reasonNode.textContent = t(`email_status_${data.service_reason}`, data.service_reason.replace(/_/g, ' '));
+                    }
                 })
                 .catch(() => {
                     show(false, t('email_apply_failed', 'Could not apply the email settings.'));
@@ -178,8 +182,6 @@
             // Email owns its own wizard step now: the SMTP fields follow the step's
             // own enable toggle, not whichever feature happens to need mail.
             const emailEnabledToggle = form.querySelector('#id_email_config_enabled');
-            const passwordInput = form.querySelector('[name="email_config_password"]');
-            const passwordField = form.querySelector('.dlux-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
             if (!section || !emailEnabledToggle) {
                 return;
             }
@@ -192,34 +194,58 @@
                 outlook: { host: 'smtp.office365.com', port: 587, use_tls: true, use_ssl: false },
                 ses: { host: 'email-smtp.us-east-1.amazonaws.com', port: 587, use_tls: true, use_ssl: false },
                 mailgun: { host: 'smtp.mailgun.org', port: 587, use_tls: true, use_ssl: false },
-                relay: { host: '', port: 1025, use_tls: false, use_ssl: false },
             };
+            // The provider-server fields. With environment storage the provider
+            // comes from the deployment, so they are hidden and not posted; the
+            // server keeps their stored values for a later switch back.
+            const PROVIDER_FIELDS = [
+                'email_config_provider_preset',
+                'email_config_host',
+                'email_config_port',
+                'email_config_use_tls',
+                'email_config_use_ssl',
+                'email_config_username',
+                'email_config_password',
+            ];
+            // The timeout stays live while email is off, as it always has: a
+            // disabled field posts nothing and the save would reset it.
+            const STEP_FIELDS = [
+                'email_config_transport',
+                'email_config_secret_storage',
+                'email_config_default_from_email',
+                'email_config_failure_recipients',
+            ];
             // Delivery path, provider preset and secret storage are Dlux choice
             // selectors: a group of radios, not one <select>. Reading `.value` off
             // the first element returns the first option regardless of what is
             // checked, so go through the named-field accessors instead.
             const presetInputs = getNamedFieldInputs(form, 'email_config_provider_preset');
             const secretStorageInputs = getNamedFieldInputs(form, 'email_config_secret_storage');
+            const transportInputs = getNamedFieldInputs(form, 'email_config_transport');
+            const providerGroup = section.querySelector('[data-email-provider-fields]');
+            const envPanels = Array.from(section.querySelectorAll('[data-email-env-panel]'));
+            const testRecipient = section.querySelector('[data-email-test-recipient]');
 
             function syncEmailConfigVisibility() {
                 const enabled = Boolean(emailEnabledToggle && emailEnabledToggle.checked);
-                const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage');
-                const encryptedDbSecret = enabled && (!secretStorageInputs.length || secretStorage === 'encrypted_db');
+                const secretStorage = getNamedFieldValue(form, 'email_config_secret_storage') || 'env';
+                const transport = getNamedFieldValue(form, 'email_config_transport') || 'direct';
+                const enteredHere = secretStorage === 'encrypted_db';
                 setDependentSectionEnabled(form, section, enabled, [], dependentReason(emailEnabledToggle));
-                [
-                    'email_config_transport',
-                    'email_config_provider_preset',
-                    'email_config_secret_storage',
-                    'email_config_host',
-                    'email_config_port',
-                    'email_config_use_tls',
-                    'email_config_use_ssl',
-                    'email_config_username',
-                    'email_config_default_from_email',
-                    'email_config_failure_recipients',
-                    'email_config_test_recipient',
-                ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
-                setNamedFieldDisabled(form, 'email_config_password', !encryptedDbSecret);
+                STEP_FIELDS.forEach((name) => setNamedFieldDisabled(form, name, !enabled));
+                PROVIDER_FIELDS.forEach((name) => setNamedFieldDisabled(form, name, !(enabled && enteredHere)));
+                if (providerGroup) {
+                    providerGroup.classList.toggle('d-none', !enteredHere);
+                    providerGroup.setAttribute('aria-hidden', enteredHere ? 'false' : 'true');
+                }
+                envPanels.forEach((panel) => {
+                    const shown = !enteredHere && panel.getAttribute('data-email-env-panel') === transport;
+                    panel.classList.toggle('d-none', !shown);
+                    panel.setAttribute('aria-hidden', shown ? 'false' : 'true');
+                });
+                if (testRecipient) {
+                    testRecipient.disabled = !enabled;
+                }
                 // Plain buttons carry no field name, so the name-based disabling
                 // above misses them — the apply/test actions stayed live and
                 // clickable while the rest of the step was switched off.
@@ -231,10 +257,6 @@
                         control.setAttribute('aria-disabled', enabled ? 'false' : 'true');
                     }
                 });
-                if (passwordField) {
-                    passwordField.classList.toggle('d-none', !encryptedDbSecret);
-                    passwordField.setAttribute('aria-hidden', encryptedDbSecret ? 'false' : 'true');
-                }
                 restoreImportedEmailPasswordNotice(form);
             }
 
@@ -251,7 +273,7 @@
                 setCheckboxField(form, 'email_config_use_ssl', preset.use_ssl);
             }
 
-            [emailEnabledToggle].concat(secretStorageInputs).forEach((field) => {
+            [emailEnabledToggle].concat(secretStorageInputs, transportInputs).forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncEmailConfigVisibility);
                 }

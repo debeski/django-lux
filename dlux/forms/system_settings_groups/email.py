@@ -135,6 +135,58 @@ EMAIL_CONNECTION_FIELDS = (
 )
 
 
+# Provider-server fields. With environment storage the provider comes from the
+# environment, so these keep their stored values: switching back to the
+# encrypted-database route then restores them instead of starting blank.
+EMAIL_PROVIDER_KEYS = ('provider_preset', 'host', 'port', 'use_tls', 'use_ssl', 'username', 'encrypted_password')
+
+
+def pack_email_config(values, existing):
+    """``email_config`` from the Email step's cleaned field values.
+
+    ``values`` holds the ``email_config_*`` field values; ``existing`` is the stored,
+    normalized config. Verification carries over and normalize_email_config
+    revokes it when a fingerprinted field changed.
+    """
+    existing = existing if isinstance(existing, dict) else {}
+    payload = {
+        'transport': values.get('email_config_transport') or existing.get('transport', 'direct'),
+        'secret_storage': values.get('email_config_secret_storage') or existing.get('secret_storage', 'env'),
+        'default_from_email': values.get('email_config_default_from_email') or '',
+        'failure_notification_recipients': values.get('email_config_failure_recipients') or '',
+        'enabled': bool(values.get('email_config_enabled', False)),
+        'timeout': values.get('email_config_timeout') or 0,
+        'verified': existing.get('verified', False),
+        'verified_at': existing.get('verified_at', ''),
+        'verified_fingerprint': existing.get('verified_fingerprint', ''),
+    }
+    # Normalize once to resolve the canonical transport/secret_storage, attach the
+    # secret to the *payload*, then normalize again. The verification fingerprint is
+    # computed inside normalize over encrypted_password, so a secret attached after
+    # normalizing would fingerprint an empty password and revoke verification on the
+    # very next read.
+    probe = normalize_email_config(payload)
+    if probe['secret_storage'] == 'env':
+        payload.update({key: existing.get(key) for key in EMAIL_PROVIDER_KEYS if key in existing})
+    else:
+        payload.update({
+            'provider_preset': values.get('email_config_provider_preset') or existing.get('provider_preset', 'custom'),
+            'host': values.get('email_config_host') or '',
+            'port': values.get('email_config_port') or 587,
+            'use_tls': values.get('email_config_use_tls'),
+            'use_ssl': values.get('email_config_use_ssl'),
+            'username': values.get('email_config_username') or '',
+        })
+        raw_password = values.get('email_config_password') or ''
+        if raw_password:
+            payload['encrypted_password'] = encrypt_email_secret(raw_password)
+        elif existing.get('transport') == probe['transport']:
+            payload['encrypted_password'] = existing.get('encrypted_password', '')
+    config = normalize_email_config(payload)
+    config['password_configured'] = bool(config.get('encrypted_password'))
+    return config
+
+
 class EmailCleanMixin:
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
@@ -150,41 +202,10 @@ class EmailCleanMixin:
             preserved['timeout'] = self._email_scalar('email_config_timeout', 'timeout', 0) or 0
             return normalize_email_config(preserved)
 
-        transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
-        secret_storage = self.cleaned_data.get('email_config_secret_storage') or existing.get('secret_storage', 'env')
-        existing_verified = existing if isinstance(existing, dict) else {}
-        _payload = {
-            'transport': transport,
-            'secret_storage': secret_storage,
-            'provider_preset': self.cleaned_data.get('email_config_provider_preset') or existing.get('provider_preset', 'custom'),
-            'host': self.cleaned_data.get('email_config_host') or '',
-            'port': self.cleaned_data.get('email_config_port') or 587,
-            'use_tls': self.cleaned_data.get('email_config_use_tls'),
-            'use_ssl': self.cleaned_data.get('email_config_use_ssl'),
-            'username': self.cleaned_data.get('email_config_username') or '',
-            'default_from_email': self.cleaned_data.get('email_config_default_from_email') or '',
-            'failure_notification_recipients': self.cleaned_data.get('email_config_failure_recipients') or '',
-            'enabled': self._email_scalar('email_config_enabled', 'enabled', False),
-            'timeout': self._email_scalar('email_config_timeout', 'timeout', 0) or 0,
-            'verified': existing_verified.get('verified', False),
-            'verified_at': existing_verified.get('verified_at', ''),
-            'verified_fingerprint': existing_verified.get('verified_fingerprint', ''),
-        }
-        # Normalize once to resolve the canonical transport/secret_storage, attach the
-        # secret to the *payload*, then normalize again. The verification fingerprint is
-        # computed inside normalize over encrypted_password, so a secret attached after
-        # normalizing would fingerprint an empty password and revoke verification on the
-        # very next read.
-        _probe = normalize_email_config(_payload)
-        if _probe['secret_storage'] == 'encrypted_db':
-            raw_password = self.cleaned_data.get('email_config_password') or ''
-            if raw_password:
-                _payload['encrypted_password'] = encrypt_email_secret(raw_password)
-            elif existing.get('transport') == _probe['transport'] and existing.get('secret_storage') == 'encrypted_db':
-                _payload['encrypted_password'] = existing.get('encrypted_password', '')
-        config = normalize_email_config(_payload)
-        config['password_configured'] = bool(config.get('encrypted_password'))
-        return config
+        values = dict(self.cleaned_data)
+        values['email_config_enabled'] = self._email_scalar('email_config_enabled', 'enabled', False)
+        values['email_config_timeout'] = self._email_scalar('email_config_timeout', 'timeout', 0) or 0
+        return pack_email_config(values, existing)
 
     def clean_email_config_enabled(self):
         # email_config_enabled lives inside the email_config dict rather than as a

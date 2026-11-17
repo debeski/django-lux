@@ -28,6 +28,15 @@ x-environment:
   EMAIL_USE_TLS: "False"
   EMAIL_USE_SSL: "False"
   DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL:-webmaster@localhost}"
+  # The relay's provider settings. Shared so the Email step can show what the
+  # relay uses; the password itself reaches smtp-relay only, web gets set/unset.
+  # SMTP_RELAY_USE_SSL empty: SSL on port 465, STARTTLS (SMTP_RELAY_USE_TLS) otherwise.
+  SMTP_RELAY_HOST: "${SMTP_RELAY_HOST:-smtp.gmail.com}"
+  SMTP_RELAY_PORT: "${SMTP_RELAY_PORT:-587}"
+  SMTP_RELAY_USE_TLS: "${SMTP_RELAY_USE_TLS:-True}"
+  SMTP_RELAY_USE_SSL: "${SMTP_RELAY_USE_SSL:-}"
+  SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
+  SMTP_RELAY_PASSWORD_SET: "${SMTP_RELAY_PASSWORD:+yes}"
 
 services:
   db:
@@ -87,10 +96,6 @@ services:
       DJANGO_SETTINGS_MODULE: "{{ config_package }}.settings"
       SMTP_RELAY_LISTEN_HOST: "0.0.0.0"
       SMTP_RELAY_LISTEN_PORT: "1025"
-      SMTP_RELAY_HOST: "${SMTP_RELAY_HOST:-smtp.gmail.com}"
-      SMTP_RELAY_PORT: "${SMTP_RELAY_PORT:-587}"
-      SMTP_RELAY_USE_TLS: "${SMTP_RELAY_USE_TLS:-True}"
-      SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
       SMTP_RELAY_PASSWORD: "${SMTP_RELAY_PASSWORD:-}"
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 1025), 5).close()"]

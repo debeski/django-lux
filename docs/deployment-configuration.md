@@ -78,9 +78,44 @@ unreadable. Treat these keys as durable secrets and rotate them only with an
 explicit data migration or credential re-entry plan.
 
 The `DLUX_SMTP_RELAY_*` settings identify the application's internal relay.
-Generated Compose deployments configure that relay's upstream provider with the
-separate `SMTP_RELAY_HOST`, `SMTP_RELAY_PORT`, `SMTP_RELAY_USE_TLS`,
-`SMTP_RELAY_USER`, and `SMTP_RELAY_PASSWORD` environment variables.
+Generated Compose deployments configure that relay's provider in `.secrets/.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SMTP_RELAY_HOST` | `smtp.gmail.com` | Provider SMTP host. |
+| `SMTP_RELAY_PORT` | `587` | Provider SMTP port. |
+| `SMTP_RELAY_USE_SSL` | empty | `True` for implicit TLS, `False` for none. Empty follows the port: SSL on 465, otherwise plaintext upgraded by STARTTLS. |
+| `SMTP_RELAY_USE_TLS` | `True` | STARTTLS on a non-SSL connection. Ignored when SSL is on. |
+| `SMTP_RELAY_USER` | empty | Provider user name. |
+| `SMTP_RELAY_PASSWORD` | empty | Provider password. Reaches the `smtp-relay` service only. |
+
+The relay uses these when the Email step's provider settings are **Environment**,
+or when it cannot read the step at all; the step's timeout applies on both routes.
+`compose.yml` shares the non-secret values with `web` and `worker` through the
+`x-environment` block, so the Email step can show them, and gives them
+`SMTP_RELAY_PASSWORD_SET` (`yes` or empty) instead of the password:
+
+```yaml
+x-environment:
+  SMTP_RELAY_HOST: "${SMTP_RELAY_HOST:-smtp.gmail.com}"
+  SMTP_RELAY_PORT: "${SMTP_RELAY_PORT:-587}"
+  SMTP_RELAY_USE_TLS: "${SMTP_RELAY_USE_TLS:-True}"
+  SMTP_RELAY_USE_SSL: "${SMTP_RELAY_USE_SSL:-}"
+  SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
+  SMTP_RELAY_PASSWORD_SET: "${SMTP_RELAY_PASSWORD:+yes}"
+services:
+  smtp-relay:
+    environment:
+      SMTP_RELAY_PASSWORD: "${SMTP_RELAY_PASSWORD:-}"
+```
+
+Composer's `./start.sh check --fix` brings an existing stack's `compose.yml` to
+this shape. The relay process runs the DjangoLux baked into the project image, so
+choosing SSL from the port and honouring the Email step's timeout on the
+environment route need an image built on DjangoLux 1.16.2 or later; on an older
+image, set `SMTP_RELAY_USE_SSL=True` for port 465. A relay delivery failure answers the app
+with the failing step (`step=`, `reason=`, `hint=` tokens in its `451` reply) and
+logs the same line; a probe or health check that hangs up is not logged.
 
 ## API Diagnostics
 

@@ -71,6 +71,7 @@ The generated `.secrets/.env` includes only these bootstrap values:
 - `SMTP_RELAY_HOST`
 - `SMTP_RELAY_PORT`
 - `SMTP_RELAY_USE_TLS`
+- `SMTP_RELAY_USE_SSL`
 - `SMTP_RELAY_USER`
 - `SMTP_RELAY_PASSWORD`
 
@@ -78,10 +79,13 @@ The URL and host values define the generated project's public origin, additional
 trusted origins, and accepted hostnames. `TIME_ZONE` takes an IANA name (e.g.
 `Africa/Tripoli`) and drives Django and task-schedule time handling; it defaults to
 `UTC`. The proxy values configure the Caddy
-default and nginx fallback. The SMTP relay values are bootstrap/fallback values.
-For the normal UI-first path, open System Setup step 4, choose delivery path
-`Internal SMTP relay`, choose secret storage `Encrypted database secret`, and
-enter the upstream SMTP provider settings there.
+default and nginx fallback. The `SMTP_RELAY_*` values are your mail provider's
+server: host, port, user and password. Leave `SMTP_RELAY_USE_SSL` empty to get SSL
+on port 465 and STARTTLS on any other port. To send with them, open the Email
+step of System Setup, choose delivery path `Internal SMTP relay` and provider
+settings `Environment`; the step shows what the relay uses, password excepted. To
+manage the provider in the UI instead, choose `Entered here` and fill in the
+provider server there.
 
 Keep `.secrets/.env` out of version control and replace all default passwords before deployment.
 

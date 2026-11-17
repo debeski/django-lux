@@ -59,6 +59,8 @@ except ImportError:
 
 # ── intra-package imports (shared + feature deps) ──
 from .config import default_email_config, normalize_email_config
+from .. import smtp_session
+from django.core.mail.backends.smtp import EmailBackend as _DjangoSMTPBackend
 
 DLUX_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 
@@ -177,7 +179,7 @@ def internal_smtp_relay_available(host=None, port=None, timeout=None):
 
 # Client-side SMTP timeouts. These are deliberately a *pair* with the relay's own
 # upstream timeout (DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT, used by the scaffolded
-# dlux/smtp_relay.py), and the ordering between them is the whole point:
+# dlux/smtp_session.py), and the ordering between them is the whole point:
 #
 #   relay upstream timeout  <  relay client timeout
 #
@@ -331,23 +333,108 @@ def get_dlux_email_config(*, include_secret=False):
             config['password'] = decrypt_email_secret(stored_config.get('encrypted_password'))
         return config
 
+    # Direct transport with environment storage: the web service's EMAIL_*
+    # settings are the connection. Only the sender and timeout come from the step.
     backend = getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-    stored_hints = normalize_email_config(raw_stored_config, redact_secret=True)
-    hint_keys = set(raw_stored_config.keys()) if isinstance(raw_stored_config, dict) else set()
     return {
         'transport': 'direct',
         'secret_storage': 'env',
         'backend': backend,
-        'host': stored_hints.get('host') or (getattr(settings, 'EMAIL_HOST', '') or ''),
-        'port': stored_hints.get('port') or getattr(settings, 'EMAIL_PORT', None),
-        'use_tls': bool(stored_hints.get('use_tls')) if 'use_tls' in hint_keys else bool(getattr(settings, 'EMAIL_USE_TLS', False)),
-        'use_ssl': bool(stored_hints.get('use_ssl')) if 'use_ssl' in hint_keys else bool(getattr(settings, 'EMAIL_USE_SSL', False)),
-        'username': stored_hints.get('username') or (getattr(settings, 'EMAIL_HOST_USER', '') or ''),
+        'host': getattr(settings, 'EMAIL_HOST', '') or '',
+        'port': getattr(settings, 'EMAIL_PORT', None),
+        'use_tls': bool(getattr(settings, 'EMAIL_USE_TLS', False)),
+        'use_ssl': bool(getattr(settings, 'EMAIL_USE_SSL', False)),
+        'username': getattr(settings, 'EMAIL_HOST_USER', '') or '',
         'password': getattr(settings, 'EMAIL_HOST_PASSWORD', '') if include_secret else '',
-        'from_email': stored_hints.get('default_from_email') or (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or ''),
+        'from_email': stored_config.get('default_from_email') or (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or ''),
         'password_configured': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', '')),
-        'ui_hints': stored_hints,
+        'timeout': stored_config.get('timeout', 0),
     }
+
+
+def _default_sender():
+    return getattr(settings, 'DEFAULT_FROM_EMAIL', '') or os.getenv('DEFAULT_FROM_EMAIL', '') or ''
+
+
+def _encryption_name(use_tls, use_ssl):
+    if use_ssl:
+        return 'ssl'
+    return 'starttls' if use_tls else 'none'
+
+
+# Email Runtime - What a send will actually use, without secrets.
+def effective_email_settings(email_config=None):
+    """The provider connection a send uses, never the password itself.
+
+    ``source`` names where the provider values come from: ``database`` (entered
+    on the Email step), ``relay_env`` (the relay's ``SMTP_RELAY_*`` variables,
+    which compose shares with web and worker, password excepted) or ``django``
+    (the web service's ``EMAIL_*`` settings). ``visible`` is False when this
+    process cannot see the relay's variables: a stack whose compose.yml predates
+    sharing them. ``password_set`` is True/False, or None when unknown.
+    """
+    if email_config is None:
+        try:
+            SystemSettings = apps.get_model('dlux', 'SystemSettings')
+            email_config = getattr(SystemSettings.load(), 'email_config', {})
+        except Exception:
+            email_config = {}
+    config = normalize_email_config(email_config)
+    transport = config.get('transport', 'direct')
+    storage = config.get('secret_storage', 'env')
+    result = {
+        'transport': transport,
+        'secret_storage': storage,
+        'from_email': config.get('default_from_email') or _default_sender(),
+        'timeout': config.get('timeout', 0),
+        'visible': True,
+        'encryption_derived': False,
+    }
+    if storage == 'encrypted_db':
+        result.update({
+            'source': 'database',
+            'host': config.get('host', ''),
+            'port': config.get('port'),
+            'use_tls': bool(config.get('use_tls')),
+            'use_ssl': bool(config.get('use_ssl')),
+            'username': config.get('username', ''),
+            'password_set': bool(config.get('encrypted_password')),
+        })
+    elif transport == 'relay':
+        relay_env = smtp_session.env_upstream_config()
+        # Compose hands web a yes/empty flag, never the password itself.
+        password_set = smtp_session.env_flag(os.getenv('SMTP_RELAY_PASSWORD_SET'))
+        if password_set is None and os.getenv('SMTP_RELAY_PASSWORD'):
+            password_set = True
+        if password_set is None and 'SMTP_RELAY_PASSWORD_SET' in os.environ:
+            password_set = False
+        result.update({
+            'source': 'relay_env',
+            'visible': 'SMTP_RELAY_HOST' in os.environ,
+            'host': relay_env['host'],
+            'port': relay_env['port'],
+            'use_tls': relay_env['use_tls'],
+            'use_ssl': relay_env['use_ssl'],
+            'encryption_derived': relay_env['encryption_derived'],
+            'username': relay_env['username'],
+            'password_set': password_set,
+        })
+    else:
+        result.update({
+            'source': 'django',
+            'host': getattr(settings, 'EMAIL_HOST', '') or '',
+            'port': getattr(settings, 'EMAIL_PORT', None),
+            'use_tls': bool(getattr(settings, 'EMAIL_USE_TLS', False)),
+            'use_ssl': bool(getattr(settings, 'EMAIL_USE_SSL', False)),
+            'username': getattr(settings, 'EMAIL_HOST_USER', '') or '',
+            'password_set': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', '')),
+        })
+    if not result['visible']:
+        for key in ('host', 'port', 'username'):
+            result[key] = ''
+        result['password_set'] = None
+    result['encryption'] = _encryption_name(result['use_tls'], result['use_ssl'])
+    return result
 
 # Email Runtime - Gate for the settings that depend on Dlux sending mail.
 def email_features_unlocked():
@@ -375,111 +462,207 @@ def email_features_unlocked():
 
 
 # Email Runtime - Function reports configured email capability without network I/O.
-def get_email_service_status():
+def get_email_service_status(email_config=None):
     """
     Report whether Dlux-owned email flows are configured without touching
     SMTP networks or returning secrets.
+
+    ``email_config`` checks a candidate configuration (a form being saved)
+    instead of the stored one.
     """
-    try:
-        SystemSettings = apps.get_model('dlux', 'SystemSettings')
-        raw_stored_email_config = getattr(SystemSettings.load(), 'email_config', {})
-        stored_email_config = normalize_email_config(raw_stored_email_config)
-    except Exception:
-        raw_stored_email_config = {}
-        stored_email_config = default_email_config()
-    stored_hint_keys = set(raw_stored_email_config.keys()) if isinstance(raw_stored_email_config, dict) else set()
-    email_config = get_dlux_email_config(include_secret=False)
-    backend = email_config.get('backend') or 'django.core.mail.backends.smtp.EmailBackend'
-    from_email = email_config.get('from_email') or ''
+    if email_config is None:
+        try:
+            SystemSettings = apps.get_model('dlux', 'SystemSettings')
+            email_config = getattr(SystemSettings.load(), 'email_config', {})
+        except Exception:
+            email_config = default_email_config()
+    stored = normalize_email_config(email_config)
+    effective = effective_email_settings(stored)
+    transport = stored.get('transport') or 'direct'
+    secret_storage = stored.get('secret_storage') or 'env'
+    if transport == 'direct' and secret_storage == 'env':
+        backend = getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    else:
+        backend = 'django.core.mail.backends.smtp.EmailBackend'
+    from_email = effective.get('from_email') or ''
     debug = bool(getattr(settings, 'DEBUG', False))
-    host = email_config.get('host') or ''
-    port = email_config.get('port')
-    transport = email_config.get('transport') or 'direct'
-    secret_storage = email_config.get('secret_storage') or 'env'
+    host = effective.get('host') or ''
+    port = effective.get('port')
     local_backends = {
         'django.core.mail.backends.console.EmailBackend',
         'django.core.mail.backends.locmem.EmailBackend',
         'django.core.mail.backends.filebased.EmailBackend',
     }
+    base = {
+        'backend': backend,
+        'from_email': from_email,
+        'transport': transport,
+        'secret_storage': secret_storage,
+    }
 
     if backend in local_backends and debug:
-        return {
-            'available': True,
-            'configured': True,
-            'backend': backend,
-            'from_email': from_email,
-            'transport': transport,
-            'secret_storage': secret_storage,
-            'reason': 'local_debug_backend',
-        }
+        return {**base, 'available': True, 'configured': True, 'reason': 'local_debug_backend'}
 
     if backend == 'django.core.mail.backends.smtp.EmailBackend':
         password_ok = True
-        if secret_storage == 'encrypted_db' and email_config.get('username'):
-            password_ok = bool(email_config.get('password_configured'))
+        if effective.get('username') and effective.get('password_set') is False:
+            password_ok = False
+        detail = f"{host}:{port}" if host and port else ''
         if transport == 'relay':
-            relay_upstream_host = (
-                stored_email_config.get('host')
-                if 'host' in stored_hint_keys and stored_email_config.get('host')
-                else (os.getenv('SMTP_RELAY_HOST', '') or '')
-            )
-            relay_upstream_port = (
-                stored_email_config.get('port')
-                if 'port' in stored_hint_keys and stored_email_config.get('port')
-                else int(os.getenv('SMTP_RELAY_PORT', '587') or '587')
-            )
-            relay_from_email = (
-                stored_email_config.get('default_from_email')
-                if 'default_from_email' in stored_hint_keys and stored_email_config.get('default_from_email')
-                else (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or os.getenv('DEFAULT_FROM_EMAIL', '') or '')
-            )
-            relay_password_ok = True
-            if stored_email_config.get('secret_storage') == 'encrypted_db' and stored_email_config.get('username'):
-                relay_password_ok = bool(stored_email_config.get('password_configured'))
-            configured = bool(
-                relay_upstream_host
-                and relay_upstream_port
-                and relay_from_email
-                and relay_password_ok
-            )
-            return {
-                'available': configured,
-                'configured': configured,
-                'backend': backend,
-                'from_email': from_email,
-                'transport': transport,
-                'secret_storage': secret_storage,
-                'detail': f"{host}:{port} -> {relay_upstream_host}:{relay_upstream_port}"
-                if host and port and relay_upstream_host and relay_upstream_port else '',
-                'reason': 'relay_configured' if configured else (
-                    'relay_missing_password' if not relay_password_ok else 'relay_missing_upstream_host_port_or_from_email'
-                ),
-            }
+            if not effective.get('visible'):
+                # The relay holds its settings and web cannot see them: only a
+                # test send can tell, so do not refuse to try one.
+                configured = bool(from_email)
+                reason = 'relay_env_not_visible' if configured else 'relay_missing_upstream_host_port_or_from_email'
+            else:
+                configured = bool(host and port and from_email and password_ok)
+                reason = 'relay_configured' if configured else (
+                    'relay_missing_password' if not password_ok else 'relay_missing_upstream_host_port_or_from_email'
+                )
+            return {**base, 'available': configured, 'configured': configured, 'detail': detail, 'reason': reason}
         configured = bool(host and port and from_email and password_ok)
         missing_reason = 'smtp_missing_host_port_or_from_email'
         if secret_storage == 'encrypted_db' and not password_ok:
             missing_reason = 'encrypted_db_missing_password'
         return {
+            **base,
             'available': configured,
             'configured': configured,
-            'backend': backend,
-            'from_email': from_email,
-            'transport': transport,
-            'secret_storage': secret_storage,
-            'detail': f"{host}:{port}" if host and port else '',
+            'detail': detail,
             'reason': 'smtp_configured' if configured else missing_reason,
         }
 
     configured = bool(from_email)
     return {
+        **base,
         'available': configured,
         'configured': configured,
-        'backend': backend,
-        'from_email': from_email,
-        'transport': transport,
-        'secret_storage': secret_storage,
         'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
     }
+
+
+class DluxSMTPBackend(_DjangoSMTPBackend):
+    """Django's SMTP backend, recording the step a failure happened in.
+
+    The original exception is re-raised unchanged, so callers that catch
+    ``smtplib``/``OSError`` types keep working; it only gains ``dlux_step``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dlux_tracker = smtp_session.StepTracker()
+
+    @property
+    def connection_class(self):
+        import functools
+
+        staged = smtp_session.StagedSMTP_SSL if self.use_ssl else smtp_session.StagedSMTP
+        return functools.partial(staged, dlux_tracker=self.dlux_tracker)
+
+    def send_messages(self, email_messages):
+        try:
+            return super().send_messages(email_messages)
+        except Exception as exc:
+            if not hasattr(exc, 'dlux_step'):
+                try:
+                    exc.dlux_step = self.dlux_tracker.step
+                except AttributeError:
+                    pass
+            raise
+
+
+_RELAY_REPLY_TARGET = re.compile(r'\b[a-z]+ (?P<host>[^\s:]+):(?P<port>\d+) (?P<enc>ssl|starttls|none):\s*(?P<detail>.*)$')
+
+
+def _relay_reply_text(exc):
+    """The relay's 451 text when ``exc`` carries one, else ``''``."""
+    import smtplib
+
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        replies = list((exc.recipients or {}).values())
+        if replies:
+            code, message = replies[0]
+            return message.decode('utf-8', 'replace') if isinstance(message, bytes) else str(message)
+        return ''
+    message = getattr(exc, 'smtp_error', None)
+    if message is None:
+        return ''
+    text = message.decode('utf-8', 'replace') if isinstance(message, bytes) else str(message)
+    return text if 'Relay delivery failed' in text or 'step=' in text else ''
+
+
+# Email Runtime - Names the hop and step a failed send stopped at.
+def describe_mail_failure(exc, strings=None, *, email_config=None):
+    """Which hop and SMTP step a send failed at, as data and as one sentence.
+
+    Returns ``hop`` (``relay``: web to the internal relay; ``provider_relay``: the
+    relay to the provider; ``provider_direct``: web to the provider), ``step``
+    (config, connect, tls, greeting, auth, send, unknown), ``reason``, ``hint`` and
+    a localized ``message``.
+    """
+    strings = strings if strings is not None else get_strings()
+    effective = effective_email_settings(email_config)
+    transport = effective.get('transport')
+    host = effective.get('host') or ''
+    port = effective.get('port') or ''
+    _upstream, client_timeout = resolve_smtp_timeouts(effective)
+    seconds = ''
+    detail = ''
+    hint = ''
+    relay_text = _relay_reply_text(exc) if transport == 'relay' else ''
+
+    if relay_text:
+        hop = 'provider_relay'
+        tokens = smtp_session.parse_failure_reply(relay_text)
+        target = _RELAY_REPLY_TARGET.search(relay_text)
+        if target:
+            host, port = target.group('host'), target.group('port')
+            detail = target.group('detail').strip()
+        else:
+            detail = relay_text.split(':', 1)[-1].strip()
+        step = tokens.get('step', 'unknown')
+        reason = tokens.get('reason') or ('timeout' if 'timed out' in relay_text else 'error')
+        hint = tokens.get('hint', '')
+        seconds = tokens.get('seconds', '')
+    else:
+        hop = 'relay' if transport == 'relay' else 'provider_direct'
+        step = getattr(exc, 'dlux_step', None) or 'unknown'
+        reason = smtp_session.failure_reason(exc)
+        detail = ' '.join(str(exc).split()) or exc.__class__.__name__
+        if reason == 'rejected':
+            detail = smtp_session.server_detail(exc)
+        if reason == 'timeout':
+            seconds = client_timeout
+        if hop == 'provider_direct':
+            hint = smtp_session.failure_hint(step, reason, port, effective.get('use_tls'), effective.get('use_ssl'))
+
+    if hop == 'relay':
+        target = strings.get('email_fail_target_relay', 'the relay service')
+    elif host:
+        target = f"{host}:{port}" if port else host
+    else:
+        target = strings.get('email_fail_target_provider', 'the provider')
+
+    hop_text = strings.get(f'email_fail_hop_{hop}', hop)
+    step_text = strings.get(f'email_fail_step_{step}', strings.get('email_fail_step_unknown', 'delivery to {target}'))
+    if reason == 'timeout' and not seconds:
+        reason_key = 'email_fail_reason_timeout_plain'
+    else:
+        reason_key = f'email_fail_reason_{reason}'
+    reason_text = strings.get(reason_key, strings.get('email_fail_reason_error', '{detail}'))
+    message = strings.get('email_fail_message', '{hop}: {step} failed — {reason}.').format(
+        hop=hop_text,
+        step=step_text.format(target=target),
+        reason=reason_text.format(seconds=seconds, detail=detail or reason),
+    )
+    if hint:
+        hint_key = f'email_fail_hint_{hint}'
+        if effective.get('source') == 'relay_env' and hint in {'implicit_tls', 'starttls_port', 'credentials'}:
+            hint_key += '_env'
+        hint_text = strings.get(hint_key, '')
+        if hint_text:
+            message = f"{message} {hint_text.format(port=port)}"
+    return {'hop': hop, 'step': step, 'reason': reason, 'hint': hint, 'message': message}
 
 # Email Runtime - Function warns configured operators in-app when transactional mail fails.
 def _alert_email_delivery_failure(subject, recipient_list, error):
@@ -503,9 +686,13 @@ def _alert_email_delivery_failure(subject, recipient_list, error):
         User = get_user_model()
         users = list(User._default_manager.filter(email__in=recipients, is_active=True))
         attempted = ', '.join(list(recipient_list or [])[:3]) or '—'
+        try:
+            reason = describe_mail_failure(error, get_strings('en'))['message']
+        except Exception:
+            reason = str(error)
         message = (
             f"Transactional email failed to send (subject: {subject or '—'}; "
-            f"to: {attempted}). Error: {str(error)[:200]}"
+            f"to: {attempted}). Error: {reason[:300]}"
         )
         if users:
             notify.error(
@@ -519,7 +706,7 @@ def _alert_email_delivery_failure(subject, recipient_list, error):
             )
         from .. import log_activity
 
-        log_activity('email_delivery_failed', details={'subject': subject or '', 'error': str(error)[:200]}, category='audit')
+        log_activity('email_delivery_failed', details={'subject': subject or '', 'error': reason[:300]}, category='audit')
     except Exception:
         # Alerting must never mask or replace the original delivery error.
         return
@@ -551,7 +738,7 @@ def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_si
         # real 451 reason with an uninformative client-side timeout.
         _upstream, smtp_timeout = resolve_smtp_timeouts(email_config)
         connection = get_connection(
-            backend=backend,
+            backend='dlux.utils.mail.DluxSMTPBackend',
             host=email_config.get('host') or None,
             port=email_config.get('port') or None,
             username=email_config.get('username') or None,
