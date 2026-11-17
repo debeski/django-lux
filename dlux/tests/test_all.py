@@ -22,6 +22,7 @@ TEST_LABELS = [
     'dlux.tests.test_accent_edges',
     'dlux.tests.test_relay',
     'dlux.tests.test_mail_setup',
+    'dlux.tests.test_relay_tls_verify',
     'dlux.tests.test_public_form_limit',
     'dlux.tests.test_assigned_home_url',
     'dlux.tests.test_access',

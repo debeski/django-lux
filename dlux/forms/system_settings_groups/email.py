@@ -127,6 +127,8 @@ EMAIL_CONNECTION_FIELDS = (
     'email_config_port',
     'email_config_use_tls',
     'email_config_use_ssl',
+    'email_config_tls_verify',
+    'email_config_tls_verify_shown',
     'email_config_username',
     'email_config_password',
     'email_config_default_from_email',
@@ -138,7 +140,9 @@ EMAIL_CONNECTION_FIELDS = (
 # Provider-server fields. With environment storage the provider comes from the
 # environment, so these keep their stored values: switching back to the
 # encrypted-database route then restores them instead of starting blank.
-EMAIL_PROVIDER_KEYS = ('provider_preset', 'host', 'port', 'use_tls', 'use_ssl', 'username', 'encrypted_password')
+EMAIL_PROVIDER_KEYS = (
+    'provider_preset', 'host', 'port', 'use_tls', 'use_ssl', 'tls_verify', 'username', 'encrypted_password',
+)
 
 
 def pack_email_config(values, existing):
@@ -176,6 +180,14 @@ def pack_email_config(values, existing):
             'use_tls': values.get('email_config_use_tls'),
             'use_ssl': values.get('email_config_use_ssl'),
             'username': values.get('email_config_username') or '',
+            # The switch is the relay's; direct sends keep Django's verification.
+            # Fail closed: without the marker posted beside it, an absent checkbox
+            # is a POST that never showed the switch, not a choice to turn it off.
+            'tls_verify': (
+                bool(values.get('email_config_tls_verify'))
+                if probe['transport'] == 'relay' and values.get('email_config_tls_verify_shown')
+                else existing.get('tls_verify', True)
+            ),
         })
         raw_password = values.get('email_config_password') or ''
         if raw_password:

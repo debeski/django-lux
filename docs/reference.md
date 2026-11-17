@@ -489,7 +489,9 @@ Common keys in `get_system_config()`:
   (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never
   include SMTP secrets. `provider_preset` is `custom`, `gmail`, `outlook`, `ses` or
   `mailgun`; a stored `relay` preset reads as `custom`, and a relay-transport port of
-  1025 with no provider host reads as 587, keeping its verification.
+  1025 with no provider host reads as 587, keeping its verification. `tls_verify`
+  (default `true`) is the relay's certificate check for *Entered here*; see
+  [Provider certificate](deployment-configuration.md#provider-certificate).
   `dlux.utils.effective_email_settings()` returns the connection a send uses
   (`source` `database`, `relay_env` or `django`; never the password, only
   `password_set`), and `dlux.utils.describe_mail_failure(exc)` names the failed hop

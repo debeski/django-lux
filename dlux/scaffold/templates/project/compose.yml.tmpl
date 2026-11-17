@@ -37,6 +37,11 @@ x-environment:
   SMTP_RELAY_USE_SSL: "${SMTP_RELAY_USE_SSL:-}"
   SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
   SMTP_RELAY_PASSWORD_SET: "${SMTP_RELAY_PASSWORD:+yes}"
+  # The relay signs in only to a provider whose certificate a trusted CA issued for
+  # its host. SMTP_RELAY_CA_FILE adds a private CA (see smtp-relay below);
+  # SMTP_RELAY_TLS_VERIFY=False switches the check off.
+  SMTP_RELAY_TLS_VERIFY: "${SMTP_RELAY_TLS_VERIFY:-True}"
+  SMTP_RELAY_CA_FILE: "${SMTP_RELAY_CA_FILE:-}"
 
 services:
   db:
@@ -97,6 +102,11 @@ services:
       SMTP_RELAY_LISTEN_HOST: "0.0.0.0"
       SMTP_RELAY_LISTEN_PORT: "1025"
       SMTP_RELAY_PASSWORD: "${SMTP_RELAY_PASSWORD:-}"
+    # A provider certificate from a private CA: save the CA bundle as
+    # .secrets/smtp-relay-ca.pem, uncomment these two lines and set
+    # SMTP_RELAY_CA_FILE=/etc/dlux/smtp-relay-ca.pem in .secrets/.env.
+    # volumes:
+    #   - ./.secrets/smtp-relay-ca.pem:/etc/dlux/smtp-relay-ca.pem:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 1025), 5).close()"]
       interval: 30s

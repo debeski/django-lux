@@ -72,6 +72,9 @@ def default_email_config():
         'encrypted_password': '',
         'password_configured': False,
         'failure_notification_recipients': [],
+        # The relay checks the provider's certificate and host name. Off is the
+        # deliberate way out for a provider no trusted CA vouches for.
+        'tls_verify': True,
         # Seconds to wait for the provider. 0 keeps the shipped default, which is
         # sized for a slow upstream; raise it for a server that scans mail in-line.
         'timeout': 0,

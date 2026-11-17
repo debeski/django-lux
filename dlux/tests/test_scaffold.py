@@ -181,6 +181,8 @@ class ScaffoldTests(unittest.TestCase):
                 "SMTP_RELAY_USE_SSL",
                 "SMTP_RELAY_USER",
                 "SMTP_RELAY_PASSWORD",
+                "SMTP_RELAY_TLS_VERIFY",
+                "SMTP_RELAY_CA_FILE",
             }
             self.assertEqual(set(env_keys), expected_env_keys)
             self.assertIn("autorun.ini", gitignore_contents)

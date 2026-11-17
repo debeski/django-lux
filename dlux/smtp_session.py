@@ -6,6 +6,7 @@ reaches back into ``dlux.utils`` at call time.
 
 - ``resolve_encryption``: SSL on port 465, STARTTLS otherwise, unless set.
 - ``env_upstream_config``: the provider in this process's ``SMTP_RELAY_*``.
+- ``tls_context``: the verifying TLS context for a provider connection.
 - ``StagedSMTP``/``StagedSMTP_SSL``: smtplib clients that record which step
   (connect, TLS, greeting, auth, send) a session is on.
 - ``SMTPStepError``/``failure_reason``/``failure_hint``/``parse_failure_reply``:
@@ -77,6 +78,11 @@ def resolve_encryption(port, use_tls=None, use_ssl=None):
     return bool(use_tls), bool(use_ssl), derived
 
 
+def env_ca_file():
+    """``SMTP_RELAY_CA_FILE``: extra CA certificates the relay trusts, on either route."""
+    return _env("SMTP_RELAY_CA_FILE", "")
+
+
 def env_upstream_config():
     """The provider settings in this container's ``SMTP_RELAY_*`` variables."""
     port = _env_int("SMTP_RELAY_PORT", DEFAULT_UPSTREAM_PORT)
@@ -91,8 +97,29 @@ def env_upstream_config():
         "encryption_derived": derived,
         "username": _env("SMTP_RELAY_USER", ""),
         "password": _env("SMTP_RELAY_PASSWORD", ""),
+        "tls_verify": env_flag(os.getenv("SMTP_RELAY_TLS_VERIFY")) is not False,
+        "ca_file": env_ca_file(),
         "source": "environment",
     }
+
+
+def tls_context(verify=True, ca_file=""):
+    """The TLS context for one provider connection.
+
+    Verifying: the certificate must chain to a system CA, or to one in
+    ``ca_file``, and name the host the relay dialled. smtplib's own default
+    checks neither, so a relay without this signs in to whatever answers.
+    ``verify=False`` is the deliberate way out; ``ca_file`` is then not read.
+    A ``ca_file`` that cannot be loaded raises ``OSError`` or ``ssl.SSLError``.
+    """
+    context = ssl.create_default_context()
+    if not verify:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        return context
+    if ca_file:
+        context.load_verify_locations(cafile=ca_file)
+    return context
 
 
 class StepTracker:
@@ -170,12 +197,18 @@ def failure_reason(exc):
     return "error"
 
 
-def failure_hint(step, reason, port, use_tls, use_ssl):
-    """The likeliest fix for a failure, or ``""``. Read by the app, not shown raw."""
+def failure_hint(step, reason, port, use_tls, use_ssl, *, relay=False):
+    """The likeliest fix for a failure, or ``""``. Read by the app, not shown raw.
+
+    ``relay`` marks a failure on the relay's provider hop, the one with a
+    certificate switch (``tls_verify``) and CA file.
+    """
     try:
         port = int(port or 0)
     except (TypeError, ValueError):
         port = 0
+    if relay and step == STEP_TLS and reason == "certificate":
+        return "tls_verify"
     if step == STEP_CONNECT and reason in {"timeout", "network"}:
         return "firewall"
     if step in {STEP_GREETING, STEP_TLS} and reason in {"timeout", "closed", "tls"}:
@@ -217,7 +250,7 @@ class SMTPStepError(smtplib.SMTPException):
         self.host = host
         self.port = port
         self.timeout = timeout
-        self.hint = failure_hint(step, reason, port, use_tls, use_ssl)
+        self.hint = failure_hint(step, reason, port, use_tls, use_ssl, relay=True)
         self.detail = detail
         self.encryption = "ssl" if use_ssl else ("starttls" if use_tls else "none")
         super().__init__(self.reply())

@@ -88,6 +88,8 @@ Generated Compose deployments configure that relay's provider in `.secrets/.env`
 | `SMTP_RELAY_USE_TLS` | `True` | STARTTLS on a non-SSL connection. Ignored when SSL is on. |
 | `SMTP_RELAY_USER` | empty | Provider user name. |
 | `SMTP_RELAY_PASSWORD` | empty | Provider password. Reaches the `smtp-relay` service only. |
+| `SMTP_RELAY_TLS_VERIFY` | `True` | Check the provider's certificate and host name before signing in. `False` accepts any certificate. Environment route only; the Email step has its own switch. |
+| `SMTP_RELAY_CA_FILE` | empty | Path, inside `smtp-relay`, of a PEM bundle of CA certificates the relay trusts besides the system CAs. Applies to both routes. |
 
 The relay uses these when the Email step's provider settings are **Environment**,
 or when it cannot read the step at all; the step's timeout applies on both routes.
@@ -103,6 +105,8 @@ x-environment:
   SMTP_RELAY_USE_SSL: "${SMTP_RELAY_USE_SSL:-}"
   SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
   SMTP_RELAY_PASSWORD_SET: "${SMTP_RELAY_PASSWORD:+yes}"
+  SMTP_RELAY_TLS_VERIFY: "${SMTP_RELAY_TLS_VERIFY:-True}"
+  SMTP_RELAY_CA_FILE: "${SMTP_RELAY_CA_FILE:-}"
 services:
   smtp-relay:
     environment:
@@ -116,6 +120,37 @@ environment route need an image built on DjangoLux 1.16.2 or later; on an older
 image, set `SMTP_RELAY_USE_SSL=True` for port 465. A relay delivery failure answers the app
 with the failing step (`step=`, `reason=`, `hint=` tokens in its `451` reply) and
 logs the same line; a probe or health check that hangs up is not logged.
+
+### Provider certificate
+
+The relay signs in only to a provider whose certificate chains to a trusted CA and
+names the host it dialled (`SMTP_RELAY_HOST`, or the host entered on the Email
+step), over SSL and STARTTLS alike. Trusted means the image's system CA store, plus
+`SMTP_RELAY_CA_FILE` when set. A certificate that fails the check stops the delivery
+before any credential is sent; the app reports step `tls`, reason `certificate`,
+with a hint naming the CA file and the switch for the route in use.
+
+For a provider whose certificate comes from a private CA, give the relay that CA
+instead of switching the check off. The scaffold's `compose.yml` carries the mount,
+commented out, under `smtp-relay`:
+
+```yaml
+  smtp-relay:
+    volumes:
+      - ./.secrets/smtp-relay-ca.pem:/etc/dlux/smtp-relay-ca.pem:ro
+```
+
+Save the bundle as `.secrets/smtp-relay-ca.pem`, uncomment the two lines, set
+`SMTP_RELAY_CA_FILE=/etc/dlux/smtp-relay-ca.pem` in `.secrets/.env` and run
+`./start.sh`. A CA file that cannot be read fails every delivery at step `config`,
+reason `ca_file`, before the relay connects.
+
+`SMTP_RELAY_TLS_VERIFY=False` (environment route) or clearing **Verify the
+provider's certificate** on the Email step (Entered here route) accepts any
+certificate, which hands the provider password to whoever answers on that address.
+The relay then logs a warning on every delivery, and the CA file is not read. The
+check runs in the DjangoLux baked into the project image: it needs an image built on
+DjangoLux 1.16.2 or later.
 
 ## API Diagnostics
 

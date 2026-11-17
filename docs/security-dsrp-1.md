@@ -44,6 +44,14 @@ authorization decision.
   row-action labels and dynamic-modal errors are set as text; the login hero's
   markdown escapes quotes, so a link URL cannot leave its `href`.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
+- The internal SMTP relay verifies its provider before signing in: the
+  certificate must chain to a system CA or to one in `SMTP_RELAY_CA_FILE` and name
+  the host dialled, over SSL and STARTTLS. A failure stops the delivery before any
+  credential is sent and reports step `tls`, reason `certificate`. Turning the
+  check off is a deliberate setting (`SMTP_RELAY_TLS_VERIFY=False`, or the Email
+  step's switch, which a POST can clear only together with the marker the step
+  renders beside it), and the relay logs a warning on every delivery made without
+  it. See [Provider certificate](deployment-configuration.md#provider-certificate).
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
 - Table row context-menu actions are permission-filtered server-side

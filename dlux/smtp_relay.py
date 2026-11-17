@@ -17,6 +17,10 @@ environment variables otherwise. The UI's timeout applies either way. Nothing he
 is project-specific: the settings module is read from ``DJANGO_SETTINGS_MODULE``,
 which the container already sets.
 
+The provider's certificate is verified on both routes: it must chain to a system
+CA or to one in ``SMTP_RELAY_CA_FILE``, and name the host. ``SMTP_RELAY_TLS_VERIFY=False``
+(environment route) or the Email step's switch (database route) turns that off.
+
 The encryption rule, step tracking and failure codes live in
 ``dlux.smtp_session``, which the web process shares.
 """
@@ -42,6 +46,7 @@ from dlux.smtp_session import (  # noqa: F401 — re-exported for the relay's ca
     _coerce_bool,
     _env,
     _env_int,
+    env_ca_file,
     env_flag,
     env_upstream_config,
     failure_hint,
@@ -50,6 +55,7 @@ from dlux.smtp_session import (  # noqa: F401 — re-exported for the relay's ca
     resolve_encryption,
     server_detail,
     step_error,
+    tls_context,
 )
 
 # Bind address for the plaintext listener the app talks to. Never exposed off the
@@ -136,6 +142,8 @@ def django_upstream_config(email_config=None):
         "encryption_derived": False,
         "username": email_config.get("username", ""),
         "password": password,
+        "tls_verify": email_config.get("tls_verify", True) is not False,
+        "ca_file": env_ca_file(),
         "timeout": int(email_config.get("timeout") or 0),
         "source": "database",
     }
@@ -181,14 +189,19 @@ def deliver(mail_from, recipients, message_bytes):
     # A timeout set in the UI wins over the environment, so an operator can widen
     # it for a slow provider without editing compose and recreating the service.
     timeout = int(upstream.get("timeout") or 0) or upstream_timeout()
-    smtp_class = StagedSMTP_SSL if use_ssl else StagedSMTP
+    context = None
+    if use_ssl or use_tls:
+        context = _provider_tls_context(upstream, host, port, use_tls, use_ssl)
     tracker = StepTracker()
     smtp = None
     try:
-        smtp = smtp_class(host, port, timeout=timeout, dlux_tracker=tracker)
+        if use_ssl:
+            smtp = StagedSMTP_SSL(host, port, timeout=timeout, context=context, dlux_tracker=tracker)
+        else:
+            smtp = StagedSMTP(host, port, timeout=timeout, dlux_tracker=tracker)
         smtp.ehlo()
         if use_tls:
-            smtp.starttls()
+            smtp.starttls(context=context)
             smtp.ehlo()
         if username or password:
             smtp.login(username, password)
@@ -205,6 +218,28 @@ def deliver(mail_from, recipients, message_bytes):
         smtp.quit()
     except (OSError, smtplib.SMTPException):
         smtp.close()
+
+
+def _provider_tls_context(upstream, host, port, use_tls, use_ssl):
+    """The verifying context for this delivery; logs every send made without one."""
+    verify = upstream.get("tls_verify", True) is not False
+    ca_file = upstream.get("ca_file", "")
+    try:
+        context = tls_context(verify, ca_file)
+    except OSError as exc:
+        raise SMTPStepError(
+            STEP_CONFIG, "ca_file", host=host, port=port, use_tls=use_tls, use_ssl=use_ssl,
+            detail=f"SMTP_RELAY_CA_FILE {ca_file}: {server_detail(exc)}",
+        ) from exc
+    if not verify:
+        switch = "the Email step" if upstream.get("source") == "database" else "SMTP_RELAY_TLS_VERIFY=False"
+        print(
+            f"SMTP relay: certificate verification is off for {host}:{port} ({switch}); "
+            "the provider's identity is not checked before signing in",
+            file=sys.stderr,
+            flush=True,
+        )
+    return context
 
 
 def smtp_reason(exc):

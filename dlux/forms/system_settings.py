@@ -461,6 +461,10 @@ class SystemSettingsForm(
     email_config_port = forms.IntegerField(required=False, min_value=1, max_value=65535)
     email_config_use_tls = forms.BooleanField(required=False, initial=True)
     email_config_use_ssl = forms.BooleanField(required=False, initial=False)
+    email_config_tls_verify = forms.BooleanField(required=False, initial=True)
+    # Posted beside the switch: an unticked checkbox posts nothing, so only a POST
+    # that carries this marker may turn certificate checks off.
+    email_config_tls_verify_shown = forms.BooleanField(required=False, widget=forms.HiddenInput)
     email_config_username = forms.CharField(required=False, max_length=255)
     email_config_password = forms.CharField(
         required=False,
@@ -2140,6 +2144,14 @@ class SystemSettingsForm(
         self.fields['email_config_port'].label = s.get('form_sys_email_port', 'Provider SMTP port')
         self.fields['email_config_use_tls'].label = s.get('form_sys_email_use_tls', 'Provider STARTTLS')
         self.fields['email_config_use_ssl'].label = s.get('form_sys_email_use_ssl', 'Provider SSL')
+        self.fields['email_config_tls_verify'].label = s.get(
+            'form_sys_email_tls_verify', "Verify the provider's certificate"
+        )
+        self.fields['email_config_tls_verify'].help_text = s.get(
+            'help_sys_email_tls_verify',
+            'The relay signs in only to a server whose certificate a trusted CA signed for this host. '
+            "For a private CA, set SMTP_RELAY_CA_FILE in the relay's environment instead of turning this off.",
+        )
         self.fields['email_config_username'].label = s.get('form_sys_email_username', 'Provider SMTP username')
         self.fields['email_config_password'].label = s.get('form_sys_email_password', 'Provider SMTP password')
         self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
@@ -3196,6 +3208,7 @@ class SystemSettingsForm(
         self.initial['email_config_port'] = initial_email_config.get('port', 587)
         self.initial['email_config_use_tls'] = bool(initial_email_config.get('use_tls', True))
         self.initial['email_config_use_ssl'] = bool(initial_email_config.get('use_ssl', False))
+        self.initial['email_config_tls_verify'] = initial_email_config.get('tls_verify', True) is not False
         self.initial['email_config_username'] = initial_email_config.get('username', '')
         self.initial['email_config_default_from_email'] = initial_email_config.get('default_from_email', '')
         self.initial['email_config_failure_recipients'] = '\n'.join(
@@ -4010,6 +4023,8 @@ class SystemSettingsForm(
             cleaned['email_config_port'] = email_config.get('port', 587)
             cleaned['email_config_use_tls'] = bool(email_config.get('use_tls', True))
             cleaned['email_config_use_ssl'] = bool(email_config.get('use_ssl', False))
+            cleaned['email_config_tls_verify'] = email_config.get('tls_verify', True) is not False
+            cleaned['email_config_tls_verify_shown'] = True
             cleaned['email_config_username'] = email_config.get('username', '')
             cleaned['email_config_default_from_email'] = email_config.get('default_from_email', '')
             cleaned['email_config_failure_recipients'] = '\n'.join(

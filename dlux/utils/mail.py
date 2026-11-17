@@ -372,6 +372,8 @@ def effective_email_settings(email_config=None):
     (the web service's ``EMAIL_*`` settings). ``visible`` is False when this
     process cannot see the relay's variables: a stack whose compose.yml predates
     sharing them. ``password_set`` is True/False, or None when unknown.
+    ``tls_verify`` is whether the provider's certificate is checked and
+    ``ca_file`` the relay's extra CA bundle (``SMTP_RELAY_CA_FILE``), if any.
     """
     if email_config is None:
         try:
@@ -399,6 +401,8 @@ def effective_email_settings(email_config=None):
             'use_ssl': bool(config.get('use_ssl')),
             'username': config.get('username', ''),
             'password_set': bool(config.get('encrypted_password')),
+            'tls_verify': transport != 'relay' or config.get('tls_verify', True) is not False,
+            'ca_file': smtp_session.env_ca_file() if transport == 'relay' else '',
         })
     elif transport == 'relay':
         relay_env = smtp_session.env_upstream_config()
@@ -418,6 +422,8 @@ def effective_email_settings(email_config=None):
             'encryption_derived': relay_env['encryption_derived'],
             'username': relay_env['username'],
             'password_set': password_set,
+            'tls_verify': relay_env['tls_verify'],
+            'ca_file': relay_env['ca_file'],
         })
     else:
         result.update({
@@ -428,6 +434,8 @@ def effective_email_settings(email_config=None):
             'use_ssl': bool(getattr(settings, 'EMAIL_USE_SSL', False)),
             'username': getattr(settings, 'EMAIL_HOST_USER', '') or '',
             'password_set': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', '')),
+            'tls_verify': True,
+            'ca_file': '',
         })
     if not result['visible']:
         for key in ('host', 'port', 'username'):
@@ -657,7 +665,7 @@ def describe_mail_failure(exc, strings=None, *, email_config=None):
     )
     if hint:
         hint_key = f'email_fail_hint_{hint}'
-        if effective.get('source') == 'relay_env' and hint in {'implicit_tls', 'starttls_port', 'credentials'}:
+        if effective.get('source') == 'relay_env' and hint in {'implicit_tls', 'starttls_port', 'credentials', 'tls_verify'}:
             hint_key += '_env'
         hint_text = strings.get(hint_key, '')
         if hint_text:

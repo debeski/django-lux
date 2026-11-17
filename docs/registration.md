@@ -78,6 +78,8 @@ SMTP_RELAY_USE_SSL
 SMTP_RELAY_USE_TLS
 SMTP_RELAY_USER
 SMTP_RELAY_PASSWORD
+SMTP_RELAY_TLS_VERIFY
+SMTP_RELAY_CA_FILE
 ```
 
 With this layout, choose delivery path `Internal SMTP relay`, then either

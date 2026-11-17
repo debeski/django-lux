@@ -182,8 +182,8 @@ The Email step is grouped as:
 
 - **Delivery Path** — the hop (Internal SMTP relay or Direct SMTP) and where the
   provider settings come from (Entered here or Environment);
-- **Provider Server** — provider preset, STARTTLS/SSL, host, port, credentials
-  (Entered here only);
+- **Provider Server** — provider preset, STARTTLS/SSL, certificate check (Internal
+  SMTP relay only), host, port, credentials (Entered here only);
 - **Sender & Alerts** — default from address, failure recipients.
 
 The first selector decides the hop. **Internal SMTP relay** is the route for
@@ -198,7 +198,7 @@ The second selector decides where the provider settings come from:
 | Provider settings | Delivery path | The step shows | A send uses |
 |---|---|---|---|
 | Entered here | either | editable provider fields; the password is stored encrypted | the stored values |
-| Environment | Internal SMTP relay | read-only: the relay's host, port, encryption, user, password set or not set | `SMTP_RELAY_*` in `.secrets/.env` |
+| Environment | Internal SMTP relay | read-only: the relay's host, port, encryption, user, password set or not set, certificate check | `SMTP_RELAY_*` in `.secrets/.env` |
 | Environment | Direct SMTP | read-only: the web service's `EMAIL_*` settings | Django's `EMAIL_*` settings |
 
 With Environment nothing is typed: the step reads what the relay or web service
@@ -218,6 +218,16 @@ the reason attached — unless it is already the stored delivery path, which is
 never taken away. The page waits at most 1.5 seconds for that check; when the
 stack's name resolver does not answer in time, the relay reads as not listening.
 
+**Verify the provider's certificate** is on by default and appears only for the
+internal relay with Entered here: the relay signs in only to a server whose
+certificate a trusted CA issued for the host entered. Turn it off only to accept an
+unverified provider; for a provider with a private CA, give the relay that CA with
+`SMTP_RELAY_CA_FILE` instead (see
+[Provider certificate](deployment-configuration.md#provider-certificate)). On the
+Environment route the panel shows the relay's own check: against the system CAs,
+against them and the CA file, or off (`SMTP_RELAY_TLS_VERIFY=False`). Direct SMTP
+always verifies, against the web service's system CAs.
+
 **SMTP timeout** is how long to wait for the provider, through the relay or
 directly, on either settings route. Blank keeps the default: 60 seconds through
 the relay, 30 seconds direct. Through the relay, web waits 15 seconds longer than
@@ -228,7 +238,7 @@ it; **Send test email** then sends with the applied configuration, which is the
 only way to validate the separate relay. The test address is an argument of the
 test, not a setting: it is never saved. A successful send verifies the exact
 connection fingerprint; changing delivery path, provider settings source, host,
-port, TLS/SSL, credentials, or sender requires another test.
+port, TLS/SSL, certificate check, credentials, or sender requires another test.
 
 A failed test names the hop and the SMTP step that failed, and the likeliest fix:
 

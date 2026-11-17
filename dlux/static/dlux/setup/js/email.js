@@ -224,6 +224,10 @@
             const transportInputs = getNamedFieldInputs(form, 'email_config_transport');
             const providerGroup = section.querySelector('[data-email-provider-fields]');
             const envPanels = Array.from(section.querySelectorAll('[data-email-env-panel]'));
+            // The certificate switch belongs to the relay: Direct SMTP keeps
+            // Django's own verification, so the switch is hidden and not posted.
+            const tlsVerifyToggle = section.querySelector('[data-dlux-email-toggle-field="email_config_tls_verify"]');
+            const tlsVerifyColumn = tlsVerifyToggle ? tlsVerifyToggle.parentElement : null;
             const testRecipient = section.querySelector('[data-email-test-recipient]');
 
             function syncEmailConfigVisibility() {
@@ -234,6 +238,12 @@
                 setDependentSectionEnabled(form, section, enabled, [], dependentReason(emailEnabledToggle));
                 STEP_FIELDS.forEach((name) => setNamedFieldDisabled(form, name, !enabled));
                 PROVIDER_FIELDS.forEach((name) => setNamedFieldDisabled(form, name, !(enabled && enteredHere)));
+                const relaySwitchLive = enabled && enteredHere && transport === 'relay';
+                setNamedFieldDisabled(form, 'email_config_tls_verify', !relaySwitchLive);
+                setNamedFieldDisabled(form, 'email_config_tls_verify_shown', !relaySwitchLive);
+                if (tlsVerifyColumn) {
+                    tlsVerifyColumn.classList.toggle('d-none', transport !== 'relay');
+                }
                 if (providerGroup) {
                     providerGroup.classList.toggle('d-none', !enteredHere);
                     providerGroup.setAttribute('aria-hidden', enteredHere ? 'false' : 'true');
