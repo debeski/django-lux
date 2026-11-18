@@ -389,6 +389,8 @@ def effective_email_settings(email_config=None):
     sharing them. ``password_set`` is True/False, or None when unknown.
     ``tls_verify`` is whether the provider's certificate is checked and
     ``ca_file`` the relay's extra CA bundle (``SMTP_RELAY_CA_FILE``), if any.
+    ``internal_relay`` is True when the web service's ``EMAIL_*`` settings point
+    at the internal relay (a generated stack), so direct sends go through it.
     """
     if email_config is None:
         try:
@@ -406,6 +408,7 @@ def effective_email_settings(email_config=None):
         'timeout': config.get('timeout', 0),
         'visible': True,
         'encryption_derived': False,
+        'internal_relay': False,
     }
     if storage == 'encrypted_db':
         result.update({
@@ -441,9 +444,12 @@ def effective_email_settings(email_config=None):
             'ca_file': relay_env['ca_file'],
         })
     else:
+        host = getattr(settings, 'EMAIL_HOST', '') or ''
+        relay_host = getattr(settings, 'DLUX_SMTP_RELAY_HOST', DLUX_INTERNAL_SMTP_RELAY_HOST) or ''
         result.update({
             'source': 'django',
-            'host': getattr(settings, 'EMAIL_HOST', '') or '',
+            'internal_relay': bool(host) and host.strip().lower() == relay_host.strip().lower(),
+            'host': host,
             'port': getattr(settings, 'EMAIL_PORT', None),
             'use_tls': bool(getattr(settings, 'EMAIL_USE_TLS', False)),
             'use_ssl': bool(getattr(settings, 'EMAIL_USE_SSL', False)),
@@ -632,7 +638,9 @@ def describe_mail_failure(exc, strings=None, *, email_config=None):
     seconds = ''
     detail = ''
     hint = ''
-    relay_text = _relay_reply_text(exc) if transport == 'relay' else ''
+    # Direct sends whose EMAIL_* names the internal relay take the relay's hops.
+    via_relay = transport == 'relay' or bool(effective.get('internal_relay'))
+    relay_text = _relay_reply_text(exc) if via_relay else ''
 
     if relay_text:
         hop = 'provider_relay'
@@ -648,7 +656,7 @@ def describe_mail_failure(exc, strings=None, *, email_config=None):
         hint = tokens.get('hint', '')
         seconds = tokens.get('seconds', '')
     else:
-        hop = 'relay' if transport == 'relay' else 'provider_direct'
+        hop = 'relay' if via_relay else 'provider_direct'
         step = getattr(exc, 'dlux_step', None) or 'unknown'
         reason = smtp_session.failure_reason(exc)
         detail = ' '.join(str(exc).split()) or exc.__class__.__name__
@@ -680,7 +688,8 @@ def describe_mail_failure(exc, strings=None, *, email_config=None):
     )
     if hint:
         hint_key = f'email_fail_hint_{hint}'
-        if effective.get('source') == 'relay_env' and hint in {'implicit_tls', 'starttls_port', 'credentials', 'tls_verify'}:
+        relay_env_route = effective.get('source') == 'relay_env' or effective.get('internal_relay')
+        if relay_env_route and hint in {'implicit_tls', 'starttls_port', 'credentials', 'tls_verify'}:
             hint_key += '_env'
         hint_text = strings.get(hint_key, '')
         if hint_text:

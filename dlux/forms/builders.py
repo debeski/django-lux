@@ -308,7 +308,19 @@ def build_email_effective_panel(effective, strings, *, panel, relay_checks_certi
         else:
             certificate = conditional_escape(s.get('email_effective_tls_verify_on', 'checked against the system CAs'))
         rows.append((s.get('email_effective_tls_verify', 'Certificate check'), certificate))
-    if effective.get('visible', True):
+    if panel == 'direct' and effective.get('internal_relay'):
+        # A generated stack points EMAIL_* at the relay's listener: say so, never its port.
+        body = (
+            "<div class='alert alert-info small mb-0' role='status' data-email-direct-internal-relay>"
+            + conditional_escape(s.get(
+                'email_effective_direct_internal_relay',
+                "The web service's EMAIL_* settings point at the internal relay, so mail sent this way "
+                "goes through the relay with the provider settings in SMTP_RELAY_*. Choose Internal SMTP "
+                "relay to see them.",
+            ))
+            + "</div>"
+        )
+    elif effective.get('visible', True):
         body = "<dl class='row small mb-0 dlux-email-effective__values'>" + "".join(
             f"<dt class='col-5 col-lg-4 fw-semibold'>{conditional_escape(label)}</dt>"
             f"<dd class='col-7 col-lg-8 mb-1'>{content}</dd>"
