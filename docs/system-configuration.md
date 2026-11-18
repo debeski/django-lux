@@ -225,8 +225,11 @@ unverified provider; for a provider with a private CA, give the relay that CA wi
 `SMTP_RELAY_CA_FILE` instead (see
 [Provider certificate](deployment-configuration.md#provider-certificate)). On the
 Environment route the panel shows the relay's own check: against the system CAs,
-against them and the CA file, or off (`SMTP_RELAY_TLS_VERIFY=False`). Direct SMTP
-always verifies, against the web service's system CAs.
+against them and the CA file, or off (`SMTP_RELAY_TLS_VERIFY=False`). When the
+running relay is a DjangoLux older than 1.16.2 (its greeting has no `cert-check`),
+the panel and the switch both say the certificate is not checked, whatever is set:
+that relay signs in to any certificate until the stack runs a project image built on
+1.16.2 or later. Direct SMTP always verifies, against the web service's system CAs.
 
 **SMTP timeout** is how long to wait for the provider, through the relay or
 directly, on either settings route. Blank keeps the default: 60 seconds through

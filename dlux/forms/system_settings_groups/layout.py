@@ -130,7 +130,7 @@ from ...utils import (
 )
 from django.urls import reverse
 from django.utils.html import conditional_escape
-from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_effective_panel, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
+from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_file_widget, _get_ui_direction, build_file_field, build_email_effective_panel, build_email_relay_certificate_warning, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 class _Prerendered:
@@ -166,11 +166,28 @@ class LayoutMixin:
         panels = []
         for panel, panel_transport in (('relay', 'relay'), ('direct', 'direct')):
             effective = effective_email_settings({'transport': panel_transport, 'secret_storage': 'env'})
-            html = build_email_effective_panel(effective, strings, panel=panel)
+            html = build_email_effective_panel(
+                effective, strings, panel=panel, relay_checks_certificates=not self._relay_skips_certificate_check())
             if storage != 'env' or transport != panel_transport:
                 html = html.replace("class='dlux-email-effective ", "class='dlux-email-effective d-none ", 1)
             panels.append(html)
         return ''.join(panels)
+
+    def _relay_skips_certificate_check(self):
+        """True when the running relay greets without the certificate check (an older DjangoLux)."""
+        from ...smtp_session import relay_checks_certificates
+
+        greeting = getattr(self, '_relay_greeting', None)
+        return greeting is not None and not relay_checks_certificates(greeting)
+
+    def _relay_certificate_warning_html(self, strings):
+        if not self._relay_skips_certificate_check():
+            return ''
+        return (
+            "<div class='alert alert-warning small mt-2 mb-0' role='status' data-email-relay-outdated>"
+            + build_email_relay_certificate_warning(strings)
+            + "</div>"
+        )
 
     def _email_status_text(self, strings):
         reason = str(get_email_service_status().get('reason') or 'unknown')
@@ -318,6 +335,7 @@ class LayoutMixin:
                             Div(
                                 build_email_toggle_field(self, 'email_config_tls_verify'),
                                 HTML("<input type='hidden' name='email_config_tls_verify_shown' value='1'>"),
+                                _Prerendered(lambda: self._relay_certificate_warning_html(s)),
                                 css_class='col-12 col-lg-6' + (
                                     '' if (self.initial.get('email_config_transport') or 'direct') == 'relay'
                                     else ' d-none'

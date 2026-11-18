@@ -150,7 +150,12 @@ provider's certificate** on the Email step (Entered here route) accepts any
 certificate, which hands the provider password to whoever answers on that address.
 The relay then logs a warning on every delivery, and the CA file is not read. The
 check runs in the DjangoLux baked into the project image: it needs an image built on
-DjangoLux 1.16.2 or later.
+DjangoLux 1.16.2 or later. `smtp-relay` mounts no runtime volume, so an inline
+DjangoLux update reaches web and the worker but not the relay. The relay's greeting
+(`220 dlux smtp relay ready cert-check`) names the check; when the greeting lacks
+`cert-check`, the Email step says the certificate is not checked and asks for a
+project image built on 1.16.2 or later, and Composer's `check` warns
+(`relay-version`).
 
 ## API Diagnostics
 

@@ -78,7 +78,7 @@ class RelayProtocolTests(TestCase):
         with patch.object(smtp_relay, 'deliver') as deliver:
             lines = _converse(SESSION)
 
-        self.assertIn('220 dlux smtp relay ready', lines)
+        self.assertIn('220 dlux smtp relay ready cert-check', lines)
         self.assertIn('250 Message accepted', lines)
         self.assertIn('221 Bye', lines)
         mail_from, recipients, payload = deliver.call_args.args
