@@ -78,21 +78,28 @@ _relay_probes = {}
 _relay_probes_lock = threading.Lock()
 
 
-def _smtp_relay_greets(host, port, timeout):
-    """One unbounded check: resolve ``host``, connect and read the greeting."""
+def _smtp_relay_greeting(host, port, timeout):
+    """One unbounded check: resolve ``host``, connect and read the greeting.
+
+    The greeting's text after ``220``, or None when nothing greets.
+    """
     import smtplib
 
+    # The probe never says EHLO, so naming the local host skips smtplib's
+    # getfqdn(), which would be a second resolver call.
+    client = smtplib.SMTP(timeout=timeout, local_hostname='localhost')
     try:
-        # The probe never says EHLO, so naming the local host skips smtplib's
-        # getfqdn(), which would be a second resolver call.
-        client = smtplib.SMTP(host, port, timeout=timeout, local_hostname='localhost')
+        code, message = client.connect(host, port)
     except (OSError, smtplib.SMTPException):
-        return False
+        client.close()
+        return None
     try:
         client.quit()
     except (OSError, smtplib.SMTPException):
-        pass
-    return True
+        client.close()
+    if code != 220:
+        return None
+    return message.decode('utf-8', 'replace') if isinstance(message, bytes) else str(message or '')
 
 
 class _RelayProbe:
@@ -108,7 +115,7 @@ class _RelayProbe:
         self.timeout = timeout
         self.deadline = time.monotonic() + timeout
         self.finished = threading.Event()
-        self.available = False
+        self.greeting = None
         self.error = None
         self._thread = threading.Thread(
             target=self._run, name=f'dlux-relay-probe {host}:{port}', daemon=True)
@@ -118,7 +125,7 @@ class _RelayProbe:
 
     def _run(self):
         try:
-            self.available = _smtp_relay_greets(*self.key, self.timeout)
+            self.greeting = _smtp_relay_greeting(*self.key, self.timeout)
         except Exception as exc:
             self.error = exc
         finally:
@@ -128,17 +135,25 @@ class _RelayProbe:
             self.finished.set()
 
     def wait(self, timeout):
-        """The answer, or False once this probe's deadline or ``timeout`` passes."""
+        """The greeting, or None once this probe's deadline or ``timeout`` passes."""
         remaining = min(timeout, self.deadline - time.monotonic())
         if not self.finished.wait(max(remaining, 0)):
-            return False
+            return None
         if self.error is not None:
             raise self.error
-        return self.available
+        return self.greeting
 
 
 def internal_smtp_relay_available(host=None, port=None, timeout=None):
-    """Whether the internal SMTP relay is listening.
+    """Whether the internal SMTP relay is listening (see ``internal_smtp_relay_greeting``)."""
+    return internal_smtp_relay_greeting(host=host, port=port, timeout=timeout) is not None
+
+
+def internal_smtp_relay_greeting(host=None, port=None, timeout=None):
+    """The internal SMTP relay's greeting, or None when it is not listening.
+
+    The greeting says what the relay does: ``smtp_session.relay_checks_certificates``
+    tells a relay that checks the provider's certificate from an older one.
 
     Answers "is that process deployed", which is deliberately independent of
     what `email_config` says: `dlux.smtp_relay` starts its listener
@@ -153,9 +168,9 @@ def internal_smtp_relay_available(host=None, port=None, timeout=None):
 
     Returns within ``timeout`` (DLUX_SMTP_RELAY_PROBE_TIMEOUT) in total, name
     lookup included: the check runs in a daemon thread and a check still
-    running at its deadline answers False. Calls for the same host and port
+    running at its deadline answers None. Calls for the same host and port
     share a check that is still running, and once its deadline has passed they
-    answer False at once. So a stalled resolver costs one timeout per lookup it
+    answer None at once. So a stalled resolver costs one timeout per lookup it
     holds rather than one per settings page, and leaves at most one thread per
     target behind. Nothing is cached: the first call after a check finishes
     starts a new one.

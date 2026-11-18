@@ -33,6 +33,7 @@ import sys
 from dlux.smtp_session import (  # noqa: F401 — re-exported for the relay's callers
     DEFAULT_UPSTREAM_PORT,
     IMPLICIT_TLS_PORT,
+    RELAY_GREETING,
     SMTPStepError,
     STEP_AUTH,
     STEP_CONFIG,
@@ -303,7 +304,7 @@ async def _converse(reader, writer, peer):
     mail_from = ""
     recipients = []
 
-    await _send(writer, "220 dlux smtp relay ready")
+    await _send(writer, f"220 {RELAY_GREETING}")
 
     while not reader.at_eof():
         raw = await reader.readline()

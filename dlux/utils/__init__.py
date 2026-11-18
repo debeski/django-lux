@@ -178,6 +178,7 @@ from .mail import (
     get_dlux_email_config,
     get_email_service_status,
     internal_smtp_relay_available,
+    internal_smtp_relay_greeting,
     email_features_unlocked,
     send_dlux_mail,
 )
@@ -367,6 +368,7 @@ __all__ = [
     "describe_mail_failure",
     "effective_email_settings",
     "internal_smtp_relay_available",
+    "internal_smtp_relay_greeting",
     "email_features_unlocked",
     "get_manageable_users_queryset",
     "get_model_classes",

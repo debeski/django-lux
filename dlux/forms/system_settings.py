@@ -3925,10 +3925,12 @@ class SystemSettingsForm(
         run: `dlux.smtp_relay` starts its listener unconditionally and resolves
         its upstream per message, so it answers before it is ever configured.
         """
-        from ..utils import internal_smtp_relay_available
+        from ..utils import internal_smtp_relay_greeting
 
         field = self.fields['email_config_transport']
-        if internal_smtp_relay_available():
+        # Kept for the step's certificate rows: the greeting says whether the relay checks.
+        self._relay_greeting = internal_smtp_relay_greeting()
+        if self._relay_greeting is not None:
             return
 
         reason = strings.get(

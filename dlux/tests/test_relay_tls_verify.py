@@ -383,6 +383,105 @@ class EmailStepSwitchTests(_IsolatedSettingsTestCase):
         self.assertNotIn('Certificate check', direct)
 
 
+class RelayGreetingTests(_IsolatedSettingsTestCase):
+    """The relay's greeting says it checks certificates; an older relay's does not."""
+
+    OLD_GREETING = 'dlux smtp relay ready'
+
+    @staticmethod
+    def _greeting_server(greeting):
+        import socket
+        import threading
+
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.bind(('127.0.0.1', 0))
+        listener.listen(1)
+
+        def serve():
+            try:
+                conn, _addr = listener.accept()
+                with conn:
+                    conn.sendall(f'220 {greeting}\r\n'.encode())
+                    while True:
+                        line = conn.recv(1024)
+                        if not line or line.upper().startswith(b'QUIT'):
+                            conn.sendall(b'221 Bye\r\n')
+                            return
+                        conn.sendall(b'250 OK\r\n')
+            except OSError:
+                pass
+
+        threading.Thread(target=serve, daemon=True).start()
+        return listener, listener.getsockname()[1]
+
+    def test_only_the_current_greeting_names_the_check(self):
+        self.assertTrue(smtp_session.relay_checks_certificates(smtp_session.RELAY_GREETING))
+        self.assertFalse(smtp_session.relay_checks_certificates(self.OLD_GREETING))
+        self.assertFalse(smtp_session.relay_checks_certificates(None))
+
+    def test_the_probe_reads_the_greeting(self):
+        from dlux.utils import internal_smtp_relay_available, internal_smtp_relay_greeting
+
+        for greeting in (smtp_session.RELAY_GREETING, self.OLD_GREETING):
+            listener, port = self._greeting_server(greeting)
+            try:
+                self.assertEqual(internal_smtp_relay_greeting(host='127.0.0.1', port=port), greeting)
+            finally:
+                listener.close()
+        # A port nothing listens on. Closing a listener another thread is still
+        # accepting on does not stop it accepting on Linux, so none is started.
+        import socket
+
+        unused = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        unused.bind(('127.0.0.1', 0))
+        port = unused.getsockname()[1]
+        unused.close()
+        self.assertIsNone(internal_smtp_relay_greeting(host='127.0.0.1', port=port))
+        self.assertFalse(internal_smtp_relay_available(host='127.0.0.1', port=port))
+
+    def test_a_refusing_server_is_no_relay(self):
+        from dlux.utils import internal_smtp_relay_greeting
+
+        listener, port = self._greeting_server('busy')
+        try:
+            with patch('smtplib.SMTP.connect', return_value=(421, b'busy')):
+                self.assertIsNone(internal_smtp_relay_greeting(host='127.0.0.1', port=port))
+        finally:
+            listener.close()
+
+    def _email_step(self, greeting, **config):
+        with patch('dlux.utils.internal_smtp_relay_greeting', return_value=greeting):
+            form = SystemSettingsForm(
+                instance=SystemSettings(is_configured=False, email_config=normalize_email_config(config)),
+                mode='setup',
+            )
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        start = html.index('data-email-config-section')
+        return html[start:html.index('data-email-send-test-result', start)]
+
+    def test_an_older_relay_is_flagged_on_both_routes(self):
+        env = {'SMTP_RELAY_HOST': 'smtp.provider.example', 'SMTP_RELAY_TLS_VERIFY': 'True'}
+        with patch.dict('os.environ', env, clear=False):
+            step = self._email_step(self.OLD_GREETING, transport='relay', secret_storage='env')
+        self.assertEqual(step.count('data-email-relay-outdated'), 2)
+        self.assertIn('smtp-relay runs a DjangoLux older than 1.16.2', step)
+        self.assertNotIn('checked against the system CAs</dd>', step)
+
+    def test_a_current_or_missing_relay_is_not_flagged(self):
+        for greeting in (smtp_session.RELAY_GREETING, None):
+            step = self._email_step(greeting, transport='relay', secret_storage='encrypted_db',
+                                    host='smtp.provider.example')
+            self.assertNotIn('data-email-relay-outdated', step, greeting)
+
+    def test_the_panel_flags_an_older_relay_whatever_the_settings_say(self):
+        strings = get_strings('ar')
+        with patch.dict('os.environ', {'SMTP_RELAY_HOST': 'h', 'SMTP_RELAY_TLS_VERIFY': 'False'}, clear=False):
+            effective = effective_email_settings(RELAY_ENV_ROUTE)
+        html = build_email_effective_panel(effective, strings, panel='relay', relay_checks_certificates=False)
+        self.assertIn(strings['email_relay_skips_certificate_check'], html)
+        self.assertNotIn(strings['email_effective_tls_verify_off'], html)
+
+
 class ScaffoldCertificateTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
