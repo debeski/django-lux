@@ -326,6 +326,15 @@ class EffectiveSettingsTests(_IsolatedSettingsTestCase):
         self.assertEqual((effective['host'], effective['port']), ('direct.provider.example', 587))
         self.assertEqual(effective['encryption'], 'starttls')
         self.assertIs(effective['password_set'], True)
+        self.assertIs(effective['internal_relay'], False)
+
+    @override_settings(EMAIL_HOST='smtp-relay', EMAIL_PORT=1025)
+    def test_a_generated_stacks_direct_route_is_marked_as_the_internal_relay(self):
+        effective = effective_email_settings({'transport': 'direct', 'secret_storage': 'env'})
+        self.assertIs(effective['internal_relay'], True)
+        with patch.dict('os.environ', RELAY_ENV, clear=False):
+            relay = effective_email_settings({'transport': 'relay', 'secret_storage': 'env'})
+        self.assertIs(relay['internal_relay'], False)
 
 
 @override_settings(DEFAULT_FROM_EMAIL='noreply@provider.example')
@@ -361,6 +370,18 @@ class EnvStorageStepTests(_IsolatedSettingsTestCase):
                 {'transport': 'relay', 'secret_storage': 'env', 'provider_preset': 'relay', 'port': 1025},
             ):
                 self.assertNotIn('1025', self._email_step(self._render(**config)), config)
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', EMAIL_HOST='smtp-relay', EMAIL_PORT=1025,
+    )
+    def test_a_generated_stacks_direct_route_names_the_relay_not_its_port(self):
+        """Generated stacks point EMAIL_* at smtp-relay:1025; neither panel may show that port."""
+        with patch.dict('os.environ', RELAY_ENV, clear=False):
+            for transport in ('direct', 'relay'):
+                step = self._email_step(self._render(transport=transport, secret_storage='env'))
+                self.assertNotIn('1025', step, transport)
+                self.assertIn('data-email-direct-internal-relay', step, transport)
+                self.assertIn('point at the internal relay', step, transport)
 
     def test_relay_is_no_longer_a_provider_preset(self):
         self.assertNotIn('relay', EMAIL_CONFIG_PROVIDER_PRESETS)
@@ -452,10 +473,13 @@ class LegacyRelayPresetTests(SimpleTestCase):
             'host': '', 'port': 1025, 'use_ssl': True, 'default_from_email': 'a@b.c',
         }
         legacy = normalize_email_config(raw)
-        legacy_fingerprint = email_config_fingerprint({**legacy, 'port': 1025})
+        # What 1.16.1 stored: port 1025 and SSL on, STARTTLS off.
+        legacy_fingerprint = email_config_fingerprint({**legacy, 'port': 1025, 'use_tls': False, 'use_ssl': True})
         cleaned = normalize_email_config({**raw, 'verified': True, 'verified_fingerprint': legacy_fingerprint})
         self.assertEqual(cleaned['provider_preset'], 'custom')
         self.assertEqual(cleaned['port'], 587)
+        # 587 is STARTTLS: the SSL flag the VM row carried is reset with the port.
+        self.assertEqual((cleaned['use_tls'], cleaned['use_ssl']), (True, False))
         self.assertTrue(cleaned['verified'])
         self.assertEqual(cleaned['verified_fingerprint'], email_config_fingerprint(cleaned))
         self.assertEqual(normalize_email_config(cleaned), cleaned)
@@ -502,6 +526,27 @@ class FailureMessageTests(_IsolatedSettingsTestCase):
             'Internal relay: connecting to the relay service failed — the connection was refused.',
         )
         self.assertNotIn('1025', failure['message'])
+
+    @override_settings(EMAIL_HOST='smtp-relay', EMAIL_PORT=1025)
+    def test_a_direct_send_to_the_internal_relay_takes_the_relays_hops(self):
+        direct = {'transport': 'direct', 'secret_storage': 'env'}
+        refused = ConnectionRefusedError(61, 'Connection refused')
+        refused.dlux_step = 'connect'
+        failure = describe_mail_failure(refused, get_strings('en'), email_config=direct)
+        self.assertEqual(failure['hop'], 'relay')
+        self.assertNotIn('1025', failure['message'])
+
+        reply = (
+            'Relay delivery failed: step=auth reason=rejected hint=credentials '
+            'auth smtp.provider.example:587 starttls: 535 bad'
+        )
+        with patch.dict('os.environ', RELAY_ENV, clear=False):
+            failure = describe_mail_failure(
+                smtplib.SMTPDataError(451, reply.encode()), get_strings('en'), email_config=direct,
+            )
+        self.assertEqual((failure['hop'], failure['step']), ('provider_relay', 'auth'))
+        self.assertIn('smtp.provider.example:587', failure['message'])
+        self.assertIn('SMTP_RELAY_USER and SMTP_RELAY_PASSWORD', failure['message'])
 
     def test_the_message_is_translated(self):
         exc = smtplib.SMTPDataError(

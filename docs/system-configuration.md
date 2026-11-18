@@ -201,6 +201,11 @@ The second selector decides where the provider settings come from:
 | Environment | Internal SMTP relay | read-only: the relay's host, port, encryption, user, password set or not set, certificate check | `SMTP_RELAY_*` in `.secrets/.env` |
 | Environment | Direct SMTP | read-only: the web service's `EMAIL_*` settings | Django's `EMAIL_*` settings |
 
+A generated stack's web service points `EMAIL_*` at the internal relay. There,
+Direct SMTP with Environment shows a notice instead of the relay's own host and
+port: mail sent that way goes through the relay with `SMTP_RELAY_*`, which the
+Internal SMTP relay option shows, and a failed send names the relay's hops.
+
 With Environment nothing is typed: the step reads what the relay or web service
 will use and checks readiness against those values. The password never reaches
 the page, only whether one is set. Values typed under Entered here stay stored, so
