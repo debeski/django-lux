@@ -142,8 +142,12 @@ class SkipSetupSendsItsTokenTests(TestCase):
 
     def setUp(self):
         self.js = _read(STATIC, 'helpers', 'dynamic_modal', 'js', 'main.js')
+        start = self.js.index('function recordOnboardingSkip(skipBtn) {')
+        self.record = self.js[start:self.js.index('\n    }\n', start)]
         start = self.js.index("const skipBtn = e.target.closest('[data-dlux-skip-setup]');")
         self.handler = self.js[start:self.js.index('\n    });', start)]
+        start = self.js.index("modalEl.addEventListener('hide.bs.modal', function () {\n        const skipBtn")
+        self.close = self.js[start:self.js.index('\n    });', start)]
 
     def test_the_skip_button_is_one_the_footer_relocates(self):
         """Why `closest('form')` cannot work: the bar holding Skip leaves the form."""
@@ -154,18 +158,36 @@ class SkipSetupSendsItsTokenTests(TestCase):
         self.assertIn("control.setAttribute('form', form.id)", self.js)
 
     def test_the_token_is_read_through_the_buttons_form_owner(self):
-        self.assertIn('const form = skipBtn.form || skipBtn.closest(\'form\');', self.handler)
+        self.assertIn('const form = skipBtn.form || skipBtn.closest(\'form\');', self.record)
 
     def test_the_page_token_is_the_fallback(self):
-        self.assertIn('document.querySelector(\'meta[name="csrf-token"]\')', self.handler)
+        self.assertIn('document.querySelector(\'meta[name="csrf-token"]\')', self.record)
         base = _read(STATIC.parents[1], 'templates', 'dlux', 'base.html')
         self.assertIn('<meta name="csrf-token" content="{{ csrf_token }}">', base)
 
     def test_the_token_travels_in_the_body_and_the_header(self):
-        self.assertIn("body.append('csrfmiddlewaretoken', csrf);", self.handler)
-        self.assertIn("'X-CSRFToken': csrf", self.handler)
+        self.assertIn("body.append('csrfmiddlewaretoken', csrf);", self.record)
+        self.assertIn("'X-CSRFToken': csrf", self.record)
 
     def test_a_refused_skip_still_releases_the_page(self):
+        self.assertIn('recordOnboardingSkip(skipBtn)', self.handler)
         refused = self.handler[self.handler.index('.catch('):]
         self.assertIn('dynamicModal.hide();', refused)
         self.assertNotIn('location.reload', refused)
+
+    def test_closing_onboarding_without_saving_records_the_skip(self):
+        """X, Escape and the backdrop all hide the modal: each counts as "Skip for now"."""
+        self.assertIn("modalEl.querySelector('[data-dlux-skip-setup]')", self.close)
+        self.assertIn('if (!skipBtn || onboardingSkipSent) return;', self.close)
+        self.assertIn('recordOnboardingSkip(skipBtn)', self.close)
+        self.assertNotIn('location.reload', self.close)
+
+    def test_the_skip_is_sent_once(self):
+        """The Skip button's own failure path hides the modal; that hide must not post again."""
+        self.assertIn('onboardingSkipSent = true;', self.record)
+        self.assertIn('keepalive: true', self.record)
+
+    def test_a_save_reloads_instead_of_hiding(self):
+        """So the close handler never turns a save into a skip."""
+        success = self.js[self.js.index('if (data.refresh_parent && (data.close_modal'):]
+        self.assertIn('window.location.reload();', success[:success.index('return;')])

@@ -720,15 +720,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     } catch (e) { /* no-op */ }
 
-    // Initial User Setup "Skip for now": POST skip=1 to mark the profile configured, then reload.
-    // syncModalFooter() has moved the button out of its <form> into the footer, so the
-    // token is read through the button's form owner (the form= association), with the
-    // page's csrf-token meta as the fallback. Without it the POST is refused and the
-    // modal comes back on every page.
-    document.body.addEventListener('click', function(e) {
-        const skipBtn = e.target.closest('[data-dlux-skip-setup]');
-        if (!skipBtn) return;
-        e.preventDefault();
+    // Initial User Setup: "Skip for now", and closing the modal without saving (X, Escape,
+    // the backdrop), POST skip=1, which marks the profile configured so onboarding does not
+    // come back on the next page. syncModalFooter() has moved the button out of its <form>
+    // into the footer, so the token is read through the button's form owner (the form=
+    // association), with the page's csrf-token meta as the fallback. A save reloads the
+    // page instead of hiding the modal, so it never reaches the close handler.
+    let onboardingSkipSent = false;
+
+    function recordOnboardingSkip(skipBtn) {
+        onboardingSkipSent = true;
         const url = skipBtn.getAttribute('data-url');
         const form = skipBtn.form || skipBtn.closest('form');
         const csrfInput = form ? form.querySelector('[name=csrfmiddlewaretoken]') : null;
@@ -737,16 +738,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const body = new FormData();
         body.append('skip', '1');
         if (csrf) body.append('csrfmiddlewaretoken', csrf);
-        skipBtn.disabled = true;
-        fetch(url, {
+        return fetch(url, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRFToken': csrf },
             body: body,
-        })
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Skip request failed (HTTP ' + response.status + ').');
-                }
+            // A close followed at once by a click elsewhere must not cancel the request.
+            keepalive: true,
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Skip request failed (HTTP ' + response.status + ').');
+            }
+        });
+    }
+
+    document.body.addEventListener('click', function(e) {
+        const skipBtn = e.target.closest('[data-dlux-skip-setup]');
+        if (!skipBtn) return;
+        e.preventDefault();
+        skipBtn.disabled = true;
+        recordOnboardingSkip(skipBtn)
+            .then(function () {
                 // The profile is now marked configured server-side. Clear any persisted
                 // modal state so the reloaded page does not re-open onboarding.
                 clearModalState();
@@ -758,6 +769,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 skipBtn.disabled = false;
                 dynamicModal.hide();
             });
+    });
+
+    modalEl.addEventListener('hide.bs.modal', function () {
+        const skipBtn = modalEl.querySelector('[data-dlux-skip-setup]');
+        if (!skipBtn || onboardingSkipSent) return;
+        // Closed without saving: the same as "Skip for now", without the reload. If it is
+        // refused, the next page offers onboarding again.
+        recordOnboardingSkip(skipBtn).catch(function () { /* not recorded */ });
     });
 
 });
