@@ -11,6 +11,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from dlux import doctor
+from dlux.tests.test_email_step import _IsolatedSettingsTestCase
 
 
 def run_command(*args, name='dlux_doctor', stderr=None):
@@ -355,3 +356,100 @@ class DluxCheckAliasIsAdvisoryTests(TestCase):
         ):
             _, code = run_command('--format', 'json', name='dlux_doctor')
         self.assertEqual(code, 1)
+
+
+class DoctorEmailTests(_IsolatedSettingsTestCase):
+    """The email checks follow the Email step, not Django's EMAIL_* settings."""
+
+    RELAY_ENV = {
+        'SMTP_RELAY_HOST': 'smtp.provider.example', 'SMTP_RELAY_PORT': '587', 'SMTP_RELAY_USE_TLS': 'True',
+        'SMTP_RELAY_USER': '', 'SMTP_RELAY_PASSWORD_SET': '',
+    }
+
+    def _store(self, **config):
+        from dlux.models import SystemSettings
+        from dlux.system.normalizers import normalize_email_config
+
+        instance = SystemSettings.load()
+        instance.email_config = normalize_email_config({'default_from_email': 'app@example.test', **config})
+        instance.save(update_fields=['email_config'])
+
+    def _run(self, env=None):
+        environ = {k: v for k, v in os.environ.items() if not k.startswith('SMTP_RELAY_')}
+        environ.update(env or {})
+        with patch.dict('os.environ', environ, clear=True):
+            return doctor._check_email_config(None), doctor._check_email_reachable(None)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+                       EMAIL_HOST='unreachable.invalid', EMAIL_PORT=25)
+    def test_email_off_skips_both_checks(self):
+        self._store(enabled=False, transport='direct', secret_storage='env')
+        with patch('socket.create_connection', side_effect=AssertionError('probed with email off')):
+            configured, reachable = self._run()
+        for finding in (configured, reachable):
+            self.assertEqual(finding.status, doctor.SKIPPED)
+            self.assertIn('email delivery is off', finding.detail)
+
+    def test_the_relay_route_probes_the_relay_not_the_provider(self):
+        self._store(enabled=True, transport='relay', secret_storage='env')
+        with patch('dlux.utils.internal_smtp_relay_available', return_value=False) as probe, \
+                patch('socket.create_connection', side_effect=AssertionError('connected to the provider')):
+            configured, reachable = self._run(self.RELAY_ENV)
+        self.assertEqual(configured.status, doctor.OK)
+        self.assertIn('through the internal SMTP relay to smtp.provider.example:587', configured.detail)
+        self.assertEqual(reachable.status, doctor.ERROR)
+        self.assertIn('internal SMTP relay does not answer on smtp-relay:1025', reachable.detail)
+        self.assertEqual(probe.call_args.kwargs, {'host': 'smtp-relay', 'port': 1025})
+        with patch('dlux.utils.internal_smtp_relay_available', return_value=True):
+            self.assertEqual(self._run(self.RELAY_ENV)[1].status, doctor.OK)
+
+    def test_relay_settings_web_cannot_see_warn(self):
+        self._store(enabled=True, transport='relay', secret_storage='env')
+        with patch('dlux.utils.internal_smtp_relay_available', return_value=True):
+            configured, _reachable = self._run()
+        self.assertEqual(configured.status, doctor.WARNING)
+        self.assertIn('./start.sh check --fix', configured.remedy)
+
+    def test_the_direct_route_probes_the_provider_the_step_names(self):
+        self._store(enabled=True, transport='direct', secret_storage='encrypted_db',
+                    host='smtp.provider.example', port=587)
+        with patch('socket.create_connection') as connect:
+            configured, reachable = self._run()
+        self.assertEqual(configured.status, doctor.OK)
+        self.assertIn('directly from the web service to smtp.provider.example:587', configured.detail)
+        self.assertEqual(reachable.status, doctor.OK)
+        self.assertEqual(connect.call_args.args[0], ('smtp.provider.example', 587))
+        with patch('socket.create_connection', side_effect=OSError('no route')):
+            reachable = self._run()[1]
+        self.assertEqual(reachable.status, doctor.ERROR)
+        self.assertIn('internal SMTP relay', reachable.remedy)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+                       EMAIL_HOST='smtp.web.example', EMAIL_PORT=465)
+    def test_the_direct_environment_route_uses_the_web_settings(self):
+        self._store(enabled=True, transport='direct', secret_storage='env')
+        with patch('socket.create_connection') as connect:
+            configured, reachable = self._run()
+        self.assertEqual(configured.status, doctor.OK)
+        self.assertEqual(reachable.status, doctor.OK)
+        self.assertEqual(connect.call_args.args[0], ('smtp.web.example', 465))
+
+    def test_incomplete_settings_fail_with_the_reason(self):
+        self._store(enabled=True, transport='direct', secret_storage='encrypted_db', host='', port=587)
+        configured, reachable = self._run()
+        self.assertEqual(configured.status, doctor.ERROR)
+        self.assertIn('provider host or port, or the sender address, is missing', configured.detail)
+        self.assertEqual(reachable.status, doctor.SKIPPED)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend')
+    def test_a_non_smtp_backend_warns_and_skips_the_probe(self):
+        self._store(enabled=True, transport='direct', secret_storage='env')
+        configured, reachable = self._run()
+        self.assertEqual(configured.status, doctor.WARNING)
+        self.assertEqual(reachable.status, doctor.SKIPPED)
+
+    def test_an_unavailable_database_skips_both(self):
+        ctx = doctor.Context()
+        ctx._db_probed, ctx._db_error = True, 'OperationalError: down'
+        for check in (doctor._check_email_config, doctor._check_email_reachable):
+            self.assertEqual(check(ctx).status, doctor.SKIPPED)

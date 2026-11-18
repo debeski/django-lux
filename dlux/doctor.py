@@ -468,36 +468,102 @@ def _check_stack_schema(ctx):
     )
 
 
-@check('email.configured', 'services', 'Email backend is configured')
+EMAIL_STEP = 'System Settings > Email'
+EMAIL_OFF = f'Skipped: email delivery is off ({EMAIL_STEP}), so features that send mail stay locked.'
+_EMAIL_NOT_CONFIGURED = {
+    'relay_missing_upstream_host_port_or_from_email': 'the provider host or port, or the sender address, is missing',
+    'relay_missing_password': 'a provider username is set but no password',
+    'smtp_missing_host_port_or_from_email': 'the provider host or port, or the sender address, is missing',
+    'encrypted_db_missing_password': 'a provider username is set but no password is stored',
+    'missing_default_from_email': 'there is no sender address',
+}
+
+
+def _email_step(ctx):
+    """``(stored, connection, status)`` for the Email step, or a Finding when it cannot be read.
+
+    ``stored`` is the step's saved settings, ``connection`` what a send connects to
+    (the internal relay, or the provider), ``status`` whether that is complete.
+    """
+    if ctx is not None and not ctx.db_available:
+        return skip(f'Skipped: the database is unavailable, so {EMAIL_STEP} cannot be read.')
+    from django.apps import apps
+
+    from .utils import get_dlux_email_config, get_email_service_status
+    from .utils.config import normalize_email_config
+
+    try:
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        stored = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}) or {})
+    except Exception as exc:
+        return skip(f'Skipped: {EMAIL_STEP} cannot be read: {type(exc).__name__}.')
+    return stored, get_dlux_email_config(), get_email_service_status(stored)
+
+
+@check('email.configured', 'services', 'Email delivery is configured')
 def _check_email_config(ctx):
-    backend = getattr(settings, 'EMAIL_BACKEND', '')
+    step = _email_step(ctx)
+    if isinstance(step, Finding):
+        return step
+    stored, connection, status = step
+    if not stored.get('enabled'):
+        return skip(EMAIL_OFF)
+    backend = connection.get('backend', '')
     if 'smtp' not in backend.lower():
         return warn(f"EMAIL_BACKEND is '{backend}', so no mail leaves this deployment.",
-                    'Set EMAIL_BACKEND to django.core.mail.backends.smtp.EmailBackend for real delivery.')
-    host = getattr(settings, 'EMAIL_HOST', '')
-    port = getattr(settings, 'EMAIL_PORT', None)
-    if not host:
-        return fail('EMAIL_BACKEND is SMTP but EMAIL_HOST is empty.')
-    return ok(f'SMTP backend targets {host}:{port}.')
+                    'Set EMAIL_BACKEND to django.core.mail.backends.smtp.EmailBackend for real delivery, or choose '
+                    f'the internal SMTP relay in {EMAIL_STEP}.')
+    relay = status.get('transport') == 'relay'
+    route = 'through the internal SMTP relay' if relay else 'directly from the web service'
+    reason = status.get('reason')
+    if reason == 'relay_env_not_visible':
+        return warn(
+            'Email goes through the internal SMTP relay, but the web service cannot see the relay\'s settings '
+            '(compose.yml passes them to smtp-relay only), so only a test email can check them.',
+            'Run ./start.sh check --fix, then ./start.sh.',
+        )
+    if status.get('configured'):
+        detail = status.get('detail')
+        return ok(f'Email goes {route}' + (f' to {detail}.' if detail else '.'))
+    return fail(
+        f"Email goes {route}, but {_EMAIL_NOT_CONFIGURED.get(reason, reason or 'it is incomplete')}.",
+        f'Complete {EMAIL_STEP}, then send a test email.',
+    )
 
 
-@check('email.reachable', 'services', 'SMTP relay accepts connections')
+@check('email.reachable', 'services', 'Mail server accepts connections')
 def _check_email_reachable(ctx):
-    backend = getattr(settings, 'EMAIL_BACKEND', '')
-    if 'smtp' not in backend.lower():
+    step = _email_step(ctx)
+    if isinstance(step, Finding):
+        return step
+    stored, connection, _status = step
+    if not stored.get('enabled'):
+        return skip(EMAIL_OFF)
+    if 'smtp' not in str(connection.get('backend', '')).lower():
         return skip('Skipped: the configured backend is not SMTP.')
-    host = getattr(settings, 'EMAIL_HOST', '')
-    port = getattr(settings, 'EMAIL_PORT', None)
+    host, port = connection.get('host'), connection.get('port')
     if not host or not port:
-        return skip('Skipped: EMAIL_HOST/EMAIL_PORT are incomplete.')
+        return skip('Skipped: the provider host or port is not set.')
+    if connection.get('transport') == 'relay':
+        from .utils import internal_smtp_relay_available
+
+        if internal_smtp_relay_available(host=host, port=port):
+            return ok(f'The internal SMTP relay answers on {host}:{port}.')
+        return fail(
+            f'The internal SMTP relay does not answer on {host}:{port}.',
+            'Confirm the smtp-relay service is running and healthy (./start.sh check) and shares a network '
+            'with this container.',
+        )
     try:
         socket.create_connection((host, int(port)), timeout=3).close()
     except Exception as exc:
         return fail(
-            f'Could not open a TCP connection to {host}:{port}: {type(exc).__name__}: {exc}.',
-            'Confirm the smtp-relay service is healthy and shares a network with this container.',
+            f'Could not open a TCP connection to the provider {host}:{port}: {type(exc).__name__}: {exc}.',
+            'On this route the web service connects to the provider itself. A stack generated by python -m dlux '
+            f'startproject gives web no internet access: choose the internal SMTP relay in {EMAIL_STEP}, or give '
+            'web a route to the provider.',
         )
-    return ok(f'{host}:{port} accepted a TCP connection.')
+    return ok(f'The provider {host}:{port} accepted a TCP connection.')
 
 
 @check('tasks.worker', 'services', 'DjangoLux task worker is running')
