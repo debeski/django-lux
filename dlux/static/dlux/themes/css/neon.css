@@ -630,7 +630,7 @@
     box-shadow: 0 0 10px rgba(255, 102, 0, 0.1) !important;
 }
 
-:root.theme-neon .dlux-filter .dlux-filter-clear {
+:root.theme-neon .dlux-filter .btn.dlux-filter-clear.btn-warning {
     color: var(--neon-yellow) !important;
     text-shadow: 0 0 10px rgba(255, 255, 0, 0.4) !important;
     border-color: rgba(255, 255, 0, 0.3) !important;
