@@ -1,18 +1,19 @@
 {
   "schema_version": 2,
-  "version": "1.16.2b1",
+  "version": "1.16.2b2",
   "display": {
-    "summary": "Email setup for the internal SMTP relay, and the relay now checks the provider's certificate. With delivery path Internal SMTP relay and provider settings Environment, the Email step shows the relay's host, port, encryption, user and whether a password is set, read from the stack; existing stacks get the compose lines from Composer 1.10.2's ./start.sh check --fix. Encryption follows the port (SSL on 465, STARTTLS otherwise) unless SMTP_RELAY_USE_SSL says otherwise, the Email step's timeout applies on every route, and a failed send names the hop, the step and the likeliest fix. The relay now verifies the provider's certificate: a provider with a private or self-signed certificate needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False. Relay changes take effect once the project image is rebuilt on 1.16.2; web and worker update inline from any 1.16 release, with no migrations. New projects' composer-agent and composer-executor start instead of restart-looping.",
+    "summary": "Email setup for the internal SMTP relay, and the relay now checks the provider's certificate. With delivery path Internal SMTP relay and provider settings Environment, the Email step shows the relay's host, port, encryption, user and whether a password is set, read from the stack; existing stacks get them from Composer 1.10.2's ./start.sh check --fix. Encryption follows the port (SSL on 465, STARTTLS otherwise), the Email step's timeout applies on every route, and a failed send names the hop, the step and the likeliest fix. A provider with a private or self-signed certificate needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False. The relay runs the project image's DjangoLux, so its changes need the image rebuilt on 1.16.2; until then the Email step says the certificate is not checked. The doctor command's email checks follow the Email step. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
       "Email step, Environment route: shows the relay's host, port, encryption, user and whether a password is set; nothing to type.",
       "Existing stacks: Composer 1.10.2's ./start.sh check --fix shares the relay's settings with web and worker; the password stays with the relay.",
       "The relay verifies the provider's certificate. A private or self-signed one needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False.",
+      "Relay changes need the project image rebuilt on 1.16.2; until then the Email step says the provider's certificate is not checked.",
       "Encryption follows the port (SSL on 465, STARTTLS otherwise), and the Email step's timeout applies on every route.",
       "A failed send names the hop (relay or provider), the step (connect, TLS, sign-in, send) and the likeliest fix.",
-      "Relay changes need the project image rebuilt on 1.16.2; web and worker update inline from any 1.16 release, with no migrations.",
-      "New projects: composer-agent and composer-executor start with `run` instead of restart-looping on Composer's usage text."
+      "The doctor command's email checks follow the Email step: skipped while email is off; on the relay route they probe the relay, not the provider.",
+      "New projects: composer-agent and composer-executor start with `run` instead of restart-looping. Inline from any 1.16, no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.2b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.2b2"
   },
   "requires": {
     "updater_schema": ">=1",
