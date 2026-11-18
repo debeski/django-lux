@@ -509,7 +509,7 @@
         linear-gradient(180deg, rgba(58, 28, 32, 0.98), rgba(35, 21, 24, 0.96)) !important;
 }
 
-:root.theme-dark .dlux-filter .dlux-filter-clear {
+:root.theme-dark .dlux-filter .btn.dlux-filter-clear.btn-warning {
     color: #fbd38d !important;
     border-color: rgba(255, 193, 7, 0.22) !important;
     background:

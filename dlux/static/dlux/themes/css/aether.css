@@ -531,6 +531,19 @@
     text-shadow: none !important;
 }
 
+:root.theme-aether .dlux-filter .btn.dlux-filter-clear.btn-warning {
+    background:
+        radial-gradient(circle at top, rgba(255, 173, 152, 0.12), transparent 58%),
+        linear-gradient(180deg, var(--aether-elevated), var(--aether-slate)) !important;
+    border: 1px solid var(--aether-line) !important;
+    color: var(--aether-coral) !important;
+    box-shadow: inset 0 1px 0 var(--aether-line-soft) !important;
+}
+
+:root.theme-aether .dlux-filter .btn.dlux-filter-clear.btn-warning i {
+    color: inherit !important;
+}
+
 :root.theme-aether .form-control[type="file"]::file-selector-button {
     background: var(--aether-pearl) !important;
     color: var(--aether-graphite) !important;

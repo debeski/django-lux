@@ -544,6 +544,17 @@
     text-shadow: none !important;
 }
 
+:root.theme-retro .dlux-filter .btn.dlux-filter-clear.btn-warning {
+    background:
+        radial-gradient(circle at top, rgba(201, 162, 39, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(29, 24, 21, 0.98), rgba(16, 13, 12, 0.96)) !important;
+    border-color: rgba(201, 162, 39, 0.26) !important;
+    color: var(--retro-gold) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 12px 24px -18px rgba(0, 0, 0, 0.4) !important;
+}
+
 :root.theme-retro .form-control[type="file"]::file-selector-button {
     background: linear-gradient(135deg, var(--retro-amber) 0%, var(--retro-copper) 100%) !important;
     color: var(--retro-black) !important;
