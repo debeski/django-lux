@@ -428,8 +428,14 @@ class RelayGreetingTests(_IsolatedSettingsTestCase):
                 self.assertEqual(internal_smtp_relay_greeting(host='127.0.0.1', port=port), greeting)
             finally:
                 listener.close()
-        listener, port = self._greeting_server('service not available')
-        listener.close()
+        # A port nothing listens on. Closing a listener another thread is still
+        # accepting on does not stop it accepting on Linux, so none is started.
+        import socket
+
+        unused = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        unused.bind(('127.0.0.1', 0))
+        port = unused.getsockname()[1]
+        unused.close()
         self.assertIsNone(internal_smtp_relay_greeting(host='127.0.0.1', port=port))
         self.assertFalse(internal_smtp_relay_available(host='127.0.0.1', port=port))
 
