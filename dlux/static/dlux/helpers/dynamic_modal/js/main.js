@@ -721,18 +721,28 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) { /* no-op */ }
 
     // Initial User Setup "Skip for now": POST skip=1 to mark the profile configured, then reload.
+    // syncModalFooter() has moved the button out of its <form> into the footer, so the
+    // token is read through the button's form owner (the form= association), with the
+    // page's csrf-token meta as the fallback. Without it the POST is refused and the
+    // modal comes back on every page.
     document.body.addEventListener('click', function(e) {
         const skipBtn = e.target.closest('[data-dlux-skip-setup]');
         if (!skipBtn) return;
         e.preventDefault();
         const url = skipBtn.getAttribute('data-url');
-        const form = skipBtn.closest('form');
-        const csrf = form ? form.querySelector('[name=csrfmiddlewaretoken]') : null;
+        const form = skipBtn.form || skipBtn.closest('form');
+        const csrfInput = form ? form.querySelector('[name=csrfmiddlewaretoken]') : null;
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrf = (csrfInput && csrfInput.value) || (csrfMeta && csrfMeta.content) || '';
         const body = new FormData();
         body.append('skip', '1');
-        if (csrf) body.append('csrfmiddlewaretoken', csrf.value);
+        if (csrf) body.append('csrfmiddlewaretoken', csrf);
         skipBtn.disabled = true;
-        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, body: body })
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRFToken': csrf },
+            body: body,
+        })
             .then(function (response) {
                 if (!response.ok) {
                     throw new Error('Skip request failed (HTTP ' + response.status + ').');
@@ -743,10 +753,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.location.reload();
             })
             .catch(function () {
-                // Never blindly reload on failure: the profile was not marked configured,
-                // so a reload would re-open this modal in a loop. Re-enable the button so
-                // the user can retry (or use Save) instead.
+                // Not recorded, so a reload would only re-open onboarding. Close it for
+                // this page instead; the next page offers it again.
                 skipBtn.disabled = false;
+                dynamicModal.hide();
             });
     });
 
