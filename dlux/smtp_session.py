@@ -11,6 +11,8 @@ reaches back into ``dlux.utils`` at call time.
   (connect, TLS, greeting, auth, send) a session is on.
 - ``SMTPStepError``/``failure_reason``/``failure_hint``/``parse_failure_reply``:
   a failure as stable codes, carried through the relay's 451 reply.
+- ``RELAY_GREETING``/``relay_checks_certificates``: what the relay's greeting
+  says it does.
 """
 
 import os
@@ -23,6 +25,20 @@ DEFAULT_UPSTREAM_PORT = 587
 # Implicit TLS submission (RFC 8314). Every other port starts in plaintext and
 # upgrades with STARTTLS.
 IMPLICIT_TLS_PORT = 465
+
+# The relay's greeting (the text after ``220``). ``cert-check`` in it says the relay
+# checks the provider's certificate (SMTP_RELAY_TLS_VERIFY, SMTP_RELAY_CA_FILE, the
+# Email step's switch). A relay without it signs in to any certificate. smtp-relay runs
+# the DjangoLux baked into the project image, so after an inline update it can be
+# older than web, and the greeting is how web tells.
+RELAY_CERT_CHECK = "cert-check"
+RELAY_GREETING = f"dlux smtp relay ready {RELAY_CERT_CHECK}"
+
+
+def relay_checks_certificates(greeting):
+    """Whether a relay greeting names the certificate check."""
+    return RELAY_CERT_CHECK in str(greeting or "").split()
+
 
 # The SMTP step a delivery was on when it failed.
 STEP_CONFIG = "config"

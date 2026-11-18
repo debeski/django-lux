@@ -497,7 +497,9 @@ Common keys in `get_system_config()`:
   `password_set`), and `dlux.utils.describe_mail_failure(exc)` names the failed hop
   and step of a send.
   The `relay` option is offered only while the internal relay answers on
-  `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`, overridable via
+  `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`; its greeting via
+  `dlux.utils.internal_smtp_relay_greeting`, read by
+  `dlux.smtp_session.relay_checks_certificates`; overridable via
   `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally
   and resolves its upstream per message, so reachability never depends on this
   setting. A relay already stored is left selectable even while it is down, so an

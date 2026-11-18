@@ -231,12 +231,24 @@ def build_email_test_control(form, send_url, button_label, strings=None):
     )
 
 
-def build_email_effective_panel(effective, strings, *, panel):
+def build_email_relay_certificate_warning(strings):
+    """Why the relay does not check the provider's certificate: it predates the check."""
+    return conditional_escape(strings.get(
+        'email_relay_skips_certificate_check',
+        "not checked: smtp-relay runs a DjangoLux older than 1.16.2 (the one in the project image), which signs "
+        "in to the provider without checking its certificate, whatever is set here. Move the stack to a project "
+        "image built on DjangoLux 1.16.2 or later.",
+    ))
+
+
+def build_email_effective_panel(effective, strings, *, panel, relay_checks_certificates=True):
     """Read-only provider settings for one environment route, as HTML.
 
     ``panel`` is ``relay`` (the smtp-relay service's ``SMTP_RELAY_*``) or
     ``direct`` (the web service's ``EMAIL_*`` settings). Values are escaped; the
-    password is reported only as set or not set.
+    password is reported only as set or not set. ``relay_checks_certificates``
+    False means the running relay's greeting lacks the certificate check, so
+    the certificate row says it is not checked, whatever the settings say.
     """
     s = strings
     title = s.get(
@@ -276,7 +288,13 @@ def build_email_effective_panel(effective, strings, *, panel):
         (s.get('form_sys_email_password', 'Provider SMTP password'), password),
     ]
     if panel == 'relay':
-        if effective.get('tls_verify', True) is False:
+        if not relay_checks_certificates:
+            certificate = (
+                "<span class='text-danger-emphasis' data-email-relay-outdated>"
+                + build_email_relay_certificate_warning(s)
+                + "</span>"
+            )
+        elif effective.get('tls_verify', True) is False:
             certificate = (
                 "<span class='text-warning-emphasis'>"
                 + conditional_escape(s.get('email_effective_tls_verify_off', 'off: any certificate is accepted'))
