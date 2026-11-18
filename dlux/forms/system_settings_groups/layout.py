@@ -333,10 +333,10 @@ class LayoutMixin:
                             build_email_toggle_field(self, 'email_config_use_tls', css_class='col-6 col-lg-3'),
                             build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-6 col-lg-3'),
                             Div(
-                                build_email_toggle_field(self, 'email_config_tls_verify'),
+                                build_email_toggle_field(self, 'email_config_tls_verify', fill='flex-grow-1'),
                                 HTML("<input type='hidden' name='email_config_tls_verify_shown' value='1'>"),
                                 _Prerendered(lambda: self._relay_certificate_warning_html(s)),
-                                css_class='col-12 col-lg-6' + (
+                                css_class='col-12 col-lg-6 dlux-email-tls-verify-column' + (
                                     '' if (self.initial.get('email_config_transport') or 'direct') == 'relay'
                                     else ' d-none'
                                 ),

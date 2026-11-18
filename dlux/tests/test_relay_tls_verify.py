@@ -467,6 +467,23 @@ class RelayGreetingTests(_IsolatedSettingsTestCase):
         self.assertIn('smtp-relay runs a DjangoLux older than 1.16.2', step)
         self.assertNotIn('checked against the system CAs</dd>', step)
 
+    def test_the_warning_stacks_under_the_certificate_switch(self):
+        step = self._email_step(self.OLD_GREETING, transport='relay', secret_storage='encrypted_db',
+                                host='smtp.provider.example')
+        at = step.index("data-dlux-email-toggle-field='email_config_tls_verify'")
+        column = step.rfind('class="', 0, at) + len('class="')
+        self.assertIn('dlux-email-tls-verify-column', step[column:step.index('"', column)].split())
+        card = step.rfind("class='", 0, at) + len("class='")
+        card = step[card:step.index("'", card)].split()
+        self.assertIn('flex-grow-1', card)
+        self.assertNotIn('h-100', card)
+        self.assertLess(step.index('data-email-relay-outdated', at), step.index('id="id_email_config_host"'))
+        css = (Path(smtp_session.__file__).parent / 'static/dlux/setup/css/main.css').read_text(encoding='utf-8')
+        rule = css[css.index('.dlux-email-tls-verify-column {'):]
+        rule = rule[:rule.index('}')]
+        self.assertIn('display: flex;', rule)
+        self.assertIn('flex-direction: column;', rule)
+
     def test_a_current_or_missing_relay_is_not_flagged(self):
         for greeting in (smtp_session.RELAY_GREETING, None):
             step = self._email_step(greeting, transport='relay', secret_storage='encrypted_db',

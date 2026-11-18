@@ -346,7 +346,9 @@ def build_email_effective_panel(effective, strings, *, panel, relay_checks_certi
     )
 
 
-def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
+def build_email_toggle_field(form, field_name, css_class=None, attrs=None, fill='h-100'):
+    """``fill`` sizes the card in its column: ``h-100`` matches a row of cards, ``flex-grow-1``
+    leaves room for content stacked under it in a flex column."""
     bound_field = form[field_name]
     field = bound_field.field
     label = conditional_escape(field.label or field_name.replace('_', ' ').title())
@@ -359,7 +361,7 @@ def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
     checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
     disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
     wrapper_html = mark_safe(
-        f"<div class='dlux-email-toggle-field border rounded bg-light px-3 py-2 h-100' "
+        f"<div class='dlux-email-toggle-field border rounded bg-light px-3 py-2 {fill}' "
         f"data-dlux-email-toggle-field='{conditional_escape(field_name)}'>"
         f"<div class='dlux-email-toggle-field__row d-flex align-items-center justify-content-between gap-3'>"
         f"<div class='dlux-email-toggle-field__label fw-semibold'>{label}</div>"
