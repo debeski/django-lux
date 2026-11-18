@@ -71,7 +71,7 @@
   - [ ] Postponed 2026-08-28: keep stale-route pruning import-only; revisit builder-save pruning only if an actual stale-entry problem appears.
   - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
 - **Completed Recently:** 2026-11-17 `1.16/mail_setup` merged (#86); `1.16/relay_tls_verify` merged as #87; `1.16/scaffold_agent_run` merged as #88.
-  - [ ] **1.16.2b2 + Composer 1.10.2b2**: merge #90 (carries this tracker) → #91 → release PR; Composer #35 → #36 → release PR (owner OK for each merge, tag and release); pre-publish acceptance on testbed-dlux (old relay → Email step warning + `relay-version` WARN; rebuilt image → OK; doctor with email off; `dlux rollback` on the image release); publish; then stables 1.16.2 + 1.10.2.
+  - [ ] **1.16.2b2 + Composer 1.10.2b2**: b1 + Composer 1.10.2b1 accepted on testbed-dlux (pre-publish, beta channel, 2026-11-18 gap run; `testbeds/dlux/.xclude/1.16.2b1-*`); owner wants b2 before the stable. Owner OK 2026-11-18: merge #90 → #91 → #93 (gap-run notes: Direct + Environment names the relay, no 1025; legacy reset puts 587 on STARTTLS) and Composer #35 → #36. Next: release PRs (owner OK for tag and release); pre-publish acceptance on testbed-dlux (old relay → Email step warning + `relay-version` WARN; rebuilt image → OK; doctor with email off; `dlux rollback` on the image release; generated stack's Direct panel); publish; then stables 1.16.2 + 1.10.2. Consumers merge only after the stable.
   - [ ] **1.16.3**: #92 `1.16/ui_fixes` (backup labels in Arabic, dark-theme Clear chip, onboarding Skip + close as skip): rebase onto main after the 1.16.2b2 release PR, then accept in a real app (backup labels and Clear chip unchecked there).
 
 ### One-line info about last verified Tests:

@@ -1029,6 +1029,7 @@ STRINGS = {
     'email_effective_tls_verify_off': 'معطّل: تُقبل أي شهادة',
     'email_relay_skips_certificate_check': 'غير مُتحقَّق منها: تعمل خدمة smtp-relay بإصدار DjangoLux أقدم من 1.16.2 (المضمَّن في صورة المشروع)، فتسجّل الدخول لدى المزود دون التحقق من شهادته أياً كان الإعداد هنا. انقل الحزمة إلى صورة مشروع مبنية على DjangoLux 1.16.2 أو أحدث.',
     'email_effective_not_visible': 'لا ترى خدمة الويب إعدادات المرحّل بعد. شغّل \u2066./start.sh check --fix\u2069 ثم \u2066./start.sh\u2069 لإعادة إنشاء الخدمات، وأعد تحميل هذه الصفحة. البريد التجريبي يستخدم على أي حال ما لدى المرحّل.',
+    'email_effective_direct_internal_relay': 'تشير إعدادات ⁦EMAIL_*⁩ في خدمة الويب إلى المرحّل الداخلي، لذا يمر البريد المرسل بهذا المسار عبر المرحّل بإعدادات المزود الموجودة في ⁦SMTP_RELAY_*⁩. اختر مُرحّل SMTP الداخلي لعرضها.',
     'email_encryption_ssl': 'SSL (TLS ضمني)',
     'email_encryption_starttls': 'STARTTLS',
     'email_encryption_none': 'بدون',

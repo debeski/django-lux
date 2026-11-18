@@ -286,7 +286,8 @@ def normalize_email_config(value, *, redact_secret=False):
     normalized['enabled'] = _coerce_import_bool(config.get('enabled', False))
 
     # The retired 'relay' preset wrote the internal relay's own port into the
-    # provider port. Clear it, keeping any verification: the relay never used it.
+    # provider port. Reset port and encryption to the provider default (587,
+    # STARTTLS), keeping any verification: the relay never used them.
     legacy_fingerprint = None
     leaked_relay_port = (
         normalized['transport'] == 'relay'
@@ -295,7 +296,9 @@ def normalize_email_config(value, *, redact_secret=False):
     )
     if leaked_relay_port:
         legacy_fingerprint = email_config_fingerprint(normalized)
-        normalized['port'] = default_email_config()['port']
+        defaults = default_email_config()
+        for key in ('port', 'use_tls', 'use_ssl'):
+            normalized[key] = defaults[key]
 
     # Verification vouches for one exact connection configuration. Recomputing the
     # fingerprint here means *every* write path — form save, import, config.json

@@ -1032,6 +1032,7 @@ STRINGS = {
     'email_effective_tls_verify_off': 'off: any certificate is accepted',
     'email_relay_skips_certificate_check': "not checked: smtp-relay runs a DjangoLux older than 1.16.2 (the one in the project image), which signs in to the provider without checking its certificate, whatever is set here. Move the stack to a project image built on DjangoLux 1.16.2 or later.",
     'email_effective_not_visible': 'The web service cannot see the relay settings yet. Run ./start.sh check --fix, then ./start.sh to recreate the services, and reload this page. A test email still uses whatever the relay has.',
+    'email_effective_direct_internal_relay': "The web service's EMAIL_* settings point at the internal relay, so mail sent this way goes through the relay with the provider settings in SMTP_RELAY_*. Choose Internal SMTP relay to see them.",
     'email_encryption_ssl': 'SSL (implicit TLS)',
     'email_encryption_starttls': 'STARTTLS',
     'email_encryption_none': 'None',
