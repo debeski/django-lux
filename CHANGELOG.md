@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.2
+
+- **Stable 1.16.2**: Promote the accepted 1.16.2b2, which includes 1.16.2b1. On the Environment route the Email step shows the internal SMTP relay's host, port, encryption, user and whether a password is set, read from the stack. The relay verifies the provider's certificate: a private or self-signed one needs `SMTP_RELAY_CA_FILE` or `SMTP_RELAY_TLS_VERIFY=False`. Encryption follows the port, the Email step's timeout applies on every route, and a failed send names its hop and step. The Email step warns while smtp-relay's image predates the certificate check, and `dlux_doctor`'s email checks follow the Email step. New projects start `composer-agent` and `composer-executor` with `run`. Relay changes need the project image rebuilt on 1.16.2; Composer 1.10.2's `./start.sh check --fix` shares the relay's settings with an existing stack. Requires Composer `>=1.10.0b1`; updates inline from any 1.16 release, with no migrations and no runtime or dependency changes from 1.16.2b2.
+
 ## v1.16.2b2
 
 - **Email step names a relay that skips the certificate check**: the relay greets with `220 dlux smtp relay ready cert-check` (`dlux.smtp_session.RELAY_GREETING`, `RELAY_CERT_CHECK`, `relay_checks_certificates`). The Email step's relay probe now keeps the greeting (`dlux.utils.internal_smtp_relay_greeting`; `internal_smtp_relay_available` wraps it), and when a running relay's greeting lacks `cert-check` (smtp-relay runs the DjangoLux baked into the project image, so an inline update to 1.16.2 leaves it older) the Environment panel's *Certificate check* row and the Entered-here route's *Verify the provider's certificate* switch say the certificate is not checked and ask for a project image built on DjangoLux 1.16.2 or later (`email_relay_skips_certificate_check`, `data-email-relay-outdated`). Before, the step showed the check as on while that relay signed in to any certificate. Found by the 1.16.2b1 beta-channel acceptance.
