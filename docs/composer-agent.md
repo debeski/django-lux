@@ -198,3 +198,11 @@ A registry whose certificate comes from a private CA must also be trusted by the
 Docker daemon: put the CA at `/etc/docker/certs.d/<registry host>/ca.crt` on the
 host. Composer's update check trusts the public CAs only; for such a registry
 `registry-login` warns that the certificate is not trusted.
+
+The update check runs in `composer-agent` and finds the registry through Docker's
+DNS, which does not read the host's `/etc/hosts`; the Docker daemon's pulls do. A
+registry that only the host resolves through `/etc/hosts` (an internal name on a
+server outside that network) also needs the names in `composer-agent`'s
+`extra_hosts`, for GitLab both the registry and the GitLab host, or a DNS server
+that both use. Otherwise pulls work while the update check reports the registry
+unreachable. `check --fix` keeps an `extra_hosts` entry the stack adds.
