@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from dlux import __version__
 
-from . import UpdaterError
+from . import UpdaterError, shared_files
 from .image_update import app_version, image_update_metadata, queue_image_update
 
 
@@ -42,15 +42,7 @@ def snapshot_path(store):
 
 
 def _atomic_json(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    with temporary.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, sort_keys=True)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, path)
+    shared_files.write_text(path, json.dumps(payload, sort_keys=True) + "\n", fsync=True)
 
 
 def _read_request(path):
@@ -117,7 +109,7 @@ def _backup_result(backup):
 
 def _archive_request(store, path):
     destination_root = processed_dir(store)
-    destination_root.mkdir(parents=True, exist_ok=True)
+    shared_files.ensure_dir(destination_root)
     destination = destination_root / path.name
     if destination.exists():
         destination = destination.with_name(
@@ -135,7 +127,7 @@ def publish_agent_results(store):
 
 def consume_agent_requests(service, limit=10):
     root = requests_dir(service.store)
-    root.mkdir(parents=True, exist_ok=True)
+    shared_files.ensure_dir(root)
     Image = apps.get_model("dlux", "DluxImageUpdate")
     processed = 0
     for path in sorted(root.glob("*.json")):

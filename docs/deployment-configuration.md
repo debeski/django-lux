@@ -227,6 +227,52 @@ documentation, but they are not accepted deployment settings:
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
 
+## File permissions
+
+A DjangoLux image can run as a fixed non-root user: uid `10001` with primary
+group `0` (`USER 10001:0` in the Dockerfile). Data a root image wrote is
+`root:root`, with directories at `0755` and files at `0644`. That user can read
+it but cannot create, delete or rename anything in it, so it reaches the data
+through group `0`. Only modes change: owners stay root, and a root image keeps
+working on the same data.
+
+What the app needs on each mount:
+
+| Mount | Directories | Files |
+| --- | --- | --- |
+| `media`, `static`, a project's own read-write mounts | read, write, search | read |
+| `logs` | read, write, search | read, write (a log handler appends and rotates) |
+| Runtime volume (`/opt/dlux-runtime`) | read, write, search on the volume root, its top-level directories and everything under `state/`; read and search below them | read and write under `state/`; read elsewhere |
+| A read-only mount (`imports`) | read, search | read |
+
+The app and composer-agent share the runtime volume. composer-agent runs as uid
+`0` without capabilities, so both sides create directories at `0775` and files
+at `0664` there and reach each other's entries through group `0`. The generated
+entrypoint sets `umask 0002`.
+
+**The entrypoint gate.** Before it waits for the database, the generated
+`entrypoint.sh` runs `python -m dlux.mount_access gate`. Under a non-root uid it
+checks the top two levels of every mount under `/app` and of the runtime volume.
+If anything the app needs is missing, it stops the container with exit code 78
+and names each path; a root process skips the check. `python -m
+dlux.mount_access report` prints the whole-tree result as JSON. The doctor's
+`storage.mount_access` check reports the same: an error under a non-root uid, and
+as root an informational line counting what uid `10001` would still need.
+
+**Granting access.** Composer's `app-permissions` check reports what the app
+cannot use, and `./start.sh check --fix` grants it. The grant changes only modes
+(the group only on an entry owned by neither group `0` nor the app). It never
+follows a link, never leaves the mount's filesystem, and never changes a file
+with more than one hard link. Composer runs the same grant before every `up` of
+an image that runs as a non-root uid, and recreates nothing when the grant fails.
+Every change is listed in
+`.xclude/composer-check/<UTC>/app-permissions/app-permissions.tsv.gz`, and
+`./start.sh app-permissions revert <that file>` restores the previous modes of the
+entries that still have the granted ones. A deployment without Composer grants
+the same bits as root before the first start of a non-root image: `chmod g+rwx`
+on the directories in the table and `chmod g+rw` on log files and runtime
+`state/` files.
+
 ## Stored files (`/media/`)
 
 Stored files are private by default (stack schema 4). The generated proxy, Caddy or the nginx fallback, serves `/media/` with its own file server. Before it sends anything outside the public folders, it asks DjangoLux at `/sys/files/media-access/` (Caddy `forward_auth`, nginx `auth_request`). DjangoLux answers that URI wherever the project mounts `dlux.urls`, so a project that mounts it under a prefix (`path('staff/', include('dlux.urls'))`) uses the generated proxy blocks unchanged and needs no root alias. The rules (`dlux.files.media`), in order:

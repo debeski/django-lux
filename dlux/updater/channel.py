@@ -32,7 +32,7 @@ from pathlib import Path
 
 from django.utils import timezone
 
-from . import UpdaterError
+from . import UpdaterError, shared_files
 from .runtime import state_dir
 
 
@@ -212,9 +212,4 @@ def _read_json(path):
 
 
 def _atomic_json(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
-    return path
+    return shared_files.write_text(path, json.dumps(payload, sort_keys=True) + "\n")
