@@ -412,6 +412,11 @@ services:
       - "2"
     environment:
       WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
+      # The login for a private WEB_IMAGE registry (a read-only deploy token in
+      # .secrets/.env); empty for a public image. The executor's pulls use it.
+      COMPOSER_REGISTRY_USERNAME: "${COMPOSER_REGISTRY_USERNAME:-}"
+      COMPOSER_REGISTRY_PASSWORD: "${COMPOSER_REGISTRY_PASSWORD:-}"
+      COMPOSER_REGISTRY_HOST: "${COMPOSER_REGISTRY_HOST:-}"
       COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
       COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
       COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"
@@ -463,6 +468,10 @@ services:
     environment:
       DOCKER_HOST: "tcp://docker-socket-proxy:2375"
       WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
+      # The same login, for the update check.
+      COMPOSER_REGISTRY_USERNAME: "${COMPOSER_REGISTRY_USERNAME:-}"
+      COMPOSER_REGISTRY_PASSWORD: "${COMPOSER_REGISTRY_PASSWORD:-}"
+      COMPOSER_REGISTRY_HOST: "${COMPOSER_REGISTRY_HOST:-}"
       COMPOSER_CONTROL_URL: "${COMPOSER_CONTROL_URL:-}"
       COMPOSER_ENROLLMENT_TOKEN: "${COMPOSER_ENROLLMENT_TOKEN:-}"
       COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"

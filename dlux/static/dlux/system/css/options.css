@@ -485,6 +485,7 @@
 a.dlux-upd-ic:hover, button.dlux-upd-ic:hover { background: color-mix(in srgb, var(--primal) 20%, transparent); transform: translateY(-1px); }
 .dlux-upd-ic--static { background: transparent; cursor: default; }
 .dlux-upd-ic.is-ok, .dlux-upd-ic--ok { color: #16a34a; background: transparent; }
+.dlux-upd-ic.dlux-upd-ic--warn { color: #d97706; background: transparent; }
 .dlux-upd-ic.is-warn { color: #d97706; background: transparent; }
 .dlux-upd-ic.is-fail { color: #dc2626; background: transparent; }
 .dlux-upd-ic--avail { color: #d97706; background: color-mix(in srgb, #d97706 15%, transparent); }
