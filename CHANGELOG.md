@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Non-root app images, groundwork (`1.16/non_root_app`)**: `dlux.mount_access` judges what the app needs on its mounts for uid 10001 with group 0 (directories read/write/search; files read; log files and runtime `state/` files read/write; installed releases read-only). The generated `entrypoint.sh` sets `umask 0002` and runs `python -m dlux.mount_access gate` first, which exits 78 under a non-root uid while that data is unusable, naming each path; a root process skips it. New `dlux_doctor` check `storage.mount_access`: an error under a non-root uid, informational as root. Every runtime-volume write (`dlux.updater.shared_files`) creates directories 0775 and files 0664 with pid-suffixed temporary names; the release restore installs with `pip --no-cache-dir`. The runtime contract gains a `permissions` block (`app_uid`, `app_gid`, `directory_mode`, `file_mode`). The scaffold Dockerfile still runs as root. Pairs with Composer's `app-permissions` check and grant.
+
 ## v1.16.2
 
 - **Stable 1.16.2**: Promote the accepted 1.16.2b2, which includes 1.16.2b1. On the Environment route the Email step shows the internal SMTP relay's host, port, encryption, user and whether a password is set, read from the stack. The relay verifies the provider's certificate: a private or self-signed one needs `SMTP_RELAY_CA_FILE` or `SMTP_RELAY_TLS_VERIFY=False`. Encryption follows the port, the Email step's timeout applies on every route, and a failed send names its hop and step. The Email step warns while smtp-relay's image predates the certificate check, and `dlux_doctor`'s email checks follow the Email step. New projects start `composer-agent` and `composer-executor` with `run`. Relay changes need the project image rebuilt on 1.16.2; Composer 1.10.2's `./start.sh check --fix` shares the relay's settings with an existing stack. Requires Composer `>=1.10.0b1`; updates inline from any 1.16 release, with no migrations and no runtime or dependency changes from 1.16.2b2.

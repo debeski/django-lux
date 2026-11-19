@@ -36,6 +36,7 @@ from django.utils import timezone
 
 from django.conf import settings
 
+from .updater import shared_files
 from .updater.runtime import RuntimeStore, state_dir
 
 SCHEMA_VERSION = 1
@@ -73,15 +74,7 @@ def _read_json(path):
 
 
 def _atomic_json(path, payload):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    with temporary.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, sort_keys=True)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, path)
+    shared_files.write_text(path, json.dumps(payload, sort_keys=True) + "\n", fsync=True)
 
 
 def capabilities(store=None):

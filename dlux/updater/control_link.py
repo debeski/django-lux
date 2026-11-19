@@ -13,7 +13,7 @@ import uuid
 
 from django.utils import timezone
 
-from . import agent_bridge
+from . import agent_bridge, shared_files
 
 ENROLL_REQUEST_FILENAME = "enroll-request.json"
 AGENT_STATUS_FILENAME = "agent-status.json"
@@ -44,7 +44,7 @@ def read_link_notice(store):
 def write_link_notice(store, data):
     """Worker-only (read-write runtime mount). Atomic so a crash mid-write leaves
     the previous marker intact rather than a truncated file."""
-    store.state_dir.mkdir(parents=True, exist_ok=True)
+    shared_files.ensure_dir(store.state_dir)
     agent_bridge._atomic_json(_link_notice_path(store), data)
 
 
@@ -59,7 +59,7 @@ def write_enroll_request(store, control_url, pairing_token, operation_id=None):
     read-only. Web-tier callers queue a ``DluxControlLinkRequest`` instead.
     """
     operation_id = str(operation_id or uuid.uuid4())
-    agent_bridge.bridge_root(store).mkdir(parents=True, exist_ok=True)
+    shared_files.ensure_dir(agent_bridge.bridge_root(store))
     agent_bridge._atomic_json(
         _enroll_request_path(store),
         {

@@ -89,6 +89,7 @@ TEST_LABELS = [
     'dlux.tests.test_ribbon_tabs',
     'dlux.tests.test_row_actions_style',
     'dlux.tests.test_runtime_contract',
+    'dlux.tests.test_mount_access',
     'dlux.tests.test_runtime_supervisor',
     'dlux.tests.test_scaffold',
     'dlux.tests.test_scanlink_connection',

@@ -13,7 +13,6 @@ latest release + its manifest.
 """
 
 import json
-import os
 from pathlib import Path
 
 from django.apps import apps
@@ -23,7 +22,7 @@ from django.conf import settings
 
 from packaging.version import InvalidVersion, Version
 
-from . import UpdaterError
+from . import UpdaterError, shared_files
 from .runtime import state_dir
 from .service import _state_model, active_runtime_version, updates_enabled
 
@@ -453,10 +452,7 @@ def write_composer_trigger(store, row):
     }
     if row.control_operation_id:
         payload["operation_id"] = str(row.control_operation_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, json.dumps(payload) + "\n")
 
 
 def write_deploy_status(store, status, **extra):
@@ -465,10 +461,7 @@ def write_deploy_status(store, status, **extra):
     this file with its own phases once the `-uo` run starts."""
     path = status_path(store)
     payload = {"status": status, "updated_at": timezone.now().isoformat(), **extra}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, json.dumps(payload) + "\n")
 
 
 LOG_FILENAME = "deploy-log.txt"
@@ -483,7 +476,4 @@ def write_deploy_log(store, text):
     inline updater to keep its log visible while the maintenance flag walls off
     web; composer writes this file itself during image updates."""
     path = log_path(store)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(str(text or "") + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, str(text or "") + "\n")
