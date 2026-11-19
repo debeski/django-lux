@@ -686,28 +686,32 @@
             // status (arrow until a check, then a tick, or the disk for a local
             // build) and gives way to the update icon when there is one.
             const imageChecked = Boolean(img.checked_at);
+            // Composer could not read the registry: a warning that says why, never
+            // a tick that would read as "up to date".
+            const imageReason = localBuild ? '' : String(img.remote_reason || '');
+            const imageReasonLabel = imageReason === 'login-required' ? root.dataset.labelImageLoginRequired
+                : (imageReason === 'login-refused' ? root.dataset.labelImageLoginRefused
+                    : (imageReason ? root.dataset.labelImageUnreadable : ''));
+            const imageTitle = (element) => (localBuild ? root.dataset.labelImageLocal : imageReasonLabel)
+                || element.dataset.titleBase;
             if (imageCheckButton) {
-                imageCheckButton.classList.toggle('is-ok', imageChecked && !localBuild);
+                imageCheckButton.classList.toggle('is-ok', imageChecked && !localBuild && !imageReason);
+                imageCheckButton.classList.toggle('dlux-upd-ic--warn', Boolean(imageReason));
                 const glyph = imageCheckButton.querySelector('[data-dlux-check-glyph]');
                 if (glyph) {
                     glyph.className = localBuild ? 'bi bi-hdd'
-                        : (imageChecked ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise');
+                        : (imageReason ? 'bi bi-exclamation-triangle-fill'
+                            : (imageChecked ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise'));
                 }
-                withCheckTime(
-                    imageCheckButton,
-                    localBuild ? (root.dataset.labelImageLocal || imageCheckButton.dataset.titleBase) : imageCheckButton.dataset.titleBase,
-                    img.checked_at,
-                );
+                withCheckTime(imageCheckButton, imageTitle(imageCheckButton), img.checked_at);
             }
             if (imageOkEl) {
-                imageOkEl.classList.toggle('bi-check-circle-fill', !localBuild);
+                imageOkEl.classList.toggle('bi-check-circle-fill', !localBuild && !imageReason);
+                imageOkEl.classList.toggle('bi-exclamation-triangle-fill', Boolean(imageReason));
                 imageOkEl.classList.toggle('bi-hdd', localBuild);
-                imageOkEl.classList.toggle('dlux-upd-ic--ok', !localBuild);
-                withCheckTime(
-                    imageOkEl,
-                    localBuild ? (root.dataset.labelImageLocal || imageOkEl.dataset.titleBase) : imageOkEl.dataset.titleBase,
-                    img.checked_at,
-                );
+                imageOkEl.classList.toggle('dlux-upd-ic--ok', !localBuild && !imageReason);
+                imageOkEl.classList.toggle('dlux-upd-ic--warn', Boolean(imageReason));
+                withCheckTime(imageOkEl, imageTitle(imageOkEl), img.checked_at);
             }
             withCheckTime(imageButton, imageButton?.dataset.titleBase, img.checked_at);
             // When an update is available, show what it would update to: the target

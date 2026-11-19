@@ -141,3 +141,60 @@ file the host user can read may still be unreadable after UID mapping; the findi
 names the executor's mapped host UID and shows a Linux VM recovery command for it.
 The network-facing agent needs no access to the secrets file. Update both resident
 services with `./start.sh agent update`.
+
+## Private image registry
+
+Requires Composer 1.10.3 or later. A `WEB_IMAGE` in a private registry, such as a private GitLab project or a private
+Docker Hub repository, needs a login before it can be read. That includes
+`composer-agent`'s update check and every pull: the image update from the Updates
+card, `./start.sh update`, and a `./start.sh` that has to fetch an image. Put a
+read-only login in `.secrets/.env`:
+
+```bash
+COMPOSER_REGISTRY_USERNAME=gitlab+deploy-token-12
+COMPOSER_REGISTRY_PASSWORD=<the deploy token>
+```
+
+What to use:
+
+- **GitLab:** a deploy token with the `read_registry` scope only (Settings >
+  Repository > Deploy tokens).
+- **Docker Hub:** an access token with read-only scope.
+
+The login belongs to the registry `WEB_IMAGE` names. Set
+`COMPOSER_REGISTRY_HOST=registry.example.com` when it belongs to another one.
+Composer never sends it to any other registry, so public images such as `caddy`
+and `postgres` are pulled as before.
+
+How Composer uses the login:
+
+- **Update check:** it sends the login to the token service the registry names,
+  over https only.
+- **Pulls:** each `docker compose` run gets a private Docker login holding only
+  this one. The Composer containers have no Docker login of their own, so a
+  `docker login` on the host does not reach them.
+
+The generated stack passes the three keys to `composer-agent` and
+`composer-executor` as `"${KEY:-}"`, which is empty while `.secrets/.env` does not
+set them. To add the lines to an older stack, run `./start.sh check --fix`.
+After that fix, and after any change to the login, run `./start.sh`: it recreates
+the pair because their environment changed.
+
+`./start.sh check` reports the `registry-login` finding:
+
+| Finding | Meaning |
+| --- | --- |
+| OK | The registry answers. |
+| WARN | The registry needs a login, and the stack passes none. |
+| FAIL | The registry refused the login. |
+| WARN | `.secrets/.env` holds a login the stack does not pass on. |
+| WARN | Composer does not trust the registry's certificate (a private CA). |
+
+While the registry cannot be read, the Updates card shows a warning on the
+application image that says why, instead of the up-to-date tick, and offers no
+update.
+
+A registry whose certificate comes from a private CA must also be trusted by the
+Docker daemon: put the CA at `/etc/docker/certs.d/<registry host>/ca.crt` on the
+host. Composer's update check trusts the public CAs only; for such a registry
+`registry-login` warns that the certificate is not trusted.

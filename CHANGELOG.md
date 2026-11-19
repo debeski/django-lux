@@ -7,6 +7,16 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Private Image Registry Login**:
+  - The scaffold's `compose.yml.tmpl` passes `COMPOSER_REGISTRY_USERNAME`, `COMPOSER_REGISTRY_PASSWORD` and `COMPOSER_REGISTRY_HOST` to `composer-agent` and `composer-executor` as `"${KEY:-}"`, after `WEB_IMAGE`.
+  - With a read-only login in `.secrets/.env` (for GitLab, a deploy token with `read_registry`), Composer 1.10.3's update check and image pulls can read a `WEB_IMAGE` in a private registry. Composer's `check --fix` adds the same lines to existing stacks.
+  - The Updates card shows a warning on the application image instead of the up-to-date tick while Composer cannot read the registry. The warning names the reason from the availability document's `reason` (`image_status_summary()["remote_reason"]`): a missing login, a refused login, or an unreadable registry.
+  - New strings `dlux_update_image_login_required`, `dlux_update_image_login_refused` and `dlux_update_image_unreadable` (en, ar).
+  - Docs: [Composer Agent Integration](docs/composer-agent.md#private-image-registry) and the generated README.
+  - Pairs with Composer `1.10/private_registry`.
+
 ## v1.16.2
 
 - **Stable 1.16.2**: Promote the accepted 1.16.2b2, which includes 1.16.2b1. On the Environment route the Email step shows the internal SMTP relay's host, port, encryption, user and whether a password is set, read from the stack. The relay verifies the provider's certificate: a private or self-signed one needs `SMTP_RELAY_CA_FILE` or `SMTP_RELAY_TLS_VERIFY=False`. Encryption follows the port, the Email step's timeout applies on every route, and a failed send names its hop and step. The Email step warns while smtp-relay's image predates the certificate check, and `dlux_doctor`'s email checks follow the Email step. New projects start `composer-agent` and `composer-executor` with `run`. Relay changes need the project image rebuilt on 1.16.2; Composer 1.10.2's `./start.sh check --fix` shares the relay's settings with an existing stack. Requires Composer `>=1.10.0b1`; updates inline from any 1.16 release, with no migrations and no runtime or dependency changes from 1.16.2b2.

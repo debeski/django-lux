@@ -322,6 +322,11 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("handle_errors", caddy_contents)
             # Caddy equivalent of the front-proxy header handling.
             self.assertIn("trusted_proxies static {$DLUX_FRONT_PROXY:private_ranges}", caddy_contents)
+            # The private-registry login reaches both Composer roles, empty by default.
+            for role, end in (("composer-executor", "\n  composer-agent:"), ("composer-agent", "\n  # DjangoLux Composer agent end")):
+                block = compose_contents[compose_contents.index(f"\n  {role}:"):compose_contents.index(end)]
+                for key in ("COMPOSER_REGISTRY_USERNAME", "COMPOSER_REGISTRY_PASSWORD", "COMPOSER_REGISTRY_HOST"):
+                    self.assertIn(f'      {key}: "${{{key}:-}}"', block)
             # composer-agent publishes the page on dlux_runtime; Caddy serves it
             # and its assets from there, never from a project bind mount.
             self.assertIn("root * /opt/dlux-runtime/proxy/maintenance", caddy_contents)
