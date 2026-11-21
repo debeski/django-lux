@@ -131,3 +131,22 @@ which derives a list page's filter band from the FilterSet instead of a per-view
 `project-decrees`, `project-trademarks` and both `project-sales-crm` editions had moved to the
 ribbon; `project-dhub` still calls the helper (6 sites in `documents/filters.py`) and must adopt the
 ribbon before it upgrades past v1.9.x.
+
+## Removed in v1.16.3
+
+### App-side wheel download, attestation and install
+
+Reconcile rebuilds a lost active pointer from the runtime volume only: `web` and
+`worker` have no internet, and Composer stages every release. The helpers that
+fetched, attested and installed a wheel inside the application container are
+removed:
+
+| Removed | Use |
+| --- | --- |
+| `dlux.updater.manifest.download_wheel`, `verify_pypi_attestation` | Composer's agent (`composer/dlux_release_source.py`) |
+| `dlux.updater.manifest` constants `ALLOWED_DOWNLOAD_HOSTS`, `MAX_INDEX_BYTES`, `MAX_WHEEL_BYTES`, `PYPI_PROJECT_REPOSITORY`, `PYPI_PROJECT_REPOSITORY_NAME`, `PYPI_RELEASE_WORKFLOW` | Composer's own release-source constants |
+| `RuntimeStore.install_wheel`, `wheel_path`, `activate_stage` | Composer's staging into `releases/<version>/` |
+
+No consumer project imported them. The `DluxUpdateState` columns `active_wheel_url`
+and `active_wheel_sha256` stay, and nothing reads them. See
+[Recovery and rollback](inline-updater.md#recovery-and-rollback).

@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.metadata
-import importlib.util
 import json
 import re
-import subprocess
 import sys
-import urllib.request
 import zipfile
 from dataclasses import asdict, dataclass
 from email.parser import BytesParser
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
@@ -22,14 +18,6 @@ from packaging.version import InvalidVersion, Version
 from . import UPDATER_SCHEMA_VERSION, UpdaterError
 
 
-PYPI_PROJECT_REPOSITORY = "https://github.com/debeski/django-lux"
-PYPI_PROJECT_REPOSITORY_NAME = "debeski/django-lux"
-# PyPI's integrity API exposes the configured GitHub workflow as its basename,
-# even though the trusted-publisher repository path is .github/workflows/release.yml.
-PYPI_RELEASE_WORKFLOW = "release.yml"
-ALLOWED_DOWNLOAD_HOSTS = frozenset({"pypi.org", "files.pythonhosted.org"})
-MAX_INDEX_BYTES = 4 * 1024 * 1024
-MAX_WHEEL_BYTES = 64 * 1024 * 1024
 MANIFEST_PATH = "dlux/release-manifest.json"
 
 
@@ -43,106 +31,6 @@ class ReleaseCandidate:
 
     def as_dict(self):
         return asdict(self)
-
-
-def _validated_https_url(url, *, allowed_hosts=ALLOWED_DOWNLOAD_HOSTS):
-    parsed = urlparse(str(url or ""))
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts:
-        raise UpdaterError("The update source returned an unapproved download URL.")
-    if parsed.username or parsed.password or parsed.port not in (None, 443):
-        raise UpdaterError("The update source returned an unsafe download URL.")
-    return parsed.geturl()
-
-
-def _read_bounded(response, limit):
-    declared = response.headers.get("Content-Length")
-    if declared:
-        try:
-            if int(declared) > limit:
-                raise UpdaterError("The update response is larger than the allowed limit.")
-        except ValueError:
-            pass
-    payload = response.read(limit + 1)
-    if len(payload) > limit:
-        raise UpdaterError("The update response is larger than the allowed limit.")
-    return payload
-
-
-def download_wheel(candidate, destination, *, opener=urllib.request.urlopen):
-    destination = Path(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(candidate.url, headers={"User-Agent": "django-lux-updater/1"})
-    try:
-        with opener(request, timeout=60) as response:
-            _validated_https_url(response.geturl())
-            payload = _read_bounded(response, MAX_WHEEL_BYTES)
-    except UpdaterError:
-        raise
-    except Exception as exc:
-        raise UpdaterError("Could not download the DjangoLux update wheel.") from exc
-    actual = hashlib.sha256(payload).hexdigest()
-    if actual != candidate.sha256:
-        raise UpdaterError("The downloaded wheel does not match PyPI's SHA-256 digest.")
-    temporary = destination.with_name(f".{destination.name}.part")
-    temporary.write_bytes(payload)
-    temporary.replace(destination)
-    return destination
-
-
-def verify_pypi_attestation(candidate, *, runner=subprocess.run, opener=urllib.request.urlopen):
-    if importlib.util.find_spec("pypi_attestations") is None:
-        raise UpdaterError("PyPI attestation verification is unavailable in this project image.")
-    try:
-        completed = runner(
-            [
-                sys.executable,
-                "-m",
-                "pypi_attestations",
-                "verify",
-                "pypi",
-                "--repository",
-                PYPI_PROJECT_REPOSITORY,
-                candidate.url,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except Exception as exc:
-        raise UpdaterError("Could not verify the wheel's PyPI attestation.") from exc
-    if completed.returncode != 0:
-        raise UpdaterError("The wheel's PyPI Trusted Publisher attestation is invalid.")
-    provenance_url = (
-        "https://pypi.org/integrity/django-lux/"
-        f"{quote(candidate.version, safe='')}/{quote(candidate.filename, safe='')}/provenance"
-    )
-    try:
-        request = urllib.request.Request(
-            provenance_url,
-            headers={"Accept": "application/vnd.pypi.integrity.v1+json"},
-        )
-        with opener(request, timeout=20) as response:
-            _validated_https_url(response.geturl())
-            provenance = json.loads(_read_bounded(response, MAX_INDEX_BYTES).decode("utf-8"))
-        bundles = provenance.get("attestation_bundles")
-        if not isinstance(bundles, list) or not bundles:
-            raise ValueError("missing attestation bundles")
-        for bundle in bundles:
-            publisher = bundle.get("publisher") if isinstance(bundle, dict) else None
-            if not isinstance(publisher, dict):
-                raise ValueError("missing publisher")
-            if (
-                publisher.get("kind") != "GitHub"
-                or publisher.get("repository") != PYPI_PROJECT_REPOSITORY_NAME
-                or publisher.get("workflow") != PYPI_RELEASE_WORKFLOW
-            ):
-                raise ValueError("unexpected publisher identity")
-    except Exception as exc:
-        raise UpdaterError(
-            "The wheel attestation does not match the official DjangoLux release workflow."
-        ) from exc
-    return True
 
 
 def inspect_wheel(wheel_path):
