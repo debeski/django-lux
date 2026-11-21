@@ -115,18 +115,24 @@ authorization decision.
   egress bridge can reach PyPI; database/Redis access stays on the internal
   network. Web and nginx mount `dlux_runtime` read-only; `worker` is the only
   DjangoLux service that mounts it read-write.
-- Discovery and redirects are allowlisted to official PyPI hosts. A wheel is
-  accepted only after SHA-256 and PyPI attestation verification for
-  `debeski/django-lux` plus `.github/workflows/release.yml`; the integrity API's
-  canonical workflow field is the basename `release.yml`.
+- Composer's agent discovers and downloads releases, with redirects allowlisted
+  to official PyPI hosts, and accepts a wheel only after SHA-256 and PyPI
+  attestation verification for `debeski/django-lux` plus
+  `.github/workflows/release.yml`; the integrity API's canonical workflow field
+  is the basename `release.yml`. `web` and `worker` never fetch a wheel.
 - The active pointer is an atomic JSON file; version strings and release paths
   are normalized and constrained below the persistent runtime root.
 - The direct web version probe is authenticated with an HMAC derived from the
   deployment `SECRET_KEY`; external requests without the updater probe fail as
   not found.
-- Wheels install only into isolated version directories using `--no-deps`; the
-  baked Python environment is never mutated. Candidate subprocesses execute
-  before maintenance and pointer switching.
+- Composer stages wheels only into isolated version directories, without their
+  dependencies; the baked Python environment is never mutated. Candidate
+  subprocesses execute before maintenance and pointer switching.
+- Reconcile never downloads or installs a release. A missing or unreadable
+  active pointer is rewritten only to the recorded release when it is still
+  staged inside `releases/`, is newer than the baked image, and its
+  `dlux/release-manifest.json` names its directory's version; anything else
+  reverts to the baked image.
 - Release summaries render as escaped text. Updater logs are bounded, NUL-free,
   and redact password/secret/token/authorization-shaped values.
 - Automatic recovery restores code/static state only. It never automatically
