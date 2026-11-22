@@ -1636,8 +1636,16 @@
     border-color: rgba(255, 193, 7, 0.22);
 }
 
-/* Ribbon: the active segment is painted with --primal, which is light in this
-   theme, so its label takes the page colour instead of ribbon.css's white. */
+/* Ribbon: its labels use Bootstrap's muted --bs-secondary-color, which this
+   theme leaves at the light-mode grey, so the list ribbon takes a muted form of
+   the theme's title colour. The active segment is painted with --primal, which
+   is light in this theme, so its label takes the page colour instead of
+   ribbon.css's white. */
+:root.theme-gothic .dlux-ribbon-strips,
+:root.theme-gothic .dlux-ribbon-tabs {
+    --bs-secondary-color: color-mix(in srgb, var(--title) 75%, transparent);
+}
+
 :root.theme-gothic .dlux-ribbon-segment.active {
     color: var(--body);
 }

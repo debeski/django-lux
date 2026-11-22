@@ -192,10 +192,13 @@ class FilterClearChipFollowsDarkThemesTests(SimpleTestCase):
 
 
 class RibbonActiveSegmentFollowsDarkThemesTests(SimpleTestCase):
-    """`ribbon/css/ribbon.css` paints the active segment with `--primal` and white
-    text. Every dark theme has a light `--primal` (#ebf4ff in dark, #00ffff in
-    neon), so the selected category read as white on white. Each dark theme gives
-    the label its page colour, and that pair must meet WCAG AA (4.5:1)."""
+    """The list ribbon was unreadable in every dark theme.
+
+    `ribbon/css/ribbon.css` paints the active segment with `--primal` and white
+    text, and every dark theme has a light `--primal` (#ebf4ff in dark, #00ffff
+    in neon): white on white. Its other labels use `--bs-secondary-color`, which
+    no dark theme sets, so they kept Bootstrap's light-mode grey on a dark strip.
+    Each dark theme fixes both, and each pair must meet WCAG AA (4.5:1)."""
 
     _rules = staticmethod(FilterClearChipFollowsDarkThemesTests._rules)
 
@@ -244,3 +247,33 @@ class RibbonActiveSegmentFollowsDarkThemesTests(SimpleTestCase):
                 self.assertRegex(background, r'^#[0-9a-fA-F]{3,6}$', f'{slug}: --primal did not resolve')
                 light, dark = sorted((self._luminance(text), self._luminance(background)), reverse=True)
                 self.assertGreaterEqual((light + 0.05) / (dark + 0.05), 4.5, f'{slug}: {text} on {background}')
+
+    def test_every_dark_theme_gives_the_ribbon_a_readable_muted_colour(self):
+        themes = FilterClearChipFollowsDarkThemesTests._dark_themes(FilterClearChipFollowsDarkThemesTests())
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                scoped = {}
+                for selector, body in self._rules(path):
+                    match = re.search(r'--bs-secondary-color:\s*([^;]+);', body)
+                    if match and selector in (f':root.theme-{slug} .dlux-ribbon-strips',
+                                              f':root.theme-{slug} .dlux-ribbon-tabs'):
+                        scoped[selector] = match.group(1).strip()
+                self.assertEqual(len(scoped), 2, f'{path.name} leaves the ribbon on the light-mode grey')
+                value = set(scoped.values()).pop()
+                mix = re.fullmatch(r'color-mix\(in srgb, (var\(--[\w-]+\)) (\d+)%, transparent\)', value)
+                self.assertTrue(mix, f'{slug}: unexpected muted colour {value}')
+                variables = self._variables(path, slug)
+                text = self._resolve(mix.group(1), variables)
+                page = self._resolve('var(--body)', variables)
+                share = int(mix.group(2)) / 100
+
+                def channels(hex_colour):
+                    value = hex_colour.lstrip('#')
+                    value = ''.join(c * 2 for c in value) if len(value) == 3 else value
+                    return [int(value[i:i + 2], 16) for i in (0, 2, 4)]
+
+                blended = '#' + ''.join(
+                    f'{round(share * t + (1 - share) * b):02x}' for t, b in zip(channels(text), channels(page))
+                )
+                light, dark = sorted((self._luminance(blended), self._luminance(page)), reverse=True)
+                self.assertGreaterEqual((light + 0.05) / (dark + 0.05), 4.5, f'{slug}: {blended} on {page}')
