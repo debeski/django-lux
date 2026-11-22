@@ -562,6 +562,17 @@
     text-shadow: 0 0 8px rgba(0, 180, 216, 0.32) !important;
 }
 
+:root.theme-gothic .dlux-filter .btn.dlux-filter-clear.btn-warning {
+    background:
+        radial-gradient(circle at top, rgba(224, 170, 255, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(26, 16, 37, 0.98), rgba(14, 9, 22, 0.96)) !important;
+    border-color: rgba(157, 78, 221, 0.35) !important;
+    color: var(--gothic-magenta) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.04),
+        0 12px 24px -18px rgba(0, 0, 0, 0.46) !important;
+}
+
 :root.theme-gothic .form-control[type="file"]::file-selector-button {
     background: linear-gradient(135deg, var(--gothic-teal) 0%, var(--gothic-cyan) 100%) !important;
     color: var(--gothic-black) !important;

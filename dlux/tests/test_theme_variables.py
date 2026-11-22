@@ -5,6 +5,7 @@ palette variables. Under a single-theme site that is invisible; Dlux ships 13
 themes, so each literal is a control that stays Bootstrap blue while everything
 around it follows the palette.
 """
+import re
 from pathlib import Path
 
 from dlux.tests.harness import setup_test_environment
@@ -93,3 +94,98 @@ class LinkButtonsStayGhostsTests(SimpleTestCase):
 
         self.assertIn('--bs-btn-hover-bg: var(--mono-700);', mono)
         self.assertIn('--bs-link-hover-color: var(--mono-800);', mono)
+
+
+class FilterClearChipFollowsDarkThemesTests(SimpleTestCase):
+    """The filter bar's Clear chip was a light cream pill in every dark theme.
+
+    `forms/css/form_actions.css` paints it with
+    `.dlux-filter .btn.dlux-filter-clear.btn-warning` and is linked after the
+    theme stylesheet, so a theme rule only wins by out-ranking that selector. At
+    equal specificity the later, light rule wins: that is what dark and neon lost
+    to, and the other dark themes had no rule at all.
+    """
+
+    LIGHT_SELECTOR = '.dlux-filter .btn.dlux-filter-clear.btn-warning'
+
+    @staticmethod
+    def _rules(path):
+        css = re.sub(r'/\*.*?\*/', '', path.read_text(encoding='utf-8'), flags=re.S)
+        for prelude, body in re.findall(r'([^{}]+)\{([^{}]*)\}', css):
+            for selector in prelude.split(','):
+                yield ' '.join(selector.split()), body
+
+    @staticmethod
+    def _specificity(selector):
+        """(ids, classes + attributes + pseudo-classes, elements) for the plain
+        compound selectors these rules use; functional pseudo-classes are refused
+        rather than miscounted."""
+        assert '(' not in selector, f'unsupported selector: {selector}'
+        ids = len(re.findall(r'#[\w-]+', selector))
+        classes = len(re.findall(r'\.[\w-]+|\[[^\]]*\]|(?<!:):[\w-]+', selector))
+        elements = len(re.findall(r'(?:^|[\s>+~])[a-zA-Z][\w-]*', selector))
+        return ids, classes, elements
+
+    def _dark_themes(self):
+        themes = {}
+        for path in sorted((_STATIC / 'themes' / 'css').glob('*.css')):
+            for selector, body in self._rules(path):
+                if selector == f':root.theme-{path.stem}' and re.search(r'color-scheme:\s*dark', body):
+                    themes[path.stem] = path
+        return themes
+
+    def test_the_light_rule_is_the_one_to_beat(self):
+        rules = dict(self._rules(_STATIC / 'forms' / 'css' / 'form_actions.css'))
+        self.assertIn(self.LIGHT_SELECTOR, rules)
+        self.assertRegex(rules[self.LIGHT_SELECTOR], r'background:[^;]*!important')
+
+    def test_theme_stylesheets_load_before_form_actions(self):
+        """Why a tie is a loss: base.html links the active theme, then the form CSS."""
+        templates = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
+        base = (templates / 'base.html').read_text(encoding='utf-8')
+        assets = (templates / 'forms' / 'assets_head.html').read_text(encoding='utf-8')
+
+        self.assertIn('dlux/forms/css/form_actions.css', assets)
+        self.assertLess(
+            base.index('DLUX_ACTIVE_THEME.css_path'),
+            base.index("include_once 'dlux/forms/assets_head.html'"),
+        )
+
+    def test_every_dark_theme_out_ranks_the_light_chip(self):
+        themes = self._dark_themes()
+        self.assertEqual(set(themes), {'dark', 'gothic', 'retro', 'neon', 'prism', 'aether'})
+        light = self._specificity(self.LIGHT_SELECTOR)
+
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                winning = [
+                    body for selector, body in self._rules(path)
+                    if selector.startswith(f':root.theme-{slug} ')
+                    and '.dlux-filter-clear' in selector.split()[-1]
+                    and ':hover' not in selector
+                    and self._specificity(selector) > light
+                ]
+                self.assertTrue(winning, f'{path.name} has no Clear chip rule that out-ranks {self.LIGHT_SELECTOR}')
+                body = winning[-1]
+                self.assertRegex(body, r'background:[^;]*!important')
+                self.assertRegex(body, r'(?<![\w-])color:[^;]*!important')
+
+    def test_every_dark_theme_lets_the_icon_follow_the_chip(self):
+        """`base/css/main.css` forces black icons in soft buttons
+        (`:root .btn-warning .bi`), which vanish on a dark chip."""
+        black = dict(self._rules(_STATIC / 'base' / 'css' / 'main.css'))
+        self.assertRegex(black[':root .btn-warning .bi'], r'color:\s*#000\s*!important')
+        forced = self._specificity(':root .btn-warning .bi')
+
+        for slug, path in self._dark_themes().items():
+            with self.subTest(theme=slug):
+                icon_rules = [
+                    body for selector, body in self._rules(path)
+                    if selector.startswith(f':root.theme-{slug} ')
+                    and (selector.endswith('.btn-warning .bi')
+                         or ('.dlux-filter-clear' in selector and selector.endswith((' i', ' .bi'))))
+                    and self._specificity(selector) > forced
+                    and re.search(r'(?<![\w-])color:[^;]*!important', body)
+                ]
+                self.assertTrue(icon_rules, f'{path.name} leaves the Clear chip icon black')
+                self.assertNotRegex(icon_rules[-1], r'color:\s*#000\b')

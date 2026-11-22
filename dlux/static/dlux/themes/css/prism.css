@@ -460,6 +460,17 @@
     text-shadow: none !important;
 }
 
+:root.theme-prism .dlux-filter .btn.dlux-filter-clear.btn-warning {
+    background: linear-gradient(180deg, var(--prism-slate), var(--prism-graphite)) !important;
+    border: 1px solid var(--prism-line) !important;
+    color: var(--prism-silver) !important;
+    box-shadow: inset 0 1px 0 var(--prism-line-soft) !important;
+}
+
+:root.theme-prism .dlux-filter .btn.dlux-filter-clear.btn-warning i {
+    color: inherit !important;
+}
+
 :root.theme-prism .form-control[type="file"]::file-selector-button {
     background: var(--prism-pearl) !important;
     color: var(--prism-graphite) !important;

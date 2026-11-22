@@ -753,7 +753,8 @@ compatibility mirrors until 2.0; see [Deprecation Countdown](deprecation-countdo
 lightweight dlux dynamic modal (`/accounts/welcome/`, `initial_user_setup`) that auto-opens
 once per user when `onboarding_enabled` and the user's `Profile.is_configured` is false. It
 writes the chosen theme/language/fonts (+ optional home override) into `Profile.preferences`
-and sets `Profile.is_configured`; "Skip for now" just sets the flag. The auto-open trigger is
+and sets `Profile.is_configured`; "Skip for now", or closing the modal without saving (X,
+Escape, the backdrop), just sets the flag. The auto-open trigger is
 gated by the `DLUX_SHOW_INITIAL_USER_SETUP` context flag, and is suppressed while
 `Profile.preferences["force_password_change"]` is active so a first-login password change
 always happens before optional onboarding preferences.
