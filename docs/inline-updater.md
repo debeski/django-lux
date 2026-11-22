@@ -441,9 +441,9 @@ unreadable. `COMPOSER_RUNTIME_GATE_SERVICE` selects the service it asks (default
 image whose baked DjangoLux is older than the active release, and `--force` is
 the only way through.
 
-The floor is the rule that already governs inline installs: a release is staged
-with `pip install --no-deps`, so only DjangoLux itself is on the volume and
-everything it imports comes from the image. `requires.baked_image` records the
+The floor is the rule that already governs inline installs: Composer unpacks a
+release's wheel onto the volume without its dependencies, so only DjangoLux
+itself is on the volume and everything it imports comes from the image. `requires.baked_image` records the
 last release that needed a rebuild, which is exactly the bar an image must clear
 to carry a later release.
 

@@ -1,8 +1,5 @@
 [build-system]
-requires = [
-    "setuptools<69",
-    "wheel<0.41"
-]
+requires = ["setuptools>=80,<85"]
 build-backend = "setuptools.build_meta"
 
 
@@ -12,7 +9,8 @@ dynamic = ["version"]
 description = "DjangoLux - A modern UX/UI framework for Django: a themeable, multilingual design system plus batteries-included app infrastructure (auth, CRUD, audit, navigation)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "DeBeski", email = "debeski1@gmail.com" }
 ]
@@ -45,7 +43,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
