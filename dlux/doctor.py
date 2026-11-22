@@ -789,7 +789,6 @@ def _check_cookies(ctx):
 @check('packages.optional', 'packages', 'Optional packages')
 def _check_optional_packages(ctx):
     optional = {
-        'pypi_attestations': 'inline updater attestation verification',
         'dlux_sso': 'single sign-on',
         'redis': 'cache client',
     }
