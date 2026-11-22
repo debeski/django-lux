@@ -2,6 +2,16 @@
 # dlux stack schema {{ stack_schema }}
 set -e
 
+# The app and composer-agent share the runtime volume and reach each other's
+# entries through group 0, so everything this container creates is
+# group-writable.
+umask 0002
+
+# Under a non-root uid, stop here while mounted data is still unusable to it
+# (data written by a root image needs group access first), rather than starting
+# and failing uploads. A root process skips the check.
+python -m dlux.mount_access gate
+
 until nc -z -v -w30 db 5432; do
   echo "Waiting for database..."
   sleep 1

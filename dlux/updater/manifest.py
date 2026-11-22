@@ -19,7 +19,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-from . import UPDATER_SCHEMA_VERSION, UpdaterError
+from . import UPDATER_SCHEMA_VERSION, UpdaterError, shared_files
 
 
 PYPI_PROJECT_REPOSITORY = "https://github.com/debeski/django-lux"
@@ -70,7 +70,7 @@ def _read_bounded(response, limit):
 
 def download_wheel(candidate, destination, *, opener=urllib.request.urlopen):
     destination = Path(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    shared_files.ensure_dir(destination.parent)
     request = urllib.request.Request(candidate.url, headers={"User-Agent": "django-lux-updater/1"})
     try:
         with opener(request, timeout=60) as response:
@@ -83,9 +83,7 @@ def download_wheel(candidate, destination, *, opener=urllib.request.urlopen):
     actual = hashlib.sha256(payload).hexdigest()
     if actual != candidate.sha256:
         raise UpdaterError("The downloaded wheel does not match PyPI's SHA-256 digest.")
-    temporary = destination.with_name(f".{destination.name}.part")
-    temporary.write_bytes(payload)
-    temporary.replace(destination)
+    shared_files.write_bytes(destination, payload)
     return destination
 
 

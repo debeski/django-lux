@@ -20,6 +20,7 @@ This file owns the release history for `django-lux`.
   - New strings `dlux_update_image_login_required`, `dlux_update_image_login_refused` and `dlux_update_image_unreadable` (en, ar).
   - Docs: [Composer Agent Integration](docs/composer-agent.md#private-image-registry) and the generated README.
   - Pairs with Composer `1.10/private_registry`.
+- **Non-root app images, groundwork (`1.16/non_root_app`)**: `dlux.mount_access` judges what the app needs on its mounts for uid 10001 with group 0 (directories read/write/search; files read; log files and runtime `state/` files read/write; installed releases read-only). The generated `entrypoint.sh` sets `umask 0002` and runs `python -m dlux.mount_access gate` first, which exits 78 under a non-root uid while that data is unusable, naming each path; a root process skips it. New `dlux_doctor` check `storage.mount_access`: an error under a non-root uid, informational as root. Every runtime-volume write (`dlux.updater.shared_files`) creates directories 0775 and files 0664 with pid-suffixed temporary names; the release restore installs with `pip --no-cache-dir`. The runtime contract gains a `permissions` block (`app_uid`, `app_gid`, `directory_mode`, `file_mode`). The scaffold Dockerfile still runs as root. Pairs with Composer's `app-permissions` check and grant.
 
 ## v1.16.2
 

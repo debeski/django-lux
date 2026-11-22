@@ -616,6 +616,42 @@ def _project_celery_signals():
     return signals
 
 
+@check('storage.mount_access', 'services', 'The app can use its mounted data')
+def _check_mount_access(ctx):
+    from . import mount_access
+
+    base_dir = getattr(settings, 'BASE_DIR', None)
+    extra = [
+        path for path in (
+            getattr(settings, 'MEDIA_ROOT', None),
+            getattr(settings, 'STATIC_ROOT', None),
+            Path(base_dir) / 'logs' if base_dir else None,
+            getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', None),
+        ) if path
+    ]
+    result = mount_access.report(extra=extra)
+    who = f'uid {result["uid"]} (gid {result["gid"]})'
+    sample = '; '.join(
+        f'{item["path"]} ({item["kind"]} {item["owner"]} {item["mode"]}, needs {item["needs"]})'
+        for item in result['sample'][:5]
+    )
+    if result['running_as_root']:
+        if not result['problems']:
+            return ok(f'The app runs as root; its data is also ready for {who}.')
+        return skip(
+            f'Skipped: the app runs as root. Before it can run as {who}, {result["problems"]} '
+            f'entr{"y needs" if result["problems"] == 1 else "ies need"} group access, e.g. {sample}. '
+            + mount_access.FIX_HINT
+        )
+    if result['problems']:
+        return fail(
+            f'{who} cannot use {result["problems"]} entr{"y" if result["problems"] == 1 else "ies"} '
+            f'of its mounted data, e.g. {sample}.',
+            mount_access.FIX_HINT,
+        )
+    return ok(f'{who} can use everything under {", ".join(result["mounts"]) or "its mounts"}.')
+
+
 @check('tasks.celery_deprecated', 'services', 'Project tasks do not depend on Celery')
 def _check_project_celery(ctx):
     signals = _project_celery_signals()

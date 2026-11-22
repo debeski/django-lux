@@ -88,6 +88,8 @@ Generated app scaffold baseline:
 | `python manage.py dlux_doctor --apply --allow-stateful` | Also run fixes that mutate the database (`migrator`). |
 | `python manage.py dlux_check` | Deprecated alias for `dlux_doctor`; warns on stderr and delegates. |
 | `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped; Composer's drift-diff execs this. Generated stack files carry its `schema_version` as a stamp; see [Stack Schema Stamps](stack-schema.md). |
+| `python -m dlux.mount_access gate` | Entrypoint check: under a non-root uid, exit 78 naming any path in the top two levels of the container's mounts the app cannot use; a root process passes. See [File permissions](deployment-configuration.md#file-permissions). |
+| `python -m dlux.mount_access report` | The same check over every entry, as JSON; as root it judges uid 10001 (gid 0). |
 | `python manage.py dlux_runtime_contract` | Print the runtime-volume contract (layout, `active.json`, which process writes what) as JSON. |
 | `python manage.py dlux_relay [OPERATION ...]` | Report whether the Composer egress relay answers and which operations it offers; exits non-zero if a named operation is not on offer. See [Outbound Requests](outbound-requests.md). |
 

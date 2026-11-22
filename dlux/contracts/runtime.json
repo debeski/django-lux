@@ -61,6 +61,16 @@
     "image-available.json": {"writer": "composer", "purpose": "What the registry currently offers."},
     "deploy-log.txt": {"writer": "composer", "purpose": "Sanitized operation log."}
   },
+  "permissions": {
+    "app_uid": 10001,
+    "app_gid": 0,
+    "directory_mode": "0775",
+    "file_mode": "0664",
+    "rules": [
+      "Directories are created 0775 and files 0664 on both sides, never 0600: composer-agent runs as uid 0 without capabilities and reaches what the app created only through group 0, and an app running as app_uid/app_gid reaches what Composer created the same way.",
+      "Temporary files carry the writer's pid, so a leftover temporary file never blocks another writer."
+    ]
+  },
   "mounts": {
     "web": "ro",
     "worker": "rw",

@@ -10,6 +10,7 @@ from django.conf import settings
 from packaging.version import InvalidVersion, Version
 
 from . import UpdaterError
+from . import shared_files
 
 
 _VERSION_DIR_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
@@ -51,7 +52,7 @@ class RuntimeStore:
         for path in (
             self.releases, self.staging, self.downloads, self.failed, self.state_dir,
         ):
-            path.mkdir(parents=True, exist_ok=True)
+            shared_files.ensure_dir(path)
         if not self.generation_file.exists():
             self._atomic_text(self.generation_file, "0\n")
         return self
@@ -261,10 +262,12 @@ class RuntimeStore:
         target = Path(target)
         if target.exists():
             raise UpdaterError("The update staging directory already exists.")
-        target.mkdir(parents=True)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.mkdir()
+        shared_files.ensure_dir(target)
         completed = runner(
             [
-                sys.executable, "-m", "pip", "install", "--no-deps", "--no-compile",
+                sys.executable, "-m", "pip", "install", "--no-deps", "--no-compile", "--no-cache-dir",
                 "--target", str(target), str(wheel_path),
             ],
             check=False,
@@ -287,8 +290,4 @@ class RuntimeStore:
 
     @staticmethod
     def _atomic_text(path, text):
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f".{path.name}.tmp")
-        temporary.write_text(text, encoding="utf-8")
-        temporary.replace(path)
+        shared_files.write_text(path, text)

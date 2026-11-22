@@ -16,12 +16,11 @@ file is project-owned, and its ``dlux-updater`` service is ``restart: always``
 and ``org.dlux.restart: protected``.
 """
 import json
-import os
 import uuid
 
 from django.utils import timezone
 
-from . import UpdaterError
+from . import UpdaterError, shared_files
 from .image_update import _state_dir, read_deploy_status
 from .manifest import release_notes
 
@@ -96,10 +95,7 @@ def write_request(
         payload["operation_id"] = str(operation_id)
 
     path = trigger_path(store)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, json.dumps(payload) + "\n")
     return payload
 
 
