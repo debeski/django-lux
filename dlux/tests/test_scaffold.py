@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1093,6 +1094,192 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
     def test_repo_slug_validation(self):
         with self.assertRaises(ScaffoldError):
             create_project("demo_project", "/tmp/never-created", repo="not-a-slug")
+
+
+class FetchMetadataPolicyTests(unittest.TestCase):
+    """Both generated proxies refuse what another site's page asks a browser to
+    load in the background (Fetch Metadata resource isolation) before it reaches
+    the app, and keep static files, public media and the update/maintenance
+    routes open to other sites. Composer's fetch-metadata check finds the policy
+    by the `cross_site_request` name, so the name is part of the contract."""
+
+    REFUSE_NGINX = "if ($cross_site_request) { return 403; }"
+    EXPRESSION = (
+        '{header.Sec-Fetch-Site} == "cross-site" && !(method("GET", "HEAD") '
+        '&& {header.Sec-Fetch-Mode} == "navigate" '
+        '&& !({header.Sec-Fetch-Dest} in ["object", "embed"]))'
+    )
+    NAVIGATE = {"Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document"}
+    NO_CORS_IMAGE = {"Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Dest": "image"}
+    CORS = {"Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty"}
+    # (label, method, headers, refused)
+    CASES = (
+        ("no Sec-Fetch headers", "GET", {}, False),
+        ("typed-in navigation", "GET", {"Sec-Fetch-Site": "none", **NAVIGATE}, False),
+        ("same-origin fetch", "GET", {"Sec-Fetch-Site": "same-origin", **CORS}, False),
+        ("same-origin form post", "POST", {"Sec-Fetch-Site": "same-origin", **NAVIGATE}, False),
+        ("same-site image", "GET", {"Sec-Fetch-Site": "same-site", **NO_CORS_IMAGE}, False),
+        ("link from another site", "GET", {"Sec-Fetch-Site": "cross-site", **NAVIGATE}, False),
+        ("cross-site HEAD navigation", "HEAD", {"Sec-Fetch-Site": "cross-site", **NAVIGATE}, False),
+        ("cross-site iframe", "GET",
+         {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe"}, False),
+        ("cross-site image", "GET", {"Sec-Fetch-Site": "cross-site", **NO_CORS_IMAGE}, True),
+        ("cross-site fetch", "GET", {"Sec-Fetch-Site": "cross-site", **CORS}, True),
+        ("cross-site form post", "POST", {"Sec-Fetch-Site": "cross-site", **NAVIGATE}, True),
+        ("cross-site <object>", "GET",
+         {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "object"}, True),
+        ("cross-site <embed>", "GET",
+         {"Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "embed"}, True),
+        ("cross-site without mode or destination", "GET", {"Sec-Fetch-Site": "cross-site"}, True),
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        target = Path(cls._tmp.name) / "demo"
+        create_project("demo", str(target), image="demo:latest", repo="acme/demo", interactive=False)
+        cls.proxy = target / ".proxy"
+        cls.caddyfile = (cls.proxy / "Caddyfile").read_text(encoding="utf-8")
+        cls.nginx = (cls.proxy / "default.conf.template").read_text(encoding="utf-8")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def test_caddy_matcher_is_the_web_dev_policy(self):
+        match = re.search(r"\t\t@cross_site_request expression <<CEL\n(.*?)\n\t\t\tCEL\n", self.caddyfile, re.S)
+        self.assertIsNotNone(match, "the Caddyfile has no @cross_site_request expression matcher")
+        self.assertEqual(" ".join(match.group(1).split()), self.EXPRESSION)
+        self.assertIn("\n\t\trespond @cross_site_request 403\n", self.caddyfile)
+
+    def test_caddy_policy_sits_after_the_open_routes_and_before_the_app(self):
+        policy = self.caddyfile.index("respond @cross_site_request 403")
+        for route in ("respond /media/dlux_backups/* 404", "handle /_update/status.json", "handle /_update/log.txt",
+                      "handle /_dlux/maintenance/*", "handle /_edge-alive", "handle_path /static/*",
+                      "handle @public_media"):
+            with self.subTest(open_route=route):
+                self.assertLess(self.caddyfile.index(route), policy)
+        for route in ("handle /media/* {", "forward_auth web:8000", "handle /health*", "error @maintenance 503",
+                      "reverse_proxy web:8000"):
+            with self.subTest(app_route=route):
+                self.assertGreater(self.caddyfile.index(route), policy)
+
+    def _nginx_rules(self):
+        self.assertIn(
+            'map "$http_sec_fetch_site:$request_method:$http_sec_fetch_mode:$http_sec_fetch_dest" '
+            "$cross_site_request {",
+            self.nginx,
+        )
+        block = self.nginx.split("$cross_site_request {", 1)[1].split("\n}\n", 1)[0]
+        self.assertRegex(block, r"\n\s+default\s+0;")
+        return re.findall(r'^\s+"~([^"]+)"\s+([01]);$', block, re.M)
+
+    def _nginx_refuses(self, method, headers):
+        key = ":".join((headers.get("Sec-Fetch-Site", ""), method,
+                        headers.get("Sec-Fetch-Mode", ""), headers.get("Sec-Fetch-Dest", "")))
+        for pattern, value in self._nginx_rules():
+            if re.search(pattern, key):
+                return value == "1"
+        return False
+
+    def test_nginx_map_refuses_the_same_requests_as_caddy(self):
+        self.assertEqual(len(self._nginx_rules()), 3)
+        for label, method, headers, refused in self.CASES:
+            with self.subTest(label):
+                self.assertEqual(self._nginx_refuses(method, headers), refused)
+
+    def _nginx_location(self, opening):
+        start = self.nginx.index(opening)
+        return self.nginx[start:self.nginx.index("\n    }\n", start)]
+
+    def test_nginx_refuses_in_the_app_locations_only(self):
+        for opening in ("location /media/ {", "location / {", "location /health {"):
+            with self.subTest(app_location=opening):
+                self.assertIn(self.REFUSE_NGINX, self._nginx_location(opening))
+        for opening in ("location /static/ {", "location = /_update/status.json {", "location = /_update/log.txt {",
+                        "location ^~ /_dlux/maintenance/ {", "location = /_edge-alive {"):
+            with self.subTest(open_location=opening):
+                self.assertNotIn("cross_site_request", self._nginx_location(opening))
+        public = re.findall(r"location \^~ /media/\S+ \{[^\n]*\}", self.nginx)
+        self.assertTrue(public)
+        for line in public:
+            self.assertNotIn("cross_site_request", line)
+
+    def _require_image(self, image):
+        if not shutil.which("docker"):
+            self.skipTest("docker is not available")
+        probe = subprocess.run(["docker", "image", "inspect", image], capture_output=True, text=True)
+        if probe.returncode != 0:
+            self.skipTest(f"{image} is not available locally (no daemon, or the image was never pulled)")
+
+    def test_caddy_accepts_the_generated_file(self):
+        self._require_image("caddy:latest")
+        result = subprocess.run(
+            ["docker", "run", "--rm", "--pull", "never",
+             "-v", f"{self.proxy / 'Caddyfile'}:/etc/caddy/Caddyfile:ro", "caddy:latest",
+             "caddy", "validate", "--adapter", "caddyfile", "--config", "/etc/caddy/Caddyfile"],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def test_nginx_accepts_the_generated_template(self):
+        self._require_image("nginx:latest")
+        result = subprocess.run(
+            ["docker", "run", "--rm", "--pull", "never",
+             "-e", "NGINX_SERVER_NAME=localhost", "-e", "NGINX_MAX_SIZE=10M", "-e", "NGINX_ENVSUBST_FILTER=NGINX_",
+             "-v", f"{self.proxy / 'default.conf.template'}:/etc/nginx/templates/default.conf.template:ro",
+             "nginx:latest", "sh", "-c", "/docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null && nginx -t"],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def test_caddy_refuses_exactly_the_cross_site_background_requests(self):
+        """The generated Caddyfile in a real Caddy. `web` points at a closed
+        port, so an admitted request ends in the maintenance fallback, never 403."""
+        import time
+        import urllib.error
+        import urllib.request
+
+        self._require_image("caddy:latest")
+        name = f"dlux-fetch-metadata-test-{os.getpid()}"
+        started = subprocess.run(
+            ["docker", "run", "-d", "--rm", "--pull", "never", "--name", name, "--add-host", "web:127.0.0.1",
+             "-p", "127.0.0.1::80", "-v", f"{self.proxy / 'Caddyfile'}:/etc/caddy/Caddyfile:ro", "caddy:latest"],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(started.returncode, 0, started.stderr)
+        self.addCleanup(subprocess.run, ["docker", "rm", "-f", name], capture_output=True)
+        port = subprocess.run(["docker", "port", name, "80/tcp"], capture_output=True, text=True,
+                              timeout=30).stdout.split()[0].rsplit(":", 1)[1]
+
+        def status(method, headers, path="/"):
+            request = urllib.request.Request(f"http://127.0.0.1:{port}{path}", method=method, headers=headers)
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    return response.status
+            except urllib.error.HTTPError as exc:
+                return exc.code
+
+        deadline = time.monotonic() + 20
+        while True:
+            try:
+                if status("GET", {}, "/_edge-alive") == 200:
+                    break
+            except OSError:
+                pass
+            self.assertLess(time.monotonic(), deadline, "Caddy did not start")
+            time.sleep(0.2)
+
+        for label, method, headers, refused in self.CASES:
+            with self.subTest(label):
+                if refused:
+                    self.assertEqual(status(method, headers), 403)
+                else:
+                    self.assertNotEqual(status(method, headers), 403)
+        image = {"Sec-Fetch-Site": "cross-site", **self.NO_CORS_IMAGE}
+        self.assertEqual(status("GET", image, "/media/private/doc.pdf"), 403)
+        self.assertNotEqual(status("GET", image, "/media/public/logo.png"), 403)
+        self.assertNotEqual(status("GET", image, "/static/app.css"), 403)
 
 
 class CliVersionTests(unittest.TestCase):

@@ -23,6 +23,24 @@ map $http_x_forwarded_proto $forwarded_proto {
     ""      $scheme;
 }
 
+# Fetch Metadata resource isolation (web.dev/articles/fetch-metadata), the nginx
+# form of the Caddyfile's @cross_site_request: 1 for a request another site
+# makes in the background (images, scripts, fetch(), form posts,
+# <object>/<embed>), 0 for a link from another site (a top-level GET
+# navigation), for same-origin, same-site and typed-in requests, and for
+# requests without the header (crawlers, health checks, ScanLink,
+# server-to-server calls, older browsers). The locations that reach the app
+# (/media/ through the access check, /, /health) refuse it with 403; static
+# files, public media, the update progress files, the maintenance page assets
+# and the edge probe stay open to other sites. Composer's fetch-metadata check
+# looks for $cross_site_request by name: keep it.
+map "$http_sec_fetch_site:$request_method:$http_sec_fetch_mode:$http_sec_fetch_dest" $cross_site_request {
+    default                                             0;
+    "~^cross-site:(GET|HEAD):navigate:(object|embed)$"  1;
+    "~^cross-site:(GET|HEAD):navigate:"                 0;
+    "~^cross-site:"                                     1;
+}
+
 server {
     listen 80;
     server_name ${NGINX_SERVER_NAME};
@@ -95,6 +113,7 @@ server {
     # Every other stored file is private: the app decides who gets it before
     # nginx sends it (403 when refused).
     location /media/ {
+        if ($cross_site_request) { return 403; }
         auth_request /_dlux_media_access;
         root /app;
         add_header Cache-Control "private, no-cache";
@@ -113,6 +132,7 @@ server {
     }
 
     location / {
+        if ($cross_site_request) { return 403; }
         if (-f /opt/dlux-runtime/state/maintenance) { return 503; }
         proxy_pass http://$web_upstream;
         proxy_set_header Host $host;
@@ -129,6 +149,7 @@ server {
     # - planned maintenance: proxy-local 200 so a front proxy keeps backend UP
     location /health {
         default_type text/plain;
+        if ($cross_site_request) { return 403; }
         if (-f /opt/dlux-runtime/state/maintenance) { return 200 "ok\n"; }
         proxy_pass http://$web_upstream/health/;
         access_log off;

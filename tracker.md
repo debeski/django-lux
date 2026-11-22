@@ -78,8 +78,7 @@
 - 2026-11-18 `1.16/release_1_16_2b2` rebased on #95: full suite 3,433 OK (6 skipped); `release_check` bare and `--base-tag v1.16.1` pass (inline-safe, additive, baseline 1.16.0b1); classify → beta, not latest; build + `twine check` PASSED; the wheel equals the testbed-verified build file for file (723 files outside dist-info); evidence `.xclude/validation/1.16.2b2-release-rebased-2026-11-18/`.
 - 2026-11-17 scaffold `agent run`/`executor run` fix: full suite 3,415 OK (6 skipped, rebased on #87 main); new `ComposeResidentCommandTests` fail on the 1.16.1 template and pass on the fix; Composer 1.10.1 `check` on a fresh scaffold FAIL `resident-commands` before, OK after; generated argv parses with Composer's own `parse_agent_args`/`parse_executor_args`; `django check` clean. Evidence `.xclude/validation/1.16.2-scaffold-agent-run-2026-11-17/` (checkout).
 ### One-line info about last time edited Docs:
-- 2026-11-18 `1.16/relay_greeting`: `deployment-configuration.md` Provider certificate (greeting, inline updates miss the relay), `system-configuration.md` Email step certificate rows, `reference.md` `internal_smtp_relay_greeting`.
-- 2026-11-17 `1.16/mail_setup` + `1.16/relay_tls_verify`: `system-configuration.md` Email delivery, `deployment-configuration.md` relay env + Provider certificate, `registration.md`, `reference.md` `email_config`, `security-dsrp-1.md` relay check; `composer-agent.md` (nested `agent run`/`executor run`, `resident-commands` check and `--fix`) for `1.16/scaffold_agent_run`; CHANGELOG `## Unreleased`.
+- 2026-11-18 `1.16/fetch_metadata`: `deployment-configuration.md` *Cross-site requests (Fetch Metadata)* (rules table, open routes, exemptions, Caddy + nginx blocks, Composer marker, curl check), `security-dsrp-1.md` bullet, scaffold `README.md.tmpl` bullet; CHANGELOG `## Unreleased`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
