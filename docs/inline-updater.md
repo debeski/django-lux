@@ -636,6 +636,26 @@ than failing the operation.
 Rollback selects the prior code and static release; it does not reverse
 migrations or restore database data. Reconcile falls back to the baked package
 when an active runtime release is missing, corrupt, or not newer than the image's.
+
+Reconcile never downloads or installs a release: Composer stages every one, and
+`worker` has no internet. When `state/active.json` is missing or unreadable,
+reconcile rebuilds it from the runtime volume and the release recorded on the
+`DluxUpdateState` row:
+
+- The recorded release is the baked one: the pointer names the image again.
+- The recorded release is staged: `releases/<version>/` resolves inside
+  `releases/`, is newer than the baked image, and its `dlux/release-manifest.json`
+  names `<version>`, the check Composer runs before it activates a release. The
+  pointer names that release again.
+- Anything else: the runtime reverts to the baked package. The worker logs a
+  warning naming the release that could not be served and why, and records the
+  same reason on the update state (`latest_reason`). Nothing on the volume is
+  removed.
+
+Restoring a staged release or reverting advances `state/generation`, so `web` and
+`worker`, which booted on the baked package without a readable pointer, restart
+onto the selected release.
+
 Once the runtime has converged on a healthy release (a successful restoration, or
 the baked image) and no run or image update owns the maintenance flag, reconcile
 lowers a flag left raised, so a recovered site does not stay behind the
