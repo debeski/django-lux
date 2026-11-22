@@ -273,6 +273,9 @@ def image_status_summary(store=None):
         # Best-effort target version composer published (OCI version label); ''
         # when unavailable, in which case the UI falls back to the remote digest.
         "remote_version": str(first.get("version") or "").strip(),
+        # Why Composer could not read the registry (login-required, login-refused,
+        # not-found, unreachable, failed); '' once it could.
+        "remote_reason": "" if first.get("remote_digest") else str(first.get("reason") or "").strip(),
         "update_available": bool(data.get("available")),
         "checked_at": data.get("checked_at") or "",
         "last_update": last_summary,

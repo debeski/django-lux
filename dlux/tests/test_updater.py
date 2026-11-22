@@ -1238,6 +1238,27 @@ class ImageAvailabilityMetadataTests(TestCase):
 
         self.assertNotIn("baked_dlux_version", metadata["manifest"])
 
+    def test_the_summary_says_why_the_registry_could_not_be_read(self):
+        from dlux.updater import image_update
+
+        class _NoHistory:
+            class objects:
+                @staticmethod
+                def order_by(*_args):
+                    return type("Rows", (), {"first": staticmethod(lambda: None)})()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            with mock.patch.object(image_update, "_image_model", return_value=_NoHistory), \
+                    mock.patch.object(image_update, "app_version", return_value="1.0.0"):
+                self._write_availability(store, {"remote_digest": None, "reason": "login-required"})
+                unread = image_update.image_status_summary(store)
+                self._write_availability(store, {"reason": "login-required"})
+                read = image_update.image_status_summary(store)
+
+        self.assertEqual(unread["remote_reason"], "login-required")
+        self.assertEqual(read["remote_reason"], "", "a readable registry has no reason")
+
     def test_an_image_without_a_registry_digest_was_built_locally(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
