@@ -2,13 +2,13 @@
   "schema_version": 2,
   "version": "1.16.3b1",
   "display": {
-    "summary": "Private image registries, non-root groundwork and a reconcile that never reaches PyPI. With Composer 1.10.3, a project image in a private registry (for example a GitLab project) gets update notices and in-app image updates through a read-only login, and the Updates card warns when it cannot read the registry and says why. New projects refuse cross-site background requests at the proxy (Fetch Metadata). DjangoLux writes its runtime files so a non-root image (uid 10001, group 0) can share them, and the generated entrypoint refuses to start when the app cannot use its data. A lost or unreadable runtime pointer is rebuilt from the releases on the volume. Backup tables are translated, the Clear chip follows dark themes and first-login preferences can be skipped. Web and worker update inline from any 1.16 release, with no migrations.",
+    "summary": "Private image registries, non-root groundwork and a reconcile that never reaches PyPI. With Composer 1.10.3, a project image in a private registry (for example a GitLab project) gets update notices and in-app image updates through a read-only login, and the Updates card warns when it cannot read the registry and says why. New projects refuse cross-site background requests at the proxy (Fetch Metadata). DjangoLux writes its runtime files so a non-root image (uid 10001, group 0) can share them, and the generated entrypoint refuses to start when the app cannot use its data. On project images built on 1.16.3 or later, a lost or unreadable runtime pointer is rebuilt from the releases on the volume. Backup tables are translated, the Clear chip and the list ribbon follow dark themes, and first-login preferences can be skipped. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
       "Private registry: with Composer 1.10.3 and a read-only login, a private WEB_IMAGE gets update notices and in-app image updates.",
       "The Updates card shows a warning with the reason when the image registry needs a login, refuses it or cannot be read.",
       "New projects: the proxy refuses cross-site background requests (Fetch Metadata); Composer 1.10.3's check warns on older proxies.",
       "Non-root groundwork: runtime files are group-shared for uid 10001 with group 0; root stacks are unchanged.",
-      "A lost or unreadable runtime pointer is rebuilt from the releases on the volume, never fetched from PyPI.",
+      "A lost runtime pointer is rebuilt from the releases on the volume, never from PyPI, on images built on 1.16.3 or later.",
       "Backup tables show status and trigger in the interface language; the Clear chip follows dark themes.",
       "First-login preferences: Skip for now and closing the dialog both skip it.",
       "Web and worker update inline from any 1.16 release, with no migrations."

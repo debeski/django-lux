@@ -656,6 +656,13 @@ Restoring a staged release or reverting advances `state/generation`, so `web` an
 `worker`, which booted on the baked package without a readable pointer, restart
 onto the selected release.
 
+Without a readable pointer the supervisor serves the baked package, so the
+reconcile that runs is the image's own. This rebuild therefore needs a project
+image built on DjangoLux 1.16.3 or later. On an older image the baked reconcile
+marks the update state degraded ("The active release cannot be reconstructed from
+verified metadata.") and the stack keeps serving the baked package until the image
+is rebuilt or a release is installed again.
+
 Once the runtime has converged on a healthy release (a successful restoration, or
 the baked image) and no run or image update owns the maintenance flag, reconcile
 lowers a flag left raised, so a recovered site does not stay behind the
