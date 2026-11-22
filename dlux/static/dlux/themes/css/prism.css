@@ -1419,3 +1419,9 @@
     color: #ffe69c;
     border-color: rgba(255, 193, 7, 0.22);
 }
+
+/* Ribbon: the active segment is painted with --primal, which is light in this
+   theme, so its label takes the page colour instead of ribbon.css's white. */
+:root.theme-prism .dlux-ribbon-segment.active {
+    color: var(--body);
+}

@@ -1488,3 +1488,9 @@
     background:
         linear-gradient(145deg, rgba(220, 53, 69, 0.12), rgba(255, 255, 255, 0.016));
 }
+
+/* Ribbon: the active segment is painted with --primal, which is light in this
+   theme, so its label takes the page colour instead of ribbon.css's white. */
+:root.theme-aether .dlux-ribbon-segment.active {
+    color: var(--body);
+}

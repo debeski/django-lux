@@ -189,3 +189,58 @@ class FilterClearChipFollowsDarkThemesTests(SimpleTestCase):
                 ]
                 self.assertTrue(icon_rules, f'{path.name} leaves the Clear chip icon black')
                 self.assertNotRegex(icon_rules[-1], r'color:\s*#000\b')
+
+
+class RibbonActiveSegmentFollowsDarkThemesTests(SimpleTestCase):
+    """`ribbon/css/ribbon.css` paints the active segment with `--primal` and white
+    text. Every dark theme has a light `--primal` (#ebf4ff in dark, #00ffff in
+    neon), so the selected category read as white on white. Each dark theme gives
+    the label its page colour, and that pair must meet WCAG AA (4.5:1)."""
+
+    _rules = staticmethod(FilterClearChipFollowsDarkThemesTests._rules)
+
+    def _variables(self, path, slug):
+        variables = {}
+        for selector, body in self._rules(path):
+            if selector == f':root.theme-{slug}':
+                for name, value in re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', body):
+                    variables[name] = value.strip()
+        return variables
+
+    @staticmethod
+    def _resolve(value, variables, depth=0):
+        match = re.fullmatch(r'var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)', value.strip())
+        if not match or depth > 8:
+            return value.strip()
+        name, fallback = match.groups()
+        return RibbonActiveSegmentFollowsDarkThemesTests._resolve(
+            variables.get(name, fallback or ''), variables, depth + 1)
+
+    @staticmethod
+    def _luminance(hex_colour):
+        value = hex_colour.lstrip('#')
+        if len(value) == 3:
+            value = ''.join(c * 2 for c in value)
+        channels = [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    def test_every_dark_theme_gives_the_active_segment_a_readable_label(self):
+        themes = FilterClearChipFollowsDarkThemesTests._dark_themes(FilterClearChipFollowsDarkThemesTests())
+        self.assertEqual(set(themes), {'dark', 'gothic', 'retro', 'neon', 'prism', 'aether'})
+        base = dict(self._rules(_STATIC / 'ribbon' / 'css' / 'ribbon.css'))
+        self.assertRegex(base['.dlux-ribbon-segment.active'], r'background:\s*var\(--primal')
+
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                rules = [body for selector, body in self._rules(path)
+                         if selector == f':root.theme-{slug} .dlux-ribbon-segment.active']
+                self.assertTrue(rules, f'{path.name} leaves the active ribbon segment white on --primal')
+                colour = re.search(r'(?<![\w-])color:\s*([^;]+);', rules[-1]).group(1)
+                variables = self._variables(path, slug)
+                text = self._resolve(colour, variables)
+                background = self._resolve('var(--primal)', variables)
+                self.assertRegex(text, r'^#[0-9a-fA-F]{3,6}$', f'{slug}: label colour {colour} did not resolve')
+                self.assertRegex(background, r'^#[0-9a-fA-F]{3,6}$', f'{slug}: --primal did not resolve')
+                light, dark = sorted((self._luminance(text), self._luminance(background)), reverse=True)
+                self.assertGreaterEqual((light + 0.05) / (dark + 0.05), 4.5, f'{slug}: {text} on {background}')
