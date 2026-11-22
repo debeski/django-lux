@@ -242,7 +242,7 @@ What the app needs on each mount:
 | --- | --- | --- |
 | `media`, `static`, a project's own read-write mounts | read, write, search | read |
 | `logs` | read, write, search | read, write (a log handler appends and rotates) |
-| Runtime volume (`/opt/dlux-runtime`) | read, write, search on the volume root, its top-level directories and everything under `state/`; read and search below them | read and write under `state/`; read elsewhere |
+| Runtime volume (`/opt/dlux-runtime`) | read, write, search on the volume root, its top-level directories and everything under `state/`; read and search below them | read (a file is replaced by renaming a new one over it, never written in place) |
 | A read-only mount (`imports`) | read, search | read |
 
 The app and composer-agent share the runtime volume. composer-agent runs as uid
@@ -263,15 +263,17 @@ as root an informational line counting what uid `10001` would still need.
 cannot use, and `./start.sh check --fix` grants it. The grant changes only modes
 (the group only on an entry owned by neither group `0` nor the app). It never
 follows a link, never leaves the mount's filesystem, and never changes a file
-with more than one hard link. Composer runs the same grant before every `up` of
-an image that runs as a non-root uid, and recreates nothing when the grant fails.
+with more than one hard link. Composer runs the same grant before every `up` and
+every recreate of an image that runs as a non-root uid, pulling the image first
+when it is not on the host yet, and recreates nothing when the image cannot be
+read or the grant fails.
 Every change is listed in
 `.xclude/composer-check/<UTC>/app-permissions/app-permissions.tsv.gz`, and
 `./start.sh app-permissions revert <that file>` restores the previous modes of the
 entries that still have the granted ones. A deployment without Composer grants
 the same bits as root before the first start of a non-root image: `chmod g+rwx`
-on the directories in the table and `chmod g+rw` on log files and runtime
-`state/` files.
+on the directories in the table, `chmod g+rw` on log files and `chmod g+r` on
+any other file the group cannot read.
 
 ## Stored files (`/media/`)
 
