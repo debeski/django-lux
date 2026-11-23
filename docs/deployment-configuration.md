@@ -226,6 +226,14 @@ documentation, but they are not accepted deployment settings:
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
+- The generated `Dockerfile` runs `apt-get -y upgrade` before it installs the
+  system packages, and removes pip once `requirements.txt` is installed, so the
+  image carries Debian's current security fixes and no pip. Nothing in a running
+  stack calls pip (Composer unpacks inline releases itself), and image scanners
+  flag the packages pip vendors. A project keeps its own copy of the
+  `Dockerfile`: matching the scaffold takes those two lines. An image built
+  `FROM` the project image that needs pip runs `python -m ensurepip` first.
+  Rebuild the project image to pick up fixes published after its last build.
 
 ## File permissions
 

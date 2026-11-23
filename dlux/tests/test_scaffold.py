@@ -193,6 +193,15 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('LABEL org.demo_project.dlux_baked_version=', dockerfile_contents)
             self.assertIn('ARG DLUX_PROJECT_RELEASE_MANIFEST=""', dockerfile_contents)
             self.assertIn('LABEL org.dlux.project.release-manifest=', dockerfile_contents)
+            # Trivy gate: Debian fixes newer than the base image, and no pip (its
+            # vendored setuptools is flagged) left in the final image.
+            self.assertIn("apt-get update && apt-get -y upgrade && apt-get install", dockerfile_contents)
+            self.assertIn("python -m pip uninstall --yes pip", dockerfile_contents)
+            self.assertNotIn("--upgrade pip", dockerfile_contents)
+            self.assertNotRegex(
+                dockerfile_contents.partition("python -m pip uninstall --yes pip")[2],
+                r"(?m)^RUN .*\bpip\b",
+            )
             self.assertIn("name: demo_project", compose_contents)
             # Caddy is the active proxy; nginx is a commented-out drop-in fallback.
             self.assertIn("image: caddy:latest", compose_contents)

@@ -317,9 +317,9 @@ def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
     newer active release running untouched.
 
     What makes that safe or unsafe is already expressed in the active release's
-    own manifest. A release is staged with ``pip install --no-deps``, so only
-    DjangoLux itself lives on the volume and everything it imports comes from
-    the image. ``requires.baked_image`` records the last DjangoLux version that
+    own manifest. Composer unpacks a release's wheel without its dependencies,
+    so only DjangoLux itself lives on the volume and everything it imports
+    comes from the image. ``requires.baked_image`` records the last DjangoLux version that
     needed an image rebuild, which is exactly the floor an image must meet to
     carry a later release. So:
 
