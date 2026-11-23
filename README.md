@@ -10,191 +10,179 @@
   <img src="https://raw.githubusercontent.com/debeski/django-lux/main/dlux/static/img/login_logo.svg" alt="DjangoLux Logo" width="450"/>
 </p>
 
+DjangoLux is a design-first UX/UI framework for Django. It ships a themeable design
+system on Bootstrap 5 (built-in and custom themes, custom fonts, full RTL/LTR and
+multilingual rendering) together with the infrastructure a real application needs:
+a first-launch setup wizard, users, scopes and two-factor sign-in, an audit trail,
+zero-boilerplate CRUD, tables, document files, backups and a built-in task runner.
+All of it is wired together and configurable at runtime, so a project spends its
+code on its own features.
 
-DjangoLux is an extensive UX/UI framework for Django — a complete, design-first playground for building modern web apps. It ships a polished, themeable design system on top of Bootstrap 5 (multiple built-in themes, full RTL/LTR + multilingual support, custom font management, and theme/language/direction-aware components) and pairs it with the batteries a real application needs: a first-launch setup wizard, user management and security, scopes, navigation, activity logging, guided onboarding, data export, and zero-boilerplate CRUD tooling.
+`python -m dlux startproject` generates a project already wired for DjangoLux, with a
+Docker Compose stack that [Composer](https://github.com/debeski/composer) deploys,
+checks and updates. The long-form manual lives in
+[`docs/`](https://github.com/debeski/django-lux/blob/main/docs/README.md).
 
-Think of it as a cohesive foundation rather than a themed admin shell — instead of assembling auth, theming, tables, forms, navigation, and auditing yourself, you get them wired together and configurable at runtime, so you can focus on your app's actual features. The package keeps the landing README short; long-form operating and integration guidance lives at [`docs/`](docs/README.md).
+## Highlights
 
-## Built with DjangoLux
+- **Configuration:** a 19-step first-launch wizard at `/sys/setup/`, live System
+  Settings editors, a database-backed `SystemSettings` over the `DLUX_CONFIG`
+  fallback, and themes, fonts and translations edited in the UI.
+  [System Configuration](https://github.com/debeski/django-lux/blob/main/docs/system-configuration.md)
+- **Security and accounts:** password policy, lockout, email and TOTP two-factor
+  sign-in, trusted devices, staff tiers and scopes, optional email-verified public
+  registration, and optional OIDC SSO packages.
+  [DSRP-1](https://github.com/debeski/django-lux/blob/main/docs/security-dsrp-1.md) ·
+  [Operations](https://github.com/debeski/django-lux/blob/main/docs/operations.md)
+- **Operations:** an activity log and reports; encrypted full, data-only, portable
+  and incremental backups with an offline `.dlb` viewer; managed assets; and a
+  database-backed task runner (`dlux_worker`) for DjangoLux's and the project's
+  background work.
+  [Backups](https://github.com/debeski/django-lux/blob/main/docs/backups.md) ·
+  [Task Runner](https://github.com/debeski/django-lux/blob/main/docs/task-runner.md)
+- **Tables, forms and UI:** `DluxTable` with administrator and personal column
+  layouts, the list-page ribbon, sections and dynamic-modal CRUD, context-menu
+  actions, global search, tutorials and Dlux-owned inputs.
+  [UI Integration](https://github.com/debeski/django-lux/blob/main/docs/ui-integration.md) ·
+  [Table Columns](https://github.com/debeski/django-lux/blob/main/docs/table-columns.md)
+- **Documents:** one `register_document_file()` call connects upload, ScanLink
+  scanning, a viewer, page editing and file history to a model field, with OCR and
+  the PDF toolkit as optional extras.
+  [Document Files](https://github.com/debeski/django-lux/blob/main/docs/document-files.md)
+- **Deployment and updates:** the generated Compose stack, verified inline updates
+  on a stable or beta channel, the Operations panel, the deployment doctor,
+  non-root app images, and outbound requests only through the Composer relay.
+  [Verified Inline Updates](https://github.com/debeski/django-lux/blob/main/docs/inline-updater.md) ·
+  [Deployment Doctor](https://github.com/debeski/django-lux/blob/main/docs/doctor.md)
+- **Developer integration:** `dlux_settings(globals())`, root `dlux.urls`, app
+  scaffolds, `ScopedModel` with audit fields, soft delete and actor tracking, and
+  template extension points.
+  [Developer Guide](https://github.com/debeski/django-lux/blob/main/docs/developer-guide.md)
 
-DjangoLux powers complete products as well as reusable application foundations. These projects show the framework across business workflows, fleet operations, and content-driven applications:
+Every capability, with the doc that explains it, is in
+[Features](https://github.com/debeski/django-lux/blob/main/docs/FEATURES.md).
 
-| Project | What it showcases |
-|:--|:--|
-| [**Switch POS**](https://github.com/debeski/Sales-CRM)<br><sub>Sales CRM · POS · Catalog · Finance</sub> | A centralized sales system covering product catalogs, inventory, hybrid-currency pricing, invoices, finance, and role-controlled sales workflows. It demonstrates DjangoLux as the foundation for a substantial day-to-day business application. |
-| [**DLUX Control Plane**](https://github.com/debeski/dlux-panel)<br><sub>Fleet management · Secure operations · Deployment</sub> | A scoped control plane for monitoring and safely operating fleets of DjangoLux Compose deployments through outbound agents. It showcases enrollment, typed operational commands, update orchestration, audit history, and security-focused administration. |
-| **dHub**<br><sub>Portfolio · Document archive · Public and scoped content</sub><br>[Container image](https://hub.docker.com/r/debeski/dhub) | A combined public portfolio and scoped document archive. It demonstrates public-facing pages alongside protected document workflows, runtime customization, Caddy deployment, verified updates, and project-level release automation. |
+## Quick Start
 
-Each project is a working example of DjangoLux conventions applied to a different product shape. Explore the public source and artifacts to see how the shared UI, permissions, scoping, configuration, deployment, and update architecture extend into project-owned features.
+DjangoLux needs Python 3.11 or later (tested on 3.11 to 3.14) and Django 5.1 or
+later. Its other dependencies install with it.
 
-## Composer — Deployment and Operations Layer
-
-For generated Compose deployments, [**Composer**](https://github.com/debeski/composer) is DjangoLux's containerized operations companion. It resolves deployment secrets, starts and updates the stack, runs service and Django management commands, waits for health checks, and publishes atomic deployment status and logs without requiring a local Python or Compose toolchain.
-
-The resident `composer-agent` extends that local workflow with registry image discovery, durable operation replay, and an optional outbound-only connection to the DLUX Control Plane. Docker write authority is isolated in a separate, non-network-facing `composer-executor` (the sole holder of the socket); the agent keeps only read-only Docker access through a `POST=0`/`EXEC=0` `docker-socket-proxy`, so a compromise of the network-facing agent can inspect but never mutate. The responsibilities remain deliberately separated:
-
-| DjangoLux | Composer | DLUX Control Plane |
-|:--|:--|:--|
-| Owns application policy: backups, maintenance, update admission and locking, migration safety, permissions, and final application state. | Owns container execution: secret handoff, registry checks, constrained Compose lifecycle, health verification, deployment status, and durable agent relay. | Owns fleet coordination: enrollment, authorization, typed command routing, batches, audit history, and relayed snapshots. |
-
-DjangoLux decides whether an application operation may proceed; Composer performs the corresponding container work. The agent has no inbound listener, and its remote surface accepts only typed, allowlisted operations—never arbitrary shell access, destructive stack commands, database restarts, or remote backup restoration. Local DjangoLux operations continue when the Control Plane is unavailable.
-
-Generated projects include `start.sh` and `start.ps1` wrappers plus the resident agent:
-
-```bash
-./start.sh             # start the production stack
-./start.sh -d          # start with the development override
-./start.sh update    # pull and safely recreate updated services
-```
-
-[Composer source](https://github.com/debeski/composer) · [Docker image](https://hub.docker.com/r/debeski/composer) · [DjangoLux integration guide](docs/inline-updater.md#deployment-architecture)
-
-## What DjangoLux gives you
-
-- A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, titlebar global search, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
-- A 19-step first-launch setup wizard at `/sys/setup/` covering identity, languages, email, security, themes and fonts, titlebar, sidebar, navbar, ribbon, tables, layout, homepage, login page, profile, search, notifications, logging, backups and optional features.
-- A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
-- A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Dlux email readiness checks, public-account provenance badges, throttles, and optional approval.
-- A database-backed `SystemSettings` singleton layered over `DLUX_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
-- A framework-owned `django_tables2` platform that auto-adopts stock tables, ships built-in pagination and per-page controls, exposes a public `DluxTable` base class, and supports per-table `dlux_table`, `dlux_density`, `dlux_per_page`, and `dlux_actions` overrides.
-- A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, filtered managers, and automatic scope handling.
-- Zero-boilerplate sections and dynamic modal CRUD flows for auxiliary models, plus a reusable context-menu/event model for richer interactions.
-- A built-in audit trail with signal-based logging, merged User/Profile updates, diff capture, masked sensitive fields, and download/export log entries.
-- Universal data helpers such as `fetch_file`, `fetch_excel`, sticky-form autofill, tutorial overlays, and persistent UI preferences.
-
-## Requirements
-
-The runtime dependencies below are installed automatically with `django-lux`.
-
-- Python 3.11+, tested on 3.11 to 3.14. The optional `ocr` extra needs Python 3.14 or earlier: its inference engine, `onnxruntime`, publishes no Python 3.15 wheels, so generated project images build on `python:3.14-slim`.
-- Django 5.1+
-- `django-crispy-forms`
-- `crispy-bootstrap5`
-- `django-tables2`
-- `django-filter`
-- `pillow` "for image handling"
-- `babel` "for translations"
-- `psutil` "for system monitoring"
-- `pyotp` "for TOTP 2FA"
-- `qrcode` "for TOTP 2FA QR codes"
-- `cryptography` "for encrypted TOTP and SMTP secret storage"
-- `openpyxl` "for XLSX exports"
-- `packaging` "for version and requirement validation"
-
-Generated Compose projects install the optional `django-lux[updater]` extra.
-Composer downloads, attests and stages DjangoLux releases itself, so nothing in
-DjangoLux imports it; manual and non-Compose installs do not need it.
-
-## Installation
+### A new project
 
 ```bash
 pip install django-lux
-# OR
-pip install git+https://github.com/debeski/django-lux.git
-```
-
-## Scaffold a New Project or App
-
-```bash
 python -m dlux startproject myproject --image acme/myproject --repo acme/myproject
 cd myproject
-python -m dlux startapp billing --register
+./start.sh -d -b
 ```
 
-`python -m dlux startproject` creates a new Django project already wired for DjangoLux. `python -m dlux startapp` creates a DjangoLux-native app skeleton with models, forms, filters, tables, translations, templates, tests, and optional project registration.
+`startproject` writes a Django project wired for DjangoLux, a Compose stack (`web`,
+`worker`, `db`, `redis`, Caddy, the SMTP relay, the `ocr` service and Composer's
+agent), `.secrets/.env` with the bootstrap secrets, and a tag-driven release
+pipeline. `--image` is the Docker image the deployment pulls and the release
+workflow pushes, and `--repo` is the GitHub repository for release links. On a
+terminal it prompts for both; `--no-input` keeps the defaults.
 
-`startproject` takes two release settings, and on a terminal it **prompts** for them (press Enter to accept the default):
+`./start.sh -d -b` builds the image and starts the development stack. The first
+boot creates the superuser `admin` with the `ADMIN_PASS` from `.secrets/.env`; sign
+in and complete the setup wizard at `/sys/setup/`. Add an app with
+`python -m dlux startapp billing --register`.
 
-- `--image name[:tag]` — the Docker image the deployment pulls and the generated release workflow pushes (e.g. `acme/myproject:latest`). It is written to `.secrets/.env` as `WEB_IMAGE`, the single value every `compose.yml` reference defers to. It defaults to the bare project name, which exists in no registry — set it, or the updater's image-digest check silently never reports an update.
-- `--repo owner/name` — the GitHub repository (a full `https://github.com/owner/name` URL is also accepted), used for the release URL in `release-manifest.json`. Optional; left blank it writes an obvious `OWNER/REPO` placeholder.
-- `--no-input` — never prompt; use the flag values or their defaults (for CI/non-interactive use).
+### An existing Django project
 
-Generated projects include a baseline Docker stack — `compose.yml`, `compose.dev.yml`, a `worker` service running DjangoLux's built-in [task runner](docs/task-runner.md) (`dlux_worker`; no Celery or broker), a `/health/` endpoint via `django-health-check`, Composer's outbound-only agent, isolated executor, and read-only Docker proxy with a persistent runtime volume, and a Caddy reverse proxy (nginx fallback) with a maintenance/progress page — plus a tag-driven release pipeline: `release-manifest.json`, a `.github/workflows/release.yml` that builds and pushes `--image` and bakes the version labels, and `tools/validate_project_release_manifest.py`.
-They also generate `.secrets/.env` with the bootstrap secrets used by the standard startup flow.
-The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
+1. Call the settings helper at the end of `settings.py`. It adds the required apps,
+   middleware, context processor and Crispy Bootstrap 5 settings, and fills in the
+   runtime defaults your settings do not already set.
 
-Inline updates are enabled only by the recognized generated Compose baseline,
-and the development override turns them off again. Other installations keep
-`DLUX_INLINE_UPDATES_ENABLED=False` unless they are explicitly migrated with the guarded bootstrap described in the
-[Verified Inline Updater guide](docs/inline-updater.md).
+   ```python
+   from dlux.utils import dlux_settings
 
-## Minimal Quick Start
+   dlux_settings(globals())
+   ```
 
-1. Add the DjangoLux helper at the end of your project `settings.py`.
+2. Mount `dlux.urls` at the project root, which serves `/accounts/...` and
+   `/sys/...`.
 
-```python
-from dlux.utils import dlux_settings
+   ```python
+   from django.urls import include, path
 
-dlux_settings(globals())
-```
+   urlpatterns = [
+       path("", include("dlux.urls")),
+   ]
+   ```
 
-That helper prepends the required apps, inserts `django.middleware.locale.LocaleMiddleware` and `dlux.middleware.DluxMiddleware` in the supported order, adds the Dlux context processor, sets the Crispy Bootstrap 5 defaults, adds a Bootstrap-friendly `MESSAGE_TAGS` error mapping, and seeds the standard DjangoLux runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
+3. Run `python manage.py dlux_setup`, which applies DjangoLux's migrations and runs
+   the deployment doctor. Then sign in as a superuser and complete `/sys/setup/`.
 
-__Proceed to [Getting Started](docs/getting-started.md) if you prefer to wire everything manually.__
+[Getting Started](https://github.com/debeski/django-lux/blob/main/docs/getting-started.md)
+covers manual wiring, mounting under a prefix, running behind a front proxy and
+what the first launch does.
 
-Public registration is documented separately at [Public Registration Playground](docs/registration.md). It is disabled by default and is not part of the optional SSO packages.
-
-
-2. Mount `dlux.urls` at project root so the bundled auth and system routes stay at `/accounts/...` and `/sys/...`.
-
-```python
-from django.urls import include, path
-
-urlpatterns = [
-    path("", include("dlux.urls")),
-]
-```
-
-With that root include in place, dlux provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, dlux falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404. On a fresh and unconfigured install, Dlux also guards ordinary anonymous requests so a public page cannot bypass first-time setup; once setup is complete, your existing root view continues to behave normally.
-
-3. Run the setup command.
+## Optional Extras
 
 ```bash
-python manage.py dlux_setup
+pip install "django-lux[pdf,ocr]"
 ```
 
-4. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. On a fresh install, an anonymous request may be sent through `/sys/setup/` and then to login before the wizard can be completed. After setup, the main runtime UI lives under `user_hub`.
+| Extra | Adds |
+|:--|:--|
+| `pdf` | `pypdf`, for the [PDF toolkit](https://github.com/debeski/django-lux/blob/main/docs/pdf-toolkit.md)'s server-side assembly. |
+| `ocr` | The engine of the optional `ocr` service, pinned exactly. It needs Python 3.14 or earlier, because `onnxruntime` publishes no Python 3.15 wheels; generated project images build on `python:3.14-slim`. See [OCR](https://github.com/debeski/django-lux/blob/main/docs/ocr.md). |
+| `sso` | `django-lux-sso`, the OIDC provider plugin. The client SDK is the separate `django-lux-sso-client` package. See [SSO](https://github.com/debeski/django-lux/blob/main/docs/sso.md). |
+| `updater` | `pypi-attestations`. Generated projects install it with `ocr`; DjangoLux does not import it, because Composer downloads, attests and stages every release. |
 
-For a fuller setup path, prefix-mount guidance, and first-launch expectations, use the [Getting Started guide](docs/getting-started.md).
+## Deployment with Composer
 
+Generated projects deploy with [Composer](https://github.com/debeski/composer),
+DjangoLux's containerized operations companion. `./start.sh` (or `start.ps1`) runs
+Composer from its image, so the host needs Docker but no local Python or Compose
+toolchain. Composer resolves the secrets, brings the stack up, waits for health checks and applies updates. Inside
+the stack, `composer-agent` checks for DjangoLux releases and project images and
+relays the stack's outbound requests, since `web` and `worker` have no internet
+access. `composer-executor`, which is not network-facing, holds the only Docker
+write access.
 
-## Key Capabilities
+| DjangoLux | Composer | DLUX Control Plane (optional) |
+|:--|:--|:--|
+| Application policy: backups, maintenance, update admission and locking, migration safety, permissions and final application state. | Container execution: secret handoff, registry checks, the Compose lifecycle, health verification, deployment status and the agent relay. | Fleet coordination: enrollment, authorization, typed command routing, batches, audit history and relayed snapshots. |
 
-- Onboarding and runtime configuration:
-  first-launch setup wizard, Options view, runtime System Settings modal, source-tabbed translation overrides, setup import/export, language/theme defaults, and a global Home destination.
-- User and security operations:
-  interactive user wizard, grouped translated permissions, four-tier staff authorization (superuser, Global Staff, Central Staff, Scoped Staff), permission-based sidebar visibility, profile management, multiple 2FA flows (App, Email, Backup), trusted device tracking for 30 days, and runtime preference persistence.
-- Generic CRUD infrastructure:
-  dynamic sections, AJAX-driven modal CRUD, automatic form/table/filter discovery, context-menu actions, and reusable event dispatch.
-- Navigation and UI infrastructure:
-  resolver-driven sidebar builder with permission-based visibility, runtime tree rendering, optional user-level reordering, configurable sidebar toolbar visibility, a shared theme registry, tutorial overlays, theme-aware system surfaces, and template injection hooks.
-- Data movement and productivity helpers:
-  universal file download, Excel export, smart autofill, sticky-form cloning, and generic list/filter helpers.
-- Audit and governance:
-  signal-based activity logging with configurable IP resolution (direct/proxy/header), diff capture, masked sensitive fields, deduplicated entries, download/export logging, and scoped visibility.
-- Optional SSO:
-  `django-lux-sso` and `django-lux-sso-client` live as separate optional packages for OIDC provider/client deployments without changing core Dlux runtime behavior.
-- Optional ScanLink:
-  a workstation tray helper that powers scan buttons in dlux forms. Off by default and enabled under Extra Features; installers are published and downloaded through permission-gated managed assets, and an update card compares each workstation's installed version with the published one. See [Operations](docs/operations.md).
-- Standalone backup viewer:
-  `tools/dlb-viewer/` is a dependency-free, cross-platform binary for inspecting encrypted `.dlb` system backups offline — browse models, rows, and stored files without a running instance. Prebuilt binaries ship with each release.
-- Full-system backup policy:
-  superusers can configure scheduled encrypted backups, storage-relative export targets, and age/count rotation from System Settings; inline updates and rollbacks require a verified pre-maintenance backup.
-- Framework-level automation:
-  translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
-- Verified generated-Compose updates:
-  daily stable-release checks, superuser-approved staged updates, maintenance/backup handling, process generation restarts, and compatible code/static rollback without rebuilding the project image.
+DjangoLux decides whether an operation may proceed; Composer performs the container
+work. The agent has no inbound listener and accepts only typed, allowlisted
+operations, and local operations keep working while the Control Plane is
+unreachable.
+
+```bash
+./start.sh            # start the production stack
+./start.sh -d         # start with the development override
+./start.sh update     # pull and recreate updated services
+./start.sh check      # check the stack; --fix applies recognized migrations
+```
+
+See [Composer Agent Integration](https://github.com/debeski/django-lux/blob/main/docs/composer-agent.md),
+[Verified Inline Updates](https://github.com/debeski/django-lux/blob/main/docs/inline-updater.md),
+[Outbound Requests](https://github.com/debeski/django-lux/blob/main/docs/outbound-requests.md)
+and the [Composer image](https://hub.docker.com/r/debeski/composer).
+
+## Built with DjangoLux
+
+| Project | What it shows |
+|:--|:--|
+| [**Switch POS**](https://github.com/debeski/dlux-crm)<br><sub>Sales CRM · POS · Catalog · Finance</sub> | A sales system covering product catalogs, inventory, hybrid-currency pricing, invoices, finance and role-controlled sales workflows, on DjangoLux as the foundation of a day-to-day business application. |
+| [**DLUX Control Plane**](https://github.com/debeski/dlux-panel)<br><sub>Fleet management · Secure operations · Deployment</sub> | A scoped control plane that monitors and operates fleets of DjangoLux Compose deployments through their outbound agents: enrollment, typed operational commands, update orchestration, audit history and security-focused administration. |
 
 ## Documentation
 
-- [Documentation index](docs/README.md): every guide, grouped for operators and developers
-- [Features](docs/FEATURES.md): the capability map
-- [Getting Started](docs/getting-started.md)
-- [Developer Guide](docs/developer-guide.md)
-- [Reference](docs/reference.md): commands, routes, template tags and helpers
-- [Verified Inline Updater](docs/inline-updater.md)
-- [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
-- [Migrating from django-microsys](docs/migrating-from-microsys.md)
-- [Releasing](docs/RELEASING.md)
-- [Changelog](CHANGELOG.md)
-- [Security Policy](SECURITY.md), [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Documentation index](https://github.com/debeski/django-lux/blob/main/docs/README.md): every guide, grouped for operators and developers
+- [Features](https://github.com/debeski/django-lux/blob/main/docs/FEATURES.md): the capability map
+- [Getting Started](https://github.com/debeski/django-lux/blob/main/docs/getting-started.md): install, wiring and first launch
+- [Developer Guide](https://github.com/debeski/django-lux/blob/main/docs/developer-guide.md): the mental model and integration patterns
+- [Deployment Configuration](https://github.com/debeski/django-lux/blob/main/docs/deployment-configuration.md): every `DLUX_*` setting and environment variable
+- [Reference](https://github.com/debeski/django-lux/blob/main/docs/reference.md): commands, routes, template tags and helpers
+- [Standalone .dlb Backup Viewer](https://github.com/debeski/django-lux/blob/main/tools/dlb-viewer/README.md)
+- [Migrating from django-microsys](https://github.com/debeski/django-lux/blob/main/docs/migrating-from-microsys.md)
+- [Changelog](https://github.com/debeski/django-lux/blob/main/CHANGELOG.md) and [Releasing](https://github.com/debeski/django-lux/blob/main/docs/RELEASING.md)
+- [Security Policy](https://github.com/debeski/django-lux/blob/main/SECURITY.md), [Contributing Guide](https://github.com/debeski/django-lux/blob/main/CONTRIBUTING.md) and [Code of Conduct](https://github.com/debeski/django-lux/blob/main/CODE_OF_CONDUCT.md)
+
+## License
+
+DjangoLux is released under the [MIT License](https://github.com/debeski/django-lux/blob/main/LICENSE).
