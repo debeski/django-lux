@@ -853,8 +853,9 @@ def _runtime_generation(service):
 
 
 def _pointer_lost(service, active_version, baked_version):
-    """True while ``state/active.json`` is unreadable, or missing although a
-    volume release is recorded as active.
+    """True while ``state/active.json`` cannot be served (unreadable, or naming a
+    release that is not staged), or is missing although a volume release is
+    recorded as active.
 
     Losing the pointer moves neither the generation nor the baked version, so the
     tick checks it directly and reconciles, which rebuilds it from the volume,
@@ -863,7 +864,8 @@ def _pointer_lost(service, active_version, baked_version):
     """
     try:
         if service.store.active_file.exists():
-            return service.store.recorded_version() is None
+            service.store.read_active(baked_version)
+            return False
     except Exception:
         return True
     return bool(active_version) and active_version != baked_version

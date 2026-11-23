@@ -652,8 +652,9 @@ reconcile rebuilds it from the runtime volume and the release recorded on the
   same reason on the update state (`latest_reason`). Nothing on the volume is
   removed.
 
-The worker's state tick checks the pointer every few seconds, so a pointer lost
-while the stack runs is rebuilt without a restart. Restoring a staged release or
+The worker's state tick checks the pointer every few seconds, so a pointer lost,
+unreadable or naming a release that is not staged while the stack runs is rebuilt
+without a restart. Restoring a staged release or
 reverting advances `state/generation`, so `web` and `worker`, which booted on the
 baked package without a readable pointer, restart onto the selected release.
 

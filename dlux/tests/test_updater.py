@@ -1491,10 +1491,15 @@ class ReconcileTriggerTests(SimpleTestCase):
         self.service_module._RECONCILED_GENERATION = self._saved[1]
 
     def _service(self, generation, pointer="1.8.6", exists=True):
+        def read_active(baked):
+            if pointer is None:
+                raise UpdaterError("The active DjangoLux runtime state is invalid.")
+            return {"version": pointer}
+
         return SimpleNamespace(
             store=SimpleNamespace(
                 read_generation=lambda: generation,
-                recorded_version=lambda: pointer,
+                read_active=read_active,
                 active_file=SimpleNamespace(exists=lambda: exists),
             ),
             reconcile=mock.Mock(return_value="state"),
@@ -1531,10 +1536,11 @@ class ReconcileTriggerTests(SimpleTestCase):
         )
 
     def test_a_lost_pointer_reconciles_without_a_restart(self):
-        """Found on testbed-dlux: an emptied active.json changed neither the
-        generation nor the baked version, so the running worker never rebuilt it."""
+        """Found on testbed-dlux: an emptied active.json, or one naming a release
+        that is not staged, changed neither the generation nor the baked version,
+        so the running worker never rebuilt it."""
         self.assertEqual(self._run(4), 1)
-        self.assertEqual(self._run(4, pointer=None), 1, "an unreadable pointer must reconcile")
+        self.assertEqual(self._run(4, pointer=None), 1, "an unusable pointer must reconcile")
         self.assertEqual(self._run(4), 0, "once rebuilt, nothing is due")
         self.assertEqual(
             self._run(4, pointer=None, exists=False, active="1.9.0"), 1,
