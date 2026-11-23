@@ -852,6 +852,23 @@ def _runtime_generation(service):
         return None
 
 
+def _pointer_lost(service, active_version, baked_version):
+    """True while ``state/active.json`` is unreadable, or missing although a
+    volume release is recorded as active.
+
+    Losing the pointer moves neither the generation nor the baked version, so the
+    tick checks it directly and reconciles, which rebuilds it from the volume,
+    without waiting for the worker process to restart. A missing pointer on a
+    stack that runs its baked package is the normal image state, not a loss.
+    """
+    try:
+        if service.store.active_file.exists():
+            return service.store.recorded_version() is None
+    except Exception:
+        return True
+    return bool(active_version) and active_version != baked_version
+
+
 def reconcile_state_if_due(service):
     """Refresh the state row against the runtime when it can have drifted.
 
@@ -883,16 +900,22 @@ def reconcile_state_if_due(service):
 
     if _PROCESS_RECONCILED:
         try:
-            recorded = (
+            row = (
                 _state_model().objects
                 .filter(pk=1)
-                .values_list("baked_version", flat=True)
+                .values_list("baked_version", "active_version")
                 .first()
             )
         except Exception:
             return None
-        baked_unchanged = recorded is not None and recorded == get_baked_version()
-        if baked_unchanged and _runtime_generation(service) == _RECONCILED_GENERATION:
+        recorded, active_version = row if row else (None, None)
+        baked_version = get_baked_version()
+        baked_unchanged = recorded is not None and recorded == baked_version
+        if (
+            baked_unchanged
+            and _runtime_generation(service) == _RECONCILED_GENERATION
+            and not _pointer_lost(service, active_version, baked_version)
+        ):
             return None
     try:
         state = service.reconcile()

@@ -1490,22 +1490,28 @@ class ReconcileTriggerTests(SimpleTestCase):
         self.service_module._PROCESS_RECONCILED = self._saved[0]
         self.service_module._RECONCILED_GENERATION = self._saved[1]
 
-    def _service(self, generation):
+    def _service(self, generation, pointer="1.8.6", exists=True):
         return SimpleNamespace(
-            store=SimpleNamespace(read_generation=lambda: generation),
+            store=SimpleNamespace(
+                read_generation=lambda: generation,
+                recorded_version=lambda: pointer,
+                active_file=SimpleNamespace(exists=lambda: exists),
+            ),
             reconcile=mock.Mock(return_value="state"),
             restart_worker=False,
         )
 
-    def _run(self, generation, *, baked="1.8.6", recorded=None):
+    def _run(self, generation, *, baked="1.8.6", recorded=None, pointer="1.8.6", exists=True, active=None):
         """`recorded` is the baked version in the state row; `baked` is the
-        package actually installed. They differ only on a project-image swap."""
+        package actually installed. They differ only on a project-image swap.
+        `pointer` is what active.json names (None when unreadable), `exists`
+        whether the file is there, `active` the row's active version."""
         module = self.service_module
-        service = self._service(generation)
+        service = self._service(generation, pointer, exists)
         with mock.patch.object(module, "get_baked_version", return_value=baked), \
                 mock.patch.object(module, "_state_model") as state_model:
             state_model.return_value.objects.filter.return_value.values_list \
-                .return_value.first.return_value = baked if recorded is None else recorded
+                .return_value.first.return_value = (baked if recorded is None else recorded, active or baked)
             module.reconcile_state_if_due(service)
         return service.reconcile.call_count
 
@@ -1524,6 +1530,23 @@ class ReconcileTriggerTests(SimpleTestCase):
             self._run(4, baked="1.9.0", recorded="1.8.6"), 1, "an image swap must reconcile"
         )
 
+    def test_a_lost_pointer_reconciles_without_a_restart(self):
+        """Found on testbed-dlux: an emptied active.json changed neither the
+        generation nor the baked version, so the running worker never rebuilt it."""
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(self._run(4, pointer=None), 1, "an unreadable pointer must reconcile")
+        self.assertEqual(self._run(4), 0, "once rebuilt, nothing is due")
+        self.assertEqual(
+            self._run(4, pointer=None, exists=False, active="1.9.0"), 1,
+            "a missing pointer while a volume release is recorded must reconcile",
+        )
+
+    def test_no_pointer_on_an_image_stack_is_not_a_loss(self):
+        """A stack that runs its baked package may never write active.json."""
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(self._run(4, pointer=None, exists=False), 0)
+        self.assertEqual(self._run(4, pointer=None, exists=False, active=""), 0)
+
     def test_an_unreadable_generation_reconciles(self):
         # None must never compare equal to a recorded generation.
         self.assertEqual(self._run(4), 1)
@@ -1533,7 +1556,7 @@ class ReconcileTriggerTests(SimpleTestCase):
         with mock.patch.object(module, "get_baked_version", return_value="1.8.6"), \
                 mock.patch.object(module, "_state_model") as state_model:
             state_model.return_value.objects.filter.return_value.values_list \
-                .return_value.first.return_value = "1.8.6"
+                .return_value.first.return_value = ("1.8.6", "1.8.6")
             module.reconcile_state_if_due(service)
         self.assertEqual(service.reconcile.call_count, 1)
 
