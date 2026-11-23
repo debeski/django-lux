@@ -269,19 +269,31 @@
         hideMenu();
     }
 
+    // An explicit type wins. A form action carries its POST target in `url`, so
+    // reading `url` first sent it as a GET link (405 on POST-only views). Without
+    // a type, an action with a url navigates and one with an event dispatches it.
+    function actionType(action) {
+        if (action.type) return action.type;
+        if (action.url) return 'url';
+        if (action.event) return 'event';
+        return '';
+    }
+
     function executeAction(action, target) {
-        // 1. URL Navigation
-        if (action.type === 'url' || action.url) {
-            if (action.confirm && !confirm(action.confirm)) return;
-            openActionUrl(action);
-        }
-        // 2. Form Submission (POST)
-        else if (action.type === 'form') {
+        const type = actionType(action);
+        // 1. Form Submission (POST)
+        if (type === 'form') {
+            if (!action.url) return;
             if (action.confirm && !confirm(action.confirm)) return;
             submitForm(action.url, action.data);
         }
+        // 2. URL Navigation
+        else if (type === 'url') {
+            if (action.confirm && !confirm(action.confirm)) return;
+            openActionUrl(action);
+        }
         // 3. Event Dispatch (for custom JS handling)
-        else if (action.type === 'event' || action.event) {
+        else if (type === 'event') {
             const eventName = action.event;
             const event = new CustomEvent(eventName, {
                 bubbles: true,
@@ -295,7 +307,7 @@
             target.dispatchEvent(event);
         }
         // 4. Function Call (via name)
-        else if (action.type === 'function') {
+        else if (type === 'function') {
             // Need to parse function name "MyObj.func"
             // This is unsafe if not careful, better use events.
             // Skipping for now unless requested.
@@ -328,8 +340,8 @@
         form.action = url;
         
         // Add CSRF
-        const csrf = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-         if (csrf) {
+        const csrf = csrfToken();
+        if (csrf) {
             const inp = document.createElement('input');
             inp.type = 'hidden';
             inp.name = 'csrfmiddlewaretoken';
@@ -352,6 +364,16 @@
         document.body.removeChild(form);
     }
     
+    // The page's token first: a project names its CSRF cookie itself
+    // (CSRF_COOKIE_NAME = '<project>_csrftoken'), so `csrftoken` is only a fallback.
+    function csrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input && input.value) return input.value;
+        return getCookie('csrftoken') || '';
+    }
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -590,7 +612,7 @@
          fetch(`${deleteUrl}${queryParams}`, {
              method: 'POST',
              headers: {
-                 'X-CSRFToken': getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                 'X-CSRFToken': csrfToken(),
                  'X-Requested-With': 'XMLHttpRequest'
              }
          })
