@@ -147,19 +147,24 @@ class TreeTests(SimpleTestCase):
         package = runtime / "releases" / "1.16.2" / "dlux"
         package.mkdir(parents=True)
         (package / "x.py").write_text("")
-        (runtime / "state").mkdir()
-        (runtime / "state" / "active.json").write_text("{}")
-        for path in (package, package.parent):
+        state = runtime / "state"
+        (state / "relay").mkdir(parents=True)
+        (state / "image-available.json").write_text("{}")
+        (state / "deploy-status.json").write_text("{}")
+        for path in (package, package.parent, state / "relay"):
             os.chmod(path, 0o755)
         os.chmod(package / "x.py", 0o644)
-        os.chmod(runtime / "state" / "active.json", 0o644)
-        for path in (runtime, runtime / "releases", runtime / "state"):
+        os.chmod(state / "image-available.json", 0o644)
+        os.chmod(state / "deploy-status.json", 0o600)
+        for path in (runtime, runtime / "releases", state):
             os.chmod(path, 0o775)
 
         with mock.patch.dict(os.environ, {"DLUX_UPDATE_RUNTIME_ROOT": str(runtime)}):
-            found = [(Path(item["path"]).name, item["needs"]) for item in self._problems()]
+            found = sorted((Path(item["path"]).name, item["needs"]) for item in self._problems())
 
-        self.assertEqual(found, [("active.json", "rw")])
+        # A state file is replaced by a rename into its directory, never written
+        # in place, so a root-written 0644 file is fine and a 0600 one needs read.
+        self.assertEqual(found, [("deploy-status.json", "r"), ("relay", "rwx")])
 
     def test_symlinks_are_not_followed_or_reported(self):
         media = self._mount("media")

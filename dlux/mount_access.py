@@ -19,9 +19,11 @@ Two uses, sharing one rule:
 What the app needs, per entry, on a read-write mount: directories readable,
 writable and searchable; files readable; files under a ``logs`` mount also
 writable (the project log handler appends and rotates). On the runtime volume
-the app writes only its top-level directories and the ``state/`` tree;
-installed releases below ``releases/`` are only read. On a read-only mount only
-reading is needed. Symlinks are never followed.
+the app writes only into its top-level directories and the ``state/`` tree, and
+replaces a file there by renaming a new one over it (``dlux.updater.shared_files``),
+so every file there needs only reading; installed releases below ``releases/``
+are only read. On a read-only mount only reading is needed. Symlinks are never
+followed.
 
 Dependency-free (no Django) so the entrypoint can run it before Django starts.
 """
@@ -123,10 +125,10 @@ def needs(is_dir, role, read_only, parts=()):
     if read_only:
         return READ | SEARCH if is_dir else READ
     if role == "runtime":
-        in_state = parts[:1] == ("state",)
         if is_dir:
-            return READ | WRITE | SEARCH if len(parts) <= 1 or in_state else READ | SEARCH
-        return READ | WRITE if in_state else READ
+            writes = len(parts) <= 1 or parts[:1] == ("state",)
+            return READ | WRITE | SEARCH if writes else READ | SEARCH
+        return READ
     if is_dir:
         return READ | WRITE | SEARCH
     return READ | WRITE if role == "logs" else READ

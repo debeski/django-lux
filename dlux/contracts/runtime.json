@@ -68,7 +68,8 @@
     "file_mode": "0664",
     "rules": [
       "Directories are created 0775 and files 0664 on both sides, never 0600: composer-agent runs as uid 0 without capabilities and reaches what the app created only through group 0, and an app running as app_uid/app_gid reaches what Composer created the same way.",
-      "Temporary files carry the writer's pid, so a leftover temporary file never blocks another writer."
+      "Temporary files carry the writer's pid, so a leftover temporary file never blocks another writer.",
+      "A runtime file is replaced by renaming a new one over it, never written in place: the app needs group write only on the directories it writes into (the volume root, its top-level directories and the state/ tree) and group read on every file."
     ]
   },
   "mounts": {
