@@ -167,17 +167,21 @@ describe('admin panel command rail', { concurrency: 1 }, () => {
   });
 
   test('the desktop rail does not squeeze when more actions are added', async () => {
-    // The horizontal rail fits today's four chips at 1280px with room over, so
+    // The horizontal rail fits today's chips at 1280px with room over, so
     // nothing here would fail on chip count alone. It is the squeeze that has to
-    // stay fixed: clone the rail up to eight actions and every one must still
-    // hit-test to itself. Without `flex: 0 0 auto` on the chip this is the
-    // original bug reproduced on a desktop viewport.
+    // stay fixed: clone the rail up to at least eight actions, four more than it
+    // starts with, and every one must still hit-test to itself; overlapping
+    // chips were the original bug, reproduced here on a desktop viewport. The
+    // starting count is read, not assumed: the rail grew from four chips to
+    // five and a fixed total stopped matching.
     const { ctx, page } = await openRail(browser, 1280);
     try {
       const result = await page.evaluate(async () => {
         const rail = document.querySelector('[data-admin-command-rail]');
         const template = rail.querySelector('.dlux-admin-command-chip');
-        for (let i = 0; i < 4; i += 1) rail.appendChild(template.cloneNode(true));
+        const start = rail.querySelectorAll('.dlux-admin-command-chip').length;
+        const target = Math.max(8, start + 4);
+        for (let i = start; i < target; i += 1) rail.appendChild(template.cloneNode(true));
         await new Promise((resolve) => setTimeout(resolve, 250));
 
         const chips = [...rail.querySelectorAll('.dlux-admin-command-chip')];
@@ -187,9 +191,10 @@ describe('admin panel command rail', { concurrency: 1 }, () => {
           const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
           return !!hit && (chip === hit || chip.contains(hit));
         }).length;
-        return { chips: chips.length, reachable };
+        return { start, target, chips: chips.length, reachable };
       });
-      assert.equal(result.chips, 8, 'the clones did not land');
+      assert.ok(result.start >= 1, 'the rail rendered no chips');
+      assert.equal(result.chips, result.target, 'the clones did not land');
       assert.equal(
         result.reachable, result.chips,
         `${result.chips - result.reachable} of ${result.chips} chips overlap once the rail fills up`,
