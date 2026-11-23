@@ -22,11 +22,25 @@ from ..translations import get_strings
 from ..utils.backup_progress import read_restore_progress
 
 
+def backup_choice_label(record, field, strings=None):
+    """The viewer's-language label of a backup or restore row's ``status`` or ``trigger``.
+
+    Read from ``sysbackup_<field>_<value>``; the model's choice label is English
+    and only stands in for a value the catalogue does not know.
+    """
+    strings = get_strings() if strings is None else strings
+    value = getattr(record, field)
+    return strings.get(f'sysbackup_{field}_{value}') or getattr(record, f'get_{field}_display')()
+
+
 def _backup_cell_context(table, backup):
     """What every SystemBackupTable cell template reads, computed once per row."""
+    strings = get_strings()
     return {
         'backup': backup,
-        'DLUX_STRINGS': get_strings(),
+        'status_label': backup_choice_label(backup, 'status', strings),
+        'trigger_label': backup_choice_label(backup, 'trigger', strings),
+        'DLUX_STRINGS': strings,
         'backup_policy': table.backup_policy,
         'backup_stall_warn_seconds': table.backup_stall_warn_seconds,
         'quiet_for': backup.seconds_since_signal() if backup.is_active else 0,
@@ -232,9 +246,14 @@ class SystemRestoreTable(_FixedPageSizeTable):
         if not hasattr(record, 'live_progress'):
             record.live_progress = read_restore_progress(record)
             record.live_eta = record.eta_seconds(percent=record.live_progress['progress_percent'])
+        strings = get_strings()
         return mark_safe(render_to_string(
             f'dlux/backup/cells/_restore_{name}.html',
-            {'restore': record, 'DLUX_STRINGS': get_strings()},
+            {
+                'restore': record,
+                'status_label': backup_choice_label(record, 'status', strings),
+                'DLUX_STRINGS': strings,
+            },
         ))
 
     def render_status(self, record):

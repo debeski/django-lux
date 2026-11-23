@@ -1,19 +1,19 @@
 {
   "schema_version": 2,
-  "version": "1.16.2",
+  "version": "1.16.3b1",
   "display": {
-    "summary": "Email setup for the internal SMTP relay, and the relay now checks the provider's certificate. With delivery path Internal SMTP relay and provider settings Environment, the Email step shows the relay's host, port, encryption, user and whether a password is set, read from the stack; existing stacks get them from Composer 1.10.2's ./start.sh check --fix. Encryption follows the port (SSL on 465, STARTTLS otherwise), the Email step's timeout applies on every route, and a failed send names the hop, the step and the likeliest fix. A provider with a private or self-signed certificate needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False. The relay runs the project image's DjangoLux, so its changes need the image rebuilt on 1.16.2; until then the Email step says the certificate is not checked. The doctor command's email checks follow the Email step. Web and worker update inline from any 1.16 release, with no migrations.",
+    "summary": "Private image registries, non-root groundwork and a reconcile that never reaches PyPI. With Composer 1.10.3, a project image in a private registry (for example a GitLab project) gets update notices and in-app image updates through a read-only login, and the Updates card warns when it cannot read the registry and says why. New projects refuse cross-site background requests at the proxy (Fetch Metadata). DjangoLux writes its runtime files so a non-root image (uid 10001, group 0) can share them, and the generated entrypoint refuses to start when the app cannot use its data. On project images built on 1.16.3 or later, a lost or unreadable runtime pointer is rebuilt from the releases on the volume. Backup tables are translated, the Clear chip and the list ribbon follow dark themes, and first-login preferences can be skipped. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
-      "Email step, Environment route: shows the relay's host, port, encryption, user and whether a password is set; nothing to type.",
-      "Existing stacks: Composer 1.10.2's ./start.sh check --fix shares the relay's settings with web and worker; the password stays with the relay.",
-      "The relay verifies the provider's certificate. A private or self-signed one needs SMTP_RELAY_CA_FILE or SMTP_RELAY_TLS_VERIFY=False.",
-      "Relay changes need the project image rebuilt on 1.16.2; until then the Email step says the provider's certificate is not checked.",
-      "Encryption follows the port (SSL on 465, STARTTLS otherwise), and the Email step's timeout applies on every route.",
-      "A failed send names the hop (relay or provider), the step (connect, TLS, sign-in, send) and the likeliest fix.",
-      "The doctor command's email checks follow the Email step: skipped while email is off; on the relay route they probe the relay, not the provider.",
-      "New projects: composer-agent and composer-executor start with `run` instead of restart-looping. Inline from any 1.16, no migrations."
+      "Private registry: with Composer 1.10.3 and a read-only login, a private WEB_IMAGE gets update notices and in-app image updates.",
+      "The Updates card shows a warning with the reason when the image registry needs a login, refuses it or cannot be read.",
+      "New projects: the proxy refuses cross-site background requests (Fetch Metadata); Composer 1.10.3's check warns on older proxies.",
+      "Non-root groundwork: runtime files are group-shared for uid 10001 with group 0; root stacks are unchanged.",
+      "A lost runtime pointer is rebuilt from the releases on the volume, never from PyPI, on images built on 1.16.3 or later.",
+      "Backup tables show status and trigger in the interface language; the Clear chip follows dark themes.",
+      "First-login preferences: Skip for now and closing the dialog both skip it.",
+      "Web and worker update inline from any 1.16 release, with no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.3b1"
   },
   "requires": {
     "updater_schema": ">=1",

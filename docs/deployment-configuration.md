@@ -226,6 +226,62 @@ documentation, but they are not accepted deployment settings:
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
+- The generated `Dockerfile` runs `apt-get -y upgrade` before it installs the
+  system packages, and removes pip once `requirements.txt` is installed, so the
+  image carries Debian's current security fixes and no pip. Nothing in a running
+  stack calls pip (Composer unpacks inline releases itself), and image scanners
+  flag the packages pip vendors. A project keeps its own copy of the
+  `Dockerfile`: matching the scaffold takes those two lines. An image built
+  `FROM` the project image that needs pip runs `python -m ensurepip` first.
+  Rebuild the project image to pick up fixes published after its last build.
+
+## File permissions
+
+A DjangoLux image can run as a fixed non-root user: uid `10001` with primary
+group `0` (`USER 10001:0` in the Dockerfile). Data a root image wrote is
+`root:root`, with directories at `0755` and files at `0644`. That user can read
+it but cannot create, delete or rename anything in it, so it reaches the data
+through group `0`. Only modes change: owners stay root, and a root image keeps
+working on the same data.
+
+What the app needs on each mount:
+
+| Mount | Directories | Files |
+| --- | --- | --- |
+| `media`, `static`, a project's own read-write mounts | read, write, search | read |
+| `logs` | read, write, search | read, write (a log handler appends and rotates) |
+| Runtime volume (`/opt/dlux-runtime`) | read, write, search on the volume root, its top-level directories and everything under `state/`; read and search below them | read (a file is replaced by renaming a new one over it, never written in place) |
+| A read-only mount (`imports`) | read, search | read |
+
+The app and composer-agent share the runtime volume. composer-agent runs as uid
+`0` without capabilities, so both sides create directories at `0775` and files
+at `0664` there and reach each other's entries through group `0`. The generated
+entrypoint sets `umask 0002`.
+
+**The entrypoint gate.** Before it waits for the database, the generated
+`entrypoint.sh` runs `python -m dlux.mount_access gate`. Under a non-root uid it
+checks the top two levels of every mount under `/app` and of the runtime volume.
+If anything the app needs is missing, it stops the container with exit code 78
+and names each path; a root process skips the check. `python -m
+dlux.mount_access report` prints the whole-tree result as JSON. The doctor's
+`storage.mount_access` check reports the same: an error under a non-root uid, and
+as root an informational line counting what uid `10001` would still need.
+
+**Granting access.** Composer's `app-permissions` check reports what the app
+cannot use, and `./start.sh check --fix` grants it. The grant changes only modes
+(the group only on an entry owned by neither group `0` nor the app). It never
+follows a link, never leaves the mount's filesystem, and never changes a file
+with more than one hard link. Composer runs the same grant before every `up` and
+every recreate of an image that runs as a non-root uid, pulling the image first
+when it is not on the host yet, and recreates nothing when the image cannot be
+read or the grant fails.
+Every change is listed in
+`.xclude/composer-check/<UTC>/app-permissions/app-permissions.tsv.gz`, and
+`./start.sh app-permissions revert <that file>` restores the previous modes of the
+entries that still have the granted ones. A deployment without Composer grants
+the same bits as root before the first start of a non-root image: `chmod g+rwx`
+on the directories in the table, `chmod g+rw` on log files and `chmod g+r` on
+any other file the group cannot read.
 
 ## Stored files (`/media/`)
 
@@ -259,6 +315,68 @@ An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a fo
 Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
 Projects that already deny their own folders in the proxy can keep those rules; they don't conflict.
+
+## Cross-site requests (Fetch Metadata)
+
+The generated proxy refuses, with a 403 before the request reaches the app, what another site's page makes a visitor's browser send in the background: images, scripts, `fetch()` calls, form posts and `<object>`/`<embed>` loads. It reads the browser's `Sec-Fetch-*` headers and applies the [resource isolation policy](https://web.dev/articles/fetch-metadata). CSRF tokens, `SameSite=Lax` cookies, `X-Frame-Options`/`frame-ancestors`, `nosniff` and the absence of CORS headers already stop forged changes, framing and cross-origin reads. This policy is the layer that keeps those requests away from the app at all, which also closes cross-site timing and error probes (XS-Leaks).
+
+| Request | Result |
+| --- | --- |
+| No `Sec-Fetch-Site` header: crawlers, health checks, ScanLink, server-to-server calls, older browsers | Passes |
+| `Sec-Fetch-Site` is `same-origin`, `same-site` or `none` (typed in, a bookmark) | Passes |
+| A link from another site: `cross-site`, a `GET` or `HEAD` navigation (`Sec-Fetch-Mode: navigate`) to anything but `<object>`/`<embed>` | Passes. An `<iframe>` is a navigation too; `X-Frame-Options` refuses it. |
+| Anything else from another site: `no-cors` images and scripts, `cors` fetches, cross-site form posts (`POST` navigations), `<object>`/`<embed>` | 403 from the proxy |
+
+It covers private `/media/` files, `/health` and every route proxied to the app. The routes above it stay open to other sites on purpose, because they are public and served by the proxy itself: `/static/`, the public `/media/` folders, `/_update/status.json` and `/_update/log.txt`, the maintenance page assets under `/_dlux/maintenance/` and `/_edge-alive`. A health check sends no `Sec-Fetch-*` headers, so `/health` keeps working.
+
+Nothing in DjangoLux needs an exemption. SSO redirects back to a client are `GET` navigations. ScanLink's callbacks and its tray app's update checks come from Python, not a browser. The staff page's calls to ScanLink go to the operator's own computer, not to this site. Add one only for a route another site calls from a browser by design, such as an API you open with CORS or, on a DjangoLux SSO provider with browser-based clients, the OIDC token and userinfo endpoints. In the Caddyfile, add the paths to the expression; in the nginx template, give the route its own `location` without the `if ($cross_site_request)` line:
+
+```caddyfile
+@cross_site_request expression <<CEL
+	{header.Sec-Fetch-Site} == "cross-site"
+	&& !(method("GET", "HEAD")
+		&& {header.Sec-Fetch-Mode} == "navigate"
+		&& !({header.Sec-Fetch-Dest} in ["object", "embed"]))
+	&& !path("/o/token/", "/o/userinfo/")
+	CEL
+```
+
+Two stricter rules that security scanners suggest would break things. Requiring `Sec-Fetch-User` blocks crawlers, health checks and links a script follows. Allowing only navigations to reach HTML pages breaks the app's own same-origin `fetch()` calls, such as search as you type.
+
+**The block.** New projects get it from `python -m dlux startproject` (stack schema unchanged). In `.proxy/Caddyfile` it sits inside the site's `route`, after the public media handler and before the private `/media/*` handler:
+
+```caddyfile
+		@cross_site_request expression <<CEL
+			{header.Sec-Fetch-Site} == "cross-site"
+			&& !(method("GET", "HEAD")
+				&& {header.Sec-Fetch-Mode} == "navigate"
+				&& !({header.Sec-Fetch-Dest} in ["object", "embed"]))
+			CEL
+		respond @cross_site_request 403
+```
+
+The nginx fallback (`.proxy/default.conf.template`) maps the same rule next to its other `map`, then refuses it first thing in the `location /media/`, `location /` and `location /health` blocks:
+
+```nginx
+map "$http_sec_fetch_site:$request_method:$http_sec_fetch_mode:$http_sec_fetch_dest" $cross_site_request {
+    default                                             0;
+    "~^cross-site:(GET|HEAD):navigate:(object|embed)$"  1;
+    "~^cross-site:(GET|HEAD):navigate:"                 0;
+    "~^cross-site:"                                     1;
+}
+
+    location / {
+        if ($cross_site_request) { return 403; }
+        ...
+```
+
+**Existing stacks.** `composer check` reports a `fetch-metadata` warning for each proxy file in `.proxy/` without the policy. It looks for the name `cross_site_request`: in the Caddyfile, a `@cross_site_request` matcher and `respond @cross_site_request 403`; in the nginx template, the `$cross_site_request` map and `if ($cross_site_request) { return 403; }`. Comments and the expression's formatting don't matter, but keep the name. Copy the block above into the file, then run `./start.sh restart caddy` (or `nginx`). `./start.sh` alone doesn't reload a changed proxy file. To check it afterwards:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Sec-Fetch-Site: cross-site' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Dest: image' https://your-site/
+```
+
+That prints `403`. The same request with `-H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document'` instead, or with no `Sec-Fetch-*` headers, reaches the app.
 
 ## Managed asset upload limits
 

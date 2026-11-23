@@ -4352,6 +4352,57 @@ class ProfileConfigAndOnboardingTests(TestCase):
         self.assertTrue(page_after_clear.context['DLUX_SHOW_INITIAL_USER_SETUP'])
 
 
+@override_settings(MIDDLEWARE=[
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'dlux.middleware.DluxMiddleware',
+])
+class InitialUserSetupSkipUnderCsrfTests(TestCase):
+    """"Skip for now" under CSRF, as a deployment runs it.
+
+    The other onboarding tests use a client that skips CSRF, which is how a skip
+    posted without its token passed here while every real one was refused and the
+    modal came back on every page. The handler now sends the token it finds on the
+    page as `X-CSRFToken` (see `test_modal_content_init.SkipSetupSendsItsTokenTests`).
+    """
+
+    def setUp(self):
+        cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        self.user = get_user_model().objects.create_user('skipcsrf', 'sc@e.com', 'pw12345678')
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.user)
+
+    def _page_token(self):
+        page = self.client.get(reverse('user_profile'))
+        self.assertContains(page, 'data-dlux-auto-open')
+        return re.search(r'<meta name="csrf-token" content="([^"]+)">', page.content.decode()).group(1)
+
+    def _configured(self):
+        return apps.get_model('dlux', 'Profile').all_objects.get(user=self.user).is_configured
+
+    def test_a_skip_without_the_token_is_refused(self):
+        self._page_token()
+        response = self.client.post(reverse('initial_user_setup'), {'skip': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self._configured())
+
+    def test_the_skip_the_modal_sends_ends_onboarding(self):
+        token = self._page_token()
+        response = self.client.post(
+            reverse('initial_user_setup'), {'skip': '1'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest', HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'success': True, 'refresh_parent': True})
+        self.assertTrue(self._configured())
+        self.assertNotContains(self.client.get(reverse('user_profile')), 'data-dlux-auto-open')
+
+
 class ListPageTemplateTests(TestCase):
     """`dlux/list_page.html`: the ribbon-over-table arrangement, as a base."""
 

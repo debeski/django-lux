@@ -5,6 +5,7 @@ palette variables. Under a single-theme site that is invisible; Dlux ships 13
 themes, so each literal is a control that stays Bootstrap blue while everything
 around it follows the palette.
 """
+import re
 from pathlib import Path
 
 from dlux.tests.harness import setup_test_environment
@@ -93,3 +94,186 @@ class LinkButtonsStayGhostsTests(SimpleTestCase):
 
         self.assertIn('--bs-btn-hover-bg: var(--mono-700);', mono)
         self.assertIn('--bs-link-hover-color: var(--mono-800);', mono)
+
+
+class FilterClearChipFollowsDarkThemesTests(SimpleTestCase):
+    """The filter bar's Clear chip was a light cream pill in every dark theme.
+
+    `forms/css/form_actions.css` paints it with
+    `.dlux-filter .btn.dlux-filter-clear.btn-warning` and is linked after the
+    theme stylesheet, so a theme rule only wins by out-ranking that selector. At
+    equal specificity the later, light rule wins: that is what dark and neon lost
+    to, and the other dark themes had no rule at all.
+    """
+
+    LIGHT_SELECTOR = '.dlux-filter .btn.dlux-filter-clear.btn-warning'
+
+    @staticmethod
+    def _rules(path):
+        css = re.sub(r'/\*.*?\*/', '', path.read_text(encoding='utf-8'), flags=re.S)
+        for prelude, body in re.findall(r'([^{}]+)\{([^{}]*)\}', css):
+            for selector in prelude.split(','):
+                yield ' '.join(selector.split()), body
+
+    @staticmethod
+    def _specificity(selector):
+        """(ids, classes + attributes + pseudo-classes, elements) for the plain
+        compound selectors these rules use; functional pseudo-classes are refused
+        rather than miscounted."""
+        assert '(' not in selector, f'unsupported selector: {selector}'
+        ids = len(re.findall(r'#[\w-]+', selector))
+        classes = len(re.findall(r'\.[\w-]+|\[[^\]]*\]|(?<!:):[\w-]+', selector))
+        elements = len(re.findall(r'(?:^|[\s>+~])[a-zA-Z][\w-]*', selector))
+        return ids, classes, elements
+
+    def _dark_themes(self):
+        themes = {}
+        for path in sorted((_STATIC / 'themes' / 'css').glob('*.css')):
+            for selector, body in self._rules(path):
+                if selector == f':root.theme-{path.stem}' and re.search(r'color-scheme:\s*dark', body):
+                    themes[path.stem] = path
+        return themes
+
+    def test_the_light_rule_is_the_one_to_beat(self):
+        rules = dict(self._rules(_STATIC / 'forms' / 'css' / 'form_actions.css'))
+        self.assertIn(self.LIGHT_SELECTOR, rules)
+        self.assertRegex(rules[self.LIGHT_SELECTOR], r'background:[^;]*!important')
+
+    def test_theme_stylesheets_load_before_form_actions(self):
+        """Why a tie is a loss: base.html links the active theme, then the form CSS."""
+        templates = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
+        base = (templates / 'base.html').read_text(encoding='utf-8')
+        assets = (templates / 'forms' / 'assets_head.html').read_text(encoding='utf-8')
+
+        self.assertIn('dlux/forms/css/form_actions.css', assets)
+        self.assertLess(
+            base.index('DLUX_ACTIVE_THEME.css_path'),
+            base.index("include_once 'dlux/forms/assets_head.html'"),
+        )
+
+    def test_every_dark_theme_out_ranks_the_light_chip(self):
+        themes = self._dark_themes()
+        self.assertEqual(set(themes), {'dark', 'gothic', 'retro', 'neon', 'prism', 'aether'})
+        light = self._specificity(self.LIGHT_SELECTOR)
+
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                winning = [
+                    body for selector, body in self._rules(path)
+                    if selector.startswith(f':root.theme-{slug} ')
+                    and '.dlux-filter-clear' in selector.split()[-1]
+                    and ':hover' not in selector
+                    and self._specificity(selector) > light
+                ]
+                self.assertTrue(winning, f'{path.name} has no Clear chip rule that out-ranks {self.LIGHT_SELECTOR}')
+                body = winning[-1]
+                self.assertRegex(body, r'background:[^;]*!important')
+                self.assertRegex(body, r'(?<![\w-])color:[^;]*!important')
+
+    def test_every_dark_theme_lets_the_icon_follow_the_chip(self):
+        """`base/css/main.css` forces black icons in soft buttons
+        (`:root .btn-warning .bi`), which vanish on a dark chip."""
+        black = dict(self._rules(_STATIC / 'base' / 'css' / 'main.css'))
+        self.assertRegex(black[':root .btn-warning .bi'], r'color:\s*#000\s*!important')
+        forced = self._specificity(':root .btn-warning .bi')
+
+        for slug, path in self._dark_themes().items():
+            with self.subTest(theme=slug):
+                icon_rules = [
+                    body for selector, body in self._rules(path)
+                    if selector.startswith(f':root.theme-{slug} ')
+                    and (selector.endswith('.btn-warning .bi')
+                         or ('.dlux-filter-clear' in selector and selector.endswith((' i', ' .bi'))))
+                    and self._specificity(selector) > forced
+                    and re.search(r'(?<![\w-])color:[^;]*!important', body)
+                ]
+                self.assertTrue(icon_rules, f'{path.name} leaves the Clear chip icon black')
+                self.assertNotRegex(icon_rules[-1], r'color:\s*#000\b')
+
+
+class RibbonActiveSegmentFollowsDarkThemesTests(SimpleTestCase):
+    """The list ribbon was unreadable in every dark theme.
+
+    `ribbon/css/ribbon.css` paints the active segment with `--primal` and white
+    text, and every dark theme has a light `--primal` (#ebf4ff in dark, #00ffff
+    in neon): white on white. Its other labels use `--bs-secondary-color`, which
+    no dark theme sets, so they kept Bootstrap's light-mode grey on a dark strip.
+    Each dark theme fixes both, and each pair must meet WCAG AA (4.5:1)."""
+
+    _rules = staticmethod(FilterClearChipFollowsDarkThemesTests._rules)
+
+    def _variables(self, path, slug):
+        variables = {}
+        for selector, body in self._rules(path):
+            if selector == f':root.theme-{slug}':
+                for name, value in re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', body):
+                    variables[name] = value.strip()
+        return variables
+
+    @staticmethod
+    def _resolve(value, variables, depth=0):
+        match = re.fullmatch(r'var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)', value.strip())
+        if not match or depth > 8:
+            return value.strip()
+        name, fallback = match.groups()
+        return RibbonActiveSegmentFollowsDarkThemesTests._resolve(
+            variables.get(name, fallback or ''), variables, depth + 1)
+
+    @staticmethod
+    def _luminance(hex_colour):
+        value = hex_colour.lstrip('#')
+        if len(value) == 3:
+            value = ''.join(c * 2 for c in value)
+        channels = [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    def test_every_dark_theme_gives_the_active_segment_a_readable_label(self):
+        themes = FilterClearChipFollowsDarkThemesTests._dark_themes(FilterClearChipFollowsDarkThemesTests())
+        self.assertEqual(set(themes), {'dark', 'gothic', 'retro', 'neon', 'prism', 'aether'})
+        base = dict(self._rules(_STATIC / 'ribbon' / 'css' / 'ribbon.css'))
+        self.assertRegex(base['.dlux-ribbon-segment.active'], r'background:\s*var\(--primal')
+
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                rules = [body for selector, body in self._rules(path)
+                         if selector == f':root.theme-{slug} .dlux-ribbon-segment.active']
+                self.assertTrue(rules, f'{path.name} leaves the active ribbon segment white on --primal')
+                colour = re.search(r'(?<![\w-])color:\s*([^;]+);', rules[-1]).group(1)
+                variables = self._variables(path, slug)
+                text = self._resolve(colour, variables)
+                background = self._resolve('var(--primal)', variables)
+                self.assertRegex(text, r'^#[0-9a-fA-F]{3,6}$', f'{slug}: label colour {colour} did not resolve')
+                self.assertRegex(background, r'^#[0-9a-fA-F]{3,6}$', f'{slug}: --primal did not resolve')
+                light, dark = sorted((self._luminance(text), self._luminance(background)), reverse=True)
+                self.assertGreaterEqual((light + 0.05) / (dark + 0.05), 4.5, f'{slug}: {text} on {background}')
+
+    def test_every_dark_theme_gives_the_ribbon_a_readable_muted_colour(self):
+        themes = FilterClearChipFollowsDarkThemesTests._dark_themes(FilterClearChipFollowsDarkThemesTests())
+        for slug, path in themes.items():
+            with self.subTest(theme=slug):
+                scoped = {}
+                for selector, body in self._rules(path):
+                    match = re.search(r'--bs-secondary-color:\s*([^;]+);', body)
+                    if match and selector in (f':root.theme-{slug} .dlux-ribbon-strips',
+                                              f':root.theme-{slug} .dlux-ribbon-tabs'):
+                        scoped[selector] = match.group(1).strip()
+                self.assertEqual(len(scoped), 2, f'{path.name} leaves the ribbon on the light-mode grey')
+                value = set(scoped.values()).pop()
+                mix = re.fullmatch(r'color-mix\(in srgb, (var\(--[\w-]+\)) (\d+)%, transparent\)', value)
+                self.assertTrue(mix, f'{slug}: unexpected muted colour {value}')
+                variables = self._variables(path, slug)
+                text = self._resolve(mix.group(1), variables)
+                page = self._resolve('var(--body)', variables)
+                share = int(mix.group(2)) / 100
+
+                def channels(hex_colour):
+                    value = hex_colour.lstrip('#')
+                    value = ''.join(c * 2 for c in value) if len(value) == 3 else value
+                    return [int(value[i:i + 2], 16) for i in (0, 2, 4)]
+
+                blended = '#' + ''.join(
+                    f'{round(share * t + (1 - share) * b):02x}' for t, b in zip(channels(text), channels(page))
+                )
+                light, dark = sorted((self._luminance(blended), self._luminance(page)), reverse=True)
+                self.assertGreaterEqual((light + 0.05) / (dark + 0.05), 4.5, f'{slug}: {blended} on {page}')

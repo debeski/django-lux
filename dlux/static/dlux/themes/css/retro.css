@@ -544,6 +544,17 @@
     text-shadow: none !important;
 }
 
+:root.theme-retro .dlux-filter .btn.dlux-filter-clear.btn-warning {
+    background:
+        radial-gradient(circle at top, rgba(201, 162, 39, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(29, 24, 21, 0.98), rgba(16, 13, 12, 0.96)) !important;
+    border-color: rgba(201, 162, 39, 0.26) !important;
+    color: var(--retro-gold) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 12px 24px -18px rgba(0, 0, 0, 0.4) !important;
+}
+
 :root.theme-retro .form-control[type="file"]::file-selector-button {
     background: linear-gradient(135deg, var(--retro-amber) 0%, var(--retro-copper) 100%) !important;
     color: var(--retro-black) !important;
@@ -1572,4 +1583,18 @@
     background: rgba(255, 193, 7, 0.18);
     color: #ffe69c;
     border-color: rgba(255, 193, 7, 0.22);
+}
+
+/* Ribbon: its labels use Bootstrap's muted --bs-secondary-color, which this
+   theme leaves at the light-mode grey, so the list ribbon takes a muted form of
+   the theme's title colour. The active segment is painted with --primal, which
+   is light in this theme, so its label takes the page colour instead of
+   ribbon.css's white. */
+:root.theme-retro .dlux-ribbon-strips,
+:root.theme-retro .dlux-ribbon-tabs {
+    --bs-secondary-color: color-mix(in srgb, var(--title) 75%, transparent);
+}
+
+:root.theme-retro .dlux-ribbon-segment.active {
+    color: var(--body);
 }

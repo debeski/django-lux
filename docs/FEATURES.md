@@ -98,6 +98,9 @@ tags and helpers are in the [Reference](reference.md).
   audited Composer operations. See [Operations](operations.md).
 - **Deployment doctor:** a diagnostic report with safe repairs. See
   [Doctor](doctor.md).
+- **Non-root app images:** an image can run as uid 10001 (group 0) on data a root
+  image wrote; the entrypoint refuses to start until that data is usable. See
+  [File permissions](deployment-configuration.md#file-permissions).
 - **Outbound requests** go through the Composer relay; `web` and `worker` have no
   internet access. See [Outbound Requests](outbound-requests.md).
 

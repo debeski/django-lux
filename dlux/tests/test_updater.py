@@ -35,13 +35,10 @@ from dlux.models import (
 from dlux.updater import UpdaterError, check_policy
 from dlux.updater.manifest import (
     ReleaseCandidate,
-    _validated_https_url,
     assess_wheel,
-    download_wheel,
     package_release_notes,
     validate_local_release_manifest,
     validate_release_manifest,
-    verify_pypi_attestation,
 )
 from dlux.updater.runtime import RuntimeStore
 from dlux.updater.image_update import (
@@ -84,25 +81,6 @@ def _newer_version(base=__version__):
 
 
 NEWER_VERSION = _newer_version()
-
-
-class FakeResponse:
-    def __init__(self, payload, url="https://files.pythonhosted.org/package.whl", headers=None):
-        self.payload = payload
-        self.url = url
-        self.headers = headers or {}
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def read(self, size=-1):
-        return self.payload if size < 0 else self.payload[:size]
-
-    def geturl(self):
-        return self.url
 
 
 def release_manifest(version="1.2.3", **overrides):
@@ -231,49 +209,6 @@ class ManifestTests(TestCase):
 
             manifest_file.write_text("{", encoding="utf-8")
             self.assertEqual(package_release_notes(package, "1.2.3"), {})
-
-    def test_download_rejects_hash_mismatch_and_redirect_host(self):
-        payload = b"not-a-wheel"
-        candidate = ReleaseCandidate("1.2.3", "django_lux-1.2.3-py3-none-any.whl", "https://files.pythonhosted.org/a.whl", "0" * 64)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with self.assertRaises(UpdaterError):
-                download_wheel(candidate, Path(temp_dir) / "a.whl", opener=lambda *a, **k: FakeResponse(payload))
-        with self.assertRaises(UpdaterError):
-            _validated_https_url("https://evil.example/django_lux.whl")
-
-    def test_attestation_requires_official_repository_and_workflow(self):
-        candidate = ReleaseCandidate("1.2.3", "django_lux-1.2.3-py3-none-any.whl", "https://files.pythonhosted.org/a.whl", "a" * 64)
-        runner = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
-
-        def opener(request, timeout=0):
-            provenance = {"attestation_bundles": [{"publisher": {
-                "kind": "GitHub",
-                "repository": "debeski/django-lux",
-                "workflow": "release.yml",
-            }}]}
-            return FakeResponse(json.dumps(provenance).encode(), "https://pypi.org/integrity/x")
-
-        present = mock.patch(
-            "dlux.updater.manifest.importlib.util.find_spec",
-            return_value=SimpleNamespace(),
-        )
-        with present:
-            self.assertTrue(verify_pypi_attestation(candidate, runner=runner, opener=opener))
-        command = runner.call_args.args[0]
-        self.assertEqual(command[:3], [sys.executable, "-m", "pypi_attestations"])
-
-        def wrong_opener(request, timeout=0):
-            provenance = {"attestation_bundles": [{"publisher": {
-                "kind": "GitHub", "repository": "fork/django-lux", "workflow": "release.yml",
-            }}]}
-            return FakeResponse(json.dumps(provenance).encode(), "https://pypi.org/integrity/x")
-
-        with present, self.assertRaises(UpdaterError):
-            verify_pypi_attestation(candidate, runner=runner, opener=wrong_opener)
-
-        with mock.patch("dlux.updater.manifest.importlib.util.find_spec", return_value=None):
-            with self.assertRaisesMessage(UpdaterError, "attestation verification is unavailable"):
-                verify_pypi_attestation(candidate, runner=runner, opener=opener)
 
     def test_assessment_rejects_dependency_python_and_manifest_changes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -407,39 +342,6 @@ class ManifestTests(TestCase):
 
 
 class RuntimeStoreTests(TestCase):
-    def test_wheel_download_path_preserves_the_canonical_pip_filename(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            store = RuntimeStore(temp_dir).ensure()
-            filename = f"django_lux-{NEWER_VERSION}-py3-none-any.whl"
-            candidate = ReleaseCandidate(
-                NEWER_VERSION,
-                filename,
-                f"https://files.pythonhosted.org/{filename}",
-                "a" * 64,
-            )
-            wheel = store.wheel_path(candidate)
-            self.assertEqual(wheel.name, filename)
-            self.assertEqual(wheel.parent.name, "a" * 64)
-            self.assertEqual(wheel.parent.parent, store.downloads)
-
-            runner = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
-            RuntimeStore.install_wheel(wheel, Path(temp_dir) / "target", runner=runner)
-            install_command = runner.call_args.args[0]
-            self.assertEqual(Path(install_command[-1]).name, filename)
-
-    def test_wheel_staging_failure_keeps_bounded_redacted_pip_detail(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            wheel = Path(temp_dir) / f"django_lux-{NEWER_VERSION}-py3-none-any.whl"
-            runner = mock.Mock(return_value=SimpleNamespace(
-                returncode=1,
-                stdout="",
-                stderr="Looking in indexes: https://user:password@example.test/simple\n"
-                       "ERROR: Invalid wheel filename\n",
-            ))
-            with self.assertRaisesMessage(UpdaterError, "ERROR: Invalid wheel filename") as raised:
-                RuntimeStore.install_wheel(wheel, Path(temp_dir) / "target", runner=runner)
-            self.assertNotIn("user:password", str(raised.exception))
-
     def test_baked_fallback_atomic_switch_corrupt_state_and_rollback(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -930,7 +832,7 @@ class RuntimeStoreTests(TestCase):
             with mock.patch(
                 "dlux.updater.service.get_baked_version",
                 return_value="1.2.4",
-            ), mock.patch("dlux.updater.service.download_wheel") as download:
+            ):
                 reconciled = service.reconcile()
             active = store.read_active("1.2.4")
             self.assertEqual(active["source"], "image")
@@ -942,7 +844,6 @@ class RuntimeStoreTests(TestCase):
             self.assertFalse(reconciled.degraded)
             self.assertFalse(store.maintenance_file.exists())
             self.assertFalse(store.degraded_file.exists())
-            download.assert_not_called()
 
     def test_unreconstructable_active_reverts_to_baked_instead_of_degrading(self):
         # active_version is newer than baked but was never a downloadable wheel
@@ -960,9 +861,7 @@ class RuntimeStoreTests(TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
             store.set_degraded("previous reconcile failed")
-            with mock.patch("dlux.updater.service.download_wheel") as download:
-                reconciled = UpdateService(store=store).reconcile()
-            download.assert_not_called()
+            reconciled = UpdateService(store=store).reconcile()
             active = store.read_active(__version__)
             self.assertEqual(active["source"], "image")
             self.assertEqual(active["version"], __version__)
@@ -1042,6 +941,220 @@ class RuntimeStoreTests(TestCase):
             source.index("from dlux import __version__"),
             source.index('importlib.metadata.version("django-lux")'),
         )
+
+
+def _stage_release(store, version, *, manifest_version=None):
+    package = store.release_path(version) / "dlux"
+    package.mkdir(parents=True)
+    (package / "release-manifest.json").write_text(
+        json.dumps(release_manifest(manifest_version or version)), encoding="utf-8",
+    )
+    return package.parent
+
+
+class ReconcileRecoveryTests(TestCase):
+    """A lost or unreadable ``active.json`` is rebuilt from the runtime volume alone.
+
+    ``worker`` has no internet and Composer stages every release, so reconcile
+    either re-points to the recorded release still staged on the volume or
+    reverts to the baked image. It never downloads, attests or pip-installs.
+    """
+
+    def setUp(self):
+        self.attempts = []
+
+        def refuse_connection(*args, **kwargs):
+            self.attempts.append(("network", args))
+            raise OSError("reconcile must not open a network connection")
+
+        patcher = mock.patch("socket.create_connection", side_effect=refuse_connection)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _runner(self, *args, **kwargs):
+        self.attempts.append(("subprocess", args))
+        raise AssertionError("reconcile must not run a subprocess")
+
+    def _service(self, store):
+        return UpdateService(store=store, command_runner=self._runner)
+
+    def _record(self, version, **fields):
+        state = DluxUpdateState.load()
+        state.active_version = version
+        state.generation = 4
+        for name, value in fields.items():
+            setattr(state, name, value)
+        state.save()
+        return state
+
+    def _store(self, temp_dir):
+        store = RuntimeStore(temp_dir).ensure()
+        store.set_generation(4)
+        return store
+
+    def _assert_repointed(self, store, service, reconciled, version):
+        from dlux.updater.supervisor import resolve_release
+
+        self.assertEqual(self.attempts, [])
+        self.assertFalse(reconciled.degraded, reconciled.degraded_reason)
+        self.assertFalse(store.degraded_file.exists())
+        active = store.read_active(__version__)
+        self.assertEqual((active["source"], active["version"]), ("volume", version))
+        self.assertEqual(reconciled.active_version, version)
+        self.assertEqual(
+            resolve_release(store.root, __version__), store.release_path(version).resolve(),
+            "the supervisor serves the re-pointed release",
+        )
+        # Processes that booted without a readable pointer run the baked image;
+        # a new generation restarts them onto the release that is active again.
+        self.assertEqual(store.read_generation(), 5)
+        self.assertEqual(active["generation"], 5)
+        self.assertEqual(reconciled.generation, 5)
+        self.assertTrue(service.restart_worker)
+
+    def _assert_reverted_to_baked(self, store, service, reconciled, recorded, baked=__version__):
+        self.assertEqual(self.attempts, [])
+        self.assertFalse(reconciled.degraded, reconciled.degraded_reason)
+        self.assertFalse(store.degraded_file.exists())
+        active = store.read_active(baked)
+        self.assertEqual((active["source"], active["version"]), ("image", baked))
+        self.assertEqual(reconciled.active_version, baked)
+        self.assertEqual(reconciled.active_wheel_url, "")
+        self.assertEqual(reconciled.active_wheel_sha256, "")
+        self.assertIn(recorded, reconciled.latest_reason)
+        self.assertIn("baked image", reconciled.latest_reason)
+        self.assertEqual(store.read_generation(), 5)
+        self.assertTrue(service.restart_worker)
+
+    def test_lost_pointer_repoints_to_the_staged_recorded_release(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, NEWER_VERSION)
+            self._record(NEWER_VERSION)
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self._assert_repointed(store, service, reconciled, NEWER_VERSION)
+
+    def test_a_rollback_to_the_image_is_not_undone(self):
+        """Composer's rollback to the baked package removes active.json and
+        advances the generation. Found on testbed-dlux: reconcile read that as a
+        lost pointer and re-activated the release the operator rolled back from."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, NEWER_VERSION)
+            self._record(NEWER_VERSION)
+            store.set_generation(5)
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self.assertEqual(self.attempts, [])
+            self.assertFalse(store.active_file.exists(), "the image activation stays pointer-less")
+            active = store.read_active(__version__)
+            self.assertEqual((active["source"], active["version"]), ("image", __version__))
+            self.assertEqual(reconciled.active_version, __version__)
+            self.assertEqual(store.read_generation(), 5)
+            self.assertFalse(service.restart_worker)
+
+    def test_unreadable_pointer_repoints_to_the_staged_recorded_release(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, NEWER_VERSION)
+            store.active_file.write_text("{not json", encoding="utf-8")
+            self._record(NEWER_VERSION)
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self._assert_repointed(store, service, reconciled, NEWER_VERSION)
+
+    def test_a_recorded_wheel_url_is_never_fetched_when_the_release_is_staged(self):
+        # A state row written before 1.10.0 still names the wheel it came from.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, NEWER_VERSION)
+            self._record(
+                NEWER_VERSION,
+                active_wheel_url=f"https://files.pythonhosted.org/django_lux-{NEWER_VERSION}-py3-none-any.whl",
+                active_wheel_sha256="a" * 64,
+            )
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self._assert_repointed(store, service, reconciled, NEWER_VERSION)
+
+    def test_a_recorded_wheel_url_is_never_fetched_when_the_volume_is_empty(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            self._record(
+                NEWER_VERSION,
+                active_wheel_url=f"https://files.pythonhosted.org/django_lux-{NEWER_VERSION}-py3-none-any.whl",
+                active_wheel_sha256="a" * 64,
+            )
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self._assert_reverted_to_baked(store, service, reconciled, NEWER_VERSION)
+            self.assertIn("not staged", reconciled.latest_reason)
+            with mock.patch.dict(os.environ, {"DLUX_UPDATE_RUNTIME_ROOT": temp_dir}):
+                from dlux.updater.health import main as updater_health
+
+                store.write_heartbeat()
+                self.assertEqual(updater_health(), 0)
+
+    def test_a_staged_release_that_fails_verification_reverts_to_baked(self):
+        def wrong_version(store):
+            _stage_release(store, NEWER_VERSION, manifest_version="1.0.0")
+
+        def no_manifest(store):
+            (store.release_path(NEWER_VERSION) / "dlux").mkdir(parents=True)
+
+        def unreadable_manifest(store):
+            package = store.release_path(NEWER_VERSION) / "dlux"
+            package.mkdir(parents=True)
+            (package / "release-manifest.json").write_text("{", encoding="utf-8")
+
+        def outside_the_volume(store):
+            outside = store.root.parent / f"{store.root.name}-outside" / NEWER_VERSION
+            package = outside / "dlux"
+            package.mkdir(parents=True)
+            (package / "release-manifest.json").write_text(
+                json.dumps(release_manifest(NEWER_VERSION)), encoding="utf-8",
+            )
+            store.release_path(NEWER_VERSION).symlink_to(outside, target_is_directory=True)
+
+        cases = {
+            "the manifest names another version": (wrong_version, "1.0.0"),
+            "no manifest": (no_manifest, "manifest"),
+            "an unreadable manifest": (unreadable_manifest, "manifest"),
+            "a directory outside the volume": (outside_the_volume, "outside"),
+        }
+        for label, (stage, detail) in cases.items():
+            with self.subTest(label), tempfile.TemporaryDirectory() as temp_dir:
+                self.attempts.clear()
+                store = self._store(f"{temp_dir}/runtime")
+                stage(store)
+                self._record(NEWER_VERSION, latest_reason="")
+                service = self._service(store)
+                reconciled = service.reconcile()
+                self._assert_reverted_to_baked(store, service, reconciled, NEWER_VERSION)
+                self.assertIn(detail, reconciled.latest_reason)
+                self.assertTrue(
+                    os.path.lexists(store.release_path(NEWER_VERSION)),
+                    "reconcile never removes a staged release",
+                )
+
+    def test_unreadable_pointer_never_repoints_to_a_release_the_image_supersedes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, "1.2.3")
+            store.active_file.write_text("{not json", encoding="utf-8")
+            self._record("1.2.3", baked_version="1.2.4")
+            service = self._service(store)
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.2.4"):
+                reconciled = service.reconcile()
+            self._assert_reverted_to_baked(store, service, reconciled, "1.2.3", baked="1.2.4")
+
+    def test_the_app_side_updater_has_no_fetch_or_install_helpers(self):
+        from dlux.updater import manifest as manifest_module
+
+        for name in ("download_wheel", "verify_pypi_attestation"):
+            self.assertFalse(hasattr(manifest_module, name), name)
+        self.assertFalse(hasattr(RuntimeStore, "install_wheel"))
 
 
 class ManageRuntimeReleaseTests(TestCase):
@@ -1238,6 +1351,27 @@ class ImageAvailabilityMetadataTests(TestCase):
 
         self.assertNotIn("baked_dlux_version", metadata["manifest"])
 
+    def test_the_summary_says_why_the_registry_could_not_be_read(self):
+        from dlux.updater import image_update
+
+        class _NoHistory:
+            class objects:
+                @staticmethod
+                def order_by(*_args):
+                    return type("Rows", (), {"first": staticmethod(lambda: None)})()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            with mock.patch.object(image_update, "_image_model", return_value=_NoHistory), \
+                    mock.patch.object(image_update, "app_version", return_value="1.0.0"):
+                self._write_availability(store, {"remote_digest": None, "reason": "login-required"})
+                unread = image_update.image_status_summary(store)
+                self._write_availability(store, {"reason": "login-required"})
+                read = image_update.image_status_summary(store)
+
+        self.assertEqual(unread["remote_reason"], "login-required")
+        self.assertEqual(read["remote_reason"], "", "a readable registry has no reason")
+
     def test_an_image_without_a_registry_digest_was_built_locally(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -1375,22 +1509,33 @@ class ReconcileTriggerTests(SimpleTestCase):
         self.service_module._PROCESS_RECONCILED = self._saved[0]
         self.service_module._RECONCILED_GENERATION = self._saved[1]
 
-    def _service(self, generation):
+    def _service(self, generation, pointer="1.8.6", exists=True):
+        def read_active(baked):
+            if pointer is None:
+                raise UpdaterError("The active DjangoLux runtime state is invalid.")
+            return {"version": pointer}
+
         return SimpleNamespace(
-            store=SimpleNamespace(read_generation=lambda: generation),
+            store=SimpleNamespace(
+                read_generation=lambda: generation,
+                read_active=read_active,
+                active_file=SimpleNamespace(exists=lambda: exists),
+            ),
             reconcile=mock.Mock(return_value="state"),
             restart_worker=False,
         )
 
-    def _run(self, generation, *, baked="1.8.6", recorded=None):
+    def _run(self, generation, *, baked="1.8.6", recorded=None, pointer="1.8.6", exists=True, active=None):
         """`recorded` is the baked version in the state row; `baked` is the
-        package actually installed. They differ only on a project-image swap."""
+        package actually installed. They differ only on a project-image swap.
+        `pointer` is what active.json names (None when unreadable), `exists`
+        whether the file is there, `active` the row's active version."""
         module = self.service_module
-        service = self._service(generation)
+        service = self._service(generation, pointer, exists)
         with mock.patch.object(module, "get_baked_version", return_value=baked), \
                 mock.patch.object(module, "_state_model") as state_model:
             state_model.return_value.objects.filter.return_value.values_list \
-                .return_value.first.return_value = baked if recorded is None else recorded
+                .return_value.first.return_value = (baked if recorded is None else recorded, active or baked)
             module.reconcile_state_if_due(service)
         return service.reconcile.call_count
 
@@ -1409,6 +1554,24 @@ class ReconcileTriggerTests(SimpleTestCase):
             self._run(4, baked="1.9.0", recorded="1.8.6"), 1, "an image swap must reconcile"
         )
 
+    def test_a_lost_pointer_reconciles_without_a_restart(self):
+        """Found on testbed-dlux: an emptied active.json, or one naming a release
+        that is not staged, changed neither the generation nor the baked version,
+        so the running worker never rebuilt it."""
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(self._run(4, pointer=None), 1, "an unusable pointer must reconcile")
+        self.assertEqual(self._run(4), 0, "once rebuilt, nothing is due")
+        self.assertEqual(
+            self._run(4, pointer=None, exists=False, active="1.9.0"), 1,
+            "a missing pointer while a volume release is recorded must reconcile",
+        )
+
+    def test_no_pointer_on_an_image_stack_is_not_a_loss(self):
+        """A stack that runs its baked package may never write active.json."""
+        self.assertEqual(self._run(4), 1)
+        self.assertEqual(self._run(4, pointer=None, exists=False), 0)
+        self.assertEqual(self._run(4, pointer=None, exists=False, active=""), 0)
+
     def test_an_unreadable_generation_reconciles(self):
         # None must never compare equal to a recorded generation.
         self.assertEqual(self._run(4), 1)
@@ -1418,7 +1581,7 @@ class ReconcileTriggerTests(SimpleTestCase):
         with mock.patch.object(module, "get_baked_version", return_value="1.8.6"), \
                 mock.patch.object(module, "_state_model") as state_model:
             state_model.return_value.objects.filter.return_value.values_list \
-                .return_value.first.return_value = "1.8.6"
+                .return_value.first.return_value = ("1.8.6", "1.8.6")
             module.reconcile_state_if_due(service)
         self.assertEqual(service.reconcile.call_count, 1)
 
@@ -2221,27 +2384,6 @@ class UpdaterApiTests(TestCase):
         ]
         available = {value for value, _label in DluxUpdateRun.STATUS_CHOICES}
         self.assertTrue(set(expected).issubset(available))
-
-    @mock.patch("dlux.updater.service.download_wheel", side_effect=UpdaterError("PyPI unavailable"))
-    def test_empty_volume_reconstruction_failure_stays_degraded_and_preserves_record(self, _download):
-        # Active version must be strictly newer than the baked __version__ so the
-        # empty-volume path tries (and fails) to reconstruct from the wheel rather
-        # than falling back to the baked image.
-        state = DluxUpdateState.load()
-        state.active_version = NEWER_VERSION
-        state.active_wheel_url = f"https://files.pythonhosted.org/django_lux-{NEWER_VERSION}-py3-none-any.whl"
-        state.active_wheel_sha256 = "a" * 64
-        state.save()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            store = RuntimeStore(temp_dir).ensure()
-            reconciled = UpdateService(store=store).reconcile()
-            self.assertTrue(reconciled.degraded)
-            self.assertEqual(reconciled.active_version, NEWER_VERSION)
-            self.assertTrue(store.degraded_file.exists())
-            with mock.patch.dict(os.environ, {"DLUX_UPDATE_RUNTIME_ROOT": temp_dir}):
-                from dlux.updater.health import main as updater_health
-
-                self.assertEqual(updater_health(), 1)
 
     # Exercises the in-container executor, kept until 1.10.0 behind this setting;
     # the 1.8.0 default hands the operation to Composer instead.

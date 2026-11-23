@@ -15,7 +15,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from dlux.views.backup_tables import system_backup_row_actions
+from dlux.views.backup_tables import backup_choice_label, system_backup_row_actions
 
 User = get_user_model()
 
@@ -131,6 +131,35 @@ class BackupTablePageTests(TestCase):
             self.assertIn('إجمالي السجلات', markup, name)
             self.assertNotIn('Total records', markup, name)
 
+    def test_status_and_trigger_render_in_the_viewers_language(self):
+        # The cells printed the models' English choice labels in every language.
+        SystemBackup = self.SystemBackup
+        rows = (
+            (SystemBackup.STATUS_COMPLETED, SystemBackup.TRIGGER_MANUAL),
+            (SystemBackup.STATUS_FAILED, SystemBackup.TRIGGER_SCHEDULED),
+            (SystemBackup.STATUS_CANCELLED, SystemBackup.TRIGGER_UPDATE),
+            (SystemBackup.STATUS_PENDING, SystemBackup.TRIGGER_MANUAL),
+        )
+        for status, trigger in rows:
+            SystemBackup.objects.create(requested_by_username='boss', status=status, trigger=trigger)
+        self.SystemRestore.objects.create(requested_by_username='boss', backup_file_path='x.dlb', status='failed')
+        self._prefer_arabic()
+
+        page = self.client.get(reverse('system_backup_page')).content.decode()
+        backups = self.client.get(reverse('system_backup_list_status')).json()['html']
+        restores = self.client.get(reverse('system_restore_list_status')).json()['html']
+        for name, markup in (('page', page), ('backup poller', backups)):
+            for label in ('مكتملة', 'فاشلة', 'ملغاة', 'قيد الانتظار', 'يدوي', 'مجدول', 'تحديث DjangoLux'):
+                self.assertIn(label, markup, f'{name}: {label}')
+            # The raw value stays the machine-readable state the poller compares.
+            self.assertIn('data-backup-status="completed"', markup, name)
+        for english in ('Completed', 'Failed', 'Cancelled', 'Pending', 'Manual', 'Scheduled', 'DjangoLux update'):
+            self.assertNotIn(f'>{english}<', backups, english)
+            self.assertNotIn(f'\n{english}\n', backups, english)
+        self.assertIn('فاشلة', restores)
+        self.assertIn('data-restore-status="failed"', restores)
+        self.assertNotIn('>Failed<', restores)
+
     def test_rows_carry_actions_not_buttons(self):
         (backup,) = self._backups(1)
         page = self.client.get(reverse('system_backup_page')).content.decode()
@@ -150,6 +179,25 @@ class BackupTablePageTests(TestCase):
         page = self.client.get(reverse('system_backup_page')).content.decode()
         self.assertIn('dlux-row-actions-trigger', page)
         self.assertNotIn('data-dlux-context="true"', page)
+
+
+class BackupChoiceLabelTests(TestCase):
+    def test_every_value_a_row_can_hold_has_a_label_in_every_shipped_language(self):
+        from dlux.translations.strings import ar, en
+
+        fields = (('SystemBackup', 'status'), ('SystemBackup', 'trigger'), ('SystemRestore', 'status'))
+        for model_name, field in fields:
+            for value, _label in apps.get_model('dlux', model_name)._meta.get_field(field).choices:
+                key = f'sysbackup_{field}_{value}'
+                for lang, strings in (('en', en.STRINGS), ('ar', ar.STRINGS)):
+                    with self.subTest(model=model_name, key=key, lang=lang):
+                        self.assertTrue(strings.get(key), f'{key} missing from {lang}')
+
+    def test_an_unknown_value_falls_back_to_the_model_label(self):
+        backup = apps.get_model('dlux', 'SystemBackup')(status='archived', trigger='manual')
+        strings = {'sysbackup_trigger_manual': 'يدوي'}
+        self.assertEqual(backup_choice_label(backup, 'status', strings), 'archived')
+        self.assertEqual(backup_choice_label(backup, 'trigger', strings), 'يدوي')
 
 
 class BackupRowActionTests(TestCase):

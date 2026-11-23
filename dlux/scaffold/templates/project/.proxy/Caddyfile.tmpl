@@ -6,7 +6,8 @@
 # static/media routing, the same /_update/status.json + /_update/log.txt
 # progress endpoints, the same always-200 /_edge-alive health probe, hybrid
 # /health behavior for planned maintenance, the same maintenance-flag 503
-# short-circuit, and the same maintenance progress page on 502/503/504.
+# short-circuit, the same maintenance progress page on 502/503/504, and the
+# same Fetch Metadata resource isolation (@cross_site_request).
 #
 # Default posture: plain HTTP on :80 with auto_https disabled (no ACME), so the
 # app sits behind your own TLS terminator / reverse proxy (or is used in local
@@ -110,6 +111,28 @@
 			root * /app/media
 			file_server
 		}
+
+		# Fetch Metadata resource isolation (web.dev/articles/fetch-metadata):
+		# refuse requests another site makes in the background (images, scripts,
+		# fetch(), form posts, <object>/<embed>). A link from another site (a
+		# top-level GET navigation) still opens a page; same-origin, same-site and
+		# typed-in requests pass, and so do requests without the header (crawlers,
+		# health checks, ScanLink, server-to-server calls, older browsers).
+		# Everything above stays open to other sites on purpose: static files,
+		# public media, the update progress files, the maintenance page assets and
+		# the edge probe. A route other sites must call from a browser (a CORS
+		# API, an OIDC token endpoint) is exempted by adding
+		# `&& !path("/o/token/", ...)` to the expression. Composer's
+		# fetch-metadata check looks for this matcher by name: keep
+		# @cross_site_request.
+		# (nginx: map … $cross_site_request; if ($cross_site_request) { return 403; })
+		@cross_site_request expression <<CEL
+			{header.Sec-Fetch-Site} == "cross-site"
+			&& !(method("GET", "HEAD")
+				&& {header.Sec-Fetch-Mode} == "navigate"
+				&& !({header.Sec-Fetch-Dest} in ["object", "embed"]))
+			CEL
+		respond @cross_site_request 403
 
 		# Every other stored file is private: the app decides who gets it
 		# (signed in, and a registered document file only to users who may view

@@ -630,7 +630,7 @@
     box-shadow: 0 0 10px rgba(255, 102, 0, 0.1) !important;
 }
 
-:root.theme-neon .dlux-filter .dlux-filter-clear {
+:root.theme-neon .dlux-filter .btn.dlux-filter-clear.btn-warning {
     color: var(--neon-yellow) !important;
     text-shadow: 0 0 10px rgba(255, 255, 0, 0.4) !important;
     border-color: rgba(255, 255, 0, 0.3) !important;
@@ -2512,4 +2512,18 @@ html[dir="rtl"] :root.theme-neon .activity-timeline {
     background: rgba(255, 193, 7, 0.18);
     color: #ffe69c;
     border-color: rgba(255, 193, 7, 0.22);
+}
+
+/* Ribbon: its labels use Bootstrap's muted --bs-secondary-color, which this
+   theme leaves at the light-mode grey, so the list ribbon takes a muted form of
+   the theme's title colour. The active segment is painted with --primal, which
+   is light in this theme, so its label takes the page colour instead of
+   ribbon.css's white. */
+:root.theme-neon .dlux-ribbon-strips,
+:root.theme-neon .dlux-ribbon-tabs {
+    --bs-secondary-color: color-mix(in srgb, var(--title) 75%, transparent);
+}
+
+:root.theme-neon .dlux-ribbon-segment.active {
+    color: var(--body);
 }

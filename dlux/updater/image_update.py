@@ -13,7 +13,6 @@ latest release + its manifest.
 """
 
 import json
-import os
 from pathlib import Path
 
 from django.apps import apps
@@ -23,7 +22,7 @@ from django.conf import settings
 
 from packaging.version import InvalidVersion, Version
 
-from . import UpdaterError
+from . import UpdaterError, shared_files
 from .runtime import state_dir
 from .service import _state_model, active_runtime_version, updates_enabled
 
@@ -273,6 +272,9 @@ def image_status_summary(store=None):
         # Best-effort target version composer published (OCI version label); ''
         # when unavailable, in which case the UI falls back to the remote digest.
         "remote_version": str(first.get("version") or "").strip(),
+        # Why Composer could not read the registry (login-required, login-refused,
+        # not-found, unreachable, failed); '' once it could.
+        "remote_reason": "" if first.get("remote_digest") else str(first.get("reason") or "").strip(),
         "update_available": bool(data.get("available")),
         "checked_at": data.get("checked_at") or "",
         "last_update": last_summary,
@@ -315,9 +317,9 @@ def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
     newer active release running untouched.
 
     What makes that safe or unsafe is already expressed in the active release's
-    own manifest. A release is staged with ``pip install --no-deps``, so only
-    DjangoLux itself lives on the volume and everything it imports comes from
-    the image. ``requires.baked_image`` records the last DjangoLux version that
+    own manifest. Composer unpacks a release's wheel without its dependencies,
+    so only DjangoLux itself lives on the volume and everything it imports
+    comes from the image. ``requires.baked_image`` records the last DjangoLux version that
     needed an image rebuild, which is exactly the floor an image must meet to
     carry a later release. So:
 
@@ -453,10 +455,7 @@ def write_composer_trigger(store, row):
     }
     if row.control_operation_id:
         payload["operation_id"] = str(row.control_operation_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, json.dumps(payload) + "\n")
 
 
 def write_deploy_status(store, status, **extra):
@@ -465,10 +464,7 @@ def write_deploy_status(store, status, **extra):
     this file with its own phases once the `-uo` run starts."""
     path = status_path(store)
     payload = {"status": status, "updated_at": timezone.now().isoformat(), **extra}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, json.dumps(payload) + "\n")
 
 
 LOG_FILENAME = "deploy-log.txt"
@@ -483,7 +479,4 @@ def write_deploy_log(store, text):
     inline updater to keep its log visible while the maintenance flag walls off
     web; composer writes this file itself during image updates."""
     path = log_path(store)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(str(text or "") + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    shared_files.write_text(path, str(text or "") + "\n")

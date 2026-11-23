@@ -44,6 +44,14 @@ authorization decision.
   row-action labels and dynamic-modal errors are set as text; the login hero's
   markdown escapes quotes, so a link URL cannot leave its `href`.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
+- The generated proxy applies the Fetch Metadata resource isolation policy
+  (`cross_site_request`): what another site's page makes a browser request in the
+  background (images, scripts, `fetch()`, form posts, `<object>`/`<embed>`) gets a
+  403 before it reaches the app. Links from other sites, same-site requests and
+  clients without `Sec-Fetch-*` headers pass, and static files and public media
+  stay open to other sites. `composer check` warns (`fetch-metadata`) when a
+  stack's proxy lacks it. See
+  [Cross-site requests](deployment-configuration.md#cross-site-requests-fetch-metadata).
 - The internal SMTP relay verifies its provider before signing in: the
   certificate must chain to a system CA or to one in `SMTP_RELAY_CA_FILE` and name
   the host dialled, over SSL and STARTTLS. A failure stops the delivery before any
@@ -115,18 +123,24 @@ authorization decision.
   egress bridge can reach PyPI; database/Redis access stays on the internal
   network. Web and nginx mount `dlux_runtime` read-only; `worker` is the only
   DjangoLux service that mounts it read-write.
-- Discovery and redirects are allowlisted to official PyPI hosts. A wheel is
-  accepted only after SHA-256 and PyPI attestation verification for
-  `debeski/django-lux` plus `.github/workflows/release.yml`; the integrity API's
-  canonical workflow field is the basename `release.yml`.
+- Composer's agent discovers and downloads releases, with redirects allowlisted
+  to official PyPI hosts, and accepts a wheel only after SHA-256 and PyPI
+  attestation verification for `debeski/django-lux` plus
+  `.github/workflows/release.yml`; the integrity API's canonical workflow field
+  is the basename `release.yml`. `web` and `worker` never fetch a wheel.
 - The active pointer is an atomic JSON file; version strings and release paths
   are normalized and constrained below the persistent runtime root.
 - The direct web version probe is authenticated with an HMAC derived from the
   deployment `SECRET_KEY`; external requests without the updater probe fail as
   not found.
-- Wheels install only into isolated version directories using `--no-deps`; the
-  baked Python environment is never mutated. Candidate subprocesses execute
-  before maintenance and pointer switching.
+- Composer stages wheels only into isolated version directories, without their
+  dependencies; the baked Python environment is never mutated. Candidate
+  subprocesses execute before maintenance and pointer switching.
+- Reconcile never downloads or installs a release. A missing or unreadable
+  active pointer is rewritten only to the recorded release when it is still
+  staged inside `releases/`, is newer than the baked image, and its
+  `dlux/release-manifest.json` names its directory's version; anything else
+  reverts to the baked image.
 - Release summaries render as escaped text. Updater logs are bounded, NUL-free,
   and redact password/secret/token/authorization-shaped values.
 - Automatic recovery restores code/static state only. It never automatically

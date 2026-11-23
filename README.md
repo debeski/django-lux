@@ -81,9 +81,9 @@ The runtime dependencies below are installed automatically with `django-lux`.
 - `openpyxl` "for XLSX exports"
 - `packaging` "for version and requirement validation"
 
-Generated Compose projects install the optional `django-lux[updater]` extra for
-PyPI provenance verification. Manual and non-Compose installs do not need that
-extra unless they deliberately adopt the generated updater architecture.
+Generated Compose projects install the optional `django-lux[updater]` extra.
+Composer downloads, attests and stages DjangoLux releases itself, so nothing in
+DjangoLux imports it; manual and non-Compose installs do not need it.
 
 ## Installation
 

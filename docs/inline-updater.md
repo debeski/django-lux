@@ -441,9 +441,9 @@ unreadable. `COMPOSER_RUNTIME_GATE_SERVICE` selects the service it asks (default
 image whose baked DjangoLux is older than the active release, and `--force` is
 the only way through.
 
-The floor is the rule that already governs inline installs: a release is staged
-with `pip install --no-deps`, so only DjangoLux itself is on the volume and
-everything it imports comes from the image. `requires.baked_image` records the
+The floor is the rule that already governs inline installs: Composer unpacks a
+release's wheel onto the volume without its dependencies, so only DjangoLux
+itself is on the volume and everything it imports comes from the image. `requires.baked_image` records the
 last release that needed a rebuild, which is exactly the bar an image must clear
 to carry a later release.
 
@@ -636,6 +636,38 @@ than failing the operation.
 Rollback selects the prior code and static release; it does not reverse
 migrations or restore database data. Reconcile falls back to the baked package
 when an active runtime release is missing, corrupt, or not newer than the image's.
+
+Reconcile never downloads or installs a release: Composer stages every one, and
+`worker` has no internet. When `state/active.json` is missing or unreadable,
+reconcile rebuilds it from the runtime volume and the release recorded on the
+`DluxUpdateState` row. A pointer that is missing while `state/generation` has
+moved past the generation on that row is not lost: Composer removes it on purpose
+when it returns the deployment to the baked package, and reconcile accepts the
+image. Otherwise:
+
+- The recorded release is the baked one: the pointer names the image again.
+- The recorded release is staged: `releases/<version>/` resolves inside
+  `releases/`, is newer than the baked image, and its `dlux/release-manifest.json`
+  names `<version>`, the check Composer runs before it activates a release. The
+  pointer names that release again.
+- Anything else: the runtime reverts to the baked package. The worker logs a
+  warning naming the release that could not be served and why, and records the
+  same reason on the update state (`latest_reason`). Nothing on the volume is
+  removed.
+
+The worker's state tick checks the pointer every few seconds, so a pointer lost,
+unreadable or naming a release that is not staged while the stack runs is rebuilt
+without a restart. Restoring a staged release or
+reverting advances `state/generation`, so `web` and `worker`, which booted on the
+baked package without a readable pointer, restart onto the selected release.
+
+Without a readable pointer the supervisor serves the baked package, so the
+reconcile that runs is the image's own. This rebuild therefore needs a project
+image built on DjangoLux 1.16.3 or later. On an older image the baked reconcile
+marks the update state degraded ("The active release cannot be reconstructed from
+verified metadata.") and the stack keeps serving the baked package until the image
+is rebuilt or a release is installed again.
+
 Once the runtime has converged on a healthy release (a successful restoration, or
 the baked image) and no run or image update owns the maintenance flag, reconcile
 lowers a flag left raised, so a recovered site does not stay behind the

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -17,13 +18,7 @@ from django.utils import timezone
 
 from . import UpdaterError, get_baked_version
 from . import channel, check_policy
-from .manifest import (
-    ReleaseCandidate,
-    assess_wheel,
-    download_wheel,
-    package_release_notes,
-    verify_pypi_attestation,
-)
+from .manifest import package_release_notes
 from .runtime import RuntimeStore
 
 
@@ -857,6 +852,25 @@ def _runtime_generation(service):
         return None
 
 
+def _pointer_lost(service, active_version, baked_version):
+    """True while ``state/active.json`` cannot be served (unreadable, or naming a
+    release that is not staged), or is missing although a volume release is
+    recorded as active.
+
+    Losing the pointer moves neither the generation nor the baked version, so the
+    tick checks it directly and reconciles, which rebuilds it from the volume,
+    without waiting for the worker process to restart. A missing pointer on a
+    stack that runs its baked package is the normal image state, not a loss.
+    """
+    try:
+        if service.store.active_file.exists():
+            service.store.read_active(baked_version)
+            return False
+    except Exception:
+        return True
+    return bool(active_version) and active_version != baked_version
+
+
 def reconcile_state_if_due(service):
     """Refresh the state row against the runtime when it can have drifted.
 
@@ -888,16 +902,22 @@ def reconcile_state_if_due(service):
 
     if _PROCESS_RECONCILED:
         try:
-            recorded = (
+            row = (
                 _state_model().objects
                 .filter(pk=1)
-                .values_list("baked_version", flat=True)
+                .values_list("baked_version", "active_version")
                 .first()
             )
         except Exception:
             return None
-        baked_unchanged = recorded is not None and recorded == get_baked_version()
-        if baked_unchanged and _runtime_generation(service) == _RECONCILED_GENERATION:
+        recorded, active_version = row if row else (None, None)
+        baked_version = get_baked_version()
+        baked_unchanged = recorded is not None and recorded == baked_version
+        if (
+            baked_unchanged
+            and _runtime_generation(service) == _RECONCILED_GENERATION
+            and not _pointer_lost(service, active_version, baked_version)
+        ):
             return None
     try:
         state = service.reconcile()
@@ -979,41 +999,19 @@ class UpdateService:
             not self.store.active_file.exists()
             and state.active_version
             and state.active_version != baked_version
+            and not self._image_activated_since(state)
         ):
-            if (
-                state.active_version
-                and state.active_version != baked_version
-                and not self.store.release_path(state.active_version).is_dir()
-                and not (state.active_wheel_url and state.active_wheel_sha256)
-            ):
-                # The recorded active release cannot be served and cannot be
-                # rebuilt: there is no staged volume release on disk and no
-                # downloadable wheel to reconstruct it (an image/mount activation,
-                # or a wiped runtime volume). A backward image move lands here too.
-                # Revert to the baked image — the known-good runtime — instead of
-                # hard-failing into a permanently degraded state by chasing a wheel
-                # that never existed.
-                next_generation = self.store.read_generation() + 1
-                self._reset_to_baked_image(
-                    state, baked_version, next_generation,
-                    "The recorded DjangoLux release could not be served and was reverted to the baked image.",
-                    changed,
-                )
-                self.store.set_generation(next_generation)
+            try:
+                if self._restore_recorded_active(state, baked_version, changed):
+                    self.restart_worker = True
                 active = self.store.read_active(baked_version)
                 restoration_succeeded = True
-                self.restart_worker = True
-            else:
-                try:
-                    self._restore_recorded_active(state)
-                    active = self.store.read_active(baked_version)
-                    restoration_succeeded = True
-                except Exception as exc:
-                    active = None
-                    state.degraded = True
-                    state.degraded_reason = _sanitize(exc)
-                    self.store.set_degraded(state.degraded_reason)
-                    changed.extend(["degraded", "degraded_reason"])
+            except Exception as exc:
+                active = None
+                state.degraded = True
+                state.degraded_reason = _sanitize(exc)
+                self.store.set_degraded(state.degraded_reason)
+                changed.extend(["degraded", "degraded_reason"])
         if active:
             if self.store.read_generation() != active["generation"]:
                 self.store.set_generation(active["generation"])
@@ -1207,33 +1205,79 @@ class UpdateService:
         self.store.clear_degraded()
         self.store.set_maintenance(False)
 
-    def _restore_recorded_active(self, state):
-        baked_version = get_baked_version()
+    def _image_activated_since(self, state):
+        """True when the generation moved since this row recorded it.
 
-        if not state.active_version or state.active_version == baked_version:
+        Composer returns a deployment to its baked package by removing
+        ``state/active.json`` and advancing ``state/generation`` (``restore({})``,
+        a rollback to the image). A pointer that was lost or deleted leaves the
+        generation where it was. Only the second is rebuilt from the volume;
+        rebuilding the first would undo the rollback.
+        """
+        try:
+            return self.store.read_generation() != int(state.generation or 0)
+        except (OSError, ValueError, TypeError):
+            return False
+
+    def _restore_recorded_active(self, state, baked_version, changed):
+        """Rewrite a lost or unreadable ``active.json`` from the runtime volume alone.
+
+        Composer stages every release and ``worker`` has no internet, so the
+        recorded release is either still under ``releases/`` or beyond reach from
+        here: nothing is downloaded or installed. A staged copy is re-activated
+        once it passes the check Composer runs before activating one; anything
+        else reverts to the baked image. Returns True when the processes must
+        restart: ones that booted without a readable pointer run the baked image.
+        """
+        recorded = state.active_version
+        if not recorded or recorded == baked_version:
             self.store.write_active(baked_version, source="image", generation=state.generation)
             self.store.set_generation(state.generation)
-            return
-        if not state.active_wheel_url or not state.active_wheel_sha256:
-            raise UpdaterError("The active release cannot be reconstructed from verified metadata.")
-        candidate = ReleaseCandidate(
-            version=state.active_version,
-            filename=Path(state.active_wheel_url).name,
-            url=state.active_wheel_url,
-            sha256=state.active_wheel_sha256,
+            return False
+        generation = self.store.read_generation() + 1
+        problem = self._staged_release_problem(recorded, baked_version)
+        if not problem:
+            self.store.write_active(recorded, source="volume", generation=generation)
+            self.store.set_generation(generation)
+            logger.warning("The runtime pointer was missing or unreadable; it now names staged DjangoLux %s.", recorded)
+            return True
+        reason = (
+            f"The recorded DjangoLux release {recorded} could not be served ({problem}), "
+            "so the runtime was reverted to the baked image."
         )
-        wheel = download_wheel(candidate, self.store.wheel_path(candidate))
-        verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel, baked_version=baked_version)
-        if not assessment["compatible"]:
-            raise UpdaterError(assessment["reason"])
-        release = self.store.release_path(candidate.version)
-        if not release.exists():
-            stage = self.store.stage_path(f"restore-{candidate.version}")
-            RuntimeStore.install_wheel(wheel, stage, runner=self.command_runner)
-            self.store.activate_stage(stage, candidate.version)
-        self.store.write_active(candidate.version, source="volume", generation=state.generation)
-        self.store.set_generation(state.generation)
+        self._reset_to_baked_image(state, baked_version, generation, reason, changed)
+        self.store.set_generation(generation)
+        logger.warning("%s", reason)
+        return True
+
+    def _staged_release_problem(self, version, baked_version):
+        """Why ``releases/<version>`` cannot be re-activated, or "" when it can.
+
+        Applies the version check of Composer's ``verify_release``: the release
+        manifest inside the directory must name the version the directory claims. The directory must
+        also resolve inside ``releases/`` and be newer than the baked image, the
+        two conditions under which the supervisor serves it at all.
+        """
+        try:
+            release = self.store.release_path(version)
+        except UpdaterError:
+            return "its version is not a valid release version"
+        if not self._version_is_newer(release.name, baked_version):
+            return "the project image bakes a newer DjangoLux"
+        if not release.is_dir():
+            return "it is not staged on the runtime volume"
+        try:
+            release.resolve().relative_to(self.store.releases.resolve())
+        except ValueError:
+            return "its directory resolves outside the runtime volume's releases"
+        try:
+            manifest = json.loads((release / "dlux" / "release-manifest.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return "its release manifest is missing or unreadable"
+        declared = str(manifest.get("version") or "").strip() if isinstance(manifest, dict) else ""
+        if declared != release.name:
+            return f"its directory contains DjangoLux {declared or 'unknown'}"
+        return ""
 
     def recover_interrupted_run(self):
         """Recover a durable run claimed by a worker that exited unexpectedly."""
