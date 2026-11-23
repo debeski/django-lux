@@ -66,7 +66,7 @@ Generated projects include `start.sh` and `start.ps1` wrappers plus the resident
 
 The runtime dependencies below are installed automatically with `django-lux`.
 
-- Python 3.11+
+- Python 3.11+, tested on 3.11 to 3.14. The optional `ocr` extra needs Python 3.14 or earlier: its inference engine, `onnxruntime`, publishes no Python 3.15 wheels, so generated project images build on `python:3.14-slim`.
 - Django 5.1+
 - `django-crispy-forms`
 - `crispy-bootstrap5`
