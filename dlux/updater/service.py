@@ -999,6 +999,7 @@ class UpdateService:
             not self.store.active_file.exists()
             and state.active_version
             and state.active_version != baked_version
+            and not self._image_activated_since(state)
         ):
             try:
                 if self._restore_recorded_active(state, baked_version, changed):
@@ -1203,6 +1204,20 @@ class UpdateService:
                 changed.append(field)
         self.store.clear_degraded()
         self.store.set_maintenance(False)
+
+    def _image_activated_since(self, state):
+        """True when the generation moved since this row recorded it.
+
+        Composer returns a deployment to its baked package by removing
+        ``state/active.json`` and advancing ``state/generation`` (``restore({})``,
+        a rollback to the image). A pointer that was lost or deleted leaves the
+        generation where it was. Only the second is rebuilt from the volume;
+        rebuilding the first would undo the rollback.
+        """
+        try:
+            return self.store.read_generation() != int(state.generation or 0)
+        except (OSError, ValueError, TypeError):
+            return False
 
     def _restore_recorded_active(self, state, baked_version, changed):
         """Rewrite a lost or unreadable ``active.json`` from the runtime volume alone.

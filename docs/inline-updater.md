@@ -640,7 +640,10 @@ when an active runtime release is missing, corrupt, or not newer than the image'
 Reconcile never downloads or installs a release: Composer stages every one, and
 `worker` has no internet. When `state/active.json` is missing or unreadable,
 reconcile rebuilds it from the runtime volume and the release recorded on the
-`DluxUpdateState` row:
+`DluxUpdateState` row. A pointer that is missing while `state/generation` has
+moved past the generation on that row is not lost: Composer removes it on purpose
+when it returns the deployment to the baked package, and reconcile accepts the
+image. Otherwise:
 
 - The recorded release is the baked one: the pointer names the image again.
 - The recorded release is staged: `releases/<version>/` resolves inside

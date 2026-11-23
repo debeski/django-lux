@@ -1035,6 +1035,25 @@ class ReconcileRecoveryTests(TestCase):
             reconciled = service.reconcile()
             self._assert_repointed(store, service, reconciled, NEWER_VERSION)
 
+    def test_a_rollback_to_the_image_is_not_undone(self):
+        """Composer's rollback to the baked package removes active.json and
+        advances the generation. Found on testbed-dlux: reconcile read that as a
+        lost pointer and re-activated the release the operator rolled back from."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._store(temp_dir)
+            _stage_release(store, NEWER_VERSION)
+            self._record(NEWER_VERSION)
+            store.set_generation(5)
+            service = self._service(store)
+            reconciled = service.reconcile()
+            self.assertEqual(self.attempts, [])
+            self.assertFalse(store.active_file.exists(), "the image activation stays pointer-less")
+            active = store.read_active(__version__)
+            self.assertEqual((active["source"], active["version"]), ("image", __version__))
+            self.assertEqual(reconciled.active_version, __version__)
+            self.assertEqual(store.read_generation(), 5)
+            self.assertFalse(service.restart_worker)
+
     def test_unreadable_pointer_repoints_to_the_staged_recorded_release(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = self._store(temp_dir)
