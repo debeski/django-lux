@@ -25,6 +25,11 @@ LINK = re.compile(r'!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)')
 HTML_ANCHOR = re.compile(r'<a\s+(?:name|id)="([^"]+)"')
 PRERELEASE = re.compile(r'\bv?\d+\.\d+\.\d+(?:a|b|rc)\d+\b')
 NARRATION = re.compile(r'\bunreleased\b', re.I)
+# The root README is PyPI's long description, where relative links resolve against
+# pypi.org and break, so it links into the repository by absolute URL. Those links
+# are checked against this checkout like relative ones.
+REPO_LINK = re.compile(r'^https://github\.com/debeski/django-lux/(?:blob|tree)/main/(.*)$')
+SCHEME = re.compile(r'^[a-z][a-z0-9+.-]*:', re.I)
 
 
 def manual_files():
@@ -79,10 +84,15 @@ class DocsHygieneTests(SimpleTestCase):
         anchor_cache, broken = {}, []
         for path in manual_files():
             for target in links_of(path):
-                if re.match(r'^[a-z][a-z0-9+.-]*:', target, re.I):
+                repo_link = REPO_LINK.match(target)
+                if repo_link:
+                    base, local = REPO_ROOT, repo_link.group(1)
+                elif SCHEME.match(target):
                     continue
-                file_part, _, anchor = target.partition('#')
-                resolved = (path.parent / file_part).resolve() if file_part else path
+                else:
+                    base, local = path.parent, target
+                file_part, _, anchor = local.partition('#')
+                resolved = (base / file_part).resolve() if file_part else path
                 rel = path.relative_to(REPO_ROOT)
                 if not resolved.exists():
                     broken.append(f'{rel} -> {target} (missing file)')
@@ -93,6 +103,13 @@ class DocsHygieneTests(SimpleTestCase):
                     if anchor not in anchor_cache[resolved]:
                         broken.append(f'{rel} -> {target} (missing anchor)')
         self.assertEqual(broken, [])
+
+    def test_readme_links_work_on_pypi(self):
+        relative = [
+            target for target in links_of(REPO_ROOT / 'README.md')
+            if not SCHEME.match(target)
+        ]
+        self.assertEqual(relative, [])
 
     def test_every_doc_is_in_the_index(self):
         index = DOCS / 'README.md'

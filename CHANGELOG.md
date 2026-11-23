@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **README refresh**: `README.md`, the PyPI long description, links into the repository by absolute `blob/main` URL, since relative links break on PyPI. Highlights replace the two feature lists, quick starts cover new and existing projects, an extras table lists `pdf`, `ocr`, `sso` and `updater`, and the private dHub showcase is gone. `test_docs_hygiene` checks those URLs and rejects relative README links.
+
 ## v1.16.3b1
 
 - **Backup tables translate status and trigger**: the System backups page printed the models' English choice labels (`get_status_display`, `get_trigger_display`) in every language. `dlux/views/backup_tables.py` gains `backup_choice_label()`, which reads `sysbackup_status_<value>` and `sysbackup_trigger_<value>` (new keys for `pending`, `running`, `completed`, `failed`, `manual`, `scheduled`, `update` in `en.py` and `ar.py`), and passes `status_label`/`trigger_label` to `dlux/backup/cells/_backup_status.html`, `_backup_trigger.html` and `_restore_status.html`. The live pollers re-render the same cells, so refreshed rows stay translated; `data-backup-status`/`data-restore-status` keep the raw value.
