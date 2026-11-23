@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **README refresh**: `README.md`, the PyPI long description, links into the repository by absolute `blob/main` URL, since relative links break on PyPI. Highlights replace the two feature lists, quick starts cover new and existing projects, an extras table lists `pdf`, `ocr`, `sso` and `updater`, and the private dHub showcase is gone. `test_docs_hygiene` checks those URLs and rejects relative README links.
+
 ## v1.16.3
 
 - **Stable 1.16.3**: Promote the published and accepted 1.16.3b1. With Composer 1.10.3, a project image in a private registry gets update notices and in-app image updates through a read-only login, and the Updates card warns with the reason when the registry needs a login, refuses it or cannot be read. New projects refuse cross-site background requests at the proxy (Fetch Metadata) and pin the Docker socket proxy by digest. Runtime files are group-shared for a non-root image (uid 10001, group 0), and the generated entrypoint refuses to start when the app cannot use its data; root stacks are unchanged. On project images built on 1.16.3 or later, a lost or unreadable runtime pointer is rebuilt from the releases on the volume, never from PyPI. Context-menu form actions are POSTs again, with the page's CSRF token; backup tables are translated, the Clear chip and the list ribbon follow dark themes, and first-login preferences can be skipped. New project images ship without pip. Requires Composer `>=1.10.0b1` (Composer 1.10.3 for the registry login and the non-root checks); updates inline from any 1.16 release, with no migrations and no runtime or dependency changes from 1.16.3b1.
