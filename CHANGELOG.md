@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.5
+
+- **Stable 1.16.5**: Promote the published and accepted 1.16.5b2. Mail, Export Entries, Reset data and the weather, OCR and Options probes run on the task worker. Pages load the settings editors, tour and PDF.js only where used. Modal Back returns to the previous view, Options fades in, and the password prompt closes after a fast confirm. Migration 0031 is additive; updates inline from any 1.16 release.
+
 ## v1.16.5b2
 
 - **Dynamic Modal Back Steps Back One View**: views opened inside the dynamic modal (an entry's PDF version history, extracted text and editor, a manager's record) stack, and Back returns to the view below, title included, instead of closing the modal. A view without its own Back gets one in the modal header (`#dynamicModalBack`). Moving between views fires a cancelable `dlux:dynamic_modal:leave`, so unsaved edits are still asked about.
