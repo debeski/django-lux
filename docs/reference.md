@@ -358,6 +358,12 @@ App-owned preference namespaces are described in
 | `/sys/api/notifications/read-all/` | `POST` | Mark all current-user notification states as read |
 | `/sys/api/notifications/clear-all/` | `POST` | Dismiss read current-user notification states from the drawer |
 
+#### Strings
+
+| Route | Method | Purpose |
+| --- | --- | --- |
+| `/sys/api/strings/<lang>.<version>.js` | `GET` | The merged strings table for `<lang>` as a script that sets `window.DLUX_STRINGS`; cached for good under its version. See [Translations](translation-guide.md#strings-in-the-browser). |
+
 #### Weather
 
 | Route | Method | Purpose |
@@ -942,6 +948,7 @@ def complaint(request):
 | Helper | Purpose |
 | --- | --- |
 | `get_system_config()` | Return the merged runtime configuration |
+| `get_scope_settings()`, `is_scope_enabled()` | The `ScopeSettings` row (None while its table is missing) and whether scoping is on, read once per request; saving the row drops the request's copy. Code that changes the row loads it with `ScopeSettings.load()` |
 | `get_theme_names()` | Return the active official theme-name list from the shared theme registry |
 | `get_theme_choices()` | Return the active theme tuples used by settings/forms choice fields |
 | `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
@@ -1016,6 +1023,7 @@ See [Task Runner](task-runner.md).
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
 | `dlux_ribbon` | simple tag | Render a list page's ribbon — title, filters and actions — from the `ribbon` context object put there by `dlux.ribbon.RibbonMixin`; `{% dlux_ribbon %}`, or pass one explicitly. Renders nothing when there is no ribbon. See [Ribbon](ribbon.md). |
 | `dlux_ribbon_field` | filter | The bound field for a name, or empty when the form lacks it — used by the ribbon templates |
+| `json_script_utf8` | filter | Django's `json_script` with non-ASCII text kept as UTF-8 instead of `\uXXXX` escapes; `<`, `>` and `&` are escaped the same way |
 | `dlux_audit_trail` | inclusion tag | Render a grouped audit block (created/edited/deleted by and at) for a model instance — `{% dlux_audit_trail object %}`. Self-gates on the `show_audit_fields` setting + `dlux.view_audit_fields` permission (deleted line is superadmin-only); renders nothing otherwise. Drop into any detail template to replace hand-rolled audit sections. |
 
 ### `dlux_translation`

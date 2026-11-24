@@ -1,10 +1,11 @@
 # Imports of the required python modules and libraries
 ######################################################
-from django.urls import path
+from django.urls import path, re_path
 from . import views, api
 from django.contrib.auth import views as auth_views
 from .views.public import font_stylesheet
 from .views.jobs import dlux_job_download_view, dlux_job_status_view
+from .views.strings import strings_script
 from .views.weather import weather_current, weather_location_result, weather_locations
 from .files import media as media_views
 from .files import views as file_views
@@ -14,6 +15,10 @@ from .ocr import views as ocr_views
 
 urlpatterns = [
     path('fonts/<slug:slug>.css', font_stylesheet, name='font_stylesheet'),
+    re_path(
+        r'^sys/api/strings/(?P<lang>[A-Za-z0-9_-]{1,16})\.(?P<version>[0-9a-f]{16})\.js$',
+        strings_script, name='dlux_strings',
+    ),
     path('sys/api/weather/', weather_current, name='weather_current'),
     path('sys/api/weather/locations/', weather_locations, name='weather_locations'),
     path('sys/api/weather/locations/<str:token>/', weather_location_result, name='weather_location_result'),
