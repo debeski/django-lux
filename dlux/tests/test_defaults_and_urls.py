@@ -3164,6 +3164,19 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('class="dlux-choice-selector dlux-choice-selector--card is-searchable"', html)
         self.assertIn('class="dlux-choice-selector__options"', html)
 
+    def test_searchable_selector_placeholder_follows_ui_language(self):
+        from dlux.widgets import DluxMultipleChoiceSelectorWidget
+
+        choices = [('documents.decree', 'Decree')]
+        with patch('dlux.translations.runtime.get_current_language_code', return_value='ar'):
+            html = DluxMultipleChoiceSelectorWidget(choices=choices, searchable=True).render('models', [])
+            custom = DluxMultipleChoiceSelectorWidget(
+                choices=choices, searchable=True, search_placeholder='Find a model',
+            ).render('models', [])
+        self.assertIn('placeholder="بحث"', html)
+        self.assertNotIn('placeholder="Search"', html)
+        self.assertIn('placeholder="Find a model"', custom)
+
     def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         # The switch itself is owned by helpers/toggle; the setup shell keeps the
