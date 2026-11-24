@@ -9,6 +9,8 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **OCR Options Wait On Enable OCR**: Extra Features showed every OCR option live while OCR was off, unlike the other dependent sections. `ocr_settings_layout` now wraps them in a `data-ocr-dependent` block, and `ocr/js/settings.js` greys it out through `DluxSetupDom.setDependentFieldEnabled` with the shared `settings_dependent_disabled` tooltip naming the switch, re-enabling it as soon as the switch is on. The current password and the Operations panel button stay outside the block. `apply_ocr` keeps the stored options when OCR is saved off, since their disabled controls are not posted (as `apply_weather` does). New e2e `ocr_settings_gate.test.mjs`.
+
 - **README refresh**: `README.md`, the PyPI long description, links into the repository by absolute `blob/main` URL, since relative links break on PyPI. Highlights replace the two feature lists, quick starts cover new and existing projects, an extras table lists `pdf`, `ocr`, `sso` and `updater`, and the private dHub showcase is gone. `test_docs_hygiene` checks those URLs and rejects relative README links.
 
 ## v1.16.3
