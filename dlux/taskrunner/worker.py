@@ -27,6 +27,9 @@ from .signals import worker_started, worker_stopping
 logger = logging.getLogger("dlux")
 
 PRUNE_EVERY = 3600
+# A run's lane: one of the ``threads``, or the thread kept for the express queues.
+GENERAL = "general"
+EXPRESS = "express"
 
 
 def close_old_connections():
@@ -56,6 +59,10 @@ class Worker:
         self.config = config
         self.threads = max(1, int(threads or config["threads"]))
         self.queues = list(queues or config["queues"])
+        self.express_queues = list(config["express_queues"])
+        # Every queue this worker claims from; the express ones also have a thread of their own.
+        self.claim_queues = self.queues + [name for name in self.express_queues if name not in self.queues]
+        self.express_slots = 1 if self.express_queues else 0
         self.poll_interval = float(poll_interval if poll_interval is not None else config["poll_interval"])
         # True: DLUX_TASK_SCHEDULE; a dict: that schedule; False: run no schedule.
         self.use_schedule = schedule
@@ -63,7 +70,7 @@ class Worker:
         self.stop_event = threading.Event()
         self._maintenance_stop = threading.Event()
         self._slot_freed = threading.Event()
-        self._inflight = set()
+        self._inflight = {}  # future -> lane (GENERAL or EXPRESS)
         self._lock = threading.Lock()
         self.schedule = {}
 
@@ -101,7 +108,7 @@ class Worker:
             "pid": pid,
             "version": str(__version__)[:32],
             "threads": self.threads,
-            "queues": self.queues,
+            "queues": self.claim_queues,
             "started_at": now,
             "heartbeat_at": now,
             "stopped_at": None,
@@ -144,19 +151,25 @@ class Worker:
         self.setup()
         maintenance = threading.Thread(target=self._maintenance_loop, name="dlux-worker-maintenance", daemon=True)
         maintenance.start()
-        logger.info("dlux_worker %s started: %s thread(s), queues %s.", self.id, self.threads, ",".join(self.queues))
-        pool = ThreadPoolExecutor(max_workers=self.threads, thread_name_prefix="dlux-task")
+        logger.info(
+            "dlux_worker %s started: %s thread(s), queues %s; %s thread(s) kept for %s.",
+            self.id, self.threads, ",".join(self.queues), self.express_slots, ",".join(self.express_queues) or "-",
+        )
+        pool = ThreadPoolExecutor(max_workers=self.threads + self.express_slots, thread_name_prefix="dlux-task")
         try:
             while not self.stop_event.is_set():
                 claimed = False
-                while self._free_slots() and not self.stop_event.is_set():
-                    run = self._claim()
+                while not self.stop_event.is_set():
+                    lane = self._free_lane()
+                    if lane is None:
+                        break
+                    run = self._claim(self.express_queues if lane == EXPRESS else self.claim_queues)
                     if run is None:
                         break
                     claimed = True
                     future = pool.submit(self.execute, run)
                     with self._lock:
-                        self._inflight.add(future)
+                        self._inflight[future] = lane
                     future.add_done_callback(self._done)
                 if not claimed:
                     self._slot_freed.clear()
@@ -188,7 +201,7 @@ class Worker:
         done = 0
         try:
             while limit is None or done < limit:
-                run = self._claim()
+                run = self._claim(self.claim_queues)
                 if run is None:
                     break
                 self.execute(run)
@@ -201,18 +214,27 @@ class Worker:
 
     # -- execution -------------------------------------------------------------------
 
-    def _free_slots(self):
+    def _free_lane(self):
+        """GENERAL while one of ``threads`` is free, else EXPRESS while the kept thread is, else None."""
         with self._lock:
-            return len(self._inflight) < self.threads
+            general = sum(1 for lane in self._inflight.values() if lane == GENERAL)
+            if general < self.threads:
+                return GENERAL
+            if len(self._inflight) - general < self.express_slots:
+                return EXPRESS
+            return None
+
+    def _free_slots(self):
+        return self._free_lane() is not None
 
     def _done(self, future):
         with self._lock:
-            self._inflight.discard(future)
+            self._inflight.pop(future, None)
         self._slot_freed.set()
 
-    def _claim(self):
+    def _claim(self, queues):
         try:
-            return queue.claim_next(self.id, self.queues, schedules=list(self.schedule))
+            return queue.claim_next(self.id, queues, schedules=list(self.schedule))
         except Exception:
             logger.warning("Could not claim a task run; retrying.", exc_info=True)
             close_old_connections()

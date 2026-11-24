@@ -50,6 +50,11 @@ class PublicRegistrationTests(TestCase):
             'website': '',
         }
 
+    def _post_register(self, payload):
+        # Mail is sent after commit when no task worker is alive; run that commit here.
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(reverse('register'), payload)
+
     def _posted_token(self):
         body = mail.outbox[-1].body
         match = re.search(r'/accounts/register/verify/([^/\s]+)/', body)
@@ -114,7 +119,7 @@ class PublicRegistrationTests(TestCase):
     def test_signup_creates_inactive_user_and_hashed_pending_registration(self):
         self._enable_registration()
 
-        response = self.client.post(reverse('register'), self._registration_payload())
+        response = self._post_register(self._registration_payload())
 
         self.assertRedirects(response, reverse('register_sent'))
         user = User.objects.get(email='newuser@example.com')
@@ -126,7 +131,7 @@ class PublicRegistrationTests(TestCase):
 
     def test_public_signup_source_badge_renders_on_profile(self):
         self._enable_registration()
-        self.client.post(reverse('register'), self._registration_payload())
+        self._post_register(self._registration_payload())
         token = self._posted_token()
         self.client.get(reverse('register_verify', args=[token]))
 
@@ -148,7 +153,7 @@ class PublicRegistrationTests(TestCase):
 
     def test_verify_valid_token_activates_and_logs_in(self):
         self._enable_registration()
-        self.client.post(reverse('register'), self._registration_payload())
+        self._post_register(self._registration_payload())
         token = self._posted_token()
 
         response = self.client.get(reverse('register_verify', args=[token]))
@@ -187,7 +192,7 @@ class PublicRegistrationTests(TestCase):
             scope=other_scope,
             is_public_registration_default=True,
         )
-        self.client.post(reverse('register'), self._registration_payload())
+        self._post_register(self._registration_payload())
         token = self._posted_token()
 
         response = self.client.get(reverse('register_verify', args=[token]))
@@ -202,7 +207,7 @@ class PublicRegistrationTests(TestCase):
 
     def test_verified_pending_approval_keeps_user_inactive_until_superuser_post_approval(self):
         self._enable_registration(REGISTRATION_ACTIVATION_PENDING_APPROVAL)
-        self.client.post(reverse('register'), self._registration_payload())
+        self._post_register(self._registration_payload())
         token = self._posted_token()
 
         response = self.client.get(reverse('register_verify', args=[token]))
@@ -230,7 +235,7 @@ class PublicRegistrationTests(TestCase):
         self._enable_registration()
         User.objects.create_user('existing', 'newuser@example.com', 'existingpass123')
 
-        response = self.client.post(reverse('register'), self._registration_payload())
+        response = self._post_register(self._registration_payload())
 
         self.assertRedirects(response, reverse('register_sent'))
         self.assertEqual(User.objects.filter(email__iexact='newuser@example.com').count(), 1)
@@ -270,6 +275,11 @@ class RegistrationConsentAndPrivacyTests(TestCase):
         s.privacy_notice_text = 'We log sign-in IPs for security.'
         s.save()
 
+    def _post_register(self, payload):
+        # Mail is sent after commit when no task worker is alive; run that commit here.
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(reverse('register'), payload)
+
     def _payload(self, **extra):
         data = {
             'email': 'consent@example.com',
@@ -299,13 +309,13 @@ class RegistrationConsentAndPrivacyTests(TestCase):
         self.assertIn('We log sign-in IPs for security.', html)
 
     def test_signup_blocked_without_consent(self):
-        response = self.client.post(reverse('register'), self._payload())
+        response = self._post_register(self._payload())
         self.assertEqual(response.status_code, 200)  # re-rendered with error
         self.assertFalse(User.objects.filter(email='consent@example.com').exists())
         self.assertEqual(len(mail.outbox), 0)
 
     def test_signup_succeeds_with_consent(self):
-        response = self.client.post(reverse('register'), self._payload(consent='on'))
+        response = self._post_register(self._payload(consent='on'))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(len(mail.outbox), 1)
 

@@ -2,8 +2,8 @@
 
 DjangoLux runs its background work on its own task manager: a queue table in
 the project database and `python manage.py dlux_worker`. Backups and restores,
-the update check and the state tick, OCR, weather and the scheduled jobs all run
-there, with no Celery, Celery Beat or broker. In a generated stack the `worker`
+the update check and the state tick, OCR, weather, outbound mail and the
+scheduled jobs all run there, with no Celery, Celery Beat or broker. In a generated stack the `worker`
 service runs it. A single-PC Windows desktop build runs it the same way, since
 nothing in it needs a broker.
 
@@ -41,7 +41,7 @@ def ocr_file(context, result_id):
 |---|---|
 | `name` | Stable task name, stored in the queue; defaults to the import path. Give tasks an explicit name so moving the function does not strand queued runs. DjangoLux's are `dlux.tasks.*`. |
 | `priority` | Default priority, django.tasks semantics (below). |
-| `queue_name` | Queue (default `"default"`); a worker takes the queues in `DLUX_TASK_RUNNER["queues"]` or `--queue`. |
+| `queue_name` | Queue (default `"default"`); a worker takes the queues in `DLUX_TASK_RUNNER["queues"]` or `--queue`, plus the express queues (below). |
 | `takes_context` | First argument is a `TaskContext` (`attempt` from 1, `retries`, `priority`, `run_id`, `backend`). |
 | `max_retries` | Upper bound on `Retry`; one more `Retry` fails the run. |
 | `requeue_lost` | At-least-once: a run whose worker died goes back to the queue. |
@@ -85,11 +85,22 @@ first**, default 0.
 
 | Work | Priority |
 |---|---|
+| Mail (`dlux.tasks.send_mail`, `dlux.tasks.send_notification_emails`) | 50 |
 | Run OCR (manual), unprioritised tasks | 0 |
 | Automatic OCR on save | -6 |
 | OCR backfill, background scan | -9 |
 
-`dlux.ocr.service.PRIORITY` holds these numbers.
+`dlux.ocr.service.PRIORITY` holds the OCR numbers and
+`dlux.taskrunner.config.MAIL_PRIORITY` the mail one.
+
+Priority only orders the claim: with every thread busy on a long backup or OCR
+file, a due run still waits for one to free. The **express queues**
+(`DLUX_TASK_RUNNER["express_queues"]`, default `["dlux-mail"]`, the queue
+DjangoLux's mail runs on) close that gap. Every worker serves them on top of its
+own queues, `--queue` included, and keeps one thread beyond `threads` that takes
+runs from them only. A queued mail therefore starts within one poll interval even
+while every other thread is busy. An empty list gives that thread back; mail
+then waits for a free thread like other work.
 
 ### Is anything running the work?
 
@@ -220,7 +231,8 @@ python manage.py dlux_worker [--threads N] [--queue NAME ...] [--no-schedule] [-
    rows (create missing, update changed, delete removed ones that are not
    running).
 2. **Loop**: while a thread is free, claim the next due run and hand it to the
-   pool (`threads`, default 4). With nothing due, wait `poll_interval` (1 s) or
+   pool (`threads`, default 4, plus the thread kept for the express queues,
+   which claims from those queues only). With nothing due, wait `poll_interval` (1 s) or
    until a thread frees up. A maintenance thread heartbeats every
    `heartbeat_interval` (10 s), settles runs lost by dead workers, and prunes
    hourly.
@@ -317,9 +329,9 @@ running side by side re-sync the rows each time one of them starts.
 ## Security
 
 - **Arguments at rest.** A database queue would keep backup and restore
-  passphrases on disk. Tasks declared
-  `sensitive=True` (`build_system_backup`, `restore_system_backup`) store their
-  arguments only as a Fernet token derived from `SECRET_KEY` and clear it when
+  passphrases, and mail with its 2FA codes and reset links, on disk. Tasks declared
+  `sensitive=True` (`build_system_backup`, `restore_system_backup`, `send_mail`)
+  store their arguments only as a Fernet token derived from `SECRET_KEY` and clear it when
   the run ends, including on failure. The queue tables are never in a system
   backup.
 - **What a row can run.** A worker resolves a task name only to a registered

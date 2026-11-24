@@ -11,7 +11,7 @@ from django.utils.text import slugify
 
 from ..system.constants import REGISTRATION_ACTIVATION_AUTO_LOGIN
 from ..models import PublicRegistration
-from ..utils import build_config_groups, get_client_ip, get_email_service_status, get_system_config, send_dlux_mail
+from ..utils import build_config_groups, get_client_ip, get_email_service_status, get_system_config, queue_dlux_mail
 
 
 logger = logging.getLogger('dlux')
@@ -122,14 +122,7 @@ def send_registration_verification_email(request, registration, token):
         'system_name': identity.get('display_name') or 'DjangoLux',
     }
     text_body = render_to_string('registration/email/verify_registration.txt', context)
-    try:
-        send_dlux_mail(
-            subject,
-            text_body,
-            [registration.email],
-            fail_silently=False,
-        )
-    except Exception:
-        logger.exception("Public registration verification email failed for registration id %s", registration.pk)
+    if not queue_dlux_mail(subject, text_body, [registration.email]):
+        logger.warning("Public registration verification email failed for registration id %s", registration.pk)
         return False
     return True
