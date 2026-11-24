@@ -324,6 +324,12 @@ Django widget or generic Bootstrap structure:
   library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
 - `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from
   `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
+  Card, chip and swatch options wrap into as many columns as the space allows (at
+  least 12rem per card, 150px per chip or swatch) and fall to one per row in a narrow
+  column. To change that minimum, set `--dlux-choice-option-min` on the selector
+  (pass a class through the widget's `attrs`) or on an ancestor in your stylesheet;
+  do not redefine the options grid. Toggle options set their own columns from the
+  option count.
 - Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for
   Bootstrap Icons fields inside System Settings/setup surfaces, including sidebar
   entry icons. It is lazy-rendered, searchable, keyboard-closeable, and owns the

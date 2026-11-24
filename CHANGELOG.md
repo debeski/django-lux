@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Card Selectors Wrap By Available Width**: `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` card options (`dlux-choice-selector--card`) had no column rule, so they stacked one per row wherever they appeared: the OCR *Models included in automatic OCR* list on Extra Features, the user permission presets, and group members. Consumers had patched their own grids. `helpers/selector/css/main.css` now wraps card options with `repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-min, 12rem)), 1fr))`; chips and swatches use the same rule with a 150px default. Optgroup labels span the full row. A selector that needs another minimum sets `--dlux-choice-option-min` instead of redefining the grid (`docs/developer-guide.md`).
 - **README refresh**: `README.md`, the PyPI long description, links into the repository by absolute `blob/main` URL, since relative links break on PyPI. Highlights replace the two feature lists, quick starts cover new and existing projects, an extras table lists `pdf`, `ocr`, `sso` and `updater`, and the private dHub showcase is gone. `test_docs_hygiene` checks those URLs and rejects relative README links.
 
 ## v1.16.3

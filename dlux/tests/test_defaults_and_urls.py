@@ -3124,6 +3124,28 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('background: var(--dlux-choice-toggle-surface-active);', contents)
         self.assertNotIn('linear-gradient(180deg, rgba(255, 255, 255, 0.99)', contents)
 
+    def test_card_selector_options_wrap_by_available_width(self):
+        # Card options had no column rule, so every card selector stacked one per
+        # row and each caller patched its own grid. The wrap belongs to the widget.
+        from dlux.widgets import DluxMultipleChoiceSelectorWidget
+
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'selector' / 'css' / 'main.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+        self.assertIn(
+            '.dlux-choice-selector--card .dlux-choice-selector__options {\n'
+            '  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-min, 12rem)), 1fr));',
+            contents,
+        )
+        self.assertIn('minmax(min(100%, var(--dlux-choice-option-min, 150px)), 1fr)', contents)
+        self.assertIn('.dlux-choice-selector__group-label {\n  grid-column: 1 / -1;', contents)
+
+        html = DluxMultipleChoiceSelectorWidget(
+            choices=[('documents.decree', 'Decree'), ('documents.report', 'Report')],
+            searchable=True,
+        ).render('models', ['documents.decree'])
+        self.assertIn('class="dlux-choice-selector dlux-choice-selector--card is-searchable"', html)
+        self.assertIn('class="dlux-choice-selector__options"', html)
+
     def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         # The switch itself is owned by helpers/toggle; the setup shell keeps the
