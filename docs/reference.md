@@ -899,6 +899,7 @@ The system records several action families out of the box, including:
 | Helper | Purpose |
 | --- | --- |
 | `require_current_password(request)` | Reusable backend guard for destructive profile/security actions. Returns a failure response or `None`. |
+| `check_own_password(request, raw_password, user=None)` | `user.check_password()` for the signed-in user that keeps the session: when a correct password is re-hashed because the hasher raised its work factor (a Django upgrade), the session auth hash is refreshed instead of signing the user out. `require_current_password` uses it; use it for any other check of the request's own password. |
 | `set_profile_totp_state(profile, raw_secret=..., enabled=...)` | Persist encrypted TOTP secret and/or enabled state directly without routing through the full `Profile.save()` path. |
 | `public_form_limit(bucket, per_address=5, total=300, window=3600, on_limited=None)` | Decorator from `dlux.utils.ratelimit`: limits a public form view's POSTs per client address and in total, answering 429 with `Retry-After` and the translated message, or with `on_limited(request, result, *args, **kwargs)`. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls). |
 | `count_public_form_post(request, bucket, per_address=5, total=300, window=3600)` | Counts one POST against the same limits and returns `PublicFormLimitResult(allowed, limit, retry_after)`, for views that decide their own refusal. `rate_limited_response(request, result)` builds the default 429. |

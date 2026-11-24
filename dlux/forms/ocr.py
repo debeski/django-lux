@@ -97,13 +97,19 @@ def clean_ocr(form, cleaned):
         form.add_error('ocr_enabled', strings.get('permission_denied', 'Permission denied.'))
     elif not password:
         form.add_error('ocr_current_password', strings.get('current_password_required', 'Please enter your current password.'))
-    elif not user.check_password(password):
+    elif not _check_own_password(request, password, user):
         form.add_error('ocr_current_password', strings.get('current_password_incorrect', 'Current password is incorrect.'))
         if request is not None:
             from ..utils import log_audit_event
             log_audit_event(request, 'permission_denied', 'PERMISSION_DENIED', instance=user, model_name='password')
     else:
         form._ocr_service_operation = operation_for(bool(cleaned.get('ocr_enabled')))
+
+
+def _check_own_password(request, password, user):
+    from ..guards import check_own_password
+
+    return check_own_password(request, password, user=user)
 
 
 def _service_status(strings, enabled):

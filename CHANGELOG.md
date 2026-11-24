@@ -7,6 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Password confirmation no longer signs the user out after a Django upgrade**: Django re-hashes a correct password when its hasher's work factor went up (Django 6.1.3: PBKDF2 1.2M to 1.5M iterations), which changed the session auth hash and signed that session out on its next request. New `dlux.guards.check_own_password()` refreshes the session hash; `require_current_password`, the OCR switch and a failed password change use it, and "new password must differ" checks no longer re-hash.
 ## v1.16.5
 
 - **Stable 1.16.5**: Promote the published and accepted 1.16.5b2. Mail, Export Entries, Reset data and the weather, OCR and Options probes run on the task worker. Pages load the settings editors, tour and PDF.js only where used. Modal Back returns to the previous view, Options fades in, and the password prompt closes after a fast confirm. Migration 0031 is additive; updates inline from any 1.16 release.

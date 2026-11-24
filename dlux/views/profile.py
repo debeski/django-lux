@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 # Project imports
 from django.utils.module_loading import import_string
-from ..guards import require_current_password
+from ..guards import keep_session_after_rehash, require_current_password
 from ..notifications import notify
 from ..auth.trust import (
     current_session_trusted_device,
@@ -257,7 +257,13 @@ def user_profile(request):
     
     if request.method == 'POST':
         password_form = CustomPasswordChangeForm(user, request.POST)
-        if password_form.is_valid():
+        previous_hash = user.password
+        valid = password_form.is_valid()
+        if not valid:
+            # A correct current password is re-hashed by the check even when the
+            # form fails on the new one; keep this session signed in.
+            keep_session_after_rehash(request, user, previous_hash)
+        if valid:
             sign_out_other_sessions = bool(
                 password_form.cleaned_data.get('sign_out_other_sessions')
                 and not get_system_config().get('prevent_multiple_active_sessions', False)
