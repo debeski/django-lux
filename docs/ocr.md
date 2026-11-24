@@ -38,6 +38,11 @@ Saved values win; an environment string fills an option never saved (or saved
 invalid); built-in defaults fill the rest. The section shows whether the service
 answers.
 
+While Enable OCR is off, every other option in the section is greyed out, with a
+tooltip naming the switch, and keeps its saved value; turning the switch on makes
+them editable at once. The current password and the Operations panel button stay
+available, since turning OCR on needs them.
+
 Replacing or clearing a file invalidates its previous current text even when
 automatic reads are off or the replacement exceeds the size limit; historical
 text remains stored.
