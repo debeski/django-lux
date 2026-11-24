@@ -209,6 +209,55 @@ body {
     }
 }
 
+/* Entrance for index pages (Options, a project's dashboard). [data-dlux-reveal]
+   fades up as the page loads, and the children of [data-dlux-reveal-group]
+   follow one another, --dlux-reveal-step apart, after --dlux-reveal-start.
+   CSS only, so content never waits on a script. `backwards` leaves nothing
+   behind once it has played (no stacking context over dropdowns), and
+   base_runtime.js marks the page done so an element moved later (a reordered
+   card, a tab switch) does not play it again. */
+@keyframes dlux-reveal-in {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+[data-dlux-reveal] {
+    --dlux-reveal-index: 0;
+}
+
+[data-dlux-reveal-group] > :nth-child(1) { --dlux-reveal-index: 0; }
+[data-dlux-reveal-group] > :nth-child(2) { --dlux-reveal-index: 1; }
+[data-dlux-reveal-group] > :nth-child(3) { --dlux-reveal-index: 2; }
+[data-dlux-reveal-group] > :nth-child(4) { --dlux-reveal-index: 3; }
+[data-dlux-reveal-group] > :nth-child(5) { --dlux-reveal-index: 4; }
+[data-dlux-reveal-group] > :nth-child(6) { --dlux-reveal-index: 5; }
+[data-dlux-reveal-group] > :nth-child(7) { --dlux-reveal-index: 6; }
+[data-dlux-reveal-group] > :nth-child(8) { --dlux-reveal-index: 7; }
+[data-dlux-reveal-group] > :nth-child(9) { --dlux-reveal-index: 8; }
+[data-dlux-reveal-group] > :nth-child(10) { --dlux-reveal-index: 9; }
+[data-dlux-reveal-group] > :nth-child(11) { --dlux-reveal-index: 10; }
+[data-dlux-reveal-group] > :nth-child(12) { --dlux-reveal-index: 11; }
+[data-dlux-reveal-group] > :nth-child(n+13) { --dlux-reveal-index: 12; }
+
+:root:not(.dlux-reveal-done) [data-dlux-reveal],
+:root:not(.dlux-reveal-done) [data-dlux-reveal-group] > * {
+    animation: dlux-reveal-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--dlux-reveal-start, 0ms) + var(--dlux-reveal-index) * var(--dlux-reveal-step, 70ms));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-dlux-reveal],
+    [data-dlux-reveal-group] > * {
+        animation: none !important;
+    }
+}
+
 @media print {
     .new-page {
         page-break-inside: avoid;

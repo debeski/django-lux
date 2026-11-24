@@ -742,6 +742,7 @@
         const nav = document.createElement('div');
         nav.className = 'dlux-options-tabs no-print';
         nav.setAttribute('role', 'tablist');
+        nav.setAttribute('data-dlux-reveal-group', '');
 
         const tabs = [];
         cards.forEach((card, index) => {

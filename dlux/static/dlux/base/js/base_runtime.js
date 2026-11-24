@@ -1,6 +1,13 @@
 (function () {
     'use strict';
 
+    // Entrance animations ([data-dlux-reveal], base/css/main.css) play once. By
+    // now they are over, so an element moved later (a reordered card, a tab
+    // switch) keeps still instead of fading in again.
+    window.setTimeout(function () {
+        document.documentElement.classList.add('dlux-reveal-done');
+    }, 2000);
+
     function ensureArabicDatepickerLocale() {
         if (!window.Datepicker || !window.Datepicker.locales) {
             return;

@@ -15,10 +15,11 @@
 {% endblock %}
 
 {% block content %}
-    <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ DLUX_STRINGS.options_title }}</h2>
+    <h2 class="page-title mb-4" data-dlux-reveal><i class="bi bi-gear me-2"></i> {{ DLUX_STRINGS.options_title }}</h2>
 
     <div class="dlux-options-grid"
          id="dluxOptionsGrid"
+         data-dlux-reveal-group
          data-dlux-assets-warm="settings"
          data-options-style="{{ APP_CONFIG.appearance.options_style|default:'cards' }}"
          data-options-order-storage-key="dlux.options.card-order.v1">
@@ -97,7 +98,7 @@
                     </div>
                     <p class="text-muted small mb-0">{{ DLUX_STRINGS.admin_panel_desc|default:'System status, updates, backups, and configuration.' }}</p>
                 </div>
-                <div class="dlux-admin-panel-top">
+                <div class="dlux-admin-panel-top" data-dlux-reveal-group>
                     {% if show_system_diagnostics %}
                     <section class="dlux-admin-tile dlux-admin-tile--status">
                         <h5 class="dlux-admin-tile-title"><i class="bi bi-activity"></i> {{ DLUX_STRINGS.system_info }}</h5>
@@ -437,7 +438,7 @@
                         <h5 class="dlux-admin-tile-title mb-0"><i class="bi bi-sliders"></i> {{ DLUX_STRINGS.system_settings_label }}</h5>
                         <p class="text-muted small mb-0">{{ DLUX_STRINGS.system_settings_desc }}</p>
                     </div>
-                    <div class="dlux-system-settings-actions dlux-admin-settings-grid">
+                    <div class="dlux-system-settings-actions dlux-admin-settings-grid" data-dlux-reveal-group>
                     {% for step in setup_steps %}
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
@@ -657,7 +658,7 @@
     </div>
 
     <!-- Reset Defaults: standalone footer danger zone (resets the options above; not an options card) -->
-    <div class="dlux-options-reset-footer no-print">
+    <div class="dlux-options-reset-footer no-print" data-dlux-reveal>
         <div class="dlux-options-reset-bar dlux-options-panel--danger">
             <div class="dlux-options-reset-bar-text">
                 <h4 class="mb-1 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ DLUX_STRINGS.reset_defaults }}</h4>

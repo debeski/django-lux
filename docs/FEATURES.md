@@ -68,6 +68,8 @@ tags and helpers are in the [Reference](reference.md).
 - **UI primitives:** Dlux-owned inputs, choice selectors, toggles, loading buttons,
   the Dlux icon picker and the Dlux inspector shell. See
   [Developer Guide](developer-guide.md#dlux-owned-ui-primitives).
+- **Page entrance animation** for index pages (`data-dlux-reveal`), used by
+  Options. See [Template Customization](template-customization.md#entrance-animation).
 - **Global search, tutorials and dialogs:** shared search, guided tours, the
   unsaved-changes guard and dismissible dialogs. See [UI Integration](ui-integration.md).
 - **Optional weather** widget and dashboard card. See [Weather](weather.md).
