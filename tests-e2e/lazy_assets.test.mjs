@@ -97,6 +97,18 @@ test('a list page loads no settings editor, tour or PDF.js script', async () => 
   }
 });
 
+test('a project script in the scripts block can use Bootstrap and the form fields as it loads', async () => {
+  const { ctx, page, errors } = await loggedInPage(browser);
+  try {
+    await page.goto(`${BASE}/e2e-project-scripts/`, { waitUntil: 'networkidle' });
+    const probe = await page.evaluate(() => JSON.parse(document.documentElement.dataset.e2eLoadProbe || 'null'));
+    assert.deepEqual(probe, { bootstrap: 'function', fileFields: 'function' });
+    assert.deepEqual(errors, []);
+  } finally {
+    await ctx.close();
+  }
+});
+
 test('a settings step opened in the dynamic modal loads and boots its editors', async () => {
   const { ctx, page, errors } = await loggedInPage(browser);
   try {
