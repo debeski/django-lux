@@ -255,7 +255,7 @@ A failed test names the hop and the SMTP step that failed, and the likeliest fix
 |---|---|
 | Internal relay (web to the relay service) | connect, greeting, send |
 | Provider server, through the internal relay | config, connect, TLS handshake, greeting, sign-in, send |
-| Provider server, from the web service | connect, TLS handshake, greeting, sign-in, send |
+| Provider server, over direct SMTP | connect, TLS handshake, greeting, sign-in, send |
 
 For example, a connection that gets no answer on port 465 reads "connecting to
 smtp.example.com:465 failed — no answer within 60 seconds", followed by a firewall

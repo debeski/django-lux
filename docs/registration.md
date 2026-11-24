@@ -89,7 +89,7 @@ or `Entered here` with the provider server, for example Gmail host
 default-from address. The web and worker containers still send only to the
 internal relay listener; the relay loads the step's settings on each delivery.
 If web and the worker can reach the SMTP server directly, choose delivery path
-`Direct SMTP from web service`; both provider settings sources work in that mode.
+`Direct SMTP`; both provider settings sources work in that mode.
 
 The setup/System Settings security step refuses to enable public registration
 or email 2FA when the selected Dlux email delivery path and secret storage
