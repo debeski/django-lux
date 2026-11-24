@@ -131,6 +131,13 @@ class _DluxSelectorMixin:
         output = [format_html('<div{}>', flatatt(container_attrs))]
 
         if self.searchable:
+            placeholder = self.search_placeholder
+            if not placeholder:
+                try:
+                    from .translations import get_strings
+                    placeholder = get_strings().get('search_placeholder')
+                except Exception:
+                    placeholder = None
             output.append(
                 format_html(
                     (
@@ -139,7 +146,7 @@ class _DluxSelectorMixin:
                         'placeholder="{}" data-dlux-selector-search>'
                         '</div>'
                     ),
-                    self.search_placeholder or 'Search',
+                    placeholder or 'Search',
                 )
             )
 
