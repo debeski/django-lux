@@ -8,6 +8,8 @@ from django.apps import apps
 from django.conf import settings
 from importlib import import_module
 from functools import lru_cache
+import hashlib
+import json
 import logging
 
 from .strings import DLUX_STRINGS
@@ -468,6 +470,65 @@ def get_strings(lang_code=None, overrides=None):
                 base[alias] = base[canonical]
 
     return base
+
+
+# Bumped when the shape of the served strings script changes, so browsers
+# holding an older script under the same table fingerprint fetch the new one.
+CLIENT_STRINGS_FORMAT = 1
+
+
+@lru_cache(maxsize=1)
+def _catalog_fingerprint():
+    """Digest of every bundled and app-discovered string table, once per process."""
+    digest = hashlib.sha256()
+    digest.update(json.dumps(
+        [_discover_and_merge_translations(), _STRING_ALIASES],
+        sort_keys=True, ensure_ascii=False, default=str,
+    ).encode('utf-8'))
+    return digest.hexdigest()
+
+
+def config_translation_overrides(config):
+    """The project's string overrides as System Settings stores them."""
+    config = config or {}
+    localization = config.get('localization') or {}
+    return localization.get('translations', config.get('translations', None))
+
+
+def client_strings_version(lang, overrides=None):
+    """Version of the table ``get_strings(lang, overrides)`` returns.
+
+    It changes whenever that table can: a new bundled or app string (the catalog
+    fingerprint), the default language (the base layer), or an override for
+    ``lang``. Only the overrides are hashed per call, so a page can name its
+    strings script without serialising the table itself.
+    """
+    lang = (lang or '').split('-')[0]
+    default_lang = 'en'
+    try:
+        default_lang = _language_config().get('default_language', 'en') or 'en'
+    except Exception:
+        pass
+    lang_overrides = overrides.get(lang, {}) if isinstance(overrides, dict) else {}
+    digest = hashlib.sha256()
+    digest.update(_catalog_fingerprint().encode('ascii'))
+    digest.update(json.dumps(
+        [CLIENT_STRINGS_FORMAT, lang, default_lang, lang_overrides],
+        sort_keys=True, ensure_ascii=False, default=str,
+    ).encode('utf-8'))
+    return digest.hexdigest()[:16]
+
+
+def client_strings_script(strings):
+    """The strings table as the script ``base.html`` loads before its own.
+
+    Parsed with ``JSON.parse`` from a string literal, as the embedded block was,
+    so a key such as ``__proto__`` stays a plain key instead of an object
+    literal's prototype setter.
+    """
+    payload = json.dumps(strings, ensure_ascii=False, separators=(',', ':'), default=str)
+    literal = json.dumps(payload, ensure_ascii=False)
+    return f'window.DLUX_STRINGS=JSON.parse({literal});\n'
 
 
 class MigrationSafeTranslation(str):

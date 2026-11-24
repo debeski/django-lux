@@ -115,6 +115,7 @@ TEST_LABELS = [
     'dlux.tests.test_signals',
     'dlux.tests.test_smtp_relay',
     'dlux.tests.test_smtp_timeouts',
+    'dlux.tests.test_strings_script',
     'dlux.tests.test_suite_registration',
     'dlux.tests.test_offline_dns',
     'dlux.tests.test_system_backup',

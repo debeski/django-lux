@@ -52,7 +52,9 @@ The main system-level models are:
   enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a
   dedicated `Scope` for every newly registered user. `Scope.default_theme` provides an
   allowed-theme fallback for users in that scope who have not selected a valid
-  personal theme; it is ignored while scopes are disabled.
+  personal theme; it is ignored while scopes are disabled. Every scoped queryset
+  asks whether scoping is on; `get_scope_settings()` reads the row once per
+  request and shares it, so a page of counters costs one query for it.
 
 - `ScopedModel`
   Gives inheriting models audit fields, actor tracking, soft-delete behavior, and

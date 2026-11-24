@@ -379,7 +379,7 @@ class GeneralViewsTests(TestCase):
     def test_options_view_shows_the_backup_row_for_superuser_only(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
         SystemRestore = apps.get_model('dlux', 'SystemRestore')
-        SystemBackup.objects.create(
+        backup = SystemBackup.objects.create(
             requested_by_username='admin',
             status=SystemBackup.STATUS_COMPLETED,
             completed_at=timezone.now(),
@@ -400,7 +400,12 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, reverse('system_backup_page'))
         self.assertEqual(response.context['system_backup_summary']['completed_count'], 1)
         self.assertEqual(response.context['system_backup_summary']['protected_count'], 1)
-        self.assertContains(response, 'Last backup')
+        # The row shows when the last completed backup finished.
+        self.assertContains(
+            response,
+            f'<span class="dlux-upd-ver">{timezone.localtime(backup.completed_at):%Y-%m-%d %H:%M}</span>',
+            html=True,
+        )
 
         regular_user = User.objects.create_user(
             username='backupviewer',
