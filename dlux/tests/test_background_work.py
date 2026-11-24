@@ -114,3 +114,42 @@ class RelayGreetingCacheTests(TestCase):
         with mock.patch("dlux.utils.internal_smtp_relay_greeting", return_value=None) as probe:
             SystemSettingsForm()
         probe.assert_called_with(max_age=DLUX_SMTP_RELAY_GREETING_MAX_AGE)
+
+
+from dlux.tests.test_ocr import OCRTestCase  # noqa: E402
+
+
+class OCRHashOnTheWorkerTests(OCRTestCase):
+    def test_a_save_with_a_worker_queues_the_check_and_hashes_nothing(self):
+        from dlux.tests.document_files_app.models import Paper
+
+        with mock.patch("dlux.taskrunner.worker_alive", return_value=True), \
+                mock.patch("dlux.taskrunner.enqueue") as enqueue, \
+                mock.patch("dlux.ocr.service.file_sha256") as digest:
+            paper = self.paper()
+        digest.assert_not_called()
+        self.assertFalse(self.rows(paper).exists())
+        name, = {call.args[0] for call in enqueue.call_args_list}
+        self.assertEqual(name, "dlux.tasks.ocr_saved_document")
+        args = enqueue.call_args.kwargs["args"]
+        self.assertEqual(args, ("document_files_app.paper", paper.pk, ["pdf_file"]))
+        self.assertEqual(enqueue.call_args.kwargs["priority"], -6)
+
+        from dlux.jobs import ocr_saved_document
+
+        with self.captureOnCommitCallbacks(execute=True):
+            ocr_saved_document.call(*args)
+        row = self.rows(paper).get()
+        self.assertEqual(row.status, "pending")
+        self.assertTrue(row.is_current)
+        self.apply_async.assert_called_once()
+        self.assertIs(Paper, row.content_type.model_class())
+
+    def test_without_a_worker_the_save_checks_inline(self):
+        paper = self.paper()
+        self.assertEqual(self.rows(paper).count(), 1)
+
+    def test_an_unknown_model_label_is_ignored(self):
+        from dlux.jobs import ocr_saved_document
+
+        ocr_saved_document.call("missing.model", 1, ["pdf_file"])

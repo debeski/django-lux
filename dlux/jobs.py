@@ -183,6 +183,20 @@ def ocr_background():
     return tick()
 
 
+@task(name="dlux.tasks.ocr_saved_document")
+def ocr_saved_document(model_label, pk, fields):
+    """Hash a saved document's OCR files and queue OCR, off web's request thread."""
+    from django.apps import apps
+
+    from .ocr.service import saved_file_changed
+
+    try:
+        model = apps.get_model(model_label)
+    except LookupError:
+        return
+    saved_file_changed(model, pk, list(fields))
+
+
 @task(name="dlux.tasks.ocr_file", takes_context=True, requeue_lost=True, max_retries=len(OCR_RETRY_DELAYS))
 def ocr_file(context, result_id):
     """Read one ``FileText`` row's file.

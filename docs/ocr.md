@@ -88,8 +88,11 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
   markdown, text, per-page JSON (lines with boxes and confidence, layout blocks,
   rotation, timings), page count, mean confidence, timings, duration, attempts,
   error, and `file_version` (the `FileVersion` whose save produced this file).
-- **Flow**: `post_save` on a registered model schedules after commit
-  (`dlux.ocr.service.schedule`). The task `dlux.tasks.ocr_file` (defined in
+- **Flow**: `post_save` on a registered model queues
+  `dlux.tasks.ocr_saved_document` (priority -6) after commit; it hashes the saved
+  file, makes its row current and queues the read (`dlux.ocr.service.schedule`), or
+  only retires rows whose file changed when automatic OCR is off. The save request
+  never reads the file; without a live worker it runs that check inline. The task `dlux.tasks.ocr_file` (defined in
   `dlux.jobs`) runs on the [Task Runner](task-runner.md) at priority 0 (Run OCR),
   -6 (automatic) or -9 (backfill) in `django.tasks` terms, higher first. It is
   `requeue_lost`, so a run lost with a dead worker goes back to the queue. A busy
