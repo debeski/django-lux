@@ -7,6 +7,11 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-xl-down">
         <div class="modal-content glass-card">
             <div class="modal-header border-0 pb-0">
+                {# Shown by dynamic_modal/js/main.js on a view opened from another view in the modal that has no Back of its own. #}
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill dlux-back-link me-2" id="dynamicModalBack" hidden
+                        aria-label="{{ DLUX_STRINGS.btn_back|default:'Back' }}" data-dlux-tooltip="{{ DLUX_STRINGS.btn_back|default:'Back' }}">
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                </button>
                 <h5 class="modal-title" id="dynamicModalTitle">
                     <i class="bi bi-gear-fill me-2 text-primary"></i>
                     <span id="dynamicModalTitleText" class="fw-bold">{{ DLUX_STRINGS.manage_records|default:"Manage Records" }}</span>

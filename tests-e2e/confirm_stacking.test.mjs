@@ -113,3 +113,23 @@ test('on its own the prompt does not stack', async () => {
   assert.equal(await page.evaluate(() => document.querySelector('[data-dlux-confirm-modal]').classList.contains('dlux-modal-stacked')), false);
   assert.equal(await page.evaluate(() => document.body.classList.contains('dlux-modal-stacked-open')), false);
 });
+
+// Bootstrap ignores hide() during the show transition. A confirm that resolved
+// before the prompt finished opening (a busy page, a pasted password and Enter)
+// left it open over the dialog it had just opened (found with the Options
+// entrance: the Reset data prompt stayed on top of the reset dialog).
+test('a confirm that resolves while the prompt is still opening closes it', async () => {
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.evaluate(() => {
+    const prompt = document.querySelector('[data-dlux-confirm-modal]');
+    window.__promptEvents = [];
+    ['shown', 'hidden'].forEach((type) => prompt.addEventListener(`${type}.bs.modal`, () => window.__promptEvents.push(type), { once: true }));
+    window.dluxConfirmPassword({ title: 'Reset', requirePassword: false, onConfirm: () => Promise.resolve(true) });
+    prompt.querySelector('[data-dlux-confirm-submit]').click();
+  });
+  // Right after the click the prompt has not appeared yet, so wait for it to
+  // open and then close, rather than for "not shown".
+  await page.waitForFunction(() => window.__promptEvents.includes('hidden'), null, { timeout: 4000 });
+  assert.deepEqual(await page.evaluate(() => window.__promptEvents), ['shown', 'hidden']);
+});
+

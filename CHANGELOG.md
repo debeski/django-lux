@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.5b2
+
+- **Dynamic Modal Back Steps Back One View**: views opened inside the dynamic modal (an entry's PDF version history, extracted text and editor, a manager's record) stack, and Back returns to the view below, title included, instead of closing the modal. A view without its own Back gets one in the modal header (`#dynamicModalBack`). Moving between views fires a cancelable `dlux:dynamic_modal:leave`, so unsaved edits are still asked about.
+- **Options Fades In Like A Project Index**: the Options title, cards, admin tiles and settings tiles, then the reset footer fade up as the page loads, through a reusable CSS-only entrance: `data-dlux-reveal` on an element, `data-dlux-reveal-group` on a container, timed by `--dlux-reveal-start` and `--dlux-reveal-step`. It plays once per load and is off under `prefers-reduced-motion`.
+- **Password Prompt Closes After A Fast Confirm**: `window.dluxConfirmPassword` closed with Bootstrap's `hide()`, which Bootstrap ignores until the prompt has finished opening, so a fast confirm (a pasted password and Enter, a busy page) left it open over the dialog it had just opened, such as Reset data. It now closes once shown.
+
 ## v1.16.5b1
 
 - **Mail Leaves The Request Path**: 2FA codes, password-reset links, registration verification and notification emails are queued on the task worker (`dlux.tasks.send_mail`, sealed at rest, queue `dlux-mail`) instead of sending SMTP inside the request; without a worker they send after commit. A failed send fails the run, not the request. **Send test email** stays synchronous.

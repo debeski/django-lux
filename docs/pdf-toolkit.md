@@ -132,9 +132,14 @@ PDF worker when removed/closed.
   work. The iframe is loaded only for that fallback, so a normal view downloads
   the file once.
 
+In the dynamic modal, the viewer's history, extracted text and edit buttons open
+on top of the entry, and their Back returns to it
+([Sections and dynamic modals](ui-integration.md#sections-and-dynamic-modals)).
+
 The editor uses a DjangoLux file widget, supports reorder/remove/append, page
-selection, Rotate and Fit to A4, guards unsaved page edits, releases thumbnail
-workers, and avoids submitting an untouched current PDF. Its Scan button uses
+selection, Rotate and Fit to A4, guards unsaved page edits (on close, Back, and
+links to another view in the modal), releases thumbnail workers, and avoids
+submitting an untouched current PDF. Its Scan button uses
 the shared ScanLink client (`window.DluxScan.scan()` from `scan_button.js`), the
 same routine as the file card: health check, scanner selection, progress and
 translated errors.
