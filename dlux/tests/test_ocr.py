@@ -393,6 +393,60 @@ class SettingsFormTests(OCRTestCase):
         self.assertEqual(record.extra_config['ocr'], {**ocr.DEFAULTS, 'enabled': True, 'auto_on_save': False, 'search': True,
                          'service_url': 'http://ocr:8081', 'mode': 'ocr', 'timeout': 300, 'max_file_mb': 20, 'threads': 3})
 
+    def test_saving_with_ocr_off_keeps_the_other_options(self):
+        # With OCR off its other controls are disabled and never posted.
+        from dlux.forms.ocr import apply_ocr
+
+        configure(auto_on_save=False, search=False, mode='ocr', threads=4, automatic_models=['document_files_app.paper'],
+                  background_enabled=True)
+        record = SystemSettings.load()
+        form = type('Form', (), {'single_step_mode': False, 'single_step_index': 0, 'cleaned_data': {
+            'ocr_enabled': False, 'ocr_auto_on_save': False, 'ocr_search': False, 'ocr_background_enabled': False,
+            'ocr_mode': '', 'ocr_threads': None, 'ocr_automatic_models': []}})()
+        apply_ocr(form, record)
+        saved = record.extra_config['ocr']
+        self.assertFalse(saved['enabled'])
+        self.assertEqual(
+            {key: saved[key] for key in ('auto_on_save', 'search', 'mode', 'threads', 'automatic_models', 'background_enabled')},
+            {'auto_on_save': False, 'search': False, 'mode': 'ocr', 'threads': 4,
+             'automatic_models': ['document_files_app.paper'], 'background_enabled': True},
+        )
+
+    def test_ocr_options_wait_on_the_enable_switch(self):
+        from crispy_forms.utils import render_crispy_form
+        from dlux.forms.system_settings import SystemSettingsForm
+        from html.parser import HTMLParser
+
+        class Names(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.depth, self.inside, self.outside, self.classes = 0, set(), set(), ''
+
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if self.depth:
+                    self.depth += tag == 'div'
+                elif tag == 'div' and 'data-ocr-dependent' in attrs:
+                    self.depth, self.classes = 1, attrs.get('class', '')
+                    return
+                name = attrs.get('name', '')
+                if tag in ('input', 'select', 'textarea') and name.startswith('ocr_'):
+                    (self.inside if self.depth else self.outside).add(name)
+
+            def handle_endtag(self, tag):
+                if self.depth and tag == 'div':
+                    self.depth -= 1
+
+        for enabled in (True, False):
+            configure(enabled=enabled)
+            parser = Names()
+            parser.feed(render_crispy_form(SystemSettingsForm(instance=SystemSettings.load())))
+            self.assertEqual(parser.outside, {'ocr_enabled', 'ocr_current_password'})
+            self.assertTrue({'ocr_auto_on_save', 'ocr_search', 'ocr_mode', 'ocr_automatic_models', 'ocr_background_enabled',
+                             'ocr_service_url', 'ocr_threads'} <= parser.inside, parser.inside)
+            self.assertIn('dlux-dependent-settings', parser.classes)
+            self.assertEqual('is-disabled' in parser.classes, not enabled)
+
     def test_system_settings_form_renders_the_ocr_section(self):
         from dlux.forms.system_settings import SystemSettingsForm
 

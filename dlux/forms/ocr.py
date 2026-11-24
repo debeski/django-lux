@@ -7,7 +7,7 @@ from django.utils.html import escape
 from ..ocr import CONFIG_KEY, MODES, normalize_ocr_config
 from ..system.constants import SETUP_STEP_EXTRAS
 from ..widgets import DluxChoiceSelectorWidget, DluxMultipleChoiceSelectorWidget
-from .builders import _bind_choice_selector_widget, build_settings_toggle_field
+from .builders import _bind_choice_selector_widget, _boolean_field_checked, build_settings_toggle_field
 
 FIELDS = ('enabled', 'auto_on_save', 'search', 'mode', 'service_url', 'timeout', 'max_file_mb', 'threads',
           'background_enabled', 'background_interval', 'background_batch_size', 'background_queue_limit', 'automatic_models')
@@ -152,31 +152,41 @@ def ocr_settings_layout(form, strings):
         text = strings.get('ocr_background_progress', 'Background: {state}. Last scan: {scanned} checked, {queued} queued.').format(
             state=label, scanned=background.get('scanned', 0), queued=background.get('queued', 0))
         status += f"<p class='small text-body-secondary mb-2' role='status'>{escape(text)}</p>"
+    # Everything OCR does waits on Enable OCR, so ocr/js/settings.js greys it out
+    # with the shared dependent tooltip while the switch is off. The password and
+    # the Operations panel stay outside: turning OCR on needs them. The class only
+    # covers the first paint; the controls are never disabled server-side, which
+    # would keep them greyed after the switch comes back on.
+    dependent_class = 'dlux-dependent-settings' + ('' if _boolean_field_checked(form, 'ocr_enabled') else ' is-disabled')
     return Div(
         HTML('<h6 class="fw-bold my-3">' + escape(strings.get('ocr_settings_title', 'OCR text extraction')) + '</h6>'),
         build_settings_toggle_field(form, 'ocr_enabled', css_class='col-12'),
         Div(
             HTML(status),
-            Row(
-                Div(build_settings_toggle_field(form, 'ocr_auto_on_save', css_class='col-12'), css_class='col-lg-6'),
-                Div(build_settings_toggle_field(form, 'ocr_search', css_class='col-12'), css_class='col-lg-6'),
-                css_class='g-3 mb-3',
-            ),
-            Field('ocr_mode'),
-            Field('ocr_automatic_models'),
-            build_settings_toggle_field(form, 'ocr_background_enabled', css_class='col-12'),
-            Row(
-                Div(Field('ocr_background_interval'), css_class='col-12 col-lg-4'),
-                Div(Field('ocr_background_batch_size'), css_class='col-12 col-lg-4'),
-                Div(Field('ocr_background_queue_limit'), css_class='col-12 col-lg-4'),
-                css_class='g-3 mb-3',
-            ),
-            Row(
-                Div(Field('ocr_service_url'), css_class='col-12'),
-                Div(Field('ocr_timeout'), css_class='col-12 col-md-4'),
-                Div(Field('ocr_max_file_mb'), css_class='col-12 col-md-4'),
-                Div(Field('ocr_threads'), css_class='col-12 col-md-4'),
-                css_class='g-3 mb-3',
+            Div(
+                Row(
+                    Div(build_settings_toggle_field(form, 'ocr_auto_on_save', css_class='col-12'), css_class='col-lg-6'),
+                    Div(build_settings_toggle_field(form, 'ocr_search', css_class='col-12'), css_class='col-lg-6'),
+                    css_class='g-3 mb-3',
+                ),
+                Field('ocr_mode'),
+                Field('ocr_automatic_models'),
+                build_settings_toggle_field(form, 'ocr_background_enabled', css_class='col-12'),
+                Row(
+                    Div(Field('ocr_background_interval'), css_class='col-12 col-lg-4'),
+                    Div(Field('ocr_background_batch_size'), css_class='col-12 col-lg-4'),
+                    Div(Field('ocr_background_queue_limit'), css_class='col-12 col-lg-4'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(Field('ocr_service_url'), css_class='col-12'),
+                    Div(Field('ocr_timeout'), css_class='col-12 col-md-4'),
+                    Div(Field('ocr_max_file_mb'), css_class='col-12 col-md-4'),
+                    Div(Field('ocr_threads'), css_class='col-12 col-md-4'),
+                    css_class='g-3 mb-3',
+                ),
+                css_class=dependent_class,
+                **{'data-ocr-dependent': ''},
             ),
             Field('ocr_current_password'),
             HTML(
@@ -204,13 +214,16 @@ def apply_ocr(form, instance):
         return
     extra = dict(instance.extra_config or {})
     config = normalize_ocr_config(extra.get(CONFIG_KEY))
-    for key in FIELDS:
-        value = form.cleaned_data.get('ocr_' + key)
-        if value not in (None, ''):
-            config[key] = value
     config['enabled'] = bool(form.cleaned_data.get('ocr_enabled'))
-    for key in ('auto_on_save', 'search', 'background_enabled'):
-        config[key] = bool(form.cleaned_data.get('ocr_' + key))
+    # With OCR off its other controls are disabled and never posted, so the
+    # stored options stay as they were instead of reading as cleared.
+    if config['enabled']:
+        for key in FIELDS:
+            value = form.cleaned_data.get('ocr_' + key)
+            if key != 'enabled' and value not in (None, ''):
+                config[key] = value
+        for key in ('auto_on_save', 'search', 'background_enabled'):
+            config[key] = bool(form.cleaned_data.get('ocr_' + key))
     extra[CONFIG_KEY] = normalize_ocr_config(config)
     instance.extra_config = extra
     operation = getattr(form, '_ocr_service_operation', '')
