@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.16.4b1",
+  "version": "1.16.4",
   "display": {
     "summary": "Lighter pages and fewer queries. Pages no longer embed the whole strings table: they load it once as a cached script, so an Arabic list page drops from about 630 KB to 120 KB and later pages reuse the table. Scope settings are read once per request instead of once per scoped query, which removes most of the repeated queries on dashboards of counters. Card choice selectors share one column width and fill the row, form caption styling no longer squeezes choice options, and the OCR options wait on Enable OCR like other dependent settings. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
@@ -11,7 +11,7 @@
       "The OCR options are greyed out while OCR is off, like other dependent settings.",
       "Web and worker update inline from any 1.16 release, with no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.4b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.4"
   },
   "requires": {
     "updater_schema": ">=1",

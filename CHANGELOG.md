@@ -14,6 +14,10 @@ This file owns the release history for `django-lux`.
 - **Email step names who sends direct SMTP**: with mail on the worker, "Direct SMTP from web service" no longer described the route. `email_transport_direct` is now "Direct SMTP"; `email_transport_direct_desc`, `email_delivery_settings_desc`, `email_effective_title_direct`, `email_effective_source_direct` and `email_effective_direct_internal_relay` name the task worker (queued mail) and web (the test email), whose `EMAIL_*` settings are the same; the failure hop `email_fail_hop_provider_direct` reads "Provider server, over direct SMTP". English and Arabic.
 - **One notification email per recipient**: `_send_notification_email` passed every recipient to one message, so each saw all the others' addresses in To. `notifications.deliver_notification_emails()` sends one message per user and records each `DluxNotificationState`: `queued` when dispatched, then `sent` with `emailed_at` or `failed` with `email_error`, with one failure alert per batch. States were also marked `sent` when a `fail_silently` send had failed.
 
+## v1.16.4
+
+- **Stable 1.16.4**: Promote the published and accepted 1.16.4b1. Pages load the strings table as a cached script instead of embedding it, so an Arabic list page drops from about 630 KB to 120 KB, and scope settings are read once per request. Card choice selectors fill the row, choice options lose the form caption style, and the OCR options wait on Enable OCR. Updates inline from any 1.16 release, with no migrations or dependency changes from 1.16.4b1.
+
 ## v1.16.4b1
 
 - **OCR Options Wait On Enable OCR**: in Extra Features, the OCR options are greyed out with the shared dependent-setting tooltip while OCR is off, like other dependent sections, and come back as soon as it is switched on. The current password and the Operations panel button stay usable. Saving with OCR off keeps the stored options.
