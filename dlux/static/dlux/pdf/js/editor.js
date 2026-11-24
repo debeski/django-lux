@@ -110,15 +110,41 @@
             }
             if (!window.confirm(labels.discardEdits)) event.preventDefault();
         }
+        // Back or a link to another view in the modal leaves the editor without
+        // closing the modal: same prompt, and the editor is torn down on leaving.
+        function guardLeave(event) {
+            if (!shell.isConnected) return;
+            const leave = function () {
+                shell.disposePdfEditor();
+                event.detail.proceed();
+            };
+            if (shell.dataset.dirty !== "1" || shell.dataset.saved === "1") {
+                shell.disposePdfEditor();
+                return;
+            }
+            const guard = window.dluxUnsavedGuard;
+            if (guard && typeof guard.skipPrompt === "function" && guard.skipPrompt()) {
+                shell.disposePdfEditor();
+                return;
+            }
+            event.preventDefault();
+            if (guard && typeof guard.prompt === "function") {
+                guard.prompt({ onSave: function () { saveButton.click(); }, onDiscard: leave });
+            } else if (window.confirm(labels.discardEdits)) {
+                leave();
+            }
+        }
         shell.disposePdfEditor = () => {
             shell.dataset.closed = "1";
             loadingTasks.forEach((task) => task.destroy().catch(() => {}));
             loadingTasks.clear();
             modalElement?.removeEventListener("hide.bs.modal", guardClose);
             modalElement?.removeEventListener("hidden.bs.modal", shell.disposePdfEditor);
+            modalElement?.removeEventListener("dlux:dynamic_modal:leave", guardLeave);
         };
         modalElement?.addEventListener("hide.bs.modal", guardClose);
         modalElement?.addEventListener("hidden.bs.modal", shell.disposePdfEditor);
+        modalElement?.addEventListener("dlux:dynamic_modal:leave", guardLeave);
         const pages = [];
         const sourceFiles = {};
         const loadingTasks = new Set();

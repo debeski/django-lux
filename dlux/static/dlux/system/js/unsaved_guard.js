@@ -290,6 +290,17 @@
             });
         });
 
+        // The dynamic modal moves between views (Back, an entry's PDF history)
+        // without hiding, and asks through this event instead.
+        modalEl.addEventListener('dlux:dynamic_modal:leave', function (event) {
+            const form = dirtyFormIn(modalEl);
+            if (!form || shouldSkipPrompt()) {
+                return;
+            }
+            event.preventDefault();
+            showUnsavedPrompt({ form: form, onDiscard: event.detail.proceed });
+        });
+
         modalEl.addEventListener('hidden.bs.modal', function () {
             guardedForms(modalEl).forEach((form) => {
                 delete form.dataset.dluxUnsavedBaseline;
