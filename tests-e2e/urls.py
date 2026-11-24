@@ -5,6 +5,21 @@ from django.conf.urls.static import static
 from django.urls import include, path
 
 
+if os.environ.get('DLUX_E2E_OCR_MODELS'):
+    # Six models with a file field, so Extra Features lists six models under
+    # "Models included in automatic OCR". Layout only: nothing is read or saved.
+    from dlux.files.registry import register_document_file
+    from dlux.models import ManagedAsset, SystemSettings
+    from dlux.models.files import FileVersion
+    from dlux.models.users import Profile
+    from dlux.tests.document_files_app.models import LegacyFileVersion, Paper
+
+    for model, field in (
+        (Paper, 'pdf_file'), (LegacyFileVersion, 'archived_file'), (FileVersion, 'archived_file'),
+        (ManagedAsset, 'file'), (SystemSettings, 'logo'), (Profile, 'profile_picture'),
+    ):
+        register_document_file(model, field)
+
 if os.environ.get('DLUX_E2E_PROJECT_SETTINGS'):
     # One sample project tile, for the setup wizard's Project settings step.
     from dlux.options import register_app_settings

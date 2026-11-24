@@ -52,18 +52,33 @@
 }
 
 /* Card, chip and swatch options wrap into as many columns as the row fits.
-   auto-fill (not auto-fit) keeps a handful of options compact and start-aligned
-   instead of stretching across the whole row; min(100%, …) keeps one option
-   inside a column narrower than the minimum. A selector that needs narrower or
-   wider options sets --dlux-choice-option-min on itself or an ancestor rather
-   than redefining the grid. */
+   --dlux-choice-option-width is the widest a column needs to start (12rem for a
+   card, 150px for a chip or swatch); a selector that wants another width sets it
+   on itself or an ancestor instead of redefining the grid. min(100%, …) keeps an
+   option inside a column narrower than that.
+
+   Cards narrow further to their widest option, which the selector script
+   measures into --dlux-choice-option-fit, and auto-fit stretches the columns
+   across the whole row. Chips and swatches keep auto-fill, so a handful of them
+   stays compact and start-aligned. */
 .dlux-choice-selector--card .dlux-choice-selector__options {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-min, 12rem)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--dlux-choice-option-width, 12rem), var(--dlux-choice-option-fit, var(--dlux-choice-option-width, 12rem))), 1fr));
 }
 
 .dlux-choice-selector--chip .dlux-choice-selector__options,
 .dlux-choice-selector--swatch .dlux-choice-selector__options {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-min, 150px)), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-width, 150px)), 1fr));
+}
+
+/* The selector script lays the options out at their natural width for one
+   synchronous measurement; nothing paints in between. */
+.dlux-choice-selector.is-measuring .dlux-choice-selector__options {
+  display: block;
+}
+
+.dlux-choice-selector.is-measuring .dlux-choice-option {
+  display: block !important;
+  width: max-content;
 }
 
 .dlux-choice-selector--toggle .dlux-choice-selector__options {
@@ -231,6 +246,23 @@
 
 .dlux-choice-selector--chip .dlux-choice-option__label {
   font-size: 0.95rem;
+}
+
+.dlux-choice-selector--card .dlux-choice-option__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+/* Cards stretch to the shared column width, so their content sits in the middle
+   rather than against one edge. */
+.dlux-choice-selector--card .dlux-choice-option__surface {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.dlux-choice-selector--card .dlux-choice-option__copy {
+  align-items: center;
 }
 
 .dlux-choice-selector--searchable-list .dlux-choice-option__surface {
