@@ -1,4 +1,5 @@
 import hashlib
+import io
 import logging
 import secrets
 
@@ -8,12 +9,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.template import RequestContext
 from django.template.loader import get_template, render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import content_disposition_header
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
@@ -573,17 +575,55 @@ def system_backup_download_view(request, token):
     )
 
 
+class _ZipSink(io.RawIOBase):
+    """A write-only, unseekable buffer: ``zipfile`` then writes data descriptors,
+    so the archive can leave as it is built."""
+
+    def __init__(self):
+        super().__init__()
+        self._chunks = []
+
+    def writable(self):
+        return True
+
+    def write(self, data):
+        self._chunks.append(bytes(data))
+        return len(data)
+
+    def drain(self):
+        chunks, self._chunks = self._chunks, []
+        return b''.join(chunks)
+
+
+def stream_chain_zip(paths, chunk_size=4 * 1024 * 1024):
+    """Yield a stored (uncompressed) ZIP of ``paths`` as it is written.
+
+    Nothing is read before the first chunk is asked for, and at most one
+    ``chunk_size`` read is held at a time.
+    """
+    import zipfile
+
+    sink = _ZipSink()
+    with zipfile.ZipFile(sink, 'w', zipfile.ZIP_STORED, allowZip64=True) as zf:
+        for path in paths:
+            with default_storage.open(path, 'rb') as src, \
+                    zf.open(path.rsplit('/', 1)[-1], 'w', force_zip64=True) as dest:
+                while chunk := src.read(chunk_size):
+                    dest.write(chunk)
+                    yield sink.drain()
+            yield sink.drain()
+    yield sink.drain()
+
+
 @login_required
 def system_backup_chain_download_view(request, token):
     """One ZIP of every member from the base up to this increment.
 
     A lone increment cannot be restored, so this is what an incremental row's
     Download offers; upload the members (or keep them in the backup folder) to
-    restore elsewhere.
+    restore elsewhere. The ZIP is streamed while it is written, so the first
+    byte leaves at once and nothing is staged on disk.
     """
-    import tempfile
-    import zipfile
-
     from ..backup import resolve_chain_paths
 
     backup = _get_backup_or_404(request, token)
@@ -593,20 +633,16 @@ def system_backup_chain_download_view(request, token):
         paths = resolve_chain_paths(backup.file_path)
     except ValueError:
         raise Http404
-    bundle = tempfile.TemporaryFile()
-    with zipfile.ZipFile(bundle, 'w', zipfile.ZIP_STORED, allowZip64=True) as zf:
-        for path in paths:
-            with default_storage.open(path, 'rb') as src, zf.open(path.rsplit('/', 1)[-1], 'w', force_zip64=True) as dest:
-                while chunk := src.read(4 * 1024 * 1024):
-                    dest.write(chunk)
-    bundle.seek(0)
+    if not all(default_storage.exists(path) for path in paths):
+        raise Http404
     stamp = timezone.localdate(backup.completed_at).isoformat()
-    return FileResponse(
-        bundle,
-        as_attachment=True,
-        filename=f'dlux-backup-chain-{stamp}-{backup.sequence}.zip',
+    response = StreamingHttpResponse(
+        (chunk for chunk in stream_chain_zip(paths) if chunk),
         content_type='application/zip',
     )
+    response['Content-Disposition'] = content_disposition_header(
+        True, f'dlux-backup-chain-{stamp}-{backup.sequence}.zip')
+    return response
 
 
 @login_required

@@ -182,3 +182,31 @@ class ForcePasswordChangeQueryCountTests(TestCase):
                 if user.profile.preferences.get("force_password_change") is True),
             65,
         )
+
+
+class ChainZipStreamTests(TestCase):
+    def test_nothing_is_read_before_the_first_chunk_and_the_zip_is_valid(self):
+        import io
+        import zipfile
+
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
+        from dlux.views.backup import stream_chain_zip
+
+        paths = [
+            default_storage.save("dlux_backups/test-chain/base.dlb", ContentFile(b"A" * 5000)),
+            default_storage.save("dlux_backups/test-chain/inc-1.dlb", ContentFile(b"B" * 3000)),
+        ]
+        self.addCleanup(lambda: [default_storage.delete(path) for path in paths])
+        with mock.patch("dlux.views.backup.default_storage.open", wraps=default_storage.open) as opened:
+            stream = stream_chain_zip(paths, chunk_size=1024)
+            opened.assert_not_called()
+            first = next(stream)
+            self.assertEqual(opened.call_count, 1)
+            body = first + b"".join(stream)
+        with zipfile.ZipFile(io.BytesIO(body)) as zf:
+            self.assertEqual(zf.namelist(), ["base.dlb", "inc-1.dlb"])
+            self.assertEqual(zf.read("base.dlb"), b"A" * 5000)
+            self.assertEqual(zf.read("inc-1.dlb"), b"B" * 3000)
+            self.assertIsNone(zf.testzip())
