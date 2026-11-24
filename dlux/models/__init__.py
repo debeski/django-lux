@@ -104,6 +104,9 @@ from .taskrunner import (  # noqa: F401
     DluxTaskRun,
     DluxTaskWorker,
 )
+from .jobs import (  # noqa: F401
+    DluxJob,
+)
 from .activity import (  # noqa: F401
     ActivityLog,
     Section,
@@ -113,6 +116,7 @@ from .activity import (  # noqa: F401
 __all__ = [
     'ActivityLog',
     'DluxControlLinkRequest',
+    'DluxJob',
     'DluxImageUpdate',
     'DluxNotification',
     'DluxNotificationRule',

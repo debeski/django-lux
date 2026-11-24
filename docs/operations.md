@@ -45,6 +45,13 @@ Reset data runs in one of two modes:
   confirmation word typed into the dialog on top of the password, and there is no
   undo. Use it only to start a system over.
 
+With a live task worker the reset runs there as a background job (see
+[Task Runner](task-runner.md#background-jobs)): the dialog shows the model being
+cleared and the outcome when it ends, and the audit event and notification are
+written by the worker under the requesting superuser and their address. Without a
+worker it runs in the request. The job and task-queue tables are never offered for
+reset.
+
 Bulk writes run no `save()` or `delete()`, so a figure a project derives in those
 methods — a stock balance, a cached total — is stale once the rows behind it are
 cleared. A project repairs its own by connecting to
@@ -117,7 +124,11 @@ General Reports produce three outputs:
   dropped. `DLUX_CONFIG['reports']['entries_exclude_fields'] = {'app.model': ['field']}`
   drops more, and `entries_row_limit` (default `20000`) caps each sheet. Every
   workbook here, the user report's included, writes strings as text cells, so a
-  stored value or user agent that starts with `=` is never a formula.
+  stored value or user agent that starts with `=` is never a formula. The button
+  posts the builder to `/sys/reports/export/start/`: with a live task worker the
+  workbook is built there as a background job, the button shows its progress, and
+  the file downloads when it is ready; without a worker the page downloads the
+  synchronous `/sys/reports/export.xlsx` instead.
 - **Archive ZIP**: `entries.xlsx` (the Export Entries workbook), the referenced media
   under `files/`, and `manifest.json`, whose `selection` records the exact
   normalized criteria. Downloading it needs `dlux.download_backup`.

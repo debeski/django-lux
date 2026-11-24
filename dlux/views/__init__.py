@@ -137,6 +137,7 @@ from .reports import (
     reports_backup_status_view,
     reports_backup_zip_view,
     reports_overview_view,
+    reports_overview_xlsx_start_view,
     reports_overview_xlsx_view,
     reports_print_view,
 )

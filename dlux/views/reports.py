@@ -120,6 +120,10 @@ def _reports_action_specs(request=None):
                 "formmethod": "get",
                 "formaction": reverse("reports_overview_xlsx"),
                 "title": strings.get("reports_export_entries_hint", ""),
+                # overview.js starts it on the task worker and downloads the file when ready.
+                "data-dlux-job-start-url": reverse("reports_overview_xlsx_start"),
+                "data-dlux-job-busy-label": strings.get("reports_export_building", "Preparing the export..."),
+                "data-dlux-job-failed-label": strings.get("reports_export_failed", "The export failed."),
             },
         },
     ]
@@ -222,6 +226,34 @@ def reports_overview_xlsx_view(request):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+@login_required
+@require_POST
+def reports_overview_xlsx_start_view(request):
+    """Start the entries workbook on the task worker.
+
+    The workbook covers every row in the window, so with a live worker the
+    browser polls the job and downloads its file; without one it is sent to the
+    synchronous export URL instead.
+    """
+    if not user_can_view_reports(request.user):
+        raise PermissionDenied
+    from ..background_jobs import KIND_REPORTS_XLSX, request_context, start_job, start_payload
+
+    window = normalize_report_window(request.POST.get("window"))
+    filters = _report_request_filters(request.POST)
+    job = start_job(KIND_REPORTS_XLSX, request.user, {
+        "window": window, "filters": filters, **request_context(request),
+    })
+    if job is not None:
+        return JsonResponse(start_payload(job))
+    overview = build_reports_overview(request.user, window=window, filters=filters)
+    return JsonResponse({
+        "ok": True,
+        "async": False,
+        "download_url": f"{reverse('reports_overview_xlsx')}?{_criteria_query(overview['criteria'])}",
+    })
 
 
 @login_required

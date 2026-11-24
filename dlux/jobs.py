@@ -36,6 +36,21 @@ def system_restore_lost(restore_pk, passphrase=""):
     fail_lost_system_restore(restore_pk)
 
 
+def background_job_lost(job_pk):
+    """``on_lost`` for ``run_job``: fail the job row so the polling page stops waiting."""
+    from .background_jobs import job_lost
+
+    job_lost(job_pk)
+
+
+@task(name="dlux.tasks.run_job", on_lost=background_job_lost)
+def run_background_job(job_pk):
+    """A long request (export, data reset) handed off by web; see ``dlux.background_jobs``."""
+    from .background_jobs import run_job
+
+    run_job(job_pk)
+
+
 @task(name="dlux.tasks.build_system_backup", sensitive=True, on_lost=system_backup_lost)
 def build_system_backup(backup_pk, passphrase=""):
     from .backup import retry_countdown_for, run_system_backup
