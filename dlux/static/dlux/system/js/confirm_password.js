@@ -91,6 +91,30 @@
             }
         }
 
+        // Bootstrap ignores hide() until the show transition has ended, so a
+        // confirm that resolved sooner (a pasted password and Enter, a busy page)
+        // left the prompt open over whatever it opened. Close once it is shown.
+        var opened = false;
+        modalEl.addEventListener('shown.bs.modal', function markOpened() { opened = true; }, { once: true });
+
+        function close() {
+            var hiding = false;
+            function onHide() { hiding = true; }
+            modalEl.addEventListener('hide.bs.modal', onHide);
+            modal.hide();
+            modalEl.removeEventListener('hide.bs.modal', onHide);
+            if (hiding || opened) { return; }
+            function hideWhenShown() {
+                modalEl.removeEventListener('hidden.bs.modal', forget);
+                modal.hide();
+            }
+            function forget() {
+                modalEl.removeEventListener('shown.bs.modal', hideWhenShown);
+            }
+            modalEl.addEventListener('shown.bs.modal', hideWhenShown, { once: true });
+            modalEl.addEventListener('hidden.bs.modal', forget, { once: true });
+        }
+
         function attempt() {
             var password = passwordEl ? passwordEl.value.trim() : '';
             if (requirePassword && !password) {
@@ -98,16 +122,16 @@
                 return;
             }
             hide(errorEl);
-            if (typeof config.onConfirm !== 'function') { modal.hide(); return; }
+            if (typeof config.onConfirm !== 'function') { close(); return; }
 
             var result = config.onConfirm(password, { showError: showError, showSuccess: showSuccess });
             if (!result || typeof result.then !== 'function') {
-                if (result !== false) { modal.hide(); }
+                if (result !== false) { close(); }
                 return;
             }
             setBusy(true);
             result
-                .then(function (shouldClose) { if (shouldClose !== false) { modal.hide(); } })
+                .then(function (shouldClose) { if (shouldClose !== false) { close(); } })
                 .catch(function (err) { showError(err && err.message); })
                 .finally(function () { setBusy(false); });
         }
