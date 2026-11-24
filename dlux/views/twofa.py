@@ -49,7 +49,7 @@ from ..auth.trust import (
     trusted_device_model,
     trusted_device_token_hash,
 )
-from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, log_audit_event, normalize_homepage_config, send_dlux_mail, set_profile_totp_state
+from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, log_audit_event, normalize_homepage_config, queue_dlux_mail, set_profile_totp_state
 
 User = get_user_model()
 logger = logging.getLogger('dlux')
@@ -437,18 +437,11 @@ def send_otp(request, user, intent='login', recipient_email=None):
     subject = s.get(subject_key)
     body = s.get('2fa_email_body').format(code=code)
 
-    try:
-        send_dlux_mail(
-            subject,
-            body,
-            [recipient_email],
-            fail_silently=False,
-        )
-        logger.info("Sent OTP challenge email for user pk=%s intent=%s", user.pk, intent)
-        return True
-    except Exception:
-        logger.exception("Failed to send OTP challenge email for user pk=%s intent=%s", user.pk, intent)
+    if not queue_dlux_mail(subject, body, [recipient_email]):
+        logger.warning("Failed to send OTP challenge email for user pk=%s intent=%s", user.pk, intent)
         return False
+    logger.info("Queued OTP challenge email for user pk=%s intent=%s", user.pk, intent)
+    return True
 
 
 # 2FA Helper — Verifies an OTP code against the cache

@@ -636,33 +636,67 @@ def _create_states(notification, recipients):
 
 
 def _send_notification_email(notification, states):
+    """Queue one message per recipient: a shared To would show every address to everyone."""
     if not states:
         return
+    pending = [state for state in states if getattr(state.user, 'email', '')]
     try:
-        from .utils import get_email_service_status, send_dlux_mail
+        from .utils import dispatch_mail_task, get_email_service_status
 
-        if not get_email_service_status().get('available'):
+        if not get_email_service_status().get('available') or not pending:
             return
-        recipients = [
-            state.user.email
-            for state in states
-            if getattr(state.user, 'email', '')
-        ]
-        if not recipients:
-            return
-        subject = notification.title or notification.message[:80]
-        body = notification.message
-        send_dlux_mail(subject, body, recipients, fail_silently=True)
-        now = timezone.now()
-        for state in states:
-            state.emailed_at = now
-            state.email_status = 'sent'
-            state.save(update_fields=['emailed_at', 'email_status', 'updated_at'])
+        for state in pending:
+            state.email_status = 'queued'
+            state.save(update_fields=['email_status', 'updated_at'])
+        state_ids = [state.pk for state in pending]
+        dispatch_mail_task(
+            'dlux.tasks.send_notification_emails',
+            [state_ids],
+            lambda: deliver_notification_emails(state_ids),
+        )
     except Exception as exc:
-        for state in states:
+        for state in pending:
             state.email_status = 'failed'
             state.email_error = str(exc)[:2000]
             state.save(update_fields=['email_status', 'email_error', 'updated_at'])
+
+
+def deliver_notification_emails(state_ids):
+    """Send each notification state's email to its own user and record the outcome on the state.
+
+    Runs on ``dlux_worker`` (``dlux.tasks.send_notification_emails``) or inline
+    after commit. Failures are recorded per state; the configured failure
+    recipients get one alert for the batch, not one per address.
+    """
+    from .utils import send_dlux_mail
+    from .utils.mail import _alert_email_delivery_failure
+
+    DluxNotificationState = apps.get_model('dlux', 'DluxNotificationState')
+    states = DluxNotificationState.objects.filter(pk__in=list(state_ids or [])).select_related('notification', 'user')
+    failed = []
+    first_error = None
+    subject = ''
+    for state in states:
+        email = str(getattr(state.user, 'email', '') or '').strip()
+        if not email:
+            continue
+        notification = state.notification
+        subject = notification.title or notification.message[:80]
+        try:
+            send_dlux_mail(subject, notification.message, [email], alert_on_failure=False)
+        except Exception as exc:
+            failed.append(email)
+            first_error = first_error or exc
+            state.email_status = 'failed'
+            state.email_error = str(exc)[:2000]
+            state.save(update_fields=['email_status', 'email_error', 'updated_at'])
+            continue
+        state.emailed_at = timezone.now()
+        state.email_status = 'sent'
+        state.email_error = ''
+        state.save(update_fields=['emailed_at', 'email_status', 'email_error', 'updated_at'])
+    if failed:
+        _alert_email_delivery_failure(subject, failed, first_error)
 
 
 def emit_notification_event(event):

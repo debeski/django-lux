@@ -2101,7 +2101,7 @@ class SystemSettingsForm(
         self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
         self.fields['email_config_transport'].choices = (
             ('relay', s.get('email_transport_relay', 'Internal SMTP relay')),
-            ('direct', s.get('email_transport_direct', 'Direct SMTP from web service')),
+            ('direct', s.get('email_transport_direct', 'Direct SMTP')),
         )
         _bind_choice_selector_widget(
             self.fields['email_config_transport'],
