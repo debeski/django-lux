@@ -19,6 +19,10 @@ This file owns the release history for `django-lux`.
 - **SMTP relay greeting reused for 10 s by the settings form**: every `SystemSettingsForm` construction probed the relay (up to 1.5 s, uncached). `internal_smtp_relay_greeting()` gains `max_age=` (default 0, unchanged for the doctor and other callers) backed by `dlux.utils.mail._relay_answers`, which each finished probe fills; `_bind_transport_availability` passes `DLUX_SMTP_RELAY_GREETING_MAX_AGE` (10 s).
 - **Options API status probed by the worker**: `views/options.py` no longer calls `urlopen` (3 s, DNS unbounded) on every Options load when `DLUX_API_STATUS_URL` is set. New `dlux/utils/api_status.py` (`resolve_api_status_url`, `probe_api_status`, `cached_api_status`) and task `dlux.tasks.api_status_probe` probe from the worker into the cache key `dlux:api-status` (kept 600 s); Options reads it and queues a refresh once it is 60 s old (throttled). Before the first answer the row is `unknown` with `service_api_pending` / `service_api_no_worker` (new `en`/`ar` keys).
 
+## v1.16.4
+
+- **Stable 1.16.4**: Promote the published and accepted 1.16.4b1. Pages load the strings table as a cached script instead of embedding it, so an Arabic list page drops from about 630 KB to 120 KB, and scope settings are read once per request. Card choice selectors fill the row, choice options lose the form caption style, and the OCR options wait on Enable OCR. Updates inline from any 1.16 release, with no migrations or dependency changes from 1.16.4b1.
+
 ## v1.16.4b1
 
 - **OCR Options Wait On Enable OCR**: in Extra Features, the OCR options are greyed out with the shared dependent-setting tooltip while OCR is off, like other dependent sections, and come back as soon as it is switched on. The current password and the Operations panel button stay usable. Saving with OCR off keeps the stored options.
