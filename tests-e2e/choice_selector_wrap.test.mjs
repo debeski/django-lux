@@ -48,6 +48,8 @@ async function openExtras(width, { arabic = false } = {}) {
   }
   await page.locator('[data-dlux-settings-step="extras"]').click();
   await page.locator(SELECTOR).waitFor({ state: 'visible' });
+  // The models list waits on Enable OCR (greyed out while it is off).
+  await page.locator('[name="ocr_enabled"]').check({ force: true });
   await page.waitForFunction((sel) => document.querySelector(sel)?.style.getPropertyValue('--dlux-choice-option-fit'), SELECTOR);
   return { ctx, page, errors };
 }
