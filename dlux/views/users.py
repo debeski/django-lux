@@ -28,6 +28,7 @@ from ..notifications import notify
 from ..utils import (
     can_manage_target_user,
     exclude_global_staff_users,
+    get_scope_settings,
     get_user_management_tier_state_for_user,
     get_user_scope,
     is_central_staff,
@@ -390,9 +391,7 @@ class UserListView(RibbonMixin, LoginRequiredMixin, UserPassesTestMixin, FilterV
         
         scope_enabled = is_scope_enabled()
         
-        ScopeSettings = apps.get_model('dlux', 'ScopeSettings')
-        settings = ScopeSettings.load()
-        auto_scope_enabled = getattr(settings, 'auto_create_user_scope', False)
+        auto_scope_enabled = getattr(get_scope_settings(), 'auto_create_user_scope', False)
 
         context["filter"] = user_filter
         context["users"] = user_filter.qs

@@ -36,6 +36,14 @@ class DluxMiddleware:
             return path
         return trimmed.rsplit('/', 1)[0] + '/'
 
+    @classmethod
+    def _is_strings_script(cls, request):
+        try:
+            sample = reverse('dlux_strings', kwargs={'lang': 'en', 'version': '0' * 16})
+        except Exception:
+            return False
+        return request.path.startswith(cls._path_directory(sample))
+
     def _setup_guard_allowed(self, request):
         allowed_exact_paths = set()
         allowed_prefixes = [
@@ -481,6 +489,11 @@ class DluxMiddleware:
                         delattr(_thread_locals, name)
 
         try:
+            if self._is_strings_script(request):
+                # The same table for every visitor: no session, device, timeout
+                # or setup handling, which would also mark it Vary: Cookie.
+                return self.get_response(request)
+
             self._activate_display_language(request)
             self._sync_auth_redirects()
             self._remember_session_device(request)

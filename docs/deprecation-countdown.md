@@ -44,6 +44,16 @@ builds on the task worker.
 
 The `dlux/main/css/{main,buttons,index_cards}.css` compatibility stylesheets and `dlux/includes/messages.html` template shim remain until the next major release. New project code should use `dlux/base/css/...` and `dlux/notifications/messages.html`.
 
+### Embedded strings block
+
+Pages load the strings table as a script and set `window.DLUX_STRINGS`
+([Translations](translation-guide.md#strings-in-the-browser)); they no longer embed
+it as `<script id="dlux-strings-data" type="application/json">`. For project scripts
+that still parse that block (Trademarks' dashboard chart), `base_head.js` adds an
+empty element with that id whose `textContent` serialises `window.DLUX_STRINGS`
+when read. Read `window.DLUX_STRINGS` or `window.dluxString()` instead; the element
+is removed in v2.0.
+
 ### Public package facades
 
 The `dlux.forms`, `dlux.models`, `dlux.reports`, `dlux.discovery`, `dlux.backup`, and `dlux.translations` package facades are public API and remain permanently. Their internal module splits do not require host-project import changes.
