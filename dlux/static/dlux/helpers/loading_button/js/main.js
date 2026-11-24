@@ -47,12 +47,7 @@
     var FAILURE_STATES = ['error', 'failed', 'failure', 'cancelled', 'canceled', 'aborted'];
 
     function strings() {
-        try {
-            var el = document.getElementById('dlux-strings-data');
-            return (el && JSON.parse(el.textContent)) || {};
-        } catch (e) {
-            return {};
-        }
+        return window.DLUX_STRINGS || {};
     }
 
     function str(key, fallback) {

@@ -1,10 +1,25 @@
 (function () {
     'use strict';
     const confirmed = new WeakSet();
+    const gated = new WeakSet();
+
+    // Everything below Enable OCR waits on it: greyed out with the shared
+    // dependent tooltip naming the switch, and live again as soon as it is on.
+    function gateDependents(panel) {
+        const helpers = window.DluxSetupDom;
+        const toggle = panel.querySelector('[name="ocr_enabled"]');
+        const dependent = panel.querySelector('[data-ocr-dependent]');
+        if (!helpers || !toggle || !dependent || toggle.disabled || gated.has(panel)) return;
+        gated.add(panel);
+        const sync = () => helpers.setDependentFieldEnabled(dependent, toggle.checked, helpers.dependentReason(toggle));
+        toggle.addEventListener('change', sync);
+        sync();
+    }
 
     function initialize(root) {
-        if (typeof window.dluxConfirmPassword !== 'function') return;
         root.querySelectorAll('[data-ocr-settings]').forEach((panel) => {
+            gateDependents(panel);
+            if (typeof window.dluxConfirmPassword !== 'function') return;
             const field = panel.querySelector('[name="ocr_current_password"]');
             if (field) {
                 field.value = '';

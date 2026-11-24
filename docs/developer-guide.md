@@ -52,7 +52,9 @@ The main system-level models are:
   enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a
   dedicated `Scope` for every newly registered user. `Scope.default_theme` provides an
   allowed-theme fallback for users in that scope who have not selected a valid
-  personal theme; it is ignored while scopes are disabled.
+  personal theme; it is ignored while scopes are disabled. Every scoped queryset
+  asks whether scoping is on; `get_scope_settings()` reads the row once per
+  request and shares it, so a page of counters costs one query for it.
 
 - `ScopedModel`
   Gives inheriting models audit fields, actor tracking, soft-delete behavior, and
@@ -324,6 +326,15 @@ Django widget or generic Bootstrap structure:
   library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
 - `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from
   `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
+  Card options share one column width: the widest option's natural width, up to
+  12rem. The row holds as many of those columns as fit, stretched evenly to its full
+  width, with each card's content centred, and a narrow column falls to one option
+  per row. The search box hides
+  options without changing the columns. Chip and swatch options wrap the same way
+  from a 150px column and stay start-aligned. To change the 12rem or 150px, set
+  `--dlux-choice-option-width` on the selector (pass a class through the widget's
+  `attrs`) or on an ancestor in your stylesheet; do not redefine the options grid.
+  Toggle options set their own columns from the option count.
 - Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for
   Bootstrap Icons fields inside System Settings/setup surfaces, including sidebar
   entry icons. It is lazy-rendered, searchable, keyboard-closeable, and owns the

@@ -1,3 +1,4 @@
+import json
 import os
 
 from django import template
@@ -7,7 +8,8 @@ from django.template import TemplateDoesNotExist
 from django.templatetags.static import static as _django_static
 from django.http import QueryDict
 from django.utils.timesince import timesince
-from django.utils.html import avoid_wrapping
+from django.core.serializers.json import DjangoJSONEncoder
+from django.utils.html import avoid_wrapping, format_html
 from django.utils.safestring import mark_safe
 from django.conf import settings
 from .. import __version__ as _DLUX_VERSION
@@ -15,6 +17,22 @@ from ..translations import get_strings
 from ..navbar import build_navbar_hierarchy_crumbs, build_navbar_route_label_map
 
 register = template.Library()
+
+_JSON_SCRIPT_ESCAPES = {ord('>'): '\\u003E', ord('<'): '\\u003C', ord('&'): '\\u0026'}
+
+
+@register.filter(is_safe=True)
+def json_script_utf8(value, element_id):
+    """``json_script`` that keeps non-ASCII text as UTF-8.
+
+    Django's filter writes every non-ASCII character as a six-byte ``\\uXXXX``
+    escape, which more than doubles an Arabic strings table. The ``<``, ``>``
+    and ``&`` escapes that keep the block from closing early are the same.
+    """
+    payload = json.dumps(value, cls=DjangoJSONEncoder, ensure_ascii=False).translate(_JSON_SCRIPT_ESCAPES)
+    return format_html(
+        '<script id="{}" type="application/json">{}</script>', element_id, mark_safe(payload),
+    )
 
 
 @register.simple_tag

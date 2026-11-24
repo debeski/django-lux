@@ -68,8 +68,11 @@ body[data-dlux-form-density="roomy"] {
     padding-inline: 0.2rem;
 }
 
-.dlux-form label:not(.form-check-label):not(.visually-hidden),
-.archive-document-form label:not(.form-check-label):not(.visually-hidden) {
+/* Field captions only. A choice selector's options are <label>s too; this rule
+   made them inline-flex, so each one shrank to its own text instead of filling
+   its column. */
+.dlux-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option),
+.archive-document-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option) {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;

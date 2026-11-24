@@ -3124,6 +3124,46 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('background: var(--dlux-choice-toggle-surface-active);', contents)
         self.assertNotIn('linear-gradient(180deg, rgba(255, 255, 255, 0.99)', contents)
 
+    def test_card_selector_options_wrap_by_available_width(self):
+        # Card options had no column rule, so every card selector stacked one per
+        # row and each caller patched its own grid. The wrap belongs to the widget:
+        # one column width from the widest option, spread across the whole row.
+        from dlux.widgets import DluxMultipleChoiceSelectorWidget
+
+        static = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
+        contents = (static / 'helpers' / 'selector' / 'css' / 'main.css').read_text(encoding='utf-8')
+        self.assertIn(
+            '.dlux-choice-selector--card .dlux-choice-selector__options {\n'
+            '  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--dlux-choice-option-width, 12rem), '
+            'var(--dlux-choice-option-fit, var(--dlux-choice-option-width, 12rem))), 1fr));',
+            contents,
+        )
+        self.assertIn('repeat(auto-fill, minmax(min(100%, var(--dlux-choice-option-width, 150px)), 1fr))', contents)
+        self.assertIn('.dlux-choice-selector__group-label {\n  grid-column: 1 / -1;', contents)
+        self.assertIn('.dlux-choice-selector.is-measuring .dlux-choice-option {\n  display: block !important;\n  width: max-content;', contents)
+        self.assertIn(
+            '.dlux-choice-selector--card .dlux-choice-option__surface {\n'
+            '  justify-content: center;\n  align-items: center;\n  text-align: center;',
+            contents,
+        )
+
+        script = (static / 'helpers' / 'selector' / 'js' / 'main.js').read_text(encoding='utf-8')
+        self.assertIn("selector.style.setProperty('--dlux-choice-option-fit', width);", script)
+        self.assertIn("root.querySelectorAll('[data-dlux-selector-variant=\"card\"]').forEach(watchCardSelector);", script)
+
+        # Options are <label>s; the form caption rule made them inline-flex, so
+        # each shrank to its own text instead of filling its column.
+        fields = (static / 'forms' / 'css' / 'form_fields.css').read_text(encoding='utf-8')
+        self.assertIn('.dlux-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option),', fields)
+        self.assertNotIn('.dlux-form label:not(.form-check-label):not(.visually-hidden),', fields)
+
+        html = DluxMultipleChoiceSelectorWidget(
+            choices=[('documents.decree', 'Decree'), ('documents.report', 'Report')],
+            searchable=True,
+        ).render('models', ['documents.decree'])
+        self.assertIn('class="dlux-choice-selector dlux-choice-selector--card is-searchable"', html)
+        self.assertIn('class="dlux-choice-selector__options"', html)
+
     def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         # The switch itself is owned by helpers/toggle; the setup shell keeps the

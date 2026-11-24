@@ -1,19 +1,17 @@
 {
   "schema_version": 2,
-  "version": "1.16.3",
+  "version": "1.16.4",
   "display": {
-    "summary": "Private image registries, non-root groundwork and a reconcile that never reaches PyPI. With Composer 1.10.3, a project image in a private registry (for example a GitLab project) gets update notices and in-app image updates through a read-only login, and the Updates card warns when it cannot read the registry and says why. New projects refuse cross-site background requests at the proxy (Fetch Metadata). DjangoLux writes its runtime files so a non-root image (uid 10001, group 0) can share them, and the generated entrypoint refuses to start when the app cannot use its data. On project images built on 1.16.3 or later, a lost or unreadable runtime pointer is rebuilt from the releases on the volume. Context-menu row actions of type form are sent as POSTs again, backup tables are translated, the Clear chip and the list ribbon follow dark themes, and first-login preferences can be skipped. Web and worker update inline from any 1.16 release, with no migrations.",
+    "summary": "Lighter pages and fewer queries. Pages no longer embed the whole strings table: they load it once as a cached script, so an Arabic list page drops from about 630 KB to 120 KB and later pages reuse the table. Scope settings are read once per request instead of once per scoped query, which removes most of the repeated queries on dashboards of counters. Card choice selectors share one column width and fill the row, form caption styling no longer squeezes choice options, and the OCR options wait on Enable OCR like other dependent settings. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
-      "Private registry: with Composer 1.10.3 and a read-only login, a private WEB_IMAGE gets update notices and in-app image updates.",
-      "The Updates card shows a warning with the reason when the image registry needs a login, refuses it or cannot be read.",
-      "New projects: the proxy refuses cross-site background requests (Fetch Metadata); Composer 1.10.3's check warns on older proxies.",
-      "Non-root groundwork: runtime files are group-shared for uid 10001 with group 0; root stacks are unchanged.",
-      "A lost runtime pointer is rebuilt from the releases on the volume, never from PyPI, on images built on 1.16.3 or later.",
-      "Backup tables show status and trigger in the interface language; the Clear chip follows dark themes.",
-      "Context-menu form actions are POSTs again; first-login Skip for now and closing the dialog both skip it.",
+      "Pages load the strings table as a cached script: an Arabic list page drops from about 630 KB to 120 KB.",
+      "Scope settings are read once per request, so dashboards no longer query them once per counter.",
+      "Card choice selectors share one column width and fill the row instead of stacking one per line.",
+      "Choice options no longer pick up the form caption style; toggle and theme fields are 7px shorter.",
+      "The OCR options are greyed out while OCR is off, like other dependent settings.",
       "Web and worker update inline from any 1.16 release, with no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.4"
   },
   "requires": {
     "updater_schema": ">=1",

@@ -88,10 +88,13 @@ class PageShellTests(SimpleTestCase):
     def test_every_framework_script_is_deferred_behind_bootstrap(self):
         base = _template('dlux/base.html')
         tags = _script_tags(base)
-        self.assertIn('base_head.js', tags[0])
-        self.assertIn('bootstrap.bundle.min.js', tags[1])
-        self.assertIn('dlux/base/js/lazy.js', tags[2])
-        for tag in tags[1:]:
+        # The strings script blocks on purpose: base_head.js reads it.
+        self.assertIn('DLUX_STRINGS_URL', tags[0])
+        self.assertNotIn(' defer', tags[0])
+        self.assertIn('base_head.js', tags[1])
+        self.assertIn('bootstrap.bundle.min.js', tags[2])
+        self.assertIn('dlux/base/js/lazy.js', tags[3])
+        for tag in tags[2:]:
             with self.subTest(tag=tag):
                 self.assertIn(' defer', tag)
         self.assertLess(

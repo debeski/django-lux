@@ -16,7 +16,7 @@
     {{ user_preferences|json_script:"user-prefs-data" }}
     {{ DLUX_URL_PREFIX|default:"/"|json_script:"dlux-url-prefix" }}
     {{ DLUX_URLS|json_script:"dlux-url-data" }}
-    {{ DLUX_STRINGS|json_script:"dlux-strings-data" }}
+    {% if not DLUX_STRINGS_URL %}{{ DLUX_STRINGS|json_script_utf8:"dlux-strings-data" }}{% endif %}
     {{ DLUX_THEME_NAMES|json_script:"dlux-theme-names" }}
     {{ client_config|json_script:"dlux-config-data" }}
     {{ font_families|json_script:"dlux-font-families" }}
@@ -34,6 +34,7 @@
         {{ theme_preview_css|safe }}
     </style>
     {% endif %}
+    {% if DLUX_STRINGS_URL %}<script src="{{ DLUX_STRINGS_URL }}" nonce="{{ request.csp_nonce }}"></script>{% endif %}
     <script src="{% dlux_static 'dlux/base/js/base_head.js' %}" nonce="{{ request.csp_nonce }}" data-clipboard-user="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}

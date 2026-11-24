@@ -211,21 +211,23 @@ def get_user_linked_models():
                     })
     return linked_models
 
-# Scopes - Function reports whether scope filtering is globally enabled.
-def is_scope_enabled():
-    """
-    Checks if the Scope system is globally enabled.
-    Returns:
-        bool: True if enabled, False otherwise.
+SCOPE_SETTINGS_REQUEST_ATTR = '_dlux_scope_settings'
+
+
+def get_scope_settings():
+    """The ``ScopeSettings`` row, read once per request.
+
+    ``ScopeSettings.load()`` is an uncached ``get_or_create``, and every scoped
+    queryset asks for it: a dashboard of counters made one round trip per
+    queryset for the same row. Memoised on the request rather than cached in the
+    model, because ScopeSettings is deliberately a leaf data module (see
+    BASELINE_DEFERRED_CLUSTERS in test_import_graph) and a process-wide cache
+    would outlive both a settings change and a test database. Saving the row
+    drops the memo (``dlux.signals``). Returns None while the table is missing.
+    Callers that change the row load their own copy with ``ScopeSettings.load()``.
     """
     from django.db.utils import ProgrammingError, OperationalError
 
-    # ScopeSettings.load() is an uncached get_or_create, and this is called once
-    # per scoped queryset — dozens of times while rendering one list page, each
-    # a database round trip for the same boolean. Memoised on the request rather
-    # than cached in the model, because ScopeSettings is deliberately a leaf data
-    # module (see BASELINE_DEFERRED_CLUSTERS in test_import_graph) and a
-    # process-wide cache would also outlive a test database.
     try:
         from ..middleware import get_current_request
 
@@ -233,24 +235,48 @@ def is_scope_enabled():
     except Exception:
         request = None
 
-    if request is not None:
-        memo = getattr(request, '_dlux_scope_enabled', None)
-        if memo is not None:
-            return memo
+    if request is not None and hasattr(request, SCOPE_SETTINGS_REQUEST_ATTR):
+        return getattr(request, SCOPE_SETTINGS_REQUEST_ATTR)
 
     try:
-        ScopeSettings = apps.get_model('dlux', 'ScopeSettings')
-        enabled = ScopeSettings.load().is_enabled
+        row = apps.get_model('dlux', 'ScopeSettings').load()
     except (LookupError, ProgrammingError, OperationalError):
-        # Fallback if model or table isn't ready (e.g., during migrations or empty DB)
-        return False
+        # Model or table not ready (migrations, an empty database): not memoised.
+        return None
 
     if request is not None:
         try:
-            request._dlux_scope_enabled = enabled
+            setattr(request, SCOPE_SETTINGS_REQUEST_ATTR, row)
         except Exception:
             pass
-    return enabled
+    return row
+
+
+def forget_scope_settings(request=None):
+    """Drop the request's memoised ``ScopeSettings`` row."""
+    if request is None:
+        try:
+            from ..middleware import get_current_request
+
+            request = get_current_request()
+        except Exception:
+            request = None
+    if request is not None and hasattr(request, SCOPE_SETTINGS_REQUEST_ATTR):
+        try:
+            delattr(request, SCOPE_SETTINGS_REQUEST_ATTR)
+        except AttributeError:
+            pass
+
+
+# Scopes - Function reports whether scope filtering is globally enabled.
+def is_scope_enabled():
+    """
+    Checks if the Scope system is globally enabled.
+    Returns:
+        bool: True if enabled, False otherwise.
+    """
+    row = get_scope_settings()
+    return bool(row is not None and row.is_enabled)
 
 
 def _iter_queryset_by_pk(qs, chunk_size=200):
