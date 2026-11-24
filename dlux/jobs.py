@@ -11,6 +11,7 @@ import random
 
 from .ocr import RETRY_DELAYS as OCR_RETRY_DELAYS
 from .taskrunner import Retry, task, worker_started
+from .taskrunner.config import MAIL_PRIORITY, MAIL_QUEUE
 
 logger = logging.getLogger("dlux")
 
@@ -70,6 +71,23 @@ def restore_system_backup(restore_pk, passphrase=""):
     from .backup import run_system_restore
 
     run_system_restore(restore_pk, passphrase=passphrase)
+
+
+# Mail: queued by dlux.utils.mail.queue_dlux_mail so no request waits on SMTP.
+# Sensitive because OTP codes and reset links are secrets; on the mail queue,
+# which every worker serves with a thread of its own.
+@task(name="dlux.tasks.send_mail", sensitive=True, priority=MAIL_PRIORITY, queue_name=MAIL_QUEUE)
+def send_mail(subject, message, recipient_list, from_email=None, alert_on_failure=True):
+    from .utils.mail import send_dlux_mail
+
+    send_dlux_mail(subject, message, recipient_list, from_email=from_email, alert_on_failure=alert_on_failure)
+
+
+@task(name="dlux.tasks.send_notification_emails", priority=MAIL_PRIORITY, queue_name=MAIL_QUEUE)
+def send_notification_emails(state_ids):
+    from .notifications import deliver_notification_emails
+
+    deliver_notification_emails(state_ids)
 
 
 @task(name="dlux.tasks.run_scheduled_system_backup")

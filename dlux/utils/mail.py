@@ -5,6 +5,7 @@ Split from the original ``dlux/utils.py`` (kept intact, inert).
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import threading
@@ -20,6 +21,7 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.messages import constants as messages
 from django.db import models as dj_models
+from django.db import transaction
 from django.db.models import ManyToManyRel, Q
 from django.db.models.fields.files import FieldFile
 from django.db.models.fields.related import ManyToManyField
@@ -61,6 +63,8 @@ except ImportError:
 from .config import default_email_config, normalize_email_config
 from .. import smtp_session
 from django.core.mail.backends.smtp import EmailBackend as _DjangoSMTPBackend
+
+logger = logging.getLogger('dlux')
 
 DLUX_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 
@@ -808,3 +812,64 @@ def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_si
         if alert_on_failure:
             _alert_email_delivery_failure(subject, recipient_list, exc)
         raise
+
+
+# Email Runtime - Hands mail work to the task worker, or runs it here once the caller commits.
+def dispatch_mail_task(task_name, args, inline, *, kwargs=None, sensitive=False):
+    """Run mail work off the request path; True unless an inline run already failed.
+
+    With a live ``dlux_worker`` the work is queued as ``task_name`` on the mail
+    queue, inside the caller's transaction, so the worker sees it once that
+    commits and picks it up within a poll interval (1 s) on the thread every
+    worker keeps for mail. Without one, ``inline()`` runs here after the caller's
+    transaction commits (at once outside a transaction), so a slow provider never
+    holds a transaction open. Exceptions from ``inline`` are logged, not raised.
+    """
+    from ..taskrunner import enqueue, worker_alive
+    from ..taskrunner.config import MAIL_PRIORITY, MAIL_QUEUE
+
+    if worker_alive():
+        try:
+            # A savepoint: a failed insert must not break the caller's transaction.
+            with transaction.atomic():
+                enqueue(task_name, args=args, kwargs=kwargs, priority=MAIL_PRIORITY,
+                        queue_name=MAIL_QUEUE, sensitive=sensitive)
+            return True
+        except Exception:
+            logger.warning("Could not queue %s; running it in this process instead.", task_name, exc_info=True)
+
+    outcome = {}
+
+    def run_inline():
+        try:
+            inline()
+        except Exception:
+            outcome['ok'] = False
+            logger.warning("Inline %s failed.", task_name, exc_info=True)
+        else:
+            outcome['ok'] = True
+
+    transaction.on_commit(run_inline)
+    return outcome.get('ok', True)
+
+
+# Email Runtime - Function queues Dlux transactional mail so no request waits on SMTP.
+def queue_dlux_mail(subject, message, recipient_list, *, from_email=None, alert_on_failure=True):
+    """Send Dlux mail through ``dlux_worker`` (``dlux.tasks.send_mail``), or here after commit.
+
+    The arguments are sealed at rest in the queue (OTP codes and reset links are
+    secrets) and cleared when the run ends. A failed send alerts the configured
+    failure recipients (``alert_on_failure``) and fails the run; it never raises
+    into the caller. Returns False when the message cannot go (no recipient) or an
+    inline send already failed, else True.
+    """
+    recipients = [str(address).strip() for address in (recipient_list or []) if str(address or '').strip()]
+    if not recipients:
+        return False
+    return dispatch_mail_task(
+        'dlux.tasks.send_mail',
+        [subject, message, recipients],
+        lambda: send_dlux_mail(subject, message, recipients, from_email=from_email, alert_on_failure=alert_on_failure),
+        kwargs={'from_email': from_email, 'alert_on_failure': alert_on_failure},
+        sensitive=True,
+    )

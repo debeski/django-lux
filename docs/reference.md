@@ -467,7 +467,7 @@ Common keys in `get_system_config()`:
   the self-service email reset flow (`/accounts/password-reset/`). Default off;
   additionally self-gates on email readiness (`get_email_service_status()`), so the
   link and reset views stay hidden/404 until Dlux email delivery is configured. The
-  reset email is sent through `send_dlux_mail`, and every reset page renders in the
+  reset email is queued through `queue_dlux_mail`, and every reset page renders in the
   configured login style/direction/language.
 - `prevent_multiple_active_sessions` — When true, each successful login or completed
   2FA login becomes the user's only active session. Dlux evicts other session keys for
@@ -509,7 +509,11 @@ Common keys in `get_system_config()`:
   (`source` `database`, `relay_env` or `django`; never the password, only
   `password_set`; `internal_relay` when the web service's `EMAIL_*` names the internal
   relay), and `dlux.utils.describe_mail_failure(exc)` names the failed hop
-  and step of a send.
+  and step of a send. `dlux.utils.queue_dlux_mail(subject, message, recipients,
+  from_email=, alert_on_failure=)` sends DjangoLux mail off the request path: queued
+  for `dlux_worker`, or sent in-process after commit when no worker runs (see
+  [How mail leaves](system-configuration.md#how-mail-leaves));
+  `dlux.utils.send_dlux_mail` sends synchronously.
   The `relay` option is offered only while the internal relay answers on
   `smtp-relay:1025` (`dlux.utils.internal_smtp_relay_available`; its greeting via
   `dlux.utils.internal_smtp_relay_greeting`, read by

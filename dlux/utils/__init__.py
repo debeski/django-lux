@@ -181,6 +181,8 @@ from .mail import (
     internal_smtp_relay_available,
     internal_smtp_relay_greeting,
     email_features_unlocked,
+    dispatch_mail_task,
+    queue_dlux_mail,
     send_dlux_mail,
 )
 from .twofactor import (
@@ -440,6 +442,8 @@ __all__ = [
     "resolve_user_theme_preference",
     "user_home_override_enabled",
     "seed_navbar_config_from_sidebar",
+    "dispatch_mail_task",
+    "queue_dlux_mail",
     "send_dlux_mail",
     "set_field_attrs",
     "set_first_choice",
