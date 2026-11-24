@@ -37,6 +37,30 @@ is available to users only after an administrator includes it in the system cata
 Keep the source string complete for both LTR and RTL languages; CSS handles
 direction, while prose needs a deliberate translation.
 
+## Strings in the browser
+
+Every `dlux/base.html` page loads its language's merged table as a script,
+`/sys/api/strings/<lang>.<version>.js`, placed just before `base_head.js` and
+carrying the page's CSP nonce. The script sets `window.DLUX_STRINGS` before any
+other script runs, so scripts read it synchronously, directly or through
+`window.dluxString(key, fallback)`. Pages do not embed the table; the
+`dlux-strings-data` element `base_head.js` adds is only a
+[compatibility shim](deprecation-countdown.md#embedded-strings-block) for scripts
+that still parse it.
+
+The version is a digest of the bundled and app catalogs, the default language and
+that language's administrator overrides, so the URL changes whenever the table
+does. The response is sent with `Cache-Control: public, max-age=31536000,
+immutable`: a browser fetches each table once and reuses it on every later page.
+A request for an outdated version gets the current table with `no-cache`.
+The route is open to anyone, the sign-in page included, sets no cookies and
+skips the session, device and setup handling of `DluxMiddleware`.
+
+A settings preview renders a draft the route cannot see, so a preview page embeds
+its table instead, in a `dlux-strings-data` JSON block written with the
+`json_script_utf8` filter (UTF-8 text rather than `\uXXXX` escapes);
+`base_head.js` prefers that block when it is present.
+
 ## Labels and permissions
 
 Model, section, route, and permission labels resolve through the same catalog.

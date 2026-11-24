@@ -34,7 +34,7 @@ MAX_DRAFTS = 6
 DRAFT_TTL_SECONDS = 30 * 60
 KIND_SYSTEM = 'system'
 KIND_APP = 'app'
-REQUEST_MEMOS = ('_dlux_system_config', '_dlux_language_config', '_dlux_scope_enabled')
+REQUEST_MEMOS = ('_dlux_system_config', '_dlux_language_config', '_dlux_scope_settings')
 # Personal preference -> the system default it overrides.
 PREFERENCE_DEFAULTS = {
     'theme': 'default_theme',
