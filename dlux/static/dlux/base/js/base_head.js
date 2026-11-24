@@ -44,7 +44,20 @@
     }
 
     window.USER_PREFS = parseJsonScript('user-prefs-data', {});
-    window.DLUX_STRINGS = parseJsonScript('dlux-strings-data', {});
+    // The strings script that base.html loads just before this one has set
+    // DLUX_STRINGS already; a settings preview embeds the table instead.
+    window.DLUX_STRINGS = parseJsonScript('dlux-strings-data', null) || window.DLUX_STRINGS || {};
+    // Compatibility until v2.0 (docs/deprecation-countdown.md): project scripts
+    // that parse the old embedded block get the table, serialised only if read.
+    if (!document.getElementById('dlux-strings-data') && document.head) {
+        const legacyStrings = document.createElement('script');
+        legacyStrings.type = 'application/json';
+        legacyStrings.id = 'dlux-strings-data';
+        Object.defineProperty(legacyStrings, 'textContent', {
+            get: function () { return JSON.stringify(window.DLUX_STRINGS || {}); },
+        });
+        document.head.appendChild(legacyStrings);
+    }
 
     // Path prefix dlux is mounted under ("/" at root, e.g. "/en/" behind an
     // i18n language prefix or a sub-path mount). dlux JS uses root-relative

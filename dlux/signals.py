@@ -18,6 +18,7 @@ from .utils import (
     log_audit_event,
     log_user_action,
 )
+from .utils.common import forget_scope_settings
 from .utils.activity_log import (
     LOG_FORCED_EXCLUDED_MODEL_KEYS,
     LOG_IDENTITY_MODEL_KEY,
@@ -399,6 +400,12 @@ def log_delete(sender, instance, **kwargs):
             )
         except Exception:
             pass
+
+@receiver(post_save, sender='dlux.ScopeSettings')
+def forget_request_scope_settings(sender, **kwargs):
+    """The rest of this request reads the saved row, not the memoised one."""
+    forget_scope_settings()
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_user_profile(sender, instance, created, **kwargs):

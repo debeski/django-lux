@@ -2,7 +2,6 @@ import contextlib
 import threading
 
 from django.db import models
-from django.apps import apps
 from .middleware import get_current_user
 
 # When set, ScopedManager hides soft-deleted rows even in the superadmin
@@ -31,11 +30,10 @@ def _is_scope_enabled():
     Helper to check if scopes are globally enabled.
     """
     try:
-        ScopeSettings = apps.get_model('dlux', 'ScopeSettings')
-        if not ScopeSettings.load().is_enabled:
-            return False
-        return True
-    except (LookupError, Exception):
+        from .utils.common import is_scope_enabled
+
+        return is_scope_enabled()
+    except Exception:
         return False
 
 class ScopedQuerySet(models.QuerySet):

@@ -569,7 +569,9 @@ def dlux_context(request):
     current_dir = lang_config.get('dir', 'ltr')
 
     # Get translated strings (with project-level overrides from config)
-    project_overrides = final_config.get('localization', {}).get('translations', final_config.get('translations', None))
+    from .translations.runtime import client_strings_version, config_translation_overrides
+
+    project_overrides = config_translation_overrides(final_config)
     dlux_strings = get_strings(current_lang, overrides=project_overrides)
     allowed_theme_names = list(get_effective_allowed_themes(final_config))
     # Ensure the public page theme's stylesheet is emitted even if it is not in
@@ -596,6 +598,18 @@ def dlux_context(request):
     context['LANGUAGES'] = languages
     context['LANG_CONFIG'] = lang_config
     context['DLUX_STRINGS'] = dlux_strings
+    # Pages load the table as a cached script. A settings preview renders a
+    # draft the script endpoint cannot see, so it keeps the table inline.
+    strings_url = ''
+    if not getattr(request, 'dlux_preview', None):
+        try:
+            strings_url = reverse('dlux_strings', kwargs={
+                'lang': current_lang,
+                'version': client_strings_version(current_lang, project_overrides),
+            })
+        except NoReverseMatch:
+            strings_url = ''
+    context['DLUX_STRINGS_URL'] = strings_url
 
     # 5. Setup State
     system_setup_required = bool(
