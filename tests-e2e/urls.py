@@ -47,7 +47,15 @@ if os.environ.get('DLUX_E2E_PROJECT_SETTINGS'):
                      'min_value': 1, 'max_value': 50}],
         )
 
-urlpatterns = [path('', include('dlux.urls'))]
+
+
+def project_scripts(request):
+    """A project page whose {% block scripts %} file runs without defer."""
+    from django.shortcuts import render
+    return render(request, 'e2e/project_scripts.html')
+
+
+urlpatterns = [path('e2e-project-scripts/', project_scripts), path('', include('dlux.urls'))]
 if os.environ.get('DLUX_E2E_WEATHER'):
     from django.contrib.auth.decorators import login_required
     from django.shortcuts import render

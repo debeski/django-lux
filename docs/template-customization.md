@@ -10,10 +10,13 @@ These are extension points, not replacements for `dlux/base.html` assets. Avoid
 duplicating the framework form asset partials: `dlux/base.html` loads them once
 for dynamic-modal forms.
 
-Every framework script is `defer`, Bootstrap first among them, so they run in
-document order once the page is parsed. Project scripts that use `bootstrap`,
-`Datepicker` or a `Dlux*` global load with `defer` too, or run their code from
-`DOMContentLoaded`; an inline or non-deferred script runs before them.
+Bootstrap and the form-field scripts (`dlux/forms/assets_scripts.html`: file
+widget, asset picker, ScanLink) load without `defer`, just before `{% block
+scripts %}`, so a project script there can use `bootstrap` as it loads. Every
+other framework script is `defer` and runs in document order once the page is
+parsed, after every non-deferred script. Project scripts that use `Datepicker` or
+another `Dlux*` global load with `defer` too, or run their code from
+`DOMContentLoaded`.
 Settings editors, the guided tour and PDF.js load on demand
 ([On-demand assets](ui-integration.md#on-demand-assets)).
 
