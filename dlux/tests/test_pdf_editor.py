@@ -38,6 +38,40 @@ class PdfIntegrationTests(SimpleTestCase):
         self.assertNotIn('data-dynamic-modal=',html)
 
 
+
+class PdfModalBackTests(SimpleTestCase):
+    """History and the editor go back to the view they were opened from in the
+    dynamic modal (its Back history, dynamic_modal/js/main.js) instead of closing
+    it; tests-e2e/dynamic_modal_back.test.mjs drives the navigation."""
+
+    def _history(self, return_url=''):
+        return render_to_string('dlux/pdf/history.html', {
+            'document': 'Doc', 'versions': [], 'is_modal': True, 'history_return_url': return_url,
+        })
+
+    def test_modal_history_back_steps_back_instead_of_closing(self):
+        html = self._history()
+        self.assertIn('dynamic-back-btn', html)
+        self.assertNotIn('data-bs-dismiss', html)
+        self.assertNotIn('data-dlux-back-url', html)
+
+    def test_history_opened_from_the_editor_names_it_as_the_fallback(self):
+        html = self._history('/pdf/1/edit/')
+        self.assertIn('data-dlux-back-url="/pdf/1/edit/"', html)
+        self.assertEqual(html.count('dynamic-back-btn'), 1)
+
+    def test_editor_back_steps_back_instead_of_closing(self):
+        from django.template.loader import get_template
+        source = open(get_template('dlux/pdf/editor.html').origin.name, encoding='utf-8').read()
+        self.assertIn('dlux-back-link dynamic-back-btn', source)
+        self.assertNotIn('data-bs-dismiss="modal"', source)
+
+    def test_modal_shell_carries_a_hidden_header_back(self):
+        from django.template.loader import get_template
+        source = open(get_template('dlux/helpers/dynamic_modal.html').origin.name, encoding='utf-8').read()
+        self.assertRegex(source, r'<button[^>]*id="dynamicModalBack"[^>]*\bhidden\b')
+        self.assertIn('dlux-back-link', source)
+
 def source_pdf(widths):
     writer = PdfWriter()
     for width in widths:

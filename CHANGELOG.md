@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Dynamic modal Back steps back one view**: views opened from inside the dynamic modal (an entry's PDF version history, extracted text and editor, a manager's record) now stack, and Back returns to the view they were opened from, title included, instead of closing the modal. A view without a Back of its own gets one in the modal header (`#dynamicModalBack`). Moving between views fires a cancelable `dlux:dynamic_modal:leave`, so the unsaved-changes guard and the PDF editor ask before dropping edits.
+
 ## v1.16.5b1
 
 - **Mail Leaves The Request Path**: 2FA codes, password-reset links, registration verification and notification emails are queued on the task worker (`dlux.tasks.send_mail`, sealed at rest, queue `dlux-mail`) instead of sending SMTP inside the request; without a worker they send after commit. A failed send fails the run, not the request. **Send test email** stays synchronous.

@@ -4,15 +4,9 @@
             <i class="bi bi-clock-history me-2"></i>
             {{ DLUX_STRINGS.pdf_version_history_label|default:"Version History" }} - {{ document }}
         </h1>
-        {% if is_modal and history_return_url %}
-        <button type="button"
-                class="btn btn-dark"
-                data-dynamic-modal="{{ history_return_url }}"
-                data-modal-title="{{ DLUX_STRINGS.pdf_edit_pdf_label|default:'Edit PDF' }}">
-            <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
-        </button>
-        {% elif is_modal %}
-        <button type="button" class="btn btn-dark" data-bs-dismiss="modal">
+        {% if is_modal %}
+        {# Back returns to the view this was opened from (an entry, the PDF editor); history_return_url covers a modal opened here. #}
+        <button type="button" class="btn btn-dark dlux-back-link dynamic-back-btn"{% if history_return_url %} data-dlux-back-url="{{ history_return_url }}"{% endif %}>
             <i class="bi bi-arrow-left me-2"></i>{{ DLUX_STRINGS.pdf_back_label|default:"Back" }}
         </button>
         {% elif history_return_url %}

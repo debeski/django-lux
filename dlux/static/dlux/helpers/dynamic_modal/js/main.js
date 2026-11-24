@@ -148,6 +148,64 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentLoadedUrl = '';
     let activeLoadToken = 0;
 
+    // Views opened from inside the modal stack up, so Back steps out one view at
+    // a time (an entry -> its PDF history -> Back -> the entry) instead of
+    // closing the modal. The stack empties when the modal returns to the view it
+    // was opened on, and when it closes.
+    let navStack = [];
+    const headerBack = document.getElementById('dynamicModalBack');
+
+    // A view without a Back of its own gets the header one while it was reached
+    // from another view in the modal.
+    function syncHeaderBack() {
+        if (!headerBack) return;
+        headerBack.hidden = navStack.length === 0 || !!modalBody.querySelector('.dynamic-back-btn');
+    }
+
+    // Moving to another view keeps the modal open, so hide.bs.modal never fires
+    // and the unsaved-work guards behind it (forms, the PDF editor) would be
+    // skipped. They get a cancelable leave event instead; a listener that cancels
+    // it calls detail.proceed() once the user chooses to leave.
+    function leaveCurrentView(proceed) {
+        const event = new CustomEvent('dlux:dynamic_modal:leave', {
+            cancelable: true,
+            detail: { proceed: proceed },
+        });
+        if (modalEl.dispatchEvent(event)) proceed();
+    }
+
+    function navigateWithin(url, title, trigger = null) {
+        leaveCurrentView(function () {
+            if (currentLoadedUrl && currentLoadedUrl !== url) {
+                navStack.push({ url: currentLoadedUrl, title: titleText ? titleText.textContent : '' });
+            }
+            if (title && titleText) titleText.textContent = title;
+            openModalAndLoad(url, trigger);
+        });
+    }
+
+    // Back: the previous view in the modal, else the view the modal was opened
+    // on (a record list), else `fallbackUrl`. A modal opened straight at one
+    // record -- a row action firing dlux:dynamic_modal:open with that record's
+    // URL, which is how a modal-first project opens every view -- has nothing
+    // behind it, and reloading it just redrew the same view, so Back closes.
+    function goBack(fallbackUrl) {
+        const atBase = !currentBaseUrl || currentLoadedUrl === currentBaseUrl;
+        if (!navStack.length && atBase && !fallbackUrl) {
+            dynamicModal.hide();
+            return;
+        }
+        leaveCurrentView(function () {
+            const previous = navStack.pop();
+            if (previous) {
+                if (titleText && previous.title) titleText.textContent = previous.title;
+                openModalAndLoad(previous.url);
+                return;
+            }
+            openModalAndLoad(atBase ? fallbackUrl : currentBaseUrl);
+        });
+    }
+
     function persistModalState() {
         if (!currentBaseUrl) {
             return;
@@ -220,9 +278,18 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
         modalBody.style.minHeight = '';
+        navStack = [];
+        if (headerBack) headerBack.hidden = true;
         resetModalFooter();
         clearModalState();
     });
+
+    if (headerBack) {
+        headerBack.addEventListener('click', function(e) {
+            e.preventDefault();
+            goBack();
+        });
+    }
 
     // A trigger inside the open modal navigates *deeper* — a manager's list to one
     // of its records — so it must not become the surface Back and a save return to.
@@ -239,13 +306,13 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
 
         const url = trigger.getAttribute('data-dynamic-modal');
-        const title = trigger.getAttribute('data-modal-title') || 'Manage Records';
-
-        if (!isInModalTrigger(trigger)) {
-            currentBaseUrl = url;
-            if (titleText) titleText.textContent = title;
+        if (isInModalTrigger(trigger)) {
+            navigateWithin(url, trigger.getAttribute('data-modal-title'), trigger);
+            return;
         }
 
+        currentBaseUrl = url;
+        if (titleText) titleText.textContent = trigger.getAttribute('data-modal-title') || 'Manage Records';
         openModalAndLoad(url, trigger);
     }, true);
 
@@ -265,11 +332,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const trigger = e.detail.trigger || e.detail.originalTarget || null;
 
         if (!url) return;
-        if (!isInModalTrigger(trigger)) {
-            currentBaseUrl = url;
-            if (titleText) titleText.textContent = title;
+        if (isInModalTrigger(trigger)) {
+            navigateWithin(url, e.detail.data?.title || e.detail.action?.title, e.detail.trigger || null);
+            return;
         }
 
+        currentBaseUrl = url;
+        if (titleText) titleText.textContent = title;
         openModalAndLoad(url, e.detail.trigger || null);
     }, true);
 
@@ -292,6 +361,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const loadToken = activeLoadToken + 1;
         activeLoadToken = loadToken;
         currentLoadedUrl = url;
+        if (url === currentBaseUrl) navStack = [];
+        if (headerBack) headerBack.hidden = true;
 
         // New content is coming — clear any pinned footer from the previous view.
         resetModalFooter();
@@ -359,6 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBody.innerHTML = data.html;
                 normalizeModalChrome();
                 attachListeners();
+                syncHeaderBack();
                 
                 // Execute any inline scripts returned in the HTML payload
                 const scripts = modalBody.querySelectorAll('script');
@@ -417,7 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const editUrl = currentBaseUrl.endsWith('/') ? 
                         currentBaseUrl + pk + '/' : 
                         currentBaseUrl + '/' + pk + '/';
-                    openModalAndLoad(editUrl);
+                    navigateWithin(editUrl);
                 }
             });
         });
@@ -434,23 +506,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // Back buttons (View Mode)
-        //
-        // Back returns to the record list the modal was opened on. A modal
-        // opened straight at one record -- a row action firing
-        // dlux:dynamic_modal:open with that record's URL, which is how a
-        // modal-first project opens every view -- has no list behind it, and
-        // reloading currentBaseUrl just redrew the same detail view. With
-        // nowhere to go back to, Back is a close.
+        // Back buttons: see goBack(). `data-dlux-back-url` names where Back goes
+        // when the modal was opened on this view.
         const backBtns = modalBody.querySelectorAll('.dynamic-back-btn');
         backBtns.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (!currentBaseUrl || currentLoadedUrl === currentBaseUrl) {
-                    dynamicModal.hide();
-                    return;
-                }
-                openModalAndLoad(currentBaseUrl);
+                goBack(btn.dataset.dluxBackUrl || '');
             });
         });
 
@@ -570,6 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBody.innerHTML = data.html;
                 normalizeModalChrome();
                 attachListeners();
+                syncHeaderBack();
                 notifyContentLoaded();
             } else {
                 releaseSubmit();
@@ -651,6 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p></p>
             </div>`;
         modalBody.querySelector('p').textContent = msg;
+        syncHeaderBack();
     }
 
     // 6. Context Menu Integration (Catch events fired by auto-generated tables)
@@ -690,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const viewUrl = currentBaseUrl.endsWith('/') ? 
             currentBaseUrl + data.id + '/?action=view' : 
             currentBaseUrl + '/' + data.id + '/?action=view';
-        openModalAndLoad(viewUrl);
+        navigateWithin(viewUrl);
     });
 
     try {

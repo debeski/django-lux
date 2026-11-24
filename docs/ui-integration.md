@@ -54,13 +54,26 @@ row actions carry the modal delete endpoint in `data.delete_url`, so a delete
 inside a manager posts to that manager record instead of a parent page's CRUD
 handler.
 
-A modal can be opened two ways, and the difference decides what Back does. A
-section-manager modal opens on a *list* and navigates into a record, so its
-`.dynamic-back-btn` returns to that list. A modal opened straight at one record —
-a row action dispatching `dlux:dynamic_modal:open` with that record's URL, which
-is how a modal-first project opens every view — has no list behind it, and there
-Back closes the modal. Nothing is required of the caller; the helper compares the
-URL it loaded against the one it was opened with.
+The modal keeps the views it moves through. A view opened from inside the modal
+(a section manager's record, an entry's PDF history or extracted text, the PDF
+editor) sits on top of the one it was opened from, and takes the trigger's
+`data-modal-title`. Back returns to the view below, title included: a
+`.dynamic-back-btn` in the view, or, on a view without one, the Back button the
+modal shows in its header (`#dynamicModalBack`). With nothing below, Back returns
+to the view the modal was opened on, and on that view it closes the modal: a
+modal opened straight at one record (a row action dispatching
+`dlux:dynamic_modal:open` with that record's URL, which is how a modal-first
+project opens every view) has nothing to go back to. A Back button can name where
+to go when the modal was opened on its own view with `data-dlux-back-url`.
+Nothing is required of the caller. Returning to the view the modal was opened on,
+by Back or after a save, and closing the modal both clear the views kept.
+
+Moving between views keeps the modal open, so instead of `hide.bs.modal` the
+modal first dispatches a cancelable `dlux:dynamic_modal:leave` on
+`#universalDynamicModal`. The unsaved-changes guard and the PDF editor cancel it
+while they hold unsaved work, ask the same Save / Discard / Go back question as on
+close, and call `event.detail.proceed()` when the user leaves. A project view
+with unsaved state of its own can do the same.
 
 Save behavior follows the modal surface. A successful form-only modal
 (`DynamicModalManagerView.as_view(show_table=False)`) closes through a parent-page
@@ -119,14 +132,15 @@ deliberately. Who may open it is a permission question, not a chrome one.
 
 A modal form that sets `form.dlux_unsaved_guard = True` renders with
 `data-dlux-unsaved-guard`, and `unsaved_guard.js` intercepts `hide.bs.modal` —
-the single event behind the backdrop, the X button and Escape — when the form's
-values differ from the snapshot taken after its initializers settle. The
-`#dluxUnsavedModal` prompt offers:
+the single event behind the backdrop, the X button and Escape — and the dynamic
+modal's `dlux:dynamic_modal:leave` (Back, or a link to another view in the modal)
+when the form's values differ from the snapshot taken after its initializers
+settle. The `#dluxUnsavedModal` prompt offers:
 
 - **Save** — submits through `requestSubmit` with the form's named submitter, so
   the form's own validation runs;
-- **Discard** — closes and drops the edits;
-- **Go back** — cancels the close and returns to the form.
+- **Discard** — closes or leaves, and drops the edits;
+- **Go back** — cancels the close or move and returns to the form.
 
 Only one prompt is open at a time, and Save submits once, even though a click on a
 dynamic modal's X raises `hide.bs.modal` twice (Bootstrap's dismiss handler and
