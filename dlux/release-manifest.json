@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.16.5b2",
+  "version": "1.16.5",
   "display": {
     "summary": "Long work leaves web's request threads. Outbound mail (2FA codes, password resets, registration and notification emails) is queued on the task worker with its own express lane, and each notification recipient gets their own message. Export Entries and Reset data run as background jobs that show their progress; the weather city search, the OCR file hash and the Options API status check run on the worker, and backup chain downloads stream. Pages are lighter: the System Settings editors, the guided tour and PDF.js load only where they are used, so a sign-in page drops from about 1.9 MB to 1.4 MB. In the dynamic modal, Back returns to the view you came from, so an entry's PDF history, editor and extracted text go back to the entry. Options fades in like a project index, and the password prompt no longer stays open after a fast confirm. Web and worker update inline from any 1.16 release; migration 0031 adds the background-jobs table.",
     "highlights": [
@@ -13,7 +13,7 @@
       "The password prompt closes after a fast confirm instead of staying open over the next dialog.",
       "Web and worker update inline from any 1.16 release; migration 0031 adds the background-jobs table."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.5b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.5"
   },
   "requires": {
     "updater_schema": ">=1",
