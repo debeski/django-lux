@@ -7,11 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.16.5b2
 
-- **Password prompt closes after a fast confirm**: `window.dluxConfirmPassword` closed its prompt with Bootstrap's `hide()`, which Bootstrap ignores until the prompt has finished opening. A confirm that resolved sooner (a pasted password and Enter, a busy page) left the prompt open on top of what it had just opened, such as the Reset data dialog. It now closes as soon as it is shown.
-- **Options fades in like a project index**: the Options title, its cards one after another, the admin panel's tiles and settings tiles, then the reset footer fade up as the page loads. The effect is a reusable CSS-only component in `dlux/base/css/main.css`: `data-dlux-reveal` on an element, `data-dlux-reveal-group` on a container, timed by `--dlux-reveal-start` and `--dlux-reveal-step`. It plays once per load and is off under `prefers-reduced-motion`.
-- **Dynamic modal Back steps back one view**: views opened from inside the dynamic modal (an entry's PDF version history, extracted text and editor, a manager's record) now stack, and Back returns to the view they were opened from, title included, instead of closing the modal. A view without a Back of its own gets one in the modal header (`#dynamicModalBack`). Moving between views fires a cancelable `dlux:dynamic_modal:leave`, so the unsaved-changes guard and the PDF editor ask before dropping edits.
+- **Dynamic Modal Back Steps Back One View**: views opened inside the dynamic modal (an entry's PDF version history, extracted text and editor, a manager's record) stack, and Back returns to the view below, title included, instead of closing the modal. A view without its own Back gets one in the modal header (`#dynamicModalBack`). Moving between views fires a cancelable `dlux:dynamic_modal:leave`, so unsaved edits are still asked about.
+- **Options Fades In Like A Project Index**: the Options title, cards, admin tiles and settings tiles, then the reset footer fade up as the page loads, through a reusable CSS-only entrance: `data-dlux-reveal` on an element, `data-dlux-reveal-group` on a container, timed by `--dlux-reveal-start` and `--dlux-reveal-step`. It plays once per load and is off under `prefers-reduced-motion`.
+- **Password Prompt Closes After A Fast Confirm**: `window.dluxConfirmPassword` closed with Bootstrap's `hide()`, which Bootstrap ignores until the prompt has finished opening, so a fast confirm (a pasted password and Enter, a busy page) left it open over the dialog it had just opened, such as Reset data. It now closes once shown.
 
 ## v1.16.5b1
 
