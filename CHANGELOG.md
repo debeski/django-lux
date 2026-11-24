@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Selector search placeholder translated**: searchable `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` fell back to a literal English "Search" placeholder, so Arabic pages (OCR models, permission presets, group members) showed English. Without `search_placeholder`, the widget now reads the `search_placeholder` string in the UI language.
+
 ## v1.16.4
 
 - **Stable 1.16.4**: Promote the published and accepted 1.16.4b1. Pages load the strings table as a cached script instead of embedding it, so an Arabic list page drops from about 630 KB to 120 KB, and scope settings are read once per request. Card choice selectors fill the row, choice options lose the form caption style, and the OCR options wait on Enable OCR. Updates inline from any 1.16 release, with no migrations or dependency changes from 1.16.4b1.
