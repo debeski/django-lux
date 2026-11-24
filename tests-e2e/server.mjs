@@ -43,11 +43,13 @@ export async function startServer({
   projectSettings = false,
   weather = false,
   ocrModels = false,
+  ocrEnabled = false,
 } = {}) {
   const args = [path.join(HERE, 'seed.py')];
   if (!configured) args.push('--unconfigured');
   if (scanlink) args.push('--scanlink');
   if (weather) args.push('--weather');
+  if (ocrEnabled) args.push('--ocr-enabled');
   if (!languageOverride) args.push('--disable-language-override');
   if (searchMode === 'always') args.push('--always-search');
   execFileSync(PY, args, { cwd: HERE, stdio: 'pipe' });
