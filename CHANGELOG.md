@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.4
+
+- **Stable 1.16.4**: Promote the published and accepted 1.16.4b1. Pages load the strings table as a cached script instead of embedding it, so an Arabic list page drops from about 630 KB to 120 KB, and scope settings are read once per request. Card choice selectors fill the row, choice options lose the form caption style, and the OCR options wait on Enable OCR. Updates inline from any 1.16 release, with no migrations or dependency changes from 1.16.4b1.
+
 ## v1.16.4b1
 
 - **OCR Options Wait On Enable OCR**: in Extra Features, the OCR options are greyed out with the shared dependent-setting tooltip while OCR is off, like other dependent sections, and come back as soon as it is switched on. The current password and the Operations panel button stay usable. Saving with OCR off keeps the stored options.
