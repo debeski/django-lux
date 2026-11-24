@@ -54,6 +54,30 @@ containers whose containment, transforms or stacking contexts can trap a modal
 below Bootstrap's backdrop. Backup Details uses this block while retaining the
 backup page's layout containment and inner scrolling.
 
+## Entrance animation
+
+An index page can fade in as it loads, the way Options does. `data-dlux-reveal`
+fades one element up; `data-dlux-reveal-group` fades a container's children up
+one after another, `--dlux-reveal-step` apart (70ms), up to the 13th child, after
+`--dlux-reveal-start` (0). Set the two properties on the group in the page's
+stylesheet:
+
+```django
+<h2 class="page-title" data-dlux-reveal>Dashboard</h2>
+<div class="row g-3 dashboard-cards" data-dlux-reveal-group>
+    {% for card in cards %}<div class="col-md-4">…</div>{% endfor %}
+</div>
+```
+
+```css
+.dashboard-cards { --dlux-reveal-start: 120ms; }
+```
+
+It is CSS only (`dlux/base/css/main.css`), so content never waits on a script,
+and it plays once per page load: an element moved afterwards (a reordered card,
+a tab switch) does not fade in again. It is off under `prefers-reduced-motion`
+and in settings previews.
+
 ## Forms and filters
 
 Use `DluxFileInput` or `AssetPickerField` for files, not a raw file input. The

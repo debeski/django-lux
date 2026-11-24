@@ -88,6 +88,8 @@ describe('Reset data', () => {
       await page.locator('[data-dlux-confirm-modal].show [data-dlux-confirm-submit]').click();
       const modal = page.locator('[data-data-reset-modal].show');
       await modal.waitFor({ state: 'visible' });
+      // The password prompt fades out over the reset dialog as it opens.
+      await page.locator('[data-dlux-confirm-modal]').waitFor({ state: 'hidden' });
       const choice = modal.locator('input[type="checkbox"][data-model]:not([disabled])').first();
       await choice.check({ force: true });
 

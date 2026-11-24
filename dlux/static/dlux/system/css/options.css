@@ -1400,3 +1400,26 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 .dlux-upd-interval-range { max-width: 22rem; }
 
 .dlux-upd-interval-value { margin-inline-start: 0.35rem; }
+
+/* Entrance (data-dlux-reveal, base/css/main.css): the title, then the cards one
+   after another, the admin panel's tiles and settings tiles cascading inside the
+   first card, and the reset footer last. */
+.dlux-options-grid { --dlux-reveal-start: 80ms; }
+.dlux-options-tabs { --dlux-reveal-start: 60ms; --dlux-reveal-step: 40ms; }
+.dlux-admin-panel-top { --dlux-reveal-start: 240ms; --dlux-reveal-step: 90ms; }
+.dlux-admin-settings-grid { --dlux-reveal-start: 360ms; --dlux-reveal-step: 30ms; }
+.dlux-options-reset-footer { --dlux-reveal-start: 520ms; }
+
+/* Tabs show one card, which on load takes the entrance after the tab strip
+   instead of the quick tab fade (and without the card grid's stagger, since
+   the saved tab may be any card). Later tab switches keep the tab fade. */
+:root:not(.dlux-reveal-done) .dlux-options-grid[data-options-style="tabs"].dlux-options-tabs-ready .dlux-options-card.dlux-options-card--tab-active {
+    animation: dlux-reveal-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-options-grid[data-options-style="tabs"].dlux-options-tabs-ready .dlux-options-card.dlux-options-card--tab-active {
+        animation: none;
+    }
+}
