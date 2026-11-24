@@ -139,7 +139,7 @@ class WeatherTests(TestCase):
         self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 403)
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(url).status_code, 405)
-        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]) as provider:
+        with patch('dlux.views.weather.start_location_search', return_value={'locations': [LOCATION]}) as provider:
             self.assertEqual(self.client.post(url, {**payload, 'enabled': False}, content_type='application/json').status_code, 400)
             provider.assert_not_called()
             response = self.client.post(url, payload, content_type='application/json')
@@ -162,7 +162,7 @@ class WeatherTests(TestCase):
         self.record.is_configured = False
         self.record.save()
         self.client.force_login(self.admin)
-        with patch('dlux.views.weather.find_locations', return_value=[LOCATION]):
+        with patch('dlux.views.weather.start_location_search', return_value={'locations': [LOCATION]}):
             response = self.client.post(reverse('weather_locations'),
                                         {'enabled': True, 'query': 'Tripoli', 'api_key': 'draft'},
                                         content_type='application/json')
@@ -347,26 +347,66 @@ class WeatherWorkerTests(TestCase):
         self.assertEqual(response.json(), {'status': 'pending'})
 
     def test_city_search_runs_in_the_worker_with_the_key_encrypted(self):
-        from dlux.weather import decrypt_api_key, find_locations
+        from dlux.weather import decrypt_api_key, location_search_result, start_location_search
         app, worker = self.worker()
         rows = [{'name': 'Tripoli', 'country': 'LY', 'lat': 32.8872, 'lon': 13.1913}]
         with worker, patch('dlux.weather._request', return_value=rows) as provider:
-            found = find_locations('Tripoli', 'draft-key')
+            started = start_location_search('Tripoli', 'draft-key', self.admin.pk)
+        found = location_search_result(started['token'], self.admin.pk)
         self.assertEqual(found[0]['name'], 'Tripoli, LY')
         _token, _query, sent_key = app.send_task.call_args.kwargs['args']
         self.assertNotEqual(sent_key, 'draft-key', 'the broker never sees the key in the clear')
         self.assertEqual(decrypt_api_key(sent_key), 'draft-key')
         self.assertEqual(provider.call_args.args[1], 'draft-key')
 
-    def test_a_silent_worker_ends_the_search_with_an_error(self):
-        from dlux.weather import find_locations
+    def test_web_returns_a_token_at_once_and_the_browser_polls(self):
+        self.enable()
+        self.client.force_login(self.admin)
+        app, worker = self.worker(run=False)
+        payload = {'query': 'Tripoli', 'api_key': 'draft-key', 'enabled': True}
+        with worker, patch('dlux.weather.time.sleep') as sleep:
+            response = self.client.post(reverse('weather_locations'), payload, content_type='application/json')
+        sleep.assert_not_called()
+        self.assertEqual(response.status_code, 202)
+        result_url = response.json()['result_url']
+        self.assertEqual(self.client.get(result_url).status_code, 202)
+        token = app.send_task.call_args.kwargs['args'][0]
+        rows = [{'name': 'Tripoli', 'country': 'LY', 'lat': 32.8872, 'lon': 13.1913}]
+        from dlux import weather
+        with patch('dlux.weather._request', return_value=rows):
+            weather.run_search(*app.send_task.call_args.kwargs['args'])
+        answer = self.client.get(result_url)
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(answer.json()['locations'][0]['name'], 'Tripoli, LY')
+        self.assertEqual(self.client.get(result_url).status_code, 404, 'an answer is handed out once')
+        self.assertIn(token, result_url)
+
+    def test_another_user_cannot_read_a_search(self):
+        from dlux.weather import SearchNotFound, location_search_result, start_location_search
         _app, worker = self.worker(run=False)
-        with worker, patch('dlux.weather.SEARCH_WAIT_SECONDS', 0.3):
+        with worker:
+            token = start_location_search('Tripoli', 'draft-key', self.admin.pk)['token']
+        with self.assertRaises(SearchNotFound):
+            location_search_result(token, self.admin.pk + 1000)
+        other = get_user_model().objects.create_superuser(username='other-admin', password='x')
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(reverse('weather_location_result', args=[token])).status_code, 404)
+        reader = get_user_model().objects.create_user(username='weather-reader-2')
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get(reverse('weather_location_result', args=[token])).status_code, 403)
+
+    def test_a_silent_worker_ends_the_search_with_an_error(self):
+        from dlux.weather import location_search_result, start_location_search
+        _app, worker = self.worker(run=False)
+        with worker:
+            token = start_location_search('Tripoli', 'draft-key', self.admin.pk)['token']
+        self.assertIsNone(location_search_result(token, self.admin.pk))
+        with patch('dlux.weather.SEARCH_WAIT_SECONDS', 0):
             with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
-                find_locations('Tripoli', 'draft-key')
+                location_search_result(token, self.admin.pk)
 
     def test_without_a_worker_only_a_development_server_makes_the_call(self):
-        from dlux.weather import find_locations
+        from dlux.weather import start_location_search
         config = self.enable()
         with patch('dlux.weather.weather_worker_available', return_value=False), \
                 patch('dlux.weather._request', return_value=self.reading()) as provider:
@@ -379,7 +419,7 @@ class WeatherWorkerTests(TestCase):
                 with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
                     current_weather(config, config['locations'][0], 'en')
                 with self.assertRaisesRegex(WeatherUnavailable, '^worker$'):
-                    find_locations('Tripoli', 'draft-key')
+                    start_location_search('Tripoli', 'draft-key', 1)
             provider.assert_not_called()
 
     def test_the_tasks_are_registered_under_the_names_web_sends(self):

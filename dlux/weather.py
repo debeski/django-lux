@@ -32,7 +32,7 @@ FRESH_SECONDS = 900             # a reading younger than this is served as is
 KEEP_SECONDS = 86400            # a reading older than FRESH may be served, marked stale
 STALE_OBSERVATION = 7200        # an observation older than this is stale regardless
 BACKOFF_SECONDS = 30            # one refresh per reading per window; failures back off
-SEARCH_WAIT_SECONDS = 10        # how long web waits for a worker's city search
+SEARCH_WAIT_SECONDS = 10        # how long a city search waits for the worker's answer
 WORKER_CHECK_SECONDS = 60       # how long a worker availability answer is reused
 RELAY_TIMEOUT = 8               # how long a worker waits for the agent; web waits 10 for a search
 
@@ -203,6 +203,10 @@ def _search_key(token):
     return 'dlux:weather:search-result:' + token
 
 
+def _search_ticket_key(token):
+    return 'dlux:weather:search-ticket:' + token
+
+
 def _worker_reachable():
     from .taskrunner import worker_alive
 
@@ -292,25 +296,44 @@ def run_search(token, query, encrypted_api_key):
     return result
 
 
-def find_locations(query, key):
-    """Search cities for the settings page, through the worker.
+def start_location_search(query, key, owner_id):
+    """Queue a city search for the settings page; web never waits for it.
 
-    Web blocks for at most ``SEARCH_WAIT_SECONDS``; this is an administrator's
-    search, one request at a time. Without a worker only a development server (DEBUG)
-    searches from web.
+    Returns ``{'token': ...}`` for the browser to poll with ``location_search_result``,
+    or ``{'locations': [...]}`` from a development server (DEBUG) without a worker,
+    which searches from web. Raises ``WeatherUnavailable('worker')`` otherwise.
     """
     token = uuid.uuid4().hex
+    cache.set(_search_ticket_key(token), {'owner': owner_id, 'started': time.time()}, SEARCH_WAIT_SECONDS + 60)
     if not _dispatch('dlux.tasks.weather_search', [token, query, encrypt_api_key(key) if key else '']):
+        cache.delete(_search_ticket_key(token))
         if settings.DEBUG:
-            return search_locations(query, key)
+            return {'locations': search_locations(query, key)}
         raise WeatherUnavailable('worker')
-    deadline = time.monotonic() + SEARCH_WAIT_SECONDS
-    while time.monotonic() < deadline:
-        result = cache.get(_search_key(token))
-        if result is not None:
-            cache.delete(_search_key(token))
-            if 'error' in result:
-                raise WeatherUnavailable(result['error'])
-            return result['locations']
-        time.sleep(0.25)
-    raise WeatherUnavailable('worker')
+    return {'token': token}
+
+
+class SearchNotFound(Exception):
+    """No search with this token belongs to the asking user (or it expired)."""
+
+
+def location_search_result(token, owner_id):
+    """The worker's answer to a search: its locations, or None while it is running.
+
+    Raises ``WeatherUnavailable`` with the worker's reason, or ``'worker'`` once
+    ``SEARCH_WAIT_SECONDS`` pass without an answer, and ``SearchNotFound`` for a
+    token the user did not start. An answer is handed out once.
+    """
+    ticket = cache.get(_search_ticket_key(str(token)))
+    if not isinstance(ticket, dict) or ticket.get('owner') != owner_id:
+        raise SearchNotFound(token)
+    result = cache.get(_search_key(token))
+    if result is None:
+        if time.time() - float(ticket.get('started') or 0) < SEARCH_WAIT_SECONDS:
+            return None
+        cache.delete(_search_ticket_key(token))
+        raise WeatherUnavailable('worker')
+    cache.delete_many([_search_key(token), _search_ticket_key(token)])
+    if 'error' in result:
+        raise WeatherUnavailable(result['error'])
+    return result['locations']

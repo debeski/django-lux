@@ -359,7 +359,8 @@ App-owned preference namespaces are described in
 | Route | Method | Purpose |
 | --- | --- | --- |
 | `/sys/api/weather/` | `GET` | Current conditions for the configured locations |
-| `/sys/api/weather/locations/` | `POST` | City search for superusers |
+| `/sys/api/weather/locations/` | `POST` | City search for superusers: `202` with a token and `result_url` |
+| `/sys/api/weather/locations/<token>/` | `GET` | That search's answer: `202` pending, `200` locations, `502` reason |
 
 See [Weather](weather.md).
 
