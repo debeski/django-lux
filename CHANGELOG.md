@@ -7,6 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Modals asked for while the page loads now open**: `dlux:dynamic_modal:open` dispatched as a page script ran, or on `DOMContentLoaded` (a project's `?modal=` deep link), was lost because the modal started listening inside its own `DOMContentLoaded` handler. `base_head.js` keeps such requests in `window.DluxModalRequests`, and `dynamic_modal/js/main.js` starts as soon as the document is parsed and replays them.
 ## v1.16.5
 
 - **Stable 1.16.5**: Promote the published and accepted 1.16.5b2. Mail, Export Entries, Reset data and the weather, OCR and Options probes run on the task worker. Pages load the settings editors, tour and PDF.js only where used. Modal Back returns to the previous view, Options fades in, and the password prompt closes after a fast confirm. Migration 0031 is additive; updates inline from any 1.16 release.

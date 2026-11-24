@@ -1,6 +1,14 @@
 (function () {
     'use strict';
 
+    // A page script can ask for the dynamic modal (dlux:dynamic_modal:open) before
+    // dynamic_modal/js/main.js runs, at load or on DOMContentLoaded. Keep those
+    // requests; main.js replays them once it listens and sets this to null.
+    window.DluxModalRequests = [];
+    document.addEventListener('dlux:dynamic_modal:open', function (event) {
+        if (Array.isArray(window.DluxModalRequests)) window.DluxModalRequests.push(event);
+    }, true);
+
     const clipboardUser = document.currentScript?.dataset.clipboardUser;
     if (clipboardUser !== undefined) {
         try {

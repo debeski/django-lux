@@ -3,7 +3,18 @@
  * Handles loading combined tables and forms into a generic bootstrap modal.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+// Starts as soon as the document is parsed. This script is deferred, and deferred
+// scripts run before DOMContentLoaded, so the modal listens before any page
+// script's DOMContentLoaded handler asks for it (a project's ?modal= deep link
+// did, and its request was lost). Requests made even earlier wait in
+// window.DluxModalRequests (base_head.js) and are replayed below.
+(function (start) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+})(function initDynamicModals() {
     if (window.__dluxDynamicModalsInitialized) return;
     window.__dluxDynamicModalsInitialized = true;
 
@@ -325,22 +336,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // no request, no modal. Capture runs window → document → target on every
     // dispatch regardless of `bubbles`, so it catches element-dispatched bubbling
     // events, non-bubbling body dispatches, and `document` itself, once each.
-    document.addEventListener('dlux:dynamic_modal:open', function(e) {
-        const url = e.detail.data?.url || e.detail.action?.url;
-        const title = e.detail.data?.title || e.detail.action?.title
+    function openFromRequest(e) {
+        const detail = e.detail || {};
+        const url = detail.data?.url || detail.action?.url;
+        const title = detail.data?.title || detail.action?.title
             || window.DLUX_STRINGS?.modal_default_title || 'Details';
-        const trigger = e.detail.trigger || e.detail.originalTarget || null;
+        const trigger = detail.trigger || detail.originalTarget || null;
 
         if (!url) return;
         if (isInModalTrigger(trigger)) {
-            navigateWithin(url, e.detail.data?.title || e.detail.action?.title, e.detail.trigger || null);
+            navigateWithin(url, detail.data?.title || detail.action?.title, detail.trigger || null);
             return;
         }
 
         currentBaseUrl = url;
         if (titleText) titleText.textContent = title;
-        openModalAndLoad(url, e.detail.trigger || null);
-    }, true);
+        openModalAndLoad(url, detail.trigger || null);
+    }
+    document.addEventListener('dlux:dynamic_modal:open', openFromRequest, true);
 
     // In-modal navigation: a container of links marked [data-dlux-modal-nav], or a
     // single link/button carrying the marker itself with an href or data-url.
@@ -843,4 +856,8 @@ document.addEventListener('DOMContentLoaded', function() {
         recordOnboardingSkip(skipBtn).catch(function () { /* not recorded */ });
     });
 
+    // Requests made before this script ran (base_head.js kept them), oldest first.
+    const earlyRequests = window.DluxModalRequests;
+    window.DluxModalRequests = null;
+    if (Array.isArray(earlyRequests)) earlyRequests.forEach(openFromRequest);
 });
