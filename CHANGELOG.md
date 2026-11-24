@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Project static files refresh after every upgrade**: generated stacks serve `/static/` as immutable for a year, so a project's `{% static %}` script stayed stale in browsers after an update. `dlux_settings()` now swaps Django's default static storage for `dlux.static_storage.VersionedStaticFilesStorage`, whose URLs carry `?v=<DjangoLux version>-<project version>`. Another `staticfiles` backend is kept; `DLUX_VERSIONED_STATIC = False` opts out.
 - **Modals asked for while the page loads now open**: `dlux:dynamic_modal:open` dispatched as a page script ran, or on `DOMContentLoaded` (a project's `?modal=` deep link), was lost because the modal started listening inside its own `DOMContentLoaded` handler. `base_head.js` keeps such requests in `window.DluxModalRequests`, and `dynamic_modal/js/main.js` starts as soon as the document is parsed and replays them.
 - **Password confirmation no longer signs the user out after a Django upgrade**: Django re-hashes a correct password when its hasher's work factor went up (Django 6.1.3: PBKDF2 1.2M to 1.5M iterations), which changed the session auth hash and signed that session out on its next request. New `dlux.guards.check_own_password()` refreshes the session hash; `require_current_password`, the OCR switch and a failed password change use it, and "new password must differ" checks no longer re-hash.
 ## v1.16.5

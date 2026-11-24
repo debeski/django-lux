@@ -41,6 +41,7 @@ TEST_LABELS = [
     'dlux.tests.test_backup_recovery',
     'dlux.tests.test_card_edges',
     'dlux.tests.test_lazy_assets',
+    'dlux.tests.test_static_versioning',
     'dlux.tests.test_task_worker_health',
     'dlux.tests.test_channels',
     'dlux.tests.test_check_policy',

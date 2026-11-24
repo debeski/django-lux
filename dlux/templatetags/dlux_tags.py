@@ -1,8 +1,6 @@
 import json
-import os
 
 from django import template
-from django.contrib.staticfiles import finders
 from django.template.loader import get_template
 from django.template import TemplateDoesNotExist
 from django.templatetags.static import static as _django_static
@@ -12,7 +10,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.html import avoid_wrapping, format_html
 from django.utils.safestring import mark_safe
 from django.conf import settings
-from .. import __version__ as _DLUX_VERSION
+from ..static_storage import with_revision
 from ..translations import get_strings
 from ..navbar import build_navbar_hierarchy_crumbs, build_navbar_route_label_map
 
@@ -37,31 +35,15 @@ def json_script_utf8(value, element_id):
 
 @register.simple_tag
 def dlux_static(path):
-    """Like ``{% static path %}`` but appends a ``?v=<DjangoLux version>`` cache
-    buster. The version is read from the package (``dlux.__version__``), NOT the
-    template context, so it works everywhere — including widget-rendered
-    partials (grouped permissions, profile image) that have no request context
-    and thus no ``DLUX_VERSION`` context variable.
+    """Like ``{% static path %}`` with a ``?v=`` cache buster that changes with
+    every release (``dlux.static_storage.static_revision``: the DjangoLux version,
+    plus the project version and, in DEBUG, the source file's modification time).
 
-    Because the version changes on every release, every static asset is
-    re-fetched by browsers after an inline update. In DEBUG, the source file's
-    modification time is added so mounted development assets also refresh
-    without pretending an unreleased edit is a new Dlux release. Interim
-    measure; once the generated project adopts ManifestStaticFilesStorage
-    (content-hashed names) this can be dropped in favour of a plain
-    ``{% static %}``.
+    With ``VersionedStaticFilesStorage`` (set by ``dlux_settings()``) plain
+    ``{% static %}`` URLs carry the same ``v`` and this adds nothing; it still
+    versions the URLs of a project that keeps another static storage.
     """
-    revision = _DLUX_VERSION
-    if settings.DEBUG:
-        try:
-            source_path = finders.find(path)
-            if source_path:
-                revision = f"{revision}-{os.stat(source_path).st_mtime_ns:x}"
-        except (OSError, TypeError, ValueError):
-            pass
-    url = _django_static(path)
-    separator = '&' if '?' in url else '?'
-    return f"{url}{separator}v={revision}"
+    return with_revision(_django_static(path), path)
 
 
 _ASSET_BUNDLES_CACHE = {}

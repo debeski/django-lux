@@ -223,6 +223,34 @@ def _apply_task_runner_settings(scope):
             scope["TASKS"] = {"default": {"BACKEND": "dlux.taskrunner.backend.DatabaseBackend"}}
 
 
+DEFAULT_STATIC_BACKEND = "django.contrib.staticfiles.storage.StaticFilesStorage"
+VERSIONED_STATIC_BACKEND = "dlux.static_storage.VersionedStaticFilesStorage"
+
+
+def _version_static_urls(scope):
+    """Use ``VersionedStaticFilesStorage`` for static files unless the project chose
+    another storage or set ``DLUX_VERSIONED_STATIC = False``. Generated stacks
+    cache ``/static/`` for a year as immutable, so an unversioned URL would keep
+    serving a project's old script after an upgrade."""
+    if not scope.get("DLUX_VERSIONED_STATIC", True):
+        return
+    storages = scope.get("STORAGES")
+    if storages is None:
+        from django.conf import global_settings
+
+        storages = {name: dict(config) for name, config in global_settings.STORAGES.items()}
+    elif isinstance(storages, dict):
+        storages = dict(storages)
+    else:
+        return
+    static = dict(storages.get("staticfiles") or {})
+    if static.get("BACKEND", DEFAULT_STATIC_BACKEND) != DEFAULT_STATIC_BACKEND:
+        return
+    static["BACKEND"] = VERSIONED_STATIC_BACKEND
+    storages["staticfiles"] = static
+    scope["STORAGES"] = storages
+
+
 def dlux_settings(scope):
     """
     Apply the default DjangoLux settings requirements to a Django settings module.
@@ -309,6 +337,8 @@ def dlux_settings(scope):
         processors = options.setdefault("context_processors", [])
         if context_proc not in processors:
             processors.append(context_proc)
+
+    _version_static_urls(scope)
 
     scope.setdefault("CRISPY_ALLOWED_TEMPLATE_PACKS", "bootstrap5")
     scope.setdefault("CRISPY_TEMPLATE_PACK", "bootstrap5")

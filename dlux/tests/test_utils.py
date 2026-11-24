@@ -407,7 +407,7 @@ class UtilsTests(TestCase):
         from dlux.templatetags.dlux_tags import dlux_static
 
         with tempfile.NamedTemporaryFile() as source_file, patch(
-            'dlux.templatetags.dlux_tags.finders.find',
+            'django.contrib.staticfiles.finders.find',
             return_value=source_file.name,
         ):
             url = dlux_static('dlux/reports/css/print.css')
