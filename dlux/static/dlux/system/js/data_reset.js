@@ -186,6 +186,31 @@
             });
         }
 
+        // With a task worker the reset runs there; poll until it reports the outcome.
+        function waitForJob(statusUrl) {
+            return new Promise(function (resolve, reject) {
+                function tick() {
+                    fetch(statusUrl, { cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (response) {
+                            if (!response.ok) { throw new Error(s('data_reset_failed', 'Data reset failed.')); }
+                            return response.json();
+                        })
+                        .then(function (job) {
+                            if (job.status === 'completed') { resolve(job.result || {}); return; }
+                            if (job.status === 'failed') { reject(new Error(job.error || s('data_reset_failed', 'Data reset failed.'))); return; }
+                            resultEl.className = 'mt-3 alert alert-info';
+                            resultEl.setAttribute('data-autoclose', 'false');
+                            resultEl.textContent = (job.progress_message || s('data_reset_running', 'Resetting data...'))
+                                + (job.progress_percent ? ' ' + job.progress_percent + '%' : '');
+                            resultEl.classList.remove('d-none');
+                            window.setTimeout(tick, 1500);
+                        })
+                        .catch(reject);
+                }
+                tick();
+            });
+        }
+
         function execute() {
             var selected = checkboxes().filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.getAttribute('data-model'); });
             if (!selected.length || !password) { return; }
@@ -202,9 +227,15 @@
             executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' + executeBtn.textContent.trim();
 
             post(executeUrl, body).then(function (res) {
-                if (!res.ok || res.data.status !== 'success') {
-                    throw new Error(res.data.message || s('data_reset_failed', 'Data reset failed.'));
+                if (res.ok && res.data.status === 'queued' && res.data.job) {
+                    return waitForJob(res.data.job.status_url);
                 }
+                return res.data && res.ok ? res.data : Promise.reject(new Error((res.data && res.data.message) || s('data_reset_failed', 'Data reset failed.')));
+            }).then(function (data) {
+                if (!data || data.status !== 'success') {
+                    throw new Error((data && data.message) || s('data_reset_failed', 'Data reset failed.'));
+                }
+                var res = { data: data };
                 resultEl.className = 'mt-3 alert alert-success';
                 resultEl.setAttribute('data-autoclose', 'false');
                 resultEl.textContent = res.data.message || '';

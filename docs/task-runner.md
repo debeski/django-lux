@@ -105,7 +105,8 @@ then waits for a free thread like other work.
 ### Is anything running the work?
 
 `dlux.taskrunner.worker_alive()` answers for every place that needs a running
-worker (system backups, report backups, weather, the Options Tasks row). It is
+worker (system backups, report backups, background jobs, weather, the API status
+probe, OCR on save, the Options Tasks row). It is
 one indexed query: a `DluxTaskWorker` row whose heartbeat is inside `stale_after`
 and that has not stopped. No broker round trip, so web can ask it freely.
 
@@ -347,6 +348,38 @@ running side by side re-sync the rows each time one of them starts.
   (DjangoLux models outside the whitelist). Nothing in the browser can enqueue
   an arbitrary task; web only sends DjangoLux's own tasks by name from views
   that already enforce their permissions.
+
+## Background jobs
+
+`dlux.background_jobs` hands a long request to the worker and lets the browser
+follow it. Export Entries (`reports_xlsx`) and Reset data (`data_reset`) use it.
+
+1. The view checks the permission and inputs, then calls
+   `start_job(kind, user, params)`. With a live worker it creates a
+   `dlux.DluxJob` row, queues `dlux.tasks.run_job` and returns the job; the view
+   answers with `start_payload(job)` (`token`, `status_url`). Without a worker it
+   returns None and the view keeps its synchronous path.
+2. `run_job` claims the row (`pending` to `running`), checks the user still holds
+   the kind's permission, and runs the kind's runner, which reports progress with
+   `set_progress(job, percent, message)` and may store a file under
+   `<backup_storage_prefix>/jobs/`. The row ends `completed` with a JSON `result`,
+   or `failed` with the error. A worker that dies mid-run fails the row at once
+   (`on_lost`); a failed or finished row is never run again.
+3. The browser polls `GET sys/api/jobs/<token>/` and downloads the file from
+   `sys/api/jobs/<token>/download/`. Both answer only the user who started the job,
+   while they still pass the kind's permission check; everyone else gets `404`.
+
+Starting a job keeps that user's last three finished jobs of the kind for a day
+and failed ones for a week, deleting older rows with their files. Request details
+an audit row needs (client address, user agent, language) are copied into
+`params` by `request_context(request)`, so the worker writes the event under the
+requester.
+
+Migration `0031_background_jobs` (additive, `CreateModel`) adds `DluxJob`:
+`token` (unique, 43 URL-safe characters), `kind`, `user` (cascade), `status`,
+`params`, `result`, `progress_percent`, `progress_message`, `file_path`,
+`file_name`, `file_size`, `error`, `created_at`, `started_at`, `completed_at`. It
+is excluded from system backups, the activity log and Reset data.
 
 ## Backups and restores
 

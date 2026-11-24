@@ -153,12 +153,13 @@ def _entry_export_queryset(model, actor, criteria, overview):
     return qs.select_related(*related) if related else qs
 
 
-def build_model_entries_xlsx(actor, overview):
+def build_model_entries_xlsx(actor, overview, progress_callback=None):
     """Workbook of the *actual entries* of every model the builder selected.
 
     One sheet per model with that model's own columns and rows, filtered by the
     selected period and the caller's scope — not the report's aggregate figures,
-    which are the printable report's job.
+    which are the printable report's job. ``progress_callback(percent, message)``
+    is called as each model's sheet is started (the task worker's progress).
     """
     from openpyxl import Workbook
     from openpyxl.styles import Font
@@ -175,10 +176,18 @@ def build_model_entries_xlsx(actor, overview):
     info.title = _unique_sheet_title(strings.get("reports_sheet_export_info", "Export Info"), used_titles)
 
     index_rows = []
-    for model in _models_for_report_criteria(criteria):
+    report_models = list(_models_for_report_criteria(criteria))
+    for position, model in enumerate(report_models):
         fields = get_report_entry_fields(model)
         if not fields:
             continue
+        if progress_callback is not None:
+            progress_callback(
+                int(position * 100 / len(report_models)),
+                strings.get("reports_export_progress_model", "Exporting {model}...").format(
+                    model=model._meta.verbose_name_plural,
+                ),
+            )
         title = _unique_sheet_title(str(model._meta.verbose_name_plural), used_titles)
         ws = wb.create_sheet(title)
         headers = [_xlsx_text(field.verbose_name or field.name) for field in fields]

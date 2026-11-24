@@ -226,6 +226,9 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
 | `/sys/reports/` | Activity reports overview; its user buttons open `/sys/users/<pk>/report/` in the activity view (`user_report_access()`) for report viewers without user-directory/activity-log access |
 | `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
+| `/sys/reports/export/start/` | `POST`: start Export Entries on the task worker (`{async, status_url}`), or `{async: false, download_url}` without one |
+| `/sys/api/jobs/<token>/` | A background job's status for the user who started it (`dlux.background_jobs.payload`) |
+| `/sys/api/jobs/<token>/download/` | That job's file, while the user still holds the kind's permission |
 | `/sys/backup/` | Superuser-only full system backup and restore page. Its two histories paginate with `backups-page` and `restores-page` (fixed sizes 10 and 5) |
 | `/sys/backup/create/` | Create a `.dlb` system backup: `backup_encryption` (`server_key` default, `passphrase` + `backup_passphrase`/`backup_passphrase_confirm`, `none`), `backup_scope` (`full`/`data`), `include_system_data` (`1` default, `0` = portable). Returns 409 while another backup is pending or running |
 | `/sys/backup/<token>/status/` | Backup status JSON, including `log` (console history), `elapsed`, `eta`, `encryption`, `system_data_included` |
@@ -274,7 +277,8 @@ shipped pages call are left out; `dlux/urls.py` has every route.
   differ from the old one. Initial User Setup waits until then.
 - `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint behind
   the Options Admin panel. It requires the current password and sets the same marker
-  on every non-superuser, keeping their other preferences.
+  on every non-superuser, keeping their other preferences. It writes 500 profiles per
+  `bulk_update`, so its query count does not grow per user.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` require `dlux.view_activitylog` or
   superuser status. Activity snippets on user-detail pages need the same permission.
 - Sidebar system routes and the dashboard and user-hub shortcuts use the same
@@ -365,7 +369,8 @@ App-owned preference namespaces are described in
 | Route | Method | Purpose |
 | --- | --- | --- |
 | `/sys/api/weather/` | `GET` | Current conditions for the configured locations |
-| `/sys/api/weather/locations/` | `POST` | City search for superusers |
+| `/sys/api/weather/locations/` | `POST` | City search for superusers: `202` with a token and `result_url` |
+| `/sys/api/weather/locations/<token>/` | `GET` | That search's answer: `202` pending, `200` locations, `502` reason |
 
 See [Weather](weather.md).
 
@@ -516,10 +521,13 @@ Common keys in `get_system_config()`:
   `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally
   and resolves its upstream per message, so reachability never depends on this
   setting. A relay already stored is left selectable even while it is down, so an
-  outage cannot quietly reset a deployment to direct SMTP. The check runs each time
-  the form is built and answers within 1.5 s (`DLUX_SMTP_RELAY_PROBE_TIMEOUT`),
-  name lookup included; a check still waiting on the resolver reads as no relay,
-  and later checks of the same host and port share it instead of starting another.
+  outage cannot quietly reset a deployment to direct SMTP. Building the form reuses
+  an answer from the last 10 s (`DLUX_SMTP_RELAY_GREETING_MAX_AGE`, the
+  `max_age=` argument of `internal_smtp_relay_greeting()`; other callers default to
+  0 and always check); otherwise it checks and answers within 1.5 s
+  (`DLUX_SMTP_RELAY_PROBE_TIMEOUT`), name lookup included. A check still waiting on
+  the resolver reads as no relay, and later checks of the same host and port share
+  it instead of starting another.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.

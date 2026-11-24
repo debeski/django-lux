@@ -37,6 +37,21 @@ def system_restore_lost(restore_pk, passphrase=""):
     fail_lost_system_restore(restore_pk)
 
 
+def background_job_lost(job_pk):
+    """``on_lost`` for ``run_job``: fail the job row so the polling page stops waiting."""
+    from .background_jobs import job_lost
+
+    job_lost(job_pk)
+
+
+@task(name="dlux.tasks.run_job", on_lost=background_job_lost)
+def run_background_job(job_pk):
+    """A long request (export, data reset) handed off by web; see ``dlux.background_jobs``."""
+    from .background_jobs import run_job
+
+    run_job(job_pk)
+
+
 @task(name="dlux.tasks.build_system_backup", sensitive=True, on_lost=system_backup_lost)
 def build_system_backup(backup_pk, passphrase=""):
     from .backup import retry_countdown_for, run_system_backup
@@ -99,6 +114,13 @@ def weather_search(token, query, encrypted_api_key):
     from .weather import run_search
 
     run_search(token, query, encrypted_api_key)
+
+
+@task(name="dlux.tasks.api_status_probe")
+def api_status_probe():
+    from .utils.api_status import refresh_api_status
+
+    refresh_api_status()
 
 
 @task(name="dlux.tasks.dlux_update_check")
@@ -192,6 +214,20 @@ def ocr_background():
     from .ocr.background import tick
 
     return tick()
+
+
+@task(name="dlux.tasks.ocr_saved_document")
+def ocr_saved_document(model_label, pk, fields):
+    """Hash a saved document's OCR files and queue OCR, off web's request thread."""
+    from django.apps import apps
+
+    from .ocr.service import saved_file_changed
+
+    try:
+        model = apps.get_model(model_label)
+    except LookupError:
+        return
+    saved_file_changed(model, pk, list(fields))
 
 
 @task(name="dlux.tasks.ocr_file", takes_context=True, requeue_lost=True, max_retries=len(OCR_RETRY_DELAYS))

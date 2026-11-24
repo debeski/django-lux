@@ -242,8 +242,24 @@ def _store(result, payload):
     return result
 
 
+def saved_file_changed(model, pk, fields):
+    """Bring each saved OCR field's rows up to date with its file, queueing OCR when it is on.
+
+    Hashes every file, so it runs in the task worker (``dlux.tasks.ocr_saved_document``)
+    whenever one is alive; ``document_saved`` calls it inline only without a worker.
+    """
+    manager = getattr(model, 'all_objects', model._default_manager)
+    document = manager.filter(pk=pk).first()
+    for field_name in fields if document is not None else ():
+        options = config()
+        if options['enabled'] and options['auto_on_save'] and automatic_model_allowed(document, options):
+            schedule(document, field_name, source='auto')
+        else:
+            invalidate_changed_file(document, field_name)
+
+
 def document_saved(sender, instance, created=False, raw=False, update_fields=None, **kwargs):
-    """post_save: queue automatic OCR for each OCR field after the surrounding transaction commits."""
+    """post_save: after the surrounding transaction commits, hand the saved OCR fields to the worker."""
     if raw or not ocr_specs(sender):
         return
     fields = [spec.field_name for spec in ocr_specs(sender)
@@ -253,15 +269,17 @@ def document_saved(sender, instance, created=False, raw=False, update_fields=Non
     model, pk = instance.__class__, instance.pk
 
     def scheduled():
-        manager = getattr(model, 'all_objects', model._default_manager)
+        from dlux.taskrunner import enqueue, worker_alive
+
         try:
-            document = manager.filter(pk=pk).first()
-            for field_name in fields if document is not None else ():
-                options = config()
-                if options['enabled'] and options['auto_on_save'] and automatic_model_allowed(document, options):
-                    schedule(document, field_name, source='auto')
-                else:
-                    invalidate_changed_file(document, field_name)
+            if worker_alive():
+                enqueue('dlux.tasks.ocr_saved_document',
+                        args=(model._meta.label_lower, pk, fields), priority=PRIORITY['auto'])
+                return
+        except Exception:
+            log.warning('Could not queue OCR checks for %s #%s; checking in this request.', model.__name__, pk, exc_info=True)
+        try:
+            saved_file_changed(model, pk, fields)
         except Exception:
             log.warning('Automatic OCR scheduling failed for %s #%s.', model.__name__, pk, exc_info=True)
 

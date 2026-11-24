@@ -192,6 +192,7 @@ LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
     'dlux.dluxnotificationrule',
     'dlux.dluxnotificationwatch',
     'dlux.reportbackup',
+    'dlux.dluxjob',
     'dlux.systembackup',
     'dlux.systemrestore',
     'dlux.dluxupdatestate',

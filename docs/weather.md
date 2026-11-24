@@ -156,8 +156,12 @@ agent offers both.
   pending. A reading older than 15 minutes is served while it refreshes, marked
   stale, for up to 24 hours; an observation older than two hours is also stale.
 - **City search** (superusers only). Web queues `dlux.tasks.weather_search` and
-  waits up to ten seconds for its answer. An unsaved key is encrypted before it
-  reaches the task queue and sealed again for the agent.
+  answers `202` with a token and a `result_url` at once. The settings page polls
+  `GET /sys/api/weather/locations/<token>/` every half second: `202` while the
+  worker runs it, then `200` with the locations (handed out once), `502` with the
+  reason, or `502 worker` when ten seconds pass without an answer. Only the
+  superuser who started a search can read it (`404` otherwise). An unsaved key is
+  encrypted before it reaches the task queue and sealed again for the agent.
 
 Tasks are sent by name, so the worker must run a DjangoLux release that registers
 them. A deployment's `web` and `worker` run the same release, so they always

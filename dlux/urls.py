@@ -4,8 +4,9 @@ from django.urls import path, re_path
 from . import views, api
 from django.contrib.auth import views as auth_views
 from .views.public import font_stylesheet
+from .views.jobs import dlux_job_download_view, dlux_job_status_view
 from .views.strings import strings_script
-from .views.weather import weather_current, weather_locations
+from .views.weather import weather_current, weather_location_result, weather_locations
 from .files import media as media_views
 from .files import views as file_views
 from .ocr import views as ocr_views
@@ -20,6 +21,7 @@ urlpatterns = [
     ),
     path('sys/api/weather/', weather_current, name='weather_current'),
     path('sys/api/weather/locations/', weather_locations, name='weather_locations'),
+    path('sys/api/weather/locations/<str:token>/', weather_location_result, name='weather_location_result'),
     # Auth URLs (Django defaults - no prefix needed when mounted at root)
     path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
@@ -93,6 +95,9 @@ urlpatterns = [
     # Reports URLs
     path('sys/reports/', views.reports_overview_view, name='reports_overview'),
     path('sys/reports/export.xlsx', views.reports_overview_xlsx_view, name='reports_overview_xlsx'),
+    path('sys/reports/export/start/', views.reports_overview_xlsx_start_view, name='reports_overview_xlsx_start'),
+    path('sys/api/jobs/<str:token>/', dlux_job_status_view, name='dlux_job_status'),
+    path('sys/api/jobs/<str:token>/download/', dlux_job_download_view, name='dlux_job_download'),
     path('sys/reports/print/', views.reports_print_view, name='reports_print'),
     path('sys/reports/backup.zip', views.reports_backup_zip_view, name='reports_backup_zip'),
     path('sys/reports/backup/start/', views.reports_backup_start_view, name='reports_backup_start'),

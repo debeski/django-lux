@@ -75,6 +75,10 @@ HARD_EXCLUDED_MODELS = frozenset({
     'dlux.dluxupdatestate',
     'dlux.dluxupdaterun',
     'dlux.dluximageupdate',
+    # A reset runs as a queued job on the task worker: never clear the queue it runs in.
+    'dlux.dluxjob',
+    'dlux.dluxtaskrun',
+    'dlux.dluxtaskworker',
     'auth.group',
     'auth.permission',
     'contenttypes.contenttype',
@@ -266,23 +270,26 @@ def _reset_users(key, label, queryset):
             'soft_count': outcomes['soft'], 'kept': outcomes['kept']}
 
 
-def execute_reset(actor, selected_keys, *, delete_media=False, mode=RESET_MODE_SOFT):
+def execute_reset(actor, selected_keys, *, delete_media=False, mode=RESET_MODE_SOFT, progress_callback=None):
     """Clear the selected models. Each model runs in its own savepoint so a
     PROTECT block (or any error) on one does not roll back the others. Returns a
     list of per-model result dicts.
 
     ``mode`` is ``RESET_MODE_SOFT`` (scoped models are soft-deleted) or
     ``RESET_MODE_PERMANENT`` (everything hard-deleted, recycle bin included).
+    ``progress_callback(percent, label)`` is called before each model.
     """
     mode = normalize_mode(mode)
     results = []
     selected = [str(k).strip().lower() for k in (selected_keys or []) if str(k).strip()]
-    for key in selected:
+    for position, key in enumerate(selected):
         model = _resolve_model(key)
         if model is None or not is_reset_eligible(model):
             results.append({'key': key, 'label': key, 'status': 'skipped', 'reason': 'not_eligible', 'deleted': 0})
             continue
         label = _model_label(model)
+        if progress_callback is not None:
+            progress_callback(int(position * 100 / len(selected)), label)
         scoped = is_scoped(model)
         # Scoped rows survive as recoverable ones only in soft mode.
         soft = scoped and mode != RESET_MODE_PERMANENT
@@ -337,3 +344,78 @@ def _resolve_model(key):
         return apps.get_model(str(key))
     except Exception:
         return None
+
+
+def run_data_reset(actor, selected, *, delete_media=False, mode=RESET_MODE_SOFT, request=None,
+                   language=None, progress_callback=None):
+    """Run a reset and record it: the audit event and the notification.
+
+    Returns the payload the Options panel shows (``status``, ``message``,
+    ``results``, ``mode``, ``total_deleted``, ``blocked``). Runs in the request
+    without a task worker, otherwise in the worker (``dlux.background_jobs``),
+    where ``request`` is a stand-in carrying the requester and their address.
+    """
+    import logging
+
+    from ..notifications import notify
+    from ..translations import get_strings
+
+    strings = get_strings(language) if language else get_strings()
+    mode = normalize_mode(mode)
+
+    def model_progress(percent, label):
+        if progress_callback is not None:
+            template = strings.get('data_reset_progress_model', 'Clearing {model}...')
+            try:
+                message = template.format(model=label)
+            except Exception:
+                message = template
+            progress_callback(percent, message)
+
+    results = execute_reset(actor, selected, delete_media=delete_media, mode=mode, progress_callback=model_progress)
+    total_deleted = sum(int(r.get('deleted') or 0) for r in results)
+    soft = sum(int(r.get('soft_count') or 0) for r in results)
+    hard = total_deleted - soft
+    blocked = [r for r in results if r.get('status') in ('protected', 'error')]
+
+    message_template = strings.get(
+        'data_reset_success',
+        'Data reset complete: {total} row(s) cleared ({soft} soft-deleted, {hard} permanently).',
+    )
+    # Users with history are soft-deleted even in permanent mode, so only claim
+    # "permanently" when nothing was kept recoverable.
+    if mode == RESET_MODE_PERMANENT and not soft:
+        message_template = strings.get(
+            'data_reset_success_permanent',
+            'Data reset complete: {total} row(s) permanently deleted.',
+        )
+    try:
+        message = message_template.format(total=total_deleted, soft=soft, hard=hard)
+    except Exception:
+        message = message_template
+
+    try:
+        from ..utils import log_audit_event
+        log_audit_event(
+            request,
+            'data_reset',
+            'DELETE',
+            instance=actor,
+            model_name='user',
+            details={'models': list(selected), 'mode': mode, 'delete_media': delete_media,
+                     'total_deleted': total_deleted, 'results': results},
+        )
+    except Exception:
+        logging.getLogger(__name__).debug("Failed to write data-reset audit event.", exc_info=True)
+
+    notify.warning(
+        message,
+        request=request if hasattr(request, 'session') else None,
+        user=actor,
+        action='data_reset',
+        category='security',
+        metadata={'total_deleted': total_deleted, 'soft': soft, 'hard': hard, 'mode': mode},
+    )
+
+    return {'status': 'success', 'message': message, 'results': results,
+            'mode': mode, 'total_deleted': total_deleted, 'blocked': bool(blocked)}

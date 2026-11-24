@@ -113,15 +113,24 @@ test('Extra Features uses disabled tooltips, location search and the real save p
       getComputedStyle(input.closest('.dlux-choice-option').querySelector('.dlux-choice-option__surface')).opacity), '1');
     await root.locator('[name="weather_placement"][value="titlebar"]').check({ force: true });
     assert.equal(await root.locator('[name="weather_corner"]').first().isDisabled(), true);
-    await page.route('**/sys/api/weather/locations/', route => route.fulfill({ json: {
-      locations: [{ id: '32.11670,20.06670', name: 'Benghazi, LY', lat: 32.1167, lon: 20.0667 }],
+    // The worker answers later: web hands back a token, the page polls it.
+    await page.route('**/sys/api/weather/locations/', route => route.fulfill({ status: 202, json: {
+      status: 'pending', token: 'e2e-search', result_url: '/sys/api/weather/locations/e2e-search/',
     } }));
+    let polls = 0;
+    await page.route('**/sys/api/weather/locations/e2e-search/', route => {
+      polls += 1;
+      return polls < 2
+        ? route.fulfill({ status: 202, json: { status: 'pending' } })
+        : route.fulfill({ json: { locations: [{ id: '32.11670,20.06670', name: 'Benghazi, LY', lat: 32.1167, lon: 20.0667 }] } });
+    });
     await root.locator('[data-weather-query]').fill('Benghazi');
     await root.locator('[data-weather-search]').click();
     // Dlux builder parts: rows are `dlux-builder-item`, actions live on the
     // inspector shell's action row, and the selected location renames in its panel.
     const result = root.locator('[data-weather-results] .dlux-builder-item');
     await result.click();
+    assert.equal(polls, 2);
     assert.equal(await root.locator('[data-weather-inspector-shell].dlux-inspector-shell').count(), 1);
     await root.locator('[data-inspector-action="weather-add"]').click();
     assert.match(await root.locator('[data-weather-chosen]').innerText(), /Benghazi, LY/);
