@@ -40,8 +40,8 @@ step 3 includes an **Email delivery** subsection with two independent choices:
 
 | Choice | Behavior |
 | --- | --- |
-| Delivery path: `direct` | The web process connects to the SMTP provider itself. Use this when the web service has egress to the SMTP host. |
-| Delivery path: `relay` | The web process sends to the generated internal `smtp-relay:1025` service. Use this when the web service is isolated and only the relay has internet egress. |
+| Delivery path: `direct` | DjangoLux connects to the SMTP provider itself, from the task worker (or web when no worker runs). Use this when those services have egress to the SMTP host. |
+| Delivery path: `relay` | DjangoLux sends to the generated internal `smtp-relay:1025` service. Use this when web and the worker are isolated and only the relay has internet egress. |
 | Provider settings: Entered here (`encrypted_db`) | The provider server is entered on the step and the SMTP password is stored encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
 | Provider settings: Environment (`env`) | The provider comes from the deployment: the relay's `SMTP_RELAY_*` variables, or the web service's `EMAIL_*` settings for direct delivery. The step shows them read-only and asks only for the sender, which defaults to `DEFAULT_FROM_EMAIL`. |
 
@@ -86,10 +86,10 @@ With this layout, choose delivery path `Internal SMTP relay`, then either
 provider settings `Environment`, which uses those variables with nothing typed,
 or `Entered here` with the provider server, for example Gmail host
 `smtp.gmail.com`, port `587`, STARTTLS, SMTP username, app password, and
-default-from address. The web container still sends only to the internal relay
-listener; the relay loads the step's settings on each delivery. If the web
-process can reach the SMTP server directly, choose delivery path `Direct SMTP
-from web service`; both provider settings sources work in that mode.
+default-from address. The web and worker containers still send only to the
+internal relay listener; the relay loads the step's settings on each delivery.
+If web and the worker can reach the SMTP server directly, choose delivery path
+`Direct SMTP`; both provider settings sources work in that mode.
 
 The setup/System Settings security step refuses to enable public registration
 or email 2FA when the selected Dlux email delivery path and secret storage

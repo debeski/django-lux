@@ -3027,7 +3027,7 @@ class TwoFactorSecurityViewTests(TestCase):
         cache.set('dlux:2fa:send:ip:127.0.0.1:login', 10, timeout=3600)
         self._prime_pre_2fa_session()
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = self.client.post(
                 reverse('resend_otp_login'),
                 HTTP_X_REQUESTED_WITH='XMLHttpRequest',
@@ -3037,7 +3037,7 @@ class TwoFactorSecurityViewTests(TestCase):
         mocked_mail.assert_not_called()
 
     def test_send_otp_no_longer_prints_live_codes(self):
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1), \
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1), \
              patch('builtins.print') as mocked_print:
             from dlux.views.twofa import send_otp
 
@@ -3052,7 +3052,7 @@ class TwoFactorSecurityViewTests(TestCase):
             captured['body'] = body
             return 1
 
-        with patch('dlux.views.twofa.send_dlux_mail', side_effect=fake_send_dlux_mail), \
+        with patch('dlux.views.twofa.queue_dlux_mail', side_effect=fake_send_dlux_mail), \
              patch('dlux.views.twofa._generate_email_otp_code', return_value='123456'):
             from dlux.views.twofa import send_otp
 
@@ -3074,7 +3074,7 @@ class TwoFactorSecurityViewTests(TestCase):
             captured['recipients'] = recipients
             return 1
 
-        with patch('dlux.views.twofa.send_dlux_mail', side_effect=fake_send_dlux_mail), \
+        with patch('dlux.views.twofa.queue_dlux_mail', side_effect=fake_send_dlux_mail), \
              patch('dlux.views.twofa._generate_email_otp_code', return_value='123456'):
             response = self.client.post(
                 reverse('enable_2fa'),
@@ -3109,7 +3109,7 @@ class TwoFactorSecurityViewTests(TestCase):
         self.user.profile.is_email_2fa_enabled = False
         self.user.profile.save(update_fields=['is_email_2fa_enabled'])
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = self.client.post(
                 reverse('enable_2fa'),
                 {'method': 'email', 'email': 'not-an-email'},
@@ -3123,7 +3123,7 @@ class TwoFactorSecurityViewTests(TestCase):
         self.user.profile.is_email_2fa_enabled = False
         self.user.profile.save(update_fields=['is_email_2fa_enabled'])
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail, \
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail, \
              patch('dlux.views.twofa._generate_email_otp_code', return_value='123456'):
             first = self.client.post(
                 reverse('enable_2fa'),
@@ -3239,7 +3239,7 @@ class TwoFactorSecurityViewTests(TestCase):
     def test_login_two_factor_auto_sends_email_when_email_is_only_primary_method(self):
         self.client.logout()
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = self.client.post(reverse('login'), {
                 'username': 'twofa',
                 'password': 'twofapass123',
@@ -3257,7 +3257,7 @@ class TwoFactorSecurityViewTests(TestCase):
         self.user.profile.is_totp_2fa_enabled = True
         self.user.profile.save(update_fields=['totp_secret', 'is_totp_2fa_enabled'])
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = self.client.post(reverse('login'), {
                 'username': 'twofa',
                 'password': 'twofapass123',
@@ -3290,7 +3290,7 @@ class TwoFactorSecurityViewTests(TestCase):
         self.client.logout()
 
         with patch('dlux.views.twofa._generate_email_otp_code', return_value='123456'), \
-             patch('dlux.views.twofa.send_dlux_mail', return_value=1):
+             patch('dlux.views.twofa.queue_dlux_mail', return_value=1):
             login_response = self.client.post(reverse('login'), {
                 'username': 'twofa',
                 'password': 'twofapass123',
@@ -3308,7 +3308,7 @@ class TwoFactorSecurityViewTests(TestCase):
 
     def test_login_email_resend_returns_cooldown_payload_for_two_minutes(self):
         self._prime_pre_2fa_session()
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = self.client.post(
                 reverse('resend_otp_login'),
                 {'method': 'email'},
@@ -3352,7 +3352,7 @@ class TwoFactorSecurityViewTests(TestCase):
         bypass_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         bypass_client.cookies['dlux_trusted_device'] = trusted_cookie.value
 
-        with patch('dlux.views.twofa.send_dlux_mail', return_value=1) as mocked_mail:
+        with patch('dlux.views.twofa.queue_dlux_mail', return_value=1) as mocked_mail:
             response = bypass_client.post(reverse('login'), {
                 'username': 'twofa',
                 'password': 'twofapass123',

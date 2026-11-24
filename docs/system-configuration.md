@@ -188,8 +188,9 @@ The Email step is grouped as:
 
 The first selector decides the hop. **Internal SMTP relay** is the route for
 generated stacks: web and the task worker have no internet access and hand mail to
-the relay service, which connects to the provider. **Direct SMTP** has the web
-service connect to the provider itself. The relay's own listener is an internal
+the relay service, which connects to the provider. **Direct SMTP** has DjangoLux
+connect to the provider itself, from the task worker or, for the test email and
+when no worker runs, from the web service. The relay's own listener is an internal
 detail and never appears on the page; every other field describes the provider's
 server.
 
@@ -254,13 +255,46 @@ A failed test names the hop and the SMTP step that failed, and the likeliest fix
 |---|---|
 | Internal relay (web to the relay service) | connect, greeting, send |
 | Provider server, through the internal relay | config, connect, TLS handshake, greeting, sign-in, send |
-| Provider server, from the web service | connect, TLS handshake, greeting, sign-in, send |
+| Provider server, over direct SMTP | connect, TLS handshake, greeting, sign-in, send |
 
 For example, a connection that gets no answer on port 465 reads "connecting to
 smtp.example.com:465 failed — no answer within 60 seconds", followed by a firewall
 hint; plain SMTP against an implicit-TLS port fails at the greeting with a hint to
 turn SSL on. The same text goes to the failure-alert recipients and the audit log
 when transactional mail fails.
+
+### How mail leaves
+
+No request waits on SMTP. Email 2FA codes, password-reset links, registration
+verification and notification emails are queued for the task worker
+(`dlux.utils.queue_dlux_mail`, tasks `dlux.tasks.send_mail` and
+`dlux.tasks.send_notification_emails`) once the request's transaction commits, and
+the response returns at once. The worker claims mail before any other run and
+keeps a thread for it, so mail does not wait behind backups or OCR: it leaves
+about a second after the request, the worker's poll interval (see
+[Task Runner](task-runner.md#priorities)). The queued arguments of a
+`send_mail` run, the code or link included, are encrypted at rest and cleared
+when the run ends.
+
+When no `dlux_worker` heartbeat is fresh, the web service sends the message itself
+after the transaction commits, so a slow provider still never holds a database
+transaction open. A failed send, queued or not, alerts the failure recipients
+and is never an error page: the user sees the usual "sent" response and can ask
+again. A failed queued send also fails its run, which the Options Tasks row
+counts.
+
+Each notification email goes to one recipient, so no recipient sees another's
+address. Its notification state records `queued`, then `sent` (with
+`emailed_at`) or `failed` (with the error); the failure recipients get one alert
+per notification, not one per address.
+
+Queueing also makes the password-reset and registration forms answer in the same
+time whether or not an account exists for the address, while a worker runs.
+
+**Send test email** stays synchronous, from the web service: it is a
+superuser's one-off check whose answer is the failed hop and step, read from the
+SMTP exception as it happens. It holds one web thread for at most the SMTP
+timeout.
 
 Email 2FA, password reset, public registration, and notification-email controls are
 locked until delivery is enabled and verified. They retain their saved values while

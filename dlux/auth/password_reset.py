@@ -2,9 +2,11 @@
 
 Wraps Django's built-in password-reset machinery so it (a) is gated behind the
 admin ``forgot_password_enabled`` toggle *and* verified email readiness, and
-(b) delivers the reset email through Dlux's own transport (``send_dlux_mail``)
-instead of Django's default ``send_mail`` — the same path used by the public
-registration verification email (``registration.py``).
+(b) delivers the reset email through Dlux's own transport, queued for the task
+worker (``queue_dlux_mail``), instead of Django's default ``send_mail`` — the
+same path used by the public registration verification email
+(``registration.py``). Queueing keeps the response time the same whether or not
+the address has an account.
 """
 
 import logging
@@ -16,7 +18,7 @@ from ..utils import (
     build_config_groups,
     get_email_service_status,
     get_system_config,
-    send_dlux_mail,
+    queue_dlux_mail,
 )
 
 logger = logging.getLogger('dlux')
@@ -52,8 +54,8 @@ class DluxPasswordResetForm(PasswordResetForm):
 
     Django's ``PasswordResetForm.save`` renders the subject/body templates and
     then calls ``send_mail``; we override only ``send_mail`` so the message is
-    handed to :func:`send_dlux_mail` (direct/relay, encrypted secrets, failure
-    alerts) rather than Django's default connection.
+    queued through :func:`queue_dlux_mail` (direct/relay, encrypted secrets,
+    failure alerts) rather than sent on Django's default connection.
     """
 
     def send_mail(self, subject_template_name, email_template_name, context,
@@ -62,10 +64,4 @@ class DluxPasswordResetForm(PasswordResetForm):
         # Email subject *must not* contain newlines.
         subject = ''.join(subject.splitlines())
         body = loader.render_to_string(email_template_name, context)
-        send_dlux_mail(
-            subject,
-            body,
-            [to_email],
-            from_email=from_email,
-            fail_silently=False,
-        )
+        queue_dlux_mail(subject, body, [to_email], from_email=from_email)

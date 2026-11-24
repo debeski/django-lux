@@ -40,6 +40,11 @@ class ForgotPasswordFlowTests(TestCase):
         ss.save()
         cache.clear()
 
+    def _request_reset(self, email):
+        # Mail is sent after commit when no task worker is alive; run that commit here.
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(reverse('password_reset'), {'email': email})
+
     # --- gating -----------------------------------------------------------
     def test_disabled_returns_404(self):
         self._enable(False)
@@ -55,7 +60,7 @@ class ForgotPasswordFlowTests(TestCase):
     # --- request + delivery ----------------------------------------------
     def test_request_sends_reset_email_via_dlux_mail(self):
         self._enable(True)
-        r = self.client.post(reverse('password_reset'), {'email': 'joe@example.com'})
+        r = self._request_reset('joe@example.com')
         self.assertRedirects(r, reverse('password_reset_done'))
         self.assertEqual(len(mail.outbox), 1)
         body = mail.outbox[0].body
@@ -63,7 +68,7 @@ class ForgotPasswordFlowTests(TestCase):
 
     def test_full_reset_cycle_changes_password(self):
         self._enable(True)
-        self.client.post(reverse('password_reset'), {'email': 'joe@example.com'})
+        self._request_reset('joe@example.com')
         link = re.search(r'(/accounts/reset/[^/\s]+/[^/\s]+/)', mail.outbox[0].body).group(1)
         # First GET redirects to the set-password URL (token moved into session).
         r1 = self.client.get(link)
