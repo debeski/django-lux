@@ -222,6 +222,8 @@ When the internal SMTP relay is not listening, the relay option is locked with
 the reason attached — unless it is already the stored delivery path, which is
 never taken away. The page waits at most 1.5 seconds for that check; when the
 stack's name resolver does not answer in time, the relay reads as not listening.
+A check that finished in the last 10 seconds is reused, so a relay that has just
+started can take that long to unlock.
 
 **Verify the provider's certificate** is on by default and appears only for the
 internal relay with Entered here: the relay signs in only to a server whose

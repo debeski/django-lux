@@ -506,10 +506,13 @@ Common keys in `get_system_config()`:
   `DLUX_SMTP_RELAY_HOST`/`_PORT`) — the relay starts its listener unconditionally
   and resolves its upstream per message, so reachability never depends on this
   setting. A relay already stored is left selectable even while it is down, so an
-  outage cannot quietly reset a deployment to direct SMTP. The check runs each time
-  the form is built and answers within 1.5 s (`DLUX_SMTP_RELAY_PROBE_TIMEOUT`),
-  name lookup included; a check still waiting on the resolver reads as no relay,
-  and later checks of the same host and port share it instead of starting another.
+  outage cannot quietly reset a deployment to direct SMTP. Building the form reuses
+  an answer from the last 10 s (`DLUX_SMTP_RELAY_GREETING_MAX_AGE`, the
+  `max_age=` argument of `internal_smtp_relay_greeting()`; other callers default to
+  0 and always check); otherwise it checks and answers within 1.5 s
+  (`DLUX_SMTP_RELAY_PROBE_TIMEOUT`), name lookup included. A check still waiting on
+  the resolver reads as no relay, and later checks of the same host and port share
+  it instead of starting another.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.

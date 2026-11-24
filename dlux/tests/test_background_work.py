@@ -66,3 +66,51 @@ class ApiStatusProbeTests(TestCase):
                 mock.patch("dlux.taskrunner.worker_alive", return_value=True), \
                 mock.patch("dlux.taskrunner.enqueue"):
             self.assertEqual(api_status.cached_api_status()["state"], "unknown")
+
+
+class RelayGreetingCacheTests(TestCase):
+    def setUp(self):
+        from dlux.utils import mail
+
+        mail._relay_answers.clear()
+        self.addCleanup(mail._relay_answers.clear)
+
+    def test_the_settings_form_reuses_a_recent_answer(self):
+        from dlux.utils import internal_smtp_relay_greeting, mail
+
+        key = ("relay-cache.test", 2525)
+        with mock.patch.object(mail, "_smtp_relay_greeting", return_value="dlux smtp relay ready") as probe:
+            first = internal_smtp_relay_greeting(*key, max_age=10)
+            second = internal_smtp_relay_greeting(*key, max_age=10)
+        self.assertEqual(first, "dlux smtp relay ready")
+        self.assertEqual(second, first)
+        self.assertEqual(probe.call_count, 1)
+
+    def test_a_negative_answer_is_reused_and_expires(self):
+        from dlux.utils import internal_smtp_relay_greeting, mail
+
+        key = ("relay-cache.test", 2526)
+        with mock.patch.object(mail, "_smtp_relay_greeting", return_value=None) as probe:
+            self.assertIsNone(internal_smtp_relay_greeting(*key, max_age=10))
+            self.assertIsNone(internal_smtp_relay_greeting(*key, max_age=10))
+            self.assertEqual(probe.call_count, 1)
+            mail._relay_answers[key] = (mail.time.monotonic() - 11, None)
+            self.assertIsNone(internal_smtp_relay_greeting(*key, max_age=10))
+            self.assertEqual(probe.call_count, 2)
+
+    def test_callers_without_max_age_always_probe(self):
+        from dlux.utils import internal_smtp_relay_greeting, mail
+
+        key = ("relay-cache.test", 2527)
+        with mock.patch.object(mail, "_smtp_relay_greeting", return_value="220 ready") as probe:
+            internal_smtp_relay_greeting(*key)
+            internal_smtp_relay_greeting(*key)
+        self.assertEqual(probe.call_count, 2)
+
+    def test_the_form_asks_with_a_max_age(self):
+        from dlux.forms.system_settings import SystemSettingsForm
+        from dlux.utils.mail import DLUX_SMTP_RELAY_GREETING_MAX_AGE
+
+        with mock.patch("dlux.utils.internal_smtp_relay_greeting", return_value=None) as probe:
+            SystemSettingsForm()
+        probe.assert_called_with(max_age=DLUX_SMTP_RELAY_GREETING_MAX_AGE)
