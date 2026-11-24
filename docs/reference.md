@@ -274,7 +274,8 @@ shipped pages call are left out; `dlux/urls.py` has every route.
   differ from the old one. Initial User Setup waits until then.
 - `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint behind
   the Options Admin panel. It requires the current password and sets the same marker
-  on every non-superuser, keeping their other preferences.
+  on every non-superuser, keeping their other preferences. It writes 500 profiles per
+  `bulk_update`, so its query count does not grow per user.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` require `dlux.view_activitylog` or
   superuser status. Activity snippets on user-detail pages need the same permission.
 - Sidebar system routes and the dashboard and user-hub shortcuts use the same

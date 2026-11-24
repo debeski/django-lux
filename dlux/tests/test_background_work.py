@@ -153,3 +153,32 @@ class OCRHashOnTheWorkerTests(OCRTestCase):
         from dlux.jobs import ocr_saved_document
 
         ocr_saved_document.call("missing.model", 1, ["pdf_file"])
+
+
+class ForcePasswordChangeQueryCountTests(TestCase):
+    def test_query_count_does_not_grow_with_users(self):
+        from django.contrib.auth import get_user_model
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from dlux.admin_actions.force_password_change import force_password_change_for_all_non_superusers
+
+        User = get_user_model()
+
+        def run():
+            with CaptureQueriesContext(connection) as queries:
+                force_password_change_for_all_non_superusers()
+            return len(queries)
+
+        for index in range(5):
+            User.objects.create_user(username=f"few-{index}")
+        few = run()
+        for index in range(60):
+            User.objects.create_user(username=f"many-{index}")
+        many = run()
+        self.assertEqual(few, many)
+        self.assertEqual(
+            sum(1 for user in User.objects.filter(is_superuser=False)
+                if user.profile.preferences.get("force_password_change") is True),
+            65,
+        )
