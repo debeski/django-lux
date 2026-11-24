@@ -1338,6 +1338,8 @@ STRINGS = {
     'service_db_version_lookup_failed': 'تم الاتصال، لكن تعذر جلب نسخة قاعدة البيانات: {error}',
     'service_cache_probe_unexpected': 'استجابت خدمة التخزين المؤقت، لكن نتيجة فحص السلامة كانت غير متوقعة.',
     'service_api_http_status': 'استجابت الواجهة البرمجية برمز HTTP {status}.',
+    'service_api_pending': 'بانتظار فحص عامل المهام.',
+    'service_api_no_worker': 'لا يعمل أي عامل مهام لفحصها.',
     'service_task_recheck': 'فحص حالة عامل المهام',
     'service_task_check_failed': 'فشل الفحص',
     'service_task_worker_offline': 'لم يرسل أي عامل dlux_worker نبضة خلال آخر {seconds} ثانية؛ تنتظر المهام في الطابور حتى يعمل أحدها.',

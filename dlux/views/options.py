@@ -13,8 +13,6 @@ import platform
 import sys
 import json
 import logging
-import urllib.error
-import urllib.request
 import uuid
 from pathlib import Path
 
@@ -478,61 +476,20 @@ def _get_drf_service():
     }
 
 
-def _resolve_api_status_url():
-    if getattr(settings, 'DLUX_API_STATUS_URL', ''):
-        return settings.DLUX_API_STATUS_URL
-    if getattr(settings, 'DLUX_API_URL', ''):
-        return settings.DLUX_API_URL
-
-    dlux_config = getattr(settings, 'DLUX_CONFIG', {})
-    if isinstance(dlux_config, dict):
-        return dlux_config.get('api_status_url') or dlux_config.get('api_url') or ''
-
-    return ''
-
-
 def _get_api_service():
-    api_url = _resolve_api_status_url()
-    if not api_url:
+    """The external API row: the task worker's last probe, never a request from web."""
+    from ..utils.api_status import cached_api_status
+
+    status = cached_api_status()
+    if status is None:
         return None
-
-    request_obj = urllib.request.Request(api_url)
-    api_key = getattr(settings, 'X_API_KEY', '')
-    secret_key = getattr(settings, 'X_SECRET_KEY', '')
-
-    if api_key:
-        request_obj.add_header('X-API-KEY', api_key)
-    if secret_key:
-        request_obj.add_header('X-SECRET-KEY', secret_key)
-
-    try:
-        with urllib.request.urlopen(request_obj, timeout=3) as response:
-            if 200 <= response.status < 400:
-                return _service_status('online', note='', url=api_url)
-            return _service_status(
-                'degraded',
-                note=f'Endpoint responded with HTTP {response.status}.',
-                note_key='service_api_http_status',
-                note_context={'status': response.status},
-                url=api_url,
-            )
-    except urllib.error.HTTPError as exc:
-        state = 'degraded' if exc.code < 500 else 'offline'
-        return _service_status(
-            state,
-            note=f'Endpoint responded with HTTP {exc.code}.',
-            note_key='service_api_http_status',
-            note_context={'status': exc.code},
-            url=api_url,
-        )
-    except Exception as exc:
-        return _service_status(
-            'offline',
-            note=f'Error: {exc}',
-            note_key='service_error_detail',
-            note_context={'error': str(exc)},
-            url=api_url,
-        )
+    return _service_status(
+        status['state'],
+        note=status.get('note', ''),
+        note_key=status.get('note_key', ''),
+        note_context=status.get('note_context') or {},
+        url=status.get('url', ''),
+    )
 
 
 def _get_email_service():

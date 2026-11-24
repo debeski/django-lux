@@ -83,6 +83,13 @@ def weather_search(token, query, encrypted_api_key):
     run_search(token, query, encrypted_api_key)
 
 
+@task(name="dlux.tasks.api_status_probe")
+def api_status_probe():
+    from .utils.api_status import refresh_api_status
+
+    refresh_api_status()
+
+
 @task(name="dlux.tasks.dlux_update_check")
 def dlux_update_check():
     # Reliable, persistent trigger for the daily DjangoLux update check. The

@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Options API status probed by the worker**: `views/options.py` no longer calls `urlopen` (3 s, DNS unbounded) on every Options load when `DLUX_API_STATUS_URL` is set. New `dlux/utils/api_status.py` (`resolve_api_status_url`, `probe_api_status`, `cached_api_status`) and task `dlux.tasks.api_status_probe` probe from the worker into the cache key `dlux:api-status` (kept 600 s); Options reads it and queues a refresh once it is 60 s old (throttled). Before the first answer the row is `unknown` with `service_api_pending` / `service_api_no_worker` (new `en`/`ar` keys).
 - **README refresh**: `README.md`, the PyPI long description, links into the repository by absolute `blob/main` URL, since relative links break on PyPI. Highlights replace the two feature lists, quick starts cover new and existing projects, an extras table lists `pdf`, `ocr`, `sso` and `updater`, and the private dHub showcase is gone. `test_docs_hygiene` checks those URLs and rejects relative README links.
 
 ## v1.16.3

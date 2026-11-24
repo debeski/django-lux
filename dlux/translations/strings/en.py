@@ -1343,6 +1343,8 @@ STRINGS = {
     'service_db_version_lookup_failed': 'Connected, but version lookup failed: {error}',
     'service_cache_probe_unexpected': 'Cache responded, but the health probe returned an unexpected value.',
     'service_api_http_status': 'Endpoint responded with HTTP {status}.',
+    'service_api_pending': "Waiting for the task worker's check.",
+    'service_api_no_worker': 'No task worker is running to check it.',
     'service_task_recheck': 'Check worker health',
     'service_task_check_failed': 'Check failed',
     'service_task_worker_offline': 'No dlux_worker has sent a heartbeat in the last {seconds} seconds; queued tasks wait until one runs.',
