@@ -42,6 +42,7 @@ export async function startServer({
   searchMode = 'icon',
   projectSettings = false,
   weather = false,
+  ocrModels = false,
 } = {}) {
   const args = [path.join(HERE, 'seed.py')];
   if (!configured) args.push('--unconfigured');
@@ -60,6 +61,7 @@ export async function startServer({
       // urls.py registers a sample project settings tile when this is set.
       DLUX_E2E_PROJECT_SETTINGS: projectSettings ? '1' : '',
       DLUX_E2E_WEATHER: weather ? '1' : '',
+      DLUX_E2E_OCR_MODELS: ocrModels ? '1' : '',
     },
     stdio: 'ignore',
   });

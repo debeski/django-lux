@@ -57,12 +57,75 @@
         });
     }
 
+    // Card options share one column width: the widest option's natural width,
+    // which the CSS caps at --dlux-choice-option-width. The grid then fits as many
+    // of those columns as the row holds and stretches them to fill it. Every
+    // option counts, filtered out or not, so typing in the search box never
+    // reshuffles the columns.
+    function fitCardColumns(selector) {
+        const options = selector && selector.querySelector('[data-dlux-selector-options]');
+        if (!options || !options.getClientRects().length) {
+            return;
+        }
+        selector.classList.add('is-measuring');
+        let widest = 0;
+        options.querySelectorAll('[data-dlux-selector-option]').forEach((option) => {
+            widest = Math.max(widest, option.getBoundingClientRect().width);
+        });
+        selector.classList.remove('is-measuring');
+        if (!widest) {
+            return;
+        }
+        const width = `${Math.ceil(widest)}px`;
+        if (selector.style.getPropertyValue('--dlux-choice-option-fit') !== width) {
+            selector.style.setProperty('--dlux-choice-option-fit', width);
+        }
+    }
+
+    function fitAllCardColumns() {
+        document.querySelectorAll('[data-dlux-selector-variant="card"]').forEach(fitCardColumns);
+    }
+
+    // A selector inside a hidden wizard step or a closed modal measures as zero,
+    // so each one is re-measured when its size changes, which includes being
+    // shown. The work waits for the next frame so the width it sets is not a
+    // resize inside the observer's own callback.
+    const watchedCardSelectors = new WeakSet();
+    const cardResizeObserver = typeof ResizeObserver === 'function'
+        ? new ResizeObserver((entries) => {
+            window.requestAnimationFrame(() => {
+                entries.forEach((entry) => fitCardColumns(entry.target.closest('[data-dlux-selector]')));
+            });
+        })
+        : null;
+
+    function watchCardSelector(selector) {
+        if (watchedCardSelectors.has(selector)) {
+            return;
+        }
+        watchedCardSelectors.add(selector);
+        const options = selector.querySelector('[data-dlux-selector-options]');
+        if (cardResizeObserver && options) {
+            cardResizeObserver.observe(options);
+        }
+        fitCardColumns(selector);
+    }
+
+    if (document.fonts) {
+        document.fonts.addEventListener('loadingdone', fitAllCardColumns);
+        document.fonts.ready.then(fitAllCardColumns);
+    }
+
     function scan(root) {
         if (!root || !(root instanceof Element || root instanceof Document)) {
             return;
         }
         root.querySelectorAll('[data-dlux-selector]').forEach(decorateSelectorField);
         root.querySelectorAll('[data-dlux-selector-variant="toggle"]').forEach(syncToggleSelector);
+        root.querySelectorAll('[data-dlux-selector-variant="card"]').forEach(watchCardSelector);
+        if (root instanceof Element && root.matches('[data-dlux-selector-variant="card"]')) {
+            watchCardSelector(root);
+        }
         if (root instanceof Element && root.matches('[data-dlux-selector]')) {
             decorateSelectorField(root);
         }
