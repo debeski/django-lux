@@ -3926,10 +3926,11 @@ class SystemSettingsForm(
         its upstream per message, so it answers before it is ever configured.
         """
         from ..utils import internal_smtp_relay_greeting
+        from ..utils.mail import DLUX_SMTP_RELAY_GREETING_MAX_AGE
 
         field = self.fields['email_config_transport']
         # Kept for the step's certificate rows: the greeting says whether the relay checks.
-        self._relay_greeting = internal_smtp_relay_greeting()
+        self._relay_greeting = internal_smtp_relay_greeting(max_age=DLUX_SMTP_RELAY_GREETING_MAX_AGE)
         if self._relay_greeting is not None:
             return
 

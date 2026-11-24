@@ -81,6 +81,13 @@ DLUX_SMTP_RELAY_PROBE_TIMEOUT = 1.5
 _relay_probes = {}
 _relay_probes_lock = threading.Lock()
 
+# How long a settings form reuses the last finished probe's answer. Every
+# SystemSettingsForm construction asks, and a page can build several.
+DLUX_SMTP_RELAY_GREETING_MAX_AGE = 10
+
+# The last finished probe's answer, by (host, port): (monotonic time, greeting or None).
+_relay_answers = {}
+
 
 def _smtp_relay_greeting(host, port, timeout):
     """One unbounded check: resolve ``host``, connect and read the greeting.
@@ -136,6 +143,8 @@ class _RelayProbe:
             with _relay_probes_lock:
                 if _relay_probes.get(self.key) is self:
                     del _relay_probes[self.key]
+                _relay_answers[self.key] = (
+                    time.monotonic(), self.greeting if self.error is None else None)
             self.finished.set()
 
     def wait(self, timeout):
@@ -153,7 +162,7 @@ def internal_smtp_relay_available(host=None, port=None, timeout=None):
     return internal_smtp_relay_greeting(host=host, port=port, timeout=timeout) is not None
 
 
-def internal_smtp_relay_greeting(host=None, port=None, timeout=None):
+def internal_smtp_relay_greeting(host=None, port=None, timeout=None, max_age=0):
     """The internal SMTP relay's greeting, or None when it is not listening.
 
     The greeting says what the relay does: ``smtp_session.relay_checks_certificates``
@@ -176,8 +185,12 @@ def internal_smtp_relay_greeting(host=None, port=None, timeout=None):
     share a check that is still running, and once its deadline has passed they
     answer None at once. So a stalled resolver costs one timeout per lookup it
     holds rather than one per settings page, and leaves at most one thread per
-    target behind. Nothing is cached: the first call after a check finishes
-    starts a new one.
+    target behind.
+
+    ``max_age`` (seconds, default 0) accepts the answer of a check that finished
+    that recently instead of starting a new one; the settings form passes
+    ``DLUX_SMTP_RELAY_GREETING_MAX_AGE``. With the default, the first call after
+    a check finishes starts a new one.
     """
     from django.conf import settings as django_settings
 
@@ -186,6 +199,9 @@ def internal_smtp_relay_greeting(host=None, port=None, timeout=None):
     timeout = timeout or DLUX_SMTP_RELAY_PROBE_TIMEOUT
     key = (host, port)
     with _relay_probes_lock:
+        answered = _relay_answers.get(key)
+        if max_age and answered is not None and time.monotonic() - answered[0] < max_age:
+            return answered[1]
         probe = _relay_probes.get(key)
         if probe is None or probe.finished.is_set():
             probe = _relay_probes[key] = _RelayProbe(host, port, timeout)

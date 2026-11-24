@@ -277,6 +277,23 @@
             sync();
         }
 
+        const SEARCH_POLL_MS = 500;
+        const SEARCH_POLL_LIMIT = 40;
+
+        // The worker answers a search later; web hands back a token to ask with.
+        async function searchAnswer(response) {
+            let data = await response.json();
+            const resultUrl = data.result_url;
+            for (let attempt = 0; response.status === 202 && resultUrl && attempt < SEARCH_POLL_LIMIT; attempt += 1) {
+                await new Promise((resolve) => { window.setTimeout(resolve, SEARCH_POLL_MS); });
+                response = await fetch(resultUrl, { headers: { Accept: 'application/json' } });
+                try { data = await response.json(); } catch (_) { data = {}; }
+                if (!response.ok) throw new Error(data.error || 'search');
+            }
+            if (response.status === 202) throw new Error('worker');
+            return data;
+        }
+
         async function search() {
             if (!enabled()) return;
             const query = refs.query.value.trim();
@@ -296,7 +313,7 @@
                         try { code = (await response.json()).error || ''; } catch (_) { /* not JSON */ }
                         throw new Error(code || 'search');
                     }
-                    const data = await response.json();
+                    const data = await searchAnswer(response);
                     if (!enabled()) return;
                     state.results = Array.isArray(data.locations) ? data.locations : [];
                     if (state.selected && state.selected.pane === 'results') state.selected = null;

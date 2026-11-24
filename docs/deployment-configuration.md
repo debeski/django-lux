@@ -170,6 +170,15 @@ Resolution order is `DLUX_API_STATUS_URL`, `DLUX_API_URL`,
 configured; they are ordinary project settings, not part of the `DLUX_*`
 namespace.
 
+The task worker runs the probe (`dlux.tasks.api_status_probe`, 3-second timeout)
+and keeps the answer in the shared cache for ten minutes; web never opens the
+connection. Options shows the last answer and queues a new probe when it is a
+minute old, so the row lags the endpoint by up to a minute. Before the first
+answer the row is `unknown` ("Waiting for the task worker's check", or "No task
+worker is running" without a worker; a `DEBUG` development server without a
+worker probes from web instead). The URL must be reachable from the `worker`
+service, which in a generated stack has no route to public hosts.
+
 ## Application Version and Inline Updater
 
 | Setting | Source | Type / default | Purpose |

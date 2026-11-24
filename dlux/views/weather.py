@@ -4,11 +4,13 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from ..weather import (
-    WeatherPending, WeatherUnavailable, api_key, current_weather, find_locations, get_weather_config,
+    SearchNotFound, WeatherPending, WeatherUnavailable, api_key, current_weather, get_weather_config,
+    location_search_result, start_location_search,
 )
 
 
@@ -54,6 +56,31 @@ def weather_locations(request):
     if not cache.add(f'dlux:weather:search:{request.user.pk}', True, 1):
         return JsonResponse({'error': 'retry'}, status=429)
     try:
-        return JsonResponse({'locations': find_locations(query, key)})
+        started = start_location_search(query, key, request.user.pk)
     except WeatherUnavailable as exc:
         return JsonResponse({'error': str(exc)}, status=502)
+    if 'locations' in started:
+        return JsonResponse({'locations': started['locations']})
+    return JsonResponse({
+        'status': 'pending',
+        'token': started['token'],
+        'result_url': reverse('weather_location_result', args=[started['token']]),
+    }, status=202)
+
+
+@login_required
+@require_GET
+@never_cache
+def weather_location_result(request, token):
+    """The answer to a search this administrator started: 202 while the worker runs it."""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+    try:
+        locations = location_search_result(token, request.user.pk)
+    except SearchNotFound:
+        return JsonResponse({'error': 'not_found'}, status=404)
+    except WeatherUnavailable as exc:
+        return JsonResponse({'error': str(exc)}, status=502)
+    if locations is None:
+        return JsonResponse({'status': 'pending'}, status=202)
+    return JsonResponse({'locations': locations})

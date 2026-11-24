@@ -212,7 +212,8 @@ GET (`sys/backup/status/`) accepts the same parameter and returns selection-awar
 Deleting a member deletes every later member of its chain, and the confirmation says
 so. An increment's **Download** returns the chain up to it as one ZIP
 (`GET sys/backup/<token>/download-chain/`), because a lone increment cannot be
-restored. The DLB viewer opens a chain ZIP, or an increment beside its earlier
+restored. The ZIP is stored (members are not recompressed) and streamed while it
+is written, so the download starts at once and has no length up front. The DLB viewer opens a chain ZIP, or an increment beside its earlier
 members, as the merged state.
 
 ## Interrupted backups

@@ -101,6 +101,83 @@
     updateCustomPeriod();
     updateCounts();
 
+    /* Export entries: the workbook covers every row in the window, so the task
+       worker builds it. Start the job, poll it, then download its file. Without a
+       worker the server answers with the synchronous export URL instead. */
+    const JOB_POLL_MS = 1500;
+
+    function csrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.content : '';
+    }
+
+    function jobFailed(button, label, message) {
+        button.disabled = false;
+        button.innerHTML = label;
+        if (window.showToast) window.showToast(message || button.dataset.dluxJobFailedLabel || '');
+    }
+
+    function pollJob(button, label, statusUrl) {
+        fetch(statusUrl, { cache: 'no-store', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('status failed');
+                return resp.json();
+            })
+            .then(function (data) {
+                if (data.download_url && data.status === 'completed') {
+                    button.disabled = false;
+                    button.innerHTML = label;
+                    window.location.assign(data.download_url);
+                } else if (data.status === 'failed') {
+                    jobFailed(button, label, data.error);
+                } else {
+                    const percent = parseInt(data.progress_percent || '0', 10) || 0;
+                    button.querySelector('[data-dlux-job-progress]').textContent =
+                        (data.progress_message || button.dataset.dluxJobBusyLabel || '') + (percent ? ' ' + percent + '%' : '');
+                    setTimeout(function () { pollJob(button, label, statusUrl); }, JOB_POLL_MS);
+                }
+            })
+            .catch(function () { jobFailed(button, label); });
+    }
+
+    document.querySelectorAll('[data-dlux-job-start-url]').forEach(function (button) {
+        button.addEventListener('click', function (event) {
+            const jobForm = button.form || form;
+            if (!jobForm) return;
+            event.preventDefault();
+            if (button.disabled || !jobForm.reportValidity()) return;
+            const label = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span><span data-dlux-job-progress></span>';
+            button.querySelector('[data-dlux-job-progress]').textContent = button.dataset.dluxJobBusyLabel || '';
+            fetch(button.dataset.dluxJobStartUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(new FormData(jobForm)).toString(),
+            })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('start failed');
+                    return resp.json();
+                })
+                .then(function (data) {
+                    if (data.async && data.status_url) {
+                        pollJob(button, label, data.status_url);
+                    } else if (data.download_url) {
+                        button.disabled = false;
+                        button.innerHTML = label;
+                        window.location.assign(data.download_url);
+                    } else {
+                        jobFailed(button, label);
+                    }
+                })
+                .catch(function () { jobFailed(button, label); });
+        });
+    });
+
     const btn = document.getElementById('reports-backup-btn');
     if (!btn) return;
 

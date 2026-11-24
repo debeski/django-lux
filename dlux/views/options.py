@@ -13,8 +13,6 @@ import platform
 import sys
 import json
 import logging
-import urllib.error
-import urllib.request
 import uuid
 from pathlib import Path
 
@@ -478,61 +476,20 @@ def _get_drf_service():
     }
 
 
-def _resolve_api_status_url():
-    if getattr(settings, 'DLUX_API_STATUS_URL', ''):
-        return settings.DLUX_API_STATUS_URL
-    if getattr(settings, 'DLUX_API_URL', ''):
-        return settings.DLUX_API_URL
-
-    dlux_config = getattr(settings, 'DLUX_CONFIG', {})
-    if isinstance(dlux_config, dict):
-        return dlux_config.get('api_status_url') or dlux_config.get('api_url') or ''
-
-    return ''
-
-
 def _get_api_service():
-    api_url = _resolve_api_status_url()
-    if not api_url:
+    """The external API row: the task worker's last probe, never a request from web."""
+    from ..utils.api_status import cached_api_status
+
+    status = cached_api_status()
+    if status is None:
         return None
-
-    request_obj = urllib.request.Request(api_url)
-    api_key = getattr(settings, 'X_API_KEY', '')
-    secret_key = getattr(settings, 'X_SECRET_KEY', '')
-
-    if api_key:
-        request_obj.add_header('X-API-KEY', api_key)
-    if secret_key:
-        request_obj.add_header('X-SECRET-KEY', secret_key)
-
-    try:
-        with urllib.request.urlopen(request_obj, timeout=3) as response:
-            if 200 <= response.status < 400:
-                return _service_status('online', note='', url=api_url)
-            return _service_status(
-                'degraded',
-                note=f'Endpoint responded with HTTP {response.status}.',
-                note_key='service_api_http_status',
-                note_context={'status': response.status},
-                url=api_url,
-            )
-    except urllib.error.HTTPError as exc:
-        state = 'degraded' if exc.code < 500 else 'offline'
-        return _service_status(
-            state,
-            note=f'Endpoint responded with HTTP {exc.code}.',
-            note_key='service_api_http_status',
-            note_context={'status': exc.code},
-            url=api_url,
-        )
-    except Exception as exc:
-        return _service_status(
-            'offline',
-            note=f'Error: {exc}',
-            note_key='service_error_detail',
-            note_context={'error': str(exc)},
-            url=api_url,
-        )
+    return _service_status(
+        status['state'],
+        note=status.get('note', ''),
+        note_key=status.get('note_key', ''),
+        note_context=status.get('note_context') or {},
+        url=status.get('url', ''),
+    )
 
 
 def _get_email_service():
@@ -1055,7 +1012,7 @@ def data_reset_execute_view(request):
     if failure := require_current_password(request, redirect_name='options_view'):
         return failure
 
-    from ..admin_actions.data_reset import RESET_MODE_PERMANENT, execute_reset, normalize_mode
+    from ..admin_actions.data_reset import RESET_MODE_PERMANENT, normalize_mode
     selected = request.POST.getlist('models')
     if not selected:
         return JsonResponse({'status': 'error', 'message': strings.get('data_reset_no_models', 'Select at least one model to reset.')}, status=400)
@@ -1067,52 +1024,21 @@ def data_reset_execute_view(request):
             'Type the confirmation word to permanently delete this data.',
         )}, status=400)
 
-    results = execute_reset(request.user, selected, delete_media=delete_media, mode=mode)
-    total_deleted = sum(int(r.get('deleted') or 0) for r in results)
-    soft = sum(int(r.get('soft_count') or 0) for r in results)
-    hard = total_deleted - soft
-    blocked = [r for r in results if r.get('status') in ('protected', 'error')]
+    from ..background_jobs import KIND_DATA_RESET, request_context, start_job, start_payload
 
-    message_template = strings.get(
-        'data_reset_success',
-        'Data reset complete: {total} row(s) cleared ({soft} soft-deleted, {hard} permanently).',
-    )
-    # Users with history are soft-deleted even in permanent mode, so only claim
-    # "permanently" when nothing was kept recoverable.
-    if mode == RESET_MODE_PERMANENT and not soft:
-        message_template = strings.get(
-            'data_reset_success_permanent',
-            'Data reset complete: {total} row(s) permanently deleted.',
-        )
-    try:
-        message = message_template.format(total=total_deleted, soft=soft, hard=hard)
-    except Exception:
-        message = message_template
+    # Its cost grows with rows times signal handlers, so the worker runs it when one is alive.
+    job = start_job(KIND_DATA_RESET, request.user, {
+        'models': selected, 'delete_media': delete_media, 'mode': mode, **request_context(request),
+    })
+    if job is not None:
+        return JsonResponse({'status': 'queued', 'job': start_payload(job)}, status=202)
 
-    try:
-        from dlux.utils import log_audit_event
-        log_audit_event(
-            request,
-            'data_reset',
-            'DELETE',
-            instance=request.user,
-            model_name='user',
-            details={'models': selected, 'mode': mode, 'delete_media': delete_media,
-                     'total_deleted': total_deleted, 'results': results},
-        )
-    except Exception:
-        logger.debug("Failed to write data-reset audit event.", exc_info=True)
+    from ..admin_actions.data_reset import run_data_reset
 
-    notify.warning(
-        message,
-        request=request,
-        action='data_reset',
-        category='security',
-        metadata={'total_deleted': total_deleted, 'soft': soft, 'hard': hard, 'mode': mode},
-    )
-
-    return JsonResponse({'status': 'success', 'message': message, 'results': results,
-                         'mode': mode, 'total_deleted': total_deleted, 'blocked': bool(blocked)})
+    return JsonResponse(run_data_reset(
+        request.user, selected, delete_media=delete_media, mode=mode,
+        request=request, language=get_current_language_code(request),
+    ))
 
 
 def _debug_bool_param(request, name, default=None):

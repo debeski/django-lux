@@ -20,6 +20,8 @@ _SYSTEM_BACKUP_EXCLUDED = {
     # replace the table it is recorded in, and queued work is not data.
     "dlux.dluxtaskrun",
     "dlux.dluxtaskworker",
+    # Background jobs: per-request progress and short-lived export files.
+    "dlux.dluxjob",
 }
 
 
