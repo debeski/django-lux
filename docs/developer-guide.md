@@ -343,7 +343,10 @@ Django widget or generic Bootstrap structure:
   `inline: True` in the include context for an in-flow disclosure that pushes the
   following fields down instead.
 - Dlux inspector shell through `dlux/helpers/inspector/css/main.css` and
-  `dlux/helpers/inspector/js/main.js` for builder-style editors.
+  `dlux/helpers/inspector/js/main.js` for builder-style editors. These files and the
+  icon picker belong to the on-demand `settings` bundle, which loads with a settings
+  form; elsewhere mark the container `data-dlux-assets="settings"`
+  ([On-demand assets](ui-integration.md#on-demand-assets)).
   `window.DluxInspectorShell.create(container, { adapter })` owns the bordered
   inspector surface, action row, pinned Clear selection action, and responsive field
   grid; the adapter owns the selected object, supported actions, field specs,

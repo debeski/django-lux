@@ -789,6 +789,9 @@ Use the Dlux inspector shell for builder-style editors that need a selected
 object, a contextual action row, and a compact field grid. Include
 `dlux/helpers/inspector/css/main.css` and `dlux/helpers/inspector/js/main.js`,
 then create it with `window.DluxInspectorShell.create(container, { adapter })`.
+Both files are part of the on-demand `settings` bundle rather than every page, so
+outside a settings form load them yourself or mark the container
+`data-dlux-assets="settings"` ([On-demand assets](#on-demand-assets)).
 The Nav Bar, Sidebar and Ribbon builders run on it, as do the table-column
 builder and the weather settings.
 
@@ -1147,10 +1150,13 @@ active logging policy. It returns `None` when policy disables the event. Use
 
 ## Tutorials and client behavior
 
-DjangoLux uses Driver.js for path-aware tours. Add project steps through
+DjangoLux uses Driver.js for path-aware tours. The tour and Driver.js load on the
+first click of a tour button (`#start-tour` or `[data-dlux-start-tour]`), which
+then calls `window.DluxTutorial.start()`. Add project steps through
 `window.get_custom_tutorial_steps(path)` from
-`templates/dlux/includes/custom_scripts.html`. Return steps only for rendered,
-permitted controls; an invisible selector is not a valid tutorial target.
+`templates/dlux/includes/custom_scripts.html`; the tour reads it when it starts.
+Return steps only for rendered, permitted controls; an invisible selector is not
+a valid tutorial target.
 
 For loading buttons, file inputs, icon pickers, toggles, choice selectors, and
 dynamic modal lifecycle events, use the shipped Dlux components rather than raw
@@ -1180,6 +1186,40 @@ helpers for Dlux route templates rather than posting directly to `/sys/api/...`.
 Feature scripts use `dluxParseJson` instead of defining their own copy. Page data
 for scripts goes through Django's `json_script` filter, never a hand-assembled
 `<script type="application/json">`.
+
+### On-demand assets
+
+`dlux/base.html` loads only what every page uses. Assets that a few surfaces need
+are grouped into bundles in `dlux/lazy_assets.py` (`ASSET_BUNDLES`) and loaded by
+`dlux/base/js/lazy.js` the first time they are needed:
+
+| Bundle | Contents | Loads when |
+| --- | --- | --- |
+| `settings` | The System Settings editors: `setup/js/*`, the ribbon, sidebar, navbar and table-column builders, the inspector shell, the icon picker, the weather and OCR settings panels, and their stylesheets | Markup matching the bundle's selector (a `form.dlux-system-setup-form`, a builder, `[data-dlux-icon-picker]`, `[data-weather-settings]`, `[data-ocr-settings]`, `[data-dlux-assets~="settings"]` ...) is on the page at `DOMContentLoaded` or arrives through the dynamic modal. Options also fetches it once the page is idle (`data-dlux-assets-warm="settings"`). |
+| `tutorial` | Driver.js and the tour | A tour button is clicked |
+| `pdf` | PDF.js | The PDF viewer or page editor opens a file (`window.DluxPdfJs.load()`) |
+
+Each file loads once; a file the page already includes is not fetched again.
+The `settings` stylesheets are inserted ahead of the theme stylesheet
+(`css_before_theme`) and the tour's at the end of `<body>`, so each cascades
+where it would if loaded up front. Stylesheets load before the bundle's scripts,
+which run in the listed order. Injected tags carry the page's CSP nonce, so bundles also load
+under a nonce-only `script-src`.
+
+| Global | Purpose |
+| --- | --- |
+| `window.DluxAssets.load(name)` | Load a bundle; resolves once its scripts have run. |
+| `window.DluxAssets.ensure(root)` | Load every bundle that markup inside `root` needs. |
+| `window.DluxAssets.missing(root)` | Names of the bundles `root` needs that have not finished loading. |
+| `window.DluxDom.onAdded(selector, callback)` | Call `callback(element)` for each element matching `selector` added to the document later, from one shared observer. |
+
+A project page that uses settings components outside a settings form marks its
+container with `data-dlux-assets="settings"` (or calls
+`DluxAssets.load('settings')` before using `DluxSetupDom`,
+`DluxInspectorShell` or `initIconPickers()`). A script that has to notice markup
+added anywhere uses `DluxDom.onAdded()` rather than its own observer on the whole
+document; markup that only arrives through the dynamic modal binds to
+`dlux:modal-content-loaded` instead.
 
 ### Alert auto-close
 

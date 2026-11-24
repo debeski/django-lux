@@ -9,11 +9,17 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/system/css/options.css' %}">
 {% endblock %}
 
+{# The theme and font previews use the settings stylesheet. #}
+{% block settings_styles %}
+    <link rel="stylesheet" href="{% dlux_static 'dlux/setup/css/main.css' %}">
+{% endblock %}
+
 {% block content %}
     <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ DLUX_STRINGS.options_title }}</h2>
 
     <div class="dlux-options-grid"
          id="dluxOptionsGrid"
+         data-dlux-assets-warm="settings"
          data-options-style="{{ APP_CONFIG.appearance.options_style|default:'cards' }}"
          data-options-order-storage-key="dlux.options.card-order.v1">
         {% if show_system_diagnostics or user.is_superuser %}
@@ -805,7 +811,6 @@
 {% block scripts %}
     {{ block.super }}
     <script src="{% dlux_static 'dlux/system/js/options.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/updater.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/ops.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     {% if user.is_superuser %}<script src="{% dlux_static 'dlux/system/js/data_reset.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}

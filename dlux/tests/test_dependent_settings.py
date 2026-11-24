@@ -31,7 +31,9 @@ def _setup_js_source():
     return '\n'.join(
         path.read_text(encoding='utf-8') for path in sorted(_SETUP_JS_DIR.glob('*.js'))
     )
-_SETUP_CSS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
+# Loaded on every page (not with the on-demand settings stylesheet), because
+# server-locked toggles in project forms use the same state.
+_TOGGLE_CSS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'toggle' / 'css' / 'main.css'
 
 _BASE_DATA = {
     'system_names': '{"en": "System", "ar": "System"}',
@@ -90,7 +92,7 @@ class DependentSectionAssetTests(SimpleTestCase):
         self.assertEqual(js.count('const DEPENDENT_FIELDS = {'), 1)
 
     def test_disabled_section_reads_as_inert(self):
-        css = _SETUP_CSS.read_text(encoding='utf-8')
+        css = _TOGGLE_CSS.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-dependent-settings.is-disabled', css)
         self.assertIn('opacity: 0.58;', css)

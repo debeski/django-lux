@@ -24,6 +24,20 @@ Include assets once in the project base-page extension:
 {% include_once 'dlux/pdf/assets.html' %}
 ```
 
+The include carries the viewer, the page editor and their stylesheet. PDF.js
+itself (about 320 KB) loads only when a viewer or editor opens a file, through
+the `pdf` bundle ([On-demand assets](ui-integration.md#on-demand-assets)).
+Project code that calls PDF.js itself waits for it first:
+
+```js
+const pdfjsLib = await window.DluxPdfJs.load();
+const pdf = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+```
+
+Before PDF.js has loaded, `window.pdfjsLib` is a stand-in whose
+`getDocument(...).promise` loads it first; see
+[Deprecation Countdown](deprecation-countdown.md#pdfjslib-before-pdfjs-loads).
+
 Turn on the administrator controls from the consuming app's `dlux_options.py`;
 they appear in **System Settings → Extra Features** under **PDF tools**, beside
 the Entry clipboard:

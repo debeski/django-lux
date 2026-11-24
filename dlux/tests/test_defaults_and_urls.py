@@ -3386,25 +3386,23 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertIn("dlux/base/css/main.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/base/css/main.css")
-        self.assertIn("dlux/setup/css/main.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/setup/css/main.css")
-        self.assertIn("dlux_static 'dlux/setup/css/main.css'", contents)
+        # The settings stylesheet and scripts are an on-demand bundle, versioned
+        # through {% dlux_asset_bundles %} (see test_lazy_assets).
+        self.assertNotIn("dlux/setup/css/main.css", contents)
+        self.assertIn("{% dlux_asset_bundles as DLUX_ASSET_BUNDLES %}", contents)
         self.assertIn("dlux/titlebar/css/surfaces.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/titlebar/css/surfaces.css")
         self.assertLess(
             contents.index("{% dlux_static theme.css_path %}"),
             contents.index("dlux/titlebar/css/surfaces.css"),
         )
-        self.assertIn("dlux/setup/js/main.js", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/setup/js/main.js")
-        self.assertIn("dlux_static 'dlux/setup/js/main.js'", contents)
+        self.assertNotIn("dlux/setup/js/main.js", contents)
         self.assertIn("dlux_static 'dlux/forms/js/prevent_double_submit.js'", contents)
         _assert_versioned_static_asset(self, contents, "dlux/forms/js/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
-        self.assertLess(
-            contents.index("dlux/setup/js/main.js"),
-            contents.index("dlux/helpers/wizard/js/main.js"),
-        )
+        # The wizard binds a settings form only once setup/js/main.js has run.
+        wizard = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'wizard' / 'js' / 'main.js').read_text()
+        self.assertIn("assets.missing(container).length", wizard)
         # Every versioned asset now goes through {% dlux_static %} (?v=<version>).
         self.assertGreaterEqual(contents.count("{% dlux_static"), 20)
         self.assertIn("dlux/navbar/js/main.js", contents)

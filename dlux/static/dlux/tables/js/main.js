@@ -442,14 +442,17 @@
         initResizableTables(document);
     }
 
-    const observer = new MutationObserver((entries) => {
-        entries.forEach((entry) => {
-            entry.addedNodes.forEach((node) => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    initResizableTables(node);
-                }
+    if (window.DluxDom) {
+        window.DluxDom.onAdded('.dlux-table-shell[data-dlux-table-resizable="true"]', initResizableTable);
+    } else {
+        new MutationObserver((entries) => {
+            entries.forEach((entry) => {
+                entry.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        initResizableTables(node);
+                    }
+                });
             });
-        });
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
 })();
