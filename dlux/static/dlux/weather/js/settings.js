@@ -336,6 +336,10 @@
         render();
     }
 
-    new MutationObserver(init).observe(document.documentElement, { childList: true, subtree: true });
+    if (window.DluxDom) {
+        window.DluxDom.onAdded('[data-weather-settings]', setup);
+    } else {
+        new MutationObserver(init).observe(document.documentElement, { childList: true, subtree: true });
+    }
     init();
 }());

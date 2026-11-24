@@ -196,6 +196,18 @@ Judge the **shape** of a red run, not just its exit code:
 | any palette theme (light/blue/gold/green/red) at all | real — they have no glow to be noisy |
 
 `shots/diff/` is always written. Look at it.
+## Page weight
+
+```bash
+node page_weight.mjs 7      # 7 cold loads per page, medians
+```
+
+Prints what the sign-in page, two list pages and Options download (HTML, JS,
+CSS, script count) and Chromium's script and task time for a fresh tab up to
+network idle, plus DOMContentLoaded and load measured from the end of the HTML
+response. Run it before and after a change to the page shell; it boots its own
+server like the functional tests.
+
 ## Files
 
 | | |
@@ -207,6 +219,7 @@ Judge the **shape** of a red run, not just its exit code:
 | `calibrate.sh` | measures this machine's rendering noise -> `noise.json` |
 | `settings.py` | Django settings (file-backed sqlite; the suite's is in-memory) |
 | `seed.py` | rebuilds the database; `--unconfigured` for the setup phase |
+| `page_weight.mjs` | bytes and script time per page (see Page weight) |
 | `state/` | sqlite + server log (disposable) |
 | `shots/` | `baseline/`, `current/`, `diff/` |
 

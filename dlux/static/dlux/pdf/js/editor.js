@@ -69,16 +69,21 @@
             currentLoadFailed: shell.dataset.labelCurrentLoadFailed || "Current PDF could not be loaded. You can still add a new PDF from file or scanner.",
             noCurrent: shell.dataset.labelNoCurrent || "No current PDF. Add pages from file or scanner.",
         };
-        if (!window.pdfjsLib) {
-            const retries = Number(shell.dataset.pdfEditorPdfjsRetries || "0");
-            if (retries < 20) {
-                shell.dataset.pdfEditorPdfjsRetries = String(retries + 1);
-                setTimeout(function () {
-                    if (shell.isConnected) initializeEditor(shell);
-                }, 100);
+        if (!window.pdfjsLib || window.pdfjsLib.__dluxDeferred) {
+            const pdfjs = window.DluxPdfJs;
+            if (!pdfjs) {
+                editorStatus(shell, labels.pdfJsFailed, "danger");
                 return;
             }
-            editorStatus(shell, labels.pdfJsFailed, "danger");
+            if (shell.dataset.pdfEditorPdfjs === "loading") return;
+            shell.dataset.pdfEditorPdfjs = "loading";
+            pdfjs.load().then(function () {
+                delete shell.dataset.pdfEditorPdfjs;
+                if (shell.isConnected) initializeEditor(shell);
+            }, function () {
+                delete shell.dataset.pdfEditorPdfjs;
+                editorStatus(shell, labels.pdfJsFailed, "danger");
+            });
             return;
         }
         const modalElement = shell.closest(".modal");

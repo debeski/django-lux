@@ -10,6 +10,13 @@ These are extension points, not replacements for `dlux/base.html` assets. Avoid
 duplicating the framework form asset partials: `dlux/base.html` loads them once
 for dynamic-modal forms.
 
+Every framework script is `defer`, Bootstrap first among them, so they run in
+document order once the page is parsed. Project scripts that use `bootstrap`,
+`Datepicker` or a `Dlux*` global load with `defer` too, or run their code from
+`DOMContentLoaded`; an inline or non-deferred script runs before them.
+Settings editors, the guided tour and PDF.js load on demand
+([On-demand assets](ui-integration.md#on-demand-assets)).
+
 ## Page bases
 
 Use `dlux/form_base.html` for a full-page form and `dlux/list_base.html` for a

@@ -1,4 +1,8 @@
-document.addEventListener('DOMContentLoaded', function () {
+/* The guided tour. DluxAssets loads this file with driver.js on the first click
+ * of a tour button (#start-tour, [data-dlux-start-tour]) and then calls
+ * DluxTutorial.start(). Projects add page steps through
+ * window.get_custom_tutorial_steps(path). */
+(function () {
     const driverFactory = window.driver && window.driver.js && window.driver.js.driver;
     if (typeof driverFactory !== 'function') {
         return;
@@ -378,120 +382,117 @@ document.addEventListener('DOMContentLoaded', function () {
         document.head.appendChild(style);
     }
 
-    const startTourButtons = Array.from(document.querySelectorAll('#start-tour, [data-dlux-start-tour]'));
-    startTourButtons.forEach((startTourBtn) => {
-        startTourBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-
-            // Grouped titlebar actions live in a rail that is closed by default, so
-            // their steps would resolve to nothing. Open it for the tour and put it
-            // back the way it was on the way out.
-            const actionRail = window.__dluxTitlebarRail;
-            const reopenRail = !!(actionRail && actionRail.isGrouped() && !actionRail.isOpen());
-            if (reopenRail) {
-                actionRail.open();
+    function start() {
+        // Grouped titlebar actions live in a rail that is closed by default, so
+        // their steps would resolve to nothing. Open it for the tour and put it
+        // back the way it was on the way out.
+        const actionRail = window.__dluxTitlebarRail;
+        const reopenRail = !!(actionRail && actionRail.isGrouped() && !actionRail.isOpen());
+        if (reopenRail) {
+            actionRail.open();
+        }
+        const releaseRail = () => {
+            if (reopenRail && actionRail) {
+                actionRail.close();
             }
-            const releaseRail = () => {
-                if (reopenRail && actionRail) {
-                    actionRail.close();
-                }
+        };
+
+        const steps = getTutorialSteps();
+
+        if (steps.length === 0) {
+            console.warn('No tutorial steps found for this page.');
+            releaseRail();
+            return;
+        }
+
+        let currentIndex = 0;
+
+        let controls = document.getElementById('tutorial-controls');
+        if (!controls) {
+            controls = document.createElement('div');
+            controls.id = 'tutorial-controls';
+            controls.dir = direction;
+            controls.lang = document.documentElement.lang || '';
+
+            const progress = document.createElement('span');
+            progress.id = 'tut-progress';
+            progress.className = 'tut-progress';
+
+            const actions = document.createElement('div');
+            actions.className = 'tut-actions';
+
+            const makeButton = (id, className, label) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.id = id;
+                button.className = `tut-btn ${className}`;
+                button.textContent = label;
+                return button;
             };
 
-            const steps = getTutorialSteps();
+            actions.append(
+                makeButton('tut-prev', 'tut-btn-prev', text('tut_btn_prev', 'Previous')),
+                makeButton('tut-next', 'tut-btn-next', text('tut_btn_next', 'Next')),
+                makeButton('tut-skip', 'tut-btn-skip', text('tut_btn_skip', 'Skip')),
+            );
+            controls.append(progress, actions);
+            document.body.appendChild(controls);
+        }
+        controls.style.display = 'flex';
 
-            if (steps.length === 0) {
-                console.warn('No tutorial steps found for this page.');
-                releaseRail();
-                return;
-            }
-
-            let currentIndex = 0;
-
-            let controls = document.getElementById('tutorial-controls');
-            if (!controls) {
-                controls = document.createElement('div');
-                controls.id = 'tutorial-controls';
-                controls.dir = direction;
-                controls.lang = document.documentElement.lang || '';
-
-                const progress = document.createElement('span');
-                progress.id = 'tut-progress';
-                progress.className = 'tut-progress';
-
-                const actions = document.createElement('div');
-                actions.className = 'tut-actions';
-
-                const makeButton = (id, className, label) => {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.id = id;
-                    button.className = `tut-btn ${className}`;
-                    button.textContent = label;
-                    return button;
-                };
-
-                actions.append(
-                    makeButton('tut-prev', 'tut-btn-prev', text('tut_btn_prev', 'Previous')),
-                    makeButton('tut-next', 'tut-btn-next', text('tut_btn_next', 'Next')),
-                    makeButton('tut-skip', 'tut-btn-skip', text('tut_btn_skip', 'Skip')),
-                );
-                controls.append(progress, actions);
-                document.body.appendChild(controls);
-            }
-            controls.style.display = 'flex';
-
-            const driverObj = driverFactory({
-                showProgress: false,
-                showButtons: [],
-                steps: steps,
-                onHighlightStarted: () => {
-                    currentIndex = driverObj.getActiveIndex() || 0;
-                    updateControls();
-                },
-                onDestroyStarted: () => {
-                    controls.style.display = 'none';
-                    releaseRail();
-                    driverObj.destroy();
-                },
-                onCloseClick: () => {
-                    controls.style.display = 'none';
-                    releaseRail();
-                    driverObj.destroy();
-                }
-            });
-
-            document.getElementById('tut-next').onclick = () => {
-                if (currentIndex === steps.length - 1) {
-                    controls.style.display = 'none';
-                    releaseRail();
-                    driverObj.destroy();
-                } else {
-                    driverObj.moveNext();
-                }
-            };
-            document.getElementById('tut-prev').onclick = () => driverObj.movePrevious();
-            document.getElementById('tut-skip').onclick = () => {
+        const driverObj = driverFactory({
+            showProgress: false,
+            showButtons: [],
+            steps: steps,
+            onHighlightStarted: () => {
+                currentIndex = driverObj.getActiveIndex() || 0;
+                updateControls();
+            },
+            onDestroyStarted: () => {
                 controls.style.display = 'none';
                 releaseRail();
                 driverObj.destroy();
-            };
-
-            function updateControls() {
-                const total = steps.length;
-                const isLast = currentIndex === total - 1;
-                const isFirst = currentIndex === 0;
-
-                const ofText = text('tut_of', 'of');
-                document.getElementById('tut-progress').innerText = `${currentIndex + 1} ${ofText} ${total}`;
-                
-                const nextBtn = document.getElementById('tut-next');
-                const prevBtn = document.getElementById('tut-prev');
-
-                nextBtn.innerText = isLast ? text('tut_btn_finish', 'Finish') : text('tut_btn_next', 'Next');
-                prevBtn.disabled = isFirst;
+            },
+            onCloseClick: () => {
+                controls.style.display = 'none';
+                releaseRail();
+                driverObj.destroy();
             }
-            
-            driverObj.drive();
         });
-    });
-});
+
+        document.getElementById('tut-next').onclick = () => {
+            if (currentIndex === steps.length - 1) {
+                controls.style.display = 'none';
+                releaseRail();
+                driverObj.destroy();
+            } else {
+                driverObj.moveNext();
+            }
+        };
+        document.getElementById('tut-prev').onclick = () => driverObj.movePrevious();
+        document.getElementById('tut-skip').onclick = () => {
+            controls.style.display = 'none';
+            releaseRail();
+            driverObj.destroy();
+        };
+
+        function updateControls() {
+            const total = steps.length;
+            const isLast = currentIndex === total - 1;
+            const isFirst = currentIndex === 0;
+
+            const ofText = text('tut_of', 'of');
+            document.getElementById('tut-progress').innerText = `${currentIndex + 1} ${ofText} ${total}`;
+            
+            const nextBtn = document.getElementById('tut-next');
+            const prevBtn = document.getElementById('tut-prev');
+
+            nextBtn.innerText = isLast ? text('tut_btn_finish', 'Finish') : text('tut_btn_next', 'Next');
+            prevBtn.disabled = isFirst;
+        }
+        
+        driverObj.drive();
+    }
+
+    window.DluxTutorial = { start };
+}());

@@ -9,7 +9,6 @@ setup_test_environment()
 STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
 JS = STATIC / 'helpers' / 'inspector' / 'js' / 'main.js'
 CSS = STATIC / 'helpers' / 'inspector' / 'css' / 'main.css'
-BASE_HTML = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
 
 
 class InspectorShellAssetTests(SimpleTestCase):
@@ -115,9 +114,12 @@ class InspectorShellAssetTests(SimpleTestCase):
         self.assertIn('.dlux-inspector-shell__field--full', source)
 
     def test_inspector_shell_loads_before_builder_scripts(self):
-        source = BASE_HTML.read_text(encoding='utf-8')
+        from dlux.lazy_assets import ASSET_BUNDLES
 
-        self.assertIn("dlux/helpers/inspector/css/main.css", source)
+        bundle = ASSET_BUNDLES['settings']
+        source = list(bundle['js'])
+
+        self.assertIn("dlux/helpers/inspector/css/main.css", bundle['css'])
         self.assertIn("dlux/helpers/inspector/js/main.js", source)
         self.assertLess(
             source.index("dlux/helpers/inspector/js/main.js"),

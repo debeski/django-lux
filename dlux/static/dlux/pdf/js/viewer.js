@@ -1,4 +1,10 @@
 (function () {
+    function loadPdfJs() {
+        if (window.DluxPdfJs) return window.DluxPdfJs.load();
+        const lib = window.pdfjsLib;
+        return lib && !lib.__dluxDeferred ? Promise.resolve(lib) : Promise.reject(new Error("PDF.js is not available."));
+    }
+
     function initializeViewer(viewer) {
         if (viewer.dataset.pdfViewerReady === "1") return;
         viewer.dataset.pdfViewerReady = "1";
@@ -96,12 +102,16 @@
 
         // Print and fullscreen work in the fallback too, so their handlers are
         // wired whether or not pdf.js can draw the file.
-        if (!window.pdfjsLib || !pdfUrl) {
+        if (!pdfUrl) {
             useFallback();
         } else {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-            loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false });
-            loadingTask.promise.then(function (loadedPdf) {
+            loadPdfJs().then(function (pdfjsLib) {
+                if (disposed) return null;
+                pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+                loadingTask = pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false });
+                return loadingTask.promise;
+            }).then(function (loadedPdf) {
+                if (!loadedPdf) return;
                 pdfDocument = loadedPdf;
                 pagesLabel.textContent = pdfDocument.numPages;
                 renderPage();

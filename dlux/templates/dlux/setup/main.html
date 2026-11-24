@@ -11,6 +11,12 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
 {% endblock %}
 
+{% block settings_styles %}
+    <link rel="stylesheet" href="{% dlux_static 'dlux/setup/css/main.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/inspector/css/main.css' %}">
+{% endblock %}
+
 {# The first-run setup pages have no global footer: nothing is configured yet. #}
 {% block footer %}{% endblock %}
 

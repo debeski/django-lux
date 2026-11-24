@@ -7,7 +7,8 @@ mistakes are easy to make and neither shows up in `node --check`:
 * a module calls a function another module owns without destructuring it, which
   throws a `ReferenceError` the first time that code path runs — often deep in a
   wizard step nobody opens during a smoke test;
-* a module is listed in `base.html` before the module it imports from, so the
+* a module is listed in the `settings` asset bundle (`dlux/lazy_assets.py`)
+  before the module it imports from, so the
   destructure at the top of its IIFE reads `undefined` and the page dies on
   load while still rendering plausibly.
 
@@ -19,7 +20,6 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 JS_DIR = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
-BASE_HTML = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
 
 NAMESPACES = ('DluxSetup', 'DluxSetupDom', 'DluxSetupModel')
 
@@ -64,21 +64,20 @@ def _declared(body):
 
 
 def _script_order():
-    html = BASE_HTML.read_text(encoding='utf-8')
-    return [
-        m.group(1) for m in
-        re.finditer(r"dlux_static 'dlux/setup/js/([\w.]+\.js)'", html)
-    ]
+    from dlux.lazy_assets import ASSET_BUNDLES
+
+    prefix = 'dlux/setup/js/'
+    return [path[len(prefix):] for path in ASSET_BUNDLES['settings']['js'] if path.startswith(prefix)]
 
 
 class SetupJsModuleContractTests(SimpleTestCase):
-    def test_every_module_is_loaded_by_base_html(self):
+    def test_every_module_is_in_the_settings_bundle(self):
         """A module nobody loads is dead weight; one loaded twice runs twice."""
         on_disk = {p.name for p in _modules()}
         listed = _script_order()
         self.assertEqual(
             sorted(listed), sorted(set(listed)),
-            f'a setup module is listed more than once in base.html: {listed}',
+            f'a setup module is listed more than once in the settings bundle: {listed}',
         )
         self.assertEqual(
             on_disk, set(listed),
@@ -159,7 +158,7 @@ class SetupJsModuleContractTests(SimpleTestCase):
                 if position.get(source, -1) > position.get(path.name, -1):
                     problems.append(
                         f'{path.name} imports {name} from {source}, '
-                        f'which base.html loads later'
+                        f'which the settings bundle loads later'
                     )
 
         self.assertEqual(problems, [], '\n'.join(problems))

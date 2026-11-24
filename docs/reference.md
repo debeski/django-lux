@@ -1004,6 +1004,7 @@ See [Task Runner](task-runner.md).
 | --- | --- | --- |
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
 | `dlux_public_shell` | simple tag | What `dlux/public_base.html` takes from the public page settings: `{% dlux_public_shell as shell %}` gives `public`, `title`, `theme`, `font` and `home_url`, never from visitor preferences. See [Template Customization](template-customization.md#public-page-and-layout-behavior). |
+| `dlux_asset_bundles` | simple tag | The on-demand asset bundles (`dlux.lazy_assets.ASSET_BUNDLES`) with versioned URLs; `dlux/base.html` publishes them as `#dlux-asset-bundles` for `dlux/base/js/lazy.js`. See [UI Integration](ui-integration.md#on-demand-assets). |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
 | `dlux_ribbon` | simple tag | Render a list page's ribbon — title, filters and actions — from the `ribbon` context object put there by `dlux.ribbon.RibbonMixin`; `{% dlux_ribbon %}`, or pass one explicitly. Renders nothing when there is no ribbon. See [Ribbon](ribbon.md). |

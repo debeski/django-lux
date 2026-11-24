@@ -21,6 +21,7 @@
     {{ client_config|json_script:"dlux-config-data" }}
     {{ font_families|json_script:"dlux-font-families" }}
     {% if DLUX_SCANLINK_ENABLED %}{{ scanlink_sites|json_script:"dlux-scanlink-sites" }}{% endif %}
+    {% dlux_asset_bundles as DLUX_ASSET_BUNDLES %}{{ DLUX_ASSET_BUNDLES|json_script:"dlux-asset-bundles" }}
     <style id="dlux-dynamic-fonts" nonce="{{ request.csp_nonce }}">
         {{ font_face_css|safe }}
         :root {
@@ -40,6 +41,9 @@
     {% else %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
+    {# Bootstrap is the first deferred script, so every later one can use it. #}
+    <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/base/js/lazy.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/navbar/css/main.css' %}">
@@ -60,9 +64,10 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/tables/css/pagination.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/system/css/footer.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/toggle/css/main.css' %}">
-    <link rel="stylesheet" href="{% dlux_static 'dlux/setup/css/main.css' %}">
-    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/icon_picker/css/main.css' %}">
-    <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/inspector/css/main.css' %}">
+    {# On-demand stylesheets (dlux/lazy_assets.py) are inserted at this anchor, #}
+    {# ahead of the theme, so they cascade as they would if loaded up front.    #}
+    {% block settings_styles %}{% endblock %}
+    <meta name="dlux-lazy-styles">
     {% if DLUX_ACTIVE_THEME %}
     <link rel="stylesheet" href="{% dlux_static DLUX_ACTIVE_THEME.css_path %}" data-dlux-theme-css="{{ DLUX_ACTIVE_THEME.slug }}">
     {% endif %}
@@ -112,24 +117,6 @@
     <script src="{% dlux_static 'dlux/helpers/column_strip/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/personal_columns/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/selector/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/helpers/icon_picker/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/helpers/inspector/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/dom.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/builder_model.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/appearance.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/security.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/email.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/builders.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/state.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/language.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/shell.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/previews.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/setup/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/weather/js/settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/ocr/js/settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/ribbon/js/ribbon_settings.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/ribbon/js/ribbon_builder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/table_columns/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/ribbon/js/ribbon.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/lookup/js/lookup.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/wizard/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -199,22 +186,16 @@
     {% block page_modals %}{% endblock %}
 
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
-    
-    <!-- Include Bootstrap JS (Placed before scripts block so dependencies work) -->
-    <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
 
-    {# Form-field JS (scan button, file widget) loaded globally (once), after #}
-    {# Bootstrap, so dynamic-modal forms work on any page. Initializers are    #}
-    {# idempotent / MutationObserver-based and no-op when no form is present.   #}
+    {# Form-field JS (scan button, file widget) loaded globally (once) so      #}
+    {# dynamic-modal forms work on any page. Initializers are idempotent /     #}
+    {# MutationObserver-based and no-op when no form is present.               #}
     {% include_once 'dlux/forms/assets_scripts.html' %}
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
-    <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/base/js/base_runtime.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 
-    {% if request.resolver_match.url_name != 'login' %}
-    {% include 'dlux/tutorial/main.html' %}
-    {% endif %}
     {% include 'dlux/helpers/dlux_context_menu.html' %}
     {% include 'dlux/helpers/dynamic_modal.html' %}
     {% if DLUX_SHOW_INITIAL_USER_SETUP %}

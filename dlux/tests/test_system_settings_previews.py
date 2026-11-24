@@ -42,11 +42,13 @@ class PreviewModuleTests(SimpleTestCase):
         self.assertEqual(tuple(re.findall(r"'([^']+)'", block.group(1))), SETUP_STEP_SLUGS)
 
     def test_preview_script_loads_after_its_dependencies_and_before_main(self):
-        template = (PACKAGE_ROOT / 'templates' / 'dlux' / 'base.html').read_text()
-        language = template.index("dlux/setup/js/language.js")
-        shell = template.index("dlux/setup/js/shell.js")
-        previews = template.index("dlux/setup/js/previews.js")
-        main = template.index("dlux/setup/js/main.js")
+        from dlux.lazy_assets import ASSET_BUNDLES
+
+        order = list(ASSET_BUNDLES['settings']['js'])
+        language = order.index("dlux/setup/js/language.js")
+        shell = order.index("dlux/setup/js/shell.js")
+        previews = order.index("dlux/setup/js/previews.js")
+        main = order.index("dlux/setup/js/main.js")
         self.assertLess(language, previews)
         self.assertLess(shell, previews)
         self.assertLess(previews, main)

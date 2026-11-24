@@ -232,6 +232,10 @@
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) document.querySelectorAll('[data-weather-widget]').forEach(refresh);
     });
-    new MutationObserver(init).observe(document.documentElement, { childList: true, subtree: true });
+    if (window.DluxDom) {
+        window.DluxDom.onAdded('[data-weather-widget]', init);
+    } else {
+        new MutationObserver(init).observe(document.documentElement, { childList: true, subtree: true });
+    }
     init();
 }());

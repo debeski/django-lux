@@ -254,3 +254,39 @@ class CeleryEraNamesTests(SimpleTestCase):
         dlux_settings(scope)
         scope["CELERY_BEAT_SCHEDULE"]["fleet-prune-operation-logs"] = {"task": "fleet.prune", "schedule": 86400}
         self.assertNotIn("dlux-state-tick", scope["CELERY_BEAT_SCHEDULE"])
+
+
+class OnDemandAssetCompatTests(SimpleTestCase):
+    """Shims for assets that stopped loading on every page (docs/deprecation-countdown.md:
+    `pdfjsLib` before PDF.js loads, `dlux/tutorial/main.html`)."""
+
+    def test_pdfjslib_stand_in_is_set_up_by_the_pdf_assets(self):
+        assets = (PACKAGE / 'templates' / 'dlux/pdf/assets.html').read_text(encoding='utf-8')
+        self.assertIn('dlux/pdf/js/pdfjs.js', assets)
+        shim = (PACKAGE / 'static' / 'dlux/pdf/js/pdfjs.js').read_text(encoding='utf-8')
+        # Archive's composition/js/paper.js: window.pdfjsLib.getDocument({data}).promise
+        self.assertIn('if (!window.pdfjsLib) {', shim)
+        self.assertIn('getDocument: function (source)', shim)
+        self.assertIn('promise: promise', shim)
+        self.assertIn('GlobalWorkerOptions', shim)
+
+    def test_tutorial_template_still_resolves_and_renders_nothing(self):
+        html = render_to_string('dlux/tutorial/main.html', {'request': SimpleNamespace(csp_nonce='n')})
+        self.assertEqual(html.strip(), '')
+
+    def test_locked_toggle_dimming_still_loads_on_every_page(self):
+        # Archive and Decrees forms render server-locked build_settings_toggle_field() cards.
+        toggle_css = (PACKAGE / 'static' / 'dlux/helpers/toggle/css/main.css').read_text(encoding='utf-8')
+        self.assertIn('.dlux-dependent-settings.is-disabled,', toggle_css)
+        base = (PACKAGE / 'templates' / 'dlux/base.html').read_text(encoding='utf-8')
+        self.assertIn('dlux/helpers/toggle/css/main.css', base)
+
+    def test_settings_globals_still_load_with_settings_markup(self):
+        from dlux.lazy_assets import ASSET_BUNDLES
+        settings = ASSET_BUNDLES['settings']
+        for path in ('dlux/setup/js/dom.js', 'dlux/helpers/inspector/js/main.js', 'dlux/helpers/icon_picker/js/main.js'):
+            with self.subTest(path=path):
+                self.assertIn(path, settings['js'])
+        for selector in ('form.dlux-system-setup-form', '[data-dlux-icon-picker]', '[data-dlux-assets~="settings"]'):
+            with self.subTest(selector=selector):
+                self.assertIn(selector, settings['selector'])

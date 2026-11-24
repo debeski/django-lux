@@ -3,7 +3,7 @@
 
 <!-- Dlux Context Menu Resources -->
 <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/context_menu/css/main.css' %}">
-<script nonce="{{ request.csp_nonce }}" src="{% dlux_static 'dlux/helpers/context_menu/js/main.js' %}"></script>
+<script src="{% dlux_static 'dlux/helpers/context_menu/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 
 <!-- 
     Dlux Context Menu Container

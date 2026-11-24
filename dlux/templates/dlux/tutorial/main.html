@@ -1,6 +1,5 @@
-{% load static %}
-{% load dlux_tags %}
-<!-- Driver.js for Tutorial -->
-<link rel="stylesheet" href="{% dlux_static 'dlux/tutorial/css/main.css' %}"/>
-<script src="{% dlux_static 'dlux/tutorial/js/driver.js' %}" nonce="{{ request.csp_nonce }}"></script>
-<script src="{% dlux_static 'dlux/tutorial/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
+{% comment %}
+Kept for projects that include it. The guided tour now loads on the first click of
+a tour button (dlux/base/js/lazy.js, bundle "tutorial" in dlux/lazy_assets.py), so
+this template renders nothing.
+{% endcomment %}

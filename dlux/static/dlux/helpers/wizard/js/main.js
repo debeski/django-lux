@@ -57,6 +57,13 @@
 
         // Prevent double-binding
         if (container.dataset.dluxWizardBound === 'true') return;
+        // A System Settings wizard needs its on-demand settings scripts (their
+        // container hooks) before it binds.
+        const assets = window.DluxAssets;
+        if (assets && assets.missing(container).length) {
+            assets.ensure(container).catch(() => {}).then(() => initWizard(container));
+            return;
+        }
         prepareWizardContainer(container);
         container.dataset.dluxWizardBound = 'true';
 

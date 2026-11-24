@@ -5,8 +5,8 @@
 // column was drawn larger and shrunk straight back), and the fullscreen button
 // could enter fullscreen but not leave it.
 //
-// Real pdf.js, the real template and stylesheet, a two-page PDF fixture, in a
-// column as narrow as the detail modal's.
+// Real pdf.js, loaded on demand the way pages load it, the real template and
+// stylesheet, a two-page PDF fixture, in a column as narrow as the detail modal's.
 //
 // Run:  node --test --test-concurrency=1 'tests-e2e/*.test.mjs'
 
@@ -43,7 +43,11 @@ const page_html = (withPdfJs) => `<!doctype html><html><head><meta charset="utf-
 <link rel="stylesheet" href="/static/dlux/pdf/css/main.css">
 <style>.column { width: 520px; margin: 20px; }</style>
 </head><body><div class="column">${VIEWER}</div>
-${withPdfJs ? '<script src="/static/dlux/pdf/vendor/pdf.min.js"></script>' : ''}
+<script type="application/json" id="dlux-asset-bundles">${JSON.stringify(withPdfJs
+  ? { pdf: { css: [], js: ['/static/dlux/pdf/vendor/pdf.min.js'] } }
+  : { pdf: { css: [], js: ['/static/dlux/pdf/vendor/missing.js'] } })}</script>
+<script src="/static/dlux/base/js/lazy.js"></script>
+<script src="/static/dlux/pdf/js/pdfjs.js"></script>
 <script src="/static/dlux/pdf/js/viewer.js"></script>
 </body></html>`;
 

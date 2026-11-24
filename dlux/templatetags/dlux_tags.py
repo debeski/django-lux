@@ -45,6 +45,22 @@ def dlux_static(path):
     separator = '&' if '?' in url else '?'
     return f"{url}{separator}v={revision}"
 
+
+_ASSET_BUNDLES_CACHE = {}
+
+
+@register.simple_tag
+def dlux_asset_bundles():
+    """The on-demand asset bundles (``dlux.lazy_assets``) with versioned URLs,
+    for ``#dlux-asset-bundles``. Resolved once per process outside DEBUG."""
+    from ..lazy_assets import asset_bundle_urls
+
+    if settings.DEBUG:
+        return asset_bundle_urls(dlux_static)
+    if 'bundles' not in _ASSET_BUNDLES_CACHE:
+        _ASSET_BUNDLES_CACHE['bundles'] = asset_bundle_urls(dlux_static)
+    return _ASSET_BUNDLES_CACHE['bundles']
+
 @register.simple_tag(takes_context=True)
 def dlux_public_shell(context):
     """What ``dlux/public_base.html`` takes from System Settings' public page settings.

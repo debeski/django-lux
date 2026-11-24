@@ -129,6 +129,10 @@
     }
 
     function watch() {
+        if (window.DluxDom) {
+            window.DluxDom.onAdded('input[type="password"]', attach);
+            return;
+        }
         if (typeof MutationObserver !== 'function') { return; }
         new MutationObserver(function (records) {
             records.forEach(function (record) {
