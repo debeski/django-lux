@@ -42,8 +42,6 @@
     {% else %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
-    {# Bootstrap is the first deferred script, so every later one can use it. #}
-    <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/base/js/lazy.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/base/css/main.css' %}">
@@ -188,9 +186,10 @@
 
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
 
-    {# Form-field JS (scan button, file widget) loaded globally (once) so      #}
-    {# dynamic-modal forms work on any page. Initializers are idempotent /     #}
-    {# MutationObserver-based and no-op when no form is present.               #}
+    {# Bootstrap and the form-field JS block, before the scripts block, so a  #}
+    {# project script there can use them as it loads. Every other framework   #}
+    {# script is deferred and runs after them.                                 #}
+    <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
     {% include_once 'dlux/forms/assets_scripts.html' %}
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">

@@ -1,0 +1,5 @@
+{% extends 'dlux/base.html' %}
+{% load static %}
+{% block title %}Project scripts{% endblock %}
+{% block content %}<p data-e2e-project-page>Project page</p>{% endblock %}
+{% block scripts %}<script src="{% static 'e2e/js/load_probe.js' %}" nonce="{{ request.csp_nonce }}"></script>{% endblock %}
