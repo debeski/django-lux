@@ -148,6 +148,16 @@ class StaticCompatTests(SimpleTestCase):
                 )
 
 
+class EmbeddedStringsBlockTests(SimpleTestCase):
+    """Trademarks' dashboard parses ``#dlux-strings-data``; base_head.js keeps an
+    element by that id that serialises ``window.DLUX_STRINGS`` until v2.0."""
+
+    def test_base_head_keeps_the_legacy_strings_element(self):
+        source = (PACKAGE / 'static' / 'dlux' / 'base' / 'js' / 'base_head.js').read_text(encoding='utf-8')
+        self.assertIn("legacyStrings.id = 'dlux-strings-data'", source)
+        self.assertIn('JSON.stringify(window.DLUX_STRINGS', source)
+
+
 class ImportCompatTests(SimpleTestCase):
     def test_the_archive_file_names_were_removed_in_1_10(self):
         """`build_archive_file_field` and `_build_archive_file_widget` are gone; the framework names remain."""
