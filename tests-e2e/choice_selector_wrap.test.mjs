@@ -16,7 +16,9 @@ const PRESET = 192;
 
 let server, browser;
 before(async () => {
-  server = await startServer({ ocrModels: true });
+  // OCR is saved as on: the models list waits on Enable OCR, and flipping the
+  // switch here would need the current password (the preview reports a 400).
+  server = await startServer({ ocrModels: true, ocrEnabled: true });
   browser = await chromium.launch();
 }, { timeout: 120000 });
 after(async () => { if (browser) await browser.close(); if (server) await server.stop(); });
@@ -48,8 +50,6 @@ async function openExtras(width, { arabic = false } = {}) {
   }
   await page.locator('[data-dlux-settings-step="extras"]').click();
   await page.locator(SELECTOR).waitFor({ state: 'visible' });
-  // The models list waits on Enable OCR (greyed out while it is off).
-  await page.locator('[name="ocr_enabled"]').check({ force: true });
   await page.waitForFunction((sel) => document.querySelector(sel)?.style.getPropertyValue('--dlux-choice-option-fit'), SELECTOR);
   return { ctx, page, errors };
 }
@@ -107,7 +107,11 @@ test('Arabic Extra Features under the light and dark themes', async () => {
   try {
     assert.equal(await page.evaluate(() => document.documentElement.dir), 'rtl');
     // One option off, so both the checked and the unchecked surface show.
+    // The change runs the settings preview; wait for it so its answer is checked
+    // here rather than landing after the console assertion.
+    const preview = page.waitForResponse((response) => response.url().includes('/sys/settings/preview/draft/'));
     await page.locator(`${SELECTOR} .dlux-choice-option__input`).nth(1).uncheck({ force: true });
+    assert.equal((await preview).status(), 200, 'the preview accepts the draft');
     for (const theme of ['light', 'dark']) {
       await page.evaluate(async (name) => {
         await window.dluxLoadThemeStylesheet(name);

@@ -65,6 +65,12 @@ def main():
             'encrypted_api_key': encrypt_api_key('e2e-weather-key'),
             'locations': [{'name': 'Tripoli, LY', 'lat': 32.8872, 'lon': 13.1913}],
         })
+    if '--ocr-enabled' in sys.argv:
+        # Saved as on, so a test can use the OCR options without flipping the
+        # switch: a flipped switch needs the current password, and the settings
+        # preview reports that as an invalid draft (400).
+        from dlux.ocr import normalize_ocr_config
+        extra['ocr'] = normalize_ocr_config({'enabled': True})
     s.extra_config = extra
     s.save()
 
