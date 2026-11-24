@@ -81,6 +81,16 @@ It supplies Dlux apps, middleware, context processors, i18n defaults, Crispy For
 defaults, and URL support. Mount `dlux.urls` at the project root. Do not copy an old
 generated settings block: the helper is additive and version-aware.
 
+It also sets the `staticfiles` storage to `dlux.static_storage.VersionedStaticFilesStorage`
+when the project uses Django's default `StaticFilesStorage` (or sets no `STORAGES`),
+keeping the project's other storages and options. Its `{% static %}` URLs carry
+`?v=<DjangoLux version>-<project version>` (the project version from
+`release-manifest.json`; in DEBUG also the source file's modification time). Generated
+stacks serve `/static/` as immutable for a year, so a project file reaches browsers
+only through a new URL, which every DjangoLux update or project release now gives.
+A project that sets another `staticfiles` backend keeps it, and
+`DLUX_VERSIONED_STATIC = False` (before calling `dlux_settings`) turns the swap off.
+
 To add a first-class framework setting, follow
 [Adding a System Setting](adding-system-settings.md); it must participate in the
 schema, normalization, forms, import/export, and tests.

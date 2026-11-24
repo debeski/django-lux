@@ -7,6 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Project static files refresh after every upgrade**: generated stacks serve `/static/` as immutable for a year, so a project's `{% static %}` script stayed stale in browsers after an update. `dlux_settings()` now swaps Django's default static storage for `dlux.static_storage.VersionedStaticFilesStorage`, whose URLs carry `?v=<DjangoLux version>-<project version>`. Another `staticfiles` backend is kept; `DLUX_VERSIONED_STATIC = False` opts out.
 ## v1.16.5
 
 - **Stable 1.16.5**: Promote the published and accepted 1.16.5b2. Mail, Export Entries, Reset data and the weather, OCR and Options probes run on the task worker. Pages load the settings editors, tour and PDF.js only where used. Modal Back returns to the previous view, Options fades in, and the password prompt closes after a fast confirm. Migration 0031 is additive; updates inline from any 1.16 release.
