@@ -297,6 +297,11 @@ class ScaffoldTests(unittest.TestCase):
             # Postgres takes only its own keys, so a new image tag or schema
             # stamp in the shared anchor does not recreate the database.
             db_block = compose_contents[compose_contents.index("\n  db:"):compose_contents.index("\n  redis:")]
+            # Redis keeps RDB snapshots: a half-written append-only file after a
+            # hard stop leaves Redis refusing to start (CRM sales, 2026-11-25).
+            redis_block = compose_contents[compose_contents.index("\n  redis:"):compose_contents.index("\n  redis:") + 600]
+            self.assertIn('"--appendonly", "no", "--save", "60", "1"', redis_block)
+            self.assertNotIn('"--appendonly", "yes"', redis_block)
             self.assertNotIn("<<: *de", db_block)
             self.assertIn('POSTGRES_DB: "${POSTGRES_DB:-demo_project_db}"', db_block)
             # Development runs the bind-mounted checkout, not an installed

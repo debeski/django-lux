@@ -41,6 +41,19 @@ uses `setdefault`, so explicitly declared Django settings win.
 | `DLUX_CACHE_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Points every `django_redis.cache.RedisCache` cache at `dlux.resilient_cache.FailFastRedisCache`, caps its timeouts and puts `dlux.cache_outage.CacheOutageMiddleware` just before `SessionMiddleware` in `MIDDLEWARE`. `False` keeps `CACHES` and `MIDDLEWARE` as the settings file wrote them. Other cache backends are never changed. |
 | `DLUX_CACHE_SOCKET_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `2` | The highest `SOCKET_CONNECT_TIMEOUT` and `SOCKET_TIMEOUT` a `django_redis` cache keeps. A larger, missing or invalid value becomes this one; a smaller one is kept. It overrides the settings file, which generated projects never regenerate (a generated settings file may still say 5 and 20 seconds). |
 
+Generated stacks run Redis with RDB snapshots (`--appendonly no --save 60 1`), not
+an append-only file.
+- **Why:** a snapshot is written to a temporary file and renamed into place only when
+  complete. A hard power-off or a killed Docker Desktop therefore leaves the last
+  good snapshot, and Redis starts again. A half-written append-only file makes Redis
+  refuse to start until it is repaired.
+- **The cost:** a crash can lose up to about a minute of cache and sessions, so some
+  users sign in again. Application data lives in Postgres.
+- **Existing stacks:** Composer's `check` reports a stack that still runs Redis with
+  an append-only file (`redis-persistence`), and `check --fix` switches it to
+  snapshots. It also recovers a Redis that refuses to start on a damaged
+  append-only file (`redis-aof-corrupt`). Both need Composer 1.11.0 or later.
+
 Generated stacks keep sessions in the Redis cache, so a Redis that stops answering
 takes sign-in with it. What happens then:
 

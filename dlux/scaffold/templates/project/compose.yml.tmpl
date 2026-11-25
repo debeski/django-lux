@@ -73,7 +73,9 @@ services:
     restart: always
     labels:
       org.dlux.restart: "protected"
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "500mb", "--maxmemory-policy", "allkeys-lru"]
+    # RDB snapshots, not an append-only file: a snapshot is renamed into place
+    # only when complete, so a hard stop leaves the last good one and Redis starts.
+    command: ["redis-server", "--appendonly", "no", "--save", "60", "1", "--maxmemory", "500mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
     healthcheck:
