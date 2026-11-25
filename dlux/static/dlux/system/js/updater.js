@@ -59,6 +59,7 @@
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
+        const policyNote = root.querySelector('[data-dlux-update-policy-note]');
         // What the installed release said about itself. Its own control, because
         // the review modal is about the release you have NOT installed yet.
         const notesButton = root.querySelector('[data-dlux-release-notes]');
@@ -626,6 +627,23 @@
             skippedWrap.classList.remove('d-none');
         }
 
+        function renderPolicy(policy) {
+            if (!policyNote) return;
+            const data = root.dataset;
+            const lines = [];
+            if (policy.configured_valid === false) lines.push(data.labelPolicyInvalid);
+            if (policy.policy === 'inline') lines.push(data.labelPolicyInline);
+            if (policy.policy === 'none') lines.push(data.labelPolicyNone);
+            if (policy.mismatch) {
+                lines.push(String(data.labelPolicyMismatch || '')
+                    .replace('{web}', policy.configured || '')
+                    .replace('{resident}', policy.resident || ''));
+            }
+            if (policy.resident_unenforced) lines.push(data.labelPolicyUnenforced);
+            policyNote.textContent = lines.filter(Boolean).join(' ');
+            policyNote.hidden = !policyNote.textContent;
+        }
+
         function render(nextState, run) {
             state = nextState || state;
             if (!state) return;
@@ -641,6 +659,12 @@
                 setRootStatus(state.last_check_error);
             }
             const imageAvailable = Boolean(state.image_update_available);
+            // The deployment's update policy: the rows keep their versions and
+            // targets, and lose only the buttons it refuses.
+            const policy = state.update_policy || {};
+            const inlineRefused = policy.allows_inline === false;
+            const imageRefused = policy.allows_image === false;
+            renderPolicy(policy);
             // A locally built image cannot be compared with the registry's, so it is
             // neither "up to date" nor "behind": say what it is.
             const localBuild = Boolean((state.image || {}).local_build) && !imageAvailable;
@@ -652,7 +676,7 @@
             const checkedOnce = Boolean(state.last_checked_at);
             const fwOk = checkedOnce && !updateAvailable && !state.last_check_error;
             if (checkButton) {
-                checkButton.hidden = updateAvailable;
+                checkButton.hidden = updateAvailable && !inlineRefused;
                 checkButton.classList.toggle('is-ok', fwOk);
                 // Looked up each time, never kept: the loading-button helper swaps
                 // the icon for a spinner while a check runs and rebuilds the button
@@ -664,7 +688,7 @@
                 withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
             if (reviewButton) {
-                reviewButton.hidden = !updateAvailable;
+                reviewButton.hidden = !updateAvailable || inlineRefused;
                 withCheckTime(reviewButton, reviewButton.dataset.titleBase, state.last_checked_at);
             }
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
@@ -725,9 +749,10 @@
                     imageTargetEl.hidden = true;
                 }
             }
-            if (imageOkEl) imageOkEl.hidden = imageAvailable || imgActive;
-            if (imageCheckButton) imageCheckButton.hidden = imageAvailable || imgActive;
-            if (imageButton) imageButton.hidden = !imageAvailable;
+            const imageOffered = imageAvailable && !imageRefused;
+            if (imageOkEl) imageOkEl.hidden = imageOffered || imgActive;
+            if (imageCheckButton) imageCheckButton.hidden = imageOffered || imgActive;
+            if (imageButton) imageButton.hidden = !imageOffered;
             const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);
             if (checkButton) checkButton.disabled = running || checkBusy;

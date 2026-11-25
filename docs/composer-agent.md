@@ -70,7 +70,7 @@ volume:
 | `requests/<operation_id>.json` | the agent, on the control plane's behalf | one action: `dlux.image_update` (backup mode `data`, `full` or `skip`) or `dlux.backup.create` (`data` or `full`) |
 | `results/<operation_id>.json` | DjangoLux | the outcome of each request, rejections included |
 | `enroll-request.json` | DjangoLux | a pairing request: control URL, one-use pairing code, operation id |
-| `agent-status.json` | the agent | enrollment and connection status, and the resident Composer version |
+| `agent-status.json` | the agent | enrollment and connection status, the resident Composer version, and the update policy it enforces (`update_policy`; see [Which updates a deployment allows](inline-updater.md#which-updates-a-deployment-allows)) |
 
 DjangoLux accepts a request only when it is at most 64 KiB, has schema version 1,
 names one of those two actions, and its file name is its UUID `operation_id`;

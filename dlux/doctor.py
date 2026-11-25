@@ -594,6 +594,39 @@ def _check_updater_image_floor(ctx):
     return ok('The image meets the active release\'s floor, or no newer volume release is active.')
 
 
+@check('updater.update_policy', 'services', 'The deployment update policy is enforced')
+def _check_update_policy(ctx):
+    """Reports ``DLUX_UPDATE_POLICY`` and whether the resident Composer enforces it."""
+    from .updater import policy as update_policy
+
+    status = update_policy.status()
+    allowed = {
+        update_policy.ALL: 'every update path is allowed',
+        update_policy.INLINE: 'DjangoLux inline updates only; application image and Composer updates are refused',
+        update_policy.NONE: 'updates are refused; checks and rollbacks still run',
+    }[status['policy']]
+    detail = f'Policy {status["policy"]}: {allowed}.'
+    if not status['configured_valid']:
+        return warn(
+            f'{detail} DLUX_UPDATE_POLICY has an unknown value, so it counts as none.',
+            'Set DLUX_UPDATE_POLICY to all, inline or none in .secrets/.env, then redeploy.',
+        )
+    if status['mismatch']:
+        return warn(
+            f'{detail} The application reads {status["configured"]}, the resident Composer '
+            f'enforces {status["resident"]}; the stricter one applies.',
+            'Recreate the resident pair on the server: '
+            'docker compose up -d --force-recreate composer-executor composer-agent',
+        )
+    if status['resident_unenforced']:
+        return warn(
+            f'{detail} The resident Composer does not report the policy, so only the '
+            'application refuses; a compromised web container could still request an image update.',
+            'Update the resident Composer to 1.11.0 or later: ./start.sh agent update',
+        )
+    return ok(detail)
+
+
 @check('stack.schema', 'services', 'Stack files match the stack contract schema')
 def _check_stack_schema(ctx):
     """Compares compose.yml's ``DLUX_STACK_SCHEMA`` with the running contract.

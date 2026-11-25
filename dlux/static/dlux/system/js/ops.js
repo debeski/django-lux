@@ -51,6 +51,12 @@
             return (state.operations || []).find((operation) => operation.name === name) || null;
         }
 
+        /** The deployment's update policy refuses Composer updates from here. */
+        function updateRefused() {
+            const operation = spec('agent-update');
+            return Boolean(operation && operation.available === false);
+        }
+
         function setStatus(text, isError) {
             if (!statusEl) { return; }
             statusEl.textContent = text || '';
@@ -92,7 +98,7 @@
         function renderNotice() {
             if (!noticeEl) { return; }
             const behind = state.composer_behind;
-            const template = behind && (behind.ops_blocked
+            const template = behind && (behind.ops_blocked || updateRefused()
                 ? labels.labelComposerBehindHost
                 : labels.labelComposerBehindCard);
             const bare = (value) => String(value || '').replace(/^v/, '');
@@ -116,7 +122,8 @@
                 targetEl.hidden = !available;
                 targetEl.textContent = available ? `v${String(resident.published_version || '').replace(/^v/, '')}` : '';
             }
-            if (updateButton) { updateButton.hidden = !(available && canManage); }
+            // The target version stays visible; only the button goes when refused.
+            if (updateButton) { updateButton.hidden = !(available && canManage) || updateRefused(); }
             withCheckTime(checkButton, resident.checked_at);
             withCheckTime(updateButton, resident.checked_at);
             // A tick means "checked, and there is nothing to install"; a check that

@@ -99,6 +99,9 @@ tags and helpers are in the [Reference](reference.md).
   checks, backup before update, health-gated activation and rollback, run by
   Composer. See [Inline Updater](inline-updater.md) and
   [Composer Agent](composer-agent.md).
+- **Deployment update policy:** `DLUX_UPDATE_POLICY` allows every update, DjangoLux
+  inline updates only, or none; DjangoLux and the resident Composer both refuse the rest.
+  See [Inline Updater](inline-updater.md#which-updates-a-deployment-allows).
 - **Operations panel:** deployment checks and repairs, service restarts and logs as
   audited Composer operations. See [Operations](operations.md).
 - **Deployment doctor:** a diagnostic report with safe repairs. See

@@ -19,6 +19,9 @@ x-environment:
   TIME_ZONE: "${TIME_ZONE:-UTC}"
   # DjangoLux verified inline updater (generated Compose deployments only)
   DLUX_INLINE_UPDATES_ENABLED: "True"
+  # Which update paths this deployment allows: all, inline (DjangoLux only) or none.
+  # Web, worker and the resident Composer pair all read it (docs/inline-updater.md).
+  DLUX_UPDATE_POLICY: "${DLUX_UPDATE_POLICY:-all}"
   DLUX_UPDATE_CHECK_INTERVAL: "${DLUX_UPDATE_CHECK_INTERVAL:-86400}"
   DLUX_UPDATE_RUNTIME_ROOT: "/opt/dlux-runtime"
   # App email settings. The app talks to the internal SMTP relay; only the relay has public egress.
@@ -391,6 +394,7 @@ services:
       COMPOSER_REGISTRY_USERNAME: "${COMPOSER_REGISTRY_USERNAME:-}"
       COMPOSER_REGISTRY_PASSWORD: "${COMPOSER_REGISTRY_PASSWORD:-}"
       COMPOSER_REGISTRY_HOST: "${COMPOSER_REGISTRY_HOST:-}"
+      DLUX_UPDATE_POLICY: "${DLUX_UPDATE_POLICY:-all}"
       COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
       COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
       COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"
@@ -446,6 +450,7 @@ services:
       COMPOSER_REGISTRY_USERNAME: "${COMPOSER_REGISTRY_USERNAME:-}"
       COMPOSER_REGISTRY_PASSWORD: "${COMPOSER_REGISTRY_PASSWORD:-}"
       COMPOSER_REGISTRY_HOST: "${COMPOSER_REGISTRY_HOST:-}"
+      DLUX_UPDATE_POLICY: "${DLUX_UPDATE_POLICY:-all}"
       COMPOSER_CONTROL_URL: "${COMPOSER_CONTROL_URL:-}"
       COMPOSER_ENROLLMENT_TOKEN: "${COMPOSER_ENROLLMENT_TOKEN:-}"
       COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"

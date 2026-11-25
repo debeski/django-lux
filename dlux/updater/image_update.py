@@ -23,6 +23,7 @@ from django.conf import settings
 from packaging.version import InvalidVersion, Version
 
 from . import UpdaterError, shared_files
+from . import policy as update_policy
 from .runtime import state_dir
 from .service import _state_model, active_runtime_version, updates_enabled
 
@@ -427,6 +428,8 @@ def queue_image_update(
 ):
     if not updates_enabled():
         raise UpdaterError("Inline DjangoLux updates are disabled for this project.")
+    if not update_policy.allows(update_policy.IMAGE_UPDATE):
+        raise UpdaterError(update_policy.refusal(update_policy.IMAGE_UPDATE))
     Image = _image_model()
     Run = _run_model()
     if control_operation_id:

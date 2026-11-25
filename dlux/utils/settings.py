@@ -421,6 +421,10 @@ def dlux_settings(scope):
         in {"1", "true", "yes", "on"},
     )
     scope.setdefault(
+        "DLUX_UPDATE_POLICY",
+        str(os.getenv("DLUX_UPDATE_POLICY", "all") or "all").strip().lower(),
+    )
+    scope.setdefault(
         "DLUX_UPDATE_CHECK_INTERVAL",
         _env_positive_int("DLUX_UPDATE_CHECK_INTERVAL", 86400, minimum=300),
     )

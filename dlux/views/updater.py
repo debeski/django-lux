@@ -20,6 +20,7 @@ from ..updater.image_update import (
     queue_image_update,
     serialize_image_update,
 )
+from ..updater import policy as update_policy
 from ..updater.service import get_ui_state, previous_apply_failure, queue_run, serialize_run, updates_enabled
 from ..utils import is_global_staff, log_audit_event
 
@@ -94,6 +95,8 @@ def card_state(request):
     # Re-apply guard: if the latest available wheel version already failed a
     # previous apply, the review modal warns and requires an explicit ack.
     state["latest_version_failure"] = previous_apply_failure(state.get("latest_version"))
+    # Versions stay visible; the card only drops the buttons the policy refuses.
+    state["update_policy"] = update_policy.status()
     return state
 
 
