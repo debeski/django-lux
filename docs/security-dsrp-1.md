@@ -42,7 +42,11 @@ authorization decision.
 - Browser code that builds markup keeps data text. The section manager's View and
   blocked-Delete modals escape record names, field values and related rows;
   row-action labels and dynamic-modal errors are set as text; the login hero's
-  markdown escapes quotes, so a link URL cannot leave its `href`.
+  markdown escapes quotes, so a link URL cannot leave its `href`. Superuser- and
+  staff-editable values are escaped too: sidebar and navbar builder entries,
+  language names in the translation matrix, the permissions tier preview (tier,
+  scope name, badges, capabilities, warnings), and translated labels placed beside
+  an icon or spinner. `dlux/tests/test_js_html_sinks.py` guards these scripts.
 - Stored files follow the app's authorization (stack schema 4). The proxy asks `/sys/files/media-access/` before serving any `/media/` file outside the public folders, so a direct link to a registered document file reaches only users who may view the document, and backups, protected assets and file history are never served from `/media/`. Backups are recognised by the backup folder configured now (read per request), by the backup records' own paths and by the `.dlb` suffix, so a custom or changed backup folder stays private; the backup folder can't be a public one, and uploaded restore files get unguessable names. See [Stored files](deployment-configuration.md#stored-files-media).
 - The generated proxy applies the Fetch Metadata resource isolation policy
   (`cross_site_request`): what another site's page makes a browser request in the
@@ -71,9 +75,10 @@ authorization decision.
   delete/change permissions on generic data grids. `delete_<model>` permissions
   are assignable from the grouped permission UI so deletion can be delegated;
   sensitive `auth`/internal-`dlux` deletes stay non-assignable.
-- Shared modal/runtime helper scripts are shipped as external static assets, and
-  the dynamic-modal loader now carries the request CSP nonce so strict
-  `script-src` policies do not force a fallback to inline behavior.
+- Shared modal/runtime helper scripts are shipped as external static assets.
+  Scripts that arrive in modal markup run under the page's nonce only when they
+  carry the nonce of the response that delivered them (see
+  [Content Security Policy](#content-security-policy)).
 - User directory, user detail, reset-password, activity-log, section-management,
   dashboard, user-hub, and sidebar surfaces use helper-backed authorization.
 - Built-in system sidebar entries use internal permission tokens:
@@ -115,6 +120,62 @@ authorization decision.
 - Inline updater state is readable only to superusers/Global Staff; check/apply/
   rollback mutations are superuser-only CSRF-protected POSTs, and apply/rollback
   also require the existing current-password guard and emit audit events.
+
+## Content Security Policy
+
+Generated projects send this policy from `config/settings.py` (django-csp):
+
+| Directive | Sources |
+| --- | --- |
+| `script-src` | `'self'`, the request's nonce (`[SELF, NONCE]`) |
+| `style-src` | `'self'`, `'unsafe-inline'` |
+| `default-src`, `frame-ancestors`, `form-action` | `'self'` |
+| `img-src` | `'self'`, `data:`, `blob:` |
+| `font-src` | `'self'`, `data:` |
+| `connect-src` | `'self'`, `BASE_URL`, the ScanLink tray origins |
+
+Scripts run only from the site or inline with `nonce="{{ request.csp_nonce }}"`.
+There is no `'unsafe-inline'` or `'unsafe-eval'` in `script-src`, so markup injected
+into a page cannot run script, and neither can an inline `on…=` handler or a
+`javascript:` URL. DjangoLux needs neither source: its templates have no inline
+scripts, its JavaScript never calls `eval`, `new Function` or string timers, and
+PDF.js runs with `isEvalSupported: false`. Scripts it adds at run time (asset
+bundles, the strings script) carry the page's nonce.
+
+The dynamic modal runs the scripts in the markup it fetches. A script that carries
+the nonce of the response it came in runs with the page's nonce; any other inline
+script keeps its own nonce and is blocked. Markup that a stored value smuggles
+into a modal therefore cannot borrow the page's nonce.
+
+A project's own pages follow the same rules: move inline script to a static file or
+give it the nonce, replace `onclick=`/`onsubmit=` handlers with listeners in a
+script, and pass data through `json_script` or `data-*` attributes. A print window
+opened with `window.open('')` inherits the page's policy, so a `<script>` written
+into it needs the nonce too.
+
+An existing project keeps the policy its own settings hold; DjangoLux never
+rewrites them. While that policy lets scripts run without a nonce, system check
+`dlux.W201` warns and names the setting:
+`CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]` (or `default-src` when there
+is no `script-src`, or django-csp 3.x's `CSP_SCRIPT_SRC`) allows `'unsafe-inline'`
+or `'unsafe-eval'`. To clear it, fix the project's inline scripts and handlers as
+above, then set:
+
+```python
+from csp.constants import NONCE, SELF, UNSAFE_INLINE
+
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        # ...
+        "script-src": [SELF, NONCE],
+    }
+}
+```
+
+A project that has to keep an extra script host (a CDN) lists it beside
+`SELF, NONCE`. One that still depends on `'unsafe-eval'` can silence the warning
+with `SILENCED_SYSTEM_CHECKS = ["dlux.W201"]` and remove that line once the
+dependency is gone.
 
 ## Inline Updater Boundary
 

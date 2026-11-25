@@ -1226,6 +1226,7 @@ under a nonce-only `script-src`.
 | `window.DluxAssets.ensure(root)` | Load every bundle that markup inside `root` needs. |
 | `window.DluxAssets.missing(root)` | Names of the bundles `root` needs that have not finished loading. |
 | `window.DluxDom.onAdded(selector, callback)` | Call `callback(element)` for each element matching `selector` added to the document later, from one shared observer. |
+| `window.DluxDom.runScripts(root, response, skip)` | Run the `<script>` tags that fetched markup put into `root` (`innerHTML` never runs them). A script carrying the nonce of `response`, the `fetch()` response that delivered the markup, runs with the page's nonce; any other keeps its own, so a nonce-only policy blocks it. JSON blocks are left alone, and `skip(script)` returning true keeps a script out. |
 
 A project page that uses settings components outside a settings form marks its
 container with `data-dlux-assets="settings"` (or calls

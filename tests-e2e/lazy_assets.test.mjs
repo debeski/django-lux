@@ -39,10 +39,9 @@ function track(page) {
   return fetched;
 }
 
-/** Serve every page under `script-src 'nonce-…'` and nothing else. The test
- *  settings run no CSP middleware, so templates render `nonce=""`; stamp a nonce
- *  into them the way a deployment's middleware would. */
-const NONCE = 'e2e-lazy-assets-nonce';
+/** Serve every page under `script-src 'nonce-…'` and nothing else: the harness's
+ *  own policy (settings.py) with `'self'` dropped, so a script tag only runs when
+ *  it carries the page's nonce. */
 async function nonceOnlyPolicy(page, violations) {
   page.on('console', (message) => {
     if (/Content Security Policy/i.test(message.text())) violations.push(message.text());
@@ -51,11 +50,11 @@ async function nonceOnlyPolicy(page, violations) {
     const response = await route.fetch();
     const type = response.headers()['content-type'] || '';
     if (!type.includes('text/html')) return route.fulfill({ response });
-    const body = (await response.text()).replace(/nonce=""/g, `nonce="${NONCE}"`);
+    const nonce = /'nonce-([^']+)'/.exec(response.headers()['content-security-policy'] || '');
+    assert.ok(nonce, 'the harness sends a nonce-based policy');
     return route.fulfill({
       response,
-      body,
-      headers: { ...response.headers(), 'content-security-policy': `script-src 'nonce-${NONCE}'` },
+      headers: { ...response.headers(), 'content-security-policy': `script-src 'nonce-${nonce[1]}'` },
     });
   });
 }

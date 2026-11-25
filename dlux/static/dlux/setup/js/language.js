@@ -44,7 +44,7 @@
         row.dataset.languageCode = code;
         const locked = code === 'en' || code === 'ar';
         row.innerHTML = `
-            <div class="dlux-language-row__code">${code}</div>
+            <div class="dlux-language-row__code">${escapeHtml(code)}</div>
             <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}" aria-label="Display name (${escapeHtml(code)})">
             <select class="form-select glass-input" data-language-dir aria-label="Direction (${escapeHtml(code)})">
                 <option value="ltr"${dir !== 'rtl' ? ' selected' : ''}>LTR</option>
@@ -52,7 +52,7 @@
             </select>
             <input type="text" class="form-control glass-input dlux-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}" aria-label="Flag (${escapeHtml(code)})">
             <label class="dlux-language-default">
-                <input type="radio" data-language-default value="${code}">
+                <input type="radio" data-language-default value="${escapeHtml(code)}">
                 <span>Default</span>
             </label>
             <button type="button" class="btn btn-sm btn-outline-danger" data-language-remove${locked ? ' disabled' : ''}>
@@ -88,7 +88,7 @@
         if (headerRow) {
             const header = document.createElement('th');
             header.dataset.translationLangHeader = code;
-            header.innerHTML = `${label || code} <span class="text-muted">(${code})</span>`;
+            header.innerHTML = `${escapeHtml(label || code)} <span class="text-muted">(${escapeHtml(code)})</span>`;
             headerRow.appendChild(header);
         }
         matrix.querySelectorAll('[data-translation-row]').forEach((row) => {
@@ -97,7 +97,7 @@
             cell.dataset.translationCell = 'true';
             cell.dataset.source = 'missing';
             cell.innerHTML = `
-                <textarea class="form-control form-control-sm glass-input" rows="2" data-translation-input data-lang="${code}" data-key="${key}" data-base-value="" data-override-value="" placeholder=""></textarea>
+                <textarea class="form-control form-control-sm glass-input" rows="2" data-translation-input data-lang="${escapeHtml(code)}" data-key="${escapeHtml(key)}" data-base-value="" data-override-value="" placeholder=""></textarea>
                 <span class="badge dlux-translation-source">missing</span>
             `;
             row.appendChild(cell);

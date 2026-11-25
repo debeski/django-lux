@@ -84,7 +84,9 @@
             if (passwordEl) { passwordEl.disabled = busy; }
             if (busy) {
                 submitEl.dataset.originalHtml = submitEl.innerHTML;
-                submitEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' + submitEl.textContent.trim();
+                var label = submitEl.textContent.trim();
+                submitEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
+                submitEl.append(label);
             } else if (submitEl.dataset.originalHtml) {
                 submitEl.innerHTML = submitEl.dataset.originalHtml;
                 delete submitEl.dataset.originalHtml;
