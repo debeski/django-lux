@@ -2,6 +2,7 @@
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm
+from django.contrib.auth.hashers import check_password
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Field, Div, Submit
 from django.core.exceptions import ValidationError
@@ -45,7 +46,9 @@ class DluxPasswordMustChangeMixin:
         cleaned_data = super().clean()
         password = self.cleaned_data.get('new_password2')
         user = getattr(self, 'user', None)
-        if password and user is not None and user.check_password(password):
+        # hashers.check_password without a setter: a match here is an error,
+        # and must not re-hash (and save) the user's stored password.
+        if password and user is not None and check_password(password, user.password):
             s = get_strings()
             self.add_error(
                 'new_password2',

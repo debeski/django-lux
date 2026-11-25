@@ -372,7 +372,9 @@ Django widget or generic Bootstrap structure:
   `document.body`, or on `document`; dlux listens in the capture phase, so it is
   caught whether or not the event bubbles (a `CustomEvent` does not bubble unless you
   set `bubbles: true`). Pass `bubbles: true` when other listeners also need to see the
-  event.
+  event. A request made while the page loads (as a page script runs, or on
+  `DOMContentLoaded`, such as opening a modal from a `?modal=` link) is kept by
+  `base_head.js` and opened once the modal's script has started.
 - `data-dlux-context` plus the Dlux row-action schema for context menus, and
   `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip
   implementations.

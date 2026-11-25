@@ -103,11 +103,17 @@ class ModalOpenListenerReachesEveryCallerTests(TestCase):
         """The line that closes the modal-open listener: '});' or '}, true);'.
 
         Matched on the closer rather than the whole block, which contains blank
-        lines and would need brace balancing to delimit.
+        lines and would need brace balancing to delimit. A named handler
+        registered on one line (`addEventListener(..., openFromRequest, true);`)
+        reads as the capture closer.
         """
         marker = "document.addEventListener('dlux:dynamic_modal:open'"
         start = self.js.find(marker)
         self.assertNotEqual(start, -1, 'the modal-open listener is no longer registered on document')
+        line = self.js[start:self.js.find('\n', start)].rstrip()
+        if line.endswith(');'):
+            return '}, true);' if line.endswith(', true);') else '});'
+
         bubble = self.js.find('\n    });', start)
         capture = self.js.find('\n    }, true);', start)
         if capture == -1:

@@ -54,6 +54,14 @@ containers whose containment, transforms or stacking contexts can trap a modal
 below Bootstrap's backdrop. Backup Details uses this block while retaining the
 backup page's layout containment and inner scrolling.
 
+## Static files
+
+Reference project scripts and stylesheets with plain `{% static %}`: through
+`dlux_settings()`, their URLs carry the release in `?v=` and change with every
+DjangoLux update or project release, so browsers never keep an old copy from the
+year-long `/static/` cache ([Settings integration](project-configuration.md#settings-integration)).
+`{% dlux_static %}` adds the same `v` where a project keeps another static storage.
+
 ## Entrance animation
 
 An index page can fade in as it loads, the way Options does. `data-dlux-reveal`
