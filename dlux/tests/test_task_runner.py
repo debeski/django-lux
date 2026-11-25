@@ -650,7 +650,7 @@ class DoctorAndOptionsTests(TaskRunnerTestCase):
 
     def test_doctor_task_worker(self):
         finding = self.finding()
-        self.assertEqual(finding.status, "warning")
+        self.assertEqual(finding.status, "error")
         self.assertIn("check --fix", finding.remedy)
         live_worker(version="1.16.0b1")
         self.assertEqual(self.finding().status, "ok")
