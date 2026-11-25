@@ -574,6 +574,26 @@ def _check_updater_runtime_volume(ctx):
     return ok(f'Runtime volume at {root} is writable.')
 
 
+@check('updater.image_floor', 'services', 'This image can run the active DjangoLux release')
+def _check_updater_image_floor(ctx):
+    """The active volume release needs a newer image: the baked release runs instead.
+
+    The supervisor falls back loudly at boot; this makes the same verdict an
+    error here, so an image rolled back under a newer release is not missed.
+    """
+    from .updater.supervisor import runtime_fallback
+
+    root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
+    problem = runtime_fallback(root)
+    if problem:
+        return fail(
+            f'{problem}, so the image\'s own DjangoLux is served instead.',
+            'Deploy a project image built on that DjangoLux or later, or roll the inline '
+            'release back with ./start.sh dlux rollback.',
+        )
+    return ok('The image meets the active release\'s floor, or no newer volume release is active.')
+
+
 @check('stack.schema', 'services', 'Stack files match the stack contract schema')
 def _check_stack_schema(ctx):
     """Compares compose.yml's ``DLUX_STACK_SCHEMA`` with the running contract.
@@ -811,7 +831,7 @@ def _check_project_celery(ctx):
     if not signals:
         return ok('This project has no Celery app, beat entries or broker setting.')
     return warn(
-        'Celery for project tasks is deprecated, and generated stacks stop installing it in 1.17: '
+        'Celery for project tasks is deprecated, and generated stacks stop installing it in 1.18: '
         + '; '.join(signals) + '.',
         'Move project tasks to @dlux.taskrunner.task and their schedule to DLUX_TASK_SCHEDULE, then '
         'remove the celery service, celery.py and the CELERY_* settings (docs/task-runner.md, '

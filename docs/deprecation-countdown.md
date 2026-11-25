@@ -13,11 +13,11 @@ DjangoLux runs none of its own work on Celery: its tasks run on `dlux_worker`
   `tasks.celery_deprecated` warns while a project has a Celery app, beat entries
   or `CELERY_BROKER_URL`. A stack migrated by `./start.sh check --fix` keeps a
   project-only `celery` service for the project's own tasks.
-- **1.17.0:** generated stacks stop installing Celery. A project that still uses
+- **1.18.0:** generated stacks stop installing Celery. A project that still uses
   it is warned to move to `@dlux.taskrunner.task` and `DLUX_TASK_SCHEDULE`
   ([Moving project tasks from Celery](task-runner.md#moving-project-tasks-from-celery)).
 
-Compatibility kept until **1.17.0**:
+Compatibility kept until **1.18.0**:
 - `dlux_settings()` still defines `CELERY_BEAT_SCHEDULE` (as a dict without
   DjangoLux's entries) for projects that add their own beat entries to it after
   the call.

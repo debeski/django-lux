@@ -768,3 +768,36 @@ class DoctorStackSchemaAdviceTests(TestCase):
         self.assertNotIn('check --fix updates it', finding.remedy)
         self.assertIn('Composer 1.11.0 or later restamps every stamp', finding.remedy)
         self.assertIn(f'set it to "{expected}" by hand', finding.remedy)
+
+
+class ImageFloorCheckTests(TestCase):
+    """break-it #11: an image rolled back under a newer inline release is an error."""
+
+    def setUp(self):
+        from tempfile import TemporaryDirectory
+
+        from dlux.updater.runtime import RuntimeStore
+
+        holder = TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        self.store = RuntimeStore(Path(holder.name)).ensure()
+        package = self.store.release_path('1.17.2') / 'dlux'
+        package.mkdir(parents=True)
+        manifest = {'schema_version': 2, 'version': '1.17.2', 'requires': {'baked_image': '>=1.17.0'}}
+        (package / 'release-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+        self.store.write_active('1.17.2', source='volume', generation=1)
+
+    def finding(self, baked):
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=str(self.store.root)), \
+                patch.dict('os.environ', {'DLUX_BAKED_VERSION': baked}):
+            return doctor._check_updater_image_floor(None)
+
+    def test_an_image_below_the_active_release_floor_is_an_error(self):
+        finding = self.finding('1.16.6')
+        self.assertEqual(finding.status, doctor.ERROR)
+        self.assertIn('1.17.0', finding.detail)
+        self.assertIn('1.16.6', finding.detail)
+        self.assertIn('dlux rollback', finding.remedy)
+
+    def test_an_image_on_the_floor_passes(self):
+        self.assertEqual(self.finding('1.17.0').status, doctor.OK)

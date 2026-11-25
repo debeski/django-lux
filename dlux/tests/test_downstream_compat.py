@@ -228,7 +228,7 @@ class ImportCompatTests(SimpleTestCase):
 
 
 class CeleryEraNamesTests(SimpleTestCase):
-    """Kept until 1.17.0 (deprecation countdown, "Celery for project tasks")."""
+    """Kept until 1.18.0 (deprecation countdown, "Celery for project tasks")."""
 
     def test_the_backup_availability_aliases_still_import(self):
         from dlux.backup import system_backup_celery_available, system_backup_worker_available
