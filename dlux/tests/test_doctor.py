@@ -679,6 +679,38 @@ class DoctorNeverHangsTests(TestCase):
         self.assertEqual(status['db.system_config']['status'], doctor.OK)
         self.assertNotIn('No answer', status['db.system_config']['detail'])
 
+    def test_a_paused_database_is_one_error_and_the_run_ends_with_its_probe(self):
+        """Live proof C2: with Postgres paused, Django's system checks and the URL
+        check each waited out the watchdog (27 s, 3 errors). Importing the URLconf
+        translates strings, and every translation built the system config from the
+        database, one connect timeout per read."""
+        import time
+
+        from django.core.cache import cache
+        from django.db.utils import OperationalError
+
+        attempts = []
+
+        def paused(*args, **kwargs):
+            attempts.append(1)
+            time.sleep(0.4)
+            raise OperationalError('connection to server at "db", port 5432 failed: timeout expired')
+
+        cache.clear()
+        started = time.monotonic()
+        with patch('django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection', paused), \
+                patch('django.db.backends.base.base.BaseDatabaseWrapper.cursor', paused), \
+                patch.object(doctor, 'CHECK_TIMEOUT', 1.0):
+            report = doctor.run_checks()
+        elapsed = time.monotonic() - started
+        status = {e['id']: e for e in report['checks']}
+        self.assertEqual([e['id'] for e in report['checks'] if e['status'] == doctor.ERROR], ['db.reachable'])
+        for check_id in (doctor.DJANGO_CHECKS_ID, 'urls.mounted'):
+            self.assertEqual(status[check_id]['status'], doctor.SKIPPED, check_id)
+            self.assertIn('database is unreachable', status[check_id]['detail'], check_id)
+        self.assertEqual(len(attempts), 1, 'only the opening probe waits on the database')
+        self.assertLess(elapsed, 2.0)
+
     def test_project_cache_timeouts_are_capped_whatever_settings_say(self):
         with patch.object(doctor, 'PROBE_TIMEOUT', 5):
             bounded = doctor._bounded_caches({

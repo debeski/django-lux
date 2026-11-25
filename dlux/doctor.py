@@ -308,6 +308,16 @@ def _installed(module_name):
 
 DJANGO_CHECKS_ID = 'settings.django_checks'
 
+#: Django's checks and URL resolution import the URLconf, whose modules translate
+#: strings as they load, and Django's model checks translate names. Each
+#: translation builds the system config, which reads System Settings (and the
+#: managed fonts) from the database: with it paused, each read waits out the
+#: connect timeout, and the check outlasts its deadline.
+NEEDS_DATABASE_FOR_TRANSLATIONS = (
+    'Skipped: the database is unreachable, and this check needs it: importing the URLconf '
+    'and translating names builds the system config from System Settings.'
+)
+
 
 @check(DJANGO_CHECKS_ID, 'settings', "Django's system checks pass")
 def _check_django_system_checks(ctx):
@@ -317,6 +327,8 @@ def _check_django_system_checks(ctx):
     doctor before it printed anything, and ``composer check --deep`` got no
     report. Here they run under the same deadline as every other check.
     """
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
     from django.core import checks
 
     messages = [message for message in checks.run_checks() if not message.is_silenced()]
@@ -463,6 +475,8 @@ def _check_settings_helper(ctx):
 
 @check('urls.mounted', 'urls', 'dlux URLs are mounted')
 def _check_urls(ctx):
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
     from django.urls import NoReverseMatch, reverse
     try:
         reverse('login')

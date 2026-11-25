@@ -151,7 +151,11 @@ as its own error, rather than through every check that touches it.
   so the other checks read the database directly.
 - **A dead database skips what needs it.** `db.reachable` is the error; the
   other database checks, the email checks, `updater.runtime_volume` and
-  `tasks.worker` are skipped and say why.
+  `tasks.worker` are skipped and say why. So are `settings.django_checks` and
+  `urls.mounted`: both import the URLconf, and Django's checks translate model
+  names, and every translated string builds the system config from System
+  Settings in the database. A paused database therefore costs the run one probe,
+  not a timed-out check each.
 - **Every check has a deadline.** Each check runs in a worker thread with
   `CHECK_TIMEOUT`. One that does not answer is an error, "No answer within N s",
   and the report goes on. The whole pass has `RUN_TIMEOUT` (60 s); checks not
