@@ -4265,7 +4265,7 @@ class ProfileConfigAndOnboardingTests(TestCase):
         from dlux.utils.config import normalize_profile_config
         from django.core.cache import cache
         s = SystemSettings.load()
-        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); SystemSettings.clear_cache()
         u = self.User.objects.create_user('rejuser', 'rj@e.com', 'pw12345678')
         c = Client(); c.force_login(u)
         c.post(reverse('update_preferences'), {'user_home_url': '/evil/path/'})
@@ -4276,7 +4276,7 @@ class ProfileConfigAndOnboardingTests(TestCase):
         from dlux.utils.config import normalize_profile_config
         from django.core.cache import cache
         s = SystemSettings.load()
-        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); SystemSettings.clear_cache()
         u = self.User.objects.create_user('lpuser', 'lp@e.com', 'pw12345678')
         c = Client(); c.force_login(u)
         # Options renders the landing-page control when allowed.
@@ -4284,7 +4284,7 @@ class ProfileConfigAndOnboardingTests(TestCase):
         c.post(reverse('update_preferences'), {'user_home_url': '/sys/options/'})
         self.assertEqual(Profile.all_objects.get(user=u).preferences.get('user_home_url'), '/sys/options/')
         # When the admin disallows it, the API refuses (and clears) the value.
-        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); cache.delete('SystemSettings')
+        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); SystemSettings.clear_cache()
         self.assertNotIn(b'data-user-home-url', c.get(reverse('options_view')).content)
         c.post(reverse('update_preferences'), {'user_home_url': '/elsewhere/'})
         self.assertIsNone(Profile.all_objects.get(user=u).preferences.get('user_home_url'))
@@ -4309,7 +4309,7 @@ class ProfileConfigAndOnboardingTests(TestCase):
         from dlux.utils.config import normalize_profile_config
         from django.core.cache import cache
         s = SystemSettings.load(); s.home_url = '/accounts/profile/'
-        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); SystemSettings.clear_cache()
         u = self.User.objects.create_user('homeuser', 'hu@e.com', 'pw12345678')
         u.profile.is_configured = True
         u.profile.preferences = {'user_home_url': '/sys/options/'}
@@ -4319,7 +4319,7 @@ class ProfileConfigAndOnboardingTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp['Location'], '/sys/options/')
         # When the admin disallows it, fall back to the system home.
-        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); cache.delete('SystemSettings')
+        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); SystemSettings.clear_cache()
         c2 = Client()
         resp2 = c2.post(reverse('login'), {'username': 'homeuser', 'password': 'pw12345678'})
         self.assertEqual(resp2['Location'], '/accounts/profile/')

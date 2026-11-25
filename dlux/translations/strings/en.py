@@ -2684,6 +2684,8 @@ STRINGS = {
     'err_unable_send_code': 'Unable to send code.',
     'err_not_authenticated': 'Not authenticated.',
     'err_totp_unavailable': 'TOTP is unavailable.',
+    'cache_unavailable_title': 'Temporarily unavailable',
+    'cache_unavailable_message': 'The service that keeps sign-ins and sessions is not responding. Try again in a minute; if it keeps happening, tell your administrator.',
     'err_unable_save_totp': 'Unable to save authenticator setup. Run database migrations and try again.',
     'device_unknown': 'Unknown device',
     'device_browser_generic': 'Browser',

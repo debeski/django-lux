@@ -223,6 +223,65 @@ def _apply_task_runner_settings(scope):
             scope["TASKS"] = {"default": {"BACKEND": "dlux.taskrunner.backend.DatabaseBackend"}}
 
 
+DJANGO_REDIS_BACKEND = "django_redis.cache.RedisCache"
+FAIL_FAST_CACHE_BACKEND = "dlux.resilient_cache.FailFastRedisCache"
+CACHE_OUTAGE_MIDDLEWARE = "dlux.cache_outage.CacheOutageMiddleware"
+DEFAULT_CACHE_SOCKET_TIMEOUT = 2.0
+
+
+def _cache_socket_timeout(scope):
+    try:
+        value = float(scope.get("DLUX_CACHE_SOCKET_TIMEOUT"))
+    except (TypeError, ValueError):
+        return DEFAULT_CACHE_SOCKET_TIMEOUT
+    return value if value > 0 else DEFAULT_CACHE_SOCKET_TIMEOUT
+
+
+def _apply_cache_resilience(scope, middleware):
+    """Make every ``django_redis`` cache fail fast unless ``DLUX_CACHE_FAIL_FAST = False``.
+
+    Its backend becomes ``dlux.resilient_cache.FailFastRedisCache`` (same data and
+    keys, plus a circuit breaker), its socket timeouts are capped at
+    ``DLUX_CACHE_SOCKET_TIMEOUT`` seconds, and ``CacheOutageMiddleware`` goes
+    just outside the session middleware, so a cache that stops answering costs one short timeout and a 503
+    instead of a hung request and a 500. Projects keep their own settings file,
+    so the cap is applied here rather than only in the scaffold.
+    """
+    scope.setdefault("DLUX_CACHE_FAIL_FAST", True)
+    scope.setdefault("DLUX_CACHE_SOCKET_TIMEOUT", DEFAULT_CACHE_SOCKET_TIMEOUT)
+    caches = scope.get("CACHES")
+    if not scope["DLUX_CACHE_FAIL_FAST"] or not isinstance(caches, dict):
+        return
+    limit = _cache_socket_timeout(scope)
+    resilient = {}
+    found = False
+    for alias, config in caches.items():
+        if not isinstance(config, dict) or config.get("BACKEND") not in {
+            DJANGO_REDIS_BACKEND, FAIL_FAST_CACHE_BACKEND,
+        }:
+            resilient[alias] = config
+            continue
+        found = True
+        config = dict(config)
+        options = dict(config.get("OPTIONS") or {})
+        for key in ("SOCKET_CONNECT_TIMEOUT", "SOCKET_TIMEOUT"):
+            try:
+                current = float(options.get(key))
+            except (TypeError, ValueError):
+                current = 0
+            if not 0 < current <= limit:
+                options[key] = limit
+        config["BACKEND"] = FAIL_FAST_CACHE_BACKEND
+        config["OPTIONS"] = options
+        resilient[alias] = config
+    scope["CACHES"] = resilient
+    if found and CACHE_OUTAGE_MIDDLEWARE not in middleware:
+        # Inside SecurityMiddleware and the CSP middleware, so its 503 carries
+        # their headers; outside SessionMiddleware, whose save is what fails.
+        session = "django.contrib.sessions.middleware.SessionMiddleware"
+        middleware.insert(middleware.index(session) if session in middleware else 0, CACHE_OUTAGE_MIDDLEWARE)
+
+
 DEFAULT_STATIC_BACKEND = "django.contrib.staticfiles.storage.StaticFilesStorage"
 VERSIONED_STATIC_BACKEND = "dlux.static_storage.VersionedStaticFilesStorage"
 
@@ -347,6 +406,7 @@ def dlux_settings(scope):
     scope.setdefault("USE_I18N", True)
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")
+    _apply_cache_resilience(scope, middleware)
     scope.setdefault("DLUX_ISOLATE_TEST_CACHE", True)
     if scope["DLUX_ISOLATE_TEST_CACHE"] and _is_test_process():
         scope["CACHES"] = {

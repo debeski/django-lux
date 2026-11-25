@@ -265,10 +265,9 @@ def get_active_log_config():
     from ..system.defaults import default_log_config
     try:
         from django.apps import apps
-        from django.core.cache import cache
-        instance = cache.get('SystemSettings')
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        instance = SystemSettings.cached()
         if instance is None:
-            SystemSettings = apps.get_model('dlux', 'SystemSettings')
             instance = SystemSettings.objects.filter(pk=1).first()
         if instance is not None and hasattr(instance, 'log_config'):
             from .config import normalize_log_config

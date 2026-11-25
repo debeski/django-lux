@@ -226,18 +226,18 @@ class SystemSettingsTests(TestCase):
     def test_system_settings_caching(self):
         """Test that SystemSettings uses caching."""
         instance1 = SystemSettings.load()
-        cached_instance = cache.get('SystemSettings')
+        cached_instance = SystemSettings.cached()
         self.assertIsNotNone(cached_instance)
         self.assertEqual(instance1.pk, cached_instance.pk)
 
     def test_refresh_cache(self):
         """Test that refresh_cache updates the cache."""
         instance = SystemSettings.load()
-        instance.name = 'Test System'
+        instance.home_url = '/test-system/'
         instance.save()
         instance.refresh_cache()
-        cached_instance = cache.get('SystemSettings')
-        self.assertEqual(cached_instance.name, 'Test System')
+        cached_instance = SystemSettings.cached()
+        self.assertEqual(cached_instance.home_url, '/test-system/')
 
     def test_load_survives_unreadable_cache(self):
         """Regression: an unreadable cached singleton (e.g. an incompatible pickle

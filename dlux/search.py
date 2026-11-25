@@ -24,6 +24,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
 
 from .system.constants import SETUP_STEPS
+from .resilient_cache import safe_get, safe_set
 from .utils.arabic import model_text_q
 
 logger = logging.getLogger('dlux')
@@ -280,10 +281,10 @@ def get_component_index(lang_code=None):
     config = get_system_config()
     lang_code = (lang_code or config.get('default_language', 'en')).split('-')[0]
     key = f'dlux:search:index:{_sidebar_cache_version()}:{lang_code}'
-    index = cache.get(key)
+    index = safe_get(key, cache=cache)
     if index is None:
         index = _component_index(lang_code)
-        cache.set(key, index, SEARCH_INDEX_CACHE_TIMEOUT)
+        safe_set(key, index, SEARCH_INDEX_CACHE_TIMEOUT, cache=cache)
     return index
 
 

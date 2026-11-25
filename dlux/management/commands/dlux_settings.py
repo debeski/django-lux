@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 
 from dlux.models import SystemSettings
@@ -42,7 +41,7 @@ class Command(BaseCommand):
         return SystemSettings._default_manager.filter(pk=1).first()
 
     def _clear_cache(self):
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
 
     def _require_yes(self, action):
         if not action:
