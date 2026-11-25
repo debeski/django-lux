@@ -9,6 +9,7 @@ import re
 from django.core import checks
 from django.test import SimpleTestCase, override_settings
 
+import dlux
 from dlux.scaffold._shared import TEMPLATES_ROOT
 from dlux.security_checks import check_script_src_nonce_only
 
@@ -63,6 +64,19 @@ class ScriptSrcCheckTests(SimpleTestCase):
     def test_runs_with_the_security_checks(self):
         ids = [message.id for message in checks.run_checks(tags=[checks.Tags.security])]
         self.assertIn("dlux.W201", ids)
+
+
+class CountdownTests(SimpleTestCase):
+    """docs/deprecation-countdown.md: W201 becomes an error in 1.20.0."""
+
+    def test_w201_is_a_warning_before_1_20_0(self):
+        version = tuple(int(part) for part in re.match(r"(\d+)\.(\d+)", dlux.__version__).groups())
+        if version >= (1, 20):
+            self.fail("1.20.0: turn dlux.W201 into an error and update the deprecation countdown")
+        with override_settings(CONTENT_SECURITY_POLICY=policy(**{"script-src": [SELF, UNSAFE_INLINE]})):
+            [message] = check_script_src_nonce_only()
+        self.assertIsInstance(message, checks.Warning)
+        self.assertIn("becomes an error in DjangoLux 1.20.0", message.hint)
 
 
 class GeneratedPolicyTests(SimpleTestCase):
