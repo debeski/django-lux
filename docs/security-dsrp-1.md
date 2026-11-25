@@ -158,7 +158,8 @@ rewrites them. While that policy lets scripts run without a nonce, system check
 `dlux.W201` warns and names the setting:
 `CONTENT_SECURITY_POLICY["DIRECTIVES"]["script-src"]` (or `default-src` when there
 is no `script-src`, or django-csp 3.x's `CSP_SCRIPT_SRC`) allows `'unsafe-inline'`
-or `'unsafe-eval'`. To clear it, fix the project's inline scripts and handlers as
+or `'unsafe-eval'`. It becomes an error in v1.20.0
+([Deprecation countdown](deprecation-countdown.md#unsafe-inline-and-unsafe-eval-in-a-projects-script-src)). To clear it, fix the project's inline scripts and handlers as
 above, then set:
 
 ```python

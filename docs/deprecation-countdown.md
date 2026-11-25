@@ -114,6 +114,15 @@ An avatar is one person's, not a reusable library file, and nothing else should
 be able to pick it — putting it in a shared, de-duplicating library would be the
 wrong shape even before the permission question of a user editing their own row.
 
+### `'unsafe-inline'` and `'unsafe-eval'` in a project's `script-src`
+
+Generated projects send a nonce-only `script-src` (`[SELF, NONCE]`). A project
+whose `CONTENT_SECURITY_POLICY` still allows `'unsafe-inline'` or `'unsafe-eval'`
+for scripts gets system check warning `dlux.W201`. In **v1.20.0** the warning
+becomes an error, so `manage.py check` and the deploy fail until the policy is
+nonce-only. Move inline scripts and handlers as
+[Content Security Policy](security-dsrp-1.md#content-security-policy) describes.
+
 ## Removed in v1.8.0
 
 - `dlux.constants` — import from `dlux.system.constants`.

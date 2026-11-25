@@ -15,7 +15,8 @@ HINT = (
     "(from csp.constants import NONCE, SELF). DjangoLux needs neither source. Give "
     'the project\'s own inline <script> tags nonce="{{ request.csp_nonce }}" or move '
     "them to static files, and replace inline on...= handlers and javascript: links "
-    "first. See docs/security-dsrp-1.md, Content Security Policy."
+    "first. See docs/security-dsrp-1.md, Content Security Policy. This warning "
+    "becomes an error in DjangoLux 1.20.0."
 )
 
 
