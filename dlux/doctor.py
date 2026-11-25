@@ -610,18 +610,21 @@ def _check_updater_runtime_volume(ctx):
 
 @check('updater.image_floor', 'services', 'This image can run the active DjangoLux release')
 def _check_updater_image_floor(ctx):
-    """The active volume release needs a newer image: the baked release runs instead.
+    """The active volume release needs a newer image.
 
-    The supervisor falls back loudly at boot; this makes the same verdict an
-    error here, so an image rolled back under a newer release is not missed.
+    The supervisor falls back to the baked release loudly at boot; this makes the
+    same verdict an error here, so an image rolled back under a newer release is
+    not missed. An image whose own supervisor predates the floor check runs the
+    release anyway, and so does this process; the detail says which one runs.
     """
-    from .updater.supervisor import runtime_fallback
+    from .updater.supervisor import baked_version, held_release_outcome, runtime_fallback
 
     root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
-    problem = runtime_fallback(root)
+    baked = os.environ.get('DLUX_BAKED_VERSION') or baked_version()
+    problem = runtime_fallback(root, baked)
     if problem:
         return fail(
-            f'{problem}, so the image\'s own DjangoLux is served instead.',
+            f'{problem}. {held_release_outcome(baked, __version__)}.',
             'Deploy a project image built on that DjangoLux or later, or roll the inline '
             'release back with ./start.sh dlux rollback.',
         )

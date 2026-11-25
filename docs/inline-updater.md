@@ -516,7 +516,11 @@ mark; rolling the runtime back is the other way out.
 This decision is made by the image's own supervisor, so it protects images that
 bake DjangoLux 1.17.0 or later. An older image runs its own supervisor, which
 does not check the floor; Composer 1.11.0 or later refuses that downgrade before it starts the containers,
-unless the deploy is run with `--force`.
+unless the deploy is run with `--force`. On such an image the release runs anyway,
+below its floor. Reconcile still marks the card degraded, and its reason, the
+`dlux_reconcile` line and the doctor say that the image's supervisor predates the
+floor check, so the release runs on an image below its floor. The remedy is the
+same: deploy an image that meets the floor, or roll the runtime back.
 
 ### Moving to an image that bakes an older DjangoLux
 

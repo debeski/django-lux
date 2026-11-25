@@ -802,6 +802,22 @@ class ImageFloorCheckTests(TestCase):
     def test_an_image_on_the_floor_passes(self):
         self.assertEqual(self.finding('1.17.0').status, doctor.OK)
 
+    def test_the_detail_names_the_baked_release_that_runs(self):
+        with patch.object(doctor, '__version__', '1.16.6'):
+            finding = self.finding('1.16.6')
+        self.assertIn('The baked DjangoLux 1.16.6 runs instead.', finding.detail)
+
+    def test_an_older_supervisor_runs_the_release_and_the_detail_says_so(self):
+        """Live proof S6: an image's own supervisor older than the floor check
+        serves the release anyway, so this process runs it."""
+        with patch.object(doctor, '__version__', '1.17.2'):
+            finding = self.finding('1.15.1')
+        self.assertEqual(finding.status, doctor.ERROR)
+        self.assertIn("This image's supervisor predates the floor check, so DjangoLux 1.17.2 runs "
+                      'on an image below its floor.', finding.detail)
+        self.assertNotIn('instead', finding.detail)
+        self.assertIn('dlux rollback', finding.remedy)
+
 
 class DoctorDjangoSystemChecksTests(TestCase):
     """Run before handle(), one error-level system check stopped the doctor

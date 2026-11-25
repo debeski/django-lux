@@ -398,6 +398,7 @@ class ImageFloorReconcileTests(TestCase):
         self.assertTrue(state.degraded)
         self.assertIn(self.floor, state.degraded_reason)
         self.assertIn(self.release, state.degraded_reason)
+        self.assertIn(f"The baked DjangoLux {self.baked} runs instead", state.degraded_reason)
         self.assertEqual(self.store.recorded_version(), self.release)
         self.assertFalse(self.store.degraded_file.exists(), "the worker's health check stays green")
 
@@ -413,8 +414,35 @@ class ImageFloorReconcileTests(TestCase):
             "dlux.management.commands.dlux_reconcile.get_baked_version", return_value=self.baked,
         ):
             call_command("dlux_reconcile", stderr=stderr, stdout=io.StringIO())
-        self.assertIn("is not served", stderr.getvalue())
+        self.assertIn(f"The baked DjangoLux {self.baked} runs instead", stderr.getvalue())
         self.assertEqual(self.store.recorded_version(), self.release)
+
+    def test_a_release_an_older_supervisor_serves_anyway_is_named_as_running(self):
+        """Live proof S6: an image baking DjangoLux 1.15.1 runs its own supervisor,
+        which does not check the floor, so the held release ran while the reason
+        said the baked one did."""
+        from django.core.management import call_command
+
+        with mock.patch("dlux.updater.service.running_version", return_value=self.release), \
+                self.assertLogs("dlux.updater", level="WARNING"):
+            state = self._reconcile(self.baked)
+        self.assertTrue(state.degraded)
+        self.assertIn(self.floor, state.degraded_reason)
+        self.assertIn(
+            f"This image's supervisor predates the floor check, so DjangoLux {self.release} "
+            "runs on an image below its floor; deploy an image that meets the floor, or roll "
+            "the runtime back.",
+            state.degraded_reason,
+        )
+        self.assertNotIn("runs instead", state.degraded_reason)
+
+        stderr = io.StringIO()
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=str(self.store.root)), mock.patch(
+            "dlux.management.commands.dlux_reconcile.get_baked_version", return_value=self.baked,
+        ), mock.patch("dlux.management.commands.dlux_reconcile.__version__", self.release):
+            call_command("dlux_reconcile", stderr=stderr, stdout=io.StringIO())
+        self.assertIn(f"so DjangoLux {self.release} runs on an image below its floor", stderr.getvalue())
+        self.assertNotIn("runs instead", stderr.getvalue())
 
     def test_an_image_update_below_the_floor_is_refused(self):
         """The gate read `active_manifest.image_baseline`, which holds release
