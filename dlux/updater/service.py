@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from . import UpdaterError, get_baked_version
 from . import channel, check_policy
+from . import policy as update_policy
 from .manifest import package_release_notes
 from .runtime import RuntimeStore
 
@@ -217,6 +218,8 @@ def queue_ops_run(operation, username="", params=None):
     allowed, reason = ops.supports(operation, ops.resident_composer_version())
     if not allowed:
         raise UpdaterError(reason)
+    if operation == "agent-update" and not update_policy.allows(update_policy.COMPOSER_UPDATE):
+        raise UpdaterError(update_policy.refusal(update_policy.COMPOSER_UPDATE))
     problem = runtime_volume_problem()
     if problem:
         raise UpdaterError(problem)
@@ -414,8 +417,11 @@ def get_ops_state():
     from dlux.translations import get_strings
     strings = get_strings()
     operations = []
+    composer_allowed = update_policy.allows(update_policy.COMPOSER_UPDATE)
     for name, spec in ops.OPERATIONS.items():
         allowed, reason = ops.supports(name, composer_version)
+        if allowed and name == "agent-update" and not composer_allowed:
+            allowed, reason = False, update_policy.refusal(update_policy.COMPOSER_UPDATE)
         operations.append({
             "name": name,
             "label": strings.get(ops.OPERATION_LABEL_KEYS.get(name, "")) or spec["label"],
@@ -845,6 +851,8 @@ def queue_run(action, username="", backup_mode=None):
     Run = _run_model()
     if action not in {Run.ACTION_CHECK, Run.ACTION_APPLY, Run.ACTION_ROLLBACK}:
         raise UpdaterError("The requested updater action is invalid.")
+    if action == Run.ACTION_APPLY and not update_policy.allows(update_policy.INLINE_UPDATE):
+        raise UpdaterError(update_policy.refusal(update_policy.INLINE_UPDATE))
     backup_mode = backup_mode if backup_mode in dict(Run.BACKUP_MODE_CHOICES) else Run.BACKUP_DATA
     State = _state_model()
     State.load()
@@ -1792,6 +1800,9 @@ class UpdateService:
     def _process_apply(self, run):
         from . import package_request
 
+        # Queued before the policy changed: refuse before the backup and hand-off.
+        if not update_policy.allows(update_policy.INLINE_UPDATE, self.store):
+            raise UpdaterError(update_policy.refusal(update_policy.INLINE_UPDATE))
         return self._handoff_to_composer(run, package_request.APPLY)
 
     def _process_rollback(self, run):
@@ -2204,6 +2215,9 @@ class UpdateService:
     def _begin_image_update(self, row):
         from .image_update import write_composer_trigger, write_deploy_log, write_deploy_status
 
+        # Queued before the policy changed: refuse before the backup and maintenance.
+        if not update_policy.allows(update_policy.IMAGE_UPDATE, self.store):
+            raise UpdaterError(update_policy.refusal(update_policy.IMAGE_UPDATE))
         # Publish an initial status immediately so the live progress page shows
         # "preparing" (not a stale 'ready' from a previous update) while we back
         # up and enter maintenance, before composer takes over the status file.

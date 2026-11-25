@@ -45,6 +45,61 @@ There is no in-container executor: `DLUX_UPDATE_EXECUTOR` is ignored (see
 and a deployment without Composer gets a card that reports it rather than a
 fallback.
 
+## Which updates a deployment allows
+
+`DLUX_UPDATE_POLICY` in `.secrets/.env` names the update paths a deployment
+allows. An operator who ships images from their own pipeline sets `inline` and
+keeps DjangoLux runtime updates on the card while every image and Composer update
+comes from the server.
+
+| Path | `all` (default) | `inline` | `none` |
+| --- | --- | --- | --- |
+| DjangoLux inline update | allowed | allowed | refused |
+| Application image update (card or control link) | allowed | refused | refused |
+| Composer update (`agent-update`) | allowed | refused | refused |
+| Control-link recovery deploy (a full `composer update`) | allowed | refused | refused |
+| Update checks, `agent-check`, the deployment check, inline rollback | allowed | allowed | allowed |
+| The operator's own `./start.sh update` and `./start.sh agent update` | allowed | allowed | allowed |
+
+An empty value means `all`. Any other value counts as `none` and the doctor warns,
+so a typo never allows more than was meant. `DLUX_INLINE_UPDATES_ENABLED` stays a
+separate switch: it says whether this deployment has the inline updater at all,
+and the policy narrows what it may do. Generated stacks set the switch on in
+`compose.yml`, so the policy is the setting an operator changes.
+
+Both sides refuse. DjangoLux refuses when the request is made (the card, the
+control link, the Operations run) and again when the worker would hand a queued
+request over, so a request made before the policy changed neither backs up nor
+enters maintenance. Composer 1.11.0 or later refuses the same requests on the
+resident pair, which `web` cannot reconfigure: a compromised `web` that writes the
+image trigger or an `agent-update` request directly gets a refusal, not a deploy.
+
+The generated `compose.yml` passes `DLUX_UPDATE_POLICY: "${DLUX_UPDATE_POLICY:-all}"`
+to `web` and `worker` (through the shared environment block) and to
+`composer-agent` and `composer-executor`. `./start.sh check --fix` adds the
+mapping to an existing stack.
+
+### When the application and the resident pair disagree
+
+The pair reads the policy when it is created, so after an edit to
+`.secrets/.env` it enforces the old value until it is recreated.
+The agent reports the policy it enforces in `agent/agent-status.json`, and
+DjangoLux applies the **stricter** of that value and its own, because that is what
+Composer refuses anyway. The Updates card and `dlux_doctor`
+(`updater.update_policy`) then warn with both values; run `./start.sh` on the
+server, and Composer recreates the pair with the secrets file's value.
+
+A resident Composer older than 1.11.0 reports no policy. While the application
+restricts updates, the card and the doctor warn that the pair does not enforce
+it: only DjangoLux refuses, which does not hold against a compromised `web`.
+
+### What the Updates card shows
+
+The rows keep their versions and update targets. Under `inline` the application
+image and Composer rows lose their update buttons; under `none` the DjangoLux
+row loses its review button too. Checks and rollback stay. A note under the rows
+names the policy, and any mismatch.
+
 ## Deployment architecture
 
 ### Who does what
@@ -768,6 +823,7 @@ is the canonical list of `DLUX_*` settings. The ones this page relies on:
 | Name | Default | Purpose |
 | --- | --- | --- |
 | `DLUX_INLINE_UPDATES_ENABLED` | `False` | Enables update checks and operator-approved apply and rollback. Generated `compose.yml` sets `True`; `compose.dev.yml` sets it back to `False` on `web` and `worker`, because development runs a bind-mounted checkout rather than an installed release. |
+| `DLUX_UPDATE_POLICY` | `all` | Which update paths the deployment allows: `all`, `inline` or `none` (see [Which updates a deployment allows](#which-updates-a-deployment-allows)). |
 | `DLUX_UPDATE_CHECK_INTERVAL` | `86400` (minimum `300`) | Seconds between the check runs DjangoLux queues itself. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | `/opt/dlux-runtime` | Where `dlux_runtime` is mounted. |
 | `DLUX_BOOT_GATE` | `on` | Entrypoint migration gate: `off`, `apply` or `on` (see [Boot and ownership](#boot-and-ownership)). |
