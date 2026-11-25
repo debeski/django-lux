@@ -1431,7 +1431,7 @@ STRINGS = {
     'dlux_ops_no_repair': 'No automatic repair is available for these findings.',
     'dlux_update_policy_inline': 'The deployment update policy allows DjangoLux updates only: deploy application image and Composer updates from the server.',
     'dlux_update_policy_none': 'The deployment update policy turns updates off here: deploy them from the server. Checks and rollbacks still work.',
-    'dlux_update_policy_mismatch': 'The update policy differs: the application reads {web}, the resident Composer enforces {resident}. The stricter one applies until composer-agent and composer-executor are recreated on the server.',
+    'dlux_update_policy_mismatch': 'The update policy differs: the application reads {web}, the resident Composer enforces {resident}. The stricter one applies until ./start.sh runs on the server.',
     'dlux_update_policy_unenforced': 'The resident Composer does not report the update policy, so it does not enforce it. Update Composer on the server.',
     'dlux_update_policy_invalid': 'DLUX_UPDATE_POLICY has an unknown value, so it counts as none.',
     'dlux_update_image_local': 'Local build: not compared with the registry',

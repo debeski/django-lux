@@ -1427,7 +1427,7 @@ STRINGS = {
     'dlux_ops_no_repair': 'لا يتوفر إصلاح تلقائي لهذه النتائج.',
     'dlux_update_policy_inline': 'تسمح سياسة التحديث لهذا النشر بتحديثات DjangoLux فقط: انشر تحديثات صورة التطبيق وComposer من الخادم.',
     'dlux_update_policy_none': 'توقف سياسة التحديث لهذا النشر التحديثات من هنا: انشرها من الخادم. يبقى الفحص والتراجع متاحين.',
-    'dlux_update_policy_mismatch': 'سياسة التحديث غير متطابقة: يقرأ التطبيق {web} بينما يفرض Composer المقيم {resident}. تُطبَّق الأشد منهما حتى يُعاد إنشاء composer-agent وcomposer-executor على الخادم.',
+    'dlux_update_policy_mismatch': 'سياسة التحديث غير متطابقة: يقرأ التطبيق {web} بينما يفرض Composer المقيم {resident}. تُطبَّق الأشد منهما حتى يُشغَّل ./start.sh على الخادم.',
     'dlux_update_policy_unenforced': 'لا يُبلغ Composer المقيم عن سياسة التحديث، لذا فهو لا يفرضها. حدّث Composer على الخادم.',
     'dlux_update_policy_invalid': 'قيمة DLUX_UPDATE_POLICY غير معروفة، لذا تُعامل كأنها none.',
     'dlux_update_image_local': 'بناء محلي: لم تتم مقارنته بالسجل',

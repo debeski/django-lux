@@ -615,8 +615,8 @@ def _check_update_policy(ctx):
         return warn(
             f'{detail} The application reads {status["configured"]}, the resident Composer '
             f'enforces {status["resident"]}; the stricter one applies.',
-            'Recreate the resident pair on the server: '
-            'docker compose up -d --force-recreate composer-executor composer-agent',
+            'Run ./start.sh on the server: Composer recreates composer-agent and '
+            'composer-executor with the secrets file\'s value.',
         )
     if status['resident_unenforced']:
         return warn(

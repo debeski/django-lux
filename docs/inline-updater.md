@@ -86,9 +86,8 @@ The pair reads the policy when it is created, so after an edit to
 The agent reports the policy it enforces in `agent/agent-status.json`, and
 DjangoLux applies the **stricter** of that value and its own, because that is what
 Composer refuses anyway. The Updates card and `dlux_doctor`
-(`updater.update_policy`) then warn with both values; recreate the pair on the
-server with
-`docker compose up -d --force-recreate composer-executor composer-agent`.
+(`updater.update_policy`) then warn with both values; run `./start.sh` on the
+server, and Composer recreates the pair with the secrets file's value.
 
 A resident Composer older than 1.11.0 reports no policy. While the application
 restricts updates, the card and the doctor warn that the pair does not enforce

@@ -235,7 +235,8 @@ class DoctorTests(SimpleTestCase):
         self.assertEqual(finding.status, doctor.WARNING)
         self.assertIn("reads all", finding.detail)
         self.assertIn("enforces none", finding.detail)
-        self.assertIn("--force-recreate composer-executor composer-agent", finding.remedy)
+        self.assertIn("./start.sh", finding.remedy)
+        self.assertNotIn("docker compose", finding.remedy)
 
     def test_an_unenforced_restriction_warns(self):
         self.assertEqual(self.finding("none", None).status, doctor.WARNING)
