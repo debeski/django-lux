@@ -451,7 +451,8 @@ mark; rolling the runtime back is the other way out.
 
 This decision is made by the image's own supervisor, so it protects images that
 bake DjangoLux 1.17.0 or later. An older image runs its own supervisor, which
-does not check the floor; Composer 1.11.0 or later refuses that downgrade before it starts the containers.
+does not check the floor; Composer 1.11.0 or later refuses that downgrade before it starts the containers,
+unless the deploy is run with `--force`.
 
 ### Moving to an image that bakes an older DjangoLux
 
