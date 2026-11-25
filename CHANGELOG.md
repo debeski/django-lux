@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## Unreleased
 
+- **Scaffold Stays In Line With Composer (release process)**: a project generated from `dlux/scaffold/templates/project/` must need nothing from the paired Composer's `check --fix`. Composer's `scripts/scaffold_alignment.py` is a paired-release step in `docs/RELEASING.md`. The 1.17 scaffold passes it against Composer 1.11: no failure, no planned file change, identical wrappers.
 - **Celery Removal Moves To 1.18.0 (schedule)**: 1.17.x is a fix-only line (owner, 2026-11-25), so generated stacks keep installing Celery until 1.18.0, and the Celery compatibility aliases stay until then (`docs/deprecation-countdown.md`; `tasks.celery_deprecated` names 1.18). `AGENTS.md` names the 1.17 fix line.
 - **Doctor Reports An Image Below The Release Floor (break-it #11, assembly)**: new check `updater.image_floor` (group `services`) is an error when `dlux.updater.supervisor.runtime_fallback()` finds the active volume release needs a newer project image than this one bakes, so the image's own DjangoLux is served. Remedy: deploy an image on that DjangoLux or later, or `./start.sh dlux rollback`.
 - **Login Page Hero Placeholders In Each Field's Language**: System Settings > Login Page gave every `login_hero_message_<lang>` textarea the active UI language's `login_hero_placeholder`, so under an Arabic UI both the English and the Arabic field showed Arabic. Each field now resolves the placeholder in its own language through `get_strings(<lang>)`, beside its own `dir`.

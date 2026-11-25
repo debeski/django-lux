@@ -43,6 +43,12 @@ Project state, tasks and known bugs: see `tracker.md`.
   its own `AGENTS.md`). A DjangoLux change that needs them ships with their paired
   beta, accepted together on `testbed-dlux`. The DLB viewer (`tools/dlb-viewer`)
   already ships through this repo's release flow.
+- **The scaffold and Composer stay in line** (owner, 2026-11-25: "imperative").
+  `dlux/scaffold/templates/project/` and Composer's `check` / `check --fix` describe
+  the same stack. A change to its shape (services, stamps, proxy config, wrappers,
+  image labels, the resident block) lands in both in the same paired release. Before
+  tagging a paired beta, run Composer's `scripts/scaffold_alignment.py` against this
+  checkout; it must report `aligned` (see `docs/RELEASING.md`).
 - **Consumers ship stable only.** Consumer projects (`../project-*`) are committed,
   tagged and published only against published stables of DjangoLux, Composer and
   ScanLink: never a `bN` pin, a `:beta`/`vX.Y.ZbN` image or a beta

@@ -70,6 +70,18 @@ git add <the paths this release actually changes>
 git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin --follow-tags
 ```
 
+For a release paired with Composer, run Composer's scaffold alignment gate against
+this checkout before tagging. A project generated from this scaffold must need
+nothing from the paired Composer's `check --fix`:
+- no finding fails;
+- the only warnings are those that need a live stack or an operator's choice;
+- no repair plans a file change;
+- `start.sh` / `start.ps1` are byte-identical to Composer's.
+
+```sh
+python ../../app-composer/<checkout>/scripts/scaffold_alignment.py --dlux . --dlux-python .venv/bin/python
+```
+
 Pushing the tag triggers the pipeline:
 
 1. **classify** — parses the tag, checks it against the manifest version and the
