@@ -140,8 +140,9 @@ function Invoke-ComposerPin {
     if ($LASTEXITCODE -ne 0) { return $false }
     $script:composerLockImage = Read-ComposerLock
     if (-not $script:composerLockImage) {
-        [Console]::Error.WriteLine("The deployer reported a pin, but $composerLockFile is unreadable.")
-        return $false
+        # Nothing to pin yet (composer said why): keep the deployer just installed.
+        $script:composerSelfImage = $resolver
+        return $true
     }
     $script:composerSelfImage = $script:composerLockImage
     docker image inspect $script:composerSelfImage 2>&1 | Out-Null

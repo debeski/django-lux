@@ -113,8 +113,9 @@ pin_deployer() {
     "${resolver}" update self --pin || return 1
   read_composer_lock
   if [[ -z "${composer_lock_image}" ]]; then
-    echo "The deployer reported a pin, but ${composer_lock_file} is unreadable." >&2
-    return 1
+    # Nothing to pin yet (composer said why): keep the deployer just installed.
+    composer_self_image="${resolver}"
+    return 0
   fi
   composer_self_image="${composer_lock_image}"
   if ! docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
