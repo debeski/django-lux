@@ -61,7 +61,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         errorEl.classList.remove('d-none');
-        errorEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>' + message;
+        errorEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>';
+        errorEl.append(String(message));
     }
 
     function updateModeActions() {
@@ -137,10 +138,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (labelEl) {
             if (canSend) {
                 labelEl.innerHTML = loginState && loginState.emailSent
-                    ? '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || '')
+                    ? '<i class="bi bi-envelope me-1"></i>'
                     : emailInitialLabel;
+                if (loginState && loginState.emailSent) labelEl.append(emailBtn.dataset.resendLabel || '');
             } else {
-                labelEl.innerHTML = '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || '') + ' (' + seconds + 's)';
+                labelEl.innerHTML = '<i class="bi bi-envelope me-1"></i>';
+                labelEl.append((emailBtn.dataset.resendLabel || '') + ' (' + seconds + 's)');
             }
         }
         if (statusEl) {

@@ -416,7 +416,8 @@
         if (scanButton) scanButton.addEventListener("click", async function () {
             const originalHtml = scanButton.innerHTML;
             scanButton.disabled = true;
-            scanButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${labels.scanning}`;
+            scanButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
+            scanButton.append(labels.scanning);
             try {
                 if (!window.DluxScan) throw new Error(labels.scanLinkUnavailable);
                 const blob = await window.DluxScan.scan({

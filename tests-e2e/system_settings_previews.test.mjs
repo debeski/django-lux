@@ -41,16 +41,17 @@ async function setToggle(page, name, on) {
   }, [name, on]);
 }
 
-// Wait until the live backdrop frame shows a page for which `probe` is true.
-async function backdropWhere(page, probe) {
-  await page.waitForFunction((source) => {
+// Wait until the live backdrop frame shows a page whose `selector` element has
+// data-`key` = `value`. No string is evaluated: the page's policy forbids eval.
+async function backdropWhere(page, selector, key, value) {
+  await page.waitForFunction(([sel, k, v]) => {
     const container = document.querySelector('.dlux-preview-backdrop');
     if (!container || container.hidden) return false;
     const frame = [...container.querySelectorAll('iframe')].find((f) => f.dataset.dluxPreviewStale === undefined);
     const doc = frame && frame.contentDocument;
     if (!doc || doc.readyState !== 'complete') return false;
-    return new Function('doc', source)(doc);
-  }, probe, { timeout: 20000 });
+    return doc.querySelector(sel)?.dataset[k] === v;
+  }, [selector, key, value], { timeout: 20000 });
 }
 
 async function popupFrame(page) {
@@ -105,7 +106,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
     const { ctx, page, errors } = await optionsStep('titlebar');
     try {
       await setToggle(page, 'titlebar_show_title', false);
-      await backdropWhere(page, "return doc.querySelector('.titlebar')?.dataset.titlebarShowTitle === 'false';");
+      await backdropWhere(page, '.titlebar', 'titlebarShowTitle', 'false');
       const realPage = await page.$eval('.titlebar', (el) => el.dataset.titlebarShowTitle);
       assert.equal(realPage, 'true', 'the real page is never patched');
 
@@ -130,7 +131,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
       assert.equal(await page.$('.dlux-preview-backdrop:not([hidden])'), null);
 
       await setToggle(page, 'titlebar_show_title', false);
-      await backdropWhere(page, "return doc.querySelector('.titlebar')?.dataset.titlebarShowTitle === 'false';");
+      await backdropWhere(page, '.titlebar', 'titlebarShowTitle', 'false');
       assert.equal(requests.length, 1, 'one render for one change, never a second load of the same frame');
       const frameScroll = await page.evaluate(() => {
         const frame = [...document.querySelectorAll('.dlux-preview-backdrop iframe')].find((f) => f.dataset.dluxPreviewStale === undefined);
@@ -148,7 +149,7 @@ describe('Options System Settings previews', { concurrency: 1 }, () => {
     const { ctx, page, errors } = await optionsStep('titlebar');
     try {
       await setToggle(page, 'titlebar_show_logo', false);
-      await backdropWhere(page, "return doc.querySelector('.titlebar')?.dataset.titlebarShowLogo === 'false';");
+      await backdropWhere(page, '.titlebar', 'titlebarShowLogo', 'false');
       await page.click('#universalDynamicModalFooter [data-dlux-system-settings-preview]');
       await page.waitForSelector('#universalDynamicModal.dlux-system-preview-glass');
 

@@ -74,6 +74,12 @@
         };
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[char]);
+    }
+
     function renderTierPreview(previewEl) {
         const config = parsePreviewConfig(previewEl);
         if (!config?.catalog?.tiers) return;
@@ -96,24 +102,24 @@
         }
         if (badgesEl) {
             const badges = [
-                `<span class="badge ${tier.badge_classes}"><i class="bi ${tier.icon} me-1"></i>${tier.title}</span>`,
+                `<span class="badge ${escapeHtml(tier.badge_classes)}"><i class="bi ${escapeHtml(tier.icon)} me-1"></i>${escapeHtml(tier.title)}</span>`,
             ];
             if (state.canDelegateStaff) {
-                badges.push(`<span class="badge bg-light text-primary border">${config.catalog.delegation_badge_label}</span>`);
+                badges.push(`<span class="badge bg-light text-primary border">${escapeHtml(config.catalog.delegation_badge_label)}</span>`);
             }
             if (state.hasScope && state.scopeLabel) {
-                badges.push(`<span class="badge bg-light text-secondary border">${state.scopeLabel}</span>`);
+                badges.push(`<span class="badge bg-light text-secondary border">${escapeHtml(state.scopeLabel)}</span>`);
             }
             badgesEl.innerHTML = badges.join('');
         }
         if (capabilitiesEl) {
             capabilitiesEl.innerHTML = (tier.capabilities || [])
-                .map(item => `<li>${item}</li>`)
+                .map(item => `<li>${escapeHtml(item)}</li>`)
                 .join('');
         }
         if (warningsEl) {
             warningsEl.innerHTML = (state.warnings || [])
-                .map(message => `<div class="dlux-staff-tier-preview__warning"><i class="bi bi-exclamation-triangle-fill"></i>${message}</div>`)
+                .map(message => `<div class="dlux-staff-tier-preview__warning"><i class="bi bi-exclamation-triangle-fill"></i>${escapeHtml(message)}</div>`)
                 .join('');
         }
     }

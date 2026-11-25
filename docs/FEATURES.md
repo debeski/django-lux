@@ -31,6 +31,9 @@ tags and helpers are in the [Reference](reference.md).
   approval. See [Registration](registration.md).
 - **Public form limits:** per-address and global POST limits for anonymous public
   forms. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls).
+- **Nonce-only script policy:** generated projects allow scripts only from the site
+  or with the request's nonce, and system check `dlux.W201` flags older policies.
+  See [DSRP-1](security-dsrp-1.md#content-security-policy).
 - **Privacy:** client-IP resolution, privacy and consent notices, and a record of the
   personal data DjangoLux stores. See [Data & Privacy](data-privacy.md).
 - **Optional SSO:** separate OIDC provider and client packages. See [SSO](sso.md).

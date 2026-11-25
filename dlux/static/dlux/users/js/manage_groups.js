@@ -12,27 +12,25 @@
         return document.getElementById(BODY_ID);
     }
 
-    // Set innerHTML then re-run any <script> tags it carried (innerHTML never
-    // executes scripts on its own). Attributes (incl. src + CSP nonce) are copied.
-    function setBody(html) {
+    // Set innerHTML then run the <script> tags it carried (innerHTML never
+    // executes scripts on its own) under the page's CSP nonce.
+    function setBody(html, response) {
         var body = modalBody();
         if (!body) return;
         body.innerHTML = html;
-        body.querySelectorAll('script').forEach(function (oldScript) {
-            var newScript = document.createElement('script');
-            Array.prototype.forEach.call(oldScript.attributes, function (attr) {
-                newScript.setAttribute(attr.name, attr.value);
-            });
-            newScript.textContent = oldScript.textContent;
-            oldScript.parentNode.replaceChild(newScript, oldScript);
-        });
+        if (window.DluxDom) window.DluxDom.runScripts(body, response);
+    }
+
+    // Resolves with the JSON body and the response it came in.
+    function readJson(response) {
+        return response.json().then(function (data) { return { data: data, response: response }; });
     }
 
     function loadView(url) {
         if (!url) return;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && typeof d.html === 'string') setBody(d.html); })
+            .then(readJson)
+            .then(function (r) { var d = r.data; if (d && typeof d.html === 'string') setBody(d.html, r.response); })
             .catch(function (err) { console.error('dlux groups: load error', err); });
     }
 
@@ -44,8 +42,8 @@
             body: new FormData(form),
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && typeof d.html === 'string') setBody(d.html); })
+            .then(readJson)
+            .then(function (r) { var d = r.data; if (d && typeof d.html === 'string') setBody(d.html, r.response); })
             .catch(function (err) { console.error('dlux groups: submit error', err); });
     }
 
@@ -65,8 +63,8 @@
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && typeof d.html === 'string') setBody(d.html); })
+            .then(readJson)
+            .then(function (r) { var d = r.data; if (d && typeof d.html === 'string') setBody(d.html, r.response); })
             .catch(function (err) { console.error('dlux groups: action error', err); });
     }
 
@@ -79,10 +77,11 @@
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
+            .then(readJson)
+            .then(function (r) {
+                var d = r.data;
                 if (d && d.success && typeof d.html === 'string') {
-                    setBody(d.html);
+                    setBody(d.html, r.response);
                 } else {
                     alert(formatDeleteError(d));
                 }

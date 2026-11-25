@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import logging
 from urllib.parse import urlparse
-from csp.constants import SELF, UNSAFE_EVAL, UNSAFE_INLINE
+from csp.constants import NONCE, SELF, UNSAFE_INLINE
 from dlux.system.constants import SCANLINK_CONNECT_ORIGINS
 from dlux.utils import get_project_version, get_secret, dlux_settings
 
@@ -170,7 +170,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "webmast
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": [SELF],
-        "script-src": [SELF, UNSAFE_INLINE, UNSAFE_EVAL],
+        # Scripts come from this site, or inline with nonce="{{ request.csp_nonce }}".
+        # No 'unsafe-inline' or 'unsafe-eval': DjangoLux needs neither.
+        "script-src": [SELF, NONCE],
         "style-src": [SELF, UNSAFE_INLINE],
         "img-src": [SELF, "data:", "blob:"],
         "font-src": [SELF, "data:"],

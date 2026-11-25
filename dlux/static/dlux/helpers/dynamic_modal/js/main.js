@@ -28,6 +28,15 @@
     const DEFAULT_LOADING_MIN_HEIGHT = 320;
     const RELOCATED_FORM_ID = 'universalDynamicModalForm';
 
+    // Scripts that bind global events; markup carrying them never runs them twice.
+    function isCoreScript(script) {
+        return !!script.src && (
+            script.src.includes('dynamic_modals.js') ||
+            script.src.includes('context_menu/js/main.js') ||
+            script.src.includes('context_menu/js/section_manager.js')
+        );
+    }
+
     function directModalChild(className) {
         return Array.from(modalBody.children).find(child => child.classList.contains(className)) || null;
     }
@@ -429,11 +438,13 @@
 
         dynamicModal.show(trigger);
 
+        let loadResponse = null;
         fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
+            loadResponse = response;
             return response.json();
         })
         .then(data => {
@@ -445,29 +456,7 @@
                 attachListeners();
                 syncHeaderBack();
                 
-                // Execute any inline scripts returned in the HTML payload
-                const scripts = modalBody.querySelectorAll('script');
-                scripts.forEach(oldScript => {
-                    // Prevent re-executing core scripts that bind global events
-                    if (oldScript.src && (
-                        oldScript.src.includes('dynamic_modals.js') || 
-                        oldScript.src.includes('context_menu/js/main.js') ||
-                        oldScript.src.includes('context_menu/js/section_manager.js')
-                    )) {
-                        return;
-                    }
-
-                    const newScript = document.createElement('script');
-                    // Copy attributes (especially `nonce` for CSP)
-                    Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                    
-                    if (oldScript.src) {
-                        newScript.src = oldScript.src;
-                    } else {
-                        newScript.textContent = oldScript.textContent;
-                    }
-                    oldScript.parentNode.replaceChild(newScript, oldScript);
-                });
+                if (window.DluxDom) window.DluxDom.runScripts(modalBody, loadResponse, isCoreScript);
 
                 notifyContentLoaded();
             } else if (data.error) {

@@ -827,7 +827,9 @@
                     button.className = `btn btn-sm dlux-builder-icon-choice ${icon === active ? 'is-active' : ''}`;
                     button.setAttribute('title', icon);
                     button.setAttribute('aria-label', icon);
-                    button.innerHTML = `<i class="bi ${icon}"></i>`;
+                    const glyph = document.createElement('i');
+                    glyph.className = `bi ${icon}`;
+                    button.appendChild(glyph);
                     // Picking is a completed choice, so the grid folds away again.
                     button.addEventListener('click', () => {
                         apply(icon, { rerender: false });
@@ -837,7 +839,10 @@
                 });
                 suggestions.innerHTML = '';
                 if (!matches.length) {
-                    suggestions.innerHTML = `<div class="text-muted small p-2">${t('sidebar_no_icons_found', 'No icons match your search.')}</div>`;
+                    const empty = document.createElement('div');
+                    empty.className = 'text-muted small p-2';
+                    empty.textContent = t('sidebar_no_icons_found', 'No icons match your search.');
+                    suggestions.appendChild(empty);
                     return;
                 }
                 suggestions.appendChild(fragment);
