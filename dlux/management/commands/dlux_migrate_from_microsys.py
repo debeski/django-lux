@@ -263,6 +263,10 @@ class Command(BaseCommand):
                 )
             if changes:
                 # Direct column update — bypass SystemSettings.save()/config-sync.
+                # A new revision makes every process's cached row a miss.
+                import uuid
+
+                changes['cache_revision'] = uuid.uuid4().hex
                 SystemSettings.objects.filter(pk=row.pk).update(**changes)
         if not notes:
             notes.append("branding media: nothing to relocate (no 'microsys/branding/' paths)")
