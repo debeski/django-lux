@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.16.6
+
+- **Stable 1.16.6**: Promote the published and accepted 1.16.6b1. Project `{% static %}` URLs carry the DjangoLux and project versions (`VersionedStaticFilesStorage`, set by `dlux_settings()`), so updates reach browsers through the year-long `/static/` cache; a modal asked for while the page loads opens; confirming the password no longer signs the user out after a Django upgrade re-hashes it. Updates inline from any 1.16 release, with no migrations.
+
 ## v1.16.6b1
 
 - **Project Static Files Refresh After Every Upgrade**: generated stacks serve `/static/` as immutable for a year, so a project's `{% static %}` script stayed stale in browsers after an update. `dlux_settings()` now swaps Django's default static storage for `dlux.static_storage.VersionedStaticFilesStorage`, whose URLs carry `?v=<DjangoLux version>-<project version>`. Another `staticfiles` backend is kept; `DLUX_VERSIONED_STATIC = False` opts out.
