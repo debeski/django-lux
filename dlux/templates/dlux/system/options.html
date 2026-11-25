@@ -267,6 +267,7 @@
                                  data-label-last-check="{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}"
                                  data-label-running="{{ DLUX_STRINGS.dlux_update_running|default:'Update operation in progress' }}"
                                  data-label-completed="{{ DLUX_STRINGS.dlux_update_completed|default:'Update operation completed' }}"
+                                 data-label-image-completed-warnings="{{ DLUX_STRINGS.dlux_update_image_completed_warnings|default:'Image update completed with warnings' }}"
                                  data-label-failed="{{ DLUX_STRINGS.dlux_update_failed|default:'Update operation failed' }}"
                                  data-label-password="{{ DLUX_STRINGS.current_password|default:'Current password' }}"
                                  data-label-update-title="{{ DLUX_STRINGS.dlux_update_review_title|default:'Review DjangoLux update' }}"
@@ -754,6 +755,10 @@
                             </div>
                             <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-dlux-update-progress>
                                 <div class="progress-bar progress-bar-striped progress-bar-animated dlux-updater-progress-bar" data-dlux-update-progress-bar></div>
+                            </div>
+                            <div class="alert alert-warning small mt-3 mb-0" role="status" data-dlux-update-warnings hidden>
+                                <strong>{{ DLUX_STRINGS.dlux_update_composer_warnings|default:'Composer reported' }}</strong>
+                                <ul class="mb-0 mt-1" data-dlux-update-warnings-list></ul>
                             </div>
                             <pre class="dlux-updater-progress-log mt-3 mb-0" data-dlux-update-progress-log></pre>
                         </div>

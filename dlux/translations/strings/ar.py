@@ -1455,6 +1455,8 @@ STRINGS = {
     'dlux_update_finish': 'تم',
     'dlux_update_running': 'عملية تحديث قيد التنفيذ',
     'dlux_update_completed': 'اكتملت عملية التحديث',
+    'dlux_update_image_completed_warnings': 'اكتمل تحديث الصورة مع تحذيرات',
+    'dlux_update_composer_warnings': 'أبلغ Composer عن',
     'dlux_update_failed': 'فشلت عملية التحديث',
     'dlux_update_maintenance_notice': 'سيدخل النظام  وضع الصيانة لفترة وجيزة أثناء تنفيذ الترحيلات وتجميع الملفات الثابتة وإعادة تشغيل العمليات.',
     'dlux_update_image_maintenance_notice': 'هذا تحديث كامل للصورة: يتم سحب حاويات التطبيق وإعادة إنشائها. يدخل الموقع وضع الصيانة ويصبح غير متاح لفترة وجيزة أثناء بدء الإصدار الجديد وتنفيذ الترحيلات.',

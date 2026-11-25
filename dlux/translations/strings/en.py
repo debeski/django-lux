@@ -1459,6 +1459,8 @@ STRINGS = {
     'dlux_update_finish': 'Finish',
     'dlux_update_running': 'Update operation in progress',
     'dlux_update_completed': 'Update operation completed',
+    'dlux_update_image_completed_warnings': 'Image update completed with warnings',
+    'dlux_update_composer_warnings': 'Composer reported',
     'dlux_update_failed': 'Update operation failed',
     'dlux_update_maintenance_notice': 'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.',
     'dlux_update_image_maintenance_notice': 'This is a full image update: the application containers are pulled and recreated. The site enters maintenance and briefly becomes unavailable while the new version starts and migrations run.',

@@ -663,3 +663,93 @@ class HandoffVerificationTests(TestCase):
         finished.refresh_from_db()
         self.assertEqual(finished.status, self.Run.STATUS_FAILED)
         self.assertIn("still active", finished.error)
+
+
+class ImageUpdateDeployWarningsTests(TestCase):
+    """Composer's deploy-status `warnings` were dropped: a completed image update
+    looked clean although Composer had warned (owner, 2026-11-25)."""
+
+    def setUp(self):
+        from django.apps import apps
+
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.store = RuntimeStore(Path(self._tmp.name)).ensure()
+        self.Image = apps.get_model("dlux", "DluxImageUpdate")
+        self.warning = (
+            "Could not write .xclude/composer-deploy/deployed.json (permission denied). "
+            "The downgrade guard now relies on the app containers' image labels alone."
+        )
+
+    def _row(self):
+        return self.Image.objects.create(
+            status=self.Image.STATUS_AWAITING_RECREATE,
+            handoff_at=timezone.now() - timedelta(seconds=5),
+            target_version="",
+        )
+
+    def _status(self, status, **extra):
+        from dlux.updater.image_update import status_path
+
+        payload = {"status": status, "updated_at": timezone.now().isoformat(), **extra}
+        status_path(self.store).write_text(json.dumps(payload), encoding="utf-8")
+
+    def _finalize(self, row):
+        from dlux.updater.service import UpdateService
+
+        UpdateService(store=self.store)._finalize_image_update(row)
+        row.refresh_from_db()
+        return row
+
+    def test_a_completed_update_keeps_composers_warnings(self):
+        from dlux.updater.image_update import image_status_summary, serialize_image_update
+
+        row = self._row()
+        self._status("ready", warnings=[self.warning])
+        row = self._finalize(row)
+        self.assertEqual(row.status, row.STATUS_COMPLETED)
+        self.assertIn("completed with 1 warning", row.progress_log)
+        self.assertEqual(serialize_image_update(row, store=self.store)["warnings"], [self.warning])
+        self._status("starting")  # the next deploy rewrites deploy-status
+        self.assertEqual(serialize_image_update(row, store=self.store)["warnings"], [self.warning])
+        self.assertEqual(image_status_summary(self.store)["last_update"]["warnings"], [self.warning])
+
+    def test_a_failed_update_keeps_warnings_beside_the_error(self):
+        from dlux.updater.image_update import serialize_image_update
+
+        row = self._row()
+        self._status("failed", error="Health check failed.", warnings=[self.warning])
+        row = self._finalize(row)
+        self.assertEqual(row.status, row.STATUS_FAILED)
+        self.assertIn("Health check failed.", row.error)
+        self.assertEqual(serialize_image_update(row, store=self.store)["warnings"], [self.warning])
+
+    def test_each_warning_is_recorded_once_and_flattened(self):
+        from dlux.updater.image_update import image_update_warnings
+
+        row = self._row()
+        self._status("recreating", warnings=["first\nline", "first line"])
+        row = self._finalize(row)
+        row = self._finalize(row)
+        self.assertEqual(image_update_warnings(row), ["first line"])
+        self.assertEqual(row.status, row.STATUS_AWAITING_RECREATE)
+
+    def test_a_clean_update_has_no_warnings(self):
+        from dlux.updater.image_update import serialize_image_update
+
+        row = self._row()
+        self._status("ready")
+        row = self._finalize(row)
+        self.assertEqual(row.status, row.STATUS_COMPLETED)
+        self.assertNotIn("warning", row.progress_log)
+        self.assertEqual(serialize_image_update(row, store=self.store)["warnings"], [])
+
+    def test_a_stale_status_from_an_earlier_deploy_is_not_this_ones_warning(self):
+        from dlux.updater.image_update import image_update_warnings, status_path
+
+        row = self._row()
+        stale = (row.handoff_at - timedelta(minutes=5)).isoformat()
+        status_path(self.store).write_text(
+            json.dumps({"status": "ready", "updated_at": stale, "warnings": ["old"]}), encoding="utf-8",
+        )
+        self.assertEqual(image_update_warnings(self._finalize(row)), [])
