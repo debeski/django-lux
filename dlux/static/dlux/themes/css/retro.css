@@ -115,6 +115,8 @@
     --primal: var(--retro-amber);
     --primal_dark: var(--retro-copper);
     --primal-rgb: 212, 165, 116;
+    --on-primal: var(--retro-black);
+    --on-primal_dark: var(--retro-black);
     --btn-primary-shadow: rgba(212, 165, 116, 0.4);
     --nav-item-color: var(--retro-amber);
     color-scheme: dark;
@@ -425,7 +427,7 @@
 
 :root.theme-retro .bi-three-dots,
 :root.theme-retro .bi-three-dots-vertical,
-:root.theme-retro .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-retro .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--retro-amber) !important;
     text-shadow: 0 0 5px rgba(212, 165, 116, 0.22) !important;
 }
@@ -690,7 +692,7 @@
 }
 
 :root.theme-retro .btn-primary:hover {
-    background: linear-gradient(135deg, var(--retro-copper) 0%, var(--retro-bronze) 100%) !important;
+    background: linear-gradient(135deg, var(--retro-copper) 0%, color-mix(in srgb, var(--retro-copper) 50%, var(--retro-bronze)) 100%) !important;
     box-shadow: 0 0 20px rgba(212, 165, 116, 0.3) !important;
 }
 
@@ -1332,9 +1334,8 @@
     box-shadow: 0 0 14px rgba(212, 165, 116, 0.12) !important;
 }
 
-/* Form action buttons (archive-form-action / dlux-form-action) */
+/* Form action cards (archive-form-action) */
 :root.theme-retro .archive-form-action,
-:root.theme-retro .dlux-form-action,
 :root.theme-retro .dlux-filter .dlux-filter-chip,
 :root.theme-retro .dlux-filter .dlux-filter-action {
     border-color: rgba(212, 165, 116, 0.16) !important;
@@ -1344,15 +1345,12 @@
 }
 :root.theme-retro .archive-form-action:hover,
 :root.theme-retro .archive-form-action:focus-visible,
-:root.theme-retro .dlux-form-action:hover,
-:root.theme-retro .dlux-form-action:focus-visible,
 :root.theme-retro .dlux-filter .dlux-filter-chip:hover,
 :root.theme-retro .dlux-filter .dlux-filter-action:hover {
     border-color: rgba(212, 165, 116, 0.32) !important;
     box-shadow: none !important;
 }
-:root.theme-retro .archive-form-action-icon,
-:root.theme-retro .dlux-form-action-icon {
+:root.theme-retro .archive-form-action-icon {
     color: var(--retro-amber) !important;
 }
 :root.theme-retro .archive-form-action-primary {
@@ -1370,16 +1368,6 @@
 :root.theme-retro .archive-form-action-neutral .archive-form-action-icon {
     background: rgba(139, 58, 58, 0.18) !important;
     color: #ffcdd2 !important;
-}
-:root.theme-retro .dlux-form-action-primary {
-    border-color: rgba(139, 110, 75, 0.24) !important;
-    background: linear-gradient(180deg, rgba(26, 22, 18, 0.98), rgba(18, 15, 12, 0.96)) !important;
-}
-:root.theme-retro .dlux-form-action-neutral {
-    border-color: rgba(139, 58, 58, 0.2) !important;
-    background:
-        radial-gradient(circle at top, rgba(139, 58, 58, 0.1), transparent 56%),
-        linear-gradient(180deg, rgba(32, 18, 18, 0.98), rgba(20, 13, 13, 0.96)) !important;
 }
 :root.theme-retro .dlux-filter .btn.dlux-filter-submit {
     color: var(--retro-amber) !important;

@@ -9,6 +9,8 @@
     --primal: #2363c3;
     --primal_dark: #1e4f99;
     --primal-rgb: 35, 99, 195;
+    --on-primal: #ffffff;
+    --on-primal_dark: #ffffff;
     --btn-primary-shadow: rgba(35, 99, 195, 0.4);
     --nav-item-color: var(--table-row);
 

@@ -116,6 +116,9 @@
     --primal: var(--gothic-teal);
     --primal_dark: var(--gothic-violet);
     --primal-rgb: 0, 180, 216;
+    --on-primal: var(--gothic-black);
+    --on-primal_dark: #ffffff;
+    --dlux-btn-primary-end: var(--gothic-cyan);
     --btn-primary-shadow: rgba(0, 180, 216, 0.4);
     --nav-item-color: var(--gothic-teal);
     color-scheme: dark;
@@ -788,6 +791,11 @@
     transform: translateY(-1px);
 }
 
+:root.theme-gothic .btn-primary:hover,
+:root.theme-gothic .btn-primary:hover * {
+    color: var(--on-primal_dark) !important;
+}
+
 :root.theme-gothic .dlux-filter .dlux-filter-action.btn-primary > .bi,
 .theme-gothic .dlux-filter .dlux-filter-action.btn-primary > .bi {
     background: transparent !important;
@@ -989,9 +997,9 @@
 }
 
 :root.theme-gothic .pagination .page-item.active .page-link {
-    background: linear-gradient(135deg, var(--gothic-teal) 0%, var(--gothic-purple) 100%) !important;
+    background: linear-gradient(135deg, var(--gothic-teal) 0%, var(--gothic-cyan) 100%) !important;
     border-color: var(--gothic-teal) !important;
-    color: var(--gothic-black) !important;
+    color: var(--on-primal) !important;
     box-shadow: 0 0 20px rgba(0, 180, 216, 0.4) !important;
 }
 
@@ -1250,8 +1258,8 @@
 :root.theme-gothic .text-bg-primary,
 :root.theme-gothic .badge.text-bg-primary,
 :root.theme-gothic .dlux-system-settings-shell .text-bg-primary {
-    background: linear-gradient(135deg, var(--gothic-teal) 0%, var(--gothic-purple) 100%) !important;
-    color: var(--gothic-black) !important;
+    background: linear-gradient(135deg, var(--gothic-teal) 0%, var(--gothic-cyan) 100%) !important;
+    color: var(--on-primal) !important;
     border: 1px solid rgba(0, 180, 216, 0.24) !important;
     text-shadow: none !important;
 }

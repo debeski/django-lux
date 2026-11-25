@@ -1640,6 +1640,29 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['login_config']['logo_treatment'], 'halo')
         self.assertEqual(imported['login_config']['logo_treatment_shape'], 'pill')
 
+    def test_login_hero_placeholders_use_each_fields_own_language(self):
+        from dlux.translations import get_strings
+        languages = {
+            'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'},
+            'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': 'AR'},
+        }
+        for ui_lang in ('ar', 'en'):
+            with self.subTest(ui_lang=ui_lang), patch(
+                'dlux.translations.runtime.get_current_language_code', return_value=ui_lang,
+            ):
+                form = SystemSettingsForm(instance=SystemSettings(is_configured=False, languages=languages))
+                for lang_code in ('en', 'ar'):
+                    attrs = form.fields[f'login_hero_message_{lang_code}'].widget.attrs
+                    self.assertEqual(
+                        attrs['placeholder'],
+                        get_strings(lang_code)['login_hero_placeholder'],
+                    )
+                    self.assertEqual(attrs['dir'], languages[lang_code]['dir'])
+                self.assertNotEqual(
+                    form.fields['login_hero_message_en'].widget.attrs['placeholder'],
+                    form.fields['login_hero_message_ar'].widget.attrs['placeholder'],
+                )
+
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', DEBUG=True)
     def test_setup_form_processed_import_keeps_client_applied_login_language_and_registration(self):
         form = SystemSettingsForm(

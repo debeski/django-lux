@@ -270,33 +270,56 @@
     cursor: pointer;
 }
 
+/* Modal and page form actions share the `.btn` surface (base/css/buttons.css):
+   its radius, height, weight and shadow tokens. The primary action is the
+   theme's accent fill, the neutral one the theme's quiet surface; both take
+   every colour from theme tokens. */
 .dlux-form-action {
     display: inline-flex;
     appearance: none;
     -webkit-appearance: none;
     align-items: center;
     justify-content: center;
+    gap: 0.4rem;
     width: auto;
-    min-width: 3.35rem;
-    min-height: 3.05rem;
-    padding: 0.7rem 1rem;
-    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.16);
-    border-radius: 999px;
-    background:
-        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.05), transparent 54%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.94));
-    color: var(--bs-body-color, #212529);
+    min-width: 3rem;
+    min-height: calc(1.5rem + 1.04rem + 2px);
+    padding: 0.52rem 1.08rem;
+    border: 1px solid rgba(var(--primal-rgb, 71, 85, 105), 0.22);
+    border-radius: var(--dlux-btn-radius, 0.78rem);
+    background: color-mix(in srgb, var(--hbody, #f1f5f9) 82%, transparent);
+    color: var(--title, #334155);
     text-decoration: none;
     font: inherit;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.032);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    font-weight: 700;
+    line-height: 1.5;
+    box-shadow: var(--dlux-btn-shadow, 0 8px 18px rgba(15, 23, 42, 0.08));
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
     cursor: pointer;
 }
 
-.archive-form-action:hover,
-.archive-form-action:focus-visible,
 .dlux-form-action:hover,
 .dlux-form-action:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--dlux-btn-shadow-hover, 0 12px 26px rgba(15, 23, 42, 0.13));
+    border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.42);
+    outline: none;
+    color: var(--title, #334155);
+    text-decoration: none;
+}
+
+.dlux-form-action:focus-visible {
+    box-shadow:
+        0 0 0 0.18rem rgba(var(--primal-rgb, 71, 85, 105), 0.28),
+        var(--dlux-btn-shadow, 0 8px 18px rgba(15, 23, 42, 0.08));
+}
+
+.dlux-form-action:active {
+    transform: translateY(0);
+}
+
+.archive-form-action:hover,
+.archive-form-action:focus-visible {
     transform: translateY(-1px);
     box-shadow: 0 7px 18px rgba(15, 23, 42, 0.045);
     border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.36);
@@ -338,7 +361,8 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    font-size: 1.28rem;
+    color: inherit;
+    font-size: 1.15rem;
     line-height: 1;
 }
 
@@ -379,16 +403,16 @@
     line-height: 1.3;
 }
 
-.archive-form-action-primary .archive-form-action-icon,
-.dlux-form-action-primary .dlux-form-action-icon {
+.archive-form-action-primary .archive-form-action-icon {
     color: #157347;
 }
 
-.dlux-form-action-primary {
-    border-color: rgba(25, 135, 84, 0.22);
-    background:
-        radial-gradient(circle at top, rgba(25, 135, 84, 0.08), transparent 56%),
-        linear-gradient(180deg, rgba(238, 250, 244, 0.98), rgba(231, 245, 237, 0.94));
+.dlux-form-action-primary,
+.dlux-form-action-primary:hover,
+.dlux-form-action-primary:focus-visible {
+    border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.32);
+    background: linear-gradient(180deg, var(--primal, #475569) 0%, var(--dlux-btn-primary-end, var(--primal_dark, #334155)) 100%);
+    color: var(--on-primal, #fff);
 }
 
 .archive-form-action-secondary .archive-form-action-icon,
@@ -397,16 +421,13 @@
     color: var(--primal_dark, #0d6efd);
 }
 
-.archive-form-action-neutral .archive-form-action-icon,
-.dlux-form-action-neutral .dlux-form-action-icon {
+.archive-form-action-neutral .archive-form-action-icon {
     color: #b42318;
 }
 
-.dlux-form-action-neutral {
-    border-color: rgba(220, 53, 69, 0.18);
-    background:
-        radial-gradient(circle at top, rgba(220, 53, 69, 0.05), transparent 56%),
-        linear-gradient(180deg, rgba(255, 250, 250, 0.98), rgba(250, 244, 244, 0.94));
+.dlux-form-action-neutral:hover,
+.dlux-form-action-neutral:focus-visible {
+    background: color-mix(in srgb, var(--hbody, #f1f5f9) 86%, var(--primal, #475569));
 }
 
 @media (max-width: 767.98px) {
@@ -414,8 +435,7 @@
         grid-template-columns: 1fr;
     }
 
-    .archive-form-action,
-    .dlux-form-action {
+    .archive-form-action {
         min-height: 3rem;
         padding: 0.72rem 0.95rem;
     }

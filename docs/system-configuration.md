@@ -64,7 +64,7 @@ The wizard has nineteen steps, in the order of `SETUP_STEPS`
 11. **Components** — forms, modals and Options-page layout.
 12. **Home and Public Pages** — authenticated homepage, per-user override, and
     anonymous public homepage.
-13. **Login Page** — layout, logo treatment, color, and localized hero message.
+13. **Login Page** — layout, logo treatment, color, and localized hero message: one Markdown field per enabled language, each with its language's direction and placeholder.
 14. **Profile Page** — user modules, onboarding, devices, and activity feed.
 15. **Global Search** — titlebar search display and optional record search.
 16. **Notifications** — flash, drawer, badge, bridge, email, and CRUD behavior.

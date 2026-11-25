@@ -46,6 +46,8 @@
     --primal: var(--aether-mint);
     --primal_dark: var(--aether-violet);
     --primal-rgb: 168, 255, 228;
+    --on-primal: var(--aether-void);
+    --on-primal_dark: var(--aether-void);
     --btn-primary-shadow: rgba(168, 255, 228, 0.24);
     --nav-item-color: var(--aether-sky);
     color-scheme: dark;
@@ -869,7 +871,7 @@
 
 :root.theme-aether .bi-three-dots,
 :root.theme-aether .bi-three-dots-vertical,
-:root.theme-aether .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-aether .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--aether-accent) !important;
     text-shadow: none !important;
 }
@@ -1330,12 +1332,12 @@
     box-shadow: inset 0 -2px 0 rgba(168, 255, 228, 0.34) !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link) {
     color: var(--aether-silver) !important;
     text-shadow: none !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link):hover {
     color: #ffffff !important;
 }
 
