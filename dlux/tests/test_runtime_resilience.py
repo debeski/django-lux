@@ -464,19 +464,13 @@ class SingletonCacheAcrossUpgradeTests(TestCase):
         self.assertEqual(SystemSettings.load().home_url, "/now/")
         self.assertEqual(cache.get(SystemSettings.cache_key())["token"], SystemSettings._cache_token())
 
-    def test_the_pickle_older_releases_wrote_is_never_read(self):
+    def test_an_instance_an_older_release_pickled_is_replaced(self):
         SystemSettings = self._row("/now/")
         stale = SystemSettings.objects.get(pk=1)
         stale.home_url = "/stale/"
         cache.set("SystemSettings", stale)
-        cache.delete(SystemSettings.cache_key())
         self.assertEqual(SystemSettings.load().home_url, "/now/")
-
-    def test_a_save_drops_the_old_releases_key(self):
-        SystemSettings = self._row("/now/")
-        cache.set("SystemSettings", "written by 1.16")
-        self._row("/later/")
-        self.assertIsNone(cache.get("SystemSettings"))
+        self.assertIsInstance(cache.get("SystemSettings"), dict)
 
     def test_an_entry_missing_a_field_is_a_miss(self):
         SystemSettings = self._row("/now/")
