@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Login Page Hero Placeholders In Each Field's Language**: System Settings > Login Page gave every `login_hero_message_<lang>` textarea the active UI language's `login_hero_placeholder`, so under an Arabic UI both the English and the Arabic field showed Arabic. Each field now resolves the placeholder in its own language through `get_strings(<lang>)`, beside its own `dir`.
+
 ## v1.16.6
 
 - **Stable 1.16.6**: Promote the published and accepted 1.16.6b1. Project `{% static %}` URLs carry the DjangoLux and project versions (`VersionedStaticFilesStorage`, set by `dlux_settings()`), so updates reach browsers through the year-long `/static/` cache; a modal asked for while the page loads opens; confirming the password no longer signs the user out after a Django upgrade re-hashes it. Updates inline from any 1.16 release, with no migrations.
