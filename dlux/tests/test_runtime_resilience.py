@@ -432,7 +432,13 @@ class ImageFloorReconcileTests(TestCase):
 
 
 class SingletonCacheAcrossUpgradeTests(TestCase):
-    """#15: "Pickled model instance's Django version 6.1.2 does not match" (log 19)."""
+    """#15: "Pickled model instance's Django version 6.1.2 does not match" (log 19).
+
+    Live proof S7: the worker health check runs the image's baked release, which
+    re-cached its pickled instance every 30 s; the runtime release logged a
+    warning with a traceback each time it found it (49 in 10 minutes), and the
+    two overwrote each other's entry.
+    """
 
     def setUp(self):
         cache.clear()
@@ -446,38 +452,89 @@ class SingletonCacheAcrossUpgradeTests(TestCase):
         row.save()
         return SystemSettings
 
+    def _as_version(self, SystemSettings, token):
+        return mock.patch.object(SystemSettings, "_cache_token", return_value=token)
+
     def test_the_cache_holds_field_values_not_a_pickled_model(self):
         from django.db import models
 
         SystemSettings = self._row("/now/")
-        payload = cache.get(SystemSettings.cache_key())
+        payload = cache.get(SystemSettings.entry_key())
         self.assertIsInstance(payload, dict)
         self.assertFalse(any(isinstance(value, models.Model) for value in payload["fields"].values()))
         self.assertIn(__version__, payload["token"])
+        self.assertIn(__version__, SystemSettings.entry_key())
+        self.assertEqual(set(cache.get(SystemSettings.cache_key())), {"dlux_singleton_anchor"})
 
-    def test_an_entry_another_version_wrote_is_a_miss(self):
+    def test_two_versions_keep_their_own_entries(self):
         SystemSettings = self._row("/now/")
-        payload = cache.get(SystemSettings.cache_key())
-        payload["token"] = "1.16.6|6.1.2"
-        payload["fields"]["home_url"] = "/stale/"
-        cache.set(SystemSettings.cache_key(), payload)
-        self.assertEqual(SystemSettings.load().home_url, "/now/")
-        self.assertEqual(cache.get(SystemSettings.cache_key())["token"], SystemSettings._cache_token())
+        ours = cache.get(SystemSettings.entry_key())
+        with self._as_version(SystemSettings, "1.17.1|6.1.2"):
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
+            theirs = SystemSettings.entry_key()
+        self.assertEqual(cache.get(SystemSettings.entry_key()), ours, "not overwritten")
+        self.assertEqual(cache.get(theirs)["token"], "1.17.1|6.1.2")
+        with mock.patch.object(SystemSettings.objects, "get_or_create", side_effect=AssertionError("rebuilt")):
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
+            with self._as_version(SystemSettings, "1.17.1|6.1.2"):
+                self.assertEqual(SystemSettings.load().home_url, "/now/")
 
-    def test_an_instance_an_older_release_pickled_is_replaced(self):
+    def test_an_older_release_pickled_instance_is_left_in_place_quietly(self):
         SystemSettings = self._row("/now/")
-        stale = SystemSettings.objects.get(pk=1)
-        stale.home_url = "/stale/"
-        cache.set("SystemSettings", stale)
-        self.assertEqual(SystemSettings.load().home_url, "/now/")
-        self.assertIsInstance(cache.get("SystemSettings"), dict)
+        cache.set("SystemSettings", SystemSettings.objects.get(pk=1))
+        with self.assertNoLogs("dlux", level="WARNING"):
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
+        self.assertIsInstance(cache.get("SystemSettings"), SystemSettings, "the older release's entry stays")
+        with mock.patch.object(SystemSettings.objects, "get_or_create", side_effect=AssertionError("rebuilt")):
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
 
-    def test_an_entry_missing_a_field_is_a_miss(self):
+    def test_a_raw_update_is_seen_when_an_older_release_recaches_first(self):
+        """A migration's raw update and delete, then the baked health check
+        re-caches its instance before this release reads again."""
         SystemSettings = self._row("/now/")
-        payload = cache.get(SystemSettings.cache_key())
+        cache.set("SystemSettings", SystemSettings.objects.get(pk=1))
+        SystemSettings.load()
+        SystemSettings.objects.filter(pk=1).update(home_url="/migrated/")
+        cache.delete("SystemSettings")
+        cache.set("SystemSettings", SystemSettings.objects.get(pk=1))
+        self.assertEqual(SystemSettings.load().home_url, "/migrated/")
+
+    def test_a_raw_update_is_seen_when_another_version_rebuilds_first(self):
+        SystemSettings = self._row("/now/")
+        SystemSettings.objects.filter(pk=1).update(home_url="/migrated/")
+        cache.delete("SystemSettings")
+        with self._as_version(SystemSettings, "1.17.1|6.1.2"):
+            self.assertEqual(SystemSettings.load().home_url, "/migrated/")
+        self.assertEqual(SystemSettings.load().home_url, "/migrated/")
+
+    def test_a_save_replaces_the_older_release_entry(self):
+        """Its readers check only that the row exists, so they must see a miss."""
+        SystemSettings = self._row("/now/")
+        cache.set("SystemSettings", SystemSettings.objects.get(pk=1))
+        self._row("/saved/")
+        self.assertNotIsInstance(cache.get("SystemSettings"), SystemSettings)
+
+    def test_an_entry_missing_a_field_is_a_quiet_miss(self):
+        SystemSettings = self._row("/now/")
+        payload = cache.get(SystemSettings.entry_key())
         del payload["fields"]["home_url"]
-        cache.set(SystemSettings.cache_key(), payload)
-        self.assertEqual(SystemSettings.load().home_url, "/now/")
+        cache.set(SystemSettings.entry_key(), payload)
+        with self.assertNoLogs("dlux", level="WARNING"):
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
+
+    def test_a_broken_entry_in_the_current_format_still_warns(self):
+        SystemSettings = self._row("/now/")
+        with mock.patch.object(SystemSettings, "from_db", side_effect=ValueError("bad value")), \
+                self.assertLogs("dlux", level="WARNING") as logs:
+            self.assertIsNone(SystemSettings.cached())
+        self.assertIn("unusable cache entry", logs.output[0])
+        self.assertIsNotNone(logs.records[0].exc_info)
+        self.assertIsNone(cache.get(SystemSettings.entry_key()), "dropped")
+
+        cache.set(SystemSettings.entry_key(), "garbage")
+        with self.assertLogs("dlux", level="WARNING") as logs:
+            self.assertEqual(SystemSettings.load().home_url, "/now/")
+        self.assertIn("malformed cache entry", logs.output[0])
 
     def test_sessions_survive_a_version_change(self):
         """Users stay signed in across an update: session keys are not versioned."""

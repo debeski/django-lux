@@ -55,7 +55,7 @@ class SaveDuringCacheOutageTests(TestCase):
             self.assertEqual(SystemSettings.load().home_url, '/after/')
 
         # The cache came back with the row it held before the outage.
-        self.assertEqual(cache.get(SystemSettings.cache_key())['fields']['home_url'], '/before/')
+        self.assertEqual(cache.get(SystemSettings.entry_key())['fields']['home_url'], '/before/')
         self.assertEqual(SystemSettings.load().home_url, '/after/')
         self.assertEqual(SystemSettings.cached().home_url, '/after/', 'the stale entry was replaced')
 
@@ -65,12 +65,12 @@ class SaveDuringCacheOutageTests(TestCase):
         first = SystemSettings.load()
         first.home_url = '/first/'
         first.save()
-        stale_payload = cache.get(SystemSettings.cache_key())
+        stale_payload = cache.get(SystemSettings.entry_key())
 
         second = SystemSettings.load()
         second.home_url = '/second/'
         second.save()
-        cache.set(SystemSettings.cache_key(), stale_payload)
+        cache.set(SystemSettings.entry_key(), stale_payload)
 
         self.assertEqual(SystemSettings.load().home_url, '/second/')
 
@@ -114,5 +114,5 @@ class RolledBackSaveTests(TransactionTestCase):
         except Abort:
             pass
 
-        self.assertEqual(cache.get(SystemSettings.cache_key())['fields']['home_url'], '/rolled-back/')
+        self.assertEqual(cache.get(SystemSettings.entry_key())['fields']['home_url'], '/rolled-back/')
         self.assertEqual(SystemSettings.load().home_url, '/kept/')
