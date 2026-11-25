@@ -1,5 +1,5 @@
 #!/bin/bash
-# composer-wrapper: 6
+# composer-wrapper: 7
 set -euo pipefail
 
 # Closing the terminal must not abort a run in flight. The ignored disposition
@@ -25,7 +25,52 @@ case "${composer_channel}" in
   beta) composer_channel_image="debeski/composer:beta" ;;
   *)    composer_channel_image="debeski/composer:latest" ;;
 esac
-composer_self_image="${COMPOSER_SELF_IMAGE:-${composer_channel_image}}"
+
+# `.composer-image` holds the digest the last verified update pinned, written by
+# composer itself (`update self`, `agent update`, `check --beta` / `--stable`).
+# It is read with the same pattern composer uses, so a malformed lock falls back
+# to the channel tag in both places. COMPOSER_SELF_IMAGE still beats it.
+composer_lock_file="${script_dir}/.composer-image"
+composer_lock_pattern='^debeski/composer:v[0-9]+(\.[0-9]+){1,2}((a|b|rc)[0-9]+)?@sha256:[0-9a-f]{64}$'
+read_composer_lock() {
+  composer_lock_image=""
+  if [[ -r "${composer_lock_file}" ]]; then
+    read -r composer_lock_image < "${composer_lock_file}" || true
+    composer_lock_image="$(printf '%s' "${composer_lock_image}" | tr -d '[:space:]')"
+  fi
+  if [[ ! "${composer_lock_image}" =~ ${composer_lock_pattern} ]]; then
+    composer_lock_image=""
+  fi
+}
+read_composer_lock
+composer_self_image="${COMPOSER_SELF_IMAGE:-${composer_lock_image:-${composer_channel_image}}}"
+
+# Secrets reach every composer run, the pin included: validating the Compose
+# edit interpolates the same variables a deploy does.
+secret_flags=()
+for candidate in .env secrets/.env .secrets/.env; do
+  secret_path="${script_dir}/${candidate}"
+  if [[ ! -f "${secret_path}" ]]; then
+    continue
+  fi
+  if [[ ! -r "${secret_path}" ]]; then
+    echo "Secrets file exists but is not readable by the current host user: ${secret_path}" >&2
+    exit 1
+  fi
+  secret_keys="$(
+    awk -F= '/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/{key=$1; gsub(/^[[:space:]]+|[[:space:]]+$/, "", key); print key}' "${secret_path}" |
+      paste -sd, -
+  )"
+  if [[ -z "${secret_keys}" ]]; then
+    echo "Secrets file contains no environment values: ${secret_path}" >&2
+    exit 1
+  fi
+  secret_flags=(
+    --env-file "${secret_path}"
+    -e "COMPOSER_INHERITED_SECRET_KEYS=${secret_keys}"
+  )
+  break
+done
 
 # The deployer can only be refreshed here: a composer already running from
 # this image cannot replace it. `update self` refreshes only the deployer;
@@ -39,15 +84,60 @@ composer_image_version() {
   docker run --rm --entrypoint cat "$1" /app/VERSION 2>/dev/null || true
 }
 
+composer_can_pin() {
+  [[ "$(docker image inspect --format '{{ index .Config.Labels "org.dlux.composer.image-pin" }}' "$1" 2>/dev/null || true)" == "1" ]]
+}
+
+# The installed deployer resolves the channel's newest release, verifies its
+# signed digest and writes the lock; only then is that digest pulled, so the
+# registry cannot swap what arrives. With no lock yet, the first pin trusts the
+# channel tag once, exactly as every update did before pinning existed.
+pin_deployer() {
+  local resolver="${composer_lock_image:-${composer_channel_image}}"
+  if [[ -z "${composer_lock_image}" ]]; then
+    docker pull "${composer_channel_image}" || return 1
+  elif ! docker image inspect "${resolver}" >/dev/null 2>&1; then
+    docker pull "${resolver}" || return 1
+  fi
+  if ! composer_can_pin "${resolver}"; then
+    echo "This Composer predates digest pinning; the deployer stays on ${composer_channel_image}."
+    composer_self_image="${composer_channel_image}"
+    return 0
+  fi
+  docker run --rm \
+    ${secret_flags[@]+"${secret_flags[@]}"} \
+    -e COMPOSER_ALLOW_UNVERIFIED_COMPOSER \
+    -v "${script_dir}:${script_dir}" \
+    -w "${script_dir}" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    "${resolver}" update self --pin || return 1
+  read_composer_lock
+  if [[ -z "${composer_lock_image}" ]]; then
+    echo "The deployer reported a pin, but ${composer_lock_file} is unreadable." >&2
+    return 1
+  fi
+  composer_self_image="${composer_lock_image}"
+  if ! docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
+    docker pull "${composer_self_image}" || return 1
+  fi
+}
+
 # A rebuilt tag can keep its version string, so compare image IDs, and start
 # a container for a version only when there is one to report. The replaced
 # image stays readable by ID after the pull.
 refresh_deployer() {
   local before_id="" after_id="" before=""
   before_id="$(composer_image_id)"
-  echo "Updating the Composer deployer (${composer_self_image})..."
-  if ! docker pull "${composer_self_image}"; then
-    return 1
+  if [[ -n "${COMPOSER_SELF_IMAGE:-}" ]]; then
+    echo "Updating the Composer deployer (${composer_self_image})..."
+    if ! docker pull "${composer_self_image}"; then
+      return 1
+    fi
+  else
+    echo "Updating the Composer deployer (${composer_channel} channel)..."
+    if ! pin_deployer; then
+      return 1
+    fi
   fi
   after_id="$(composer_image_id)"
   if [[ -n "${before_id}" && "${before_id}" == "${after_id}" ]]; then
@@ -140,35 +230,11 @@ if [[ -t 0 && -t 1 ]]; then
   docker_flags+=(-t)
 fi
 
-secret_flags=()
-for candidate in .env secrets/.env .secrets/.env; do
-  secret_path="${script_dir}/${candidate}"
-  if [[ ! -f "${secret_path}" ]]; then
-    continue
-  fi
-  if [[ ! -r "${secret_path}" ]]; then
-    echo "Secrets file exists but is not readable by the current host user: ${secret_path}" >&2
-    exit 1
-  fi
-  secret_keys="$(
-    awk -F= '/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=/{key=$1; gsub(/^[[:space:]]+|[[:space:]]+$/, "", key); print key}' "${secret_path}" |
-      paste -sd, -
-  )"
-  if [[ -z "${secret_keys}" ]]; then
-    echo "Secrets file contains no environment values: ${secret_path}" >&2
-    exit 1
-  fi
-  secret_flags=(
-    --env-file "${secret_path}"
-    -e "COMPOSER_INHERITED_SECRET_KEYS=${secret_keys}"
-  )
-  break
-done
-
 # macOS ships bash 3.2, where `set -u` rejects an empty array expansion, so a
 # project with no secrets file cannot use the plain "${secret_flags[@]}" form.
 docker run "${docker_flags[@]}" \
   ${secret_flags[@]+"${secret_flags[@]}"} \
+  -e COMPOSER_ALLOW_UNVERIFIED_COMPOSER \
   -v "${script_dir}:${script_dir}" \
   -w "${script_dir}" \
   -v /var/run/docker.sock:/var/run/docker.sock \

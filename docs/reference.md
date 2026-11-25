@@ -27,7 +27,7 @@ is in [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `./start.sh update` | Update the Composer deployer, then pull and recreate the stack and resident pair (wrapper 5+). Name services to update only those. |
-| `./start.sh update self` | Update only the Composer deployer. `self update` is a deprecated alias. |
+| `./start.sh update self` | Update only the Composer deployer, pinned to its channel's signed release in `.composer-image` (wrapper 7+). `self update` is a deprecated alias. |
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
 | `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
 
