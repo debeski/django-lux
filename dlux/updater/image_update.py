@@ -76,6 +76,34 @@ def read_deploy_status(store=None):
         return {}
 
 
+# The prefix a Composer deploy warning carries in an image update's progress
+# log, which is where it outlives the next deploy-status rewrite.
+DEPLOY_WARNING_PREFIX = "Composer warning: "
+DEPLOY_WARNING_MAX_CHARS = 1000
+
+
+def deploy_warnings(doc):
+    """The ``warnings`` list of a deploy-status document, as one-line strings."""
+    raw = doc.get("warnings") if isinstance(doc, dict) else None
+    if not isinstance(raw, list):
+        return []
+    found = []
+    for item in raw:
+        text = " ".join(str(item or "").split())[:DEPLOY_WARNING_MAX_CHARS]
+        if text and text not in found:
+            found.append(text)
+    return found
+
+
+def image_update_warnings(row):
+    """The Composer warnings recorded on an image update row, oldest first."""
+    return [
+        line[len(DEPLOY_WARNING_PREFIX):]
+        for line in str(getattr(row, "progress_log", "") or "").splitlines()
+        if line.startswith(DEPLOY_WARNING_PREFIX)
+    ]
+
+
 def read_composer_ack(store=None):
     """Return composer's terminal token/exit-code acknowledgement, or {}.
 
@@ -262,6 +290,7 @@ def image_status_summary(store=None):
             "error": last.error,
             "target": last.target_version,
             "completed_at": last.completed_at.isoformat() if last.completed_at else None,
+            "warnings": image_update_warnings(last),
         }
     return {
         "app_version": app_version(),
@@ -296,6 +325,7 @@ def serialize_image_update(row, *, store=None, include_log=False):
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
         "control_operation_id": str(row.control_operation_id or ""),
         "request_source": row.request_source,
+        "warnings": image_update_warnings(row),
     }
     if row.is_active:
         # Surface composer's live deploy status while an update is in flight.

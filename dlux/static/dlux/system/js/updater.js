@@ -85,6 +85,8 @@
         const progressBar = modalElement?.querySelector('[data-dlux-update-progress-bar]');
         const progressStatus = modalElement?.querySelector('[data-dlux-update-progress-status]');
         const progressLog = modalElement?.querySelector('[data-dlux-update-progress-log]');
+        const warningsBox = modalElement?.querySelector('[data-dlux-update-warnings]');
+        const warningsList = modalElement?.querySelector('[data-dlux-update-warnings-list]');
         const submit = modalElement?.querySelector('[data-dlux-update-submit]');
         const failedWarning = modalElement?.querySelector('[data-dlux-update-failed-warning]');
         const failedAck = modalElement?.querySelector('[data-dlux-update-failed-ack]');
@@ -333,6 +335,7 @@
                 dismissAction.classList.add('btn-secondary');
             }
             if (progressLog) progressLog.textContent = '';
+            renderDeployWarnings([]);
             if (progressBar) {
                 progressBar.style.width = '100%';
                 progressBar.classList.add('progress-bar-animated');
@@ -382,26 +385,47 @@
             showImageFinished();
         }
 
+        // Composer's deploy-status `warnings`: already redacted, one line each.
+        function renderDeployWarnings(warnings) {
+            if (!warningsBox || !warningsList) return;
+            const items = Array.isArray(warnings) ? warnings.filter((item) => typeof item === 'string' && item) : [];
+            warningsList.replaceChildren(...items.map((item) => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                return li;
+            }));
+            warningsBox.hidden = items.length === 0;
+        }
+
         function finishImageNotice() {
             if (!imageUpdate || imageActive(imageUpdate)) return;
             const terminal = imageUpdate.status === 'completed' || imageUpdate.status === 'failed';
             if (!terminal) return;
             const succeeded = imageUpdate.status === 'completed';
+            const warnings = Array.isArray(imageUpdate.warnings) ? imageUpdate.warnings : [];
+            const warned = succeeded && warnings.length > 0;
+            const completedLabel = warned
+                ? (root.dataset.labelImageCompletedWarnings || 'Image update completed with warnings')
+                : (root.dataset.labelCompleted || 'Completed');
             if (lastImageNotice !== imageUpdate.token && window.showToast) {
                 lastImageNotice = imageUpdate.token;
                 window.showToast(
-                    succeeded ? (root.dataset.labelCompleted || 'Completed')
-                        : (imageUpdate.error || root.dataset.labelFailed || 'Failed'),
-                    succeeded ? 'success' : 'error',
+                    succeeded ? completedLabel : (imageUpdate.error || root.dataset.labelFailed || 'Failed'),
+                    succeeded ? (warned ? 'warning' : 'success') : 'error',
                 );
             }
             if (progressPanel && !progressPanel.hidden) {
                 if (progressBar) {
                     progressBar.classList.remove('progress-bar-animated');
-                    progressBar.classList.toggle('bg-success', succeeded);
+                    progressBar.classList.toggle('bg-success', succeeded && !warned);
+                    progressBar.classList.toggle('bg-warning', warned);
                     progressBar.classList.toggle('bg-danger', !succeeded);
                 }
-                if (progressStatus) progressStatus.textContent = imageStatusLabel(imageUpdate.status);
+                if (progressStatus) {
+                    progressStatus.textContent = warned ? completedLabel
+                        : (!succeeded && imageUpdate.error ? String(imageUpdate.error) : imageStatusLabel(imageUpdate.status));
+                }
+                renderDeployWarnings(warnings);
             }
         }
 
@@ -428,6 +452,7 @@
                 progressLog.textContent = logText;
                 progressLog.scrollTop = progressLog.scrollHeight;
             }
+            renderDeployWarnings(doc && doc.warnings);
         }
 
         // Poll the proxy-served deploy status/log (works whether or not web is up).

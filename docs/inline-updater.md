@@ -408,6 +408,15 @@ runtime volume (`proxy/maintenance/`).
   turns the bar green and the dismiss button into **Finish**; closing the modal
   then reloads the page, because the page that starts an update runs the release
   it was loaded with. A failure unlocks the modal with the error.
+- Composer can add `warnings` to `deploy-status.json`: a list of redacted
+  one-line strings, repeated in every status written after the warning arose. The
+  state tick copies each one, once, into the update's progress log as a
+  `Composer warning: …` line, where it outlives the next deploy's status. The
+  update's JSON (`image_update`, and `state.image.last_update` on the card) carries
+  them as `warnings`. The modal lists them under **Composer reported** while the
+  update runs and when it ends. A completed update with warnings reads
+  **Image update completed with warnings**, with an amber bar and a warning toast;
+  a failed one shows its error and the warnings together.
 - The maintenance page treats every end state (`ready`, `completed`,
   `rolled_back`, `failed`) as a reason to probe the URL it is shown at, and reloads
   that URL once the app answers.

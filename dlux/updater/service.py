@@ -2253,6 +2253,9 @@ class UpdateService:
         if updated is not None and row.handoff_at is not None:
             fresh = updated >= row.handoff_at
 
+        if fresh:
+            self._record_deploy_warnings(row, doc)
+
         status_failed = fresh and dstatus == "failed"
         ack_failed = ack_matches and ack_exit_code not in (None, 0)
         if status_failed or ack_failed:
@@ -2301,11 +2304,33 @@ class UpdateService:
                     row, "The image update did not complete within the expected time."
                 )
 
+    def _record_deploy_warnings(self, row, doc):
+        """Copy the warnings Composer put in deploy-status onto the row's log.
+
+        Composer rewrites deploy-status on every run, so a warning raised by
+        this one would be gone after the next. Each is recorded once.
+        """
+        from .image_update import DEPLOY_WARNING_PREFIX, deploy_warnings, image_update_warnings
+
+        known = set(image_update_warnings(row))
+        added = False
+        for warning in deploy_warnings(doc):
+            if warning not in known:
+                row.append_log(f"{DEPLOY_WARNING_PREFIX}{warning}")
+                known.add(warning)
+                added = True
+        if added:
+            row.save(update_fields=["progress_log"])
+
     def _complete_image_update(self, row, baked):
         row.status = row.STATUS_COMPLETED
         row.is_active = False
         row.completed_at = timezone.now()
-        row.append_log(f"Image update to {row.target_version or baked} completed (baked {baked}).")
+        from .image_update import image_update_warnings
+
+        warnings = image_update_warnings(row)
+        suffix = f" with {len(warnings)} warning{'s' if len(warnings) != 1 else ''}" if warnings else ""
+        row.append_log(f"Image update to {row.target_version or baked} completed{suffix} (baked {baked}).")
         row.save(update_fields=["status", "is_active", "completed_at", "progress_log"])
 
     def _fail_image_update(self, row, error):
