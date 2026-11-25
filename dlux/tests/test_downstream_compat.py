@@ -19,7 +19,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.template import Context, Template
 from django.template import TemplateDoesNotExist
 from django.template.loader import get_template, render_to_string
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from dlux.context_processors import dlux_context
 
@@ -300,3 +300,22 @@ class OnDemandAssetCompatTests(SimpleTestCase):
         for selector in ('form.dlux-system-setup-form', '[data-dlux-icon-picker]', '[data-dlux-assets~="settings"]'):
             with self.subTest(selector=selector):
                 self.assertIn(selector, settings['selector'])
+
+
+class SingletonCacheKeyTests(TestCase):
+    """Projects invalidate the cached System Settings row with
+    ``cache.delete("SystemSettings")``: CRM sales in migrations after a raw update
+    (``machinery/0002``, ``public_catalog/0001`` and ``0003``), and Archive and
+    CRM sales in their tests. The key must stay the class name."""
+
+    def test_deleting_the_class_name_key_invalidates_the_row(self):
+        from django.core.cache import cache
+        from dlux.models import SystemSettings
+
+        row = SystemSettings.load()
+        row.home_url = "/before/"
+        row.save()
+        SystemSettings.objects.filter(pk=1).update(home_url="/migrated/")
+        cache.delete("SystemSettings")
+        self.assertEqual(SystemSettings.load().home_url, "/migrated/")
+
