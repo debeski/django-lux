@@ -426,7 +426,7 @@ class ActivityLogCategoryTests(TestCase):
         log_config['audit']['events']['login_failed'] = False
         settings_obj.log_config = log_config
         settings_obj.save()
-        cache.delete('SystemSettings')
+        SystemSettings.clear_cache()
         log_audit_event(request, 'login_failed', 'LOGIN_FAILED', model_name='auth', number='someuser')
         self.assertFalse(UserActivityLog.objects.filter(action='LOGIN_FAILED').exists())
 
@@ -471,7 +471,7 @@ class ActivityLogImmutabilityAndPruneTests(TestCase):
         cfg['audit']['retention_days'] = 0  # keep forever
         settings_obj.log_config = cfg
         settings_obj.save()
-        cache.delete('SystemSettings')
+        SystemSettings.clear_cache()
 
         call_command('dlux_prune_activity_log')
         self.assertFalse(UserActivityLog.all_objects.filter(category='user').exists())

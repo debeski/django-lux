@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import time
 
 
@@ -76,6 +77,77 @@ def _is_newer(candidate, baseline):
         return True
 
 
+def release_image_floor(release):
+    """The oldest baked DjangoLux an image needs to run ``release``, or "".
+
+    Read from the release's own manifest (``requires.baked_image``). A volume
+    release carries only DjangoLux; everything it imports comes from the image,
+    so a release that needed an image rebuild cannot run on an image older than
+    that rebuild.
+    """
+    try:
+        manifest = json.loads((Path(release) / "dlux" / "release-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(manifest, dict):
+        return ""
+    requires = manifest.get("requires")
+    floor = requires.get("baked_image") if isinstance(requires, dict) else None
+    return str(floor or manifest.get("image_baseline") or "").strip().lstrip(">=").strip()
+
+
+def image_floor_problem(release, baked):
+    """Why this image cannot run volume ``release``, or "" when it can.
+
+    An unknown baked version or a release without a floor is not a problem: both
+    were served before the floor was enforced.
+    """
+    floor = release_image_floor(release)
+    baked = str(baked or "").strip()
+    if not floor or not baked or not _is_newer(floor, baked):
+        return ""
+    return (
+        f"DjangoLux {Path(release).name} needs a project image with DjangoLux {floor} "
+        f"or later, but this image bakes {baked}"
+    )
+
+
+_REPORTED_FALLBACKS = set()
+
+
+def _report_fallback(problem, baked):
+    """Say once per process, on stderr, that the baked release runs instead."""
+    if problem in _REPORTED_FALLBACKS:
+        return
+    _REPORTED_FALLBACKS.add(problem)
+    print(
+        f"dlux runtime: {problem}. Serving the baked DjangoLux {baked} instead. "
+        "Deploy an image that meets the floor, or roll the runtime back.",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def runtime_fallback(root, baked=None):
+    """Why the active volume release is not served on this image, or "".
+
+    The same decision ``resolve_release`` makes, for readers that report it.
+    """
+    root = Path(root)
+    if baked is None:
+        baked = os.environ.get("DLUX_BAKED_VERSION") or baked_version()
+    try:
+        payload = json.loads((root / "state" / "active.json").read_text(encoding="utf-8"))
+        version = str(payload.get("version") or "").strip()
+        release = (root / "releases" / version).resolve()
+        release.relative_to((root / "releases").resolve())
+        if payload.get("source") == "volume" and release.is_dir() and _is_newer(version, baked):
+            return image_floor_problem(release, baked)
+    except (OSError, ValueError, TypeError, AttributeError, json.JSONDecodeError):
+        pass
+    return ""
+
+
 def resolve_release(root, baked=None):
     """Return the runtime-active volume release directory, or ``None`` to use the
     baked image package.
@@ -89,6 +161,10 @@ def resolve_release(root, baked=None):
     baked. Inline updates ship newer, forward-compatible dlux; an older pinned
     release must never shadow a newer image (an image update supersedes it), or
     the image's app code would run against stale dlux and fail on missing symbols.
+
+    Nor does one run on an image older than its ``requires.baked_image`` floor
+    (an image rolled back under it): the baked package is served instead, and
+    stderr says so once per process.
     """
     root = Path(root)
     if baked is None:
@@ -101,7 +177,10 @@ def resolve_release(root, baked=None):
         release = (root / "releases" / version).resolve()
         release.relative_to((root / "releases").resolve())
         if source == "volume" and release.is_dir() and _is_newer(version, baked):
-            return release
+            problem = image_floor_problem(release, baked)
+            if not problem:
+                return release
+            _report_fallback(problem, baked)
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         pass
     return None

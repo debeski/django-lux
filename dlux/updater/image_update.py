@@ -306,6 +306,23 @@ def serialize_image_update(row, *, store=None, include_log=False):
 
 
 
+def _active_release_floor(version, *, store=None):
+    """The image floor in the active volume release's own manifest, or "".
+
+    ``state.active_manifest`` holds only the release notes, so the floor is read
+    where the supervisor reads it.
+    """
+    from .runtime import RuntimeStore
+    from .supervisor import release_image_floor
+
+    try:
+        store = store or RuntimeStore(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"))
+        release = store.release_path(version)
+        return release_image_floor(release) if release.is_dir() else ""
+    except Exception:
+        return ""
+
+
 def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
     """Decide what happens to the running release if we recreate onto an image.
 
@@ -374,8 +391,10 @@ def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
         )
         return result
 
-    manifest = (getattr(state, "active_manifest", None) or {}) if state is not None else {}
-    baseline_text = str(manifest.get("image_baseline") or "").strip()
+    baseline_text = _active_release_floor(active_text, store=store)
+    if not baseline_text:
+        manifest = (getattr(state, "active_manifest", None) or {}) if state is not None else {}
+        baseline_text = str(manifest.get("image_baseline") or "").strip()
     result["image_baseline"] = baseline_text
     baseline = _version(baseline_text) if baseline_text else None
 

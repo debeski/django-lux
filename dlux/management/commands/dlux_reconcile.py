@@ -27,6 +27,15 @@ class Command(BaseCommand):
                 # Corrupt/unreadable pointer: the supervisor already falls back to
                 # baked on its own, so there is nothing to reset here.
                 return
+            held = active.get("held")
+            if held:
+                # The supervisor serves the baked package on this image; the
+                # pointer stays so an image that meets the floor serves it again.
+                self.stderr.write(
+                    f"Runtime release {held.get('version')} is not served: {held.get('reason')}. "
+                    f"The baked DjangoLux {baked} runs instead."
+                )
+                return
             if active.get("source") == "volume" and not _is_newer(active.get("version"), baked):
                 # The pinned release is older-or-equal to the baked image, so the
                 # image supersedes it. Point the runtime at baked (the always-

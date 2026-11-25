@@ -689,6 +689,9 @@ class RuntimeStoreTests(TestCase):
             image = validate_local_release_manifest()
             with override_settings(BASE_DIR=root), mock.patch(
                 "dlux.updater.service.get_baked_version", return_value=__version__,
+            ), mock.patch(
+                # Composer restarted this worker onto the release it activated.
+                "dlux.updater.service.running_version", return_value=NEWER_VERSION,
             ):
                 finished = service.tick_package_update()
                 finished.refresh_from_db()

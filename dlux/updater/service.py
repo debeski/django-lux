@@ -27,6 +27,12 @@ logger = logging.getLogger("dlux.updater")
 # How long a run handed to Composer may sit unacknowledged. Its work is bounded
 # (download, swap, restart, health wait); past this, nothing is coming.
 PACKAGE_HANDOFF_TIMEOUT = timedelta(minutes=30)
+# How long a success ack may wait for web and worker to report the new release.
+HANDOFF_VERIFY_WINDOW = timedelta(minutes=3)
+WEB_PROBE_TIMEOUT_SECONDS = 5
+# Starts the degraded reason reconcile records while the image is below the
+# active release's floor, so reconcile knows the mark is its own to clear.
+IMAGE_FLOOR_REASON_PREFIX = "Image below the release floor: "
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "rolled_back"})
 # The state tick runs every few seconds; the writer's report is only rewritten
@@ -546,6 +552,68 @@ def inline_updates_available():
     return updates_enabled() and not runtime_volume_problem()
 
 
+def running_version():
+    """The DjangoLux this process imported: the release its supervisor chose."""
+    from dlux import __version__
+
+    return str(__version__)
+
+
+def _same_version(left, right):
+    try:
+        return Version(str(left).strip()) == Version(str(right).strip())
+    except InvalidVersion:
+        return str(left or "").strip() == str(right or "").strip()
+
+
+def _parse_iso(value):
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return parsed if timezone.is_aware(parsed) else timezone.make_aware(parsed)
+
+
+def probe_web_version():
+    """Ask the web service which DjangoLux it runs: ``(version, "")`` or ``("", problem)``.
+
+    ``DLUX_UPDATE_WEB_URL`` (setting or environment) is web on the stack's
+    internal network; a generated stack (``DLUX_STACK_SCHEMA`` set) defaults to
+    ``http://web:8000``. The probe is signed with the ``SECRET_KEY`` web and
+    worker share, and goes through no proxy.
+    """
+    import urllib.error
+    import urllib.request
+    from django.urls import reverse
+
+    from .health import runtime_probe_token
+
+    base = str(
+        getattr(settings, "DLUX_UPDATE_WEB_URL", "")
+        or os.getenv("DLUX_UPDATE_WEB_URL", "")
+        or ("http://web:8000" if os.getenv("DLUX_STACK_SCHEMA") else "")
+    ).rstrip("/")
+    if not base:
+        return "", "no web address to probe (set DLUX_UPDATE_WEB_URL)"
+    try:
+        url = base + reverse("dlux_update_runtime_health")
+        request = urllib.request.Request(url, headers={
+            "X-Dlux-Updater-Probe": runtime_probe_token(settings.SECRET_KEY),
+            "Accept": "application/json",
+        })
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(request, timeout=WEB_PROBE_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read(4096).decode("utf-8"))
+        version = str(payload.get("version") or "").strip() if isinstance(payload, dict) else ""
+    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError) as exc:
+        return "", f"{base} did not answer the version probe ({_sanitize(exc)})"
+    except Exception as exc:
+        return "", f"the version probe of {base} failed ({_sanitize(exc)})"
+    if not version:
+        return "", f"{base} answered the version probe without a version"
+    return version, ""
+
+
 def runtime_store():
     """The runtime volume, created on demand.
 
@@ -985,7 +1053,7 @@ class UpdateService:
             self.store.set_generation(next_generation)
             active = self.store.read_active(baked_version)
             self.restart_worker = True
-        elif active and active["source"] == "image" and (
+        elif active and active["source"] == "image" and not active.get("held") and (
             not state.active_version
             or self._version_is_newer(baked_version, state.active_version)
         ):
@@ -1017,6 +1085,7 @@ class UpdateService:
                 self.store.set_generation(active["generation"])
             if (
                 active["source"] == "image"
+                and not active.get("held")
                 and self.store.active_file.exists()
                 and self.store.recorded_version() != active["version"]
             ):
@@ -1040,7 +1109,9 @@ class UpdateService:
             # volume activation/rollback target stays sticky for operator review.
             converged_on_baked = (
                 active["version"] == baked_version and active["source"] == "image"
+                and not active.get("held")
             )
+            self._report_image_floor(state, active, changed)
             if (restoration_succeeded or converged_on_baked) and (
                 state.degraded or state.degraded_reason
             ):
@@ -1112,6 +1183,28 @@ class UpdateService:
         if changed:
             state.save(update_fields=list(dict.fromkeys(changed + ["updated_at"])))
         return state
+
+    def _report_image_floor(self, state, active, changed):
+        """Mark the runtime degraded while the image is below the active release's
+        floor, and clear that mark once it is not.
+
+        The supervisor already serves the baked package in that case; this puts
+        the reason where the Updates card and the doctor read it. The degraded
+        file is not written: it fails the worker's health check, and the baked
+        package is running fine.
+        """
+        held = active.get("held") or {}
+        if held:
+            reason = f"{IMAGE_FLOOR_REASON_PREFIX}{held.get('reason')}. The baked DjangoLux {active['version']} runs instead; deploy an image that meets the floor, or roll the runtime back."
+            if not state.degraded or state.degraded_reason != reason:
+                logger.warning("%s", reason)
+                state.degraded = True
+                state.degraded_reason = reason
+                changed.extend(["degraded", "degraded_reason"])
+        elif str(state.degraded_reason or "").startswith(IMAGE_FLOOR_REASON_PREFIX):
+            state.degraded = False
+            state.degraded_reason = ""
+            changed.extend(["degraded", "degraded_reason"])
 
     def _volume_rollback_target(self, state, baked_version):
         """What a rollback would actually activate, or "" when nothing would.
@@ -1672,6 +1765,10 @@ class UpdateService:
             run.save(update_fields=["backup_token"])
         state = _state_model().load()
         target = "" if mode == package_request.ROLLBACK else (run.target_version or state.latest_version or "")
+        if target and run.target_version != target:
+            # Completion checks the active release against this.
+            run.target_version = target
+            run.save(update_fields=["target_version"])
         # No operation_id: `control_operation_id` belongs to DluxImageUpdate, the
         # row the agent bridge creates for a control-plane `dlux.image_update`.
         # A package run is always local — the bridge accepts no package action —
@@ -1807,16 +1904,27 @@ class UpdateService:
         detail = package_request.composer_progress(self.store) or {}
         message = str(detail.get("message") or "").strip()
         report = {**(run.report or {}), "composer_exit_code": exit_code}
-        # Whatever Composer did — applied, rolled back, or applied and then rolled
-        # back after a failed health check — the active release is not the one whose
-        # static files are in the volume.
-        report["static_collected"] = self._collect_static_after_handoff(run)
 
         if exit_code == 0:
+            verdict = self._verify_handoff(run, report)
+            if verdict is None:
+                return None
+            # Whatever Composer did, the active release is not the one whose
+            # static files are in the volume.
+            report["static_collected"] = self._collect_static_after_handoff(run)
+            if verdict:
+                run.report = report
+                run.save(update_fields=["report"])
+                self._handle_failure(run, UpdaterError(verdict))
+                return run
             run.append_log(message or "Composer applied the release.")
             run.save(update_fields=["progress_log"])
             self._complete(run, report=report)
             return run
+
+        # Composer failed or rolled back: whatever is active now still needs its
+        # own static files.
+        report["static_collected"] = self._collect_static_after_handoff(run)
 
         if exit_code == 3:
             # Composer's "needs a human": the rollback did not come back healthy
@@ -1839,6 +1947,65 @@ class UpdateService:
         run.save(update_fields=["report"])
         self._handle_failure(run, UpdaterError(message))
         return run
+
+    def _verify_handoff(self, run, report):
+        """Check what Composer's success ack claims before reporting it.
+
+        Returns "" when the active release is the one the run asked for and the
+        processes run it, a failure message when they do not, or None while a
+        process has not restarted onto it yet (the tick asks again, for at most
+        ``HANDOFF_VERIFY_WINDOW``). ``report`` gains what was found.
+        """
+        running = running_version()
+        try:
+            active = self.store.read_active(get_baked_version())
+        except Exception as exc:
+            return f"Composer reported success, but the active release cannot be read: {_sanitize(exc)}"
+        active_version = str(active.get("version") or "")
+        report["active_version"] = active_version
+        held = active.get("held") or {}
+        why = f" ({held.get('reason')})" if held else ""
+        if run.action == run.ACTION_APPLY:
+            target = str(run.target_version or "").strip()
+            if target and not _same_version(active_version, target):
+                return (
+                    f"Composer reported that it applied DjangoLux {target}, but the active "
+                    f"release is {active_version}{why}."
+                )
+        elif run.action == run.ACTION_ROLLBACK:
+            source = str(run.source_version or "").strip()
+            if source and _same_version(active_version, source):
+                return f"Composer reported a rollback, but DjangoLux {active_version} is still active{why}."
+
+        lagging = []
+        report["worker_version"] = str(running)
+        if not _same_version(running, active_version):
+            lagging.append(f"the worker runs {running}")
+        web_version, web_problem = probe_web_version()
+        report["web_version"] = web_version
+        if web_problem:
+            report["web_probe"] = web_problem
+            if not report.get("web_probe_logged"):
+                report["web_probe_logged"] = True
+                run.append_log(f"The web version could not be checked: {web_problem}")
+        elif not _same_version(web_version, active_version):
+            lagging.append(f"web runs {web_version}")
+        if not lagging:
+            return ""
+        now = timezone.now()
+        since = _parse_iso(report.get("verify_since"))
+        if since is None:
+            report["verify_since"] = now.isoformat()
+            run.report = report
+            run.save(update_fields=["report", "progress_log"])
+            since = now
+        if now - since < HANDOFF_VERIFY_WINDOW:
+            return None
+        minutes = int(HANDOFF_VERIFY_WINDOW.total_seconds() // 60)
+        return (
+            f"DjangoLux {active_version} is active, but {' and '.join(lagging)} "
+            f"{minutes} minutes after Composer reported success."
+        )
 
     def _collect_static_after_handoff(self, run):
         """Collect the now-active release's static files.

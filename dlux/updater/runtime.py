@@ -97,6 +97,14 @@ class RuntimeStore:
         return self.staging / safe
 
     def read_active(self, baked_version):
+        """What the supervisor serves: the volume release ``active.json`` names, or
+        the baked image package.
+
+        A volume release whose image floor this image does not meet is not served;
+        the result is then the baked package, with ``held`` naming the release and
+        why. ``active.json`` is left as it is, so restoring an image that meets
+        the floor serves the release again.
+        """
         fallback = {
             "version": str(baked_version),
             "source": "image",
@@ -118,6 +126,13 @@ class RuntimeStore:
             path.relative_to(self.releases.resolve())
             if source != "volume" or not path.is_dir():
                 raise ValueError("missing release directory")
+            from .supervisor import _is_newer, image_floor_problem
+
+            problem = image_floor_problem(path, baked_version) if _is_newer(version, baked_version) else ""
+            if problem:
+                # The supervisor serves the baked package on this image, so that
+                # is what is active; `held` keeps the release the pointer names.
+                return {**fallback, "held": {"version": version, "reason": problem}}
             return {
                 "version": version,
                 "source": "volume",

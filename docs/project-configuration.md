@@ -91,6 +91,13 @@ only through a new URL, which every DjangoLux update or project release now give
 A project that sets another `staticfiles` backend keeps it, and
 `DLUX_VERSIONED_STATIC = False` (before calling `dlux_settings`) turns the swap off.
 
+It makes every `django_redis` cache fail fast: the backend becomes
+`dlux.resilient_cache.FailFastRedisCache`, the socket timeouts are capped, and
+`CacheOutageMiddleware` goes just before the session middleware. This overrides timeouts the
+settings file declares, because generated settings files are never regenerated;
+`DLUX_CACHE_FAIL_FAST = False` keeps the cache exactly as written. See
+[Cache outages](deployment-configuration.md#cache-outages).
+
 To add a first-class framework setting, follow
 [Adding a System Setting](adding-system-settings.md); it must participate in the
 schema, normalization, forms, import/export, and tests.
