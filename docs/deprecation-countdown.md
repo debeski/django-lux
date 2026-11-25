@@ -32,6 +32,18 @@ Task names stay `dlux.tasks.*`. The stored config keys `use_celery` (backups)
 and `backup_use_celery` (reports) keep their names; they switch background
 builds on the task worker.
 
+### The `docker-socket-proxy` service
+
+Generated stacks have no `docker-socket-proxy`: `composer-executor` answers
+`composer-agent`'s Docker reads, and the proxy's container inspect would hand the
+agent every service's environment. The stack contract lists it under
+`removed_services` and tolerates its read-only socket mount
+(`invariants.docker_socket.tolerated`) on stacks that still run it. Composer's
+`./start.sh check` warns about it (`docker-proxy`), and `./start.sh check --fix`
+removes its container and its service from the generated Composer block.
+- **1.18.0:** the tolerance ends. A proxy still in the stack is a contract
+  violation.
+
 ### Homepage settings aliases
 
 `SystemSettings.homepage_config` is canonical. The legacy `home_url`, `public_root_config`, and profile landing-page permission paths are mirrored on save, accepted by runtime configuration/import, and scheduled for removal in v2.0. Move host code to `homepage_config` now; user-facing copy should call the anonymous destination the public page.

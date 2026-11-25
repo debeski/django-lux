@@ -40,9 +40,8 @@ Generated project baseline:
   CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
 - a generated Docker baseline with `web`, `worker` (DjangoLux's task worker), outbound-only `composer-agent`
-  (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the
-  isolated `composer-executor` that holds the real Docker socket and performs all
-  writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
+  (no Docker access), the isolated `composer-executor` that holds the real Docker
+  socket and answers every Docker request of the agent, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
   `smtp-relay` services. Compose 5.3.0 or later is required for the `worker`
   `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
 - `requirements.txt` pinned to the generated stable `django-lux` release

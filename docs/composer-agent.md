@@ -12,12 +12,15 @@ The scaffold runs these Composer services:
 | Service | Authority | Network access |
 | --- | --- | --- |
 | `composer-agent` | outbound registry/control-plane communication and typed local relay | `egress`, `docker_proxy` |
-| `composer-executor` | the sole Docker-write authority | `docker_proxy` only |
-| `docker-socket-proxy` | read-only Docker API for the agent | `docker_proxy` only |
+| `composer-executor` | the sole Docker authority | `docker_proxy` only |
 
-The agent has no raw Docker socket. It reads through the proxy, which disables
-`POST` and `EXEC`; typed write requests go through the private
-`composer_exec_sock` to the isolated executor, which holds the Docker socket. Both
+The agent has no Docker access at all: no socket and no `DOCKER_HOST`. Its typed
+requests go through the private `composer_exec_sock` to the isolated executor,
+which holds the Docker socket. That covers every write and the agent's few reads
+(the service states and logs for the Operations card, and the local image digest
+for the update check), which the executor answers with those fields only. A
+container inspect, which carries every service's environment, never reaches the
+agent. Both
 Composer services drop all capabilities and run with `no-new-privileges`. The
 executor adds back only `DAC_OVERRIDE`, so it can read the project's `0600`
 `.secrets/.env` to deploy; the project directory is mounted read-only in both.
