@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.16.6b1",
+  "version": "1.16.6",
   "display": {
     "summary": "Three fixes found upgrading Trademarks to 1.16.5. Project scripts and stylesheets refresh in browsers after every upgrade: static URLs now carry the DjangoLux and project versions, so the proxy's year-long cache can no longer keep an old copy. A modal a project opens while its page loads, such as a ?modal= deep link, now opens instead of being lost. Confirming the current password no longer signs the user out once after a Django upgrade raises the password hasher's work factor. Web and worker update inline from any 1.16 release, with no migrations.",
     "highlights": [
@@ -9,7 +9,7 @@
       "Confirming your password no longer signs you out after a Django upgrade re-hashes it.",
       "Web and worker update inline from any 1.16 release, with no migrations."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.6b1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.6"
   },
   "requires": {
     "updater_schema": ">=1",
