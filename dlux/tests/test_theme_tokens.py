@@ -260,3 +260,80 @@ class ThemeSelectorsLiveInThemeFilesTests(SimpleTestCase):
                 if named.search(prelude):
                     offenders.append(f'{path.relative_to(STATIC)}: {prelude.strip()[:80]}')
         self.assertEqual(offenders, [])
+
+
+def _root_tokens(path):
+    css = _strip_comments(path.read_text(encoding='utf-8'))
+    match = re.search(r':root\.theme-%s\s*\{(.*?)\}' % re.escape(path.stem), css, re.S)
+    return dict(re.findall(r'(--[a-zA-Z0-9_-]+)\s*:\s*([^;]+);', match.group(1))) if match else {}
+
+
+def _resolve(value, tokens, depth=0):
+    value = value.strip()
+    ref = re.fullmatch(r'var\(\s*(--[a-zA-Z0-9_-]+)\s*(?:,\s*(.+))?\)', value)
+    if ref and depth < 10:
+        return _resolve(tokens.get(ref.group(1), ref.group(2) or ''), tokens, depth + 1)
+    return value
+
+
+def _luminance(hex_colour):
+    digits = hex_colour.lstrip('#')
+    if len(digits) == 3:
+        digits = ''.join(c * 2 for c in digits)
+    channels = []
+    for i in (0, 2, 4):
+        c = int(digits[i:i + 2], 16) / 255
+        channels.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def _contrast(a, b):
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+class OnAccentTokenContrastTests(SimpleTestCase):
+    """`--on-primal` is the text colour for a `--primal` fill and
+    `--on-primal_dark` for a `--primal_dark` fill (hover/active). Every theme
+    declares both, and each pair meets WCAG AA for normal text (4.5:1)."""
+
+    PAIRS = (('--on-primal', '--primal'), ('--on-primal_dark', '--primal_dark'))
+
+    def test_every_theme_pairs_its_accents_with_an_aa_on_accent_colour(self):
+        for path in _theme_files():
+            tokens = _root_tokens(path)
+            for text_token, fill_token in self.PAIRS:
+                with self.subTest(theme=path.stem, token=text_token):
+                    self.assertIn(text_token, tokens)
+                    text = _resolve(tokens[text_token], tokens)
+                    fill = _resolve(tokens[fill_token], tokens)
+                    self.assertRegex(text, r'^#[0-9a-fA-F]{3,6}$')
+                    self.assertRegex(fill, r'^#[0-9a-fA-F]{3,6}$')
+                    self.assertGreaterEqual(round(_contrast(text, fill), 2), 4.5, (text, fill))
+
+    def test_the_shared_fallback_declares_both_tokens(self):
+        css = _strip_comments((STATIC / 'dlux' / 'base' / 'css' / 'main.css').read_text(encoding='utf-8'))
+        root = re.search(r':root\s*\{(.*?)\}', css, re.S).group(1)
+        tokens = dict(re.findall(r'(--[a-zA-Z0-9_-]+)\s*:\s*([^;]+);', root))
+        for text_token, fill_token in self.PAIRS:
+            self.assertGreaterEqual(_contrast(tokens[text_token].strip(), tokens[fill_token].strip()), 4.5)
+
+    def test_public_shell_fills_use_the_on_accent_tokens(self):
+        css = _strip_comments((STATIC / 'dlux' / 'public' / 'css' / 'public_base.css').read_text(encoding='utf-8'))
+        for declaration in (
+            '--bs-btn-color: var(--on-primal',
+            '--bs-btn-bg: var(--primal',
+            '--bs-btn-hover-color: var(--on-primal_dark',
+            '--bs-btn-hover-bg: var(--primal_dark',
+            '--bs-nav-pills-link-active-color: var(--on-primal',
+            '--bs-pagination-active-color: var(--on-primal',
+            '--bs-list-group-active-color: var(--on-primal',
+        ):
+            self.assertIn(declaration, css)
+
+    def test_staff_primary_button_text_uses_the_on_accent_token(self):
+        css = (STATIC / 'dlux' / 'base' / 'css' / 'buttons.css').read_text(encoding='utf-8')
+        block = re.search(r'\n\.btn-primary\s*\{(.*?)\}', css, re.S).group(1)
+        self.assertIn('color: var(--on-primal', block)
+        self.assertNotIn('color: #fff', block)
+

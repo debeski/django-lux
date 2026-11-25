@@ -96,6 +96,8 @@
     --primal: #ebf4ff;
     --primal_dark: #94a3b8;
     --primal-rgb: 203, 213, 225;
+    --on-primal: var(--body);
+    --on-primal_dark: var(--body);
     --btn-primary-shadow: rgba(203, 213, 225, 0.4);
     --nav-item-color: var(--table-row);
     color-scheme: dark;
@@ -652,7 +654,7 @@
 :root.theme-dark .btn-primary:active,
 .theme-dark .btn-primary,
 .theme-dark .btn-primary * {
-    color: var(--body) !important; /* Force Theme Dark color for text and icons */
+    color: var(--on-primal) !important;
 }
 
 /* 6. Sidebar Active State & Scrollbar */
@@ -1025,7 +1027,7 @@
 :root.theme-dark .pagination .page-item.active .page-link {
     background-color: var(--primal) !important;
     border-color: var(--primal) !important;
-    color: #fff !important;
+    color: var(--on-primal) !important;
 }
 
 :root.theme-dark .pagination .page-item.disabled .page-link {

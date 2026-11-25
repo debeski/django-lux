@@ -126,6 +126,14 @@ hand-code a third public page chrome.
   follows Identity → Footer.
 - **Font:** the current language's default font from the registry, linked from
   `/fonts/<slug>.css`. Visitor preferences (theme, font) never apply.
+- **Accent fills:** Bootstrap's primary fills take the theme accent (`.btn-primary`,
+  active `.nav-pills` links, active pagination, active `.list-group` items and
+  `.text-bg-primary`). Their text uses the theme's on-accent tokens: `--on-primal`
+  on `--primal`, and `--on-primal_dark` on the `--primal_dark` hover and pressed
+  fill. A project's own accent-filled control, such as a selected filter chip, uses
+  the same pair (`background: var(--primal); color: var(--on-primal);`), so it stays
+  readable in every theme. See
+  [Project Configuration](project-configuration.md#themes-and-fonts) for the tokens.
 
 Its blocks are `title`, `meta`, `extra_css`, `header`, `content`, `footer` and
 `scripts`. Overriding `title` replaces the whole title. A project's own scripts go

@@ -10,6 +10,7 @@ This file owns the release history for `django-lux`.
 ## Unreleased
 
 - **Login Page Hero Placeholders In Each Field's Language**: System Settings > Login Page gave every `login_hero_message_<lang>` textarea the active UI language's `login_hero_placeholder`, so under an Arabic UI both the English and the Arabic field showed Arabic. Each field now resolves the placeholder in its own language through `get_strings(<lang>)`, beside its own `dir`.
+- **On-Accent Text Tokens: Readable Accent Fills In Every Theme**: under the `dark` public theme, filled buttons and selected chips put white text on the theme's light accent. Every theme now declares `--on-primal` (text on `--primal`) and `--on-primal_dark` (text on the `--primal_dark` hover fill), each WCAG AA against its fill, with white fallbacks in `base/css/main.css`. `dlux/public_base.html` maps Bootstrap's primary fills (`.btn-primary`, active nav pills, pagination and list-group items, `.text-bg-primary`) onto the theme accent with those tokens, where they had stayed Bootstrap blue. The staff `.btn-primary` takes `--on-primal`: dark ink on gold, green and red, whose white text was 2.5–3.8:1. Gold and red end its gradient at `--dlux-btn-primary-end`. Theme fixes: the active page in aether, neon and prism lost its colour to the generic link rule; dark's active page was white on near-white; gothic's hover and active page, neon's hover and retro's hover gradients fell below AA. Covered by `test_theme_tokens` and the `on_accent_contrast` browser test (12 themes, public and staff, LTR and RTL).
 
 ## v1.16.6
 

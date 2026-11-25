@@ -9,6 +9,8 @@
     --primal: #475569; /* Slate 600 - Neutral Accent */
     --primal_dark: #334155; /* Slate 700 */
     --primal-rgb: 71, 85, 105;
+    --on-primal: #ffffff;
+    --on-primal_dark: #ffffff;
     --btn-primary-shadow: rgba(71, 85, 105, 0.4);
     --nav-item-color: #eef1f5;
 

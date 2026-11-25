@@ -114,6 +114,8 @@
     --primal: var(--neon-cyan);
     --primal_dark: var(--neon-pink);
     --primal-rgb: 0, 255, 255;
+    --on-primal: var(--cyber-black);
+    --on-primal_dark: var(--cyber-black);
     --btn-primary-shadow: rgba(0, 255, 255, 0.5);
     --nav-item-color: var(--neon-cyan);
     color-scheme: dark;
@@ -841,7 +843,7 @@
 }
 
 :root.theme-neon .btn-primary:hover {
-    background: linear-gradient(135deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
+    background: linear-gradient(135deg, var(--neon-pink) 0%, #d900d9 100%) !important;
     border-color: var(--neon-pink) !important;
     box-shadow: 0 0 30px rgba(255, 0, 255, 0.5) !important;
     transform: translateY(-1px);
@@ -1957,14 +1959,14 @@
 }
 
 /* 39. Links - Neon Glow */
-:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link) {
     color: var(--neon-cyan) !important;
     text-decoration: none !important;
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.2) !important;
     transition: color 0.2s ease, text-shadow 0.2s ease !important;
 }
 
-:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link):hover {
     color: var(--neon-pink) !important;
     text-shadow: 0 0 10px rgba(255, 0, 255, 0.4) !important;
 }

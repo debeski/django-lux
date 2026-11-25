@@ -46,6 +46,8 @@
     --primal: var(--aether-mint);
     --primal_dark: var(--aether-violet);
     --primal-rgb: 168, 255, 228;
+    --on-primal: var(--aether-void);
+    --on-primal_dark: var(--aether-void);
     --btn-primary-shadow: rgba(168, 255, 228, 0.24);
     --nav-item-color: var(--aether-sky);
     color-scheme: dark;
@@ -1330,12 +1332,12 @@
     box-shadow: inset 0 -2px 0 rgba(168, 255, 228, 0.34) !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link) {
     color: var(--aether-silver) !important;
     text-shadow: none !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link):hover {
     color: #ffffff !important;
 }
 

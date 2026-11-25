@@ -115,6 +115,8 @@
     --primal: var(--retro-amber);
     --primal_dark: var(--retro-copper);
     --primal-rgb: 212, 165, 116;
+    --on-primal: var(--retro-black);
+    --on-primal_dark: var(--retro-black);
     --btn-primary-shadow: rgba(212, 165, 116, 0.4);
     --nav-item-color: var(--retro-amber);
     color-scheme: dark;
@@ -690,7 +692,7 @@
 }
 
 :root.theme-retro .btn-primary:hover {
-    background: linear-gradient(135deg, var(--retro-copper) 0%, var(--retro-bronze) 100%) !important;
+    background: linear-gradient(135deg, var(--retro-copper) 0%, color-mix(in srgb, var(--retro-copper) 50%, var(--retro-bronze)) 100%) !important;
     box-shadow: 0 0 20px rgba(212, 165, 116, 0.3) !important;
 }
 
