@@ -34,6 +34,45 @@ uses `setdefault`, so explicitly declared Django settings win.
 | `DLUX_ISOLATE_TEST_CACHE` | Django setting | boolean, `True` | Replaces the default cache with process-local memory during test processes. Set `False` only when a dedicated test cache is already isolated from live sessions and settings. |
 | `DLUX_BASE_URL` | Django setting, then `BASE_URL` environment fallback | string, empty | Public URL used by `dlux_doctor` deployment checks. It does not change Django host/origin settings. |
 
+## Cache outages
+
+| Setting | Source | Type / default | Purpose |
+|---|---|---|---|
+| `DLUX_CACHE_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Points every `django_redis.cache.RedisCache` cache at `dlux.resilient_cache.FailFastRedisCache`, caps its timeouts and puts `dlux.cache_outage.CacheOutageMiddleware` just before `SessionMiddleware` in `MIDDLEWARE`. `False` keeps `CACHES` and `MIDDLEWARE` as the settings file wrote them. Other cache backends are never changed. |
+| `DLUX_CACHE_SOCKET_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `2` | The highest `SOCKET_CONNECT_TIMEOUT` and `SOCKET_TIMEOUT` a `django_redis` cache keeps. A larger, missing or invalid value becomes this one; a smaller one is kept. It overrides the settings file, which generated projects never regenerate (a generated settings file may still say 5 and 20 seconds). |
+
+Generated stacks keep sessions in the Redis cache, so a Redis that stops answering
+takes sign-in with it. What happens then:
+
+- The first cache operation waits at most `DLUX_CACHE_SOCKET_TIMEOUT`. Its failure
+  opens a breaker for that cache server in the process, and for the next 10 seconds
+  every cache operation fails at once with `dlux.resilient_cache.CacheUnavailable`
+  instead of waiting again. One warning on the `dlux.cache` logger names the
+  server (without its password) and the error; another says when it answers again.
+- Reads that only save work treat the outage as a miss: the System Settings
+  singleton, the sidebar and route catalog, the search index and notification
+  de-duplication. Pages that need nothing else keep working, from the database.
+- Everything else fails: sessions, the login lockout, two-factor codes and their
+  cooldowns. Pretending those work would sign people in without a session or
+  skip a lockout. `CacheOutageMiddleware` answers such a request with a 503 page
+  (JSON for `XMLHttpRequest` and `Accept: application/json`) saying the
+  sign-in service is not responding, with `Retry-After: 10`, instead of a 500.
+  Signed-in users read as signed out until Redis answers again; their sessions
+  are still there when it does.
+- `dlux.resilient_cache.safe_get(key, default)`, `safe_set(key, value, timeout)`
+  and `safe_delete(key)` give project code the same miss-on-outage behaviour for
+  its own non-critical caching.
+- The public-form limiter (`@public_form_limit`) lets a POST through when the
+  cache is down, by design; see
+  [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls).
+
+Singleton models such as `SystemSettings` are cached as their field values under
+`dlux:singleton:<Model>`, tagged with the DjangoLux and Django versions that wrote
+them. An entry from another version, or one missing a field a migration added, is
+a miss and is rebuilt from the database, so an upgrade never unpickles a model
+instance another Django version wrote. Session keys are not versioned: users stay
+signed in across an update.
+
 ## Limits and Data Discovery
 
 | Setting | Source | Type / default | Purpose |
@@ -190,6 +229,7 @@ service, which in a generated stack has no route to public hosts.
 | `DLUX_UPDATE_EXECUTOR` | — | **Removed in 1.10.0; ignored** | Composer performs every approved inline DjangoLux update: DjangoLux writes a `package-update-request.json` intent that Composer's executor stages, activates and health-gates from outside the container, so it can roll back a release that failed to start. **This requires Composer running as a service in the deployment** (latest stable image), not only as the deployer; `composer check --fix` installs it. The `inline` value that restored the in-container executor was removed together with that executor. |
 | `DLUX_UPDATE_CHECK_INTERVAL` | Django setting or environment through `dlux_settings()` | integer seconds, `86400`, minimum `300` | Minimum time between persisted update checks. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | Django setting or environment | filesystem path, `/opt/dlux-runtime` | Durable runtime release, state, maintenance, and progress root. |
+| `DLUX_UPDATE_WEB_URL` | Django setting, then environment | URL, `http://web:8000` on a generated stack (`DLUX_STACK_SCHEMA` set), otherwise unset | Where the worker asks `web` which DjangoLux it runs before it reports an inline update complete. The probe is signed with `SECRET_KEY` and bypasses any HTTP proxy. Unset outside a generated stack, so the run log notes that web was not checked. See [What finishes a handed-off run](inline-updater.md#what-finishes-a-handed-off-run). |
 | `DLUX_BAKED_VERSION` | Environment only | version string, package version fallback | Records the DjangoLux version baked into the application image. Generated runtime wrappers populate it. |
 | `DLUX_ALLOW_INSECURE_SECRET_KEY` | Django setting through `dlux_settings()` | boolean, `False` | Allows a non-DEBUG deployment to boot on an empty or placeholder `SECRET_KEY`. Off by default: both scaffold layers fall back silently (`local_secret` in compose, a dev key in `settings.py`), and a restart that resolves a different key invalidates every session cookie, signing all users out with nothing logged. Set it only for CI or throwaway stacks. |
 | `DLUX_STACK_SCHEMA` | Environment, set in `compose.yml`'s `x-environment` | integer, unset on stacks generated before stamping | The stack contract schema the generated stack files were written for. Read only by the `stack.schema` doctor check; changing it changes no behaviour. See [Stack Schema Stamps](stack-schema.md). |

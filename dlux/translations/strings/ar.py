@@ -2684,6 +2684,8 @@ STRINGS = {
     'err_unable_send_code': 'غير قادر على إرسال الرمز.',
     'err_not_authenticated': 'غير مصادق عليه.',
     'err_totp_unavailable': 'المصادقة عبر التطبيق غير متاحة.',
+    'cache_unavailable_title': 'الخدمة غير متاحة مؤقتًا',
+    'cache_unavailable_message': 'الخدمة التي تحفظ تسجيلات الدخول والجلسات لا تستجيب. حاول مرة أخرى بعد دقيقة، وإن تكرر ذلك فأبلغ مسؤول النظام.',
     'err_unable_save_totp': 'تعذر حفظ إعداد المصادقة. قم بتشغيل ترحيلات قاعدة البيانات وحاول مرة أخرى.',
     'device_unknown': 'جهاز غير معروف',
     'device_browser_generic': 'متصفح',

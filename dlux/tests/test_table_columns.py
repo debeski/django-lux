@@ -604,8 +604,7 @@ class TableConfigReadThroughTests(TestCase):
     def test_cached_instance_from_before_the_storage_move_is_refreshed(self):
         row = SystemSettings.load()
         SystemSettings.objects.filter(pk=row.pk).update(layout_config={'default_table_density': 'dense'}, tables_config={})
-        del row._table_config_snapshot
-        cache.set('SystemSettings', row)
+        SystemSettings._store_in_cache(SystemSettings.objects.get(pk=row.pk))
         current = SystemSettings.load()
         self.assertEqual(current.default_table_density, 'dense')
 

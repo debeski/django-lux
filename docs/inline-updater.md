@@ -81,7 +81,9 @@ container that must exit 0 before `worker` starts:
 1. `dlux_reconcile` repairs the runtime pointer. When a volume release is not
    strictly newer than the release baked into the image, it points the runtime
    back at the image. It touches only the volume, never the database, and always
-   exits 0, so it cannot block startup.
+   exits 0, so it cannot block startup. When the image is below the active release's floor it
+   says so on stderr and leaves the pointer alone (see
+   [When the image is below the release floor](#when-the-image-is-below-the-release-floor)).
 2. `migrator` applies migrations and collects static assets.
 
 Both run under the runtime supervisor (`python -m dlux.updater.supervisor
@@ -302,10 +304,28 @@ versions the Options card reports, and finishes the run:
 
 | Composer's answer | The run |
 | --- | --- |
-| exit 0 | completed |
+| exit 0, and the check below passes | completed |
+| exit 0, and the check below fails | failed, naming what is active and what runs |
 | rolled back (from Composer's own result in `deploy-status.json`) | rolled back, with Composer's message |
 | exit 3 | failed: the rollback was not healthy either, and the deployment needs an operator |
 | any other exit | failed, with Composer's message or the exit code |
+
+An exit 0 is checked before the run is reported complete:
+
+1. The active release (`state/active.json`, as the supervisor serves it) must be
+   the run's target for an apply, and must have moved off the source release for
+   a rollback. Otherwise the run fails at once: reconcile has kept or restored
+   another release, for example a newer one baked into the image, or one the
+   image is too old to run.
+2. The worker running the tick and `web` must both report that release. The worker
+   reads its own `dlux.__version__`; `web` answers a signed request to
+   `/sys/api/dlux-update/runtime-health/` at `DLUX_UPDATE_WEB_URL`
+   (`http://web:8000` on a generated stack). A process still on the old release is
+   waited for, tick by tick, for up to 3 minutes; then the run fails, naming it.
+   When `web` cannot be asked at all (no address, or no answer), the run log says
+   so and the check rests on the worker.
+
+The run report records `active_version`, `worker_version` and `web_version`.
 
 Reading the ack is also where the now-active release's static files are collected
 (`collectstatic --noinput --clear`, with the release on `PYTHONPATH`). Composer's
@@ -412,6 +432,28 @@ reconcile rewrites the file with the baked version and the same generation. It i
 a label correction, not a new runtime; without it Composer would call the
 deployment up to date with a release it is not running, and offer no update.
 
+### When the image is below the release floor
+
+A volume release carries only DjangoLux; everything it imports comes from the
+image. Its manifest's `requires.baked_image` names the oldest baked DjangoLux it
+runs on. When the image is older than that (an application image rolled back under
+it), the supervisor does not put the release on `PYTHONPATH`: `web`, `worker` and
+`manage.py` run the baked package instead, and each process prints one
+`dlux runtime: …` line on stderr naming the release, its floor and the baked
+version. `RuntimeStore.read_active()` reports the baked package as active, with
+`held` naming the release and the reason, and reconcile marks the Updates card
+degraded with that reason. The worker's health file is not written, because the
+baked package is healthy.
+
+`state/active.json` is left as it is. Deploying an image that meets the floor
+serves the release again on the next start, and reconcile clears the degraded
+mark; rolling the runtime back is the other way out.
+
+This decision is made by the image's own supervisor, so it protects images that
+bake DjangoLux 1.17.0 or later. An older image runs its own supervisor, which
+does not check the floor; Composer 1.11.0 or later refuses that downgrade before it starts the containers,
+unless the deploy is run with `--force`.
+
 ### Moving to an image that bakes an older DjangoLux
 
 The active release lives on the runtime volume and is what the supervisor puts on
@@ -431,7 +473,8 @@ returns JSON:
   running on the new image.
 - `abort`: the image predates a DjangoLux release that required an image rebuild,
   so the active release cannot run on it. Update the project image past that floor
-  first.
+  first. The floor is read from the active release's own manifest on the
+  runtime volume.
 
 Composer 1.3.13 or later asks this before recreating onto a new image: it
 proceeds on `keep`, blocks on `abort` (quoting the reason), and blocks on its label
@@ -722,5 +765,6 @@ is the canonical list of `DLUX_*` settings. The ones this page relies on:
 | `DLUX_MIGRATOR_FLAGS` | empty | Flags Composer passes to the `migrator` init step. |
 | `COMPOSER_AGENT_RESTART_SERVICES` | `web,worker,smtp-relay,caddy,ocr` in the scaffold | Services the Operations panel may restart and recreate. |
 | `COMPOSER_RUNTIME_GATE_SERVICE` | `web` | The service Composer asks for `dlux_image_gate`. |
+| `DLUX_UPDATE_WEB_URL` | `http://web:8000` on a generated stack | Where the worker asks `web` its running version before completing a run (see [What finishes a handed-off run](#what-finishes-a-handed-off-run)). |
 
 The update index is fixed to official PyPI and is not configurable.

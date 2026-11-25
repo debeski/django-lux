@@ -38,7 +38,7 @@ class AssignedHomeUrlTests(TestCase):
         settings.profile_config = normalize_profile_config({'allow_user_home_url': enabled})
         settings.is_configured = True
         settings.save()
-        cache.delete('SystemSettings')
+        SystemSettings.clear_cache()
 
     def _group(self, name, home_url, is_active=True):
         group = Group.objects.create(name=name)

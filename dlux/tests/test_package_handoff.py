@@ -25,7 +25,7 @@ from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
-from dlux.updater import package_request
+from dlux.updater import get_baked_version, package_request
 from dlux.updater.runtime import RuntimeStore
 
 
@@ -309,7 +309,9 @@ class HandoffCompletionTests(TestCase):
             action=Run.ACTION_APPLY,
             status=Run.STATUS_APPLYING,
             is_active=True,
-            target_version="1.8.8",
+            # What Composer leaves on an empty volume: the baked release active,
+            # and this process running it.
+            target_version=get_baked_version(),
             started_at=started_at or timezone.now(),
         )
         state = State.load()
@@ -751,6 +753,13 @@ class HandoffCollectsStaticTests(TestCase):
         self.base_dir = root / "project"
         self.base_dir.mkdir()
         (self.base_dir / "manage.py").write_text("# generated\n", encoding="utf-8")
+        # These tests are about static files; HandoffVerificationTests checks
+        # what a success ack claims.
+        from unittest.mock import patch
+
+        verify = patch("dlux.updater.service.UpdateService._verify_handoff", return_value="")
+        verify.start()
+        self.addCleanup(verify.stop)
         self.commands = []
         self.addCleanup(self._tmp.cleanup)
 

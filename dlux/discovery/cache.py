@@ -6,6 +6,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.urls import get_resolver
 
+from ..resilient_cache import safe_get, safe_set
+
 
 SIDEBAR_CACHE_TIMEOUT = 300
 
@@ -25,10 +27,10 @@ def _stable_hash(value):
 
 
 def _sidebar_cache_version():
-    version = cache.get(SIDEBAR_CACHE_VERSION_KEY)
+    version = safe_get(SIDEBAR_CACHE_VERSION_KEY, cache=cache)
     if version is None:
         version = 1
-        cache.set(SIDEBAR_CACHE_VERSION_KEY, version, timeout=None)
+        safe_set(SIDEBAR_CACHE_VERSION_KEY, version, None, cache=cache)
     return version
 
 

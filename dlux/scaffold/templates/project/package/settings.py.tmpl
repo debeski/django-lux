@@ -133,8 +133,10 @@ CACHES = {
         "LOCATION": os.getenv("REDIS_URL_DB", "redis://redis:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SOCKET_CONNECT_TIMEOUT": 5,
-            "SOCKET_TIMEOUT": 20,
+            # dlux_settings() caps both at DLUX_CACHE_SOCKET_TIMEOUT and adds a
+            # circuit breaker; DLUX_CACHE_FAIL_FAST = False keeps this as written.
+            "SOCKET_CONNECT_TIMEOUT": 2,
+            "SOCKET_TIMEOUT": 2,
             "CONNECTION_POOL_KWARGS": {"max_connections": 50},
         },
     }
