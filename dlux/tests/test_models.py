@@ -25,6 +25,7 @@ class SystemSettingsTests(TestCase):
         field_names = [field.name for field in SystemSettings._meta.fields]
         self.assertEqual(field_names, [
             'id',
+            'cache_revision',
             'system_names',
             'logo',
             'favicon',

@@ -83,7 +83,8 @@ does a stacked manager (`manager=True`) at any depth — a modal that has naviga
 past the surface it was opened on returns to that surface instead of reloading the
 page behind it. Forms may set `refresh_parent = True` or `False` to override that
 default; validation failures always replace the modal body with the bound form and
-its errors.
+its errors, and the scripts that markup carries run again as they did on first load
+(see `DluxDom.runScripts()` below).
 
 Create forms that support successive entry should submit the secondary action as
 `<button type="submit" name="save_add_more">`. The modal includes the clicked

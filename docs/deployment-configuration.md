@@ -75,6 +75,17 @@ Django version pickled. The first read after an upgrade from a release that
 pickled the row may still log Django's "Pickled model instance" warning once.
 Session keys are not versioned: users stay signed in across an update.
 
+Every save gives the row a new `cache_revision`, in the same statement as its
+fields, and the cached entry carries the revision it was written with. Once per
+request (on every call outside one) the cached row is checked against the
+database, and an entry whose revision no longer matches is a miss. A save the
+cache never saw, because the cache was down, the transaction rolled back or a
+racing save wrote its entry last, is therefore served from the next request after
+the cache answers again, not when the old entry expires. Code that updates a
+singleton row with `QuerySet.update()` instead of `save()` sets a new
+`cache_revision` (`uuid.uuid4().hex`) in the same update, or deletes the cached
+row afterwards (`cache.delete("SystemSettings")`).
+
 ## Limits and Data Discovery
 
 | Setting | Source | Type / default | Purpose |

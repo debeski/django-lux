@@ -15,11 +15,27 @@ SINGLETON_CACHE_SECONDS = 86400
 
 
 class SingletonModel(models.Model):
+    # A new value on every save, written in the same statement as the fields. The
+    # cached row carries the value it was read or saved with, and load() matches it
+    # against the database once per request, so an entry a save could not replace
+    # (the cache was down, the transaction rolled back, a racing save wrote last)
+    # is a miss rather than a stale row served until it expires.
+    cache_revision = models.CharField(max_length=32, default='', db_default='', editable=False)
+
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
+        import uuid
+
         self.pk = 1
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = list(update_fields)
+        if update_fields is None or update_fields:
+            self.cache_revision = uuid.uuid4().hex
+            if update_fields and 'cache_revision' not in update_fields:
+                kwargs['update_fields'] = [*update_fields, 'cache_revision']
         super().save(*args, **kwargs)
         self.refresh_cache()
 
@@ -77,8 +93,8 @@ class SingletonModel(models.Model):
 
         if obj is not None and not cls._row_verified_this_request():
             # Guard against a cache that outlived its row — a dropped and
-            # recreated database, a restore, a wiped dev volume — where the
-            # pickle unpickles perfectly and describes a row that is gone.
+            # recreated database, a restore, a wiped dev volume — or that
+            # describes an earlier save of it: the revision no longer matches.
             #
             # Once per request, not once per call. `load()` is reached for every
             # translated string, so probing each time cost 106 of the 239 queries
@@ -86,7 +102,7 @@ class SingletonModel(models.Model):
             # A row cannot vanish part-way through a request in any way this
             # check would save us from, and the very next request re-verifies.
             try:
-                if not cls.objects.filter(pk=obj.pk).exists():
+                if not cls.objects.filter(pk=obj.pk, cache_revision=obj.cache_revision).exists():
                     obj = None
                 else:
                     cls._mark_row_verified()

@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
-from dlux.system.constants import SETUP_STEP_LAYOUT, SYSTEM_SETTINGS_EXPORT_FIELDS
+from dlux.system.constants import SETUP_STEP_APPEARANCE, SYSTEM_SETTINGS_EXPORT_FIELDS
 from dlux.system.normalizers import normalize_layout_config
 from dlux.utils.config import get_system_config
 from dlux.utils.import_export import apply_system_settings_import, export_system_settings_payload
@@ -52,7 +52,7 @@ class CardEdgesSettingTests(TestCase):
         settings_obj = SystemSettings.load()
         settings_obj.is_configured = True
         settings_obj.save()
-        request = RequestFactory().get(f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={SETUP_STEP_LAYOUT}')
+        request = RequestFactory().get(f'/sys/modals/dlux/systemsettings/{settings_obj.pk}/?step={SETUP_STEP_APPEARANCE}')
         form = SystemSettingsForm(
             data={
                 'system_names': '{"en":"System","ar":"System"}',

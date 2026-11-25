@@ -593,6 +593,9 @@ class FailureMessageTests(_IsolatedSettingsTestCase):
 class SendTestViewTests(_IsolatedSettingsTestCase):
     def setUp(self):
         super().setUp()
+        settings_row = SystemSettings.load()
+        settings_row.is_configured = True
+        settings_row.save()
         get_user_model().objects.create_superuser(username='test-admin', email='t@e.com', password='adminpass123')
         self.client = Client()
         self.client.login(username='test-admin', password='adminpass123')

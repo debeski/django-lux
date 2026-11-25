@@ -630,14 +630,15 @@ A widget that listens only for `shown.bs.modal` fails in a way that is easy to m
 nothing throws, the server payload is correct, and the widget renders on the loads
 that happen to win the race — so it looks intermittent rather than broken.
 
-Scripts in a modal's markup run when the modal loads that markup, through
-`DluxDom.runScripts()`. A `<script src>` from the site runs. An inline script runs
-only with `nonce="{{ request.csp_nonce }}"`, the nonce of the response that carried
-it, and the modal re-runs it under the page's nonce; an inline script without it,
-or with any other value, does not run under a nonce-only `script-src`. Markup
-re-rendered by a failed form submit does not run its scripts again, so a widget
-that must survive it ships as a static file and binds to `dlux:modal-content-loaded`
-as above.
+Scripts in a modal's markup run each time the modal puts markup in its body,
+through `DluxDom.runScripts()`: when it loads a view, and when a refused form submit
+returns the form again with its errors. A `<script src>` from the site runs. An
+inline script runs only with `nonce="{{ request.csp_nonce }}"`, the nonce of the
+response that carried it, and the modal re-runs it under the page's nonce; an inline
+script without it, or with any other value, does not run under a nonce-only
+`script-src`. The body is replaced whole, so such a script initialises the fresh
+markup; a script that also binds to `document` or `window` guards that binding so
+it is made once (see the `dataset` guard above).
 
 ### Pinning buttons to the modal footer
 
