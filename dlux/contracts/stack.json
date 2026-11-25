@@ -74,12 +74,6 @@
       "optional": true,
       "command_module": "dlux.ocr.serve"
     },
-    "docker-socket-proxy": {
-      "networks": [
-        "docker_proxy"
-      ],
-      "restart": "protected"
-    },
     "composer-executor": {
       "networks": [
         "docker_proxy"
@@ -114,13 +108,14 @@
     "docker_socket": {
       "path": "/var/run/docker.sock",
       "access": {
-        "docker-socket-proxy": "ro",
         "composer-executor": "rw"
       },
       "allowed_services": [
-        "docker-socket-proxy",
         "composer-executor"
-      ]
+      ],
+      "tolerated": {
+        "docker-socket-proxy": "ro"
+      }
     },
     "runtime_volume": {
       "volume": "dlux_runtime",
@@ -148,7 +143,6 @@
       "protected": [
         "db",
         "redis",
-        "docker-socket-proxy",
         "composer-executor",
         "composer-agent"
       ],
@@ -199,6 +193,11 @@
     "pgadmin": {
       "since": "1.5.8",
       "reason": "Dropped from the default stack; run it ad hoc if needed.",
+      "safe_to_remove": true
+    },
+    "docker-socket-proxy": {
+      "since": "1.17.0",
+      "reason": "composer-executor answers composer-agent's Docker reads; the proxy's container inspect exposed every service's environment to the agent. Composer's check --fix removes it.",
       "safe_to_remove": true
     }
   },

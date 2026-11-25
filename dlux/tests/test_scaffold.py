@@ -243,20 +243,15 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("dlux_runtime:/opt/dlux-runtime:ro", compose_contents)
             self.assertIn("  egress:", compose_contents)
             self.assertIn("composer-agent:", compose_contents)
-            self.assertIn("docker-socket-proxy:", compose_contents)
-            # Composer's check --fix pins this image by digest (agent_installer.DOCKER_SOCKET_PROXY_IMAGE);
-            # a scaffold on a moving tag drifted on its first check and ran an unpinned image until then.
-            self.assertIn(
-                "image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459",
-                compose_contents,
-            )
-            self.assertNotRegex(compose_contents, r"image:\s*tecnativa/docker-socket-proxy(:[\w.-]+)?\s*$")
-            self.assertIn("EVENTS: 1", compose_contents)
-            self.assertIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose_contents)
+            # No Docker proxy: its container inspect would hand composer-agent every
+            # service's environment. composer-executor answers the agent's reads.
+            self.assertNotIn("docker-socket-proxy", compose_contents)
+            self.assertNotIn("DOCKER_HOST", compose_contents)
+            self.assertNotIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose_contents)
             self.assertIn("  docker_proxy:", compose_contents)
             self.assertIn("image: debeski/composer:latest", compose_contents)
             self.assertIn('COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"', compose_contents)
-            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"', compose_contents)
+            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,db,redis"', compose_contents)
             self.assertIn("  composer-executor:\n", compose_contents)
             executor_block = compose_contents.split("  composer-executor:\n", 1)[1].split("\n\n", 1)[0]
             self.assertIn("cap_drop:\n      - ALL", executor_block)
@@ -806,14 +801,14 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
             self.assertEqual(self.attachments[service], {"internal"}, service)
 
     def test_docker_proxy_path_is_isolated(self):
-        self.assertEqual(self.attachments["docker-socket-proxy"], {"docker_proxy"})
+        self.assertNotIn("docker-socket-proxy", self.attachments)
         self.assertEqual(self.attachments["composer-agent"], {"egress", "docker_proxy"})
         # The executor holds the real socket but is kept off egress (isolated).
         self.assertEqual(self.attachments["composer-executor"], {"docker_proxy"})
         socket = self.contract["invariants"]["docker_socket"]
         # Parse each service's raw /var/run/docker.sock mount and its access mode.
         # A raw socket mount on the network-facing agent would hand it host root;
-        # only the read-only proxy (ro) and the executor (rw) may mount it.
+        # only the executor (rw) may mount it.
         body = self.compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
         service = None
         mounts = {}
@@ -972,8 +967,16 @@ class StackContractTests(unittest.TestCase):
         removed = self.contract["removed_services"]
         self.assertIn("db-backup", removed)
         self.assertIn("pgadmin", removed)
+        self.assertIn("docker-socket-proxy", removed)
         # A removed service must not also be a live service.
         self.assertFalse(set(removed) & set(self.contract["services"]))
+
+    def test_a_leftover_docker_proxy_is_tolerated_read_only_only(self):
+        socket = self.contract["invariants"]["docker_socket"]
+        self.assertEqual(socket["allowed_services"], ["composer-executor"])
+        self.assertEqual(socket["access"], {"composer-executor": "rw"})
+        self.assertEqual(socket["tolerated"], {"docker-socket-proxy": "ro"})
+        self.assertNotIn("docker-socket-proxy", self.contract["invariants"]["restart"]["protected"])
 
     def test_removed_services_present_flags_leftovers(self):
         advisories = self.stack_contract.removed_services_present(

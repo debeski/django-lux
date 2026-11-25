@@ -69,14 +69,14 @@ id or changing the field set requires a version bump.
 
 `dlux/contracts/stack.json` is the machine-readable spec of the expected Compose
 stack: which services exist, which networks each joins, the sole published
-ingress, where the Docker socket may be mounted (`ro`, socket-proxy only), the
+ingress, where the Docker socket may be mounted (`rw`, `composer-executor` only), the
 `dlux_runtime` read/write split, each service's restart class, and the declared
 volumes and env keys.
 
 Every service carries an `org.dlux.restart` label — `safe` (stateless / owns no
 in-flight operation: web, worker, celery, smtp-relay, caddy, ocr) or `protected` (data store,
-holds state, or manages its own lifecycle: db, redis, docker-socket-proxy,
-composer-agent, composer-executor). Composer classifies restart safety from
+holds state, or manages its own lifecycle: db, redis, composer-agent,
+composer-executor). Composer classifies restart safety from
 these labels instead of a hardcoded name list; the `safe` set mirrors
 `COMPOSER_AGENT_RESTART_SERVICES`, and a scaffold test keeps the two from
 drifting. The contract is the single source of truth for the stack's shape:

@@ -11,8 +11,8 @@ This architecture applies only to generated Compose stacks. It requires:
 
 - Docker Compose 5.3.0 or later, for the `pre_start` init containers (the stack
   contract records it as `minimum_compose_version`);
-- the Composer service topology (`composer-agent`, `composer-executor` and
-  `docker-socket-proxy`) running as services in the deployment, at or above the
+- the Composer service topology (`composer-agent` and `composer-executor`)
+  running as services in the deployment, at or above the
   Composer version the running release declares in `requires.services.composer`;
 - a writable `dlux_runtime` volume for the state owner, `worker`; and
 - stack schema 5, whose `worker` service runs DjangoLux's
