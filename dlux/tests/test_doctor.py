@@ -801,3 +801,101 @@ class ImageFloorCheckTests(TestCase):
 
     def test_an_image_on_the_floor_passes(self):
         self.assertEqual(self.finding('1.17.0').status, doctor.OK)
+
+
+class DoctorDjangoSystemChecksTests(TestCase):
+    """Run before handle(), one error-level system check stopped the doctor
+    with no report, so composer check --deep had nothing to parse."""
+
+    def _with_django_check(self, *messages):
+        from django.core.checks import registry
+
+        def project_check(app_configs, **kwargs):
+            return list(messages)
+
+        registry.registry.register(project_check)
+        self.addCleanup(registry.registry.registered_checks.discard, project_check)
+
+    def _finding(self, report):
+        return next(e for e in report['checks'] if e['id'] == doctor.DJANGO_CHECKS_ID)
+
+    def test_an_error_is_a_finding_and_the_report_still_prints(self):
+        from django.core.checks import Error
+
+        self._with_django_check(Error('broken thing', id='project.E001'))
+        out = StringIO()
+        try:
+            call_command('dlux_doctor', '--format', 'json', skip_checks=False, stdout=out)
+            code = None
+        except SystemExit as exc:
+            code = exc.code
+        finding = self._finding(json.loads(out.getvalue()))
+        self.assertEqual(finding['status'], doctor.ERROR)
+        self.assertIn('project.E001', finding['detail'])
+        self.assertIn('broken thing', finding['detail'])
+        self.assertEqual(code, 1)
+
+    def test_a_warning_warns_and_a_silenced_one_is_ignored(self):
+        from django.core.checks import Warning
+
+        self._with_django_check(Warning('odd thing', id='project.W001'))
+        self.assertEqual(self._finding(doctor.run_checks(only_groups={'settings'}))['status'], doctor.WARNING)
+        with override_settings(SILENCED_SYSTEM_CHECKS=['project.W001']):
+            self.assertEqual(self._finding(doctor.run_checks(only_groups={'settings'}))['status'], doctor.OK)
+
+    def test_skip_checks_leaves_the_finding_out(self):
+        output, _ = run_command('--format', 'json', '--group', 'settings', '--skip-checks')
+        self.assertNotIn(doctor.DJANGO_CHECKS_ID, [e['id'] for e in json.loads(output)['checks']])
+        out = StringIO()
+        with self.assertRaises(SystemExit):
+            call_command('dlux_doctor', '--format', 'json', '--group', 'settings', skip_checks=False, stdout=out)
+        self.assertIn(doctor.DJANGO_CHECKS_ID, [e['id'] for e in json.loads(out.getvalue())['checks']])
+
+
+class DoctorApplyWithDeadCacheTests(TestCase):
+    """A database-changing fix run while the cache is down leaves the cache
+    holding pre-fix settings for when it comes back."""
+
+    def _run(self, cache_up):
+        from unittest.mock import PropertyMock
+
+        report = doctor.build_report([doctor.CheckResult(
+            'test.stateful', 'test', 't', doctor.ERROR, 'd',
+            fix=doctor.management_fix(['check'], 'Harmless stand-in', doctor.STATEFUL),
+        )])
+        with patch('dlux.management.commands.dlux_doctor.doctor.run_checks', return_value=report), \
+                patch.object(doctor.Context, 'cache_available', new_callable=PropertyMock, return_value=cache_up), \
+                patch.object(doctor.Context, 'cache_error', new_callable=PropertyMock,
+                             return_value='no answer within 10.0 s'):
+            output, _ = run_command('--format', 'json', '--apply', '--allow-stateful')
+        return json.loads(output)['applied_fixes'][0]
+
+    def test_stateful_fixes_are_skipped_while_the_cache_is_down(self):
+        record = self._run(cache_up=False)
+        self.assertEqual(record['status'], 'skipped')
+        self.assertIn('cache is unreachable', record['error'])
+        self.assertIn('no answer within 10.0 s', record['error'])
+
+    def test_they_run_when_the_cache_answers(self):
+        self.assertEqual(self._run(cache_up=True)['status'], 'succeeded')
+
+
+class DoctorConnectionIsolationTests(TestCase):
+    """An abandoned check must never hold a connection this thread uses next:
+    --apply runs the migrator here, with no deadline."""
+
+    def test_a_worker_opens_its_own_connection_outside_a_transaction(self):
+        from django.db import connections
+
+        main = connections['default']
+        with patch.object(main, 'in_atomic_block', False):
+            outcome = doctor._Runner().run(lambda: connections['default'] is main, 5)
+        self.assertIs(outcome.value, False)
+
+    def test_a_worker_shares_a_connection_held_in_a_transaction(self):
+        from django.db import connections
+
+        main = connections['default']
+        self.assertTrue(main.in_atomic_block)
+        outcome = doctor._Runner().run(lambda: connections['default'] is main, 5)
+        self.assertIs(outcome.value, True)

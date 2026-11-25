@@ -111,7 +111,7 @@ backwards-compatible, renaming a field bumps it. Generated stack files record th
 
 | Group | Covers |
 | --- | --- |
-| `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
+| `settings` | Django's own system checks (`settings.django_checks`: an error for any error-level message, a warning for a warning, silenced ids ignored; left out by `--skip-checks` and by `call_command()`), INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
 | `services` | cache round-trip (`cache.reachable`: the probe made before the other checks; see [When a dependency is down or hung](#when-a-dependency-is-down-or-hung)), inline-update runtime volume, the image against the active release's floor (`updater.image_floor`: an error when the active inline release needs a newer project image, so the image's own DjangoLux is served; see [When the image is below the release floor](inline-updater.md#when-the-image-is-below-the-release-floor)), stack schema stamp, email delivery as the Email step sets it (`email.configured`: the route and whether its settings are complete; `email.reachable`: the internal SMTP relay answers, or on direct SMTP the provider accepts a TCP connection; both skipped while email delivery is off in System Settings > Email), DjangoLux task worker (`tasks.worker`: an error without a fresh `dlux_worker` heartbeat, because every DjangoLux task, scheduled backups included, runs there; a warning for failed runs), project Celery (`tasks.celery_deprecated`: warns while the project still has a Celery app, beat entries or `CELERY_BROKER_URL`; see [Task Runner](task-runner.md#moving-project-tasks-from-celery)), data access for the app's uid (`storage.mount_access`: an error when a non-root app cannot use part of its mounts; as root, informational, counting what uid 10001 would need; see [File permissions](deployment-configuration.md#file-permissions)) |
@@ -120,6 +120,11 @@ backwards-compatible, renaming a field bumps it. Generated stack files record th
 | `packages` | optional extras present |
 
 `--group <name>` (repeatable) runs only the named groups.
+
+Django's system checks do not run before the command, as they do for other
+commands: an error-level message would stop it before any report. They run as
+the `settings.django_checks` finding instead, under the same deadline as the
+other checks.
 
 `updater.runtime_volume` is skipped while inline updates are disabled. Otherwise it
 reports the verdict the task worker recorded, because `web` (where the doctor
@@ -134,8 +139,8 @@ database is unreachable.
 The doctor always returns a report, and a dead or paused service shows up once,
 as its own error, rather than through every check that touches it.
 
-- **Probes first.** Before Django's system checks and the report, the doctor
-  probes the database and the cache. Each probe has `CHECK_TIMEOUT` (10 s).
+- **Probes first.** Before any check, the doctor probes the database and the
+  cache. Each probe has `CHECK_TIMEOUT` (10 s).
 - **Short socket timeouts.** For the run, the database and cache clients get a
   `PROBE_TIMEOUT` (5 s) socket timeout, whatever the project's `DATABASES` and
   `CACHES` say. It applies to `connect_timeout` on PostgreSQL and MySQL, and to
@@ -150,7 +155,9 @@ as its own error, rather than through every check that touches it.
 - **Every check has a deadline.** Each check runs in a worker thread with
   `CHECK_TIMEOUT`. One that does not answer is an error, "No answer within N s",
   and the report goes on. The whole pass has `RUN_TIMEOUT` (60 s); checks not
-  started by then are skipped.
+  started by then are skipped. A check's thread opens its own database
+  connections, so one left behind by a hung check is never reused by the
+  command (or by the `--apply` fixes after it).
 - **The command has a deadline.** `manage.py dlux_doctor` without `--apply`
   stops after `PROCESS_TIMEOUT` (100 s), under the 120 s `composer check --deep`
   waits. It prints a report with one `doctor.deadline` error (in the requested
@@ -176,7 +183,13 @@ The limits are constants in `dlux/doctor.py`.
 
 `--apply` re-runs the full check pass afterwards and adds an `applied_fixes`
 array to the report, so the caller sees the post-remediation state rather than
-the state that triggered the fix.
+the state that triggered the fix. Each entry's `status` is `succeeded`,
+`failed` or `skipped`, with the reason in `error`.
+
+While the cache is unreachable, `stateful` fixes are `skipped`: a migration
+that changes settings cannot clear the cached copies, which the cache would
+serve again once it is back. Fix the cache, then run `--apply` again. `safe`
+fixes still run.
 
 ## Exit codes
 

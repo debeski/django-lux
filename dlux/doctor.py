@@ -147,9 +147,13 @@ class _Runner:
 
     A thread that misses its deadline is abandoned, not killed: Python cannot
     interrupt a blocked socket read, and a daemon thread does not keep the
-    process alive. Workers share this thread's database connections so they see
-    the same transaction; after a timeout that connection may be held by the
-    abandoned thread, so later workers open their own.
+    process alive.
+
+    Each worker opens its own database connections, so an abandoned one never
+    holds a connection this thread goes on to use (``--apply`` runs the
+    migrator here, with no deadline). The exception is a connection this
+    thread holds inside a transaction, as a test does: the worker must see that
+    transaction, so it shares it, until the first timeout.
     """
 
     def __init__(self):
@@ -160,7 +164,7 @@ class _Runner:
 
         shared = []
         if self.share_connections:
-            shared = [connections[alias] for alias in connections]
+            shared = [connections[alias] for alias in connections if connections[alias].in_atomic_block]
             for conn in shared:
                 conn.inc_thread_sharing()
         box = {}
@@ -173,8 +177,9 @@ class _Runner:
             except BaseException as exc:
                 box['error'] = exc
             finally:
-                if not shared:
-                    connections.close_all()
+                for conn in connections.all(initialized_only=True):
+                    if conn not in shared:
+                        conn.close()
 
         started = time.monotonic()
         worker = threading.Thread(target=target, name='dlux-doctor-check', daemon=True)
@@ -300,6 +305,35 @@ def _installed(module_name):
 
 
 # ── Settings wiring ────────────────────────────────────────────────────────
+
+DJANGO_CHECKS_ID = 'settings.django_checks'
+
+
+@check(DJANGO_CHECKS_ID, 'settings', "Django's system checks pass")
+def _check_django_system_checks(ctx):
+    """Django's own checks, as one finding of the report.
+
+    Run by the command before ``handle()``, an error-level message stopped the
+    doctor before it printed anything, and ``composer check --deep`` got no
+    report. Here they run under the same deadline as every other check.
+    """
+    from django.core import checks
+
+    messages = [message for message in checks.run_checks() if not message.is_silenced()]
+    errors = [message for message in messages if message.level >= checks.ERROR]
+    warnings = [message for message in messages if checks.WARNING <= message.level < checks.ERROR]
+
+    def listed(found):
+        shown = '; '.join(f'{message.id or "?"} ({message.obj}): {message.msg}' for message in found[:5])
+        return shown + (f' (+{len(found) - 5} more)' if len(found) > 5 else '')
+
+    remedy = 'Run: python manage.py check, and fix what it lists (or add the ids to SILENCED_SYSTEM_CHECKS).'
+    if errors:
+        return fail(f'{len(errors)} error(s): {listed(errors)}.', remedy)
+    if warnings:
+        return warn(f'{len(warnings)} warning(s): {listed(warnings)}.', remedy)
+    return ok('No errors or warnings.')
+
 
 @check('settings.session_cookie', 'settings', 'Session cookie can be stored by a browser')
 def _check_session_cookie(ctx):
@@ -1123,6 +1157,9 @@ def _logged_once():
     handlers = set(logging.getLogger().handlers)
     for logger in list(logging.Logger.manager.loggerDict.values()):
         handlers.update(getattr(logger, 'handlers', ()))
+    if logging.lastResort is not None:
+        # What prints a warning when logging was never configured.
+        handlers.add(logging.lastResort)
     for handler in handlers:
         handler.addFilter(once)
     try:
@@ -1209,17 +1246,19 @@ HUNG_REMEDY = (
 )
 
 
-def run_checks(only_groups=None, run=None):
+def run_checks(only_groups=None, run=None, skip_ids=None):
     """Execute every registered check and return the report dict."""
     if run is None:
         with session() as run:
-            return run_checks(only_groups, run)
+            return run_checks(only_groups, run, skip_ids)
 
     ctx = run.ctx
     deadline = time.monotonic() + RUN_TIMEOUT
     results = []
     for check_id, group, title, func in _REGISTRY:
         if only_groups and group not in only_groups:
+            continue
+        if skip_ids and check_id in skip_ids:
             continue
         remaining = deadline - time.monotonic()
         if remaining <= 0:
