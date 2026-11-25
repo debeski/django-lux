@@ -83,7 +83,8 @@ cache never saw, because the cache was down, the transaction rolled back or a
 racing save wrote its entry last, is therefore served from the next request after
 the cache answers again, not when the old entry expires. Code that updates a
 singleton row with `QuerySet.update()` instead of `save()` sets a new
-`cache_revision` (`uuid.uuid4().hex`) in the same update.
+`cache_revision` (`uuid.uuid4().hex`) in the same update, or deletes the cached
+row afterwards (`cache.delete("SystemSettings")`).
 
 ## Limits and Data Discovery
 
