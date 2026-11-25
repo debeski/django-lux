@@ -2,10 +2,10 @@
 """
 Print the DjangoLux stack contract as JSON.
 
-Composer's `composer check` drift-diff execs this in the app container to fetch
-the contract for the dlux release that is actually running (generated
-`manage.py` resolves the runtime-active release before Django loads), then
-compares the deployment's compose.yml against it. See dlux/stack_contract.py.
+Run in the app container, it prints the contract of the dlux release actually
+running (generated `manage.py` resolves the runtime-active release before
+Django loads). Nothing compares a deployed compose.yml with it. See
+dlux/contracts/stack.py.
 """
 import json
 

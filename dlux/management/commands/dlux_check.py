@@ -12,6 +12,7 @@ from dlux.management.commands.dlux_doctor import Command as DoctorCommand
 
 class Command(DoctorCommand):
     help = 'Deprecated alias for dlux_doctor; use dlux_doctor instead'
+    deadline_exit_code = 0
 
     def handle(self, *args, **options):
         # stderr, so it never contaminates the --format json report on stdout

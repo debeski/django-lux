@@ -7,6 +7,15 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **No Task Worker Is A Doctor Error (break-it #5)**: `tasks.worker` was a warning, so `dlux_doctor` exited 0 while scheduled backups and every other DjangoLux task silently stopped. It is now an error (exit 1); failed runs stay a warning.
+- **Missing DjangoLux Static Files Are A Doctor Error (break-it #6)**: `static.collected` only warned when `STATIC_ROOT` had content but no `dlux/`, while every asset returned 404. It now compares `STATIC_ROOT` with every file the running DjangoLux ships in `static/`, is an error naming the missing ones, and `--apply` still runs `collectstatic`.
+- **Doctor With The Database Down (break-it #7)**: 937 lines of logged tracebacks came before the report, because outside a request every translated string rebuilt the system config. `dlux.doctor.session()` builds it once per pass and prints each distinct log record once, its exception on one line. `updater.runtime_volume` and `tasks.worker` are skipped with the reason instead of reporting a read-only volume and pending migrations.
+- **The Doctor Never Hangs (break-it #8, doctor half)**: a paused Redis held `dlux_doctor` for over 240 s. The run probes the database and cache first, caps their socket timeouts at `PROBE_TIMEOUT` (5 s) whatever `DATABASES`/`CACHES` say (`connect_timeout`, django-redis, `RedisCache`, `PyMemcacheCache`), bypasses a dead cache with a dummy one, runs every check in a thread with `CHECK_TIMEOUT` (10 s) and the pass under `RUN_TIMEOUT` (60 s). A hung check is an error with its timing. Without `--apply`, `manage.py dlux_doctor` stops after `PROCESS_TIMEOUT` (100 s) with a `doctor.deadline` error report, under `composer check --deep`'s 120 s.
+- **Truthful Stack Schema Advice (break-it #2)**: the `stack.schema` warning said `check --fix` updates `DLUX_STACK_SCHEMA`; Composer 1.10.4 and older restamp only the first stamp in a file. The advice now says Composer 1.11.0 or later restamps every stamp, and to set the value by hand with an older one.
+- **Stack Contract Docs Match Composer**: `docs/doctor.md`, `docs/reference.md` and `dlux_stack_contract` said Composer drift-diffs a deployed `compose.yml` against the contract. It never has; they now describe what the contract and its helpers do.
+
 ## v1.16.6
 
 - **Stable 1.16.6**: Promote the published and accepted 1.16.6b1. Project `{% static %}` URLs carry the DjangoLux and project versions (`VersionedStaticFilesStorage`, set by `dlux_settings()`), so updates reach browsers through the year-long `/static/` cache; a modal asked for while the page loads opens; confirming the password no longer signs the user out after a Django upgrade re-hashes it. Updates inline from any 1.16 release, with no migrations.

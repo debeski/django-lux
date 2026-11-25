@@ -9,7 +9,9 @@ json` report with its own project-directory checks. That JSON is the contract
 between the two; see dlux/doctor.py.
 """
 import json
+import os
 import sys
+import threading
 
 from django.core.management.base import BaseCommand
 
@@ -29,6 +31,10 @@ _STATUS_MARK = {
 
 class Command(BaseCommand):
     help = 'Diagnose this DjangoLux deployment and optionally apply safe remediations'
+
+    #: Exit code when the process deadline fires. The dlux_check alias never gates.
+    deadline_exit_code = EXIT_PROBLEMS
+    _from_cli = False
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -52,8 +58,43 @@ class Command(BaseCommand):
             help='With --apply, also run fixes that mutate the database (migrations)',
         )
 
+    def run_from_argv(self, argv):
+        self._from_cli = True
+        super().run_from_argv(argv)
+
+    def execute(self, *args, **options):
+        """Django's system checks run in here too: they read the system config
+        hundreds of times, so they need the same bounds as the report."""
+        if self._from_cli and not options.get('apply'):
+            # Fixes (collectstatic, migrator) may take as long as they need and
+            # must never be cut off half-way; a report-only run always ends.
+            self._arm_process_deadline(options.get('format'))
+        with doctor.session() as run:
+            self._run = run
+            return super().execute(*args, **options)
+
+    def _arm_process_deadline(self, output_format):
+        def expire():
+            detail = (f'The doctor did not finish within {doctor.PROCESS_TIMEOUT} s, so it stopped. '
+                      'Something it waits on outside the timed checks is not answering.')
+            if output_format == 'json':
+                report = doctor.build_report([doctor.CheckResult(
+                    'doctor.deadline', 'doctor', 'The doctor finished in time', doctor.ERROR,
+                    detail, doctor.HUNG_REMEDY,
+                )])
+                sys.stdout.write(json.dumps(report, indent=2) + '\n')
+            sys.stderr.write(f'dlux_doctor: {detail}\n')
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(self.deadline_exit_code)
+
+        timer = threading.Timer(doctor.PROCESS_TIMEOUT, expire)
+        timer.daemon = True
+        timer.start()
+
     def handle(self, *args, **options):
-        report = doctor.run_checks(only_groups=set(options['groups'] or []) or None)
+        run = self._run
+        report = doctor.run_checks(only_groups=set(options['groups'] or []) or None, run=run)
 
         applied = []
         if options['apply']:
@@ -62,7 +103,8 @@ class Command(BaseCommand):
                 allowed.add(doctor.STATEFUL)
             applied = self._apply(report, allowed, options['format'])
             if applied:
-                report = doctor.run_checks(only_groups=set(options['groups'] or []) or None)
+                run.fresh_pass()
+                report = doctor.run_checks(only_groups=set(options['groups'] or []) or None, run=run)
                 report['applied_fixes'] = applied
 
         if options['format'] == 'json':
