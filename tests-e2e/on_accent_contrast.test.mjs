@@ -28,14 +28,14 @@ function contrast(a,b){
  const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
 }
 
-test('Text on accent-filled controls and form footer actions meets WCAG AA in every theme, both shells, LTR and RTL',async()=>{
+test('Text on accent-filled controls, form footer actions and form cards meets WCAG AA in every theme, both shells, LTR and RTL',async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();
  const base='http://127.0.0.1:'+server.address().port,failures=[];
  try {
   for(const [shell,{css,body}] of Object.entries(shells))for(const theme of themes)for(const dir of ['ltr','rtl']){
    const page=await browser.newPage();
    const links=[...css.slice(0,1),...(shell==='staff'?css.slice(1):[]),`dlux/themes/css/${theme}.css`,...(shell==='public'?css.slice(1):[])];
-   await page.setContent(`<html class="theme-${theme}" dir="${dir}"><head>${links.map(p=>`<link rel="stylesheet" href="${base}/${p}">`).join('')}</head><body class="${body}"><button class="btn btn-primary" data-probe data-hover>${dir==='rtl'?'تطبيق':'Apply'}</button>${shell==='public'?'<ul class="nav nav-pills"><li class="nav-item"><a class="nav-link active" data-probe href="#">All</a></li></ul><ul class="pagination"><li class="page-item active"><a class="page-link" data-probe href="#">2</a></li></ul><div class="list-group"><a class="list-group-item active" data-probe href="#">Item</a></div><span class="badge text-bg-primary" data-probe>3</span>':'<div class="dlux-form-actions"><button type="submit" class="dlux-form-action dlux-form-action-primary" data-fill aria-label="Add"><span class="dlux-form-action-icon"><i class="bi bi-check-lg" data-probe data-hover>✓</i></span></button><button type="button" class="dlux-form-action dlux-form-action-neutral" data-fill aria-label="Cancel"><span class="dlux-form-action-icon"><i class="bi bi-x-lg" data-probe data-hover>×</i></span></button></div>'}</body></html>`);
+   await page.setContent(`<html class="theme-${theme}" dir="${dir}"><head>${links.map(p=>`<link rel="stylesheet" href="${base}/${p}">`).join('')}</head><body class="${body}"><button class="btn btn-primary" data-probe data-hover>${dir==='rtl'?'تطبيق':'Apply'}</button>${shell==='public'?'<ul class="nav nav-pills"><li class="nav-item"><a class="nav-link active" data-probe href="#">All</a></li></ul><ul class="pagination"><li class="page-item active"><a class="page-link" data-probe href="#">2</a></li></ul><div class="list-group"><a class="list-group-item active" data-probe href="#">Item</a></div><span class="badge text-bg-primary" data-probe>3</span>':'<div class="dlux-form-actions"><button type="submit" class="dlux-form-action dlux-form-action-primary" data-fill aria-label="Add"><span class="dlux-form-action-icon"><i class="bi bi-check-lg" data-probe data-hover>✓</i></span></button><button type="button" class="dlux-form-action dlux-form-action-neutral" data-fill aria-label="Cancel"><span class="dlux-form-action-icon"><i class="bi bi-x-lg" data-probe data-hover>×</i></span></button></div>'+['dlux-form-card','archive-form-action'].map(c=>`<div class="${c==='dlux-form-card'?'dlux-form-cards':'archive-form-actions'}">${['primary','secondary','neutral'].map(r=>`<button type="button" class="${c} ${c}-${r}" data-fill><span class="${c}-icon" data-fill><i class="bi bi-check-lg" data-probe ${r==='primary'?'':'data-min="3"'}>✓</i></span><span class="${c}-copy"><span class="${c}-title" data-probe>${dir==='rtl'?'حفظ':'Save'}</span></span></button>`).join('')}</div>`).join('')}</body></html>`);
    await page.waitForLoadState('networkidle');
    await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});
    const probes=page.locator('[data-probe]');
@@ -48,7 +48,8 @@ test('Text on accent-filled controls and form footer actions meets WCAG AA in ev
      const under=colours(s.page)[0]||[255,255,255],fg=colours(s.color,under)[0],fills=[...colours(s.bg,under),...colours(s.img,under)];
      if(!fills.length){failures.push({shell,theme,dir,state,...s,reason:'no fill'});continue;}
      const worst=Math.min(...fills.map(f=>contrast(fg,f)));
-     if(worst<4.5)failures.push({shell,theme,dir,state,cls:s.cls,color:s.color,bg:s.bg,img:s.img.slice(0,120),ratio:worst.toFixed(2)});
+     const min=Number(await probe.getAttribute('data-min')||4.5);
+     if(worst<min)failures.push({shell,theme,dir,state,cls:s.cls,color:s.color,bg:s.bg,img:s.img.slice(0,120),ratio:worst.toFixed(2)});
     }
    }
    await page.close();

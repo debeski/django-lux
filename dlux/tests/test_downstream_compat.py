@@ -300,3 +300,62 @@ class OnDemandAssetCompatTests(SimpleTestCase):
         for selector in ('form.dlux-system-setup-form', '[data-dlux-icon-picker]', '[data-dlux-assets~="settings"]'):
             with self.subTest(selector=selector):
                 self.assertIn(selector, settings['selector'])
+
+
+class ArchiveFormClassAliasTests(SimpleTestCase):
+    """The `archive-*` form class names stay aliases of the `dlux-*` ones until
+    v1.19.0 (docs/deprecation-countdown.md#archive-form-class-names). Archive and
+    Decrees still emit them."""
+
+    RENAMES = (
+        ('.dlux-form-card', '.archive-form-action'),
+        ('.dlux-document-form', '.archive-document-form'),
+        ('.dlux-checkbox-field', '.archive-checkbox-field'),
+    )
+
+    def _selector_lists(self):
+        import re
+
+        for path in sorted((PACKAGE / 'static' / 'dlux').rglob('*.css')):
+            css = re.sub(r'/\*.*?\*/', '', path.read_text(encoding='utf-8'), flags=re.S)
+            for match in re.finditer(r'([^{};]+)\{', css):
+                selector_list = match.group(1).strip()
+                if selector_list.startswith('@'):
+                    continue
+                yield path.name, [part.strip() for part in selector_list.split(',')]
+
+    def _old(self, selector):
+        for new, old in self.RENAMES:
+            selector = selector.replace(new, old)
+        return selector
+
+    def test_every_rule_for_a_dlux_name_also_selects_its_archive_alias(self):
+        seen = 0
+        for name, selectors in self._selector_lists():
+            for selector in selectors:
+                if self._old(selector) == selector or ':not(' in selector:
+                    continue
+                seen += 1
+                with self.subTest(file=name, selector=selector):
+                    self.assertIn(self._old(selector), selectors)
+        self.assertGreater(seen, 50)
+
+    def test_icon_recolour_exclusions_cover_both_names(self):
+        for path in sorted((PACKAGE / 'static' / 'dlux' / 'themes' / 'css').glob('*.css')):
+            css = path.read_text(encoding='utf-8')
+            if ':not(.dlux-form-card-icon .bi)' in css:
+                with self.subTest(theme=path.stem):
+                    self.assertIn(':not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi)', css)
+
+    def test_aliases_are_never_styled_alone(self):
+        for name, selectors in self._selector_lists():
+            for selector in selectors:
+                if 'archive-' not in selector or ':not(' in selector:
+                    continue
+                with self.subTest(file=name, selector=selector):
+                    self.assertTrue(any(self._old(other) == selector and other != selector for other in selectors))
+
+    def test_the_archive_form_custom_properties_are_gone(self):
+        for path in sorted((PACKAGE / 'static' / 'dlux').rglob('*.css')):
+            with self.subTest(file=path.name):
+                self.assertNotIn('--archive-form-', path.read_text(encoding='utf-8'))

@@ -211,13 +211,14 @@
 
 /* 3. Forms & Inputs - Minimal Fields */
 :root.theme-mono .dlux-form,
-:root.theme-mono .archive-document-form,
-:root.theme-mono .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
-    --archive-form-border: var(--mono-200);
-    --archive-form-border-strong: var(--mono-400);
-    --archive-form-focus-ring: rgba(71, 85, 105, 0.12);
-    --archive-form-muted: var(--mono-500);
+:root.theme-mono .dlux-document-form,
+:root.theme-mono .dlux-filter,
+:root.theme-mono .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+    --dlux-document-form-border: var(--mono-200);
+    --dlux-document-form-border-strong: var(--mono-400);
+    --dlux-document-form-focus-ring: rgba(71, 85, 105, 0.12);
+    --dlux-document-form-muted: var(--mono-500);
 }
 
 :root.theme-mono .form-control,

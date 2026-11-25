@@ -427,7 +427,7 @@
 
 :root.theme-retro .bi-three-dots,
 :root.theme-retro .bi-three-dots-vertical,
-:root.theme-retro .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-retro .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--retro-amber) !important;
     text-shadow: 0 0 5px rgba(212, 165, 116, 0.22) !important;
 }
@@ -475,13 +475,14 @@
 
 /* 3. Forms & Inputs - Warm Glowing Fields */
 :root.theme-retro .dlux-form,
-:root.theme-retro .archive-document-form,
-:root.theme-retro .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(15, 13, 12, 0.96));
-    --archive-form-border: rgba(212, 165, 116, 0.15);
-    --archive-form-border-strong: rgba(212, 165, 116, 0.35);
-    --archive-form-focus-ring: rgba(212, 165, 116, 0.2);
-    --archive-form-muted: #a09084;
+:root.theme-retro .dlux-document-form,
+:root.theme-retro .dlux-filter,
+:root.theme-retro .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(15, 13, 12, 0.96));
+    --dlux-document-form-border: rgba(212, 165, 116, 0.15);
+    --dlux-document-form-border-strong: rgba(212, 165, 116, 0.35);
+    --dlux-document-form-focus-ring: rgba(212, 165, 116, 0.2);
+    --dlux-document-form-muted: #a09084;
 }
 
 :root.theme-retro .form-control,
@@ -504,7 +505,7 @@
 :root.theme-retro .dlux-filter .form-control,
 :root.theme-retro .dlux-filter .form-select,
 :root.theme-retro .dlux-filter textarea {
-    background: var(--archive-form-surface) !important;
+    background: var(--dlux-document-form-surface) !important;
     border-color: rgba(212, 165, 116, 0.18) !important;
     color: #f3e7db !important;
     box-shadow:
@@ -1334,8 +1335,6 @@
     box-shadow: 0 0 14px rgba(212, 165, 116, 0.12) !important;
 }
 
-/* Form action cards (archive-form-action) */
-:root.theme-retro .archive-form-action,
 :root.theme-retro .dlux-filter .dlux-filter-chip,
 :root.theme-retro .dlux-filter .dlux-filter-action {
     border-color: rgba(212, 165, 116, 0.16) !important;
@@ -1343,31 +1342,10 @@
     color: var(--title) !important;
     box-shadow: none !important;
 }
-:root.theme-retro .archive-form-action:hover,
-:root.theme-retro .archive-form-action:focus-visible,
 :root.theme-retro .dlux-filter .dlux-filter-chip:hover,
 :root.theme-retro .dlux-filter .dlux-filter-action:hover {
     border-color: rgba(212, 165, 116, 0.32) !important;
     box-shadow: none !important;
-}
-:root.theme-retro .archive-form-action-icon {
-    color: var(--retro-amber) !important;
-}
-:root.theme-retro .archive-form-action-primary {
-    border-color: rgba(139, 110, 75, 0.28) !important;
-    background: linear-gradient(180deg, rgba(26, 22, 18, 0.98), rgba(18, 15, 12, 0.96)) !important;
-}
-:root.theme-retro .archive-form-action-primary .archive-form-action-icon {
-    background: rgba(212, 165, 116, 0.14) !important;
-    color: #c8e6c9 !important;
-}
-:root.theme-retro .archive-form-action-secondary .archive-form-action-icon {
-    background: rgba(212, 165, 116, 0.12) !important;
-    color: var(--retro-amber) !important;
-}
-:root.theme-retro .archive-form-action-neutral .archive-form-action-icon {
-    background: rgba(139, 58, 58, 0.18) !important;
-    color: #ffcdd2 !important;
 }
 :root.theme-retro .dlux-filter .btn.dlux-filter-submit {
     color: var(--retro-amber) !important;

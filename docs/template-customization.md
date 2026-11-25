@@ -60,10 +60,28 @@ shadows. Every colour comes from the active theme:
 | `dlux-form-action-primary` | The theme's accent fill, the same gradient as `.btn-primary`, with `--on-primal` ink. |
 | `dlux-form-action-neutral` | The theme's quiet surface (`--hbody`) with `--title` ink. Use it for cancel and reset. |
 
-Theme stylesheets do not restyle these classes. A theme that recolours icons
-globally excludes `.dlux-form-action .bi`, as it does `.btn-primary .bi`. The
-`archive-form-action` card classes in the same stylesheet keep their own layout
-for downstream projects.
+Form action cards (`dlux-form-cards` holding `dlux-form-card` buttons or links) are
+the larger choice of submit paths a document form offers, such as save, save and
+add another, or save a copy. Each card carries an icon badge (`dlux-form-card-icon`)
+and a `dlux-form-card-copy` block with a `dlux-form-card-title` and an optional
+`dlux-form-card-meta` line. The card surface is the theme's quiet surface with
+`--title` ink, and the badge marks its role:
+
+| Class | Icon badge |
+| --- | --- |
+| `dlux-form-card-primary` | The theme's accent fill with `--on-primal` ink. |
+| `dlux-form-card-secondary` | An accent tint with accent-toned ink. |
+| `dlux-form-card-neutral` | A neutral tint with `--title` ink. |
+
+A document form's own fields take the `dlux-document-form` class on the form, with
+`dlux-checkbox-field` on a boxed checkbox. Its colours come from
+`--dlux-document-form-surface`, `-border`, `-border-strong`, `-focus-ring` and
+`-muted`, which a theme may set on `.dlux-document-form`.
+
+Theme stylesheets do not restyle form actions or card buttons. A theme that
+recolours icons globally excludes `.dlux-form-action .bi` and
+`.dlux-form-card-icon .bi`, as it does `.btn-primary .bi`. The `archive-*` names
+of these classes are deprecated aliases ([Deprecation Countdown](deprecation-countdown.md#archive-form-class-names)).
 
 Place page-specific Bootstrap modals in `dlux/base.html`'s `page_modals` block,
 preserving `{{ block.super }}`. It renders directly under `body`, outside content

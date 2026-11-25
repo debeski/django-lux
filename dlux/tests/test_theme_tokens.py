@@ -339,7 +339,7 @@ class OnAccentTokenContrastTests(SimpleTestCase):
 
 
 class FormActionThemeTests(SimpleTestCase):
-    """The modal footer's ✓/✗ actions take every colour from theme tokens."""
+    """The modal footer's ✓/✗ actions and the form cards take every colour from theme tokens."""
 
     def _rules(self, path, needle):
         css = _strip_comments(path.read_text(encoding='utf-8'))
@@ -348,9 +348,9 @@ class FormActionThemeTests(SimpleTestCase):
             if needle in selector:
                 yield selector.strip(), body
 
-    def test_form_action_rules_use_no_literal_colours(self):
+    def test_form_action_and_card_rules_use_no_literal_colours(self):
         path = STATIC / 'dlux' / 'forms' / 'css' / 'form_actions.css'
-        rules = list(self._rules(path, '.dlux-form-action'))
+        rules = list(self._rules(path, '.dlux-form-action')) + list(self._rules(path, '.dlux-form-card'))
         self.assertTrue(rules)
         for selector, body in rules:
             # Literal colours are allowed only as var() fallbacks.
@@ -365,9 +365,10 @@ class FormActionThemeTests(SimpleTestCase):
         self.assertIn('var(--dlux-btn-primary-end', body)
         self.assertIn('color: var(--on-primal', body)
 
-    def test_themes_do_not_restyle_form_actions(self):
+    def test_themes_do_not_restyle_form_actions_or_cards(self):
         for path in _theme_files():
-            for selector, _body in self._rules(path, 'dlux-form-action'):
-                with self.subTest(theme=path.stem, selector=selector[:80]):
-                    stripped = selector.replace(':not(.dlux-form-action .bi)', '')
-                    self.assertNotIn('dlux-form-action', stripped)
+            for needle in ('dlux-form-action', 'dlux-form-card', 'archive-form-action'):
+                for selector, _body in self._rules(path, needle):
+                    with self.subTest(theme=path.stem, selector=selector[:80]):
+                        stripped = selector.replace(':not(.dlux-form-action .bi)', '').replace(':not(.dlux-form-card-icon .bi)', '').replace(':not(.archive-form-action-icon .bi)', '')
+                        self.assertNotIn(needle, stripped)

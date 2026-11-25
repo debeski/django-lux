@@ -394,13 +394,14 @@
 
 /* Forms */
 :root.theme-prism .dlux-form,
-:root.theme-prism .archive-document-form,
-:root.theme-prism .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96));
-    --archive-form-border: rgba(255, 255, 255, 0.1);
-    --archive-form-border-strong: rgba(255, 255, 255, 0.2);
-    --archive-form-focus-ring: rgba(125, 211, 252, 0.22);
-    --archive-form-muted: var(--prism-muted);
+:root.theme-prism .dlux-document-form,
+:root.theme-prism .dlux-filter,
+:root.theme-prism .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96));
+    --dlux-document-form-border: rgba(255, 255, 255, 0.1);
+    --dlux-document-form-border-strong: rgba(255, 255, 255, 0.2);
+    --dlux-document-form-focus-ring: rgba(125, 211, 252, 0.22);
+    --dlux-document-form-muted: var(--prism-muted);
 }
 
 :root.theme-prism .form-control,
@@ -419,14 +420,14 @@
     color: #ffffff !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 0 0 0.18rem var(--archive-form-focus-ring) !important;
+        0 0 0 0.18rem var(--dlux-document-form-focus-ring) !important;
     outline: none !important;
 }
 
 :root.theme-prism .dlux-filter .form-control,
 :root.theme-prism .dlux-filter .form-select,
 :root.theme-prism .dlux-filter textarea {
-    background: var(--archive-form-surface) !important;
+    background: var(--dlux-document-form-surface) !important;
     border: 1px solid var(--prism-line) !important;
     color: #eef1f6 !important;
     box-shadow: inset 0 1px 0 var(--prism-line-soft) !important;
@@ -782,7 +783,7 @@
 
 :root.theme-prism .bi-three-dots,
 :root.theme-prism .bi-three-dots-vertical,
-:root.theme-prism .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-prism .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--prism-accent) !important;
     text-shadow: none !important;
 }

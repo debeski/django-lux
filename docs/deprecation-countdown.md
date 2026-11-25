@@ -84,6 +84,25 @@ that include it; remove the include. Removed in v2.0.
 
 Composer 1.9.1b1 (wrapper 5) replaces `./start.sh self update` with `./start.sh update self`, and a plain `./start.sh update` now refreshes the deployer before the stack. `self update` stays as a deprecated alias that prints a pointer to `update self`. DjangoLux keeps showing `./start.sh self update` to stacks whose Composer is too old for an operation (`dlux.updater.ops`, `dlux.relay`, `dlux_relay`, `dlux_ops_composer_behind_host`), because those stacks' wrappers and Composer do not know `update self`. Remove the alias, and switch that guidance to `update self`, only once DjangoLux's Composer floor is at least 1.9.1 and wrapper 5 has been out through one stable cycle; target v2.0.
 
+### Archive form class names
+
+The document-form and form-card classes kept the names they had in `project-archive`. Their
+DjangoLux names are canonical; the old names select the same rules until they are removed in
+**v1.19.0**:
+
+| Deprecated | Use |
+| --- | --- |
+| `.archive-form-actions` | `.dlux-form-cards` |
+| `.archive-form-action`, `-icon`, `-copy`, `-title`, `-meta`, `-primary`, `-secondary`, `-neutral` | `.dlux-form-card`, with the same suffixes |
+| `.archive-document-form` | `.dlux-document-form` |
+| `.archive-checkbox-field` | `.dlux-checkbox-field` |
+
+The `--archive-form-*` custom properties are renamed to `--dlux-document-form-*` without an alias;
+no project set them. `project-archive` (`documents/forms.py`, `documents/modals.py`, the
+`document_modal.html`, `incoming_list.html` and `partials/checkbox_field.html` templates, and its
+modal CSS) and `project-decrees` (`documents/forms.py`, `documents/css/overrides.css`) still use the
+old classes and must move to the new names before v1.19.0.
+
 ### Raw `ImageField` for project images
 
 As of v1.8.4 a model image or font belongs in the asset library through

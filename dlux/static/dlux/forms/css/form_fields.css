@@ -1,10 +1,11 @@
 .dlux-form,
+.dlux-document-form,
 .archive-document-form {
-    --archive-form-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.96));
-    --archive-form-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
-    --archive-form-border-strong: rgba(var(--primal-rgb, 13, 110, 253), 0.32);
-    --archive-form-focus-ring: rgba(var(--primal-rgb, 13, 110, 253), 0.10);
-    --archive-form-muted: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 88%, white);
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.96));
+    --dlux-document-form-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
+    --dlux-document-form-border-strong: rgba(var(--primal-rgb, 13, 110, 253), 0.32);
+    --dlux-document-form-focus-ring: rgba(var(--primal-rgb, 13, 110, 253), 0.10);
+    --dlux-document-form-muted: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 88%, white);
 }
 
 /* Form density (layout_config.default_form_density, per-user overridable via
@@ -31,6 +32,7 @@ body[data-dlux-form-density="roomy"] {
 }
 
 .dlux-form .row,
+.dlux-document-form .row,
 .archive-document-form .row {
     --bs-gutter-y: var(--dlux-form-gutter-y, 0.25rem);
 }
@@ -39,6 +41,7 @@ body[data-dlux-form-density="roomy"] {
    so it overrides crispy's fixed `mb-3` (1rem) without leaking into other layout. */
 .dlux-form .row.mb-3,
 .dlux-form .mb-3.dlux-form-group,
+.dlux-document-form .row.mb-3,
 .archive-document-form .row.mb-3 {
     margin-bottom: var(--dlux-form-row-mb, 1rem) !important;
 }
@@ -72,12 +75,13 @@ body[data-dlux-form-density="roomy"] {
    made them inline-flex, so each one shrank to its own text instead of filling
    its column. */
 .dlux-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option),
+.dlux-document-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option),
 .archive-document-form label:not(.form-check-label):not(.visually-hidden):not(.dlux-choice-option) {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     margin-bottom: var(--dlux-form-label-mb, 0.45rem);
-    color: var(--archive-form-muted);
+    color: var(--dlux-document-form-muted);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.03em;
@@ -89,6 +93,12 @@ body[data-dlux-form-density="roomy"] {
 .dlux-form input[type="text"],
 .dlux-form input[type="number"],
 .dlux-form input[type="date"],
+.dlux-document-form .form-control,
+.dlux-document-form .form-select,
+.dlux-document-form textarea,
+.dlux-document-form input[type="text"],
+.dlux-document-form input[type="number"],
+.dlux-document-form input[type="date"],
 .archive-document-form .form-control,
 .archive-document-form .form-select,
 .archive-document-form textarea,
@@ -97,11 +107,11 @@ body[data-dlux-form-density="roomy"] {
 .archive-document-form input[type="date"] {
     min-height: var(--dlux-form-input-h, 3.05rem);
     padding-block: var(--dlux-form-input-py, 0.5rem);
-    border: 1px solid var(--archive-form-border);
+    border: 1px solid var(--dlux-document-form-border);
     border-radius: 1rem;
     background:
         radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.032), transparent 64%),
-        var(--archive-form-surface);
+        var(--dlux-document-form-surface);
     color: var(--bs-body-color, #212529);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -110,6 +120,7 @@ body[data-dlux-form-density="roomy"] {
 }
 
 .dlux-form textarea,
+.dlux-document-form textarea,
 .archive-document-form textarea {
     min-height: var(--dlux-form-textarea-h, 5.25rem);
     resize: vertical;
@@ -117,6 +128,8 @@ body[data-dlux-form-density="roomy"] {
 
 .dlux-form .form-control::placeholder,
 .dlux-form textarea::placeholder,
+.dlux-document-form .form-control::placeholder,
+.dlux-document-form textarea::placeholder,
 .archive-document-form .form-control::placeholder,
 .archive-document-form textarea::placeholder {
     color: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 78%, white);
@@ -125,6 +138,9 @@ body[data-dlux-form-density="roomy"] {
 .dlux-form .form-control:hover,
 .dlux-form .form-select:hover,
 .dlux-form textarea:hover,
+.dlux-document-form .form-control:hover,
+.dlux-document-form .form-select:hover,
+.dlux-document-form textarea:hover,
 .archive-document-form .form-control:hover,
 .archive-document-form .form-select:hover,
 .archive-document-form textarea:hover {
@@ -135,18 +151,23 @@ body[data-dlux-form-density="roomy"] {
 .dlux-form .form-select:focus,
 .dlux-form textarea:focus,
 .dlux-form .form-check-input:focus,
+.dlux-document-form .form-control:focus,
+.dlux-document-form .form-select:focus,
+.dlux-document-form textarea:focus,
+.dlux-document-form .form-check-input:focus,
 .archive-document-form .form-control:focus,
 .archive-document-form .form-select:focus,
 .archive-document-form textarea:focus,
 .archive-document-form .form-check-input:focus {
-    border-color: var(--archive-form-border-strong);
+    border-color: var(--dlux-document-form-border-strong);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 0 0 0.22rem var(--archive-form-focus-ring);
+        0 0 0 0.22rem var(--dlux-document-form-focus-ring);
     background-color: rgba(255, 255, 255, 0.99);
 }
 
 .dlux-form .form-check-input,
+.dlux-document-form .form-check-input,
 .archive-document-form .form-check-input {
     width: 1.15rem;
     height: 1.15rem;
@@ -156,11 +177,14 @@ body[data-dlux-form-density="roomy"] {
 }
 
 .dlux-form .form-check-label,
+.dlux-document-form .form-check-label,
 .archive-document-form .form-check-label {
     font-weight: 600;
     color: var(--bs-body-color, #212529);
 }
 
+.dlux-form .dlux-checkbox-field,
+.dlux-document-form .dlux-checkbox-field,
 .dlux-form .archive-checkbox-field,
 .archive-document-form .archive-checkbox-field {
     display: inline-flex;
@@ -168,21 +192,25 @@ body[data-dlux-form-density="roomy"] {
     gap: 0.7rem;
     min-height: 3.05rem;
     padding: 0.55rem 0.95rem;
-    border: 1px solid var(--archive-form-border);
+    border: 1px solid var(--dlux-document-form-border);
     border-radius: 1rem;
     background:
         radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.028), transparent 64%),
-        var(--archive-form-surface);
+        var(--dlux-document-form-surface);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.88),
         0 3px 10px rgba(15, 23, 42, 0.02);
 }
 
+.dlux-form .dlux-checkbox-field .form-check-input,
+.dlux-document-form .dlux-checkbox-field .form-check-input,
 .dlux-form .archive-checkbox-field .form-check-input,
 .archive-document-form .archive-checkbox-field .form-check-input {
     margin: 0;
 }
 
+.dlux-form .dlux-checkbox-field .form-check-label,
+.dlux-document-form .dlux-checkbox-field .form-check-label,
 .dlux-form .archive-checkbox-field .form-check-label,
 .archive-document-form .archive-checkbox-field .form-check-label {
     display: inline-flex;
@@ -193,6 +221,7 @@ body[data-dlux-form-density="roomy"] {
 }
 
 .dlux-form hr,
+.dlux-document-form hr,
 .archive-document-form hr {
     margin: 1rem 0 1.1rem;
     border: 0;
@@ -202,6 +231,7 @@ body[data-dlux-form-density="roomy"] {
 }
 
 .dlux-form .alert,
+.dlux-document-form .alert,
 .archive-document-form .alert {
     border-radius: 1rem;
     border-color: rgba(255, 193, 7, 0.28);
@@ -210,6 +240,8 @@ body[data-dlux-form-density="roomy"] {
 
 .dlux-form .invalid-feedback,
 .dlux-form .form-text,
+.dlux-document-form .invalid-feedback,
+.dlux-document-form .form-text,
 .archive-document-form .invalid-feedback,
 .archive-document-form .form-text {
     padding-inline: 0.2rem;
@@ -217,6 +249,8 @@ body[data-dlux-form-density="roomy"] {
 
 .dlux-form .select2-container .select2-selection,
 .dlux-form .ts-control,
+.dlux-document-form .select2-container .select2-selection,
+.dlux-document-form .ts-control,
 .archive-document-form .select2-container .select2-selection,
 .archive-document-form .ts-control {
     border-radius: 1rem !important;
