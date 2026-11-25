@@ -251,6 +251,7 @@ if (-not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
 $containerRoot = Get-ComposerContainerRoot
 $dockerArgs = @("run") + $ttyFlags + @("--rm") + $secretArgs + @(
   "-e", "COMPOSER_ALLOW_UNVERIFIED_COMPOSER",
+  "-e", "COMPOSER_HEALTH_SETTLE_SECONDS",
   "-v", "${projectRoot}:${containerRoot}",
   "-w", $containerRoot,
   "-v", "/var/run/docker.sock:/var/run/docker.sock",
