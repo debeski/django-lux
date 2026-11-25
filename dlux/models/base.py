@@ -218,7 +218,11 @@ class SingletonModel(models.Model):
 
     @classmethod
     def cache_key(cls):
-        return f'dlux:singleton:{cls.__name__}'
+        """The class name. Projects invalidate the row with
+        ``cache.delete('SystemSettings')``, in migrations as well as tests, so the
+        key stays what it has always been; only what is stored under it changed.
+        """
+        return cls.__name__
 
     @staticmethod
     def _cache_token():
@@ -234,8 +238,9 @@ class SingletonModel(models.Model):
 
         The cache holds the row's field values, not a pickled model instance, so
         an upgrade never unpickles a model another Django version wrote. An entry
-        from another version, or one missing a field this model now has (a
-        migration added it), is a miss and is dropped; so is an unreadable one.
+        from another version, one missing a field this model now has (a migration
+        added it), or the instance a release before 1.17 pickled, is a miss and
+        is dropped; so is an unreadable one.
         """
         from ..resilient_cache import is_cache_outage
 
@@ -263,24 +268,19 @@ class SingletonModel(models.Model):
     @classmethod
     def _store_in_cache(cls, obj):
         from django.db.models.fields.files import FieldFile
-        from ..resilient_cache import safe_delete, safe_set
+        from ..resilient_cache import safe_set
 
         fields = {}
         for field in cls._meta.concrete_fields:
             value = getattr(obj, field.attname)
             fields[field.attname] = value.name if isinstance(value, FieldFile) else value
         safe_set(cls.cache_key(), {'token': cls._cache_token(), 'fields': fields}, SINGLETON_CACHE_SECONDS)
-        # Releases before 1.17 pickled the instance under the class name. A
-        # process still running one during an update reads that key, so a save
-        # here must not leave it describing the old row.
-        safe_delete(cls.__name__)
 
     @classmethod
     def clear_cache(cls):
         from ..resilient_cache import safe_delete
 
         safe_delete(cls.cache_key())
-        safe_delete(cls.__name__)
 
     def refresh_cache(self):
          self._store_in_cache(self)

@@ -67,11 +67,13 @@ takes sign-in with it. What happens then:
   [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls).
 
 Singleton models such as `SystemSettings` are cached as their field values under
-`dlux:singleton:<Model>`, tagged with the DjangoLux and Django versions that wrote
-them. An entry from another version, or one missing a field a migration added, is
-a miss and is rebuilt from the database, so an upgrade never unpickles a model
-instance another Django version wrote. Session keys are not versioned: users stay
-signed in across an update.
+the class name (`cache.delete("SystemSettings")` invalidates the row), tagged with
+the DjangoLux and Django versions that wrote them. An entry from another version,
+one missing a field a migration added, or a pickled model instance, is a miss and
+is rebuilt from the database, so DjangoLux never serves a model instance another
+Django version pickled. The first read after an upgrade from a release that
+pickled the row may still log Django's "Pickled model instance" warning once.
+Session keys are not versioned: users stay signed in across an update.
 
 ## Limits and Data Discovery
 
