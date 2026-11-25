@@ -15,7 +15,7 @@ const server=http.createServer((req,res)=>{
 });
 const shells={
  public:{css:['bootstrap/bootstrap.min.css','dlux/public/css/public_base.css'],body:'dlux-public'},
- staff:{css:['bootstrap/bootstrap.min.css','dlux/base/css/main.css','dlux/base/css/buttons.css'],body:''},
+ staff:{css:['bootstrap/bootstrap.min.css','dlux/base/css/main.css','dlux/base/css/buttons.css','dlux/forms/css/form_actions.css'],body:''},
 };
 function colours(value,under=[255,255,255]){
  const out=[],over=(c,a)=>c.map((v,i)=>v*a+under[i]*(1-a));
@@ -28,14 +28,14 @@ function contrast(a,b){
  const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
 }
 
-test('Text on accent-filled controls meets WCAG AA in every theme, both shells, LTR and RTL',async()=>{
+test('Text on accent-filled controls and form footer actions meets WCAG AA in every theme, both shells, LTR and RTL',async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();
  const base='http://127.0.0.1:'+server.address().port,failures=[];
  try {
   for(const [shell,{css,body}] of Object.entries(shells))for(const theme of themes)for(const dir of ['ltr','rtl']){
    const page=await browser.newPage();
    const links=[...css.slice(0,1),...(shell==='staff'?css.slice(1):[]),`dlux/themes/css/${theme}.css`,...(shell==='public'?css.slice(1):[])];
-   await page.setContent(`<html class="theme-${theme}" dir="${dir}"><head>${links.map(p=>`<link rel="stylesheet" href="${base}/${p}">`).join('')}</head><body class="${body}"><button class="btn btn-primary" data-probe data-hover>${dir==='rtl'?'تطبيق':'Apply'}</button>${shell==='public'?'<ul class="nav nav-pills"><li class="nav-item"><a class="nav-link active" data-probe href="#">All</a></li></ul><ul class="pagination"><li class="page-item active"><a class="page-link" data-probe href="#">2</a></li></ul><div class="list-group"><a class="list-group-item active" data-probe href="#">Item</a></div><span class="badge text-bg-primary" data-probe>3</span>':''}</body></html>`);
+   await page.setContent(`<html class="theme-${theme}" dir="${dir}"><head>${links.map(p=>`<link rel="stylesheet" href="${base}/${p}">`).join('')}</head><body class="${body}"><button class="btn btn-primary" data-probe data-hover>${dir==='rtl'?'تطبيق':'Apply'}</button>${shell==='public'?'<ul class="nav nav-pills"><li class="nav-item"><a class="nav-link active" data-probe href="#">All</a></li></ul><ul class="pagination"><li class="page-item active"><a class="page-link" data-probe href="#">2</a></li></ul><div class="list-group"><a class="list-group-item active" data-probe href="#">Item</a></div><span class="badge text-bg-primary" data-probe>3</span>':'<div class="dlux-form-actions"><button type="submit" class="dlux-form-action dlux-form-action-primary" data-fill aria-label="Add"><span class="dlux-form-action-icon"><i class="bi bi-check-lg" data-probe data-hover>✓</i></span></button><button type="button" class="dlux-form-action dlux-form-action-neutral" data-fill aria-label="Cancel"><span class="dlux-form-action-icon"><i class="bi bi-x-lg" data-probe data-hover>×</i></span></button></div>'}</body></html>`);
    await page.waitForLoadState('networkidle');
    await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});
    const probes=page.locator('[data-probe]');

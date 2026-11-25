@@ -782,7 +782,7 @@
 
 :root.theme-prism .bi-three-dots,
 :root.theme-prism .bi-three-dots-vertical,
-:root.theme-prism .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-prism .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--prism-accent) !important;
     text-shadow: none !important;
 }

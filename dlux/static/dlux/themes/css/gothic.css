@@ -118,6 +118,7 @@
     --primal-rgb: 0, 180, 216;
     --on-primal: var(--gothic-black);
     --on-primal_dark: #ffffff;
+    --dlux-btn-primary-end: var(--gothic-cyan);
     --btn-primary-shadow: rgba(0, 180, 216, 0.4);
     --nav-item-color: var(--gothic-teal);
     color-scheme: dark;

@@ -337,3 +337,37 @@ class OnAccentTokenContrastTests(SimpleTestCase):
         self.assertIn('color: var(--on-primal', block)
         self.assertNotIn('color: #fff', block)
 
+
+class FormActionThemeTests(SimpleTestCase):
+    """The modal footer's ✓/✗ actions take every colour from theme tokens."""
+
+    def _rules(self, path, needle):
+        css = _strip_comments(path.read_text(encoding='utf-8'))
+        for block in css.split('}'):
+            selector, _, body = block.partition('{')
+            if needle in selector:
+                yield selector.strip(), body
+
+    def test_form_action_rules_use_no_literal_colours(self):
+        path = STATIC / 'dlux' / 'forms' / 'css' / 'form_actions.css'
+        rules = list(self._rules(path, '.dlux-form-action'))
+        self.assertTrue(rules)
+        for selector, body in rules:
+            # Literal colours are allowed only as var() fallbacks.
+            bare = re.sub(r'var\([^()]*(?:\([^()]*\)[^()]*)*\)', '', body)
+            with self.subTest(selector=selector):
+                self.assertNotRegex(bare, r'#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d')
+
+    def test_primary_action_uses_the_primary_fill_and_on_accent_ink(self):
+        path = STATIC / 'dlux' / 'forms' / 'css' / 'form_actions.css'
+        body = ''.join(b for s, b in self._rules(path, '.dlux-form-action-primary') if 'icon' not in s)
+        self.assertIn('var(--primal', body)
+        self.assertIn('var(--dlux-btn-primary-end', body)
+        self.assertIn('color: var(--on-primal', body)
+
+    def test_themes_do_not_restyle_form_actions(self):
+        for path in _theme_files():
+            for selector, _body in self._rules(path, 'dlux-form-action'):
+                with self.subTest(theme=path.stem, selector=selector[:80]):
+                    stripped = selector.replace(':not(.dlux-form-action .bi)', '')
+                    self.assertNotIn('dlux-form-action', stripped)

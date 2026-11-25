@@ -116,6 +116,7 @@
     --primal-rgb: 0, 255, 255;
     --on-primal: var(--cyber-black);
     --on-primal_dark: var(--cyber-black);
+    --dlux-btn-primary-end: #00cccc;
     --btn-primary-shadow: rgba(0, 255, 255, 0.5);
     --nav-item-color: var(--neon-cyan);
     color-scheme: dark;
@@ -530,7 +531,6 @@
 
 /* Form Actions - Neon Buttons */
 :root.theme-neon .archive-form-action,
-:root.theme-neon .dlux-form-action,
 :root.theme-neon .dlux-filter .dlux-filter-chip,
 :root.theme-neon .dlux-filter .dlux-filter-action {
     border-color: rgba(0, 255, 255, 0.25) !important;
@@ -554,8 +554,6 @@
 
 :root.theme-neon .archive-form-action:hover,
 :root.theme-neon .archive-form-action:focus-visible,
-:root.theme-neon .dlux-form-action:hover,
-:root.theme-neon .dlux-form-action:focus-visible,
 :root.theme-neon .dlux-filter .dlux-filter-chip:hover,
 :root.theme-neon .dlux-filter .dlux-filter-chip:focus-visible,
 :root.theme-neon .dlux-filter .dlux-filter-action:hover,
@@ -565,14 +563,12 @@
 }
 
 :root.theme-neon .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-icon,
 :root.theme-neon .dlux-filter .dlux-filter-action i {
     color: var(--neon-cyan) !important;
 }
 
 /* Primary Action - Hot Pink Glow */
 :root.theme-neon .archive-form-action-primary .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-primary .dlux-form-action-icon,
 :root.theme-neon .dlux-filter .dlux-filter-action.btn-primary {
     color: var(--neon-pink) !important;
     text-shadow: 0 0 10px rgba(255, 0, 255, 0.5) !important;
@@ -595,12 +591,6 @@
     box-shadow: 0 0 22px rgba(255, 0, 255, 0.26) !important;
 }
 
-:root.theme-neon .dlux-form-action-primary {
-    border-color: rgba(255, 0, 255, 0.3) !important;
-    background: linear-gradient(180deg, rgba(40, 0, 40, 0.98), rgba(25, 0, 25, 0.96)) !important;
-    box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;
-}
-
 :root.theme-neon .dlux-filter .dlux-filter-action.btn-outline-success,
 :root.theme-neon .dlux-filter a.dlux-filter-action.btn-outline-success {
     color: var(--neon-lime) !important;
@@ -618,18 +608,9 @@
 }
 
 /* Neutral/Warning - Orange Glow */
-:root.theme-neon .archive-form-action-neutral .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-neutral .dlux-form-action-icon {
+:root.theme-neon .archive-form-action-neutral .archive-form-action-icon {
     color: var(--neon-orange) !important;
     text-shadow: 0 0 10px rgba(255, 102, 0, 0.5) !important;
-}
-
-:root.theme-neon .dlux-form-action-neutral {
-    border-color: rgba(255, 102, 0, 0.3) !important;
-    background:
-        radial-gradient(circle at top, rgba(255, 102, 0, 0.15), transparent 56%),
-        linear-gradient(180deg, rgba(40, 20, 10, 0.98), rgba(25, 12, 5, 0.96)) !important;
-    box-shadow: 0 0 10px rgba(255, 102, 0, 0.1) !important;
 }
 
 :root.theme-neon .dlux-filter .btn.dlux-filter-clear.btn-warning {
@@ -1219,7 +1200,7 @@
 
 :root.theme-neon .bi-three-dots,
 :root.theme-neon .bi-three-dots-vertical,
-:root.theme-neon .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-neon .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
 }
