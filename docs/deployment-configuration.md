@@ -351,6 +351,23 @@ The app and composer-agent share the runtime volume. composer-agent runs as uid
 at `0664` there and reach each other's entries through group `0`. The generated
 entrypoint sets `umask 0002`.
 
+**Preparing the image.** A project that sets `USER 10001:0` in its own
+`Dockerfile` creates every mount point the app containers use, group `0` and
+group-writable, before that line. The generated `Dockerfile` carries the same
+`RUN`, which changes nothing for a root image:
+
+```dockerfile
+RUN mkdir -p /app/imports /app/logs /app/media /app/staticfiles /opt/dlux-runtime \
+    && chgrp 0 /app/imports /app/logs /app/media /app/staticfiles /opt/dlux-runtime \
+    && chmod g+rwX /app/imports /app/logs /app/media /app/staticfiles /opt/dlux-runtime
+USER 10001:0
+```
+
+A named volume Docker creates on the first start copies its mount point's owner
+and mode from the image, so without this line `static` and the runtime volume
+start as `root` `0755` and the worker's gate stops the first start of an empty
+deployment.
+
 **The entrypoint gate.** Before it waits for the database, the generated
 `entrypoint.sh` runs `python -m dlux.mount_access gate`. Under a non-root uid it
 checks the top two levels of every mount under `/app` and of the runtime volume.
