@@ -72,26 +72,36 @@ takes sign-in with it. What happens then:
   sign-in service is not responding, with `Retry-After: 10`, instead of a 500.
   Signed-in users read as signed out until Redis answers again; their sessions
   are still there when it does.
-- `dlux.resilient_cache.safe_get(key, default)`, `safe_set(key, value, timeout)`
-  and `safe_delete(key)` give project code the same miss-on-outage behaviour for
-  its own non-critical caching.
+- `dlux.resilient_cache.safe_get(key, default)`, `safe_set(key, value, timeout)`,
+  `safe_add(key, value, timeout)` and `safe_delete(key)` give project code the
+  same miss-on-outage behaviour for its own non-critical caching.
 - The public-form limiter (`@public_form_limit`) lets a POST through when the
   cache is down, by design; see
   [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls).
 
-Singleton models such as `SystemSettings` are cached as their field values under
-the class name (`cache.delete("SystemSettings")` invalidates the row), tagged with
-the DjangoLux and Django versions that wrote them. An entry from another version,
-one missing a field a migration added, or a pickled model instance, is a miss and
-is rebuilt from the database, so DjangoLux never serves a model instance another
-Django version pickled. The first read after an upgrade from a release that
-pickled the row may still log Django's "Pickled model instance" warning once.
-Session keys are not versioned: users stay signed in across an update.
+Singleton models such as `SystemSettings` are cached as their field values, never
+as a pickled model instance, so DjangoLux never unpickles a model another Django
+version wrote. Each DjangoLux and Django version keeps its own entry
+(`dlux:singleton:SystemSettings:<djangolux>|<django>`), so two versions sharing a
+cache do not overwrite each other: the worker health check runs the image's baked
+DjangoLux, which can differ from the runtime release beside it. All versions share
+the class-name key. Deleting it (`cache.delete("SystemSettings")`) makes every
+version's entry a miss, rebuilt from the database, and every save replaces it.
+DjangoLux 1.16 and older keep their pickled instance under that key; it is left
+in place for them, until a save or its expiry, and never read as the row. When an
+image update also changed Django, each process may log Django's "Pickled model
+instance" warning once while that instance is there. An entry missing a field a migration
+added is a miss with no log line; only an unreadable or malformed entry under the
+version's own key logs a warning. Session keys are not versioned: users stay
+signed in across an update.
 
 Every save gives the row a new `cache_revision`, in the same statement as its
 fields, and the cached entry carries the revision it was written with. Once per
 request (on every call outside one) the cached row is checked against the
-database, and an entry whose revision no longer matches is a miss. A save the
+class-name key and the database, and an entry whose revision no longer matches is
+a miss. While DjangoLux 1.16 or older holds the class-name key, its saves set no
+revision, so that check compares the row's field values instead, in the same one
+query. A save the
 cache never saw, because the cache was down, the transaction rolled back or a
 racing save wrote its entry last, is therefore served from the next request after
 the cache answers again, not when the old entry expires. Code that updates a

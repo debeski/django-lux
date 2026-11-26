@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
+from dlux import __version__
 from dlux.updater import get_baked_version
 from dlux.updater.runtime import RuntimeStore
-from dlux.updater.supervisor import _is_newer
+from dlux.updater.supervisor import _is_newer, held_release_outcome
 
 
 class Command(BaseCommand):
@@ -32,8 +33,8 @@ class Command(BaseCommand):
                 # The supervisor serves the baked package on this image; the
                 # pointer stays so an image that meets the floor serves it again.
                 self.stderr.write(
-                    f"Runtime release {held.get('version')} is not served: {held.get('reason')}. "
-                    f"The baked DjangoLux {baked} runs instead."
+                    f"Runtime release {held.get('version')} is below its image floor: {held.get('reason')}. "
+                    f"{held_release_outcome(baked, __version__)}."
                 )
                 return
             if active.get("source") == "volume" and not _is_newer(active.get("version"), baked):

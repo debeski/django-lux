@@ -112,6 +112,22 @@ def image_floor_problem(release, baked):
     )
 
 
+def held_release_outcome(baked, running):
+    """What runs while a release is held below its image floor, as a sentence.
+
+    ``running`` is the DjangoLux of the process reporting it. This image's
+    supervisor serves the baked package; one that predates the floor check (an
+    image baking DjangoLux 1.16 or older) serves the release anyway, and then
+    the reporting process runs something newer than the baked package.
+    """
+    if _is_newer(running, baked):
+        return (
+            f"This image's supervisor predates the floor check, so DjangoLux {running} "
+            "runs on an image below its floor"
+        )
+    return f"The baked DjangoLux {baked} runs instead"
+
+
 _REPORTED_FALLBACKS = set()
 
 

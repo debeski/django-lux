@@ -236,6 +236,7 @@ fi
 docker run "${docker_flags[@]}" \
   ${secret_flags[@]+"${secret_flags[@]}"} \
   -e COMPOSER_ALLOW_UNVERIFIED_COMPOSER \
+  -e COMPOSER_HEALTH_SETTLE_SECONDS \
   -v "${script_dir}:${script_dir}" \
   -w "${script_dir}" \
   -v /var/run/docker.sock:/var/run/docker.sock \

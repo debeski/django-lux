@@ -188,6 +188,15 @@ def safe_set(key, value, timeout=DEFAULT_TIMEOUT, *, cache=None):
         return False
 
 
+def safe_add(key, value, timeout=DEFAULT_TIMEOUT, *, cache=None):
+    """``cache.add``: True only when it stored the value; the cache being down is False."""
+    try:
+        return bool((cache or default_cache).add(key, value, timeout))
+    except Exception as exc:
+        _log_tolerated("write", key, exc)
+        return False
+
+
 def safe_delete(key, *, cache=None):
     try:
         return bool((cache or default_cache).delete(key))

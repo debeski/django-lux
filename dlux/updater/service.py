@@ -1197,13 +1197,21 @@ class UpdateService:
         floor, and clear that mark once it is not.
 
         The supervisor already serves the baked package in that case; this puts
-        the reason where the Updates card and the doctor read it. The degraded
-        file is not written: it fails the worker's health check, and the baked
-        package is running fine.
+        the reason where the Updates card and the doctor read it. An image whose
+        own supervisor predates the floor check serves the release anyway, and
+        this process then runs it, so the reason names what runs. The degraded
+        file is not written: it fails the worker's health check, and whichever
+        package runs is serving.
         """
         held = active.get("held") or {}
         if held:
-            reason = f"{IMAGE_FLOOR_REASON_PREFIX}{held.get('reason')}. The baked DjangoLux {active['version']} runs instead; deploy an image that meets the floor, or roll the runtime back."
+            from .supervisor import held_release_outcome
+
+            outcome = held_release_outcome(active["version"], running_version())
+            reason = (
+                f"{IMAGE_FLOOR_REASON_PREFIX}{held.get('reason')}. {outcome}; "
+                "deploy an image that meets the floor, or roll the runtime back."
+            )
             if not state.degraded or state.degraded_reason != reason:
                 logger.warning("%s", reason)
                 state.degraded = True

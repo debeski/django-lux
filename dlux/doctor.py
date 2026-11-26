@@ -308,6 +308,16 @@ def _installed(module_name):
 
 DJANGO_CHECKS_ID = 'settings.django_checks'
 
+#: Django's checks and URL resolution import the URLconf, whose modules translate
+#: strings as they load, and Django's model checks translate names. Each
+#: translation builds the system config, which reads System Settings (and the
+#: managed fonts) from the database: with it paused, each read waits out the
+#: connect timeout, and the check outlasts its deadline.
+NEEDS_DATABASE_FOR_TRANSLATIONS = (
+    'Skipped: the database is unreachable, and this check needs it: importing the URLconf '
+    'and translating names builds the system config from System Settings.'
+)
+
 
 @check(DJANGO_CHECKS_ID, 'settings', "Django's system checks pass")
 def _check_django_system_checks(ctx):
@@ -317,6 +327,8 @@ def _check_django_system_checks(ctx):
     doctor before it printed anything, and ``composer check --deep`` got no
     report. Here they run under the same deadline as every other check.
     """
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
     from django.core import checks
 
     messages = [message for message in checks.run_checks() if not message.is_silenced()]
@@ -463,6 +475,8 @@ def _check_settings_helper(ctx):
 
 @check('urls.mounted', 'urls', 'dlux URLs are mounted')
 def _check_urls(ctx):
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
     from django.urls import NoReverseMatch, reverse
     try:
         reverse('login')
@@ -610,18 +624,21 @@ def _check_updater_runtime_volume(ctx):
 
 @check('updater.image_floor', 'services', 'This image can run the active DjangoLux release')
 def _check_updater_image_floor(ctx):
-    """The active volume release needs a newer image: the baked release runs instead.
+    """The active volume release needs a newer image.
 
-    The supervisor falls back loudly at boot; this makes the same verdict an
-    error here, so an image rolled back under a newer release is not missed.
+    The supervisor falls back to the baked release loudly at boot; this makes the
+    same verdict an error here, so an image rolled back under a newer release is
+    not missed. An image whose own supervisor predates the floor check runs the
+    release anyway, and so does this process; the detail says which one runs.
     """
-    from .updater.supervisor import runtime_fallback
+    from .updater.supervisor import baked_version, held_release_outcome, runtime_fallback
 
     root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
-    problem = runtime_fallback(root)
+    baked = os.environ.get('DLUX_BAKED_VERSION') or baked_version()
+    problem = runtime_fallback(root, baked)
     if problem:
         return fail(
-            f'{problem}, so the image\'s own DjangoLux is served instead.',
+            f'{problem}. {held_release_outcome(baked, __version__)}.',
             'Deploy a project image built on that DjangoLux or later, or roll the inline '
             'release back with ./start.sh dlux rollback.',
         )
