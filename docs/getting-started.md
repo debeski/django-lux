@@ -5,7 +5,7 @@ Use this page when adding `django-lux` to a host Django project for the first ti
 ## Requirements
 
 - Python 3.11+, tested on 3.11 to 3.14. The optional `ocr` extra needs Python 3.14 or earlier: its inference engine, `onnxruntime`, publishes no Python 3.15 wheels, so generated project images build on `python:3.14-slim`.
-- Django 5.1+
+- Django 5.2+ (Python 3.11 gets the 5.2 LTS; Django 6.0 and later need Python 3.12)
 - `django-crispy-forms`
 - `crispy-bootstrap5`
 - `django-tables2`

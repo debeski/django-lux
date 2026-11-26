@@ -64,7 +64,7 @@ Every capability, with the doc that explains it, is in
 
 ## Quick Start
 
-DjangoLux needs Python 3.11 or later (tested on 3.11 to 3.14) and Django 5.1 or
+DjangoLux needs Python 3.11 or later (tested on 3.11 to 3.14) and Django 5.2 or
 later. Its other dependencies install with it.
 
 ### A new project
