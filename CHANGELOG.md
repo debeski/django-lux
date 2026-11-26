@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Django 5.2 Or Later**: `pyproject.toml` requires `Django>=5.2` (was `>=5.1`); Django 5.1 reached end of life in December 2025 and gets no security fixes. Python 3.11 keeps working on the 5.2 LTS (supported until April 2028), which CI already ran it on; Django 6.0 and later need Python 3.12. README, `docs/getting-started.md` and `docs/task-runner.md` say so.
+
 ## v1.17.0b1
 
 - **A Cache Outage No Longer Signs Users Out (live proof N-1)**: with Redis paused, one GET or Operations panel poll from a signed-in browser got a 302 to login and lost its session for good. Django's cache `SessionStore.load()` reads any cache error as a missing session and drops the key, and `SessionMiddleware` then deletes the cookie, so the 503 "Temporarily unavailable" answer only covered requests that raised. New `dlux.cache_sessions`: its `load()`/`aload()` raise `CacheUnavailable` when `is_cache_outage()` holds, so `CacheOutageMiddleware` answers 503 (JSON for `XMLHttpRequest` and `Accept: application/json`), the cookie and the session are left alone, and the user is still signed in once Redis answers. Any other error, such as an invalid key, still resets the session. `dlux_settings()` maps `SESSION_ENGINE = "django.contrib.sessions.backends.cache"` to it when the session cache is a fail-fast Redis cache, so consumer projects need no change, and the scaffold's `settings.py` names it. Same data and keys as Django's engine, so existing sessions carry over; not applied with `DLUX_CACHE_FAIL_FAST = False`.
