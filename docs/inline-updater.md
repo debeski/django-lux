@@ -595,10 +595,14 @@ the resident Composer agent reports its version. Day-to-day use is described in
 * **Deployment check**: Composer's doctor for the *outside* of the stack (a
   resident pair started with a command this Composer rejects, a missing
   `org.dlux.restart` label, an obsolete service, a legacy maintenance page). Its
-  findings and the exact diff `check --fix` would apply are shown inline,
-  including the maintenance-page move to stack schema 3, and **Apply repairs**
-  confirms with the password and may only apply that diff. Composer refuses if
-  any previewed file, the `.proxy/` files included, changed in between.
+  findings and every entry of the preview `check --fix` would apply are shown
+  inline: each entry's name and message, and its exact diff when it changes a
+  file, including the maintenance-page move to stack schema 3. The entries
+  without a diff say what else the apply does, such as `recreate-services` and
+  `remove-services`, which name the services it recreates or removes. **Apply
+  repairs** is offered when the preview has a diff, confirms with the password
+  and may only apply that preview. Composer refuses if any previewed file, the
+  `.proxy/` files included, changed in between.
 * **Services**: every Compose service with its state and health. Services the
   stack allow-lists (`COMPOSER_AGENT_RESTART_SERVICES`, never one labelled
   `org.dlux.restart: "protected"`) offer **Restart** and **Recreate**; recreating

@@ -29,7 +29,8 @@
      data-label-no-services="{{ DLUX_STRINGS.dlux_ops_no_services|default:'Loading the service list…' }}"
      data-label-protected="{{ DLUX_STRINGS.dlux_ops_protected|default:'Protected: restart it on the host.' }}"
      data-label-absent="{{ DLUX_STRINGS.dlux_ops_absent|default:'not created' }}"
-     data-label-failed="{{ DLUX_STRINGS.dlux_ops_failed|default:'The operation failed.' }}">
+     data-label-failed="{{ DLUX_STRINGS.dlux_ops_failed|default:'The operation failed.' }}"
+     data-label-waiting-app="{{ DLUX_STRINGS.dlux_ops_waiting_app|default:'Waiting for the app to come back…' }}">
 
     {% if not operations_enabled %}
     <div class="alert alert-secondary small mb-0">{{ DLUX_STRINGS.dlux_ops_panel_disabled|default:'This deployment has no Composer agent, so operations cannot run from here.' }}</div>

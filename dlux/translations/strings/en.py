@@ -1429,6 +1429,7 @@ STRINGS = {
     'dlux_ops_absent': 'not created',
     'dlux_ops_failed': 'The operation failed.',
     'dlux_ops_no_repair': 'No automatic repair is available for these findings.',
+    'dlux_ops_waiting_app': 'Waiting for the app to come back…',
     'dlux_update_policy_inline': 'The deployment update policy allows DjangoLux updates only: deploy application image and Composer updates from the server.',
     'dlux_update_policy_none': 'The deployment update policy turns updates off here: deploy them from the server. Checks and rollbacks still work.',
     'dlux_update_policy_mismatch': 'The update policy differs: the application reads {web}, the resident Composer enforces {resident}. The stricter one applies until ./start.sh runs on the server.',

@@ -1425,6 +1425,7 @@ STRINGS = {
     'dlux_ops_absent': 'غير منشأة',
     'dlux_ops_failed': 'فشلت العملية.',
     'dlux_ops_no_repair': 'لا يتوفر إصلاح تلقائي لهذه النتائج.',
+    'dlux_ops_waiting_app': 'بانتظار عودة التطبيق…',
     'dlux_update_policy_inline': 'تسمح سياسة التحديث لهذا النشر بتحديثات DjangoLux فقط: انشر تحديثات صورة التطبيق وComposer من الخادم.',
     'dlux_update_policy_none': 'توقف سياسة التحديث لهذا النشر التحديثات من هنا: انشرها من الخادم. يبقى الفحص والتراجع متاحين.',
     'dlux_update_policy_mismatch': 'سياسة التحديث غير متطابقة: يقرأ التطبيق {web} بينما يفرض Composer المقيم {resident}. تُطبَّق الأشد منهما حتى يُشغَّل ./start.sh على الخادم.',
