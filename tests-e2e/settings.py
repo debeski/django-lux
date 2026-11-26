@@ -39,3 +39,23 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 365
 # loopback port answers "not running" immediately, on every machine.
 DLUX_SMTP_RELAY_HOST = '127.0.0.1'
 DLUX_SMTP_RELAY_PORT = 1
+
+# The policy a generated project sends (dlux/scaffold/templates/project/package/
+# settings.py.tmpl), so every browser test runs under a nonce-only script-src.
+from csp.constants import NONCE, SELF, UNSAFE_INLINE  # noqa: E402
+from dlux.system.constants import SCANLINK_CONNECT_ORIGINS  # noqa: E402
+
+INSTALLED_APPS = [*INSTALLED_APPS, 'csp']  # noqa: F405
+MIDDLEWARE = [*MIDDLEWARE, 'csp.middleware.CSPMiddleware']  # noqa: F405
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'default-src': [SELF],
+        'script-src': [SELF, NONCE],
+        'style-src': [SELF, UNSAFE_INLINE],
+        'img-src': [SELF, 'data:', 'blob:'],
+        'font-src': [SELF, 'data:'],
+        'connect-src': [SELF, *SCANLINK_CONNECT_ORIGINS],
+        'frame-ancestors': [SELF],
+        'form-action': [SELF],
+    }
+}

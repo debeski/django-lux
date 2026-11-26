@@ -27,7 +27,7 @@ is in [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `./start.sh update` | Update the Composer deployer, then pull and recreate the stack and resident pair (wrapper 5+). Name services to update only those. |
-| `./start.sh update self` | Update only the Composer deployer. `self update` is a deprecated alias. |
+| `./start.sh update self` | Update only the Composer deployer, pinned to its channel's signed release in `.composer-image` (wrapper 7+). `self update` is a deprecated alias. |
 | `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
 | `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xclude/` and the resulting Compose configuration is validated. |
 
@@ -40,9 +40,8 @@ Generated project baseline:
   CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
 - a generated Docker baseline with `web`, `worker` (DjangoLux's task worker), outbound-only `composer-agent`
-  (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the
-  isolated `composer-executor` that holds the real Docker socket and performs all
-  writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
+  (no Docker access), the isolated `composer-executor` that holds the real Docker
+  socket and answers every Docker request of the agent, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
   `smtp-relay` services. Compose 5.3.0 or later is required for the `worker`
   `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
 - `requirements.txt` pinned to the generated stable `django-lux` release
@@ -87,7 +86,7 @@ Generated app scaffold baseline:
 | `python manage.py dlux_doctor --apply` | Apply the safe fixes for failing checks (for example `collectstatic`). |
 | `python manage.py dlux_doctor --apply --allow-stateful` | Also run fixes that mutate the database (`migrator`). |
 | `python manage.py dlux_check` | Deprecated alias for `dlux_doctor`; warns on stderr and delegates. |
-| `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped; Composer's drift-diff execs this. Generated stack files carry its `schema_version` as a stamp; see [Stack Schema Stamps](stack-schema.md). |
+| `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped, for the release actually running. Generated stack files carry its `schema_version` as a stamp; see [Stack Schema Stamps](stack-schema.md). |
 | `python -m dlux.mount_access gate` | Entrypoint check: under a non-root uid, exit 78 naming any path in the top two levels of the container's mounts the app cannot use; a root process passes. See [File permissions](deployment-configuration.md#file-permissions). |
 | `python -m dlux.mount_access report` | The same check over every entry, as JSON; as root it judges uid 10001 (gid 0). |
 | `python manage.py dlux_runtime_contract` | Print the runtime-volume contract (layout, `active.json`, which process writes what) as JSON. |

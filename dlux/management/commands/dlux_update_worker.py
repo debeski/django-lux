@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand
 from dlux import __version__
 from dlux.updater import UpdaterError
 from dlux.updater.service import (
+    IMAGE_FLOOR_REASON_PREFIX,
     UpdateService,
     queue_daily_check_if_due,
     record_worker_volume_report,
@@ -49,7 +50,7 @@ class Command(BaseCommand):
             raise
         record_worker_volume_report()
         state = service.reconcile()
-        if state.degraded:
+        if state.degraded and not str(state.degraded_reason or "").startswith(IMAGE_FLOOR_REASON_PREFIX):
             # Never wedge the site behind a maintenance screen on a degraded
             # reconcile. The baked image is always servable — its app code and dlux
             # shipped together — so fall back to it, clear the flags, and restart

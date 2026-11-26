@@ -467,7 +467,7 @@
             refs.tree.innerHTML = '';
             state.config.hierarchy.nodes.forEach((node) => refs.tree.appendChild(createTreeNode(node)));
             if (!refs.tree.children.length) {
-                refs.tree.innerHTML = `<p class="text-muted small mb-0">${t('navbar_empty_tree', '')}</p>`;
+                refs.tree.innerHTML = `<p class="text-muted small mb-0">${escapeHtml(t('navbar_empty_tree', ''))}</p>`;
             }
         }
 
@@ -518,7 +518,7 @@
                 refs.routeList.appendChild(group);
             });
             if (!refs.routeList.children.length) {
-                refs.routeList.innerHTML = `<p class="text-muted small mb-0">${t('navbar_no_routes', '')}</p>`;
+                refs.routeList.innerHTML = `<p class="text-muted small mb-0">${escapeHtml(t('navbar_no_routes', ''))}</p>`;
             }
         }
 
@@ -847,8 +847,8 @@
                 }
                 groupButton.innerHTML = `
                     <span class="dlux-builder-item-main">
-                        <i class="bi ${group.icon}"></i>
-                        <span>${group.label}</span>
+                        <i class="bi ${escapeHtml(group.icon)}"></i>
+                        <span>${escapeHtml(group.label)}</span>
                     </span>
                     <span class="badge text-bg-light">${group.items.length}</span>
                 `;
@@ -886,10 +886,10 @@
                     }
                     button.innerHTML = `
                         <span class="dlux-builder-item-main">
-                            <i class="bi ${item.icon}"></i>
-                            <span>${availableItemDisplayLabel(item)}</span>
+                            <i class="bi ${escapeHtml(item.icon)}"></i>
+                            <span>${escapeHtml(availableItemDisplayLabel(item))}</span>
                         </span>
-                        <span class="badge text-bg-light">${item.url_name || item.id}</span>
+                        <span class="badge text-bg-light">${escapeHtml(item.url_name || item.id)}</span>
                     `;
                     button.addEventListener('click', () => {
                         state.selected = { pane: 'available', id: item.id, kind: 'item' };
@@ -917,7 +917,7 @@
             });
 
             if (!refs.availableList.children.length) {
-                refs.availableList.innerHTML = `<div class="text-muted small">${t('sidebar_no_available', 'No available entries match the current selection.')}</div>`;
+                refs.availableList.innerHTML = `<div class="text-muted small">${escapeHtml(t('sidebar_no_available', 'No available entries match the current selection.'))}</div>`;
             }
         }
 
@@ -983,12 +983,12 @@
                 wrapper.innerHTML = `
                     <div class="dlux-builder-group-header">
                         <span class="dlux-builder-item-main">
-                            <i class="bi ${entry.icon}"></i>
-                            <span>${entryLabelForDisplay(entry)}</span>
+                            <i class="bi ${escapeHtml(entry.icon)}"></i>
+                            <span>${escapeHtml(entryLabelForDisplay(entry))}</span>
                         </span>
                         <span class="badge text-bg-light">${(entry.items || []).length}</span>
                     </div>
-                    <div class="dlux-builder-group-items" data-group-dropzone="${entry.id}"></div>
+                    <div class="dlux-builder-group-items" data-group-dropzone="${escapeHtml(entry.id)}"></div>
                 `;
 
                 const itemsContainer = wrapper.querySelector('[data-group-dropzone]');
@@ -1013,10 +1013,10 @@
             } else {
                 wrapper.innerHTML = `
                     <span class="dlux-builder-item-main">
-                        <i class="bi ${entry.icon}"></i>
-                        <span>${entryLabelForDisplay(entry)}</span>
+                        <i class="bi ${escapeHtml(entry.icon)}"></i>
+                        <span>${escapeHtml(entryLabelForDisplay(entry))}</span>
                     </span>
-                    <span class="badge text-bg-light">${entry.url_name}</span>
+                    <span class="badge text-bg-light">${escapeHtml(entry.url_name)}</span>
                 `;
             }
 
@@ -1031,7 +1031,7 @@
             });
 
             if (!refs.selectedTree.children.length) {
-                refs.selectedTree.innerHTML = `<div class="text-muted small">${t('sidebar_no_selected', 'No entries selected yet.')}</div>`;
+                refs.selectedTree.innerHTML = `<div class="text-muted small">${escapeHtml(t('sidebar_no_selected', 'No entries selected yet.'))}</div>`;
             }
         }
 

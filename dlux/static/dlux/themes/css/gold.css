@@ -9,6 +9,9 @@
     --primal: #d97706;
     --primal_dark: #b45309;
     --primal-rgb: 217, 119, 6;
+    --on-primal: #111827;
+    --on-primal_dark: #ffffff;
+    --dlux-btn-primary-end: color-mix(in srgb, var(--primal) 70%, var(--primal_dark));
     --btn-primary-shadow: rgba(217, 119, 6, 0.4);
     --nav-item-color: var(--table-row);
 

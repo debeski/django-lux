@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, reverse
+from ..resilient_cache import safe_get, safe_set
 from ..system.constants import (
     DISCOVERY_PROFILE_SIDEBAR,
     DISCOVERY_PROFILES,
@@ -251,10 +252,10 @@ def discover_routes(lang_code=None):
     config = get_system_config()
     lang_code = (lang_code or config.get('default_language', 'en')).split('-')[0]
     cache_key = _route_catalog_cache_key(lang_code, config)
-    catalog = cache.get(cache_key)
+    catalog = safe_get(cache_key, cache=cache)
     if catalog is None:
         catalog = _discover_routes_uncached(lang_code=lang_code, config=config)
-        cache.set(cache_key, catalog, timeout=SIDEBAR_CACHE_TIMEOUT)
+        safe_set(cache_key, catalog, SIDEBAR_CACHE_TIMEOUT, cache=cache)
     return copy.deepcopy(catalog)
 
 

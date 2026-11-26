@@ -11,12 +11,33 @@ from ._shared import logger
 from .soft_delete_signals import restored, soft_deleted
 
 
+SINGLETON_CACHE_SECONDS = 86400
+#: The key in the anchor a release from 1.17 keeps under a singleton's class name.
+SINGLETON_ANCHOR_FIELD = 'dlux_singleton_anchor'
+
+
 class SingletonModel(models.Model):
+    # A new value on every save, written in the same statement as the fields. The
+    # cached row carries the value it was read or saved with, and load() matches it
+    # against the database once per request, so an entry a save could not replace
+    # (the cache was down, the transaction rolled back, a racing save wrote last)
+    # is a miss rather than a stale row served until it expires.
+    cache_revision = models.CharField(max_length=32, default='', db_default='', editable=False)
+
     class Meta:
         abstract = True
 
     def save(self, *args, **kwargs):
+        import uuid
+
         self.pk = 1
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = list(update_fields)
+        if update_fields is None or update_fields:
+            self.cache_revision = uuid.uuid4().hex
+            if update_fields and 'cache_revision' not in update_fields:
+                kwargs['update_fields'] = [*update_fields, 'cache_revision']
         super().save(*args, **kwargs)
         self.refresh_cache()
 
@@ -67,29 +88,15 @@ class SingletonModel(models.Model):
             draft = current_draft()
             if draft is not None:
                 return draft
-        try:
-            obj = cache.get(cls.__name__)
-        except Exception:
-            # A corrupt or incompatible cache entry (e.g. a pickle written by an
-            # older code revision after a dev hot-reload or a deploy that changed
-            # this model) must never bubble up: callers such as get_system_config()
-            # would then silently treat the system as unconfigured and bounce users
-            # into the setup wizard. Drop the poisoned key and rebuild from the DB.
-            logger.warning(
-                "Discarding unreadable cache entry for singleton %s; rebuilding from DB.",
-                cls.__name__,
-                exc_info=True,
-            )
-            try:
-                cache.delete(cls.__name__)
-            except Exception:
-                pass
-            obj = None
+        # A cache that is down or holds an unusable entry must never bubble up:
+        # callers such as get_system_config() would then treat the system as
+        # unconfigured and bounce users into the setup wizard.
+        obj = cls.cached()
 
         if obj is not None and not cls._row_verified_this_request():
             # Guard against a cache that outlived its row — a dropped and
-            # recreated database, a restore, a wiped dev volume — where the
-            # pickle unpickles perfectly and describes a row that is gone.
+            # recreated database, a restore, a wiped dev volume — or that
+            # describes an earlier save of it: the revision no longer matches.
             #
             # Once per request, not once per call. `load()` is reached for every
             # translated string, so probing each time cost 106 of the 239 queries
@@ -97,36 +104,11 @@ class SingletonModel(models.Model):
             # A row cannot vanish part-way through a request in any way this
             # check would save us from, and the very next request re-verifies.
             try:
-                if not cls.objects.filter(pk=obj.pk).exists():
-                    obj = None
-                else:
+                if cls._entry_is_current(obj):
                     cls._mark_row_verified()
-            except Exception:
-                obj = None
-
-        if obj is not None:
-            # Guard against a STALE-but-readable pickle written by an older model
-            # revision — a dev hot-reload, or a deploy/migration that ADDED fields
-            # (e.g. auth_config, notification_config). Such a pickle unpickles fine
-            # (so the poisoned-key guard above never fires) but is missing the new
-            # field attributes, so get_system_config()'s hasattr() guards silently
-            # serve their DEFAULTS — the "settings reset, then return afterwards"
-            # symptom. If any current concrete field is absent, rebuild from the DB.
-            try:
-                expected = {f.attname for f in cls._meta.concrete_fields}
-                if not expected.issubset(vars(obj)):
-                    logger.warning(
-                        "Discarding stale cache entry for singleton %s (missing fields %s); rebuilding from DB.",
-                        cls.__name__,
-                        sorted(expected.difference(vars(obj))),
-                    )
-                    cache.delete(cls.__name__)
+                else:
                     obj = None
             except Exception:
-                try:
-                    cache.delete(cls.__name__)
-                except Exception:
-                    pass
                 obj = None
 
         if not obj:
@@ -249,17 +231,172 @@ class SingletonModel(models.Model):
                 if hasattr(obj, 'allow_user_font_override') and 'allow_user_font_override' in config:
                     obj.allow_user_font_override = bool(config.get('allow_user_font_override'))
                 obj.save()
-            try:
-                cache.set(cls.__name__, obj, timeout=86400)
-            except Exception:
-                logger.warning("Failed to cache singleton %s; serving DB value uncached.", cls.__name__, exc_info=True)
+            cls._store_in_cache(obj)
         return obj
 
+    @classmethod
+    def cache_key(cls):
+        """The class name: the key every DjangoLux release shares for the row.
+
+        Projects invalidate the row with ``cache.delete('SystemSettings')``, in
+        migrations as well as tests, so deleting this key makes every version's
+        entry a miss. A release from 1.17 keeps a small anchor here and the row
+        under ``entry_key()``; a release before 1.17 keeps its pickled instance
+        here, and that is left in place for it.
+        """
+        return cls.__name__
+
+    @classmethod
+    def entry_key(cls):
+        """Where this DjangoLux and Django version keeps the row's field values.
+
+        Each version has its own, so two versions sharing a cache (a health
+        check on the image's baked release beside the runtime release) never
+        overwrite each other's entry.
+        """
+        return f'dlux:singleton:{cls.__name__}:{cls._cache_token()}'
+
+    @staticmethod
+    def _cache_token():
+        """Which code wrote a cached row: the DjangoLux and Django versions."""
+        import django
+        from .. import __version__
+
+        return f'{__version__}|{django.get_version()}'
+
+    @classmethod
+    def cached(cls):
+        """The row as this DjangoLux and Django version cached it, or None.
+
+        The entry holds the row's field values, not a pickled model instance, so
+        an upgrade never unpickles a model another Django version wrote. It is
+        not checked against the anchor or the database here: ``load()`` does
+        that once per request. An entry missing a field this model now has (a
+        migration added it) is an expected miss; an unreadable or malformed one
+        is logged and dropped.
+        """
+        from ..resilient_cache import is_cache_outage, safe_delete
+
+        key = cls.entry_key()
+        try:
+            payload = cache.get(key)
+        except Exception as exc:
+            if not is_cache_outage(exc):
+                logger.warning("Discarding unreadable cache entry for singleton %s.", cls.__name__, exc_info=True)
+                safe_delete(key)
+            return None
+        if payload is None:
+            return None
+        names = [f.attname for f in cls._meta.concrete_fields]
+        fields = payload.get('fields') if isinstance(payload, dict) and payload.get('token') == cls._cache_token() else None
+        if not isinstance(fields, dict):
+            logger.warning("Discarding malformed cache entry for singleton %s.", cls.__name__)
+        elif not all(name in fields for name in names):
+            logger.debug("Cached singleton %s lacks a field this model has; rebuilding it.", cls.__name__)
+        else:
+            try:
+                from django.db import router
+
+                obj = cls.from_db(router.db_for_read(cls), names, [fields[name] for name in names])
+                obj._dlux_cache_anchor = payload.get('anchor')
+                return obj
+            except Exception:
+                logger.warning("Discarding unusable cache entry for singleton %s.", cls.__name__, exc_info=True)
+        safe_delete(key)
+        return None
+
+    @classmethod
+    def _read_anchor(cls):
+        """What the shared class-name key holds, as ``(present, generation)``.
+
+        ``(False, None)``: nothing, because it was deleted to invalidate the row,
+        expired, or the cache is down. ``(True, generation)``: the anchor a
+        release from 1.17 wrote. ``(True, None)``: anything else, which is the
+        instance a release before 1.17 keeps there.
+        """
+        from ..resilient_cache import is_cache_outage
+
+        try:
+            value = cache.get(cls.cache_key())
+        except Exception as exc:
+            if is_cache_outage(exc):
+                return False, None
+            logger.debug("Cache entry %r of an older release is unreadable here: %s", cls.cache_key(), exc)
+            return True, None
+        if value is None:
+            return False, None
+        if isinstance(value, dict) and isinstance(value.get(SINGLETON_ANCHOR_FIELD), str):
+            return True, value[SINGLETON_ANCHOR_FIELD]
+        return True, None
+
+    @classmethod
+    def _entry_is_current(cls, obj):
+        """Whether the cached ``obj`` still describes the database row.
+
+        Its anchor must still be the shared key's, and the row's revision must
+        match. While a release before 1.17 holds the key, its saves set no
+        revision and its rebuild after a delete replaces the key like any other
+        write, so the row's field values are compared instead: one query, as the
+        revision probe is.
+        """
+        present, generation = cls._read_anchor()
+        if not present:
+            return False
+        if generation is not None:
+            return (
+                generation == getattr(obj, '_dlux_cache_anchor', None)
+                and cls.objects.filter(pk=obj.pk, cache_revision=obj.cache_revision).exists()
+            )
+        row = cls.objects.filter(pk=obj.pk).first()
+        if row is not None and cls._field_values(row) == cls._field_values(obj):
+            return True
+        logger.debug("Cached singleton %s no longer matches its row; rebuilding it.", cls.__name__)
+        return False
+
+    @classmethod
+    def _field_values(cls, obj):
+        from django.db.models.fields.files import FieldFile
+
+        values = {}
+        for field in cls._meta.concrete_fields:
+            value = getattr(obj, field.attname)
+            values[field.attname] = value.name if isinstance(value, FieldFile) else value
+        return values
+
+    @classmethod
+    def _store_in_cache(cls, obj, replace_anchor=False):
+        """Cache ``obj`` under this version's key, tied to the shared anchor.
+
+        A save replaces the anchor, so every other version's entry, and the
+        instance an older release keeps there, become misses. A rebuild after a
+        miss adds an anchor only where there is none and leaves another
+        release's entry in place.
+        """
+        import uuid
+        from ..resilient_cache import safe_add, safe_set
+
+        generation = uuid.uuid4().hex
+        anchor = {SINGLETON_ANCHOR_FIELD: generation}
+        if replace_anchor:
+            present = safe_set(cls.cache_key(), anchor, SINGLETON_CACHE_SECONDS)
+        elif not safe_add(cls.cache_key(), anchor, SINGLETON_CACHE_SECONDS):
+            present, generation = cls._read_anchor()
+        else:
+            present = True
+        if present:
+            payload = {'token': cls._cache_token(), 'anchor': generation, 'fields': cls._field_values(obj)}
+            safe_set(cls.entry_key(), payload, SINGLETON_CACHE_SECONDS)
+
+    @classmethod
+    def clear_cache(cls):
+        """Make the cached row a miss for every DjangoLux version sharing the cache."""
+        from ..resilient_cache import safe_delete
+
+        safe_delete(cls.cache_key())
+        safe_delete(cls.entry_key())
+
     def refresh_cache(self):
-         try:
-             cache.set(self.__class__.__name__, self, timeout=86400)
-         except Exception:
-             logger.warning("Failed to refresh cache for singleton %s.", self.__class__.__name__, exc_info=True)
+         self._store_in_cache(self, replace_anchor=True)
          if self.__class__.__name__ == 'SystemSettings':
              try:
                  from ..context_processors import clear_sidebar_cache

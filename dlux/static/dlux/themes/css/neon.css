@@ -114,6 +114,9 @@
     --primal: var(--neon-cyan);
     --primal_dark: var(--neon-pink);
     --primal-rgb: 0, 255, 255;
+    --on-primal: var(--cyber-black);
+    --on-primal_dark: var(--cyber-black);
+    --dlux-btn-primary-end: #00cccc;
     --btn-primary-shadow: rgba(0, 255, 255, 0.5);
     --nav-item-color: var(--neon-cyan);
     color-scheme: dark;
@@ -412,13 +415,14 @@
 
 /* 3. Forms & Inputs - Neon Glowing Fields */
 :root.theme-neon .dlux-form,
-:root.theme-neon .archive-document-form,
-:root.theme-neon .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96));
-    --archive-form-border: rgba(0, 255, 255, 0.2);
-    --archive-form-border-strong: rgba(0, 255, 255, 0.5);
-    --archive-form-focus-ring: rgba(0, 255, 255, 0.25);
-    --archive-form-muted: #a0a0c0;
+:root.theme-neon .dlux-document-form,
+:root.theme-neon .dlux-filter,
+:root.theme-neon .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96));
+    --dlux-document-form-border: rgba(0, 255, 255, 0.2);
+    --dlux-document-form-border-strong: rgba(0, 255, 255, 0.5);
+    --dlux-document-form-focus-ring: rgba(0, 255, 255, 0.25);
+    --dlux-document-form-muted: #a0a0c0;
 }
 
 :root.theme-neon .form-control,
@@ -444,14 +448,17 @@
 :root.theme-neon .dlux-form .form-control,
 :root.theme-neon .dlux-form .form-select,
 :root.theme-neon .dlux-form textarea,
-:root.theme-neon .archive-document-form .form-control,
-:root.theme-neon .archive-document-form .form-select,
-:root.theme-neon .archive-document-form textarea,
+:root.theme-neon .dlux-document-form .form-control,
+:root.theme-neon .dlux-document-form .form-select,
+:root.theme-neon .dlux-document-form textarea,
 :root.theme-neon .dlux-filter .form-control,
 :root.theme-neon .dlux-filter .form-select,
-:root.theme-neon .dlux-filter textarea {
-    background: var(--archive-form-surface) !important;
-    border-color: var(--archive-form-border) !important;
+:root.theme-neon .dlux-filter textarea,
+:root.theme-neon .archive-document-form .form-control,
+:root.theme-neon .archive-document-form .form-select,
+:root.theme-neon .archive-document-form textarea {
+    background: var(--dlux-document-form-surface) !important;
+    border-color: var(--dlux-document-form-border) !important;
     color: var(--title) !important;
     box-shadow: 
         inset 0 1px 0 rgba(0, 255, 255, 0.03),
@@ -461,12 +468,15 @@
 :root.theme-neon .dlux-form .form-control:hover,
 :root.theme-neon .dlux-form .form-select:hover,
 :root.theme-neon .dlux-form textarea:hover,
-:root.theme-neon .archive-document-form .form-control:hover,
-:root.theme-neon .archive-document-form .form-select:hover,
-:root.theme-neon .archive-document-form textarea:hover,
+:root.theme-neon .dlux-document-form .form-control:hover,
+:root.theme-neon .dlux-document-form .form-select:hover,
+:root.theme-neon .dlux-document-form textarea:hover,
 :root.theme-neon .dlux-filter .form-control:hover,
 :root.theme-neon .dlux-filter .form-select:hover,
-:root.theme-neon .dlux-filter textarea:hover {
+:root.theme-neon .dlux-filter textarea:hover,
+:root.theme-neon .archive-document-form .form-control:hover,
+:root.theme-neon .archive-document-form .form-select:hover,
+:root.theme-neon .archive-document-form textarea:hover {
     border-color: rgba(0, 255, 255, 0.4) !important;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
 }
@@ -474,17 +484,20 @@
 :root.theme-neon .dlux-form .form-control:focus,
 :root.theme-neon .dlux-form .form-select:focus,
 :root.theme-neon .dlux-form textarea:focus,
-:root.theme-neon .archive-document-form .form-control:focus,
-:root.theme-neon .archive-document-form .form-select:focus,
-:root.theme-neon .archive-document-form textarea:focus,
+:root.theme-neon .dlux-document-form .form-control:focus,
+:root.theme-neon .dlux-document-form .form-select:focus,
+:root.theme-neon .dlux-document-form textarea:focus,
 :root.theme-neon .dlux-filter .form-control:focus,
 :root.theme-neon .dlux-filter .form-select:focus,
-:root.theme-neon .dlux-filter textarea:focus {
+:root.theme-neon .dlux-filter textarea:focus,
+:root.theme-neon .archive-document-form .form-control:focus,
+:root.theme-neon .archive-document-form .form-select:focus,
+:root.theme-neon .archive-document-form textarea:focus {
     background: linear-gradient(180deg, rgba(20, 20, 35, 0.98), rgba(12, 12, 20, 0.96)) !important;
     border-color: var(--neon-cyan) !important;
     box-shadow:
         inset 0 1px 0 rgba(0, 255, 255, 0.05),
-        0 0 0 0.22rem var(--archive-form-focus-ring),
+        0 0 0 0.22rem var(--dlux-document-form-focus-ring),
         0 0 20px rgba(0, 255, 255, 0.2) !important;
 }
 
@@ -527,8 +540,6 @@
 }
 
 /* Form Actions - Neon Buttons */
-:root.theme-neon .archive-form-action,
-:root.theme-neon .dlux-form-action,
 :root.theme-neon .dlux-filter .dlux-filter-chip,
 :root.theme-neon .dlux-filter .dlux-filter-action {
     border-color: rgba(0, 255, 255, 0.25) !important;
@@ -550,10 +561,6 @@
     background: linear-gradient(180deg, rgba(25, 18, 31, 0.98), rgba(15, 10, 20, 0.96)) !important;
 }
 
-:root.theme-neon .archive-form-action:hover,
-:root.theme-neon .archive-form-action:focus-visible,
-:root.theme-neon .dlux-form-action:hover,
-:root.theme-neon .dlux-form-action:focus-visible,
 :root.theme-neon .dlux-filter .dlux-filter-chip:hover,
 :root.theme-neon .dlux-filter .dlux-filter-chip:focus-visible,
 :root.theme-neon .dlux-filter .dlux-filter-action:hover,
@@ -562,15 +569,11 @@
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
 }
 
-:root.theme-neon .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-icon,
 :root.theme-neon .dlux-filter .dlux-filter-action i {
     color: var(--neon-cyan) !important;
 }
 
 /* Primary Action - Hot Pink Glow */
-:root.theme-neon .archive-form-action-primary .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-primary .dlux-form-action-icon,
 :root.theme-neon .dlux-filter .dlux-filter-action.btn-primary {
     color: var(--neon-pink) !important;
     text-shadow: 0 0 10px rgba(255, 0, 255, 0.5) !important;
@@ -593,12 +596,6 @@
     box-shadow: 0 0 22px rgba(255, 0, 255, 0.26) !important;
 }
 
-:root.theme-neon .dlux-form-action-primary {
-    border-color: rgba(255, 0, 255, 0.3) !important;
-    background: linear-gradient(180deg, rgba(40, 0, 40, 0.98), rgba(25, 0, 25, 0.96)) !important;
-    box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;
-}
-
 :root.theme-neon .dlux-filter .dlux-filter-action.btn-outline-success,
 :root.theme-neon .dlux-filter a.dlux-filter-action.btn-outline-success {
     color: var(--neon-lime) !important;
@@ -616,19 +613,6 @@
 }
 
 /* Neutral/Warning - Orange Glow */
-:root.theme-neon .archive-form-action-neutral .archive-form-action-icon,
-:root.theme-neon .dlux-form-action-neutral .dlux-form-action-icon {
-    color: var(--neon-orange) !important;
-    text-shadow: 0 0 10px rgba(255, 102, 0, 0.5) !important;
-}
-
-:root.theme-neon .dlux-form-action-neutral {
-    border-color: rgba(255, 102, 0, 0.3) !important;
-    background:
-        radial-gradient(circle at top, rgba(255, 102, 0, 0.15), transparent 56%),
-        linear-gradient(180deg, rgba(40, 20, 10, 0.98), rgba(25, 12, 5, 0.96)) !important;
-    box-shadow: 0 0 10px rgba(255, 102, 0, 0.1) !important;
-}
 
 :root.theme-neon .dlux-filter .btn.dlux-filter-clear.btn-warning {
     color: var(--neon-yellow) !important;
@@ -841,7 +825,7 @@
 }
 
 :root.theme-neon .btn-primary:hover {
-    background: linear-gradient(135deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
+    background: linear-gradient(135deg, var(--neon-pink) 0%, #d900d9 100%) !important;
     border-color: var(--neon-pink) !important;
     box-shadow: 0 0 30px rgba(255, 0, 255, 0.5) !important;
     transform: translateY(-1px);
@@ -1217,7 +1201,7 @@
 
 :root.theme-neon .bi-three-dots,
 :root.theme-neon .bi-three-dots-vertical,
-:root.theme-neon .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-neon .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
 }
@@ -1957,14 +1941,14 @@
 }
 
 /* 39. Links - Neon Glow */
-:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link) {
     color: var(--neon-cyan) !important;
     text-decoration: none !important;
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.2) !important;
     transition: color 0.2s ease, text-shadow 0.2s ease !important;
 }
 
-:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link):hover {
     color: var(--neon-pink) !important;
     text-shadow: 0 0 10px rgba(255, 0, 255, 0.4) !important;
 }

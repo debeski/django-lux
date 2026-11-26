@@ -41,7 +41,7 @@ User = get_user_model()
 
 class NotificationPipelineTests(TestCase):
     def setUp(self):
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
         settings_obj = SystemSettings.load()
         settings_obj.is_configured = True
         settings_obj.save()
@@ -396,7 +396,7 @@ class NotificationPipelineTests(TestCase):
             },
         }
         settings_obj.save()
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
 
         self.assertEqual(get_notification_context(request)['section_counts'], {'auth.user': 1})
 
@@ -417,7 +417,7 @@ class NotificationPipelineTests(TestCase):
             },
         }
         settings_obj.save()
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
 
         context = get_notification_context(request)
 
@@ -485,7 +485,7 @@ class NotificationPipelineTests(TestCase):
         settings_obj = SystemSettings.load()
         settings_obj.notification_config = {'enabled': False}
         settings_obj.save()
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
 
         request = self._request()
         notification = notify.success('Gated.', request=request, action='save')
@@ -499,7 +499,7 @@ class NotificationPipelineTests(TestCase):
 
 class NotificationSettingsFormTests(TestCase):
     def setUp(self):
-        cache.delete(SystemSettings.__name__)
+        SystemSettings.clear_cache()
 
     def test_automatic_crud_excludes_actor_by_default(self):
         config = normalize_notification_config({})

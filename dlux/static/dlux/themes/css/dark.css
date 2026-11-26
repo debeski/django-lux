@@ -96,6 +96,8 @@
     --primal: #ebf4ff;
     --primal_dark: #94a3b8;
     --primal-rgb: 203, 213, 225;
+    --on-primal: var(--body);
+    --on-primal_dark: var(--body);
     --btn-primary-shadow: rgba(203, 213, 225, 0.4);
     --nav-item-color: var(--table-row);
     color-scheme: dark;
@@ -312,13 +314,14 @@
 
 /* 3. Forms & Inputs */
 :root.theme-dark .dlux-form,
-:root.theme-dark .archive-document-form,
-:root.theme-dark .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(24, 24, 24, 0.96));
-    --archive-form-border: rgba(255, 255, 255, 0.1);
-    --archive-form-border-strong: rgba(var(--primal-rgb), 0.36);
-    --archive-form-focus-ring: rgba(var(--primal-rgb), 0.16);
-    --archive-form-muted: #cbd5e1;
+:root.theme-dark .dlux-document-form,
+:root.theme-dark .dlux-filter,
+:root.theme-dark .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(24, 24, 24, 0.96));
+    --dlux-document-form-border: rgba(255, 255, 255, 0.1);
+    --dlux-document-form-border-strong: rgba(var(--primal-rgb), 0.36);
+    --dlux-document-form-focus-ring: rgba(var(--primal-rgb), 0.16);
+    --dlux-document-form-muted: #cbd5e1;
 }
 
 :root.theme-dark .form-control,
@@ -341,14 +344,17 @@
 :root.theme-dark .dlux-form .form-control,
 :root.theme-dark .dlux-form .form-select,
 :root.theme-dark .dlux-form textarea,
-:root.theme-dark .archive-document-form .form-control,
-:root.theme-dark .archive-document-form .form-select,
-:root.theme-dark .archive-document-form textarea,
+:root.theme-dark .dlux-document-form .form-control,
+:root.theme-dark .dlux-document-form .form-select,
+:root.theme-dark .dlux-document-form textarea,
 :root.theme-dark .dlux-filter .form-control,
 :root.theme-dark .dlux-filter .form-select,
-:root.theme-dark .dlux-filter textarea {
-    background: var(--archive-form-surface) !important;
-    border-color: var(--archive-form-border) !important;
+:root.theme-dark .dlux-filter textarea,
+:root.theme-dark .archive-document-form .form-control,
+:root.theme-dark .archive-document-form .form-select,
+:root.theme-dark .archive-document-form textarea {
+    background: var(--dlux-document-form-surface) !important;
+    border-color: var(--dlux-document-form-border) !important;
     color: var(--title) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
 }
@@ -356,29 +362,35 @@
 :root.theme-dark .dlux-form .form-control:hover,
 :root.theme-dark .dlux-form .form-select:hover,
 :root.theme-dark .dlux-form textarea:hover,
-:root.theme-dark .archive-document-form .form-control:hover,
-:root.theme-dark .archive-document-form .form-select:hover,
-:root.theme-dark .archive-document-form textarea:hover,
+:root.theme-dark .dlux-document-form .form-control:hover,
+:root.theme-dark .dlux-document-form .form-select:hover,
+:root.theme-dark .dlux-document-form textarea:hover,
 :root.theme-dark .dlux-filter .form-control:hover,
 :root.theme-dark .dlux-filter .form-select:hover,
-:root.theme-dark .dlux-filter textarea:hover {
+:root.theme-dark .dlux-filter textarea:hover,
+:root.theme-dark .archive-document-form .form-control:hover,
+:root.theme-dark .archive-document-form .form-select:hover,
+:root.theme-dark .archive-document-form textarea:hover {
     border-color: rgba(var(--primal-rgb), 0.24) !important;
 }
 
 :root.theme-dark .dlux-form .form-control:focus,
 :root.theme-dark .dlux-form .form-select:focus,
 :root.theme-dark .dlux-form textarea:focus,
-:root.theme-dark .archive-document-form .form-control:focus,
-:root.theme-dark .archive-document-form .form-select:focus,
-:root.theme-dark .archive-document-form textarea:focus,
+:root.theme-dark .dlux-document-form .form-control:focus,
+:root.theme-dark .dlux-document-form .form-select:focus,
+:root.theme-dark .dlux-document-form textarea:focus,
 :root.theme-dark .dlux-filter .form-control:focus,
 :root.theme-dark .dlux-filter .form-select:focus,
-:root.theme-dark .dlux-filter textarea:focus {
+:root.theme-dark .dlux-filter textarea:focus,
+:root.theme-dark .archive-document-form .form-control:focus,
+:root.theme-dark .archive-document-form .form-select:focus,
+:root.theme-dark .archive-document-form textarea:focus {
     background: linear-gradient(180deg, rgba(38, 38, 38, 0.98), rgba(24, 24, 24, 0.96)) !important;
-    border-color: var(--archive-form-border-strong) !important;
+    border-color: var(--dlux-document-form-border-strong) !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.03),
-        0 0 0 0.22rem var(--archive-form-focus-ring) !important;
+        0 0 0 0.22rem var(--dlux-document-form-focus-ring) !important;
 }
 
 :root.theme-dark .dlux-filter .btn.dlux-filter-toggle[aria-expanded="true"] {
@@ -429,8 +441,6 @@
     opacity: 1 !important;
 }
 
-:root.theme-dark .archive-form-action,
-:root.theme-dark .dlux-form-action,
 :root.theme-dark .dlux-filter .dlux-filter-chip,
 :root.theme-dark .dlux-filter .dlux-filter-action {
     border-color: rgba(255, 255, 255, 0.1) !important;
@@ -451,10 +461,6 @@
     background: linear-gradient(180deg, rgba(38, 40, 46, 0.98), rgba(24, 26, 31, 0.96)) !important;
 }
 
-:root.theme-dark .archive-form-action:hover,
-:root.theme-dark .archive-form-action:focus-visible,
-:root.theme-dark .dlux-form-action:hover,
-:root.theme-dark .dlux-form-action:focus-visible,
 :root.theme-dark .dlux-filter .dlux-filter-chip:hover,
 :root.theme-dark .dlux-filter .dlux-filter-chip:focus-visible,
 :root.theme-dark .dlux-filter .dlux-filter-action:hover,
@@ -463,21 +469,12 @@
     box-shadow: none !important;
 }
 
-:root.theme-dark .archive-form-action-icon,
-:root.theme-dark .dlux-form-action-icon,
 :root.theme-dark .dlux-filter .dlux-filter-action i {
     color: var(--title) !important;
 }
 
-:root.theme-dark .archive-form-action-primary .archive-form-action-icon,
-:root.theme-dark .dlux-form-action-primary .dlux-form-action-icon,
 :root.theme-dark .dlux-filter .dlux-filter-action.btn-primary {
     color: #d1fae5 !important;
-    border-color: rgba(25, 135, 84, 0.24) !important;
-    background: linear-gradient(180deg, rgba(23, 54, 41, 0.98), rgba(18, 34, 28, 0.96)) !important;
-}
-
-:root.theme-dark .dlux-form-action-primary {
     border-color: rgba(25, 135, 84, 0.24) !important;
     background: linear-gradient(180deg, rgba(23, 54, 41, 0.98), rgba(18, 34, 28, 0.96)) !important;
 }
@@ -496,18 +493,6 @@
     background: linear-gradient(180deg, rgba(33, 44, 67, 0.98), rgba(21, 27, 41, 0.96)) !important;
 }
 
-:root.theme-dark .archive-form-action-neutral .archive-form-action-icon,
-:root.theme-dark .dlux-form-action-neutral .dlux-form-action-icon {
-    color: #fecaca !important;
-    background: rgba(220, 53, 69, 0.18) !important;
-}
-
-:root.theme-dark .dlux-form-action-neutral {
-    border-color: rgba(220, 53, 69, 0.18) !important;
-    background:
-        radial-gradient(circle at top, rgba(220, 53, 69, 0.1), transparent 56%),
-        linear-gradient(180deg, rgba(58, 28, 32, 0.98), rgba(35, 21, 24, 0.96)) !important;
-}
 
 :root.theme-dark .dlux-filter .btn.dlux-filter-clear.btn-warning {
     color: #fbd38d !important;
@@ -652,7 +637,7 @@
 :root.theme-dark .btn-primary:active,
 .theme-dark .btn-primary,
 .theme-dark .btn-primary * {
-    color: var(--body) !important; /* Force Theme Dark color for text and icons */
+    color: var(--on-primal) !important;
 }
 
 /* 6. Sidebar Active State & Scrollbar */
@@ -959,7 +944,7 @@
 
 :root.theme-dark .bi-three-dots,
 :root.theme-dark .bi-three-dots-vertical,
-:root.theme-dark .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-dark .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: #e9ecef !important;
 }
 
@@ -1025,7 +1010,7 @@
 :root.theme-dark .pagination .page-item.active .page-link {
     background-color: var(--primal) !important;
     border-color: var(--primal) !important;
-    color: #fff !important;
+    color: var(--on-primal) !important;
 }
 
 :root.theme-dark .pagination .page-item.disabled .page-link {

@@ -206,7 +206,9 @@ class UtilsTests(TestCase):
         with patch('dlux.utils.settings.sys.argv', ['manage.py', 'test']):
             dlux_settings(scope)
 
-        self.assertIs(scope['CACHES'], shared_cache)
+        # The project's own cache stays; only its client is made to fail fast.
+        self.assertEqual(scope['CACHES']['default']['LOCATION'], 'redis://redis:6379/15')
+        self.assertNotIn('LocMem', scope['CACHES']['default']['BACKEND'])
 
     def test_dlux_settings_accepts_an_explicit_compatible_middleware(self):
         scope = {

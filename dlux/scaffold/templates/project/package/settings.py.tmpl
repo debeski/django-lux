@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import logging
 from urllib.parse import urlparse
-from csp.constants import SELF, UNSAFE_EVAL, UNSAFE_INLINE
+from csp.constants import NONCE, SELF, UNSAFE_INLINE
 from dlux.system.constants import SCANLINK_CONNECT_ORIGINS
 from dlux.utils import get_project_version, get_secret, dlux_settings
 
@@ -69,7 +69,7 @@ USE_X_FORWARDED_HOST = True
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = "dlux.cache_sessions"  # Django's cache sessions, kept through a cache outage
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
@@ -133,8 +133,10 @@ CACHES = {
         "LOCATION": os.getenv("REDIS_URL_DB", "redis://redis:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SOCKET_CONNECT_TIMEOUT": 5,
-            "SOCKET_TIMEOUT": 20,
+            # dlux_settings() caps both at DLUX_CACHE_SOCKET_TIMEOUT and adds a
+            # circuit breaker; DLUX_CACHE_FAIL_FAST = False keeps this as written.
+            "SOCKET_CONNECT_TIMEOUT": 2,
+            "SOCKET_TIMEOUT": 2,
             "CONNECTION_POOL_KWARGS": {"max_connections": 50},
         },
     }
@@ -170,7 +172,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "webmast
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {
         "default-src": [SELF],
-        "script-src": [SELF, UNSAFE_INLINE, UNSAFE_EVAL],
+        # Scripts come from this site, or inline with nonce="{{ request.csp_nonce }}".
+        # No 'unsafe-inline' or 'unsafe-eval': DjangoLux needs neither.
+        "script-src": [SELF, NONCE],
         "style-src": [SELF, UNSAFE_INLINE],
         "img-src": [SELF, "data:", "blob:"],
         "font-src": [SELF, "data:"],

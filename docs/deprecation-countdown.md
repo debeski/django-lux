@@ -13,11 +13,11 @@ DjangoLux runs none of its own work on Celery: its tasks run on `dlux_worker`
   `tasks.celery_deprecated` warns while a project has a Celery app, beat entries
   or `CELERY_BROKER_URL`. A stack migrated by `./start.sh check --fix` keeps a
   project-only `celery` service for the project's own tasks.
-- **1.17.0:** generated stacks stop installing Celery. A project that still uses
+- **1.18.0:** generated stacks stop installing Celery. A project that still uses
   it is warned to move to `@dlux.taskrunner.task` and `DLUX_TASK_SCHEDULE`
   ([Moving project tasks from Celery](task-runner.md#moving-project-tasks-from-celery)).
 
-Compatibility kept until **1.17.0**:
+Compatibility kept until **1.18.0**:
 - `dlux_settings()` still defines `CELERY_BEAT_SCHEDULE` (as a dict without
   DjangoLux's entries) for projects that add their own beat entries to it after
   the call.
@@ -31,6 +31,18 @@ Compatibility kept until **1.17.0**:
 Task names stay `dlux.tasks.*`. The stored config keys `use_celery` (backups)
 and `backup_use_celery` (reports) keep their names; they switch background
 builds on the task worker.
+
+### The `docker-socket-proxy` service
+
+Generated stacks have no `docker-socket-proxy`: `composer-executor` answers
+`composer-agent`'s Docker reads, and the proxy's container inspect would hand the
+agent every service's environment. The stack contract lists it under
+`removed_services` and tolerates its read-only socket mount
+(`invariants.docker_socket.tolerated`) on stacks that still run it. Composer's
+`./start.sh check` warns about it (`docker-proxy`), and `./start.sh check --fix`
+removes its container and its service from the generated Composer block.
+- **1.18.0:** the tolerance ends. A proxy still in the stack is a contract
+  violation.
 
 ### Homepage settings aliases
 
@@ -84,6 +96,25 @@ that include it; remove the include. Removed in v2.0.
 
 Composer 1.9.1b1 (wrapper 5) replaces `./start.sh self update` with `./start.sh update self`, and a plain `./start.sh update` now refreshes the deployer before the stack. `self update` stays as a deprecated alias that prints a pointer to `update self`. DjangoLux keeps showing `./start.sh self update` to stacks whose Composer is too old for an operation (`dlux.updater.ops`, `dlux.relay`, `dlux_relay`, `dlux_ops_composer_behind_host`), because those stacks' wrappers and Composer do not know `update self`. Remove the alias, and switch that guidance to `update self`, only once DjangoLux's Composer floor is at least 1.9.1 and wrapper 5 has been out through one stable cycle; target v2.0.
 
+### Archive form class names
+
+The document-form and form-card classes kept the names they had in `project-archive`. Their
+DjangoLux names are canonical; the old names select the same rules until they are removed in
+**v1.19.0**:
+
+| Deprecated | Use |
+| --- | --- |
+| `.archive-form-actions` | `.dlux-form-cards` |
+| `.archive-form-action`, `-icon`, `-copy`, `-title`, `-meta`, `-primary`, `-secondary`, `-neutral` | `.dlux-form-card`, with the same suffixes |
+| `.archive-document-form` | `.dlux-document-form` |
+| `.archive-checkbox-field` | `.dlux-checkbox-field` |
+
+The `--archive-form-*` custom properties are renamed to `--dlux-document-form-*` without an alias;
+no project set them. `project-archive` (`documents/forms.py`, `documents/modals.py`, the
+`document_modal.html`, `incoming_list.html` and `partials/checkbox_field.html` templates, and its
+modal CSS) and `project-decrees` (`documents/forms.py`, `documents/css/overrides.css`) still use the
+old classes and must move to the new names before v1.19.0.
+
 ### Raw `ImageField` for project images
 
 As of v1.8.4 a model image or font belongs in the asset library through
@@ -101,6 +132,15 @@ old one and adopting the stored file on first save; `SystemSettings.logo` and
 An avatar is one person's, not a reusable library file, and nothing else should
 be able to pick it — putting it in a shared, de-duplicating library would be the
 wrong shape even before the permission question of a user editing their own row.
+
+### `'unsafe-inline'` and `'unsafe-eval'` in a project's `script-src`
+
+Generated projects send a nonce-only `script-src` (`[SELF, NONCE]`). A project
+whose `CONTENT_SECURITY_POLICY` still allows `'unsafe-inline'` or `'unsafe-eval'`
+for scripts gets system check warning `dlux.W201`. In **v1.20.0** the warning
+becomes an error, so `manage.py check` and the deploy fail until the policy is
+nonce-only. Move inline scripts and handlers as
+[Content Security Policy](security-dsrp-1.md#content-security-policy) describes.
 
 ## Removed in v1.8.0
 

@@ -444,7 +444,9 @@ for the pattern that catches a whitelist drop.
 2. **Wrong/missing step index in `clean_<name>`** — `_clean_preserved_toggle` needs
    the correct 0-indexed step. A checkbox is absent from POST both when unchecked
    *and* when another step is being saved; without preservation the second case
-   writes `False`. Use the helper, pass the right index.
+   writes `False`. Use the helper, pass the right index: the step whose block in
+   `layout.py` renders the field. `dlux/tests/test_settings_step_anchors.py` fails
+   when a toggle, choice or text helper names any other step.
 3. **Tests that bypass the save path** — setting `layout_config` directly and
    asserting behavior tests nothing about persistence. It passes while the real
    feature is broken (it cannot see trap 1). Drive tests through

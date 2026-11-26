@@ -59,6 +59,9 @@
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
+        const policyNote = root.querySelector('[data-dlux-update-policy-note]');
+        const degradedNote = root.querySelector('[data-dlux-update-degraded]');
+        const degradedReason = root.querySelector('[data-dlux-update-degraded-reason]');
         // What the installed release said about itself. Its own control, because
         // the review modal is about the release you have NOT installed yet.
         const notesButton = root.querySelector('[data-dlux-release-notes]');
@@ -85,6 +88,8 @@
         const progressBar = modalElement?.querySelector('[data-dlux-update-progress-bar]');
         const progressStatus = modalElement?.querySelector('[data-dlux-update-progress-status]');
         const progressLog = modalElement?.querySelector('[data-dlux-update-progress-log]');
+        const warningsBox = modalElement?.querySelector('[data-dlux-update-warnings]');
+        const warningsList = modalElement?.querySelector('[data-dlux-update-warnings-list]');
         const submit = modalElement?.querySelector('[data-dlux-update-submit]');
         const failedWarning = modalElement?.querySelector('[data-dlux-update-failed-warning]');
         const failedAck = modalElement?.querySelector('[data-dlux-update-failed-ack]');
@@ -333,6 +338,7 @@
                 dismissAction.classList.add('btn-secondary');
             }
             if (progressLog) progressLog.textContent = '';
+            renderDeployWarnings([]);
             if (progressBar) {
                 progressBar.style.width = '100%';
                 progressBar.classList.add('progress-bar-animated');
@@ -382,26 +388,47 @@
             showImageFinished();
         }
 
+        // Composer's deploy-status `warnings`: already redacted, one line each.
+        function renderDeployWarnings(warnings) {
+            if (!warningsBox || !warningsList) return;
+            const items = Array.isArray(warnings) ? warnings.filter((item) => typeof item === 'string' && item) : [];
+            warningsList.replaceChildren(...items.map((item) => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                return li;
+            }));
+            warningsBox.hidden = items.length === 0;
+        }
+
         function finishImageNotice() {
             if (!imageUpdate || imageActive(imageUpdate)) return;
             const terminal = imageUpdate.status === 'completed' || imageUpdate.status === 'failed';
             if (!terminal) return;
             const succeeded = imageUpdate.status === 'completed';
+            const warnings = Array.isArray(imageUpdate.warnings) ? imageUpdate.warnings : [];
+            const warned = succeeded && warnings.length > 0;
+            const completedLabel = warned
+                ? (root.dataset.labelImageCompletedWarnings || 'Image update completed with warnings')
+                : (root.dataset.labelCompleted || 'Completed');
             if (lastImageNotice !== imageUpdate.token && window.showToast) {
                 lastImageNotice = imageUpdate.token;
                 window.showToast(
-                    succeeded ? (root.dataset.labelCompleted || 'Completed')
-                        : (imageUpdate.error || root.dataset.labelFailed || 'Failed'),
-                    succeeded ? 'success' : 'error',
+                    succeeded ? completedLabel : (imageUpdate.error || root.dataset.labelFailed || 'Failed'),
+                    succeeded ? (warned ? 'warning' : 'success') : 'error',
                 );
             }
             if (progressPanel && !progressPanel.hidden) {
                 if (progressBar) {
                     progressBar.classList.remove('progress-bar-animated');
-                    progressBar.classList.toggle('bg-success', succeeded);
+                    progressBar.classList.toggle('bg-success', succeeded && !warned);
+                    progressBar.classList.toggle('bg-warning', warned);
                     progressBar.classList.toggle('bg-danger', !succeeded);
                 }
-                if (progressStatus) progressStatus.textContent = imageStatusLabel(imageUpdate.status);
+                if (progressStatus) {
+                    progressStatus.textContent = warned ? completedLabel
+                        : (!succeeded && imageUpdate.error ? String(imageUpdate.error) : imageStatusLabel(imageUpdate.status));
+                }
+                renderDeployWarnings(warnings);
             }
         }
 
@@ -428,6 +455,7 @@
                 progressLog.textContent = logText;
                 progressLog.scrollTop = progressLog.scrollHeight;
             }
+            renderDeployWarnings(doc && doc.warnings);
         }
 
         // Poll the proxy-served deploy status/log (works whether or not web is up).
@@ -626,9 +654,33 @@
             skippedWrap.classList.remove('d-none');
         }
 
+        function renderPolicy(policy) {
+            if (!policyNote) return;
+            const data = root.dataset;
+            const lines = [];
+            if (policy.configured_valid === false) lines.push(data.labelPolicyInvalid);
+            if (policy.policy === 'inline') lines.push(data.labelPolicyInline);
+            if (policy.policy === 'none') lines.push(data.labelPolicyNone);
+            if (policy.mismatch) {
+                lines.push(String(data.labelPolicyMismatch || '')
+                    .replace('{web}', policy.configured || '')
+                    .replace('{resident}', policy.resident || ''));
+            }
+            if (policy.resident_unenforced) lines.push(data.labelPolicyUnenforced);
+            policyNote.textContent = lines.filter(Boolean).join(' ');
+            policyNote.hidden = !policyNote.textContent;
+        }
+
+        // Reconcile's reason is server text in English; the lead-in is translated.
+        function renderDegraded() {
+            if (degradedReason) degradedReason.textContent = state.degraded ? String(state.degraded_reason || '') : '';
+            if (degradedNote) degradedNote.hidden = !state.degraded;
+        }
+
         function render(nextState, run) {
             state = nextState || state;
             if (!state) return;
+            renderDegraded();
             renderSkipped(state.skipped_versions);
             renderChannel();
             renderInterval();
@@ -641,6 +693,12 @@
                 setRootStatus(state.last_check_error);
             }
             const imageAvailable = Boolean(state.image_update_available);
+            // The deployment's update policy: the rows keep their versions and
+            // targets, and lose only the buttons it refuses.
+            const policy = state.update_policy || {};
+            const inlineRefused = policy.allows_inline === false;
+            const imageRefused = policy.allows_image === false;
+            renderPolicy(policy);
             // A locally built image cannot be compared with the registry's, so it is
             // neither "up to date" nor "behind": say what it is.
             const localBuild = Boolean((state.image || {}).local_build) && !imageAvailable;
@@ -650,21 +708,26 @@
             // down-arrow review icon takes its place); rollback icon if a
             // previous version exists.
             const checkedOnce = Boolean(state.last_checked_at);
-            const fwOk = checkedOnce && !updateAvailable && !state.last_check_error;
+            const degraded = Boolean(state.degraded);
+            const fwOk = checkedOnce && !updateAvailable && !state.last_check_error && !degraded;
             if (checkButton) {
-                checkButton.hidden = updateAvailable;
+                checkButton.hidden = updateAvailable && !inlineRefused;
                 checkButton.classList.toggle('is-ok', fwOk);
+                checkButton.classList.toggle('dlux-upd-ic--warn', degraded);
                 // Looked up each time, never kept: the loading-button helper swaps
                 // the icon for a spinner while a check runs and rebuilds the button
                 // when it stops, so an element found at page load is a detached
                 // node by the time the tick is due (the row stayed an arrow until
                 // the page was reloaded).
                 const checkGlyph = checkButton.querySelector('[data-dlux-check-glyph]');
-                if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
+                if (checkGlyph) {
+                    checkGlyph.className = degraded ? 'bi bi-exclamation-triangle-fill'
+                        : (fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise');
+                }
                 withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
             if (reviewButton) {
-                reviewButton.hidden = !updateAvailable;
+                reviewButton.hidden = !updateAvailable || inlineRefused;
                 withCheckTime(reviewButton, reviewButton.dataset.titleBase, state.last_checked_at);
             }
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
@@ -725,9 +788,10 @@
                     imageTargetEl.hidden = true;
                 }
             }
-            if (imageOkEl) imageOkEl.hidden = imageAvailable || imgActive;
-            if (imageCheckButton) imageCheckButton.hidden = imageAvailable || imgActive;
-            if (imageButton) imageButton.hidden = !imageAvailable;
+            const imageOffered = imageAvailable && !imageRefused;
+            if (imageOkEl) imageOkEl.hidden = imageOffered || imgActive;
+            if (imageCheckButton) imageCheckButton.hidden = imageOffered || imgActive;
+            if (imageButton) imageButton.hidden = !imageOffered;
             const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);
             if (checkButton) checkButton.disabled = running || checkBusy;

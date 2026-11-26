@@ -45,7 +45,10 @@ The value is the container's environment, fixed when the container was created.
 After `composer check --fix` restamps compose.yml (the schema 3 maintenance-page
 move, for one), `web` keeps reporting the old number until it is recreated —
 from the Operations panel's **Recreate**, or `./start.sh` — which is why the
-warning names that first.
+warning names that first. The restamp of every stamp in a file requires
+Composer 1.11.0 or later. An older Composer restamps only the first stamp, so a
+compose.yml that carries a `# dlux stack schema N` comment as well as
+`DLUX_STACK_SCHEMA` keeps the old value; the warning says to set it by hand.
 
 It never reports `error`. A mismatch means the stack files need the changes
 below, not that the site is down. The doctor cannot read the other stamped files

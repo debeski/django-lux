@@ -58,11 +58,11 @@ python -m dlux startapp billing --register
 
 The generated project already includes a Docker baseline, a `worker` service
 running DjangoLux's [Task Runner](task-runner.md) (`dlux_worker`), outbound-only
-`composer-agent`, isolated `composer-executor`, and read-only
-`docker-socket-proxy` services, persistent `dlux_runtime` and private agent-state
+`composer-agent` and isolated `composer-executor` services, persistent `dlux_runtime` and private agent-state
 volumes, a Caddy proxy (nginx fallback) with a maintenance/progress page, a `/health/` endpoint, a generated
 `.secrets/.env` file with the bootstrap secret values, baseline
-`django-cors-headers` / `django-csp` setup in `config/settings.py`, and a
+`django-cors-headers` / `django-csp` setup in `config/settings.py` (a nonce-only
+`script-src`, see [Content Security Policy](security-dsrp-1.md#content-security-policy)), and a
 tag-driven release pipeline (`release-manifest.json`,
 `.github/workflows/release.yml`, and `tools/validate_project_release_manifest.py`).
 It has no Celery: declare the project's own background work with

@@ -11,8 +11,8 @@ This architecture applies only to generated Compose stacks. It requires:
 
 - Docker Compose 5.3.0 or later, for the `pre_start` init containers (the stack
   contract records it as `minimum_compose_version`);
-- the Composer service topology (`composer-agent`, `composer-executor` and
-  `docker-socket-proxy`) running as services in the deployment, at or above the
+- the Composer service topology (`composer-agent` and `composer-executor`)
+  running as services in the deployment, at or above the
   Composer version the running release declares in `requires.services.composer`;
 - a writable `dlux_runtime` volume for the state owner, `worker`; and
 - stack schema 5, whose `worker` service runs DjangoLux's
@@ -44,6 +44,61 @@ There is no in-container executor: `DLUX_UPDATE_EXECUTOR` is ignored (see
 [Deprecation Countdown](deprecation-countdown.md#in-container-update-executor)),
 and a deployment without Composer gets a card that reports it rather than a
 fallback.
+
+## Which updates a deployment allows
+
+`DLUX_UPDATE_POLICY` in `.secrets/.env` names the update paths a deployment
+allows. An operator who ships images from their own pipeline sets `inline` and
+keeps DjangoLux runtime updates on the card while every image and Composer update
+comes from the server.
+
+| Path | `all` (default) | `inline` | `none` |
+| --- | --- | --- | --- |
+| DjangoLux inline update | allowed | allowed | refused |
+| Application image update (card or control link) | allowed | refused | refused |
+| Composer update (`agent-update`) | allowed | refused | refused |
+| Control-link recovery deploy (a full `composer update`) | allowed | refused | refused |
+| Update checks, `agent-check`, the deployment check, inline rollback | allowed | allowed | allowed |
+| The operator's own `./start.sh update` and `./start.sh agent update` | allowed | allowed | allowed |
+
+An empty value means `all`. Any other value counts as `none` and the doctor warns,
+so a typo never allows more than was meant. `DLUX_INLINE_UPDATES_ENABLED` stays a
+separate switch: it says whether this deployment has the inline updater at all,
+and the policy narrows what it may do. Generated stacks set the switch on in
+`compose.yml`, so the policy is the setting an operator changes.
+
+Both sides refuse. DjangoLux refuses when the request is made (the card, the
+control link, the Operations run) and again when the worker would hand a queued
+request over, so a request made before the policy changed neither backs up nor
+enters maintenance. Composer 1.11.0 or later refuses the same requests on the
+resident pair, which `web` cannot reconfigure: a compromised `web` that writes the
+image trigger or an `agent-update` request directly gets a refusal, not a deploy.
+
+The generated `compose.yml` passes `DLUX_UPDATE_POLICY: "${DLUX_UPDATE_POLICY:-all}"`
+to `web` and `worker` (through the shared environment block) and to
+`composer-agent` and `composer-executor`. `./start.sh check --fix` adds the
+mapping to an existing stack.
+
+### When the application and the resident pair disagree
+
+The pair reads the policy when it is created, so after an edit to
+`.secrets/.env` it enforces the old value until it is recreated.
+The agent reports the policy it enforces in `agent/agent-status.json`, and
+DjangoLux applies the **stricter** of that value and its own, because that is what
+Composer refuses anyway. The Updates card and `dlux_doctor`
+(`updater.update_policy`) then warn with both values; run `./start.sh` on the
+server, and Composer recreates the pair with the secrets file's value.
+
+A resident Composer older than 1.11.0 reports no policy. While the application
+restricts updates, the card and the doctor warn that the pair does not enforce
+it: only DjangoLux refuses, which does not hold against a compromised `web`.
+
+### What the Updates card shows
+
+The rows keep their versions and update targets. Under `inline` the application
+image and Composer rows lose their update buttons; under `none` the DjangoLux
+row loses its review button too. Checks and rollback stay. A note under the rows
+names the policy, and any mismatch.
 
 ## Deployment architecture
 
@@ -81,7 +136,9 @@ container that must exit 0 before `worker` starts:
 1. `dlux_reconcile` repairs the runtime pointer. When a volume release is not
    strictly newer than the release baked into the image, it points the runtime
    back at the image. It touches only the volume, never the database, and always
-   exits 0, so it cannot block startup.
+   exits 0, so it cannot block startup. When the image is below the active release's floor it
+   says so on stderr and leaves the pointer alone (see
+   [When the image is below the release floor](#when-the-image-is-below-the-release-floor)).
 2. `migrator` applies migrations and collects static assets.
 
 Both run under the runtime supervisor (`python -m dlux.updater.supervisor
@@ -302,10 +359,28 @@ versions the Options card reports, and finishes the run:
 
 | Composer's answer | The run |
 | --- | --- |
-| exit 0 | completed |
+| exit 0, and the check below passes | completed |
+| exit 0, and the check below fails | failed, naming what is active and what runs |
 | rolled back (from Composer's own result in `deploy-status.json`) | rolled back, with Composer's message |
 | exit 3 | failed: the rollback was not healthy either, and the deployment needs an operator |
 | any other exit | failed, with Composer's message or the exit code |
+
+An exit 0 is checked before the run is reported complete:
+
+1. The active release (`state/active.json`, as the supervisor serves it) must be
+   the run's target for an apply, and must have moved off the source release for
+   a rollback. Otherwise the run fails at once: reconcile has kept or restored
+   another release, for example a newer one baked into the image, or one the
+   image is too old to run.
+2. The worker running the tick and `web` must both report that release. The worker
+   reads its own `dlux.__version__`; `web` answers a signed request to
+   `/sys/api/dlux-update/runtime-health/` at `DLUX_UPDATE_WEB_URL`
+   (`http://web:8000` on a generated stack). A process still on the old release is
+   waited for, tick by tick, for up to 3 minutes; then the run fails, naming it.
+   When `web` cannot be asked at all (no address, or no answer), the run log says
+   so and the check rests on the worker.
+
+The run report records `active_version`, `worker_version` and `web_version`.
 
 Reading the ack is also where the now-active release's static files are collected
 (`collectstatic --noinput --clear`, with the release on `PYTHONPATH`). Composer's
@@ -388,6 +463,15 @@ runtime volume (`proxy/maintenance/`).
   turns the bar green and the dismiss button into **Finish**; closing the modal
   then reloads the page, because the page that starts an update runs the release
   it was loaded with. A failure unlocks the modal with the error.
+- Composer can add `warnings` to `deploy-status.json`: a list of redacted
+  one-line strings, repeated in every status written after the warning arose. The
+  state tick copies each one, once, into the update's progress log as a
+  `Composer warning: …` line, where it outlives the next deploy's status. The
+  update's JSON (`image_update`, and `state.image.last_update` on the card) carries
+  them as `warnings`. The modal lists them under **Composer reported** while the
+  update runs and when it ends. A completed update with warnings reads
+  **Image update completed with warnings**, with an amber bar and a warning toast;
+  a failed one shows its error and the warnings together.
 - The maintenance page treats every end state (`ready`, `completed`,
   `rolled_back`, `failed`) as a reason to probe the URL it is shown at, and reloads
   that URL once the app answers.
@@ -412,6 +496,32 @@ reconcile rewrites the file with the baked version and the same generation. It i
 a label correction, not a new runtime; without it Composer would call the
 deployment up to date with a release it is not running, and offer no update.
 
+### When the image is below the release floor
+
+A volume release carries only DjangoLux; everything it imports comes from the
+image. Its manifest's `requires.baked_image` names the oldest baked DjangoLux it
+runs on. When the image is older than that (an application image rolled back under
+it), the supervisor does not put the release on `PYTHONPATH`: `web`, `worker` and
+`manage.py` run the baked package instead, and each process prints one
+`dlux runtime: …` line on stderr naming the release, its floor and the baked
+version. `RuntimeStore.read_active()` reports the baked package as active, with
+`held` naming the release and the reason, and reconcile marks the Updates card
+degraded with that reason. The worker's health file is not written, because the
+baked package is healthy.
+
+`state/active.json` is left as it is. Deploying an image that meets the floor
+serves the release again on the next start, and reconcile clears the degraded
+mark; rolling the runtime back is the other way out.
+
+This decision is made by the image's own supervisor, so it protects images that
+bake DjangoLux 1.17.0 or later. An older image runs its own supervisor, which
+does not check the floor; Composer 1.11.0 or later refuses that downgrade before it starts the containers,
+unless the deploy is run with `--force`. On such an image the release runs anyway,
+below its floor. Reconcile still marks the card degraded, and its reason, the
+`dlux_reconcile` line and the doctor say that the image's supervisor predates the
+floor check, so the release runs on an image below its floor. The remedy is the
+same: deploy an image that meets the floor, or roll the runtime back.
+
 ### Moving to an image that bakes an older DjangoLux
 
 The active release lives on the runtime volume and is what the supervisor puts on
@@ -431,7 +541,8 @@ returns JSON:
   running on the new image.
 - `abort`: the image predates a DjangoLux release that required an image rebuild,
   so the active release cannot run on it. Update the project image past that floor
-  first.
+  first. The floor is read from the active release's own manifest on the
+  runtime volume.
 
 Composer 1.3.13 or later asks this before recreating onto a new image: it
 proceeds on `keep`, blocks on `abort` (quoting the reason), and blocks on its label
@@ -459,6 +570,12 @@ which reconcile reads from that release's package (see
 release without notes offers no icon. Each row's icons carry that component's own
 last check in their tooltip; there is no shared "last check" line.
 
+While the update state is degraded (`degraded` and `degraded_reason` in
+`/sys/api/dlux-update/state/`), the DjangoLux row's status icon is a warning instead
+of a tick, and a line under the rows reads "DjangoLux is degraded." followed by
+reconcile's reason, such as an image below the release floor. The line goes away
+when reconcile clears the mark.
+
 The Composer agent row has one icon that checks, a second that appears only when
 the channel publishes a newer Composer, and a tick when it does not. Updating the
 agent confirms with the current password through the shared password prompt.
@@ -478,10 +595,14 @@ the resident Composer agent reports its version. Day-to-day use is described in
 * **Deployment check**: Composer's doctor for the *outside* of the stack (a
   resident pair started with a command this Composer rejects, a missing
   `org.dlux.restart` label, an obsolete service, a legacy maintenance page). Its
-  findings and the exact diff `check --fix` would apply are shown inline,
-  including the maintenance-page move to stack schema 3, and **Apply repairs**
-  confirms with the password and may only apply that diff. Composer refuses if
-  any previewed file, the `.proxy/` files included, changed in between.
+  findings and every entry of the preview `check --fix` would apply are shown
+  inline: each entry's name and message, and its exact diff when it changes a
+  file, including the maintenance-page move to stack schema 3. The entries
+  without a diff say what else the apply does, such as `recreate-services` and
+  `remove-services`, which name the services it recreates or removes. **Apply
+  repairs** is offered when the preview has a diff, confirms with the password
+  and may only apply that preview. Composer refuses if any previewed file, the
+  `.proxy/` files included, changed in between.
 * **Services**: every Compose service with its state and health. Services the
   stack allow-lists (`COMPOSER_AGENT_RESTART_SERVICES`, never one labelled
   `org.dlux.restart: "protected"`) offer **Restart** and **Recreate**; recreating
@@ -716,11 +837,13 @@ is the canonical list of `DLUX_*` settings. The ones this page relies on:
 | Name | Default | Purpose |
 | --- | --- | --- |
 | `DLUX_INLINE_UPDATES_ENABLED` | `False` | Enables update checks and operator-approved apply and rollback. Generated `compose.yml` sets `True`; `compose.dev.yml` sets it back to `False` on `web` and `worker`, because development runs a bind-mounted checkout rather than an installed release. |
+| `DLUX_UPDATE_POLICY` | `all` | Which update paths the deployment allows: `all`, `inline` or `none` (see [Which updates a deployment allows](#which-updates-a-deployment-allows)). |
 | `DLUX_UPDATE_CHECK_INTERVAL` | `86400` (minimum `300`) | Seconds between the check runs DjangoLux queues itself. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | `/opt/dlux-runtime` | Where `dlux_runtime` is mounted. |
 | `DLUX_BOOT_GATE` | `on` | Entrypoint migration gate: `off`, `apply` or `on` (see [Boot and ownership](#boot-and-ownership)). |
 | `DLUX_MIGRATOR_FLAGS` | empty | Flags Composer passes to the `migrator` init step. |
 | `COMPOSER_AGENT_RESTART_SERVICES` | `web,worker,smtp-relay,caddy,ocr` in the scaffold | Services the Operations panel may restart and recreate. |
 | `COMPOSER_RUNTIME_GATE_SERVICE` | `web` | The service Composer asks for `dlux_image_gate`. |
+| `DLUX_UPDATE_WEB_URL` | `http://web:8000` on a generated stack | Where the worker asks `web` its running version before completing a run (see [What finishes a handed-off run](#what-finishes-a-handed-off-run)). |
 
 The update index is fixed to official PyPI and is not configurable.

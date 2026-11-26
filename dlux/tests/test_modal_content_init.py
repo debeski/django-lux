@@ -35,10 +35,11 @@ class ModalAnnouncesItsContentTests(TestCase):
         )
 
     def test_every_injection_site_announces(self):
-        # One per `modalBody.innerHTML = data.html` — the initial fetch and the
-        # re-render of a form that failed validation.
-        self.assertEqual(self.js.count('modalBody.innerHTML = data.html;'), 2)
-        self.assertEqual(self.js.count('notifyContentLoaded();'), 2)
+        # The initial fetch and the re-render of a form that failed validation both
+        # go through renderContent(), which injects, wires up and announces once.
+        self.assertEqual(self.js.count('renderContent(data.html, '), 2)
+        self.assertEqual(self.js.count('modalBody.innerHTML = html;'), 1)
+        self.assertEqual(self.js.count('notifyContentLoaded();'), 1)
 
     def test_announcement_follows_the_listeners_it_exists_for(self):
         for block in self.js.split('notifyContentLoaded();')[:-1]:

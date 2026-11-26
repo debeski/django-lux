@@ -21,6 +21,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from .middleware import get_current_request, get_current_user
+from .resilient_cache import safe_get, safe_set
 from .system.normalizers import normalize_notification_config
 
 
@@ -207,9 +208,9 @@ def _should_dedupe(event):
         'event_key': event.event_key,
     })
     cache_key = f'dlux:notification:dedupe:{key}'
-    if cache.get(cache_key):
+    if safe_get(cache_key, cache=cache):
         return True
-    cache.set(cache_key, True, timeout=2)
+    safe_set(cache_key, True, 2, cache=cache)
     return False
 
 

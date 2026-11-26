@@ -4,6 +4,7 @@ import copy
 from django.core.cache import cache
 from django.urls import NoReverseMatch, reverse
 
+from ..resilient_cache import safe_get, safe_set
 from .cache import SIDEBAR_CACHE_TIMEOUT, _sidebar_render_cache_key
 from .inference import _humanize, _normalize_permissions, _pick_sidebar_label
 from .merge import merge_sidebar_entries
@@ -171,7 +172,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
         return render_entries
 
     render_cache_key = _sidebar_render_cache_key(lang_code, sidebar, override_sidebar, user)
-    cached_navigation = cache.get(render_cache_key)
+    cached_navigation = safe_get(render_cache_key, cache=cache)
     if cached_navigation is None:
         catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)}
         render_entries = render_sidebar_entries(sidebar.get('entries', []) if isinstance(sidebar, dict) else [], catalog)
@@ -186,7 +187,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
             'sidebar': sidebar,
             'fallback_used': fallback_used,
         }
-        cache.set(render_cache_key, cached_navigation, timeout=SIDEBAR_CACHE_TIMEOUT)
+        safe_set(render_cache_key, cached_navigation, SIDEBAR_CACHE_TIMEOUT, cache=cache)
 
     cached_navigation = copy.deepcopy(cached_navigation)
     render_entries = cached_navigation.get('entries', [])

@@ -1935,7 +1935,7 @@ class SystemSettingsForm(
             field_name = f'login_hero_message_{lang_code}'
             lang_label = lang_meta.get('name', lang_code) if isinstance(lang_meta, dict) else str(lang_meta)
             lang_dir = lang_meta.get('dir', 'ltr') if isinstance(lang_meta, dict) else 'ltr'
-            placeholder = s.get('login_hero_placeholder', 'Welcome! Sign in to continue.')
+            placeholder = get_strings(lang_code).get('login_hero_placeholder', 'Welcome! Sign in to continue.')
             self.fields[field_name] = forms.CharField(
                 required=False,
                 initial=initial_hero.get(lang_code, ''),

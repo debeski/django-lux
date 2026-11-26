@@ -10,6 +10,11 @@
  * DluxDom.onAdded(selector, callback) calls back for every element matching
  * `selector` that is added to the document later, from a single observer that
  * filters by selector instead of each script rescanning the whole document.
+ *
+ * DluxDom.runScripts(root, response) runs the <script> tags that fetched markup
+ * put into `root`. A script that carries the nonce of the response it came in
+ * runs with this page's nonce; any other keeps its own, so a nonce-only policy
+ * blocks inline script that markup smuggled in.
  */
 (function () {
     'use strict';
@@ -146,7 +151,36 @@
         }
     }
 
-    window.DluxDom = { onAdded };
+    function responseNonce(response) {
+        const policy = (response && response.headers && response.headers.get('Content-Security-Policy')) || '';
+        const match = /'nonce-([^']+)'/.exec(policy);
+        return match ? match[1] : '';
+    }
+
+    function executable(script) {
+        const type = (script.getAttribute('type') || '').trim().toLowerCase();
+        return !type || type === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/.test(type);
+    }
+
+    function runScripts(root, response, skip) {
+        if (!root) return;
+        const delivered = responseNonce(response);
+        root.querySelectorAll('script').forEach((old) => {
+            if (!executable(old) || (skip && skip(old))) return;
+            const script = document.createElement('script');
+            Array.from(old.attributes).forEach((attr) => {
+                if (attr.name !== 'nonce') script.setAttribute(attr.name, attr.value);
+            });
+            const own = old.nonce || old.getAttribute('nonce') || '';
+            const trusted = delivered && own === delivered;
+            if (trusted && nonce) script.nonce = nonce;
+            else if (own) script.nonce = own;
+            if (!old.src) script.textContent = old.textContent;
+            old.parentNode.replaceChild(script, old);
+        });
+    }
+
+    window.DluxDom = { onAdded, runScripts };
 
     function scanPage() {
         ensure(document).catch(() => {});

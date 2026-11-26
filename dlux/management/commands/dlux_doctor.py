@@ -9,7 +9,9 @@ json` report with its own project-directory checks. That JSON is the contract
 between the two; see dlux/doctor.py.
 """
 import json
+import os
 import sys
+import threading
 
 from django.core.management.base import BaseCommand
 
@@ -29,6 +31,13 @@ _STATUS_MARK = {
 
 class Command(BaseCommand):
     help = 'Diagnose this DjangoLux deployment and optionally apply safe remediations'
+
+    #: Exit code when the process deadline fires. The dlux_check alias never gates.
+    deadline_exit_code = EXIT_PROBLEMS
+    _from_cli = False
+    # Django's system checks are the settings.django_checks finding instead: run
+    # before handle(), one error-level message stopped the doctor with no report.
+    requires_system_checks = []
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -51,9 +60,49 @@ class Command(BaseCommand):
             '--allow-stateful', action='store_true',
             help='With --apply, also run fixes that mutate the database (migrations)',
         )
+        parser.add_argument(
+            '--skip-checks', action='store_true',
+            help="Leave out Django's system checks (the settings.django_checks finding)",
+        )
+
+    def run_from_argv(self, argv):
+        self._from_cli = True
+        super().run_from_argv(argv)
+
+    def execute(self, *args, **options):
+        """The session spans the report and any --apply fixes."""
+        if self._from_cli and not options.get('apply'):
+            # Fixes (collectstatic, migrator) may take as long as they need and
+            # must never be cut off half-way; a report-only run always ends.
+            self._arm_process_deadline(options.get('format'))
+        with doctor.session() as run:
+            self._run = run
+            return super().execute(*args, **options)
+
+    def _arm_process_deadline(self, output_format):
+        def expire():
+            detail = (f'The doctor did not finish within {doctor.PROCESS_TIMEOUT} s, so it stopped. '
+                      'Something it waits on outside the timed checks is not answering.')
+            if output_format == 'json':
+                report = doctor.build_report([doctor.CheckResult(
+                    'doctor.deadline', 'doctor', 'The doctor finished in time', doctor.ERROR,
+                    detail, doctor.HUNG_REMEDY,
+                )])
+                sys.stdout.write(json.dumps(report, indent=2) + '\n')
+            sys.stderr.write(f'dlux_doctor: {detail}\n')
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(self.deadline_exit_code)
+
+        timer = threading.Timer(doctor.PROCESS_TIMEOUT, expire)
+        timer.daemon = True
+        timer.start()
 
     def handle(self, *args, **options):
-        report = doctor.run_checks(only_groups=set(options['groups'] or []) or None)
+        run = self._run
+        skip_ids = {doctor.DJANGO_CHECKS_ID} if options.get('skip_checks') else None
+        report = doctor.run_checks(only_groups=set(options['groups'] or []) or None, run=run,
+                                   skip_ids=skip_ids)
 
         applied = []
         if options['apply']:
@@ -62,7 +111,9 @@ class Command(BaseCommand):
                 allowed.add(doctor.STATEFUL)
             applied = self._apply(report, allowed, options['format'])
             if applied:
-                report = doctor.run_checks(only_groups=set(options['groups'] or []) or None)
+                run.fresh_pass()
+                report = doctor.run_checks(only_groups=set(options['groups'] or []) or None, run=run,
+                                   skip_ids=skip_ids)
                 report['applied_fixes'] = applied
 
         if options['format'] == 'json':
@@ -79,9 +130,20 @@ class Command(BaseCommand):
     def _apply(self, report, allowed, output_format):
         from django.core.management import call_command
 
+        ctx = self._run.ctx
         applied = []
         for check_id, fix in doctor.applicable_fixes(report, allowed):
             argv = fix['argv']
+            if fix['safety'] == doctor.STATEFUL and not ctx.cache_available:
+                # The fix would change settings the dead cache still holds; when
+                # it comes back it would serve the pre-fix values.
+                applied.append({
+                    'check': check_id,
+                    'argv': argv,
+                    'status': 'skipped',
+                    'error': f'the cache is unreachable ({ctx.cache_error}); fix the cache, then run --apply again',
+                })
+                continue
             if output_format == 'text':
                 self.stdout.write(self.style.MIGRATE_HEADING(f"→ {fix['label']} ({check_id})"))
             try:
@@ -120,6 +182,8 @@ class Command(BaseCommand):
             for record in applied:
                 if record['status'] == 'succeeded':
                     self.stdout.write(f"  {self.style.SUCCESS('✓')} {' '.join(record['argv'])}")
+                elif record['status'] == 'skipped':
+                    self.stdout.write(f"  {self.style.WARNING('-')} {' '.join(record['argv'])}: skipped, {record['error']}")
                 else:
                     self.stdout.write(f"  {self.style.ERROR('✗')} {' '.join(record['argv'])}: {record['error']}")
 

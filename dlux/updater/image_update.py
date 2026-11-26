@@ -23,6 +23,7 @@ from django.conf import settings
 from packaging.version import InvalidVersion, Version
 
 from . import UpdaterError, shared_files
+from . import policy as update_policy
 from .runtime import state_dir
 from .service import _state_model, active_runtime_version, updates_enabled
 
@@ -74,6 +75,34 @@ def read_deploy_status(store=None):
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+# The prefix a Composer deploy warning carries in an image update's progress
+# log, which is where it outlives the next deploy-status rewrite.
+DEPLOY_WARNING_PREFIX = "Composer warning: "
+DEPLOY_WARNING_MAX_CHARS = 1000
+
+
+def deploy_warnings(doc):
+    """The ``warnings`` list of a deploy-status document, as one-line strings."""
+    raw = doc.get("warnings") if isinstance(doc, dict) else None
+    if not isinstance(raw, list):
+        return []
+    found = []
+    for item in raw:
+        text = " ".join(str(item or "").split())[:DEPLOY_WARNING_MAX_CHARS]
+        if text and text not in found:
+            found.append(text)
+    return found
+
+
+def image_update_warnings(row):
+    """The Composer warnings recorded on an image update row, oldest first."""
+    return [
+        line[len(DEPLOY_WARNING_PREFIX):]
+        for line in str(getattr(row, "progress_log", "") or "").splitlines()
+        if line.startswith(DEPLOY_WARNING_PREFIX)
+    ]
 
 
 def read_composer_ack(store=None):
@@ -262,6 +291,7 @@ def image_status_summary(store=None):
             "error": last.error,
             "target": last.target_version,
             "completed_at": last.completed_at.isoformat() if last.completed_at else None,
+            "warnings": image_update_warnings(last),
         }
     return {
         "app_version": app_version(),
@@ -296,6 +326,7 @@ def serialize_image_update(row, *, store=None, include_log=False):
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
         "control_operation_id": str(row.control_operation_id or ""),
         "request_source": row.request_source,
+        "warnings": image_update_warnings(row),
     }
     if row.is_active:
         # Surface composer's live deploy status while an update is in flight.
@@ -304,6 +335,23 @@ def serialize_image_update(row, *, store=None, include_log=False):
         result["progress_log"] = row.progress_log
     return result
 
+
+
+def _active_release_floor(version, *, store=None):
+    """The image floor in the active volume release's own manifest, or "".
+
+    ``state.active_manifest`` holds only the release notes, so the floor is read
+    where the supervisor reads it.
+    """
+    from .runtime import RuntimeStore
+    from .supervisor import release_image_floor
+
+    try:
+        store = store or RuntimeStore(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"))
+        release = store.release_path(version)
+        return release_image_floor(release) if release.is_dir() else ""
+    except Exception:
+        return ""
 
 
 def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
@@ -374,8 +422,10 @@ def assess_image_candidate(baked_dlux_version, state=None, *, store=None):
         )
         return result
 
-    manifest = (getattr(state, "active_manifest", None) or {}) if state is not None else {}
-    baseline_text = str(manifest.get("image_baseline") or "").strip()
+    baseline_text = _active_release_floor(active_text, store=store)
+    if not baseline_text:
+        manifest = (getattr(state, "active_manifest", None) or {}) if state is not None else {}
+        baseline_text = str(manifest.get("image_baseline") or "").strip()
     result["image_baseline"] = baseline_text
     baseline = _version(baseline_text) if baseline_text else None
 
@@ -408,6 +458,8 @@ def queue_image_update(
 ):
     if not updates_enabled():
         raise UpdaterError("Inline DjangoLux updates are disabled for this project.")
+    if not update_policy.allows(update_policy.IMAGE_UPDATE):
+        raise UpdaterError(update_policy.refusal(update_policy.IMAGE_UPDATE))
     Image = _image_model()
     Run = _run_model()
     if control_operation_id:

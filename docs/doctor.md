@@ -60,6 +60,8 @@ id or changing the field set requires a version bump.
   finding can be remediated automatically.
 - A check that raises is reported as an `error` check, never as a crash — the
   doctor is most needed when the deployment is broken.
+- A check that does not answer in time is an `error` check too, with its timing
+  (see [When a dependency is down or hung](#when-a-dependency-is-down-or-hung)).
 - Reports carry no secret values, only key names, lengths, and booleans. They are
   safe to paste into an issue.
 
@@ -67,40 +69,41 @@ id or changing the field set requires a version bump.
 
 `dlux/contracts/stack.json` is the machine-readable spec of the expected Compose
 stack: which services exist, which networks each joins, the sole published
-ingress, where the Docker socket may be mounted (`ro`, socket-proxy only), the
+ingress, where the Docker socket may be mounted (`rw`, `composer-executor` only), the
 `dlux_runtime` read/write split, each service's restart class, and the declared
 volumes and env keys.
 
 Every service carries an `org.dlux.restart` label — `safe` (stateless / owns no
 in-flight operation: web, worker, celery, smtp-relay, caddy, ocr) or `protected` (data store,
-holds state, or manages its own lifecycle: db, redis, docker-socket-proxy,
-composer-agent, composer-executor). Composer classifies restart safety from
+holds state, or manages its own lifecycle: db, redis, composer-agent,
+composer-executor). Composer classifies restart safety from
 these labels instead of a hardcoded name list; the `safe` set mirrors
 `COMPOSER_AGENT_RESTART_SERVICES`, and a scaffold test keeps the two from
-drifting. The contract is the single source of truth for the stack's shape —
-`ComposeNetworkTopologyTests` asserts the scaffold satisfies it, and Composer's
-`composer check` drift-diff checks a *deployed* `compose.yml` against it.
+drifting. The contract is the single source of truth for the stack's shape:
+`ComposeNetworkTopologyTests` asserts the scaffold satisfies it.
+
+Nothing compares a *deployed* `compose.yml` with the contract. Composer's
+`composer check` reads the deployed files with its own rules (topology,
+runtime volume, stack schema stamps) and does not load the contract or run
+`dlux_stack_contract`.
 
 A `removed_services` map names services DjangoLux once shipped and has since
-dropped (currently `db-backup` and `pgadmin`). Because `diff_attachments()`
-ignores *extra* services (a project may run its own sidecars), Composer's check
-uses `removed_services_present()` to tell an operator when a deployment still
-runs one of these — so they know it is now safe to delete rather than being
-silently ignored.
+dropped (currently `db-backup` and `pgadmin`). `removed_services_present()`
+names the ones a list of service names still contains; `diff_attachments()`
+ignores *extra* services, because a project may run its own sidecars.
 
-Composer fetches the contract version-correct by execing `python manage.py
-dlux_stack_contract` in the app container: generated `manage.py` resolves the
-runtime-active release before Django loads, so the contract always travels with
-the dlux version actually running rather than whatever was baked into the image
-(baking a static copy would go stale after an inline update — the same trap the
-static-collection fix avoids). `load_contract()` stamps the report with
-`dlux_version`; `diff_attachments()` is the shared, dependency-free comparison
-both the tests and Composer use — it flags a contract service on the wrong
-networks, a missing contract service, any service on an undeclared network, and
-any service (contract or project-added) that bridges `frontend` and `egress` and
-so collapses the ingress/egress isolation. The contract's `schema_version` is the
-stack schema: adding services/keys is backwards-compatible, renaming a field bumps
-it. Generated stack files record the schema they were written for; the
+`python manage.py dlux_stack_contract` prints the contract as JSON. Run in the
+app container, it prints the contract of the release actually running:
+generated `manage.py` resolves the runtime-active release before Django loads,
+so after an inline update it is not the copy baked into the image.
+`load_contract()` stamps the result with `dlux_version`. `diff_attachments()` is
+a dependency-free comparison of a stack's network attachments with the
+contract. It flags a contract service on the wrong networks, a missing
+contract service, any service on an undeclared network, and any service
+(contract or project-added) that bridges `frontend` and `egress` and so
+collapses the ingress/egress isolation. The scaffold tests use it. The
+contract's `schema_version` is the stack schema: adding services/keys is
+backwards-compatible, renaming a field bumps it. Generated stack files record the schema they were written for; the
 `stack.schema` check compares `compose.yml`'s stamp with the running contract
 (see [Stack Schema Stamps](stack-schema.md)).
 
@@ -108,21 +111,69 @@ it. Generated stack files record the schema they were written for; the
 
 | Group | Covers |
 | --- | --- |
-| `settings` | INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
+| `settings` | Django's own system checks (`settings.django_checks`: an error for any error-level message, a warning for a warning, silenced ids ignored; left out by `--skip-checks` and by `call_command()`), INSTALLED_APPS and ordering, middleware presence and ordering, context processor, Crispy pack, `dlux_settings()` helper, where the session cookie can be stored |
 | `urls` | dlux URL mounting |
 | `database` | reachability, unapplied migrations, `SystemSettings` row, setup completion |
-| `services` | cache round-trip, inline-update runtime volume, stack schema stamp, email delivery as the Email step sets it (`email.configured`: the route and whether its settings are complete; `email.reachable`: the internal SMTP relay answers, or on direct SMTP the provider accepts a TCP connection; both skipped while email delivery is off in System Settings > Email), DjangoLux task worker (`tasks.worker`: fresh `dlux_worker` heartbeat, failed runs), project Celery (`tasks.celery_deprecated`: warns while the project still has a Celery app, beat entries or `CELERY_BROKER_URL`; see [Task Runner](task-runner.md#moving-project-tasks-from-celery)), data access for the app's uid (`storage.mount_access`: an error when a non-root app cannot use part of its mounts; as root, informational, counting what uid 10001 would need; see [File permissions](deployment-configuration.md#file-permissions)) |
-| `static` | `STATIC_ROOT` configured, populated, contains dlux assets |
+| `services` | cache round-trip (`cache.reachable`: the probe made before the other checks; see [When a dependency is down or hung](#when-a-dependency-is-down-or-hung)), inline-update runtime volume, the image against the active release's floor (`updater.image_floor`: an error when the active inline release needs a newer project image; the detail says whether the image's own DjangoLux is served or, under a supervisor that predates the floor check, the release runs anyway; see [When the image is below the release floor](inline-updater.md#when-the-image-is-below-the-release-floor)), the deployment update policy (`updater.update_policy`: reports `DLUX_UPDATE_POLICY`; a warning for an unknown value, for a resident Composer that enforces a different policy, or for one that does not report it while updates are restricted; see [Which updates a deployment allows](inline-updater.md#which-updates-a-deployment-allows)), stack schema stamp, email delivery as the Email step sets it (`email.configured`: the route and whether its settings are complete; `email.reachable`: the internal SMTP relay answers, or on direct SMTP the provider accepts a TCP connection; both skipped while email delivery is off in System Settings > Email), DjangoLux task worker (`tasks.worker`: an error without a fresh `dlux_worker` heartbeat, because every DjangoLux task, scheduled backups included, runs there; a warning for failed runs), project Celery (`tasks.celery_deprecated`: warns while the project still has a Celery app, beat entries or `CELERY_BROKER_URL`; see [Task Runner](task-runner.md#moving-project-tasks-from-celery)), data access for the app's uid (`storage.mount_access`: an error when a non-root app cannot use part of its mounts; as root, informational, counting what uid 10001 would need; see [File permissions](deployment-configuration.md#file-permissions)) |
+| `static` | `STATIC_ROOT` configured and populated, and holding every file the running DjangoLux ships in its `static/` folder (`static.collected`: an error naming the missing files, because pages that load them get 404s; `--apply` runs `collectstatic`) |
 | `security` | `DEBUG`, placeholder `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, proxy SSL header, secure cookies |
 | `packages` | optional extras present |
 
 `--group <name>` (repeatable) runs only the named groups.
+
+Django's system checks do not run before the command, as they do for other
+commands: an error-level message would stop it before any report. They run as
+the `settings.django_checks` finding instead, under the same deadline as the
+other checks.
 
 `updater.runtime_volume` is skipped while inline updates are disabled. Otherwise it
 reports the verdict the task worker recorded, because `web` (where the doctor
 usually runs) holds the runtime volume read-only by design, and warns when the
 worker has stopped reporting (see
 [Who decides the runtime volume is usable](inline-updater.md#who-decides-the-runtime-volume-is-usable)).
+The verdict is stored in the database, so the check is skipped while the
+database is unreachable.
+
+## When a dependency is down or hung
+
+The doctor always returns a report, and a dead or paused service shows up once,
+as its own error, rather than through every check that touches it.
+
+- **Probes first.** Before any check, the doctor probes the database and the
+  cache. Each probe has `CHECK_TIMEOUT` (10 s).
+- **Short socket timeouts.** For the run, the database and cache clients get a
+  `PROBE_TIMEOUT` (5 s) socket timeout, whatever the project's `DATABASES` and
+  `CACHES` say. It applies to `connect_timeout` on PostgreSQL and MySQL, and to
+  the connect and read timeouts of `django_redis`, Django's `RedisCache` and
+  `PyMemcacheCache`. Other backends keep their own.
+- **A dead cache is bypassed.** When the cache probe fails, `cache.reachable` is
+  an error with the probe's timing, and the rest of the run uses a dummy cache,
+  so the other checks read the database directly.
+- **A dead database skips what needs it.** `db.reachable` is the error; the
+  other database checks, the email checks, `updater.runtime_volume` and
+  `tasks.worker` are skipped and say why. So are `settings.django_checks` and
+  `urls.mounted`: both import the URLconf, and Django's checks translate model
+  names, and every translated string builds the system config from System
+  Settings in the database. A paused database therefore costs the run one probe,
+  not a timed-out check each.
+- **Every check has a deadline.** Each check runs in a worker thread with
+  `CHECK_TIMEOUT`. One that does not answer is an error, "No answer within N s",
+  and the report goes on. The whole pass has `RUN_TIMEOUT` (60 s); checks not
+  started by then are skipped. A check's thread opens its own database
+  connections, so one left behind by a hung check is never reused by the
+  command (or by the `--apply` fixes after it).
+- **The command has a deadline.** `manage.py dlux_doctor` without `--apply`
+  stops after `PROCESS_TIMEOUT` (100 s), under the 120 s `composer check --deep`
+  waits. It prints a report with one `doctor.deadline` error (in the requested
+  format) and exits 1; the `dlux_check` alias exits 0. `--apply` has no command
+  deadline, so a migration or `collectstatic` is never cut off.
+- **Config is built once.** Every translated string reads the merged system
+  config, and outside a request nothing keeps it, so each read costs a database
+  and a cache round-trip. During a run it is built once per pass.
+- **Logs are shown once.** During a run, each distinct log record is printed
+  once, and a logged exception is shortened to `Type: message` on the same line.
+
+The limits are constants in `dlux/doctor.py`.
 
 ## Remediation safety tiers
 
@@ -136,14 +187,20 @@ worker has stopped reporting (see
 
 `--apply` re-runs the full check pass afterwards and adds an `applied_fixes`
 array to the report, so the caller sees the post-remediation state rather than
-the state that triggered the fix.
+the state that triggered the fix. Each entry's `status` is `succeeded`,
+`failed` or `skipped`, with the reason in `error`.
+
+While the cache is unreachable, `stateful` fixes are `skipped`: a migration
+that changes settings cannot clear the cached copies, which the cache would
+serve again once it is back. Fix the cache, then run `--apply` again. `safe`
+fixes still run.
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | 0 | No errors (warnings allowed unless `--strict`) |
-| 1 | At least one error, or a warning under `--strict` |
+| 1 | At least one error, a warning under `--strict`, or the command deadline (`doctor.deadline`) |
 
 ## Adding a check
 
@@ -159,5 +216,6 @@ def _check_thing(ctx):
     return ok('Thing responded.')
 ```
 
-Use `ctx.db_available` rather than probing the database again, and return
-`skip()` when a precondition is absent so the result is not misread as a pass.
+Use `ctx.db_available` and `ctx.cache_available` rather than probing again, and
+return `skip()` when a precondition is absent so the result is not misread as a
+pass. Give any network call of your own a timeout shorter than `CHECK_TIMEOUT`.

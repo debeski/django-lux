@@ -1,21 +1,25 @@
 {
   "schema_version": 2,
-  "version": "1.16.6",
+  "version": "1.17.0b1",
   "display": {
-    "summary": "Three fixes found upgrading Trademarks to 1.16.5. Project scripts and stylesheets refresh in browsers after every upgrade: static URLs now carry the DjangoLux and project versions, so the proxy's year-long cache can no longer keep an old copy. A modal a project opens while its page loads, such as a ?modal= deep link, now opens instead of being lost. Confirming the current password no longer signs the user out once after a Django upgrade raises the password hasher's work factor. Web and worker update inline from any 1.16 release, with no migrations.",
+    "summary": "The 1.17 line is fixes only: every finding of a staging break-in test and the known bugs of the 1.16 line. The doctor tells the truth under failure: a missing task worker, missing static files or an image below the release floor are errors, and a dead database or a paused Redis no longer floods or freezes it. With Redis down, users get a clear page within seconds and stay signed in, instead of an error or a sign-out. An image older than the active release runs its own DjangoLux, and says so. New projects get a nonce-only script policy and Redis snapshots that survive a hard stop; existing projects get warning dlux.W201. Labels a superuser edits now render as text, accent colours keep readable text in every theme, and modal forms re-run their scripts after a refused submit. DLUX_UPDATE_POLICY can limit which updates the app may request. Needs Composer 1.11.0b1 or later; updates inline from any 1.16 release with one additive migration.",
     "highlights": [
-      "Project scripts refresh after every upgrade: static URLs carry the DjangoLux and project versions.",
-      "A modal opened while the page loads, such as a ?modal= deep link, now opens.",
-      "Confirming your password no longer signs you out after a Django upgrade re-hashes it.",
-      "Web and worker update inline from any 1.16 release, with no migrations."
+      "Fixes only: every staging break-in finding and known bug from the 1.16 line.",
+      "The doctor is truthful under failure and never hangs on a paused Redis or a dead database.",
+      "With Redis down, users get a clear page within seconds and stay signed in.",
+      "An image below the active release's floor runs its own DjangoLux and reports it.",
+      "New projects: nonce-only script-src and Redis snapshots; existing projects get dlux.W201.",
+      "Superuser-edited labels render as text; accent text is readable in every theme.",
+      "DLUX_UPDATE_POLICY limits which updates the app may request.",
+      "Needs Composer 1.11.0b1 or later; updates inline from any 1.16 release."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.16.6"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.17.0b1"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.16.0b1",
     "services": {
-      "composer": ">=1.10.0b1"
+      "composer": ">=1.11.0b1"
     },
     "stack_schema": ">=5",
     "migration_baseline": ">=1.16.0b1"

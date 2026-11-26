@@ -12,12 +12,15 @@ The scaffold runs these Composer services:
 | Service | Authority | Network access |
 | --- | --- | --- |
 | `composer-agent` | outbound registry/control-plane communication and typed local relay | `egress`, `docker_proxy` |
-| `composer-executor` | the sole Docker-write authority | `docker_proxy` only |
-| `docker-socket-proxy` | read-only Docker API for the agent | `docker_proxy` only |
+| `composer-executor` | the sole Docker authority | `docker_proxy` only |
 
-The agent has no raw Docker socket. It reads through the proxy, which disables
-`POST` and `EXEC`; typed write requests go through the private
-`composer_exec_sock` to the isolated executor, which holds the Docker socket. Both
+The agent has no Docker access at all: no socket and no `DOCKER_HOST`. Its typed
+requests go through the private `composer_exec_sock` to the isolated executor,
+which holds the Docker socket. That covers every write and the agent's few reads
+(the service states and logs for the Operations card, and the local image digest
+for the update check), which the executor answers with those fields only. A
+container inspect, which carries every service's environment, never reaches the
+agent. Both
 Composer services drop all capabilities and run with `no-new-privileges`. The
 executor adds back only `DAC_OVERRIDE`, so it can read the project's `0600`
 `.secrets/.env` to deploy; the project directory is mounted read-only in both.
@@ -67,7 +70,7 @@ volume:
 | `requests/<operation_id>.json` | the agent, on the control plane's behalf | one action: `dlux.image_update` (backup mode `data`, `full` or `skip`) or `dlux.backup.create` (`data` or `full`) |
 | `results/<operation_id>.json` | DjangoLux | the outcome of each request, rejections included |
 | `enroll-request.json` | DjangoLux | a pairing request: control URL, one-use pairing code, operation id |
-| `agent-status.json` | the agent | enrollment and connection status, and the resident Composer version |
+| `agent-status.json` | the agent | enrollment and connection status, the resident Composer version, and the update policy it enforces (`update_policy`; see [Which updates a deployment allows](inline-updater.md#which-updates-a-deployment-allows)) |
 
 DjangoLux accepts a request only when it is at most 64 KiB, has schema version 1,
 names one of those two actions, and its file name is its UUID `operation_id`;

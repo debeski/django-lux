@@ -39,6 +39,9 @@ const UPDATER = `
     <span data-dlux-image-name>Application</span><span data-dlux-app-version></span>
     <span data-dlux-image-target hidden></span><span data-dlux-image-digest></span>
   </div>
+  <div class="text-warning" data-dlux-update-degraded role="status" hidden>
+    <span class="fw-semibold">DjangoLux is degraded.</span> <span dir="auto" data-dlux-update-degraded-reason></span>
+  </div>
   <div data-dlux-update-run-status></div>
 </div>
 <div id="dluxUpdateReviewModal">
@@ -229,6 +232,37 @@ describe('the DjangoLux row', () => {
     await page.waitForFunction(() => window.__calls['/u/runs/t1/'] >= 2
       && !document.querySelector('[data-dlux-update-check]').classList.contains('dlux-btn--loading'), null, { timeout: 12000 });
     assert.match(await icon(), /bi-check-circle-fill/);
+    await closePage();
+  });
+});
+
+describe('a degraded runtime', () => {
+  const REASON = 'Image below the release floor: DjangoLux 1.17.99 needs a project image with DjangoLux 1.17.99 or later.';
+  const look = () => page.evaluate(() => ({
+    hidden: document.querySelector('[data-dlux-update-degraded]').hidden,
+    reason: document.querySelector('[data-dlux-update-degraded-reason]').textContent,
+    glyph: document.querySelector('[data-dlux-update-check] i').className,
+    warn: document.querySelector('[data-dlux-update-check]').classList.contains('dlux-upd-ic--warn'),
+    ok: document.querySelector('[data-dlux-update-check]').classList.contains('is-ok'),
+  }));
+
+  test('is marked on the card with its reason, never as a tick', async () => {
+    const errors = await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      last_checked_at: '2026-09-30T10:00:00Z', degraded: true, degraded_reason: REASON,
+    }) });
+    assert.deepEqual(await look(), {
+      hidden: false, reason: REASON, glyph: 'bi bi-exclamation-triangle-fill', warn: true, ok: false,
+    });
+    assert.deepEqual(errors, []);
+    await closePage();
+  });
+
+  test('clears once the state does', async () => {
+    const errors = await open('/updater', UPDATER_SCRIPT, { state: UPDATER_STATE({
+      last_checked_at: '2026-09-30T10:00:00Z', degraded: false, degraded_reason: '',
+    }) });
+    assert.deepEqual(await look(), { hidden: true, reason: '', glyph: 'bi bi-check-circle-fill', warn: false, ok: true });
+    assert.deepEqual(errors, []);
     await closePage();
   });
 });

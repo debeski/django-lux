@@ -92,9 +92,8 @@
                 confirmLabelEl.textContent = template.replace('{word}', confirmWord());
             }
             modalEl.classList.toggle('dlux-data-reset-permanent', permanent);
-            executeBtn.innerHTML = permanent
-                ? '<i class="bi bi-fire me-1"></i>' + s('data_reset_execute_permanent', 'Permanently delete selected data')
-                : softLabel;
+            executeBtn.innerHTML = permanent ? '<i class="bi bi-fire me-1"></i>' : softLabel;
+            if (permanent) { executeBtn.append(s('data_reset_execute_permanent', 'Permanently delete selected data')); }
             rows.forEach(function (entry) {
                 var scopedSoft = entry.model.scoped && !permanent;
                 entry.kind.className = scopedSoft ? 'badge text-bg-info' : 'badge text-bg-danger';
@@ -224,7 +223,9 @@
 
             executeBtn.disabled = true;
             var original = executeBtn.innerHTML;
-            executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' + executeBtn.textContent.trim();
+            var label = executeBtn.textContent.trim();
+            executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
+            executeBtn.append(label);
 
             post(executeUrl, body).then(function (res) {
                 if (res.ok && res.data.status === 'queued' && res.data.job) {

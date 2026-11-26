@@ -59,3 +59,44 @@
 .dlux-public-main {
     flex: 1 0 auto;
 }
+
+/* Bootstrap's primary fills follow the public theme's accent. Text on a fill
+   uses the theme's on-accent tokens: `--on-primal` on `--primal`,
+   `--on-primal_dark` on `--primal_dark` (hover and active). */
+.dlux-public .btn-primary {
+    --bs-btn-color: var(--on-primal, #fff);
+    --bs-btn-bg: var(--primal, #475569);
+    --bs-btn-border-color: var(--primal, #475569);
+    --bs-btn-hover-color: var(--on-primal_dark, #fff);
+    --bs-btn-hover-bg: var(--primal_dark, #334155);
+    --bs-btn-hover-border-color: var(--primal_dark, #334155);
+    --bs-btn-focus-shadow-rgb: var(--primal-rgb, 71, 85, 105);
+    --bs-btn-active-color: var(--on-primal_dark, #fff);
+    --bs-btn-active-bg: var(--primal_dark, #334155);
+    --bs-btn-active-border-color: var(--primal_dark, #334155);
+    --bs-btn-disabled-color: var(--on-primal, #fff);
+    --bs-btn-disabled-bg: var(--primal, #475569);
+    --bs-btn-disabled-border-color: var(--primal, #475569);
+}
+
+.dlux-public .nav-pills {
+    --bs-nav-pills-link-active-color: var(--on-primal, #fff);
+    --bs-nav-pills-link-active-bg: var(--primal, #475569);
+}
+
+.dlux-public .pagination {
+    --bs-pagination-active-color: var(--on-primal, #fff);
+    --bs-pagination-active-bg: var(--primal, #475569);
+    --bs-pagination-active-border-color: var(--primal, #475569);
+}
+
+.dlux-public .list-group {
+    --bs-list-group-active-color: var(--on-primal, #fff);
+    --bs-list-group-active-bg: var(--primal, #475569);
+    --bs-list-group-active-border-color: var(--primal, #475569);
+}
+
+.dlux-public .text-bg-primary {
+    color: var(--on-primal, #fff) !important;
+    background-color: var(--primal, #475569) !important;
+}

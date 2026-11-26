@@ -48,6 +48,41 @@ blocks and associate footer buttons through the HTML `form` attribute:
 The footer is page-local at desktop width and returns to normal flow below 768px.
 Existing templates that override `content` remain compatible.
 
+Form actions (`dlux-form-actions` holding `dlux-form-action` buttons) are the
+icon-only submit and cancel controls of the dynamic modal's form footer, Sections
+and Reports. Put the icon in `dlux-form-action-icon` and the label in `aria-label`,
+`title` and a `visually-hidden` span. They share the `.btn` surface: the
+`--dlux-btn-radius` radius, its height and weight, and the `--dlux-btn-shadow`
+shadows. Every colour comes from the active theme:
+
+| Class | Look |
+| --- | --- |
+| `dlux-form-action-primary` | The theme's accent fill, the same gradient as `.btn-primary`, with `--on-primal` ink. |
+| `dlux-form-action-neutral` | The theme's quiet surface (`--hbody`) with `--title` ink. Use it for cancel and reset. |
+
+Form action cards (`dlux-form-cards` holding `dlux-form-card` buttons or links) are
+the larger choice of submit paths a document form offers, such as save, save and
+add another, or save a copy. Each card carries an icon badge (`dlux-form-card-icon`)
+and a `dlux-form-card-copy` block with a `dlux-form-card-title` and an optional
+`dlux-form-card-meta` line. The card surface is the theme's quiet surface with
+`--title` ink, and the badge marks its role:
+
+| Class | Icon badge |
+| --- | --- |
+| `dlux-form-card-primary` | The theme's accent fill with `--on-primal` ink. |
+| `dlux-form-card-secondary` | An accent tint with accent-toned ink. |
+| `dlux-form-card-neutral` | A neutral tint with `--title` ink. |
+
+A document form's own fields take the `dlux-document-form` class on the form, with
+`dlux-checkbox-field` on a boxed checkbox. Its colours come from
+`--dlux-document-form-surface`, `-border`, `-border-strong`, `-focus-ring` and
+`-muted`, which a theme may set on `.dlux-document-form`.
+
+Theme stylesheets do not restyle form actions or card buttons. A theme that
+recolours icons globally excludes `.dlux-form-action .bi` and
+`.dlux-form-card-icon .bi`, as it does `.btn-primary .bi`. The `archive-*` names
+of these classes are deprecated aliases ([Deprecation Countdown](deprecation-countdown.md#archive-form-class-names)).
+
 Place page-specific Bootstrap modals in `dlux/base.html`'s `page_modals` block,
 preserving `{{ block.super }}`. It renders directly under `body`, outside content
 containers whose containment, transforms or stacking contexts can trap a modal
@@ -126,6 +161,14 @@ hand-code a third public page chrome.
   follows Identity → Footer.
 - **Font:** the current language's default font from the registry, linked from
   `/fonts/<slug>.css`. Visitor preferences (theme, font) never apply.
+- **Accent fills:** Bootstrap's primary fills take the theme accent (`.btn-primary`,
+  active `.nav-pills` links, active pagination, active `.list-group` items and
+  `.text-bg-primary`). Their text uses the theme's on-accent tokens: `--on-primal`
+  on `--primal`, and `--on-primal_dark` on the `--primal_dark` hover and pressed
+  fill. A project's own accent-filled control, such as a selected filter chip, uses
+  the same pair (`background: var(--primal); color: var(--on-primal);`), so it stays
+  readable in every theme. See
+  [Project Configuration](project-configuration.md#themes-and-fonts) for the tokens.
 
 Its blocks are `title`, `meta`, `extra_css`, `header`, `content`, `footer` and
 `scripts`. Overriding `title` replaces the whole title. A project's own scripts go

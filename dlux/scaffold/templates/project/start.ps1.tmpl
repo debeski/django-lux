@@ -1,4 +1,4 @@
-# composer-wrapper: 6
+# composer-wrapper: 7
 Set-StrictMode -Version Latest
 
 # The wrapper resolves its own image before any composer code can run, so the
@@ -20,14 +20,77 @@ if (Test-Path -LiteralPath $composerChannelFile) {
     }
 }
 $composerChannelImage = if ($composerChannel -eq "beta") { "debeski/composer:beta" } else { "debeski/composer:latest" }
-$composerSelfImage = if ($env:COMPOSER_SELF_IMAGE) { $env:COMPOSER_SELF_IMAGE } else { $composerChannelImage }
+
+# `.composer-image` holds the digest the last verified update pinned, written by
+# composer itself (`update self`, `agent update`, `check --beta` / `--stable`).
+# It is read with the same pattern composer uses (case-sensitive), so a
+# malformed lock falls back to the channel tag in both places.
+# COMPOSER_SELF_IMAGE still beats it.
+$composerLockFile = Join-Path $composerScriptRoot ".composer-image"
+$composerLockPattern = '^debeski/composer:v[0-9]+(\.[0-9]+){1,2}((a|b|rc)[0-9]+)?@sha256:[0-9a-f]{64}$'
+function Read-ComposerLock {
+    if (-not (Test-Path -LiteralPath $composerLockFile)) { return "" }
+    try {
+        $raw = (Get-Content -LiteralPath $composerLockFile -TotalCount 1 -ErrorAction Stop)
+    } catch {
+        return ""
+    }
+    $value = ("$raw" -replace '\s', '')
+    if ($value -cmatch $composerLockPattern) { return $value }
+    return ""
+}
+$composerLockImage = Read-ComposerLock
+$composerSelfImage = if ($env:COMPOSER_SELF_IMAGE) { $env:COMPOSER_SELF_IMAGE } elseif ($composerLockImage) { $composerLockImage } else { $composerChannelImage }
+
+if ($PSScriptRoot) {
+  $projectRoot = $PSScriptRoot
+} else {
+  $projectRoot = (Get-Location).Path
+}
+
+$projectRoot = (Resolve-Path $projectRoot).Path
+
+# Resolved only when a container is about to start, so the deployer refresh
+# routing still runs (and is tested) where this is not a Windows path.
+function Get-ComposerContainerRoot {
+  if ($projectRoot -match '^([A-Za-z]):\\(.*)$') {
+    $drive = $matches[1].ToLower()
+    $tail = ($matches[2] -replace '\\', '/')
+    $containerRoot = "/host_mnt/$drive/$tail"
+    return $containerRoot
+  }
+  throw "Unsupported Windows path format: $projectRoot"
+}
+
+# Secrets reach every composer run, the pin included: validating the Compose
+# edit interpolates the same variables a deploy does.
+$secretArgs = @()
+foreach ($candidate in @(".env", "secrets/.env", ".secrets/.env")) {
+  $secretPath = Join-Path $projectRoot $candidate
+  if (-not (Test-Path -LiteralPath $secretPath -PathType Leaf)) {
+    continue
+  }
+  $secretKeys = @(
+    Get-Content -LiteralPath $secretPath | ForEach-Object {
+      if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=') { $matches[1] }
+    }
+  )
+  if ($secretKeys.Count -eq 0) {
+    throw "Secrets file contains no environment values: $secretPath"
+  }
+  $secretArgs = @(
+    "--env-file", $secretPath,
+    "-e", "COMPOSER_INHERITED_SECRET_KEYS=$($secretKeys -join ',')"
+  )
+  break
+}
 
 # The deployer can only be refreshed here: a composer already running from
 # this image cannot replace it. `update self` refreshes only the deployer;
 # `update` with no named services refreshes it first, so the stack update
 # that follows runs on the new deployer. Named services skip the refresh.
 function Get-ComposerImageId {
-    $id = docker image inspect --format "{{.Id}}" $composerSelfImage 2>$null
+    $id = docker image inspect --format "{{.Id}}" $script:composerSelfImage 2>$null
     if ($LASTEXITCODE -ne 0) { return "" }
     return ("$id").Trim()
 }
@@ -38,23 +101,80 @@ function Get-ComposerImageVersion([string]$Image) {
     return ("$version").Trim()
 }
 
+function Test-ComposerCanPin([string]$Image) {
+    $label = docker image inspect --format '{{ index .Config.Labels "org.dlux.composer.image-pin" }}' $Image 2>$null
+    if ($LASTEXITCODE -ne 0) { return $false }
+    return (("$label").Trim() -eq "1")
+}
+
+# The installed deployer resolves the channel's newest release, verifies its
+# signed digest and writes the lock; only then is that digest pulled, so the
+# registry cannot swap what arrives. With no lock yet, the first pin trusts the
+# channel tag once, exactly as every update did before pinning existed.
+function Invoke-ComposerPin {
+    $resolver = if ($script:composerLockImage) { $script:composerLockImage } else { $composerChannelImage }
+    if (-not $script:composerLockImage) {
+        docker pull $composerChannelImage | Out-Host
+        if ($LASTEXITCODE -ne 0) { return $false }
+    } else {
+        docker image inspect $resolver 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            docker pull $resolver | Out-Host
+            if ($LASTEXITCODE -ne 0) { return $false }
+        }
+    }
+    if (-not (Test-ComposerCanPin $resolver)) {
+        Write-Host "This Composer predates digest pinning; the deployer stays on $composerChannelImage."
+        $script:composerSelfImage = $composerChannelImage
+        return $true
+    }
+    $containerRoot = Get-ComposerContainerRoot
+    $pinArgs = @("run", "--rm") + $secretArgs + @(
+        "-e", "COMPOSER_ALLOW_UNVERIFIED_COMPOSER",
+        "-v", "${projectRoot}:${containerRoot}",
+        "-w", $containerRoot,
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        $resolver, "update", "self", "--pin"
+    )
+    & docker @pinArgs | Out-Host
+    if ($LASTEXITCODE -ne 0) { return $false }
+    $script:composerLockImage = Read-ComposerLock
+    if (-not $script:composerLockImage) {
+        # Nothing to pin yet (composer said why): keep the deployer just installed.
+        $script:composerSelfImage = $resolver
+        return $true
+    }
+    $script:composerSelfImage = $script:composerLockImage
+    docker image inspect $script:composerSelfImage 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        docker pull $script:composerSelfImage | Out-Host
+        if ($LASTEXITCODE -ne 0) { return $false }
+    }
+    return $true
+}
+
 # A rebuilt tag can keep its version string, so compare image IDs, and start
 # a container for a version only when there is one to report. The replaced
 # image stays readable by ID after the pull.
 function Update-ComposerDeployer {
     $beforeId = Get-ComposerImageId
-    Write-Host "Updating the Composer deployer ($composerSelfImage)..."
-    # Out-Host keeps the pull's output out of this function's return value.
-    docker pull $composerSelfImage | Out-Host
-    if ($LASTEXITCODE -ne 0) { return $false }
+    if ($env:COMPOSER_SELF_IMAGE) {
+        Write-Host "Updating the Composer deployer ($composerSelfImage)..."
+        # Out-Host keeps the pull's output out of this function's return value.
+        docker pull $composerSelfImage | Out-Host
+        if ($LASTEXITCODE -ne 0) { return $false }
+    } else {
+        Write-Host "Updating the Composer deployer ($composerChannel channel)..."
+        if (-not (Invoke-ComposerPin)) { return $false }
+    }
     $afterId = Get-ComposerImageId
     if ($beforeId -and $beforeId -eq $afterId) {
-        Write-Host "Composer deployer is up to date ($(Get-ComposerImageVersion $composerSelfImage))."
+        Write-Host "Composer deployer is up to date ($(Get-ComposerImageVersion $script:composerSelfImage))."
         return $true
     }
     $previous = if ($beforeId) { Get-ComposerImageVersion $beforeId } else { "" }
     if (-not $previous) { $previous = "not installed" }
-    Write-Host "Composer deployer: $previous -> $(Get-ComposerImageVersion $composerSelfImage)"
+    Write-Host "Composer deployer: $previous -> $(Get-ComposerImageVersion $script:composerSelfImage)"
     return $true
 }
 
@@ -110,43 +230,6 @@ if ($composerInvocation -eq "update_all") {
     Write-Host ""
 }
 
-if ($PSScriptRoot) {
-  $projectRoot = $PSScriptRoot
-} else {
-  $projectRoot = (Get-Location).Path
-}
-
-$projectRoot = (Resolve-Path $projectRoot).Path
-
-if ($projectRoot -match '^([A-Za-z]):\\(.*)$') {
-  $drive = $matches[1].ToLower()
-  $tail = ($matches[2] -replace '\\', '/')
-  $containerRoot = "/host_mnt/$drive/$tail"
-} else {
-  throw "Unsupported Windows path format: $projectRoot"
-}
-
-$secretArgs = @()
-foreach ($candidate in @(".env", "secrets/.env", ".secrets/.env")) {
-  $secretPath = Join-Path $projectRoot $candidate
-  if (-not (Test-Path -LiteralPath $secretPath -PathType Leaf)) {
-    continue
-  }
-  $secretKeys = @(
-    Get-Content -LiteralPath $secretPath | ForEach-Object {
-      if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=') { $matches[1] }
-    }
-  )
-  if ($secretKeys.Count -eq 0) {
-    throw "Secrets file contains no environment values: $secretPath"
-  }
-  $secretArgs = @(
-    "--env-file", $secretPath,
-    "-e", "COMPOSER_INHERITED_SECRET_KEYS=$($secretKeys -join ',')"
-  )
-  break
-}
-
 # Announce the first-run download instead of letting `docker run` pull an
 # unnamed image while the command appears to hang.
 docker image inspect $composerSelfImage 2>&1 | Out-Null
@@ -165,7 +248,10 @@ if (-not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
   $ttyFlags += "-t"
 }
 
+$containerRoot = Get-ComposerContainerRoot
 $dockerArgs = @("run") + $ttyFlags + @("--rm") + $secretArgs + @(
+  "-e", "COMPOSER_ALLOW_UNVERIFIED_COMPOSER",
+  "-e", "COMPOSER_HEALTH_SETTLE_SECONDS",
   "-v", "${projectRoot}:${containerRoot}",
   "-w", $containerRoot,
   "-v", "/var/run/docker.sock:/var/run/docker.sock",

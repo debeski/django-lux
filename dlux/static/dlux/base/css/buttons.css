@@ -50,14 +50,14 @@
 }
 
 .btn-primary {
-    background: linear-gradient(180deg, var(--primal) 0%, var(--primal_dark) 100%) !important;
+    background: linear-gradient(180deg, var(--primal) 0%, var(--dlux-btn-primary-end, var(--primal_dark)) 100%) !important;
     border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.32) !important;
-    color: #fff !important;
+    color: var(--on-primal, #fff) !important;
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
-    color: #fff !important;
+    color: var(--on-primal, #fff) !important;
 }
 
 .btn-primary > .bi {

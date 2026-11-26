@@ -46,6 +46,8 @@
     --primal: var(--aether-mint);
     --primal_dark: var(--aether-violet);
     --primal-rgb: 168, 255, 228;
+    --on-primal: var(--aether-void);
+    --on-primal_dark: var(--aether-void);
     --btn-primary-shadow: rgba(168, 255, 228, 0.24);
     --nav-item-color: var(--aether-sky);
     color-scheme: dark;
@@ -463,13 +465,14 @@
 
 /* Forms */
 :root.theme-aether .dlux-form,
-:root.theme-aether .archive-document-form,
-:root.theme-aether .dlux-filter {
-    --archive-form-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96));
-    --archive-form-border: rgba(255, 255, 255, 0.1);
-    --archive-form-border-strong: rgba(255, 255, 255, 0.2);
-    --archive-form-focus-ring: rgba(168, 255, 228, 0.2);
-    --archive-form-muted: var(--aether-muted);
+:root.theme-aether .dlux-document-form,
+:root.theme-aether .dlux-filter,
+:root.theme-aether .archive-document-form {
+    --dlux-document-form-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96));
+    --dlux-document-form-border: rgba(255, 255, 255, 0.1);
+    --dlux-document-form-border-strong: rgba(255, 255, 255, 0.2);
+    --dlux-document-form-focus-ring: rgba(168, 255, 228, 0.2);
+    --dlux-document-form-muted: var(--aether-muted);
 }
 
 :root.theme-aether .form-control,
@@ -488,14 +491,14 @@
     color: #ffffff !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 0 0 0.18rem var(--archive-form-focus-ring) !important;
+        0 0 0 0.18rem var(--dlux-document-form-focus-ring) !important;
     outline: none !important;
 }
 
 :root.theme-aether .dlux-filter .form-control,
 :root.theme-aether .dlux-filter .form-select,
 :root.theme-aether .dlux-filter textarea {
-    background: var(--archive-form-surface) !important;
+    background: var(--dlux-document-form-surface) !important;
     border: 1px solid var(--aether-line) !important;
     color: #eef1f6 !important;
     box-shadow: inset 0 1px 0 var(--aether-line-soft) !important;
@@ -869,7 +872,7 @@
 
 :root.theme-aether .bi-three-dots,
 :root.theme-aether .bi-three-dots-vertical,
-:root.theme-aether .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+:root.theme-aether .bi:not(.btn-primary .bi):not(.dlux-form-action .bi):not(.dlux-form-card-icon .bi):not(.archive-form-action-icon .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
     color: var(--aether-accent) !important;
     text-shadow: none !important;
 }
@@ -1330,12 +1333,12 @@
     box-shadow: inset 0 -2px 0 rgba(168, 255, 228, 0.34) !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link) {
     color: var(--aether-silver) !important;
     text-shadow: none !important;
 }
 
-:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+:root.theme-aether a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):not(.page-link):hover {
     color: #ffffff !important;
 }
 

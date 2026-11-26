@@ -28,6 +28,15 @@
     const DEFAULT_LOADING_MIN_HEIGHT = 320;
     const RELOCATED_FORM_ID = 'universalDynamicModalForm';
 
+    // Scripts that bind global events; markup carrying them never runs them twice.
+    function isCoreScript(script) {
+        return !!script.src && (
+            script.src.includes('dynamic_modals.js') ||
+            script.src.includes('context_menu/js/main.js') ||
+            script.src.includes('context_menu/js/section_manager.js')
+        );
+    }
+
     function directModalChild(className) {
         return Array.from(modalBody.children).find(child => child.classList.contains(className)) || null;
     }
@@ -429,47 +438,20 @@
 
         dynamicModal.show(trigger);
 
+        let loadResponse = null;
         fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
+            loadResponse = response;
             return response.json();
         })
         .then(data => {
             if (loadToken !== activeLoadToken) return;
             if (data.html) {
                 modalBody.style.minHeight = '';
-                modalBody.innerHTML = data.html;
-                normalizeModalChrome();
-                attachListeners();
-                syncHeaderBack();
-                
-                // Execute any inline scripts returned in the HTML payload
-                const scripts = modalBody.querySelectorAll('script');
-                scripts.forEach(oldScript => {
-                    // Prevent re-executing core scripts that bind global events
-                    if (oldScript.src && (
-                        oldScript.src.includes('dynamic_modals.js') || 
-                        oldScript.src.includes('context_menu/js/main.js') ||
-                        oldScript.src.includes('context_menu/js/section_manager.js')
-                    )) {
-                        return;
-                    }
-
-                    const newScript = document.createElement('script');
-                    // Copy attributes (especially `nonce` for CSP)
-                    Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                    
-                    if (oldScript.src) {
-                        newScript.src = oldScript.src;
-                    } else {
-                        newScript.textContent = oldScript.textContent;
-                    }
-                    oldScript.parentNode.replaceChild(newScript, oldScript);
-                });
-
-                notifyContentLoaded();
+                renderContent(data.html, loadResponse);
             } else if (data.error) {
                 showError(data.error);
             }
@@ -479,6 +461,18 @@
             console.error('Error loading modal content:', err);
             showError('Failed to load content. Please try again.');
         });
+    }
+
+    // Every view the modal shows (a load, or the form re-rendered after a refused
+    // submit) goes through here, so its scripts run under the page nonce each time.
+    // The body is replaced whole, so listeners bind to fresh nodes only.
+    function renderContent(html, response) {
+        modalBody.innerHTML = html;
+        normalizeModalChrome();
+        attachListeners();
+        syncHeaderBack();
+        if (window.DluxDom) window.DluxDom.runScripts(modalBody, response, isCoreScript);
+        notifyContentLoaded();
     }
 
     // 3. Attach Listeners to Table Rows (Edit & Delete) and Form Submit
@@ -584,6 +578,7 @@
         // Resolve absolute URL for action
         const fetchUrl = new URL(actionUrl, window.location.origin);
 
+        let submitResponse = null;
         fetch(fetchUrl, {
             method: 'POST',
             body: formData,
@@ -593,6 +588,7 @@
             }
         })
         .then(res => res.text().then(text => {
+            submitResponse = res;
             let data = null;
             try {
                 data = text ? JSON.parse(text) : {};
@@ -642,11 +638,7 @@
                 // Form validation failed: render the new HTML form with errors.
                 // syncModalFooter()/resetModalFooter() rebuild the footer from the
                 // fresh markup, discarding this (busy) button — no restore needed.
-                modalBody.innerHTML = data.html;
-                normalizeModalChrome();
-                attachListeners();
-                syncHeaderBack();
-                notifyContentLoaded();
+                renderContent(data.html, submitResponse);
             } else {
                 releaseSubmit();
                 showError(data.error || 'Failed to save record.');

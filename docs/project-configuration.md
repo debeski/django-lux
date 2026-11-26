@@ -48,6 +48,27 @@ feature CSS styles every theme through `--dlux-*` tokens whose defaults sit in
 `base/css/main.css`. `test_theme_tokens` enforces this for the package. Custom
 themes follow the same rule in their own CSS file.
 
+Every theme's `:root.theme-<slug>` block declares its accent pair and the text
+colour for each:
+
+| Token | Meaning |
+| --- | --- |
+| `--primal` | The accent fill: primary buttons, the active pill, page and list item. |
+| `--primal_dark` | The accent's hover and pressed fill. |
+| `--on-primal` | Text and icons on a `--primal` fill. |
+| `--on-primal_dark` | Text and icons on a `--primal_dark` fill. |
+
+Each `--on-*` colour meets WCAG AA (4.5:1) against its fill. That is usually dark
+ink on a light accent and white on a deep one, and a theme may need different ink
+for its two fills. Gold, for example, puts dark ink on its amber `--primal` and white
+on its brown `--primal_dark`. A staff primary button paints `--primal` into
+`--dlux-btn-primary-end`, which defaults to `--primal_dark`. A theme whose
+`--on-primal` cannot hold AA across that gradient sets a nearer end colour. CSS that
+puts text on an accent fill uses these tokens and never a literal `#fff`. A custom
+theme that leaves them out gets white, the light theme's value, from
+`base/css/main.css`. `test_theme_tokens` checks every shipped pair, and the
+`on_accent_contrast` browser test checks the rendered controls in both shells.
+
 A page links only the active theme's stylesheet. The server resolves the reader's
 theme (their preference, the scope or system default, or the forced public-page
 theme), and `base.html` emits that one `<link data-dlux-theme-css="<slug>">`.
@@ -90,6 +111,16 @@ stacks serve `/static/` as immutable for a year, so a project file reaches brows
 only through a new URL, which every DjangoLux update or project release now gives.
 A project that sets another `staticfiles` backend keeps it, and
 `DLUX_VERSIONED_STATIC = False` (before calling `dlux_settings`) turns the swap off.
+
+It makes every `django_redis` cache fail fast: the backend becomes
+`dlux.resilient_cache.FailFastRedisCache`, the socket timeouts are capped, and
+`CacheOutageMiddleware` goes just before the session middleware. Sessions kept in
+such a cache with `django.contrib.sessions.backends.cache` move to
+`dlux.cache_sessions` (same data and keys), so a cache outage answers 503 instead
+of signing users out. This overrides timeouts and the session engine the
+settings file declares, because generated settings files are never regenerated;
+`DLUX_CACHE_FAIL_FAST = False` keeps the cache and the engine exactly as written.
+See [Cache outages](deployment-configuration.md#cache-outages).
 
 To add a first-class framework setting, follow
 [Adding a System Setting](adding-system-settings.md); it must participate in the

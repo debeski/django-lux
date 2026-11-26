@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[char]);
         const loadingText = modalBody.dataset.loadingText || 'Loading...';
         const errorText = modalBody.dataset.errorText || 'Error loading details.';
         const closeText = modalBody.dataset.closeText || 'Close';
@@ -30,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modalBody.innerHTML = `
             <div class="modal-body text-center p-5">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">${loadingText}</span>
+                    <span class="visually-hidden">${escapeHtml(loadingText)}</span>
                 </div>
             </div>`;
 
@@ -49,10 +52,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBody.innerHTML = `
                     <div class="modal-body text-center p-5 text-danger">
                         <i class="bi bi-exclamation-circle display-1 mb-3"></i>
-                        <p>${errorText}</p>
+                        <p>${escapeHtml(errorText)}</p>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${closeText}</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${escapeHtml(closeText)}</button>
                     </div>`;
             });
     });

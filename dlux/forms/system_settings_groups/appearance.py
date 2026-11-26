@@ -230,7 +230,7 @@ class AppearanceCleanMixin:
         return self._clean_preserved_choice('table_edges', SETUP_STEP_APPEARANCE, TABLE_EDGES_VALUES, DEFAULT_TABLE_EDGES)
 
     def clean_card_edges(self):
-        return self._clean_preserved_choice('card_edges', SETUP_STEP_LAYOUT, CARD_EDGES_VALUES, DEFAULT_CARD_EDGES)
+        return self._clean_preserved_choice('card_edges', SETUP_STEP_APPEARANCE, CARD_EDGES_VALUES, DEFAULT_CARD_EDGES)
 
     def clean_table_accent_edges(self):
         return self._clean_preserved_toggle('table_accent_edges', SETUP_STEP_TABLES, False)
@@ -245,13 +245,13 @@ class AppearanceCleanMixin:
         return self._clean_preserved_choice('row_actions_style', SETUP_STEP_TABLES, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
 
     def clean_ribbon_layout(self):
-        return self._clean_preserved_choice('ribbon_layout', SETUP_STEP_LAYOUT, RIBBON_LAYOUT_VALUES, DEFAULT_RIBBON_LAYOUT)
+        return self._clean_preserved_choice('ribbon_layout', SETUP_STEP_RIBBON, RIBBON_LAYOUT_VALUES, DEFAULT_RIBBON_LAYOUT)
 
     def clean_ribbon_style(self):
-        return self._clean_preserved_choice('ribbon_style', SETUP_STEP_LAYOUT, RIBBON_STYLE_VALUES, DEFAULT_RIBBON_STYLE)
+        return self._clean_preserved_choice('ribbon_style', SETUP_STEP_RIBBON, RIBBON_STYLE_VALUES, DEFAULT_RIBBON_STYLE)
 
     def clean_ribbon_advanced_trigger(self):
-        return self._clean_preserved_choice('ribbon_advanced_trigger', SETUP_STEP_LAYOUT, RIBBON_ADVANCED_TRIGGER_VALUES, DEFAULT_RIBBON_ADVANCED_TRIGGER)
+        return self._clean_preserved_choice('ribbon_advanced_trigger', SETUP_STEP_RIBBON, RIBBON_ADVANCED_TRIGGER_VALUES, DEFAULT_RIBBON_ADVANCED_TRIGGER)
 
     def clean_ribbon_nesting(self):
         return self._clean_preserved_choice('ribbon_nesting', SETUP_STEP_RIBBON, RIBBON_NESTING_VALUES, DEFAULT_RIBBON_NESTING)

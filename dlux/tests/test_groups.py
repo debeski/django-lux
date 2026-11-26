@@ -190,6 +190,9 @@ class GroupPresetScopeVisibilityTests(TestCase):
 
 class GroupPresetPublicRegistrationDefaultViewTests(TestCase):
     def setUp(self):
+        settings_row = SystemSettings.load()
+        settings_row.is_configured = True
+        settings_row.save()
         self.admin = User.objects.create_superuser('admin', 'admin@example.com', 'pw')
         self.client.login(username='admin', password='pw')
         self.group = Group.objects.create(name='Public Default Preset')

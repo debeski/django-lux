@@ -21,14 +21,14 @@ Project state, tasks and known bugs: see `tracker.md`.
 - **Branch names.** Name a branch `<release line>/<work>` in snake_case, for
   example `1.13/operations_panel` or `1.14/table_builder`. Its checkout directory
   is the last path segment (`../operations_panel`).
-- **Release line: 1.16; 1.15 is closed** (owner, 2026-11-06 and 2026-11-10).
-  DjangoLux owns the task manager from 1.16.0. 1.16.0 moves every DjangoLux-side
-  and Composer-side task onto it (DjangoLux checks, commands, helpers and
-  scaffolds; Composer checks, commands and helpers). Celery stays for project-side
-  tasks only: warned as deprecated from 1.16.0, no longer installed with generated
-  stacks from 1.17.0. The task manager is merged into `main`, which carries the
-  1.16 betas up to 1.16.0 stable. There are no more 1.15.x releases: every fix,
-  patch or feature ships on a `1.16/<work>` branch.
+- **Release line: 1.17, a fix-only line; 1.16 is closed after 1.16.6** (owner,
+  2026-11-25). 1.17.x, with its paired Composer 1.11.x and ScanLink 0.8.x, carries
+  fixes and patches only: the break-it findings, every known bug, and anything new
+  that turns up. Features wait for 1.18.x. Every fix ships on a `1.17/<work>` branch
+  (`1.11/<work>` in Composer), and consumer releases wait until the owner calls the
+  line robust. DjangoLux owns the task manager since 1.16.0; Celery stays for
+  project-side tasks only, warned as deprecated, and generated stacks stop
+  installing it in 1.18.0.
 - **Retire merged branches without asking.** Once a branch is merged into `main`
   and safe to discard, retire it: move its ignored leftovers (`.xclude/`, venv
   links, e2e state and screenshots) into
@@ -43,6 +43,12 @@ Project state, tasks and known bugs: see `tracker.md`.
   its own `AGENTS.md`). A DjangoLux change that needs them ships with their paired
   beta, accepted together on `testbed-dlux`. The DLB viewer (`tools/dlb-viewer`)
   already ships through this repo's release flow.
+- **The scaffold and Composer stay in line** (owner, 2026-11-25: "imperative").
+  `dlux/scaffold/templates/project/` and Composer's `check` / `check --fix` describe
+  the same stack. A change to its shape (services, stamps, proxy config, wrappers,
+  image labels, the resident block) lands in both in the same paired release. Before
+  tagging a paired beta, run Composer's `scripts/scaffold_alignment.py` against this
+  checkout; it must report `aligned` (see `docs/RELEASING.md`).
 - **Consumers ship stable only.** Consumer projects (`../project-*`) are committed,
   tagged and published only against published stables of DjangoLux, Composer and
   ScanLink: never a `bN` pin, a `:beta`/`vX.Y.ZbN` image or a beta

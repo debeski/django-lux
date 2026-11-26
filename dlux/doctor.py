@@ -10,10 +10,21 @@ Checks never raise. The doctor is most useful when the deployment is broken, so
 a check that blows up is reported as a failing check rather than taking the
 whole report down with it. Nothing in a report may carry a secret value: emit
 key names, lengths, and booleans instead.
+
+Checks never hang either. A run happens inside ``session()``: the database and
+cache are probed first under short socket timeouts, every check runs in a
+worker thread with its own deadline, and the whole pass has one more. A check
+that does not answer in time is reported as an error with its timing, and the
+report goes on without it.
 """
+import copy
 import importlib
+import logging
 import os
 import socket
+import threading
+import time
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +36,18 @@ from .utils.settings import PLACEHOLDER_SECRET_KEYS
 
 
 SCHEMA_VERSION = 1
+
+#: Socket timeout, in seconds, for the database and cache connections a run opens,
+#: whatever the project's DATABASES and CACHES say.
+PROBE_TIMEOUT = 5
+#: Seconds one check (or the opening database and cache probe) may take before
+#: it is reported as not answering and abandoned.
+CHECK_TIMEOUT = 10
+#: Seconds the whole check pass may take; checks not started by then are skipped.
+RUN_TIMEOUT = 60
+#: Seconds ``manage.py dlux_doctor`` may run in all before it prints a deadline
+#: error and exits. Below the 120 s ``composer check --deep`` waits for it.
+PROCESS_TIMEOUT = 100
 
 OK = 'ok'
 WARNING = 'warning'
@@ -105,30 +128,152 @@ def check(check_id, group, title):
     return decorator
 
 
+def _describe(exc):
+    """``Type: message`` on one line, for a report or a log record."""
+    message = ' '.join(str(exc).split())
+    return f'{type(exc).__name__}: {message}' if message else type(exc).__name__
+
+
+@dataclass
+class Outcome:
+    value: object = None
+    error: BaseException = None
+    timed_out: bool = False
+    elapsed: float = 0.0
+
+
+class _Runner:
+    """Runs callables in daemon threads, each with a deadline.
+
+    A thread that misses its deadline is abandoned, not killed: Python cannot
+    interrupt a blocked socket read, and a daemon thread does not keep the
+    process alive.
+
+    Each worker opens its own database connections, so an abandoned one never
+    holds a connection this thread goes on to use (``--apply`` runs the
+    migrator here, with no deadline). The exception is a connection this
+    thread holds inside a transaction, as a test does: the worker must see that
+    transaction, so it shares it, until the first timeout.
+    """
+
+    def __init__(self):
+        self.share_connections = True
+
+    def run(self, func, timeout):
+        from django.db import connections
+
+        shared = []
+        if self.share_connections:
+            shared = [connections[alias] for alias in connections if connections[alias].in_atomic_block]
+            for conn in shared:
+                conn.inc_thread_sharing()
+        box = {}
+
+        def target():
+            try:
+                for conn in shared:
+                    connections[conn.alias] = conn
+                box['value'] = func()
+            except BaseException as exc:
+                box['error'] = exc
+            finally:
+                for conn in connections.all(initialized_only=True):
+                    if conn not in shared:
+                        conn.close()
+
+        started = time.monotonic()
+        worker = threading.Thread(target=target, name='dlux-doctor-check', daemon=True)
+        worker.start()
+        worker.join(max(timeout, 0))
+        elapsed = time.monotonic() - started
+        if worker.is_alive():
+            self.share_connections = False
+            return Outcome(timed_out=True, elapsed=elapsed)
+        for conn in shared:
+            conn.dec_thread_sharing()
+        return Outcome(value=box.get('value'), error=box.get('error'), elapsed=elapsed)
+
+
+_runner = threading.local()
+
+
+def _run_bounded(func, timeout):
+    runner = getattr(_runner, 'active', None) or _Runner()
+    return runner.run(func, timeout)
+
+
+def _probe_database():
+    from django.db import connection
+
+    connection.ensure_connection()
+
+
+CACHE_PROBE_KEY = 'dlux.doctor.probe'
+
+
+def _cache_round_trip():
+    from django.core.cache import cache
+
+    cache.set(CACHE_PROBE_KEY, 'ok', 10)
+    value = cache.get(CACHE_PROBE_KEY)
+    cache.delete(CACHE_PROBE_KEY)
+    return value
+
+
 @dataclass
 class Context:
-    """Shared probe state, so a dead database is diagnosed once rather than by
-    every check that depends on it."""
+    """Shared probe state, so a dead database or cache is diagnosed once rather
+    than by every check that depends on it."""
 
     _db_error: str = field(default=None, init=False)
     _db_probed: bool = field(default=False, init=False)
+    _cache_error: str = field(default=None, init=False)
+    _cache_backend: str = field(default='', init=False)
+    _cache_probed: bool = field(default=False, init=False)
 
     @property
     def db_available(self):
         if not self._db_probed:
             self._db_probed = True
-            from django.db import connection
-            try:
-                connection.ensure_connection()
+            outcome = _run_bounded(_probe_database, CHECK_TIMEOUT)
+            if outcome.timed_out:
+                self._db_error = f'No answer within {outcome.elapsed:.1f} s.'
+            elif outcome.error is not None:
+                self._db_error = f'{_describe(outcome.error)} (after {outcome.elapsed:.1f} s)'
+            else:
                 self._db_error = ''
-            except Exception as exc:
-                self._db_error = f"{type(exc).__name__}: {exc}"
         return not self._db_error
 
     @property
     def db_error(self):
         self.db_available
         return self._db_error
+
+    @property
+    def cache_available(self):
+        if not self._cache_probed:
+            self._cache_probed = True
+            self._cache_backend = (settings.CACHES.get('default') or {}).get('BACKEND', 'unknown')
+            outcome = _run_bounded(_cache_round_trip, CHECK_TIMEOUT)
+            if outcome.timed_out:
+                self._cache_error = f'no answer within {outcome.elapsed:.1f} s'
+            elif outcome.error is not None:
+                self._cache_error = f'{_describe(outcome.error)} (after {outcome.elapsed:.1f} s)'
+            elif outcome.value != 'ok':
+                self._cache_error = f'the round-trip returned {outcome.value!r}'
+            else:
+                self._cache_error = ''
+        return not self._cache_error
+
+    @property
+    def cache_error(self):
+        self.cache_available
+        return self._cache_error
+
+    @property
+    def cache_backend(self):
+        self.cache_available
+        return self._cache_backend
 
     @property
     def base_url(self):
@@ -160,6 +305,47 @@ def _installed(module_name):
 
 
 # ── Settings wiring ────────────────────────────────────────────────────────
+
+DJANGO_CHECKS_ID = 'settings.django_checks'
+
+#: Django's checks and URL resolution import the URLconf, whose modules translate
+#: strings as they load, and Django's model checks translate names. Each
+#: translation builds the system config, which reads System Settings (and the
+#: managed fonts) from the database: with it paused, each read waits out the
+#: connect timeout, and the check outlasts its deadline.
+NEEDS_DATABASE_FOR_TRANSLATIONS = (
+    'Skipped: the database is unreachable, and this check needs it: importing the URLconf '
+    'and translating names builds the system config from System Settings.'
+)
+
+
+@check(DJANGO_CHECKS_ID, 'settings', "Django's system checks pass")
+def _check_django_system_checks(ctx):
+    """Django's own checks, as one finding of the report.
+
+    Run by the command before ``handle()``, an error-level message stopped the
+    doctor before it printed anything, and ``composer check --deep`` got no
+    report. Here they run under the same deadline as every other check.
+    """
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
+    from django.core import checks
+
+    messages = [message for message in checks.run_checks() if not message.is_silenced()]
+    errors = [message for message in messages if message.level >= checks.ERROR]
+    warnings = [message for message in messages if checks.WARNING <= message.level < checks.ERROR]
+
+    def listed(found):
+        shown = '; '.join(f'{message.id or "?"} ({message.obj}): {message.msg}' for message in found[:5])
+        return shown + (f' (+{len(found) - 5} more)' if len(found) > 5 else '')
+
+    remedy = 'Run: python manage.py check, and fix what it lists (or add the ids to SILENCED_SYSTEM_CHECKS).'
+    if errors:
+        return fail(f'{len(errors)} error(s): {listed(errors)}.', remedy)
+    if warnings:
+        return warn(f'{len(warnings)} warning(s): {listed(warnings)}.', remedy)
+    return ok('No errors or warnings.')
+
 
 @check('settings.session_cookie', 'settings', 'Session cookie can be stored by a browser')
 def _check_session_cookie(ctx):
@@ -289,6 +475,8 @@ def _check_settings_helper(ctx):
 
 @check('urls.mounted', 'urls', 'dlux URLs are mounted')
 def _check_urls(ctx):
+    if not ctx.db_available:
+        return skip(NEEDS_DATABASE_FOR_TRANSLATIONS)
     from django.urls import NoReverseMatch, reverse
     try:
         reverse('login')
@@ -371,19 +559,19 @@ def _check_setup_status(ctx):
 
 @check('cache.reachable', 'services', 'Cache backend responds')
 def _check_cache(ctx):
-    from django.core.cache import cache
-    backend = (settings.CACHES.get('default') or {}).get('BACKEND', 'unknown')
-    probe_key = 'dlux.doctor.probe'
-    try:
-        cache.set(probe_key, 'ok', 10)
-        value = cache.get(probe_key)
-        cache.delete(probe_key)
-    except Exception as exc:
-        return fail(f'Cache round-trip failed on {backend}: {type(exc).__name__}: {exc}.',
-                    'Confirm the redis service is healthy and REDIS_URL_DB is correct.')
-    if value != 'ok':
-        return fail(f'Cache round-trip on {backend} returned {value!r}.')
-    return ok(f'Round-trip succeeded on {backend}.')
+    """Reports the probe ``session()`` made before any other check ran.
+
+    When it failed, the rest of the run used a dummy cache, so the checks after
+    it read the database directly instead of each waiting on the dead cache.
+    """
+    if ctx.cache_available:
+        return ok(f'Round-trip succeeded on {ctx.cache_backend}.')
+    return fail(
+        f'Cache round-trip failed on {ctx.cache_backend}: {ctx.cache_error}. '
+        'The rest of this report read the database without the cache.',
+        'Confirm the redis service is running and not paused (docker compose ps), '
+        'and that REDIS_URL_DB is correct.',
+    )
 
 
 @check('updater.runtime_volume', 'services', 'Inline-update runtime volume is usable')
@@ -406,6 +594,11 @@ def _check_updater_runtime_volume(ctx):
 
     if not updates_enabled():
         return skip('Skipped: inline updates are disabled for this deployment.')
+    if ctx is not None and not ctx.db_available:
+        # The worker's verdict lives in the database. Falling back to this
+        # process's own probe would call web's read-only mount a fault.
+        return skip('Skipped: the database is unreachable, so the task worker\'s '
+                    'runtime-volume report cannot be read.')
     problem = runtime_volume_problem()
     if problem:
         return fail(
@@ -427,6 +620,62 @@ def _check_updater_runtime_volume(ctx):
         return ok(f'The update worker reports the runtime volume at {root} writable '
                   '(this process holds it read-only, which is the expected web mount).')
     return ok(f'Runtime volume at {root} is writable.')
+
+
+@check('updater.image_floor', 'services', 'This image can run the active DjangoLux release')
+def _check_updater_image_floor(ctx):
+    """The active volume release needs a newer image.
+
+    The supervisor falls back to the baked release loudly at boot; this makes the
+    same verdict an error here, so an image rolled back under a newer release is
+    not missed. An image whose own supervisor predates the floor check runs the
+    release anyway, and so does this process; the detail says which one runs.
+    """
+    from .updater.supervisor import baked_version, held_release_outcome, runtime_fallback
+
+    root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
+    baked = os.environ.get('DLUX_BAKED_VERSION') or baked_version()
+    problem = runtime_fallback(root, baked)
+    if problem:
+        return fail(
+            f'{problem}. {held_release_outcome(baked, __version__)}.',
+            'Deploy a project image built on that DjangoLux or later, or roll the inline '
+            'release back with ./start.sh dlux rollback.',
+        )
+    return ok('The image meets the active release\'s floor, or no newer volume release is active.')
+
+
+@check('updater.update_policy', 'services', 'The deployment update policy is enforced')
+def _check_update_policy(ctx):
+    """Reports ``DLUX_UPDATE_POLICY`` and whether the resident Composer enforces it."""
+    from .updater import policy as update_policy
+
+    status = update_policy.status()
+    allowed = {
+        update_policy.ALL: 'every update path is allowed',
+        update_policy.INLINE: 'DjangoLux inline updates only; application image and Composer updates are refused',
+        update_policy.NONE: 'updates are refused; checks and rollbacks still run',
+    }[status['policy']]
+    detail = f'Policy {status["policy"]}: {allowed}.'
+    if not status['configured_valid']:
+        return warn(
+            f'{detail} DLUX_UPDATE_POLICY has an unknown value, so it counts as none.',
+            'Set DLUX_UPDATE_POLICY to all, inline or none in .secrets/.env, then redeploy.',
+        )
+    if status['mismatch']:
+        return warn(
+            f'{detail} The application reads {status["configured"]}, the resident Composer '
+            f'enforces {status["resident"]}; the stricter one applies.',
+            'Run ./start.sh on the server: Composer recreates composer-agent and '
+            'composer-executor with the secrets file\'s value.',
+        )
+    if status['resident_unenforced']:
+        return warn(
+            f'{detail} The resident Composer does not report the policy, so only the '
+            'application refuses; a compromised web container could still request an image update.',
+            'Update the resident Composer to 1.11.0 or later: ./start.sh agent update',
+        )
+    return ok(detail)
 
 
 @check('stack.schema', 'services', 'Stack files match the stack contract schema')
@@ -456,10 +705,14 @@ def _check_stack_schema(ctx):
     if declared < expected:
         return warn(
             f'This service runs with stack schema {declared}; this DjangoLux expects {expected}.',
-            f'If compose.yml already sets {STACK_SCHEMA_ENV}: "{expected}" (composer check --fix '
-            'updates it), recreate web and worker to pick it up: Recreate in the Operations panel, '
-            'or ./start.sh. Otherwise apply the changes docs/stack-schema.md lists between the two '
-            f'schemas, then set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
+            f'If compose.yml already sets {STACK_SCHEMA_ENV}: "{expected}", recreate web and worker to '
+            'pick it up: Recreate in the Operations panel, or ./start.sh. Otherwise run ./start.sh '
+            'check --fix, which applies the changes between the two schemas and restamps compose.yml, '
+            'then recreate. Composer 1.11.0 or later restamps every stamp in the file; an older one '
+            'restamps only the first, so a compose.yml that also carries a "# dlux stack schema" '
+            f'comment keeps its old {STACK_SCHEMA_ENV}: set it to "{expected}" by hand. Without '
+            'Composer, apply the changes docs/stack-schema.md lists between the two schemas, then '
+            f'set {STACK_SCHEMA_ENV}: "{expected}" in compose.yml.',
         )
     return warn(
         f'This service runs with stack schema {declared}; this DjangoLux expects {expected} '
@@ -568,19 +821,23 @@ def _check_email_reachable(ctx):
 
 @check('tasks.worker', 'services', 'DjangoLux task worker is running')
 def _check_task_worker(ctx):
+    """An error without a live worker: every DjangoLux task runs there, so
+    scheduled backups, update checks and OCR silently stop."""
     from .taskrunner.config import runner_config
     from .taskrunner.queue import live_dlux_workers, queue_summary
 
+    if ctx is not None and not ctx.db_available:
+        return skip('Skipped: the database is unreachable, so worker heartbeats cannot be read.')
     try:
         workers = list(live_dlux_workers().values_list('version', flat=True))
         summary = queue_summary()
     except Exception as exc:
         return fail(
-            f'The task queue tables cannot be read: {type(exc).__name__}: {exc}.',
+            f'The task queue tables cannot be read: {_describe(exc)}.',
             'Apply pending migrations: python manage.py migrate',
         )
     if not workers:
-        return warn(
+        return fail(
             f'No dlux_worker has sent a heartbeat in the last {runner_config()["stale_after"]} s, so queued and '
             f'scheduled tasks (backups, update checks, OCR) are not running ({summary["ready"]} due now).',
             'Start the worker service. A stack generated before stack schema 5 has none: with this '
@@ -658,7 +915,7 @@ def _check_project_celery(ctx):
     if not signals:
         return ok('This project has no Celery app, beat entries or broker setting.')
     return warn(
-        'Celery for project tasks is deprecated, and generated stacks stop installing it in 1.17: '
+        'Celery for project tasks is deprecated, and generated stacks stop installing it in 1.18: '
         + '; '.join(signals) + '.',
         'Move project tasks to @dlux.taskrunner.task and their schedule to DLUX_TASK_SCHEDULE, then '
         'remove the celery service, celery.py and the CELERY_* settings (docs/task-runner.md, '
@@ -684,13 +941,35 @@ def _check_static(ctx):
             'Run: python manage.py collectstatic --noinput',
             management_fix(['collectstatic', '--noinput'], 'Collect static files'),
         )
-    if not (root / 'dlux').exists():
-        return warn(
-            f'{root} has content but no dlux/ directory; dlux assets may be missing.',
+    shipped = _shipped_static_files()
+    missing = [name for name in shipped if not (root / name).is_file()]
+    if missing:
+        sample = ', '.join(missing[:3]) + (f' (+{len(missing) - 3} more)' if len(missing) > 3 else '')
+        return fail(
+            f'{len(missing)} of the {len(shipped)} static files DjangoLux {__version__} ships are missing '
+            f'from {root}, so pages that load them get 404s: {sample}.',
             'Run: python manage.py collectstatic --noinput',
             management_fix(['collectstatic', '--noinput'], 'Collect static files'),
         )
-    return ok(f'{root} is populated and contains dlux assets.')
+    return ok(f'{root} holds all {len(shipped)} static files DjangoLux {__version__} ships.')
+
+
+def _shipped_static_files():
+    """Paths, relative to STATIC_ROOT, of every file in the running dlux's ``static/``.
+
+    Read from the package that is actually running, so after an inline update
+    it names the files the new release needs. Skips what collectstatic ignores
+    by default (dotfiles, ``*~``).
+    """
+    source = Path(__file__).resolve().parent / 'static'
+    names = []
+    for directory, subdirs, files in os.walk(source):
+        subdirs[:] = [name for name in subdirs if not name.startswith('.')]
+        for name in files:
+            if name.startswith('.') or name.endswith('~'):
+                continue
+            names.append(Path(directory, name).relative_to(source).as_posix())
+    return sorted(names)
 
 
 # ── Production safety ──────────────────────────────────────────────────────
@@ -800,17 +1079,249 @@ def _check_optional_packages(ctx):
     return ok(detail)
 
 
-def run_checks(only_groups=None):
+# ── Run session ────────────────────────────────────────────────────────────
+
+#: Cache backends whose clients take socket timeouts from OPTIONS, and the keys.
+_CACHE_TIMEOUT_OPTIONS = {
+    'django_redis.cache.RedisCache': ('SOCKET_CONNECT_TIMEOUT', 'SOCKET_TIMEOUT'),
+    'dlux.resilient_cache.FailFastRedisCache': ('SOCKET_CONNECT_TIMEOUT', 'SOCKET_TIMEOUT'),
+    'django.core.cache.backends.redis.RedisCache': ('socket_connect_timeout', 'socket_timeout'),
+    'django.core.cache.backends.memcached.PyMemcacheCache': ('connect_timeout', 'timeout'),
+}
+_DB_TIMEOUT_VENDORS = {'postgresql', 'mysql'}
+DUMMY_CACHE = 'django.core.cache.backends.dummy.DummyCache'
+
+
+def _capped(value, limit):
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value <= limit:
+        return value
+    return limit
+
+
+def _bounded_caches(caches_setting):
+    """A copy of CACHES with every known client's socket timeouts capped at PROBE_TIMEOUT."""
+    bounded = copy.deepcopy(caches_setting)
+    changed = False
+    for conf in bounded.values():
+        keys = _CACHE_TIMEOUT_OPTIONS.get(conf.get('BACKEND', ''))
+        if not keys:
+            continue
+        options = conf.setdefault('OPTIONS', {})
+        for key in keys:
+            options[key] = _capped(options.get(key), PROBE_TIMEOUT)
+        changed = True
+    return bounded if changed else None
+
+
+@contextmanager
+def _swap_attribute(owner, name, value):
+    original = getattr(owner, name)
+    setattr(owner, name, value)
+    try:
+        yield
+    finally:
+        setattr(owner, name, original)
+
+
+@contextmanager
+def _short_network_timeouts():
+    """Cap the cache and database socket timeouts for this run, whatever settings say.
+
+    A project's own CACHES may wait 20 s per read with retries on top, which is
+    how a paused Redis held the doctor for minutes. The cap applies to clients
+    created inside the run only: django-redis keeps a process-wide pool per URL,
+    so the run gets a fresh pool map and puts the old one back afterwards.
+    """
+    from django.db import connections
+    from django.test.utils import override_settings
+
+    with ExitStack() as stack:
+        bounded = _bounded_caches(getattr(settings, 'CACHES', {}) or {})
+        if bounded is not None:
+            try:
+                from django_redis.pool import ConnectionFactory
+            except ImportError:
+                ConnectionFactory = None
+            if ConnectionFactory is not None and hasattr(ConnectionFactory, '_pools'):
+                stack.enter_context(_swap_attribute(ConnectionFactory, '_pools', {}))
+            stack.enter_context(override_settings(CACHES=bounded))
+
+        restore = []
+        for alias in connections:
+            conn = connections[alias]
+            if conn.vendor not in _DB_TIMEOUT_VENDORS:
+                continue
+            options = conn.settings_dict.setdefault('OPTIONS', {})
+            restore.append((options, 'connect_timeout' in options, options.get('connect_timeout')))
+            # libpq takes whole seconds and treats anything under 2 as 2.
+            options['connect_timeout'] = int(_capped(options.get('connect_timeout'), max(2, PROBE_TIMEOUT)))
+        try:
+            yield
+        finally:
+            for options, present, value in restore:
+                if present:
+                    options['connect_timeout'] = value
+                else:
+                    options.pop('connect_timeout', None)
+
+
+class _OncePerRun(logging.Filter):
+    """Collapses what a broken dependency makes the rest of the app log.
+
+    With the database down, every config read logged the same warning with a
+    full traceback (937 lines before the report). During a run each distinct
+    record is shown once, with its exception on the same line.
+    """
+
+    VERDICT = '_dlux_doctor_shown'
+
+    def __init__(self):
+        super().__init__()
+        self.seen = set()
+
+    def filter(self, record):
+        # One record reaches every handler it propagates to: decide once, so a
+        # second handler is not mistaken for a repeat.
+        verdict = getattr(record, self.VERDICT, None)
+        if verdict is not None:
+            return verdict
+        exc = record.exc_info[1] if record.exc_info else None
+        if exc is not None:
+            key = (record.name, record.levelno, str(record.msg), type(exc).__name__)
+        else:
+            key = (record.name, record.levelno, record.getMessage())
+        verdict = key not in self.seen
+        self.seen.add(key)
+        if verdict and exc is not None:
+            record.msg = f'{record.getMessage()} ({_describe(exc)})'
+            record.args = None
+            record.exc_info = None
+            record.exc_text = None
+        setattr(record, self.VERDICT, verdict)
+        return verdict
+
+
+@contextmanager
+def _logged_once():
+    once = _OncePerRun()
+    handlers = set(logging.getLogger().handlers)
+    for logger in list(logging.Logger.manager.loggerDict.values()):
+        handlers.update(getattr(logger, 'handlers', ()))
+    if logging.lastResort is not None:
+        # What prints a warning when logging was never configured.
+        handlers.add(logging.lastResort)
+    for handler in handlers:
+        handler.addFilter(once)
+    try:
+        yield once
+    finally:
+        for handler in handlers:
+            handler.removeFilter(once)
+
+
+@contextmanager
+def _config_built_once():
+    """Build the merged system config at most once per pass.
+
+    Outside a request there is nowhere to memoise it, so every translated
+    string (Django's system checks evaluate hundreds) rebuilt it: one database
+    and one cache round-trip each. With either one down that multiplied every
+    timeout by a few hundred.
+    """
+    from .utils import config as config_module
+
+    original = config_module._build_system_config
+    memo = {}
+
+    def build_once():
+        if 'config' not in memo:
+            memo['config'] = original()
+        return memo['config']
+
+    config_module._build_system_config = build_once
+    try:
+        yield memo
+    finally:
+        config_module._build_system_config = original
+
+
+class Session:
+    def __init__(self, ctx, runner, config_memo, stack):
+        self.ctx = ctx
+        self.runner = runner
+        self._config_memo = config_memo
+        self._stack = stack
+
+    def start(self):
+        """Probe the database and cache before anything else touches them."""
+        self.ctx.db_available
+        if not self.ctx.cache_available:
+            from django.test.utils import override_settings
+
+            caches_setting = copy.deepcopy(settings.CACHES)
+            caches_setting['default'] = {'BACKEND': DUMMY_CACHE}
+            self._stack.enter_context(override_settings(CACHES=caches_setting))
+
+    def fresh_pass(self):
+        """Forget per-pass state, so a pass after ``--apply`` sees the fixed deployment."""
+        self._config_memo.clear()
+
+
+@contextmanager
+def session():
+    """The bounds and quieting every doctor run happens inside.
+
+    The command opens one around Django's own system checks as well as the
+    report, because those checks are where most config reads happen.
+    """
+    runner = _Runner()
+    previous = getattr(_runner, 'active', None)
+    _runner.active = runner
+    try:
+        with ExitStack() as stack:
+            stack.enter_context(_logged_once())
+            stack.enter_context(_short_network_timeouts())
+            memo = stack.enter_context(_config_built_once())
+            run = Session(Context(), runner, memo, stack)
+            run.start()
+            yield run
+    finally:
+        _runner.active = previous
+
+
+HUNG_REMEDY = (
+    'Something this check waits on is not answering: a paused or overloaded database, cache '
+    'or network peer. Check the services are running and not paused (docker compose ps), '
+    'then run the doctor again.'
+)
+
+
+def run_checks(only_groups=None, run=None, skip_ids=None):
     """Execute every registered check and return the report dict."""
-    ctx = Context()
+    if run is None:
+        with session() as run:
+            return run_checks(only_groups, run, skip_ids)
+
+    ctx = run.ctx
+    deadline = time.monotonic() + RUN_TIMEOUT
     results = []
     for check_id, group, title, func in _REGISTRY:
         if only_groups and group not in only_groups:
             continue
-        try:
-            finding = func(ctx)
-        except Exception as exc:
-            finding = fail(f'Check raised {type(exc).__name__}: {exc}.')
+        if skip_ids and check_id in skip_ids:
+            continue
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            finding = skip(f'Skipped: the doctor stopped starting checks after its {RUN_TIMEOUT} s limit.')
+        else:
+            outcome = run.runner.run(lambda func=func: func(ctx), min(CHECK_TIMEOUT, remaining))
+            if outcome.timed_out:
+                finding = fail(f'No answer within {outcome.elapsed:.1f} s; the check was abandoned so '
+                               'the rest of the report could run.', HUNG_REMEDY)
+            elif outcome.error is not None:
+                finding = fail(f'Check raised {_describe(outcome.error)}.')
+            else:
+                finding = outcome.value
         results.append(CheckResult(
             id=check_id,
             group=group,

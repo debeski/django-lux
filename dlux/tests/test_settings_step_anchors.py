@@ -1,6 +1,6 @@
 """A preserved settings field must be anchored to the step it renders in.
 
-`_clean_preserved_toggle()` / `_clean_preserved_text()` restore the *stored*
+`_clean_preserved_toggle()` / `_text()` / `_choice()` restore the *stored*
 value whenever the step being saved is not the anchored one — that is what keeps
 a single-step save from reading an absent checkbox as False. It also means an
 anchor pointing at the wrong step silently discards edits made on the page that
@@ -24,7 +24,7 @@ GROUPS_DIR = FORMS_DIR / 'system_settings_groups'
 LAYOUT = GROUPS_DIR / 'layout.py'
 
 ANCHOR_RE = re.compile(
-    r"_clean_preserved_(?:toggle|text)\(\s*'(?P<field>\w+)'\s*,\s*(?P<step>SETUP_STEP_\w+)"
+    r"_clean_preserved_(?:toggle|text|choice)\(\s*'(?P<field>\w+)'\s*,\s*(?P<step>SETUP_STEP_\w+)"
 )
 STEP_END_RE = re.compile(r"_step_css_class\((?P<step>SETUP_STEP_\w+)\)")
 
