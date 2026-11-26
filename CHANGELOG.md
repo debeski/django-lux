@@ -7,8 +7,9 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.17.0b2
 
+- **A Non-Root Image Starts On Empty Volumes (scaffold, pairs with Composer 1.11.0b2)**: a project image with `USER 10001:0` failed its first `./start.sh`: the worker's `python -m dlux.mount_access gate` exited 78, because Composer's pre-up grant skipped the `static` and `dlux_runtime` volumes that did not exist yet, and Docker then created them from the image's mount points, root 0755 (and no `/opt/dlux-runtime` at all). `Dockerfile.tmpl` now creates every mount point the app containers use (`/app/imports`, `/app/logs`, `/app/media`, `/app/staticfiles`, `/opt/dlux-runtime`) with `chgrp 0` and `chmod g+rwX` in the `RUN` that made the first four, so a new named volume copies a group-writable mode; nothing changes for a root image or for existing volumes. A project that sets `USER 10001:0` in its own `Dockerfile` copies that `RUN` before the `USER` line, which also covers deployments on Composer 1.10.x. `DockerfileMountPointTests` reads the app containers' mounts from the generated `compose.yml` and requires exactly those paths, ahead of any `USER`; `docs/deployment-configuration.md` § File permissions shows the line.
 - **Django 5.2 Or Later**: `pyproject.toml` requires `Django>=5.2` (was `>=5.1`); Django 5.1 reached end of life in December 2025 and gets no security fixes. Python 3.11 keeps working on the 5.2 LTS (supported until April 2028), which CI already ran it on; Django 6.0 and later need Python 3.12. README, `docs/getting-started.md` and `docs/task-runner.md` say so.
 
 ## v1.17.0b1

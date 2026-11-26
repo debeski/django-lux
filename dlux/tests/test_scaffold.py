@@ -875,6 +875,117 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
             self.compose.partition("\nservices:\n")[0],
         )
 
+
+class DockerfileMountPointTests(unittest.TestCase):
+    """A named volume Docker creates on the first start copies its mount point's
+    mode from the image. Left to Docker, `static` starts root 0755 and the
+    runtime volume has no mount point in the image at all, so a non-root image
+    (USER 10001:0) cannot write to either and the entrypoint gate exits 78. The
+    mount points are read from the generated compose.yml, so a new mount on an
+    app container cannot be left out of the Dockerfile."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        root = create_project(
+            "demo_project", Path(self._tmp.name) / "demo_project", image="acme/demo"
+        )
+        self.compose = (root / "compose.yml").read_text(encoding="utf-8")
+        self.dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+
+    @staticmethod
+    def _app_mounts(compose):
+        """({services running the project image}, {container paths they mount})."""
+        body = compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        images, mounts = {}, {}
+        service, in_volumes = None, False
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+                mounts[service] = set()
+                in_volumes = False
+                continue
+            key = re.match(r"^    ([A-Za-z_]+):\s*(.*?)\s*$", line)
+            if key and service:
+                in_volumes = key.group(1) == "volumes"
+                if key.group(1) == "image":
+                    images[service] = key.group(2)
+                continue
+            item = re.match(r"^      - (\S+)\s*$", line)
+            if item and in_volumes:
+                mounts[service].add(item.group(1).strip('"').split(":")[1].rstrip("/"))
+        services = {name for name, image in images.items() if image == images["web"]}
+        return services, set().union(*(mounts[name] for name in services))
+
+    @staticmethod
+    def _instructions(dockerfile):
+        joined = re.sub(r"\\\n", " ", dockerfile)
+        return [
+            " ".join(line.split()) for line in joined.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+
+    def _preparation(self):
+        runs = [
+            line for line in self._instructions(self.dockerfile)
+            if line.startswith("RUN ") and "mkdir" in line.split()
+        ]
+        self.assertEqual(len(runs), 1, runs)
+        commands = {}
+        for command in runs[0][len("RUN "):].split("&&"):
+            name, *arguments = command.split()
+            commands[name] = arguments
+        return runs[0], commands
+
+    def test_the_parser_reads_the_app_containers_mounts(self):
+        services, mounts = self._app_mounts(self.compose)
+
+        self.assertLessEqual({"web", "worker", "smtp-relay", "ocr"}, services)
+        self.assertNotIn("composer-agent", services)
+        self.assertLessEqual({"/app/staticfiles", "/opt/dlux-runtime"}, mounts)
+
+    def test_every_app_mount_point_is_created(self):
+        _, mounts = self._app_mounts(self.compose)
+        _, commands = self._preparation()
+
+        self.assertEqual(commands["mkdir"][:1], ["-p"])
+        self.assertEqual(set(commands["mkdir"][1:]), mounts)
+
+    def test_every_app_mount_point_is_group_root_and_group_writable(self):
+        _, mounts = self._app_mounts(self.compose)
+        _, commands = self._preparation()
+
+        self.assertEqual(commands.get("chgrp", [])[:1], ["0"])
+        self.assertEqual(set(commands["chgrp"][1:]), mounts)
+        self.assertIn(commands.get("chmod", [""])[0], ("g+rwX", "g=u"))
+        self.assertEqual(set(commands["chmod"][1:]), mounts)
+
+    def test_the_preparation_runs_before_any_user_switch(self):
+        instructions = self._instructions(self.dockerfile)
+        position = instructions.index(self._preparation()[0])
+
+        for index, line in enumerate(instructions):
+            if line.split()[0] == "USER":
+                self.assertLess(position, index, line)
+
+    def test_the_file_permissions_docs_show_the_scaffold_preparation(self):
+        docs = Path(__file__).resolve().parents[2] / "docs" / "deployment-configuration.md"
+        if not docs.exists():
+            self.skipTest("source documentation is not installed")
+        section = docs.read_text(encoding="utf-8").partition("\n## File permissions\n")[2]
+        section = section.partition("\n## ")[0]
+        shown = [
+            line
+            for block in re.findall(r"```dockerfile\n(.*?)```", section, re.DOTALL)
+            for line in self._instructions(block)
+        ]
+
+        self.assertIn(self._preparation()[0], shown)
+        self.assertIn("USER 10001:0", shown)
+        self.assertLess(shown.index(self._preparation()[0]), shown.index("USER 10001:0"))
+
+
 class StackContractTests(unittest.TestCase):
     """The contract is the shared spec; its diff helper is what Composer mirrors,
     so its behaviour is pinned here."""
