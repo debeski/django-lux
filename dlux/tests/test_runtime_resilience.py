@@ -21,6 +21,8 @@ from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import unittest
+from importlib.util import find_spec
 from unittest import mock
 
 from django.conf import settings
@@ -35,6 +37,13 @@ from dlux.updater import get_baked_version, package_request
 from dlux.updater.runtime import RuntimeStore
 
 from .version_helpers import newer_version
+
+# The fail-fast cache and the outage-safe sessions wrap django-redis. CI installs it;
+# a checkout without it skips these rather than failing on the import.
+needs_django_redis = unittest.skipUnless(
+    find_spec('django_redis') is not None and find_spec('redis') is not None,
+    'needs django-redis',
+)
 
 
 DJANGO_CACHE_SESSIONS = "django.contrib.sessions.backends.cache"
@@ -175,6 +184,7 @@ class CacheSettingsTests(SimpleTestCase):
         self.assertIn('SESSION_ENGINE = "dlux.cache_sessions"', template.read_text(encoding="utf-8"))
 
 
+@needs_django_redis
 class FailFastBackendTests(SimpleTestCase):
     """#8 / F4: one short wait per outage, then no waiting at all."""
 
@@ -305,6 +315,7 @@ class CacheOutageMiddlewareTests(SimpleTestCase):
         self.assertEqual(Client().get("/fine/").status_code, 200)
 
 
+@needs_django_redis
 class SignInDuringCacheOutageTests(TestCase):
     """Log 29: with Redis paused, sign-in returned 500 after 80 s."""
 
@@ -357,6 +368,7 @@ class CacheSessionEngineTests(SimpleTestCase):
         self.assertEqual(store.session_key, "a" * 32)
         self.assertFalse(store.is_empty(), "SessionMiddleware deletes the cookie of an empty session")
 
+    @needs_django_redis
     def test_a_raw_redis_error_is_an_outage_too(self):
         from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -407,6 +419,7 @@ class CacheSessionEngineTests(SimpleTestCase):
         self.assertIsNone(store.session_key)
 
 
+@needs_django_redis
 class SignedInDuringCacheOutageTests(TestCase):
     """Log 29, N-1: one GET with Redis paused deleted the session cookie for good."""
 

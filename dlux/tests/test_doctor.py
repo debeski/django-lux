@@ -3,6 +3,8 @@ import os
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
+import unittest
+from importlib.util import find_spec
 from unittest.mock import patch
 
 from dlux.tests.harness import setup_test_environment
@@ -726,6 +728,7 @@ class DoctorNeverHangsTests(TestCase):
         self.assertNotIn('OPTIONS', bounded['local'])
         self.assertIsNone(doctor._bounded_caches({'local': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}))
 
+    @unittest.skipUnless(find_spec('psycopg') or find_spec('psycopg2'), 'needs a PostgreSQL driver')
     def test_postgres_connect_timeout_is_capped_for_the_run_and_restored(self):
         from django.db.utils import ConnectionHandler
 
