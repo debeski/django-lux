@@ -570,6 +570,12 @@ which reconcile reads from that release's package (see
 release without notes offers no icon. Each row's icons carry that component's own
 last check in their tooltip; there is no shared "last check" line.
 
+While the update state is degraded (`degraded` and `degraded_reason` in
+`/sys/api/dlux-update/state/`), the DjangoLux row's status icon is a warning instead
+of a tick, and a line under the rows reads "DjangoLux is degraded." followed by
+reconcile's reason, such as an image below the release floor. The line goes away
+when reconcile clears the mark.
+
 The Composer agent row has one icon that checks, a second that appears only when
 the channel publishes a newer Composer, and a tick when it does not. Updating the
 agent confirms with the current password through the shared password prompt.

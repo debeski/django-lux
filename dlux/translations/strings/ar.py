@@ -1430,6 +1430,7 @@ STRINGS = {
     'dlux_update_policy_mismatch': 'سياسة التحديث غير متطابقة: يقرأ التطبيق {web} بينما يفرض Composer المقيم {resident}. تُطبَّق الأشد منهما حتى يُشغَّل ./start.sh على الخادم.',
     'dlux_update_policy_unenforced': 'لا يُبلغ Composer المقيم عن سياسة التحديث، لذا فهو لا يفرضها. حدّث Composer على الخادم.',
     'dlux_update_policy_invalid': 'قيمة DLUX_UPDATE_POLICY غير معروفة، لذا تُعامل كأنها none.',
+    'dlux_update_degraded': 'يعمل DjangoLux بحالة متدهورة.',
     'dlux_update_image_local': 'بناء محلي: لم تتم مقارنته بالسجل',
     'dlux_update_image_login_required': 'سجل الصور يتطلب تسجيل الدخول: عيّن COMPOSER_REGISTRY_USERNAME و COMPOSER_REGISTRY_PASSWORD في ملف الأسرار',
     'dlux_update_image_login_refused': 'رفض سجل الصور بيانات الدخول: تحقق من COMPOSER_REGISTRY_USERNAME و COMPOSER_REGISTRY_PASSWORD',

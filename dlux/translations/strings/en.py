@@ -1434,6 +1434,7 @@ STRINGS = {
     'dlux_update_policy_mismatch': 'The update policy differs: the application reads {web}, the resident Composer enforces {resident}. The stricter one applies until ./start.sh runs on the server.',
     'dlux_update_policy_unenforced': 'The resident Composer does not report the update policy, so it does not enforce it. Update Composer on the server.',
     'dlux_update_policy_invalid': 'DLUX_UPDATE_POLICY has an unknown value, so it counts as none.',
+    'dlux_update_degraded': 'DjangoLux is degraded.',
     'dlux_update_image_local': 'Local build: not compared with the registry',
     'dlux_update_image_login_required': 'The image registry needs a login: set COMPOSER_REGISTRY_USERNAME and COMPOSER_REGISTRY_PASSWORD in the secrets file',
     'dlux_update_image_login_refused': 'The image registry refused the login: check COMPOSER_REGISTRY_USERNAME and COMPOSER_REGISTRY_PASSWORD',
