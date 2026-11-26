@@ -69,7 +69,7 @@ USE_X_FORWARDED_HOST = True
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = "dlux.cache_sessions"  # Django's cache sessions, kept through a cache outage
 SESSION_CACHE_ALIAS = "default"
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week

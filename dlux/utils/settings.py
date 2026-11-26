@@ -226,6 +226,8 @@ def _apply_task_runner_settings(scope):
 DJANGO_REDIS_BACKEND = "django_redis.cache.RedisCache"
 FAIL_FAST_CACHE_BACKEND = "dlux.resilient_cache.FailFastRedisCache"
 CACHE_OUTAGE_MIDDLEWARE = "dlux.cache_outage.CacheOutageMiddleware"
+DJANGO_CACHE_SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+DLUX_CACHE_SESSION_ENGINE = "dlux.cache_sessions"
 DEFAULT_CACHE_SOCKET_TIMEOUT = 2.0
 
 
@@ -244,8 +246,10 @@ def _apply_cache_resilience(scope, middleware):
     keys, plus a circuit breaker), its socket timeouts are capped at
     ``DLUX_CACHE_SOCKET_TIMEOUT`` seconds, and ``CacheOutageMiddleware`` goes
     just outside the session middleware, so a cache that stops answering costs one short timeout and a 503
-    instead of a hung request and a 500. Projects keep their own settings file,
-    so the cap is applied here rather than only in the scaffold.
+    instead of a hung request and a 500. Django's cache session engine on one of
+    those caches becomes ``dlux.cache_sessions``, whose outage is that 503 too
+    rather than a reset session and a deleted cookie. Projects keep their own
+    settings file, so this is applied here rather than only in the scaffold.
     """
     scope.setdefault("DLUX_CACHE_FAIL_FAST", True)
     scope.setdefault("DLUX_CACHE_SOCKET_TIMEOUT", DEFAULT_CACHE_SOCKET_TIMEOUT)
@@ -275,6 +279,13 @@ def _apply_cache_resilience(scope, middleware):
         config["OPTIONS"] = options
         resilient[alias] = config
     scope["CACHES"] = resilient
+    session_cache = resilient.get(scope.get("SESSION_CACHE_ALIAS") or "default")
+    if (
+        scope.get("SESSION_ENGINE") == DJANGO_CACHE_SESSION_ENGINE
+        and isinstance(session_cache, dict)
+        and session_cache.get("BACKEND") == FAIL_FAST_CACHE_BACKEND
+    ):
+        scope["SESSION_ENGINE"] = DLUX_CACHE_SESSION_ENGINE
     if found and CACHE_OUTAGE_MIDDLEWARE not in middleware:
         # Inside SecurityMiddleware and the CSP middleware, so its 503 carries
         # their headers; outside SessionMiddleware, whose save is what fails.

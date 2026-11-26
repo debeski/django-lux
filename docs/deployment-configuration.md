@@ -38,7 +38,7 @@ uses `setdefault`, so explicitly declared Django settings win.
 
 | Setting | Source | Type / default | Purpose |
 |---|---|---|---|
-| `DLUX_CACHE_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Points every `django_redis.cache.RedisCache` cache at `dlux.resilient_cache.FailFastRedisCache`, caps its timeouts and puts `dlux.cache_outage.CacheOutageMiddleware` just before `SessionMiddleware` in `MIDDLEWARE`. `False` keeps `CACHES` and `MIDDLEWARE` as the settings file wrote them. Other cache backends are never changed. |
+| `DLUX_CACHE_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Points every `django_redis.cache.RedisCache` cache at `dlux.resilient_cache.FailFastRedisCache`, caps its timeouts and puts `dlux.cache_outage.CacheOutageMiddleware` just before `SessionMiddleware` in `MIDDLEWARE`. A `SESSION_ENGINE` of `django.contrib.sessions.backends.cache` whose `SESSION_CACHE_ALIAS` names one of those caches becomes `dlux.cache_sessions`. `False` keeps `CACHES`, `MIDDLEWARE` and `SESSION_ENGINE` as the settings file wrote them. Other cache backends are never changed. |
 | `DLUX_CACHE_SOCKET_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `2` | The highest `SOCKET_CONNECT_TIMEOUT` and `SOCKET_TIMEOUT` a `django_redis` cache keeps. A larger, missing or invalid value becomes this one; a smaller one is kept. It overrides the settings file, which generated projects never regenerate (a generated settings file may still say 5 and 20 seconds). |
 
 Generated stacks run Redis with RDB snapshots (`--appendonly no --save 60 1`), not
@@ -70,8 +70,14 @@ takes sign-in with it. What happens then:
   skip a lockout. `CacheOutageMiddleware` answers such a request with a 503 page
   (JSON for `XMLHttpRequest` and `Accept: application/json`) saying the
   sign-in service is not responding, with `Retry-After: 10`, instead of a 500.
-  Signed-in users read as signed out until Redis answers again; their sessions
-  are still there when it does.
+- A request that carries a session cookie is one of them, a page or a panel's
+  poll alike. Django's cache session engine would read the outage as a missing
+  session and delete the cookie, signing the user out for good;
+  `dlux.cache_sessions`, the scaffold's `SESSION_ENGINE` and what `dlux_settings()`
+  puts in place of Django's, raises the outage instead. The 503 leaves the cookie
+  alone, and the user is still signed in when Redis answers again. Any other
+  error reading a session, such as a key the cache refuses, still starts an empty
+  session, as Django's engine does.
 - `dlux.resilient_cache.safe_get(key, default)`, `safe_set(key, value, timeout)`,
   `safe_add(key, value, timeout)` and `safe_delete(key)` give project code the
   same miss-on-outage behaviour for its own non-critical caching.

@@ -2,6 +2,7 @@
 release floor, model caches across an upgrade, and an unverified update.
 
 #8   A paused Redis hung sign-in for 80 s and then answered 500.
+N-1  Any request made while Redis was paused signed its user out for good.
 #11  An image older than the active release's floor still ran that release.
 #15  An upgrade unpickled model instances another Django version wrote.
 S5   Composer's success ack completed a run whose release was not active.
@@ -35,6 +36,8 @@ from dlux.updater.runtime import RuntimeStore
 
 from .version_helpers import newer_version
 
+
+DJANGO_CACHE_SESSIONS = "django.contrib.sessions.backends.cache"
 
 OLD_SCAFFOLD_CACHES = {
     "default": {
@@ -139,8 +142,37 @@ class CacheSettingsTests(SimpleTestCase):
     def test_applying_twice_changes_nothing_more(self):
         from dlux.utils.settings import dlux_settings
 
-        scope = dlux_settings(dlux_settings(_settings_scope()))
+        scope = dlux_settings(dlux_settings(_settings_scope(SESSION_ENGINE=DJANGO_CACHE_SESSIONS)))
         self.assertEqual(scope["MIDDLEWARE"].count("dlux.cache_outage.CacheOutageMiddleware"), 1)
+        self.assertEqual(scope["SESSION_ENGINE"], "dlux.cache_sessions")
+
+    def test_cache_sessions_on_the_fail_fast_cache_get_the_outage_aware_engine(self):
+        """N-1: every consumer sets Django's cache engine before dlux_settings()."""
+        from dlux.utils.settings import dlux_settings
+
+        scope = dlux_settings(_settings_scope(SESSION_ENGINE=DJANGO_CACHE_SESSIONS, SESSION_CACHE_ALIAS="default"))
+        self.assertEqual(scope["SESSION_ENGINE"], "dlux.cache_sessions")
+
+    def test_other_session_engines_and_caches_are_left_alone(self):
+        from dlux.utils.settings import dlux_settings
+
+        db = "django.contrib.sessions.backends.db"
+        self.assertEqual(dlux_settings(_settings_scope(SESSION_ENGINE=db))["SESSION_ENGINE"], db)
+        self.assertNotIn("SESSION_ENGINE", dlux_settings(_settings_scope()))
+        opted_out = dlux_settings(_settings_scope(SESSION_ENGINE=DJANGO_CACHE_SESSIONS, DLUX_CACHE_FAIL_FAST=False))
+        self.assertEqual(opted_out["SESSION_ENGINE"], DJANGO_CACHE_SESSIONS)
+        locmem = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+        scope = dlux_settings(_settings_scope(SESSION_ENGINE=DJANGO_CACHE_SESSIONS, CACHES=locmem))
+        self.assertEqual(scope["SESSION_ENGINE"], DJANGO_CACHE_SESSIONS)
+        caches = {**OLD_SCAFFOLD_CACHES, "sessions": locmem["default"]}
+        scope = dlux_settings(_settings_scope(
+            SESSION_ENGINE=DJANGO_CACHE_SESSIONS, SESSION_CACHE_ALIAS="sessions", CACHES=caches,
+        ))
+        self.assertEqual(scope["SESSION_ENGINE"], DJANGO_CACHE_SESSIONS, "only a fail-fast session cache")
+
+    def test_the_scaffold_uses_the_outage_aware_engine(self):
+        template = Path(__file__).resolve().parents[1] / "scaffold/templates/project/package/settings.py.tmpl"
+        self.assertIn('SESSION_ENGINE = "dlux.cache_sessions"', template.read_text(encoding="utf-8"))
 
 
 class FailFastBackendTests(SimpleTestCase):
@@ -302,6 +334,122 @@ class SignInDuringCacheOutageTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertLess(elapsed, 5.0)
         self.assertIn("not responding", response.content.decode())
+
+
+class CacheSessionEngineTests(SimpleTestCase):
+    """N-1: Django's cache engine resets the session on any cache error."""
+
+    def _store(self, error):
+        from dlux.cache_sessions import SessionStore
+
+        store = SessionStore("a" * 32)
+        patcher = mock.patch.object(store._cache, "get", side_effect=error)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return store
+
+    def test_an_outage_raises_and_keeps_the_session_key(self):
+        from dlux.resilient_cache import CacheUnavailable
+
+        store = self._store(CacheUnavailable("The cache at redis:6379 did not answer."))
+        with self.assertRaises(CacheUnavailable):
+            store.load()
+        self.assertEqual(store.session_key, "a" * 32)
+        self.assertFalse(store.is_empty(), "SessionMiddleware deletes the cookie of an empty session")
+
+    def test_a_raw_redis_error_is_an_outage_too(self):
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        from dlux.resilient_cache import CacheUnavailable
+
+        store = self._store(RedisConnectionError("Connection refused"))
+        with self.assertRaises(CacheUnavailable):
+            store.load()
+        self.assertEqual(store.session_key, "a" * 32)
+
+    def test_any_other_error_still_resets_the_session(self):
+        from django.core.cache.backends.base import InvalidCacheKey
+
+        for error in (InvalidCacheKey("bad key"), ValueError("x")):
+            store = self._store(error)
+            self.assertEqual(store.load(), {})
+            self.assertIsNone(store.session_key)
+
+    def test_sessions_django_wrote_stay_signed_in_after_the_switch(self):
+        from django.contrib.sessions.backends.cache import SessionStore as DjangoStore
+
+        from dlux.cache_sessions import SessionStore
+
+        session = DjangoStore()
+        session["_auth_user_id"] = "7"
+        session.save()
+        self.addCleanup(session.delete)
+        self.assertEqual(SessionStore(session.session_key).load(), {"_auth_user_id": "7"})
+
+    def test_a_missing_session_still_resets(self):
+        from dlux.cache_sessions import SessionStore
+
+        store = SessionStore("b" * 32)
+        self.assertEqual(store.load(), {})
+        self.assertIsNone(store.session_key)
+
+    def test_the_async_load_behaves_the_same(self):
+        from asgiref.sync import async_to_sync
+
+        from dlux.resilient_cache import CacheUnavailable
+
+        store = self._store(CacheUnavailable("down"))
+        with self.assertRaises(CacheUnavailable):
+            async_to_sync(store.aload)()
+        self.assertEqual(store.session_key, "a" * 32)
+        store = self._store(ValueError("x"))
+        self.assertEqual(async_to_sync(store.aload)(), {})
+        self.assertIsNone(store.session_key)
+
+
+class SignedInDuringCacheOutageTests(TestCase):
+    """Log 29, N-1: one GET with Redis paused deleted the session cookie for good."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from dlux.models import SystemSettings
+        from dlux.resilient_cache import reset_breakers
+
+        reset_breakers()
+        self.addCleanup(reset_breakers)
+        settings_row = SystemSettings.load()
+        settings_row.is_configured = True
+        settings_row.save()
+        self.user = get_user_model().objects.create_superuser("outage-admin", password="pw-123456")
+        self.url = "/sys/api/dlux-ops/state/"
+
+    def _signed_in(self):
+        client = Client(raise_request_exception=False)
+        client.force_login(self.user)
+        self.assertEqual(client.get(self.url).status_code, 200)
+        return client
+
+    @override_settings(
+        SESSION_ENGINE="dlux.cache_sessions",
+        MIDDLEWARE=["dlux.cache_outage.CacheOutageMiddleware", *settings.MIDDLEWARE],
+    )
+    def test_a_request_during_the_outage_is_a_503_and_the_user_stays_signed_in(self):
+        client = self._signed_in()
+        cookie = settings.SESSION_COOKIE_NAME
+        with HungServer() as server, override_settings(CACHES=server.caches()), self.assertLogs(level="WARNING"):
+            page = client.get(self.url)
+            poll = client.get(self.url, HTTP_ACCEPT="application/json", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        for response in (page, poll):
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response["Retry-After"], "10")
+            self.assertNotIn(cookie, response.cookies, "the session cookie is neither deleted nor rewritten")
+        self.assertIn("not responding", page.content.decode())
+        self.assertFalse(poll.json()["success"])
+
+        after = client.get(self.url)
+        self.assertEqual(after.status_code, 200, "the same cookie is still signed in once the cache answers")
+        self.assertTrue(after.json()["ok"])
+        self.assertEqual(after.wsgi_request.user, self.user)
 
 
 def _write_release(store, version, floor=None):
