@@ -241,4 +241,8 @@ Opening Operations only reads its saved results: it starts no deployment check o
 service refresh. Use Run deployment check or Refresh the service list explicitly. An operation that is already running is resumed: the live status area
 names it, with accessible progress feedback, while controls are disabled, including
 when the panel is reopened during the run. Explicit service lifecycle actions
-refresh their result afterward. A failed status load is shown as an error.
+refresh their result afterward. A failed status load is shown as an error, except
+while an operation the open panel started that changes the deployment is running:
+an apply or a service action can recreate `web`, so a 5xx answer or no answer then
+shows "Waiting for the app to come back…" and the panel keeps polling, at most
+every 5 seconds, until `web` answers and the run's result shows.

@@ -18,22 +18,40 @@
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
     }
 
+    // `status` is 0 when no answer came back at all.
+    function requestError(message, status) {
+        const error = new Error(message);
+        error.status = status;
+        return error;
+    }
+
     async function jsonRequest(url, options) {
-        const response = await fetch(url, {
-            credentials: 'same-origin',
-            headers: {
-                Accept: 'application/json',
-                'X-CSRFToken': csrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            ...options,
-        });
+        let response;
+        try {
+            response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRFToken': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                ...options,
+            });
+        } catch (error) {
+            throw requestError(error.message, 0);
+        }
         let payload = null;
         try { payload = await response.json(); } catch (_error) { payload = null; }
         if (!response.ok || !payload || payload.ok === false) {
-            throw new Error((payload && (payload.error || payload.message)) || `Request failed (${response.status})`);
+            throw requestError(
+                (payload && (payload.error || payload.message)) || `Request failed (${response.status})`, response.status);
         }
         return payload;
+    }
+
+    // While web is recreated the proxy, or web itself, answers 5xx or nothing.
+    function transient(error) {
+        return error.status === 0 || error.status >= 500;
     }
 
     function element(tag, className, text) {
@@ -74,6 +92,10 @@
         let spinner = null;
         let shownLogsToken = '';
         let refreshAfter = '';
+        // A run this panel started that changes the deployment: until it ends, a
+        // failed status load means the app is being replaced, not that it broke.
+        let followedToken = '';
+        let retryDelay = 0;
 
         function spec(name) {
             return (state.operations || []).find((operation) => operation.name === name) || null;
@@ -112,8 +134,14 @@
                 .replace('{warn}', String(summary.warn || 0));
         }
 
+        // Every entry the preview has: file changes carry a diff, and the entries
+        // saying which services an apply recreates or removes carry only a note.
+        function entriesOf(run) {
+            return (run && run.repairs) || [];
+        }
+
         function repairsOf(run) {
-            return ((run && run.repairs) || []).filter((repair) => repair.diff);
+            return entriesOf(run).filter((repair) => repair.diff);
         }
 
         function renderCheck() {
@@ -141,22 +169,26 @@
                         : (labels.labelShowLess || 'Show less');
                 }
             }
+            const entries = entriesOf(run);
             const repairs = repairsOf(run);
             if (diffsEl) {
                 diffsEl.replaceChildren();
-                repairs.forEach((repair) => {
+                entries.forEach((repair) => {
                     const block = element('div', 'dlux-ops-repair');
                     block.appendChild(composerText('div', 'small fw-semibold',
                         [repair.name, (repair.files || []).join(', ')].filter(Boolean).join(' — ')));
-                    const diff = element('pre', 'dlux-ops-diff', repair.diff);
-                    diff.dir = 'ltr';
-                    block.appendChild(diff);
+                    if (repair.message) { block.appendChild(composerText('div', 'small', repair.message)); }
+                    if (repair.diff) {
+                        const diff = element('pre', 'dlux-ops-diff', repair.diff);
+                        diff.dir = 'ltr';
+                        block.appendChild(diff);
+                    }
                     if (repair.note) { block.appendChild(composerText('div', 'small text-muted', repair.note)); }
                     diffsEl.appendChild(block);
                 });
             }
             const offered = repairs.length > 0 && state.has_preview && available('check-fix-apply');
-            if (repairsWrap) { repairsWrap.hidden = !repairs.length; }
+            if (repairsWrap) { repairsWrap.hidden = !entries.length; }
             if (applyButton) { applyButton.hidden = !offered; applyButton.disabled = busy(); }
             if (noRepairEl) {
                 const summary = (run && run.summary) || {};
@@ -254,6 +286,9 @@
             if (payload) { state = { ...state, ...payload }; }
             const run = state.run;
             const ours = Boolean(run && PANEL_OPERATIONS.has(run.operation));
+            if (followedToken && (!run || run.token !== followedToken || TERMINAL.has(run.status))) {
+                followedToken = '';
+            }
             root.setAttribute('aria-busy', String(busy()));
             if (statusEl) {
                 statusEl.hidden = !busy();
@@ -283,17 +318,33 @@
             if (!root.isConnected) { return; }
             try {
                 const data = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
+                retryDelay = 0;
                 render(data);
                 if (data.run && !TERMINAL.has(data.run.status)) { schedulePoll(); }
             } catch (error) {
+                if (followedToken && transient(error)) {
+                    waitForApp();
+                    return;
+                }
                 setError(error.message);
                 if (statusEl) { statusEl.hidden = true; }
             }
         }
 
-        function schedulePoll() {
+        function waitForApp() {
+            setError('');
+            if (statusEl) {
+                statusEl.textContent = labels.labelWaitingApp || 'Waiting for the app to come back…';
+                statusEl.hidden = false;
+            }
+            root.setAttribute('aria-busy', 'true');
+            retryDelay = Math.min(5000, (retryDelay || 500) * 2);
+            schedulePoll(retryDelay);
+        }
+
+        function schedulePoll(delay) {
             window.clearTimeout(pollTimer);
-            pollTimer = window.setTimeout(refresh, 2000);
+            pollTimer = window.setTimeout(refresh, delay || 2000);
         }
 
         async function start(operation, extra, button) {
@@ -306,6 +357,9 @@
                 const data = await jsonRequest(root.dataset.runUrl, { method: 'POST', body });
                 if (['service-start', 'service-stop', 'service-restart', 'service-recreate'].includes(operation)) {
                     refreshAfter = data.run.token;
+                }
+                if (spec(operation)?.changes_deployment && data.run && !TERMINAL.has(data.run.status)) {
+                    followedToken = data.run.token;
                 }
                 render({ run: data.run });
                 schedulePoll();

@@ -2148,6 +2148,34 @@ class UpdaterApiTests(TestCase):
         with self.assertRaises(UpdaterError):
             queue_run(DluxUpdateRun.ACTION_CHECK, self.user.username)
 
+    def test_the_card_marks_a_degraded_runtime_with_its_reason(self):
+        """N-3: the state API said degraded; nothing on the card did (log 30)."""
+        import re
+
+        def note(response):
+            html = response.content.decode()
+            match = re.search(r"<div [^>]*data-dlux-update-degraded[ >][^>]*>(.*?)</div>", html, re.S)
+            self.assertIsNotNone(match, "the card has the degraded note")
+            return match.group(0)
+
+        healthy = note(self.client.get(reverse("options_view")))
+        self.assertIn(" hidden", healthy.split(">", 1)[0])
+        reason = "Image below the release floor: DjangoLux 1.17.99 needs a project image with DjangoLux 1.17.99."
+        state = DluxUpdateState.load()
+        state.degraded = True
+        state.degraded_reason = reason
+        state.save()
+        self.assertEqual(self.client.get(reverse("dlux_update_state")).json()["state"]["degraded_reason"], reason)
+        degraded = note(self.client.get(reverse("options_view")))
+        self.assertNotIn(" hidden", degraded.split(">", 1)[0])
+        self.assertIn("DjangoLux is degraded.", degraded)
+        self.assertIn(reason, degraded)
+        self.assertIn('dir="auto" data-dlux-update-degraded-reason', degraded)
+        self.assertNotIn("style=", degraded)
+        script = (Path(__file__).resolve().parents[1] / "static/dlux/system/js/updater.js").read_text(encoding="utf-8")
+        for name in ("state.degraded_reason", "data-dlux-update-degraded-reason", "degradedNote.hidden = !state.degraded"):
+            self.assertIn(name, script)
+
     def test_system_info_renders_superuser_controls_and_global_staff_read_only_state(self):
         response = self.client.get(reverse("options_view"))
         self.assertContains(response, "data-dlux-updater")

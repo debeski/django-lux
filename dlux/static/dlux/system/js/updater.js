@@ -60,6 +60,8 @@
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         const policyNote = root.querySelector('[data-dlux-update-policy-note]');
+        const degradedNote = root.querySelector('[data-dlux-update-degraded]');
+        const degradedReason = root.querySelector('[data-dlux-update-degraded-reason]');
         // What the installed release said about itself. Its own control, because
         // the review modal is about the release you have NOT installed yet.
         const notesButton = root.querySelector('[data-dlux-release-notes]');
@@ -669,9 +671,16 @@
             policyNote.hidden = !policyNote.textContent;
         }
 
+        // Reconcile's reason is server text in English; the lead-in is translated.
+        function renderDegraded() {
+            if (degradedReason) degradedReason.textContent = state.degraded ? String(state.degraded_reason || '') : '';
+            if (degradedNote) degradedNote.hidden = !state.degraded;
+        }
+
         function render(nextState, run) {
             state = nextState || state;
             if (!state) return;
+            renderDegraded();
             renderSkipped(state.skipped_versions);
             renderChannel();
             renderInterval();
@@ -699,17 +708,22 @@
             // down-arrow review icon takes its place); rollback icon if a
             // previous version exists.
             const checkedOnce = Boolean(state.last_checked_at);
-            const fwOk = checkedOnce && !updateAvailable && !state.last_check_error;
+            const degraded = Boolean(state.degraded);
+            const fwOk = checkedOnce && !updateAvailable && !state.last_check_error && !degraded;
             if (checkButton) {
                 checkButton.hidden = updateAvailable && !inlineRefused;
                 checkButton.classList.toggle('is-ok', fwOk);
+                checkButton.classList.toggle('dlux-upd-ic--warn', degraded);
                 // Looked up each time, never kept: the loading-button helper swaps
                 // the icon for a spinner while a check runs and rebuilds the button
                 // when it stops, so an element found at page load is a detached
                 // node by the time the tick is due (the row stayed an arrow until
                 // the page was reloaded).
                 const checkGlyph = checkButton.querySelector('[data-dlux-check-glyph]');
-                if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
+                if (checkGlyph) {
+                    checkGlyph.className = degraded ? 'bi bi-exclamation-triangle-fill'
+                        : (fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise');
+                }
                 withCheckTime(checkButton, checkButton.dataset.titleBase, state.last_checked_at);
             }
             if (reviewButton) {

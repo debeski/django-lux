@@ -74,9 +74,13 @@ const actions = () => page.evaluate(() => window.__posted.filter((body) => body.
 const waitForAction = () => page.waitForFunction(
   () => window.__posted.some((body) => body.operation !== 'services'));
 
-async function load(state, language = 'en') {
-  await page.addInitScript((payload) => {
+// `failures` answers the first state loads with those statuses ('network' for no
+// answer at all) before the stub answers normally again; window.__stateFailures
+// queues more later.
+async function load(state, language = 'en', failures = []) {
+  await page.addInitScript(({ payload, failures }) => {
     window.__posted = [];
+    window.__stateFailures = [...failures];
     window.__confirms = [];
     window.dluxConfirmPassword = (config) => {
       window.__confirms.push({ title: config.title, description: config.description });
@@ -96,9 +100,17 @@ async function load(state, language = 'en') {
           status: quick ? 'completed' : 'running', active: !quick,
         } });
       }
+      if (window.__stateFailures.length) {
+        const failure = window.__stateFailures.shift();
+        if (failure === 'network') return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.resolve({ ok: false, status: failure, json: () => Promise.reject(new SyntaxError('not JSON')) });
+      }
       return respond({ ok: true, ...window.__state });
     };
-  }, { operations: OPERATIONS, run: null, check: null, services: null, logs: null, has_preview: false, ...state });
+  }, {
+    payload: { operations: OPERATIONS, run: null, check: null, services: null, logs: null, has_preview: false, ...state },
+    failures,
+  });
   await page.goto(BASE + '/?lang=' + language, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel]')?.dataset.bound === 'true');
 }
@@ -167,6 +179,35 @@ describe('deployment check in the panel', () => {
     assert.equal(await page.locator('[data-dlux-ops-panel-apply]').isVisible(), false);
   });
 
+  test('the preview lists every entry, the services an apply recreates or removes included', async () => {
+    const check = { ...REPAIR_CHECK, repairs: [
+      ...REPAIR_CHECK.repairs,
+      { name: 'recreate-services', files: [], diff: '',
+        note: 'Recreates each running service whose Compose definition the apply changes (expected: web and worker).' },
+      { name: 'remove-services', files: [], diff: '', message: 'Stops and removes celery.' },
+    ] };
+    await load({ check, run: check, has_preview: true });
+    const entries = page.locator('[data-dlux-ops-panel-diffs] .dlux-ops-repair');
+    assert.equal(await entries.count(), 3);
+    assert.equal(await page.locator('.dlux-ops-diff').count(), 1, 'only the file change has a diff');
+    assert.equal(await entries.nth(1).locator('.fw-semibold').textContent(), 'recreate-services');
+    assert.match(await entries.nth(1).textContent(), /expected: web and worker/);
+    assert.equal(await entries.nth(1).locator('pre').count(), 0, 'no empty diff box');
+    assert.match(await entries.nth(2).textContent(), /Stops and removes celery\./);
+    assert.equal(await entries.nth(2).locator('[dir="auto"]').count(), 2, 'Composer text reads in an RTL page');
+    assert.equal(await page.locator('[data-dlux-ops-panel-apply]').isVisible(), true);
+  });
+
+  test('a preview whose entries have no diff lists them and offers no apply', async () => {
+    const check = { ...REPAIR_CHECK, findings: [{ level: 'warn', name: 'task-worker', message: 'No worker.' }],
+      repairs: [{ name: 'task-worker', files: [], diff: '', note: 'Composer adds the worker service.' }],
+      summary: { total: 1, ok: 0, warn: 1, fail: 0 } };
+    await load({ check, has_preview: true });
+    assert.equal(await page.locator('[data-dlux-ops-panel-repairs]').isVisible(), true);
+    assert.match(await page.locator('[data-dlux-ops-panel-diffs]').textContent(), /Composer adds the worker service\./);
+    assert.equal(await page.locator('[data-dlux-ops-panel-apply]').isVisible(), false);
+  });
+
   test('running the check asks for no password', async () => {
     await load({});
     await page.locator('[data-dlux-ops-panel-run="check"]').click();
@@ -186,6 +227,61 @@ describe('deployment check in the panel', () => {
     await toggle.click();
     assert.equal(await toggle.textContent(), 'Show less');
     assert.ok(await list.evaluate((el) => el.clientHeight) > collapsed);
+  });
+});
+
+describe('an apply that recreates web', () => {
+  const running = { token: 'r1', operation: 'check-fix-apply', status: 'running', active: true };
+  const status = () => page.locator('[data-dlux-ops-panel-status]');
+  const error = () => page.locator('[data-dlux-ops-panel-error]');
+
+  async function apply(failures) {
+    await load({ check: REPAIR_CHECK, run: REPAIR_CHECK, has_preview: true });
+    await page.locator('[data-dlux-ops-panel-apply]').click();
+    await waitForAction();
+    await page.evaluate(({ run, failures }) => {
+      window.__state.run = run;
+      window.__stateFailures.push(...failures);
+    }, { run: running, failures });
+  }
+
+  test('waits through 5xx and no answer, then recovers on its own', async () => {
+    await apply([500, 'network', 502]);
+    await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel-status]').textContent
+      === 'Waiting for the app to come back…', null, { timeout: 5000 });
+    assert.equal(await status().isVisible(), true);
+    assert.equal(await error().isVisible(), false, 'no "Request failed (500)"');
+    assert.equal(await page.locator('[data-dlux-ops-panel]').getAttribute('aria-busy'), 'true');
+    await page.evaluate(() => {
+      window.__state.run = { token: 'r1', operation: 'check-fix-apply', status: 'completed', active: false, error: '' };
+    });
+    await page.waitForFunction(() => !window.__stateFailures.length
+      && document.querySelector('[data-dlux-ops-panel-status]').hidden, null, { timeout: 15000 });
+    assert.equal(await error().isVisible(), false);
+    assert.equal(await page.locator('[data-dlux-ops-panel]').getAttribute('aria-busy'), 'false');
+    assert.equal(await page.locator('[data-dlux-ops-panel-run="check"]').isEnabled(), true);
+  });
+
+  test('a refusal while it runs is still an error', async () => {
+    await apply([403]);
+    await page.waitForFunction(() => !document.querySelector('[data-dlux-ops-panel-error]').hidden, null, { timeout: 5000 });
+    assert.equal(await error().textContent(), 'Request failed (403)');
+  });
+
+  test('a failed status load outside a run the panel started is still an error', async () => {
+    await load({}, 'en', [500]);
+    await page.waitForFunction(() => !document.querySelector('[data-dlux-ops-panel-error]').hidden, null, { timeout: 5000 });
+    assert.equal(await error().textContent(), 'Request failed (500)');
+    assert.equal(await status().isVisible(), false);
+  });
+
+  test('the waiting state is translated', async () => {
+    await load({ check: REPAIR_CHECK, run: REPAIR_CHECK, has_preview: true }, 'ar');
+    await page.locator('[data-dlux-ops-panel-apply]').click();
+    await waitForAction();
+    await page.evaluate((run) => { window.__state.run = run; window.__stateFailures.push(503); }, running);
+    await page.waitForFunction(() => document.querySelector('[data-dlux-ops-panel-status]').textContent
+      === 'بانتظار عودة التطبيق…', null, { timeout: 5000 });
   });
 });
 

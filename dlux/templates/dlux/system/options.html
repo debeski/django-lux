@@ -397,6 +397,11 @@
                                     </div>
                                     {% endwith %}
                                     {% endif %}
+                                    <div class="dlux-updater-run-status small mt-1 text-warning" data-dlux-update-degraded role="status"{% if not dlux_update_state.degraded %} hidden{% endif %}>
+                                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                                        <span class="fw-semibold">{{ DLUX_STRINGS.dlux_update_degraded|default:'DjangoLux is degraded.' }}</span>
+                                        <span dir="auto" data-dlux-update-degraded-reason>{{ dlux_update_state.degraded_reason }}</span>
+                                    </div>
                                     <div class="dlux-updater-run-status small mt-1 text-warning" data-dlux-update-policy-note hidden></div>
                                     <div class="dlux-updater-run-status small mt-1" data-dlux-update-run-status hidden aria-live="polite"></div>
                                     <span data-dlux-update-latest hidden>{% if dlux_update_state.latest_version %}v{{ dlux_update_state.latest_version }}{% endif %}</span>
