@@ -241,8 +241,9 @@ that relay signs in to any certificate until the stack runs a project image buil
 
 **SMTP timeout** is how long to wait for the provider, through the relay or
 directly, on either settings route. Blank keeps the default: 60 seconds through
-the relay, 30 seconds direct. Through the relay, web waits 15 seconds longer than
-the relay, so the relay's reason arrives first.
+the relay, 30 seconds direct. Through the relay it bounds the whole delivery, and
+web waits 15 seconds longer than the relay, so the relay's reason arrives first
+and a send web gave up on is never delivered later.
 
 **Apply email settings** saves the Email step, timeout included, without leaving
 it; **Send test email** then sends with the applied configuration, which is the

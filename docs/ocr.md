@@ -100,7 +100,9 @@ register_document_file(Decree, 'attachment', ocr=False)  # this field never read
   never reads the file; without a live worker it runs that check inline. The task `dlux.tasks.ocr_file` (defined in
   `dlux.jobs`) runs on the [Task Runner](task-runner.md) at priority 0 (Run OCR),
   -6 (automatic) or -9 (backfill) in `django.tasks` terms, higher first. It is
-  `requeue_lost`, so a run lost with a dead worker goes back to the queue. A busy
+  `requeue_lost`, so a run lost with a dead worker goes back to the queue, and
+  that run takes over the file's `running` claim the dead worker left; any other
+  run leaves a `running` file alone until it counts as abandoned. A busy
   engine (`503` with `Retry-After`, or `429`) is reading another file: the run
   waits one to two `Retry-After` intervals and asks again, without using any of
   its retries, so a backlog larger than the engine never fails files. An
@@ -244,20 +246,26 @@ copies re-link to adopted file versions.
 | `OCR_QUEUE_SIZE` | `2` (minimum `1`) | Waiting HTTP-handler slots beyond the workers. |
 | `OCR_QUEUE_WAIT` | `20` seconds | The wait for an engine slot. |
 | `OCR_READ_TIMEOUT` | `30` seconds | Socket inactivity for headers and uploads. |
+| `OCR_HEADER_DEADLINE` | `30` seconds | Time from connecting to the end of the request headers. |
+| `OCR_MIN_UPLOAD_RATE` | 1 MiB/s | An upload must arrive within `OCR_READ_TIMEOUT` plus its size at this rate, or it gets `408`. |
+| `OCR_OVERFLOW_CONNECTIONS` | `8` | Connections past the queue that still get an answer (read for at most 2 s); beyond them a connection gets `503` at once. |
 | `OCR_MAX_BYTES` | 64 MiB (512 MiB in the generated Compose service) | One request's upload. |
 | `OCR_MAX_PAGES` | `500` | Pages per request. |
 | `OCR_MAX_THREADS` | CPU count (`4` in the generated Compose service) | Threads per request; caps the *CPU threads per file* option. |
 
 Connections beyond the queue, and requests that wait longer than `OCR_QUEUE_WAIT`
 for a slot, receive `503` with `Retry-After: 30` ("The OCR engine is busy."),
-which DjangoLux waits out without counting it against the file. The answer comes
+which DjangoLux waits out without counting it against the file. `GET /health` is
+answered past the queue too, so a busy engine is never reported unhealthy. The answer comes
 before the upload is read and the connection then closes; DjangoLux reads it even
 when the rest of its upload fails with a broken pipe or reset. A connection that
 closes without any answer is retried as an unavailable service. Waiting requests
 do not buffer their files.
 
 Uploads need a single `Content-Length` header, without `Transfer-Encoding`;
-truncated, stalled and oversized uploads are refused.
+truncated, stalled, trickled and oversized uploads are refused. Between pages the
+engine checks that the client is still connected, and stops when it is gone (a
+worker that died or gave up), freeing the slot for the next file.
 
 The generated Compose service exposes the queue and inactivity settings above.
 The application's default per-file limit (*Largest file*) stays 64 MB; both

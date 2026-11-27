@@ -118,7 +118,9 @@ class CacheSettingsTests(SimpleTestCase):
         self.assertEqual(default["OPTIONS"]["SOCKET_CONNECT_TIMEOUT"], 2.0)
         self.assertEqual(default["OPTIONS"]["SOCKET_TIMEOUT"], 2.0)
         self.assertEqual(default["OPTIONS"]["CONNECTION_POOL_KWARGS"], {"max_connections": 50})
-        self.assertEqual(scope["MIDDLEWARE"][:2], [
+        # The database outage middleware sits outside it (dlux.db_outage).
+        self.assertEqual(scope["MIDDLEWARE"][:3], [
+            "dlux.db_outage.DatabaseOutageMiddleware",
             "dlux.cache_outage.CacheOutageMiddleware",
             "django.contrib.sessions.middleware.SessionMiddleware",
         ])

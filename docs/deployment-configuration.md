@@ -26,6 +26,9 @@ uses `setdefault`, so explicitly declared Django settings win.
 |---|---|---|---|
 | `DLUX_CONFIG` | Django setting | `dict`, `{}` | Code-owned defaults layered beneath database System Settings. See [Project Configuration](project-configuration.md#dlux_config). |
 | `DLUX_SKIP_CONFIG_IMPORT` | Environment | boolean, unset/false | Skip automatic first-launch `config.json` import in migrator and setup-page requests. Accepts `1`, `true`, `yes`, or `on` (case-insensitive). Keeps manual setup/import available; does not reset configured systems. Composer 1.5.3+ injects it with `--skip-config`; requires DjangoLux 1.9.4+. |
+| `ADMIN_PASS` | Environment, read by `migrator` | string, `admin` | Password of the `admin` superuser `migrator` creates when no user of that name exists. |
+| `ADMIN_EMAIL` | Environment, read by `migrator` | string, empty | That superuser's email address. Empty leaves the account without one, so no password-reset link goes anywhere until an address is set. |
+| `DLUX_MIGRATOR_LOCK_TIMEOUT` | Environment, read by `migrator` | seconds, `900` | How long a `migrator` waits for another one on the same PostgreSQL database. Each run holds a session advisory lock from its first migration to its last setup step, so a second run (two workers' `pre_start` at once) waits, then finds nothing left to do, instead of failing on a table the first created. |
 | `DLUX_CUSTOM_FONTS` | Django setting | `list` or `tuple`, empty | Registers project-owned WOFF2 families. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_CUSTOM_THEMES` | Django setting | `list` or `tuple`, empty | Registers project-owned scoped theme CSS. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_MIDDLEWARE` | Django setting | dotted path, `dlux.middleware.DluxMiddleware` | Selects the middleware inserted by `dlux_settings()`. A compatible replacement must preserve the setup guard and session/security behavior the project needs. |
@@ -115,6 +118,31 @@ singleton row with `QuerySet.update()` instead of `save()` sets a new
 `cache_revision` (`uuid.uuid4().hex`) in the same update, or deletes the cached
 row afterwards (`cache.delete("SystemSettings")`).
 
+## Database outages
+
+| Setting | Source | Type / default | Purpose |
+|---|---|---|---|
+| `DLUX_DB_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Gives every PostgreSQL connection in `DATABASES` a `connect_timeout` and TCP keepalives (`keepalives_idle` 10, `keepalives_interval` 5, `keepalives_count` 3) in `OPTIONS`, keeping any value the settings file sets, and puts `dlux.db_outage.DatabaseOutageMiddleware` just outside the session middleware. `False` keeps `DATABASES` and `MIDDLEWARE` as written. |
+| `DLUX_DB_CONNECT_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `5` | The `connect_timeout` given to a PostgreSQL connection that sets none. |
+
+Generated stacks open a database connection per request, so the connect timeout
+bounds how long a request waits on a database that does not answer: a paused or
+unreachable database costs one short wait, not a hung worker.
+
+`DatabaseOutageMiddleware` answers a request that failed because the database could
+not serve it with a 503 page "Database not responding" (JSON for `XMLHttpRequest`
+and `Accept: application/json`) and `Retry-After: 15`, instead of a 500. It covers
+errors raised in a view and in inner middleware such as the session and
+authentication middleware. It counts as an outage: a connection that failed or
+closed, SQLSTATE classes `08` (connection), `53` (insufficient resources, such as
+"too many clients") and `57` (operator intervention: shutdown, cannot connect now,
+statement timeout), and `25006` (read-only transaction). Any other database error,
+such as a missing table, stays a 500. The page is built without the database, the
+session or System Settings, in the language of `LANGUAGE_CODE`.
+
+The same middleware answers 503 "Restore in progress" while a
+[system restore](backups.md#restore) replaces the data.
+
 ## Limits and Data Discovery
 
 | Setting | Source | Type / default | Purpose |
@@ -172,6 +200,14 @@ Generated Compose deployments configure that relay's provider in `.secrets/.env`
 | `SMTP_RELAY_PASSWORD` | empty | Provider password. Reaches the `smtp-relay` service only. |
 | `SMTP_RELAY_TLS_VERIFY` | `True` | Check the provider's certificate and host name before signing in. `False` accepts any certificate. Environment route only; the Email step has its own switch. |
 | `SMTP_RELAY_CA_FILE` | empty | Path, inside `smtp-relay`, of a PEM bundle of CA certificates the relay trusts besides the system CAs. Applies to both routes. |
+| `SMTP_RELAY_UPSTREAM_TIMEOUT` | `60` | Seconds one delivery to the provider may take in total, connect to the end of the message, when the Email step sets no timeout. |
+| `SMTP_RELAY_MAX_MESSAGE_BYTES` | `10485760` | Largest message accepted (`552` above it). |
+| `SMTP_RELAY_MAX_LINE_BYTES` | `1048576` | Longest line accepted. A longer command line gets `500 Line too long` and the connection closes; a longer message line refuses the message with `552` and keeps the session. |
+| `SMTP_RELAY_IDLE_TIMEOUT` | `300` | Seconds the relay waits for the next line before it answers `421` and closes the connection. |
+| `SMTP_RELAY_MAX_CONNECTIONS` | `100` | Open connections the relay serves at once; one more gets `421 Too many connections`. |
+
+The relay reads the Email step from the database for every delivery, on a fresh
+connection, so a database restart costs at most the one delivery in flight.
 
 The relay uses these when the Email step's provider settings are **Environment**,
 or when it cannot read the step at all; the step's timeout applies on both routes.
@@ -290,7 +326,7 @@ release verification, maintenance, recovery, and rollback behavior.
 
 | Setting | Source | Type / default | Purpose |
 |---|---|---|---|
-| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | What `dlux_worker` runs on a schedule: DjangoLux adds its four entries (state tick, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. |
+| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | What `dlux_worker` runs on a schedule: DjangoLux adds its five entries (state tick, stalled-backup reaper, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. |
 | `DLUX_TASK_RUNNER` | Django setting | dict, see defaults | Worker tuning: `threads` (4), `queues` (`["default"]`), `express_queues` (`["dlux-mail"]`: served by every worker on one extra thread kept for them, see [Task Runner](task-runner.md#priorities)), `poll_interval` (1 s), `heartbeat_interval` (10 s), `stale_after` (60 s, when a silent worker's runs count as lost), `keep_successful` (1 day) and `keep_failed` (7 days) retention, `max_recoveries` (3), `shutdown_grace` (25 s). |
 
 DjangoLux's own background work always runs on `dlux_worker` (the `worker`

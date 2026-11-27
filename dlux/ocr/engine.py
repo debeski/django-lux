@@ -6,8 +6,11 @@ selecting it with ``OCR_ENGINE``. Engines import their packages lazily: they com
 from the optional ``django-lux[ocr]`` extra, and only the ``ocr`` service loads them.
 """
 
+import logging
 import os
 import threading
+
+log = logging.getLogger('ocr')
 
 
 class EngineError(Exception):
@@ -19,10 +22,11 @@ class Engine:
     version = ''
     model_version = ''
 
-    def convert(self, path, mode='auto', max_pages=0, threads=2):
+    def convert(self, path, mode='auto', max_pages=0, threads=2, cancelled=None):
         """Return {"pages": [page, ...]} where each page has index, source,
         markdown, text, lines [{box, text, conf}], blocks, rotation, skew, note
-        and timings (milliseconds)."""
+        and timings (milliseconds). ``cancelled()`` true between pages stops the
+        work: nobody is waiting for the answer."""
         raise NotImplementedError
 
 
@@ -57,7 +61,7 @@ class IndraEngine(Engine):
         with self._lock:
             self._idle.append((threads, ocr))
 
-    def convert(self, path, mode='auto', max_pages=0, threads=2):
+    def convert(self, path, mode='auto', max_pages=0, threads=2, cancelled=None):
         from indra_ocr.document import Converter
 
         ocr = self._take(threads)
@@ -65,6 +69,9 @@ class IndraEngine(Engine):
         pages = []
         try:
             for index, page in converter.convert(path, max_pages=max_pages):
+                if cancelled is not None and cancelled():
+                    log.warning('OCR client went away; stopped after %s pages.', len(pages))
+                    break
                 pages.append({
                     'index': index,
                     'source': page.source,

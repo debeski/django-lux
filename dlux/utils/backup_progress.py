@@ -436,11 +436,30 @@ class RestoreReporter:
         self._restore = restore
         self._last_tick = 0.0
         self._last_percent = None
+        self._site_closed = False
+
+    def close_site(self):
+        """Turn other requests away until ``open_site``; kept alive by every write."""
+        from ..db_outage import set_restore_in_progress
+
+        self._site_closed = True
+        set_restore_in_progress(self._restore.token)
+
+    def open_site(self):
+        from ..db_outage import clear_restore_in_progress
+
+        if self._site_closed:
+            self._site_closed = False
+            clear_restore_in_progress()
 
     def checkpoint(self, percent, message, stage=None):
         import time
 
         set_restore_progress(self._restore, percent, message, stage=stage)
+        if self._site_closed:
+            from ..db_outage import set_restore_in_progress
+
+            set_restore_in_progress(self._restore.token)
         self._last_tick = time.monotonic()
         self._last_percent = int(percent or 0)
 

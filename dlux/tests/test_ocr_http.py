@@ -136,7 +136,9 @@ class OCRHTTPTests(TestCase):
             first = executor.submit(self.request)
             self.assertTrue(self.engine.started.wait(1))
             try:
-                self.assertEqual(self.raw(b'GET /health HTTP/1.1\r\nHost: ocr\r\n\r\n')[0], 503)
+                self.assertEqual(self.raw(b'POST /v1/ocr HTTP/1.1\r\nHost: ocr\r\nContent-Length: 5\r\n\r\n%PDF-')[0], 503)
+                # R2-097: /health is answered past the limit, so a busy engine is not an unhealthy one.
+                self.assertEqual(self.raw(b'GET /health HTTP/1.1\r\nHost: ocr\r\n\r\n')[0], 200)
             finally:
                 self.engine.release.set()
             self.assertEqual(first.result()[0], 200)

@@ -435,13 +435,36 @@ def _check_middleware_order(ctx):
     return ok('dlux middleware runs after session and authentication middleware.')
 
 
+def _calls_dlux_context(path):
+    """Whether the processor at ``path`` calls ``dlux_context`` itself.
+
+    A project may replace DjangoLux's processor with its own that builds on it
+    (CRM's ``crm_context`` returns ``dict(dlux_context(request))`` plus its own
+    keys). The name in the function's code is what tells it apart from a
+    processor that leaves DjangoLux's keys out.
+    """
+    from django.utils.module_loading import import_string
+
+    try:
+        func = import_string(path)
+    except Exception:
+        return False
+    code = getattr(func, '__code__', None)
+    return code is not None and 'dlux_context' in code.co_names
+
+
 @check('settings.context_processors', 'settings', 'dlux context processor is wired')
 def _check_context_processors(ctx):
     target = 'dlux.context_processors.dlux_context'
+    listed = []
     for template in getattr(settings, 'TEMPLATES', []) or []:
         processors = (template.get('OPTIONS') or {}).get('context_processors') or []
         if target in processors:
             return ok(f"'{target}' is configured.")
+        listed.extend(processors)
+    for path in listed:
+        if _calls_dlux_context(path):
+            return ok(f"'{path}' is configured and calls '{target}'.")
     return fail(f"'{target}' is missing; dlux templates will render without branding or navigation.",
                 SETTINGS_HELPER_REMEDY)
 
@@ -503,6 +526,41 @@ def _check_db_reachable(ctx):
         return ok(f'Connected using {engine}.')
     return fail(f'Database connection failed. {ctx.db_error}',
                 'Confirm the db service is healthy and POSTGRES_* credentials match compose.yml.')
+
+
+def _read_only_reason():
+    """Why the database refuses writes, or ``''``: a standby, or read-only transactions."""
+    from django.db import connection
+
+    if connection.vendor != 'postgresql':
+        return ''
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT pg_is_in_recovery(), current_setting(%s)', ['transaction_read_only'])
+        in_recovery, read_only = cursor.fetchone()
+    if in_recovery:
+        return 'it is a standby in recovery'
+    if str(read_only).lower() == 'on':
+        return 'transactions are read-only (default_transaction_read_only)'
+    return ''
+
+
+@check('db.writable', 'database', 'Database accepts writes')
+def _check_db_writable(ctx):
+    if not ctx.db_available:
+        return skip('Skipped: the database is unreachable.')
+    from django.db import connection
+
+    if connection.vendor != 'postgresql':
+        return skip(f'Only checked on PostgreSQL ({connection.vendor} here).')
+    reason = _read_only_reason()
+    if reason:
+        return fail(
+            f'The database answers but refuses writes: {reason}. Sign-in, saves, backups and the task '
+            'worker fail.',
+            "Point POSTGRES_HOST at the primary, or turn read-only off "
+            "(ALTER SYSTEM RESET default_transaction_read_only; SELECT pg_reload_conf();).",
+        )
+    return ok('The database accepts writes.')
 
 
 @check('db.migrations', 'database', 'All migrations are applied')
@@ -677,7 +735,120 @@ def _check_update_policy(ctx):
             'application refuses; a compromised web container could still request an image update.',
             'Update the resident Composer to 1.11.0 or later: ./start.sh agent update',
         )
+    pair = composer_pair_status()
+    if status['resident'] and pair['stale']:
+        return warn(
+            f'{detail} The resident Composer last reported {pair["age_text"]} ago, so the policy it '
+            'reports may not be the one running now.',
+            COMPOSER_PAIR_REMEDY,
+        )
     return ok(detail)
+
+
+COMPOSER_PAIR_REMEDY = (
+    'On the server, check the pair: docker compose ps composer-agent composer-executor. '
+    './start.sh recreates both.'
+)
+# A status reported less often than this many heartbeats ago is stale.
+COMPOSER_STALE_HEARTBEATS = 3
+
+
+def _parse_timestamp(value):
+    try:
+        stamp = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return None
+    return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
+
+
+def composer_pair_status(store=None):
+    """What ``agent-status.json`` says about the resident composer-agent.
+
+    The file's age means something only when the agent declares
+    ``heartbeat_seconds``: it then rewrites the file at least that often.
+    """
+    from .updater.runtime import state_dir
+
+    path = state_dir(store) / 'agent' / 'agent-status.json'
+    result = {'present': False, 'stale': False, 'heartbeat': 0, 'age': None, 'age_text': '', 'status': {}}
+    try:
+        import json
+
+        status = json.loads(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return result
+    except (OSError, ValueError):
+        result['present'] = True
+        result['unreadable'] = True
+        return result
+    if not isinstance(status, dict):
+        status = {}
+    result.update(present=True, status=status)
+    try:
+        heartbeat = int(status.get('heartbeat_seconds') or 0)
+    except (TypeError, ValueError):
+        heartbeat = 0
+    observed = _parse_timestamp(status.get('observed_at'))
+    if observed is None:
+        try:
+            observed = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        except OSError:
+            observed = None
+    if observed is not None:
+        age = max(0, int((datetime.now(timezone.utc) - observed).total_seconds()))
+        result['age'] = age
+        result['age_text'] = f'{age // 60} min' if age >= 120 else f'{age} s'
+    result['heartbeat'] = heartbeat
+    result['stale'] = bool(heartbeat and result['age'] is not None
+                           and result['age'] > heartbeat * COMPOSER_STALE_HEARTBEATS)
+    return result
+
+
+@check('services.composer_pair', 'services', 'Composer pair reports to this deployment')
+def _check_composer_pair(ctx):
+    pair = composer_pair_status()
+    if not pair['present']:
+        return skip('No resident Composer reports to this deployment (no agent-status.json).')
+    if pair.get('unreadable'):
+        return warn('agent-status.json cannot be read.', COMPOSER_PAIR_REMEDY)
+    status = pair['status']
+    version = str(status.get('composer_version') or status.get('agent_version') or '?')
+    if pair['stale']:
+        return warn(
+            f'composer-agent {version} last reported {pair["age_text"]} ago (it reports every '
+            f'{pair["heartbeat"]} s), so it is stopped, paused or cut off: updates, the Operations '
+            'panel and relayed requests wait for it.',
+            COMPOSER_PAIR_REMEDY,
+        )
+    if not pair['heartbeat']:
+        return ok(f'composer-agent {version} reported its status; this Composer does not report a '
+                  'heartbeat, so whether it is still running is not checked.')
+    return ok(f'composer-agent {version} reported {pair["age_text"]} ago.')
+
+
+@check('services.ocr', 'services', 'OCR service answers')
+def _check_ocr_service(ctx):
+    if ctx is not None and not ctx.db_available:
+        return skip('Skipped: the database is unreachable, so the OCR settings cannot be read.')
+    from .ocr import config as ocr_config
+    from .ocr.client import service_health
+
+    options = ocr_config()
+    if not options['enabled']:
+        return skip('OCR is off.')
+    health = service_health(refresh=True)
+    if not health:
+        return fail(
+            f"OCR is on, but {options['service_url']}/health does not answer: queued files wait and "
+            'Run OCR fails.',
+            'Start the ocr service (docker compose up -d ocr), or turn OCR off in Options.',
+        )
+    if health.get('status') != 'ok':
+        return fail(
+            f"The OCR service answers but its engine is unavailable: {health.get('error') or health.get('status')}.",
+            'Rebuild the project image with django-lux[ocr], then recreate the ocr service.',
+        )
+    return ok(f"{health.get('engine', 'OCR')} {health.get('engine_version', '')} answers at {options['service_url']}.".replace('  ', ' '))
 
 
 @check('stack.schema', 'services', 'Stack files match the stack contract schema')

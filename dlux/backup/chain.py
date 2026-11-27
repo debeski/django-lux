@@ -71,7 +71,9 @@ def write_index_sidecar(path, index, *, passphrase=None, encrypt=True, chain=Non
         raise
     if default_storage.exists(path):
         default_storage.delete(path)
-    return default_storage.save(path, ContentFile(buffer.getvalue()))
+    from ._shared import store_artifact
+
+    return store_artifact(path, ContentFile(buffer.getvalue()))
 
 
 def read_index_sidecar(path, *, passphrase=None):

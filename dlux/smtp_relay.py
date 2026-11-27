@@ -28,7 +28,9 @@ The encryption rule, step tracking and failure codes live in
 import asyncio
 import os
 import smtplib
+import socket
 import sys
+import threading
 
 from dlux.smtp_session import (  # noqa: F401 — re-exported for the relay's callers
     DEFAULT_UPSTREAM_PORT,
@@ -73,6 +75,17 @@ DEFAULT_MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 # upstream: servers that scan mail in-line often answer connect/EHLO/AUTH instantly
 # and then take 30-60s on DATA.
 DEFAULT_UPSTREAM_TIMEOUT = 60
+# Longest SMTP line accepted, commands and message body alike. RFC 5321 allows
+# 1000 octets; real mail carries longer unwrapped lines, so the cap only stops a
+# client that never sends a line end.
+DEFAULT_MAX_LINE_BYTES = 1024 * 1024
+# RFC 5321 §4.5.3.2: a server waits at least five minutes for the next command.
+DEFAULT_IDLE_TIMEOUT = 300
+DEFAULT_MAX_CONNECTIONS = 100
+
+_active_connections = 0
+
+
 def listen_address():
     return _env("SMTP_RELAY_LISTEN_HOST", DEFAULT_LISTEN_HOST), _env_int(
         "SMTP_RELAY_LISTEN_PORT", DEFAULT_LISTEN_PORT
@@ -87,12 +100,30 @@ def upstream_timeout():
     return _env_int("SMTP_RELAY_UPSTREAM_TIMEOUT", DEFAULT_UPSTREAM_TIMEOUT)
 
 
+def max_line_bytes():
+    return max(_env_int("SMTP_RELAY_MAX_LINE_BYTES", DEFAULT_MAX_LINE_BYTES), 1024)
+
+
+def idle_timeout():
+    return max(_env_int("SMTP_RELAY_IDLE_TIMEOUT", DEFAULT_IDLE_TIMEOUT), 1)
+
+
+def max_connections():
+    return max(_env_int("SMTP_RELAY_MAX_CONNECTIONS", DEFAULT_MAX_CONNECTIONS), 1)
+
+
 def stored_email_config():
     """The normalized ``email_config`` from Dlux System Settings, or ``None``.
 
     The relay runs in the project image, so it shares the app's Django settings,
     database and secret key — the last of which is what lets it decrypt the stored
     SMTP password.
+
+    Each read runs on a pool thread that keeps its database connection between
+    sends, with no request cycle to retire it. A database restart leaves that
+    connection closed, so the read is bracketed by ``close_old_connections()``
+    and the thread's connection is closed afterwards; a read that still fails
+    on a dead connection is retried once on a fresh one.
     """
     try:
         import django
@@ -101,10 +132,22 @@ def stored_email_config():
             raise RuntimeError("DJANGO_SETTINGS_MODULE is not set")
         django.setup()
 
+        from django.db import Error as DatabaseError, close_old_connections, connection
+
         from dlux.models import SystemSettings
         from dlux.utils import normalize_email_config
 
-        return normalize_email_config(SystemSettings.load().email_config)
+        try:
+            for attempt in (1, 2):
+                close_old_connections()
+                try:
+                    return normalize_email_config(SystemSettings.load().email_config)
+                except DatabaseError:
+                    connection.close()
+                    if attempt == 2:
+                        raise
+        finally:
+            connection.close()
     except Exception as exc:
         print(
             f"SMTP relay could not read Dlux UI config, using env fallback: {exc}",
@@ -195,11 +238,17 @@ def deliver(mail_from, recipients, message_bytes):
         context = _provider_tls_context(upstream, host, port, use_tls, use_ssl)
     tracker = StepTracker()
     smtp = None
+    # ``timeout`` bounds the whole delivery, not each step: a provider answering
+    # every step just inside a per-step timeout would otherwise keep going after
+    # the app stopped waiting (the app waits ``timeout`` plus headroom), and the
+    # app's retry would send the mail twice.
+    deadline = _DeliveryDeadline(timeout)
     try:
         if use_ssl:
             smtp = StagedSMTP_SSL(host, port, timeout=timeout, context=context, dlux_tracker=tracker)
         else:
             smtp = StagedSMTP(host, port, timeout=timeout, dlux_tracker=tracker)
+        deadline.watch(smtp)
         smtp.ehlo()
         if use_tls:
             smtp.starttls(context=context)
@@ -208,17 +257,53 @@ def deliver(mail_from, recipients, message_bytes):
             smtp.login(username, password)
         smtp.sendmail(mail_from, recipients, message_bytes)
     except Exception as exc:
+        deadline.cancel()
         # No QUIT after a failure: on a stalled server it waits a whole second
         # timeout, and the app stops listening before the reason arrives.
         if smtp is not None:
             smtp.close()
+        if deadline.expired:
+            exc = TimeoutError(f"the provider did not finish the delivery within {timeout} seconds")
         raise step_error(
             exc, tracker.step, host=host, port=port, use_tls=use_tls, use_ssl=use_ssl, timeout=timeout,
         ) from exc
+    deadline.cancel()
     try:
         smtp.quit()
     except (OSError, smtplib.SMTPException):
         smtp.close()
+
+
+class _DeliveryDeadline:
+    """Shut the provider socket down once a delivery's total time is used up.
+
+    Shutting the socket down wakes the step blocked on it with an error, which
+    ``deliver`` reports as a timeout of the step it reached.
+    """
+
+    def __init__(self, seconds):
+        self.expired = False
+        self._smtp = None
+        self._timer = threading.Timer(max(float(seconds), 0.1), self._expire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def watch(self, smtp):
+        self._smtp = smtp
+        if self.expired:
+            self._expire()
+
+    def _expire(self):
+        self.expired = True
+        sock = getattr(self._smtp, "sock", None)
+        if sock is not None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
+    def cancel(self):
+        self._timer.cancel()
 
 
 def _provider_tls_context(upstream, host, port, use_tls, use_ssl):
@@ -259,15 +344,47 @@ async def _send(writer, line):
     await writer.drain()
 
 
-async def handle_client(reader, writer):
-    peer = writer.get_extra_info("peername")
+class _LineTooLong(Exception):
+    pass
+
+
+class _IdleTimeout(Exception):
+    pass
+
+
+async def _readline(reader, timeout=None):
+    """One line, or ``_LineTooLong`` / ``_IdleTimeout`` instead of a traceback.
+
+    ``StreamReader.readline`` raises ``ValueError`` for a line over the reader's
+    limit, after dropping what it buffered.
+    """
     try:
+        return await asyncio.wait_for(reader.readline(), timeout or idle_timeout())
+    except asyncio.TimeoutError as exc:
+        raise _IdleTimeout() from exc
+    except (ValueError, asyncio.LimitOverrunError) as exc:
+        raise _LineTooLong() from exc
+
+
+async def handle_client(reader, writer):
+    global _active_connections
+    peer = writer.get_extra_info("peername")
+    _active_connections += 1
+    try:
+        if _active_connections > max_connections():
+            await _send(writer, "421 Too many connections, try again later")
+            return
         await _converse(reader, writer, peer)
+    except _LineTooLong:
+        await _send_quietly(writer, "500 Line too long")
+    except _IdleTimeout:
+        await _send_quietly(writer, "421 Idle timeout, closing connection")
     except (ConnectionError, asyncio.IncompleteReadError):
         # A health check or reachability probe that hangs up without QUIT is
         # routine, not a fault worth a traceback.
         pass
     finally:
+        _active_connections -= 1
         writer.close()
         try:
             await writer.wait_closed()
@@ -275,13 +392,29 @@ async def handle_client(reader, writer):
             pass
 
 
+async def _send_quietly(writer, line):
+    try:
+        await _send(writer, line)
+    except (ConnectionError, OSError):
+        pass
+
+
 async def _read_data(reader, size_limit):
-    """The DATA payload, read to its terminator: ``(chunks, oversized, terminated)``."""
+    """The DATA payload, read to its terminator: ``(chunks, oversized, terminated)``.
+
+    A line over the line limit marks the message oversized and reading goes on,
+    so the session stays in step with the client.
+    """
     chunks = []
     total = 0
     oversized = False
     while True:
-        line = await reader.readline()
+        try:
+            line = await _readline(reader)
+        except _LineTooLong:
+            oversized = True
+            chunks = []
+            continue
         if not line:
             return chunks, oversized, False
         if line in {b".\r\n", b".\n"}:
@@ -307,7 +440,7 @@ async def _converse(reader, writer, peer):
     await _send(writer, f"220 {RELAY_GREETING}")
 
     while not reader.at_eof():
-        raw = await reader.readline()
+        raw = await _readline(reader)
         if not raw:
             break
         command = raw.decode("utf-8", errors="replace").rstrip("\r\n")
@@ -360,7 +493,7 @@ async def _converse(reader, writer, peer):
 
 async def serve():
     host, port = listen_address()
-    server = await asyncio.start_server(handle_client, host, port)
+    server = await asyncio.start_server(handle_client, host, port, limit=max_line_bytes())
     sockets = ", ".join(str(sock.getsockname()) for sock in server.sockets or [])
     print(f"Dlux SMTP relay listening on {sockets}", flush=True)
     async with server:

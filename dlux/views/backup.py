@@ -36,6 +36,7 @@ from ..backup import (
     run_system_backup,
     run_system_restore,
 )
+from ..backup._shared import BackupStorageFull, store_artifact
 from ..backup.chain import eligible_chain_heads
 from ..utils.backup_progress import format_duration, read_restore_progress
 from ..guards import require_current_password
@@ -714,7 +715,13 @@ def system_backup_upload_view(request):
     stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
     # Unguessable like `system-{token}.dlb`: an upload may be unencrypted.
     name = f'uploaded-{stamp}-{secrets.token_urlsafe(16)}.dlb'
-    default_storage.save(f'{get_system_backup_storage_prefix()}/{name}', uploaded)
+    try:
+        store_artifact(f'{get_system_backup_storage_prefix()}/{name}', uploaded, size=uploaded.size)
+    except OSError as exc:
+        logger.warning('Could not store an uploaded backup: %s', exc)
+        message = str(exc) if isinstance(exc, BackupStorageFull) else s.get('sysbackup_upload_store_failed')
+        notify.error(message, request=request, action='backup_upload_store_failed', category='backup')
+        return redirect('system_backup_page')
     notify.success(s.get('sysbackup_upload_done'), request=request, action='backup_upload_done', category='backup')
     return redirect('system_backup_page')
 
@@ -773,7 +780,7 @@ def system_restore_status_view(request, token):
     return JsonResponse({
         'status': restore.status,
         'report': restore.report or {},
-        'error': restore.error[:300] if restore.error else '',
+        'error': restore.error[:1000] if restore.error else '',
         'progress_percent': 100 if restore.status == 'completed' else progress['progress_percent'],
         'progress_message': progress['progress_message'],
         'stage': progress['stage'],

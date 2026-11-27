@@ -10,14 +10,13 @@ from django.core.files import File
 from django.core.files.storage import default_storage
 from django.core.management.color import no_style
 from django.db import connection, transaction
-from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
 from ._shared import _dlux_version, _log_system_action, get_current_migration_state, logger
 from .config import _is_user_model, get_system_backup_models
 from .chain import resolve_chain_paths, verify_chain_members
 from .crypto import decrypt_dlb_to_tempfile, read_dlb_metadata
-from .reporters import _format_count
+from .reporters import _format_count, format_size
 
 
 def build_migration_report(manifest):
@@ -31,6 +30,35 @@ def build_migration_report(manifest):
         "backup_dlux_version": manifest.get("dlux_version"),
         "current_dlux_version": _dlux_version(),
     }
+
+
+def migration_mismatch_message(report):
+    """Why a restore was refused for its schema, and the two ways forward.
+
+    Rolling back an update moves code only, so the database keeps the newer
+    release's migrations and the pre-update backup no longer matches.
+    """
+    from ..translations import get_strings
+
+    strings = get_strings()
+    missing = list(report.get("missing_on_target") or [])
+    extra = list(report.get("extra_on_target") or [])
+    examples = (missing + extra)[:3]
+    return strings.get(
+        "sysrestore_migration_mismatch_error",
+        "The backup's database schema does not match this system's (backup taken on DjangoLux "
+        "{backup_version}, this system runs {current_version}): {missing} migration(s) only in the "
+        "backup and {extra} only here, such as {examples}. Rolling back an update changes code only "
+        "and never reverses migrations. Either update this system to the backup's version and "
+        "restore again, or restore with \u201c{override}\u201d.",
+    ).format(
+        backup_version=report.get("backup_dlux_version") or "?",
+        current_version=report.get("current_dlux_version") or "?",
+        missing=len(missing),
+        extra=len(extra),
+        examples=", ".join(examples) or "-",
+        override=str(strings.get("sysrestore_ignore_mismatch") or "Ignore version mismatch").strip().rstrip(".\u06d4"),
+    )
 
 
 def _models_in_scope(manifest):
@@ -347,9 +375,16 @@ def fail_lost_system_restore(restore_pk):
     ).first()
     if restore is None:
         return False
+    from ..db_outage import clear_restore_in_progress
     from ..translations import get_strings
-    from ..utils.backup_progress import finish_restore_progress
+    from ..utils.backup_progress import finish_restore_progress, read_restore_progress
 
+    # The row's own progress is the last one committed before the database
+    # phase; the live figures are in the cache mirror.
+    live = read_restore_progress(restore)
+    restore.progress_percent = live["progress_percent"]
+    restore.progress_message = live["progress_message"][:SystemRestore._meta.get_field("progress_message").max_length]
+    restore.stage = live["stage"]
     restore.error = get_strings().get(
         "sysrestore_worker_lost_error",
         "The task worker stopped during this restore at {percent}%. Check the data before relying on it, "
@@ -357,7 +392,8 @@ def fail_lost_system_restore(restore_pk):
     ).format(percent=restore.progress_percent)[:1000]
     restore.status = SystemRestore.STATUS_FAILED
     restore.completed_at = timezone.now()
-    restore.save(update_fields=["status", "completed_at", "error"])
+    restore.save(update_fields=["status", "completed_at", "error", "progress_percent", "progress_message", "stage"])
+    clear_restore_in_progress()
     logger.warning("System restore pk=%s was lost with its task worker at %s%%.", restore.pk, restore.progress_percent)
     finish_restore_progress(restore, success=False, error=restore.error)
     return True
@@ -395,17 +431,17 @@ def run_system_restore(restore_pk, passphrase=None):
                 sizes.append(0)
         container_size = sum(sizes)
         decrypt_label = strings.get("sysrestore_stage_decrypting", "Decrypting")
-        total_label = filesizeformat(container_size) if container_size else ""
+        total_label = format_size(container_size) if container_size else ""
         done_before = [0]
 
         def _on_decrypt(consumed):
             consumed += done_before[0]
             if container_size:
                 percent = 3 + int(min(consumed / container_size, 1.0) * 27)
-                message = f"{decrypt_label} {filesizeformat(consumed)} / {total_label}"
+                message = f"{decrypt_label} {format_size(consumed)} / {total_label}"
             else:
                 percent = 15
-                message = f"{decrypt_label} {filesizeformat(consumed)}"
+                message = f"{decrypt_label} {format_size(consumed)}"
             reporter.tick(percent, message, stage=SystemRestore.STAGE_DECRYPTING)
 
         temps, archives, headers = [], [], []
@@ -436,11 +472,14 @@ def run_system_restore(restore_pk, passphrase=None):
                 restore.report = report
                 restore.status = SystemRestore.STATUS_FAILED
                 restore.completed_at = timezone.now()
-                restore.error = "Migration state mismatch between backup and this system"
+                restore.error = migration_mismatch_message(migration_report)[:1000]
                 restore.save(update_fields=["report", "status", "completed_at", "error"])
                 finish_restore_progress(restore, success=False, error=restore.error)
                 return restore
             models_to_restore = _models_in_scope(base_manifest)
+            # From here until the restore ends, its transaction holds locks most
+            # pages wait on: those requests get a 503 instead of hanging.
+            reporter.close_site()
             counts = _wipe_and_load(
                 archives[0], models_to_restore, reporter,
                 partial=not base_manifest.get("system_data_included", True),
@@ -496,4 +535,6 @@ def run_system_restore(restore_pk, passphrase=None):
         restore.error = str(exc)[:1000]
         restore.save(update_fields=["status", "completed_at", "error"])
         finish_restore_progress(restore, success=False, error=restore.error)
+    finally:
+        reporter.open_site()
     return restore

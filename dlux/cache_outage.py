@@ -27,24 +27,40 @@ def _mark_outage(sender, request=None, **kwargs):
 got_request_exception.connect(_mark_outage, dispatch_uid="dlux.cache_outage.mark_outage")
 
 
-def outage_response(request):
-    """A 503 saying the service behind sign-in does not answer."""
-    strings = {}
-    try:
-        from .translations import get_strings
-
-        strings = get_strings()
-    except Exception:
-        try:
-            from .translations.strings.en import STRINGS as strings
-        except Exception:
-            strings = {}
-    title = strings.get("cache_unavailable_title") or "Temporarily unavailable"
-    message = strings.get("cache_unavailable_message") or (
+def outage_response(
+    request,
+    *,
+    title_key="cache_unavailable_title",
+    title="Temporarily unavailable",
+    message_key="cache_unavailable_message",
+    message=(
         "The service that keeps sign-ins and sessions is not responding. Try again "
         "in a minute; if it keeps happening, tell your administrator."
-    )
-    retry_after = str(int(RETRY_AFTER_SECONDS))
+    ),
+    retry_after=RETRY_AFTER_SECONDS,
+    strings=None,
+):
+    """A 503 saying a service the page needs does not answer.
+
+    Built without templates, the database or the session: those may be what is
+    down. JSON for ``XMLHttpRequest`` and ``Accept: application/json``.
+    ``strings`` skips the language lookup, which reads System Settings and the
+    signed-in user's profile, for a page served while the database is away.
+    """
+    offline = strings is not None
+    if not offline:
+        try:
+            from .translations import get_strings
+
+            strings = get_strings()
+        except Exception:
+            try:
+                from .translations.strings.en import STRINGS as strings
+            except Exception:
+                strings = {}
+    title = strings.get(title_key) or title
+    message = strings.get(message_key) or message
+    retry_after = str(int(retry_after))
     wants_json = (
         request.headers.get("x-requested-with") == "XMLHttpRequest"
         or "application/json" in request.headers.get("accept", "")
@@ -53,14 +69,18 @@ def outage_response(request):
         response = JsonResponse({"success": False, "error": message}, status=503)
     else:
         lang = "en"
-        direction = "ltr"
         try:
-            from .translations import get_current_language_code
+            if offline:
+                from django.conf import settings
 
-            lang = (get_current_language_code(request) or "en").split("-")[0]
-            direction = "rtl" if lang.startswith(("ar", "fa", "he", "ur")) else "ltr"
+                lang = str(getattr(settings, "LANGUAGE_CODE", "en") or "en").split("-")[0]
+            else:
+                from .translations import get_current_language_code
+
+                lang = (get_current_language_code(request) or "en").split("-")[0]
         except Exception:
             pass
+        direction = "rtl" if lang.startswith(("ar", "fa", "he", "ur")) else "ltr"
         response = HttpResponse(
             f'<!doctype html><html lang="{escape(lang)}" dir="{direction}"><head>'
             f'<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
