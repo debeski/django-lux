@@ -268,7 +268,7 @@ class CeleryEraNamesTests(SimpleTestCase):
 
 class OnDemandAssetCompatTests(SimpleTestCase):
     """Shims for assets that stopped loading on every page (docs/deprecation-countdown.md:
-    `pdfjsLib` before PDF.js loads, `dlux/tutorial/main.html`)."""
+    `pdfjsLib` before PDF.js loads, `destroy()` on a PDF.js document, `dlux/tutorial/main.html`)."""
 
     def test_pdfjslib_stand_in_is_set_up_by_the_pdf_assets(self):
         assets = (PACKAGE / 'templates' / 'dlux/pdf/assets.html').read_text(encoding='utf-8')
@@ -279,6 +279,8 @@ class OnDemandAssetCompatTests(SimpleTestCase):
         self.assertIn('getDocument: function (source)', shim)
         self.assertIn('promise: promise', shim)
         self.assertIn('GlobalWorkerOptions', shim)
+        # paper.js then calls pdf.destroy(), which PDF.js 6 no longer has.
+        self.assertIn("if (typeof pdf.destroy !== 'function') pdf.destroy = function () { return task.destroy(); };", shim)
 
     def test_tutorial_template_still_resolves_and_renders_nothing(self):
         html = render_to_string('dlux/tutorial/main.html', {'request': SimpleNamespace(csp_nonce='n')})

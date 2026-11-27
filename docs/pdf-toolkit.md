@@ -12,8 +12,18 @@ wheel's dependency metadata, so it requires a project image rebuild; the inline
 updater cannot install it. `pypdf` is imported only when assembly runs, so other
 DjangoLux users do not acquire that dependency.
 
-Viewer and editor assets, PDF.js 3.11.174, its worker, and its license are
-packaged locally. Every PDF.js load disables evaluation.
+Viewer and editor assets, PDF.js (the legacy build), its worker, its image
+decoders and its license are packaged locally under
+`dlux/static/dlux/pdf/vendor/` (`vendor/README.md` records the version, source
+and integrity). The legacy build runs on Firefox ESR, Chrome and Edge 125+, and
+Safari 18+, the browsers DjangoLux supports. PDF.js is an ES module, imported on
+demand rather than loaded as a classic script.
+
+Every PDF.js load disables evaluation (`isEvalSupported: false`) and runs with no
+WebAssembly (`useWasm: false`): the strict `script-src 'self' 'nonce-…'` policy
+allows neither `'unsafe-eval'` nor `'wasm-unsafe-eval'`. JPEG 2000, JBIG2 and
+CCITT-fax images decode through the JavaScript image decoders shipped under
+`vendor/wasm/<version>/`. The worker is same-origin.
 
 ## Integration
 
@@ -25,14 +35,20 @@ Include assets once in the project base-page extension:
 ```
 
 The include carries the viewer, the page editor and their stylesheet. PDF.js
-itself (about 320 KB) loads only when a viewer or editor opens a file, through
-the `pdf` bundle ([On-demand assets](ui-integration.md#on-demand-assets)).
-Project code that calls PDF.js itself waits for it first:
+itself loads only when a viewer or editor opens a file, imported through the
+`pdf` bundle ([On-demand assets](ui-integration.md#on-demand-assets)). Project
+code that calls PDF.js itself waits for it first:
 
 ```js
 const pdfjsLib = await window.DluxPdfJs.load();
-const pdf = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
 ```
+
+`DluxPdfJs.load()` resolves with the library, having set its worker to the
+same-origin worker and pointed it at the shipped image decoders. Its
+`getDocument()` applies `isEvalSupported: false` and `useWasm: false`, so callers
+need not; it also accepts a bare URL or byte array. Pass a loaded document, or
+its loading task, to its own `destroy()` to release the worker.
 
 Before PDF.js has loaded, `window.pdfjsLib` is a stand-in whose
 `getDocument(...).promise` loads it first; see

@@ -62,14 +62,17 @@ class BundleDefinitionTests(SimpleTestCase):
 
     def test_asset_bundle_urls_uses_the_given_resolver(self):
         bundles = asset_bundle_urls(lambda path: f'/s/{path}')
-        self.assertEqual(bundles['pdf']['js'], ['/s/dlux/pdf/vendor/pdf.min.js'])
+        self.assertEqual(bundles['pdf']['js'], [])
+        self.assertEqual(bundles['pdf']['module'], '/s/dlux/pdf/vendor/pdf.min.js')
+        self.assertEqual(bundles['pdf']['worker'], '/s/dlux/pdf/vendor/pdf.worker.min.js')
+        self.assertNotIn('module', bundles['settings'])
 
 
 class PageShellTests(SimpleTestCase):
     def test_base_loads_no_bundle_file_up_front(self):
         base = _template('dlux/base.html')
         for name, bundle in ASSET_BUNDLES.items():
-            for path in bundle['js']:
+            for path in (*bundle.get('js', ()), *(bundle[key] for key in ('module', 'worker') if key in bundle)):
                 with self.subTest(bundle=name, path=path):
                     self.assertNotIn(path, base)
         for path in ASSET_BUNDLES['settings']['css']:

@@ -115,7 +115,7 @@ const VIEWER_PAGE = (viewer) => `<!doctype html><html><head><meta charset="utf-8
 <link rel="stylesheet" href="/static/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="/static/dlux/pdf/css/main.css">
 </head><body><div style="width:520px">${viewer}</div>
-<script type="application/json" id="dlux-asset-bundles">${JSON.stringify({ pdf: { css: [], js: ['/static/dlux/pdf/vendor/pdf.min.js'] } })}</script>
+<script type="application/json" id="dlux-asset-bundles">${JSON.stringify({ pdf: { css: [], js: [], module: '/static/dlux/pdf/vendor/pdf.min.js', worker: '/static/dlux/pdf/vendor/pdf.worker.min.js' } })}</script>
 <script src="/static/dlux/base/js/lazy.js" nonce="${PAGE_NONCE}"></script>
 <script src="/static/dlux/pdf/js/pdfjs.js" nonce="${PAGE_NONCE}"></script>
 <script src="/static/dlux/pdf/js/viewer.js" nonce="${PAGE_NONCE}"></script>
