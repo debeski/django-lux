@@ -380,8 +380,8 @@ it. There are two ways back to that backup:
 
 - update this system to the backup's DjangoLux version again, then restore it;
 - restore it with **Ignore version mismatch**. The backup's rows are loaded into
-  the newer schema, which is safe when the release being left declares
-  `migrations.rollback_compatible` (see [Releasing](RELEASING.md)).
+  the newer schema, which is safe when every release between the backup's and
+  this one declares `migrations.rollback_compatible` (see [Releasing](RELEASING.md)).
 
 ### Restoring a chain
 

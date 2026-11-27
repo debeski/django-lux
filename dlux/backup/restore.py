@@ -16,6 +16,7 @@ from ._shared import _dlux_version, _log_system_action, get_current_migration_st
 from .config import _is_user_model, get_system_backup_models
 from .chain import resolve_chain_paths, verify_chain_members
 from .crypto import decrypt_dlb_to_tempfile, read_dlb_metadata
+from .errors import BackupError
 from .reporters import _format_count, format_size
 
 
@@ -30,6 +31,17 @@ def build_migration_report(manifest):
         "backup_dlux_version": manifest.get("dlux_version"),
         "current_dlux_version": _dlux_version(),
     }
+
+
+def restore_error_message(exc):
+    """The failure text a restore row stores, in the operator's language."""
+    if isinstance(exc, BackupError):
+        return exc.translated()
+    from ..translations import get_strings
+
+    return get_strings().get(
+        "sysrestore_error_unexpected", "The restore stopped with an unexpected error: {error}",
+    ).format(error=str(exc) or exc.__class__.__name__)
 
 
 def migration_mismatch_message(report):
@@ -414,7 +426,7 @@ def run_system_restore(restore_pk, passphrase=None):
     reporter = RestoreReporter(restore)
     try:
         if not restore.backup_file_path or not default_storage.exists(restore.backup_file_path):
-            raise ValueError("Backup file not found in storage")
+            raise BackupError("sysrestore_error_file_missing", "Backup file not found in storage")
         reporter.checkpoint(
             2,
             strings.get("sysrestore_stage_reading", "Reading the backup file..."),
@@ -467,7 +479,10 @@ def run_system_restore(restore_pk, passphrase=None):
             report = {"metadata": target_meta, "migrations": migration_report, "chain_members": len(archives)}
             base_state = sorted(base_manifest.get("migration_state") or [])
             if any(sorted(item.get("migration_state") or []) != base_state for item in manifests[1:]):
-                raise ValueError("The backup chain spans a schema change and cannot be restored as one")
+                raise BackupError(
+                    "sysrestore_error_chain_schema_change",
+                    "The backup chain spans a schema change and cannot be restored as one",
+                )
             if not migration_report["match"] and not restore.ignore_version_mismatch:
                 restore.report = report
                 restore.status = SystemRestore.STATUS_FAILED
@@ -532,7 +547,7 @@ def run_system_restore(restore_pk, passphrase=None):
         logger.exception("System restore pk=%s failed", restore_pk)
         restore.status = SystemRestore.STATUS_FAILED
         restore.completed_at = timezone.now()
-        restore.error = str(exc)[:1000]
+        restore.error = restore_error_message(exc)[:1000]
         restore.save(update_fields=["status", "completed_at", "error"])
         finish_restore_progress(restore, success=False, error=restore.error)
     finally:

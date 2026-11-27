@@ -241,6 +241,14 @@ axes. Schema 2 states facts and lets the updater decide:
 }
 ```
 
+`migrations.rollback_compatible` says whether the code of the release before
+this one runs on this release's schema. A rollback across several releases is
+safe only when every release it crosses declares `true`; the Updates card and
+Composer's downgrade guard check the releases they can read (the active, staged
+and target manifests). A release that declares `rollback_compatible: false`
+therefore needs a span-aware rollback guard first, because a release the stack
+never ran is invisible to both.
+
 `migrations.effect` is one of `none`, `state_only`, `additive`, `altering`,
 `destructive`. A release is offered inline only when `install.inline` is
 `allowed` **and** the effect is one of the first three — `install.inline` is a

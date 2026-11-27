@@ -30,6 +30,7 @@ from django.utils import timezone
 # Leaf imports only: `_shared` sits in the backup/tasks deferred-import knot,
 # and everything in that knot imports this module.
 from .config import _backup_config, get_system_backup_storage_prefix
+from .errors import BackupError
 from .crypto import DlbPayloadWriter, decrypt_dlb_to_tempfile, read_dlb_metadata
 
 
@@ -236,13 +237,17 @@ def resolve_chain_paths(target_path, target_meta=None):
         )
         if match is None:
             if candidates.get(position):
-                raise ValueError(
-                    f"Backup chain is broken at member {position + 1}: no member {position} "
-                    "it was taken after is in the backup folder"
+                raise BackupError(
+                    "sysrestore_error_chain_broken",
+                    "Backup chain is broken at member {next}: no member {position} "
+                    "it was taken after is in the backup folder",
+                    next=position + 1, position=position,
                 )
-            raise ValueError(
-                f"Backup chain is incomplete: member {position} of {sequence} is missing "
-                "from the backup folder"
+            raise BackupError(
+                "sysrestore_error_chain_incomplete",
+                "Backup chain is incomplete: member {position} of {sequence} is missing "
+                "from the backup folder",
+                position=position, sequence=sequence,
             )
         ordered.insert(0, match)
     return [path for path, _info in ordered]
@@ -265,14 +270,24 @@ def verify_chain_members(headers, manifests):
         actual = manifest.get("chain") or {}
         for key in CHAIN_IDENTITY:
             if (claimed.get(key) or None) != (actual.get(key) or None):
-                raise ValueError(
-                    f"Backup chain member {position} was altered: its header does not match "
-                    f"its encrypted contents ({key})"
+                raise BackupError(
+                    "sysrestore_error_chain_header_altered",
+                    "Backup chain member {position} was altered: its header does not match "
+                    "its encrypted contents ({key})",
+                    position=position, key=key,
                 )
         if int(actual.get("sequence") or 0) != position:
-            raise ValueError(f"Backup chain member {position} was altered: it is not member {position} of its chain")
+            raise BackupError(
+                "sysrestore_error_chain_position_altered",
+                "Backup chain member {position} was altered: it is not member {position} of its chain",
+                position=position,
+            )
         if previous is not None and (
             actual.get("id") != previous.get("id") or actual.get("parent_root") != previous.get("root")
         ):
-            raise ValueError(f"Backup chain member {position} was altered: it does not follow member {position - 1}")
+            raise BackupError(
+                "sysrestore_error_chain_order_altered",
+                "Backup chain member {position} was altered: it does not follow member {previous}",
+                position=position, previous=position - 1,
+            )
         previous = actual

@@ -1036,3 +1036,37 @@ class ConnectBreakerTests(SimpleTestCase):
             with self.assertRaises(RuntimeError):
                 wrapper.ensure_connection()
         self.assertNotIn('breaker-test-2', db_outage._connect_failed_at)
+
+
+class RestoreErrorTranslationTests(TestCase):
+    """R2-110 (restore half): restore failures were stored as bare English text."""
+
+    def test_backup_errors_are_stored_in_the_operator_language(self):
+        from dlux.backup.errors import BackupError
+        from dlux.backup.restore import restore_error_message
+
+        exc = BackupError(
+            'sysrestore_error_chain_incomplete',
+            'Backup chain is incomplete: member {position} of {sequence} is missing from the backup folder',
+            position=1, sequence=3,
+        )
+        self.assertIn('member 1 of 3', str(exc), 'str() stays English for logs')
+        self.assertIsInstance(exc, ValueError)
+        with mock.patch('dlux.translations.runtime.get_current_language_code', return_value='ar'):
+            arabic = restore_error_message(exc)
+            unexpected = restore_error_message(RuntimeError('boom'))
+        self.assertIn('سلسلة النسخ غير مكتملة', arabic)
+        self.assertIn('boom', unexpected)
+        self.assertIn('خطأ غير متوقع', unexpected)
+
+    def test_a_missing_file_fails_the_restore_with_the_translated_text(self):
+        from dlux.backup.restore import run_system_restore
+
+        SystemRestore = apps.get_model('dlux', 'SystemRestore')
+        restore = SystemRestore.objects.create(requested_by_username='boss', backup_file_path='gone.dlb')
+        with mock.patch('dlux.translations.runtime.get_current_language_code', return_value='ar'), \
+                self.assertLogs('dlux', level='ERROR'):
+            run_system_restore(restore.pk)
+        restore.refresh_from_db()
+        self.assertEqual(restore.status, SystemRestore.STATUS_FAILED)
+        self.assertEqual(restore.error, 'ملف النسخة الاحتياطية غير موجود في التخزين')
