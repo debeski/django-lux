@@ -25,6 +25,8 @@ from dlux.utils.import_export import (
 )
 
 
+REGISTRATION_DEPENDENT_TOGGLES = ('registration_throttle_enabled', 'honeypot_enabled')
+
 def _leaves(value, path=()):
     if isinstance(value, dict):
         for name, child in value.items():
@@ -204,6 +206,15 @@ class SettingsPersistenceContracts(TestCase):
                         self.assertEqual(_at(after, other), value, (group.key, other))
 
     @patch('dlux.forms.system_settings.email_features_unlocked', return_value=True)
+    def test_registration_safeguards_keep_their_value_while_registration_is_off(self, _verified_email):
+        # R2-036: the toggles are disabled, so an absent value is not an operator's choice.
+        obj = self.configured(True)
+        form = self.form(obj, SETUP_STEP_SLUGS.index('security'), {'default_language': 'ar'})
+        self.assertTrue(form.is_valid(), form.errors)
+        for name in REGISTRATION_DEPENDENT_TOGGLES:
+            self.assertIs(form.cleaned_data[name], True)
+
+    @patch('dlux.forms.system_settings.email_features_unlocked', return_value=True)
     def test_reported_toggles_still_accept_on_and_off_in_their_own_section(self, _verified_email):
         fields = {
             'languages': ['allow_user_language_override'],
@@ -220,6 +231,9 @@ class SettingsPersistenceContracts(TestCase):
                     with self.subTest(field=name, enabled=enabled):
                         obj = self.configured(True)
                         data = {'default_language': 'ar'}
+                        if name in REGISTRATION_DEPENDENT_TOGGLES:
+                            # Enabled in the page only while public registration is on.
+                            data['public_registration_enabled'] = 'on'
                         if enabled:
                             data[name] = 'on'
                         form = self.form(obj, SETUP_STEP_SLUGS.index(slug), data)

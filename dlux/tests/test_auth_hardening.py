@@ -408,3 +408,28 @@ class UserRowScopeTests(TestCase):
         self.assertNotIn('beta_user', labels)
         labels = ' '.join(row['label'] for row in search_data(self.actor, 'root'))
         self.assertNotIn('root', labels)
+
+
+class SetupWizardRegistrationSafeguardTests(TestCase):
+    """R2-036: clicking through the wizard keeps the sign-up throttle and honeypot on."""
+
+    def test_disabled_toggles_keep_their_defaults(self):
+        from dlux.forms import SystemSettingsForm
+        _fresh()
+        data = {
+            'system_names': '{"en": "System", "ar": "System"}',
+            'home_url': '/dashboard/',
+            'default_language': 'en',
+            'default_theme': 'light',
+            'allowed_themes': ['light'],
+            'languages': '{}',
+            'translations_override': '{}',
+            'sidebar_config': '{"enabled":true,"entries":[]}',
+            'default_table_density': 'balanced',
+        }
+        request = RequestFactory().post('/sys/setup/')
+        form = SystemSettingsForm(data=data, instance=SystemSettings(), request=request, mode='setup')
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        self.assertTrue(saved.registration_throttle_enabled)
+        self.assertTrue(saved.honeypot_enabled)
