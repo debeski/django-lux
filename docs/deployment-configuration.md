@@ -124,10 +124,14 @@ row afterwards (`cache.delete("SystemSettings")`).
 |---|---|---|---|
 | `DLUX_DB_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Gives every PostgreSQL connection in `DATABASES` a `connect_timeout` and TCP keepalives (`keepalives_idle` 10, `keepalives_interval` 5, `keepalives_count` 3) in `OPTIONS`, keeping any value the settings file sets, and puts `dlux.db_outage.DatabaseOutageMiddleware` just outside the session middleware. `False` keeps `DATABASES` and `MIDDLEWARE` as written. |
 | `DLUX_DB_CONNECT_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `5` | The `connect_timeout` given to a PostgreSQL connection that sets none. |
+| `DLUX_DB_BREAKER_SECONDS` | Django setting, read at connect time | seconds, `5` | After a connection attempt fails in a web process, further attempts in that process fail at once for this long (`dlux.db_outage.DatabaseUnavailable`). `0` turns it off. |
 
 Generated stacks open a database connection per request, so the connect timeout
-bounds how long a request waits on a database that does not answer: a paused or
-unreachable database costs one short wait, not a hung worker.
+bounds how long a request waits on a database that does not answer. After one
+attempt fails, the web process refuses further attempts for
+`DLUX_DB_BREAKER_SECONDS` without waiting, so a page whose reads each tolerate a
+missing database pays the timeout once, not once per read. The task worker and
+management commands have no breaker and try every time.
 
 `DatabaseOutageMiddleware` answers a request that failed because the database could
 not serve it with a 503 page "Database not responding" (JSON for `XMLHttpRequest`

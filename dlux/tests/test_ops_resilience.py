@@ -986,3 +986,53 @@ class DatabaseResilienceSettingsTests(SimpleTestCase):
         scope = dlux_settings(self._scope(DLUX_DB_FAIL_FAST=False))
         self.assertNotIn('keepalives', scope['DATABASES']['default']['OPTIONS'])
         self.assertNotIn('dlux.db_outage.DatabaseOutageMiddleware', scope['MIDDLEWARE'])
+
+
+class ConnectBreakerTests(SimpleTestCase):
+    """R2-045 live proof: with db paused, one page waited out connect_timeout once per read (25 s)."""
+
+    def setUp(self):
+        from dlux import db_outage
+
+        db_outage.install_connect_breaker()
+        db_outage._connect_failed_at.clear()
+        self.addCleanup(db_outage._connect_failed_at.clear)
+
+    def test_a_failed_connect_fails_the_next_ones_at_once_then_retries(self):
+        import sqlite3
+
+        from django.db import connections
+        from django.db.backends.sqlite3.base import DatabaseWrapper
+        from dlux import db_outage
+
+        wrapper = DatabaseWrapper({**connections['default'].settings_dict}, alias='breaker-test')
+        attempts = []
+
+        def refuse(self, params):
+            attempts.append(1)
+            raise sqlite3.OperationalError('timeout expired')
+
+        with mock.patch.object(DatabaseWrapper, 'get_new_connection', refuse):
+            with self.assertRaises(OperationalError):
+                wrapper.ensure_connection()
+            started = time.monotonic()
+            with self.assertRaises(db_outage.DatabaseUnavailable):
+                wrapper.ensure_connection()
+            self.assertLess(time.monotonic() - started, 0.5)
+            self.assertEqual(len(attempts), 1)
+            db_outage._connect_failed_at['breaker-test'] -= 60
+            with self.assertRaises(OperationalError):
+                wrapper.ensure_connection()
+            self.assertEqual(len(attempts), 2, 'after the window it tries again')
+        self.assertTrue(db_outage.is_database_outage(db_outage.DatabaseUnavailable('x')))
+
+    def test_a_non_driver_error_does_not_trip_it(self):
+        from django.db import connections
+        from django.db.backends.sqlite3.base import DatabaseWrapper
+        from dlux import db_outage
+
+        wrapper = DatabaseWrapper({**connections['default'].settings_dict}, alias='breaker-test-2')
+        with mock.patch.object(DatabaseWrapper, 'get_new_connection', side_effect=RuntimeError('mock')):
+            with self.assertRaises(RuntimeError):
+                wrapper.ensure_connection()
+        self.assertNotIn('breaker-test-2', db_outage._connect_failed_at)

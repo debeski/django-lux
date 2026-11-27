@@ -61,6 +61,50 @@ def is_database_outage(exc):
     return isinstance(exc, (db_utils.OperationalError, db_utils.InterfaceError))
 
 
+# After a connection attempt fails, the web process fails further attempts at
+# once for this long: a page whose reads each tolerate a missing database would
+# otherwise wait out connect_timeout once per read.
+CONNECT_BREAKER_SECONDS = 5.0
+_connect_failed_at = {}
+
+
+class DatabaseUnavailable(db_utils.OperationalError):
+    """A connection refused without trying: the last attempt failed moments ago."""
+
+
+def install_connect_breaker():
+    """Wrap ``BaseDatabaseWrapper.connect`` with the per-alias breaker; idempotent.
+
+    Installed by ``DatabaseOutageMiddleware``, so it applies to web processes
+    only: the task worker and management commands keep retrying every time.
+    """
+    from django.db.backends.base.base import BaseDatabaseWrapper
+
+    if getattr(BaseDatabaseWrapper.connect, "_dlux_breaker", False):
+        return
+    original = BaseDatabaseWrapper.connect
+
+    def connect(self):
+        failed_at = _connect_failed_at.get(self.alias)
+        seconds = float(getattr(settings, "DLUX_DB_BREAKER_SECONDS", CONNECT_BREAKER_SECONDS) or 0)
+        if failed_at is not None and time.monotonic() - failed_at < seconds:
+            raise DatabaseUnavailable(
+                f"The database ({self.alias}) did not answer a connection moments ago; not retrying for {seconds:g} s."
+            )
+        try:
+            original(self)
+        except Exception as exc:
+            # The driver's own error: Django wraps it only after this returns.
+            driver_error = getattr(getattr(self, "Database", None), "Error", ())
+            if (driver_error and isinstance(exc, driver_error)) or is_database_outage(exc):
+                _connect_failed_at[self.alias] = time.monotonic()
+            raise
+        _connect_failed_at.pop(self.alias, None)
+
+    connect._dlux_breaker = True
+    BaseDatabaseWrapper.connect = connect
+
+
 def _mark_outage(sender, request=None, **kwargs):
     if request is not None and is_database_outage(sys.exc_info()[1]):
         try:
@@ -159,6 +203,7 @@ class DatabaseOutageMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
+        install_connect_breaker()
 
     def __call__(self, request):
         if restore_in_progress() and not _is_restore_poll(request):
