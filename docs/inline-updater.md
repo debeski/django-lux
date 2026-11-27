@@ -410,6 +410,9 @@ process that performs the swap: Composer is outside the container.
   release is no longer newer than the active one, so an installed release stops
   being advertised. Raising an offer stays with a check run, where the skip list
   and inline-safety are decided.
+- The recorded latest release (`latest_version`) is raised to the active one
+  when a release installed outside a check run, such as `./start.sh dlux update`
+  on the host, is newer than what the last check recorded.
 - `previous_version`, which drives the Rollback button and its admission check,
   is the newest staged release below the active one, else the release baked into
   the image: exactly how Composer picks its rollback target. A target below the

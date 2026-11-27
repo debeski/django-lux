@@ -894,6 +894,18 @@ class DoctorDjangoSystemChecksTests(TestCase):
         with override_settings(SILENCED_SYSTEM_CHECKS=['project.W001']):
             self.assertEqual(self._finding(doctor.run_checks(only_groups={'settings'}))['status'], doctor.OK)
 
+    def test_a_message_that_ends_in_a_period_gets_one_period(self):
+        from django.core.checks import Warning
+
+        self._with_django_check(
+            Warning('first thing can run.', id='project.W001'),
+            Warning('second thing', id='project.W002'),
+        )
+        detail = self._finding(doctor.run_checks(only_groups={'settings'}))['detail']
+        self.assertNotIn('..', detail)
+        self.assertIn('first thing can run; project.W002', detail)
+        self.assertTrue(detail.endswith('second thing.'), detail)
+
     def test_skip_checks_leaves_the_finding_out(self):
         output, _ = run_command('--format', 'json', '--group', 'settings', '--skip-checks')
         self.assertNotIn(doctor.DJANGO_CHECKS_ID, [e['id'] for e in json.loads(output)['checks']])
