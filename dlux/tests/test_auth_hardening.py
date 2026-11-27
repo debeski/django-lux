@@ -433,3 +433,39 @@ class SetupWizardRegistrationSafeguardTests(TestCase):
         saved = form.save(commit=False)
         self.assertTrue(saved.registration_throttle_enabled)
         self.assertTrue(saved.honeypot_enabled)
+
+
+class PasswordResetTokenTests(TestCase):
+    """R2-089: a reset token stamped in the future is refused; mails are throttled."""
+
+    def setUp(self):
+        _fresh()
+        self.user = User.objects.create_user('resetme', 'resetme@example.com', 'pass12345678')
+
+    def test_future_dated_token_is_refused(self):
+        from dlux.auth.password_reset import reset_token_generator
+        future = reset_token_generator._num_seconds(reset_token_generator._now()) + 30 * 86400
+        token = reset_token_generator._make_token_with_timestamp(self.user, future, reset_token_generator.secret)
+        self.assertFalse(reset_token_generator.check_token(self.user, token))
+        self.assertTrue(reset_token_generator.check_token(self.user, reset_token_generator.make_token(self.user)))
+
+    def test_confirm_view_uses_the_strict_generator(self):
+        from dlux.auth.password_reset import reset_token_generator
+        from dlux.views import DluxPasswordResetConfirmView, DluxPasswordResetView
+        self.assertIs(DluxPasswordResetConfirmView.token_generator, reset_token_generator)
+        self.assertIs(DluxPasswordResetView.token_generator, reset_token_generator)
+
+    def test_one_mail_per_address_per_cooldown(self):
+        from dlux.auth.password_reset import DluxPasswordResetForm
+        with patch('dlux.auth.password_reset.queue_dlux_mail') as mocked, \
+             patch('dlux.auth.password_reset.loader.render_to_string', return_value='x'):
+            form = DluxPasswordResetForm()
+            for _ in range(3):
+                form.send_mail('s', 'b', {}, None, 'resetme@example.com')
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_ip_limit(self):
+        from dlux.auth.password_reset import RESET_REQUEST_IP_LIMIT, reset_request_ip_limited
+        results = [reset_request_ip_limited('10.6.0.1') for _ in range(RESET_REQUEST_IP_LIMIT + 1)]
+        self.assertEqual(results.count(True), 1)
+        self.assertTrue(results[-1])
