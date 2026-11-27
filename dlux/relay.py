@@ -48,6 +48,17 @@ POLL_SECONDS = 0.25
 #: The agent republishes ``capabilities.json`` about once a minute; a document much
 #: older than that means no agent is answering.
 CAPABILITIES_MAX_AGE = 300
+#: How far ahead of this clock a document may be stamped and still count as current.
+CLOCK_SLACK = 60
+#: The ceiling for a capabilities or key document.
+MAX_DOCUMENT_BYTES = 64 * 1024
+#: Composer's own ceiling for one operation's response body.
+MAX_RESPONSE_BYTES = 1024 * 1024
+#: The codes the agent answers with; anything else is reported as ``provider``.
+ERROR_CODES = frozenset({
+    "agent", "unsupported", "unapproved", "invalid", "credentials", "network", "provider",
+    "response", "blocked", "limit", "expired", "timeout", "writer",
+})
 
 Ticket = namedtuple("Ticket", "id digest op")
 
@@ -65,12 +76,36 @@ def relay_root(store=None):
     return state_dir(store) / "relay"
 
 
-def _read_json(path):
+def _read_json(path, limit=MAX_DOCUMENT_BYTES):
+    """The JSON object at ``path``, or ``{}``: bounded, never through a link or FIFO."""
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = shared_files.load_json(path, limit)
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _result_limit(operation, store=None):
+    """The largest result document ``operation`` can produce, JSON escaping included."""
+    described = (capabilities(store).get("operations") or {}).get(operation)
+    try:
+        max_bytes = int((described or {}).get("max_bytes") or MAX_RESPONSE_BYTES)
+    except (TypeError, ValueError, AttributeError):
+        max_bytes = MAX_RESPONSE_BYTES
+    # A text answer escapes to at most six bytes per byte (\u00XX).
+    return min(max(max_bytes, 1), MAX_RESPONSE_BYTES) * 6 + MAX_DOCUMENT_BYTES
+
+
+_UNSAFE_TEXT = {
+    **{code: None for code in range(0x20) if code not in (0x09, 0x0A)},
+    **{code: None for code in range(0x7F, 0xA0)},
+    **{code: None for code in (0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A))},
+}
+
+
+def _plain(text, limit=300):
+    """Agent text as one plain line: no terminal escapes or direction overrides."""
+    return str(text or "").translate(_UNSAFE_TEXT)[:limit]
 
 
 def _atomic_json(path, payload):
@@ -86,7 +121,7 @@ def capabilities(store=None):
         age = (timezone.now() - datetime.fromisoformat(str(document.get("updated_at")))).total_seconds()
     except (ValueError, TypeError):
         return {}
-    return document if age <= CAPABILITIES_MAX_AGE else {}
+    return document if -CLOCK_SLACK <= age <= CAPABILITIES_MAX_AGE else {}
 
 
 def available(operation, store=None):
@@ -184,7 +219,7 @@ def read_result(ticket, store=None):
     A result whose ``request_digest`` is not the one written is ignored, so a stale
     or misdirected document is never read as this request's answer.
     """
-    result = _read_json(relay_root(store) / "results" / f"{ticket.id}.json")
+    result = _read_json(relay_root(store) / "results" / f"{ticket.id}.json", _result_limit(ticket.op, store))
     if not result or result.get("operation_id") != ticket.id:
         return {}
     if result.get("request_digest") not in (ticket.digest, ""):
@@ -205,7 +240,8 @@ def wait(ticket, timeout=15, store=None, *, sleep=time.sleep, clock=time.monoton
                     pass  # the agent sweeps results after five minutes
             if result.get("status") == "ok":
                 return result.get("data")
-            raise RelayError(str(result.get("error") or "provider"), str(result.get("detail") or ""))
+            code = str(result.get("error") or "")
+            raise RelayError(code if code in ERROR_CODES else "provider", _plain(result.get("detail")))
         if clock() >= deadline:
             raise RelayError("timeout", "The agent did not answer in time. Is composer-agent running and up to date?")
         sleep(POLL_SECONDS)

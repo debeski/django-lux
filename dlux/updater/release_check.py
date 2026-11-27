@@ -290,13 +290,27 @@ def expected_image_baseline():
     return None
 
 
+def _is_plain_floor(text):
+    try:
+        Version(text)
+        return True
+    except InvalidVersion:
+        return False
+
+
 def validate_image_baseline(manifest):
     """Refuse a manifest whose declared floor is below the computed one."""
     expected = expected_image_baseline()
     if not expected:
         return []
     requires = manifest.get("requires") or {}
-    declared = str(requires.get("baked_image") or manifest.get("image_baseline") or "").lstrip(">=").strip()
+    raw = str(requires.get("baked_image") or manifest.get("image_baseline") or "").strip()
+    declared = raw[2:].strip() if raw.startswith(">=") else raw
+    if raw and not _is_plain_floor(declared):
+        return [
+            f"requires.baked_image {raw!r} must be a single '>=X.Y.Z' floor; "
+            "older supervisors read nothing else"
+        ]
     if not declared:
         return [
             f"v{expected} required an image rebuild, so this manifest must declare "

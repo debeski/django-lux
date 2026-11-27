@@ -172,6 +172,13 @@ class DispatchTests(TaskRunnerTestCase):
         self.assertFalse(worker_alive())
 
 
+    def test_a_heartbeat_stamped_ahead_is_not_alive(self):
+        # R2-046 (b): a stopped worker stamped 6 h ahead counted as alive.
+        live_worker(heartbeat_at=timezone.now() + timedelta(hours=6))
+        self.assertFalse(worker_alive())
+        self.assertFalse(queue.live_dlux_workers().exists())
+
+
 class ClaimTests(TaskRunnerTestCase):
     def add(self, name, priority=0, age=0, **fields):
         return DluxTaskRun.objects.create(task_name=name, priority=priority,
@@ -440,6 +447,19 @@ class ScheduleTests(TaskRunnerTestCase):
         every = interval(5)
         self.assertEqual(every.next_after(start + timedelta(seconds=12), previous_due=start), start + timedelta(seconds=15))
         self.assertEqual(every.next_after(start, previous_due=None), start + timedelta(seconds=5))
+
+    def test_a_row_armed_far_ahead_is_brought_back_to_its_next_slot(self):
+        # R2-046 (a): a run_after a year ahead stopped the schedule for good.
+        burst(schedule=self.TICK)
+        DluxTaskRun.objects.update(run_after=timezone.now() + timedelta(days=365))
+        burst(schedule=self.TICK)
+        run = DluxTaskRun.objects.get()
+        self.assertLessEqual((run.run_after - timezone.now()).total_seconds(), 5)
+        worker = Worker(schedule=self.TICK)
+        worker.schedule = {entry.name: entry for entry in parse_schedule(self.TICK)}
+        DluxTaskRun.objects.update(run_after=timezone.now() + timedelta(days=365))
+        worker.maintain()
+        self.assertLessEqual((DluxTaskRun.objects.get().run_after - timezone.now()).total_seconds(), 5)
 
     def test_a_failing_scheduled_task_stays_armed(self):
         burst(schedule={"bad": {"task": "tests.taskrunner.boom", "schedule": 60}})

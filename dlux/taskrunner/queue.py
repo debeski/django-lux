@@ -213,8 +213,12 @@ def retry_run(run, delay, *, error=None, now=None, counted=True):
 def live_dlux_workers(now=None):
     _, DluxTaskWorker = _models()
     now = now or timezone.now()
-    cutoff = now - timedelta(seconds=runner_config()["stale_after"])
-    return DluxTaskWorker.objects.filter(heartbeat_at__gte=cutoff, stopped_at__isnull=True)
+    stale_after = timedelta(seconds=runner_config()["stale_after"])
+    # A heartbeat stamped ahead of now (a clock that ran ahead, then came back)
+    # proves nothing about the worker being alive now.
+    return DluxTaskWorker.objects.filter(
+        heartbeat_at__gte=now - stale_after, heartbeat_at__lte=now + stale_after, stopped_at__isnull=True,
+    )
 
 
 def recover_lost_runs(*, resolve, now=None, exclude_worker=None):
@@ -301,7 +305,29 @@ def sync_schedule(entries, *, now=None):
         )
     removed, _ = DluxTaskRun.objects.filter(schedule_name__isnull=False).exclude(
         schedule_name__in=names).exclude(status=RUNNING).delete()
+    clamp_schedule(entries, now=now)
     return removed
+
+
+def clamp_schedule(entries, *, now=None):
+    """Bring a schedule row armed further ahead than its entry allows back to its next slot.
+
+    A row is never due later than ``entry.next_due(now)``. One armed by a clock that
+    ran ahead (or edited by hand) would otherwise wait out that clock for good, and
+    a restart would not re-arm it. Returns how many rows moved.
+    """
+    DluxTaskRun, _ = _models()
+    now = now or timezone.now()
+    moved = 0
+    for entry in entries:
+        horizon = entry.next_due(now)
+        changed = DluxTaskRun.objects.filter(
+            schedule_name=entry.name, status=READY, run_after__gt=horizon,
+        ).update(run_after=horizon)
+        if changed:
+            logger.warning("Schedule %r was armed beyond its next slot; it now runs at %s.", entry.name, horizon)
+        moved += changed
+    return moved
 
 
 def prune(*, now=None):

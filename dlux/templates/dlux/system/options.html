@@ -297,6 +297,8 @@
                                  data-label-policy-mismatch="{{ DLUX_STRINGS.dlux_update_policy_mismatch|default:'The update policy differs: the application reads {web}, the resident Composer enforces {resident}. The stricter one applies until ./start.sh runs on the server.' }}"
                                  data-label-policy-unenforced="{{ DLUX_STRINGS.dlux_update_policy_unenforced|default:'The resident Composer does not report the update policy, so it does not enforce it. Update Composer on the server.' }}"
                                  data-label-policy-invalid="{{ DLUX_STRINGS.dlux_update_policy_invalid|default:'DLUX_UPDATE_POLICY has an unknown value, so it counts as none.' }}"
+                                 data-label-rollback-schema-warning="{{ DLUX_STRINGS.dlux_update_rollback_schema_warning|default:'Rolling back changes code and static files only and never reverses database migrations.' }}"
+                                 data-label-rollback-schema-blocked="{{ DLUX_STRINGS.dlux_update_rollback_schema_blocked|default:'DjangoLux {version} declares that older code cannot run on its database schema, so this rollback is refused.' }}"
                                  data-label-retry-failed="{{ DLUX_STRINGS.dlux_update_retry_failed_note|default:'Heads up: version {version} already failed to install{when}. Re-applying it will most likely fail again unless the underlying cause was fixed.' }}">
                                 <div class="dlux-updater-rows">
                                     <div class="dlux-upd-row">
@@ -739,6 +741,7 @@
                                     <label class="form-check-label" for="dluxUpdateFailedAck">{{ DLUX_STRINGS.dlux_update_retry_ack|default:'I understand this version already failed to install and want to retry it at my own responsibility.' }}</label>
                                 </div>
                             </div>
+                            <div class="alert alert-warning d-none" data-dlux-update-schema-note role="alert"></div>
                             <div class="alert alert-info">{{ DLUX_STRINGS.dlux_update_backup_guarantee|default:'A pre-update backup is created and verified before maintenance (unless you skip it below). If a backup is requested and fails, the operation stops.' }}</div>
                             <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
                             <dl class="row mb-3">

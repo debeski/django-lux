@@ -256,6 +256,12 @@ could only ever disagree with the authority. `services` is what schema 1 had no
 way to state — 1.8.0 requires Composer as a running service, and the manifest
 could not say so.
 
+`requires.baked_image` is a single floor, `">=X.Y.Z"`. `release_check` refuses any
+other form: supervisors before DjangoLux 1.17.0 strip the leading `>=` and read the
+rest as one version, so a compound specifier (`">=1.17.0b1,<2.0"`) would hold the
+release on them. Current supervisors and Composer read the value as a PEP 440
+specifier and hold a release whose floor they cannot parse.
+
 **Unknown values fail closed.** An unrecognised `migrations.effect`, an
 unrecognised `install.inline`, or *any* unknown key inside `requires` is refused
 rather than ignored. That last rule is what makes `requires` safely extensible:

@@ -96,6 +96,12 @@ class RequestFileTests(SimpleTestCase):
         self.assertNotIn("operation_id", self._payload())
 
 
+def apps_backups_exist():
+    from django.apps import apps
+
+    return apps.get_model("dlux", "SystemBackup").objects.exists()
+
+
 class HandoffTests(TestCase):
     """The run itself, not just `write_request`.
 
@@ -167,6 +173,22 @@ class HandoffTests(TestCase):
         self.assertEqual(payload["payload"]["target_version"], "1.8.8")
         self.assertEqual(payload["payload"]["backup_mode"], "data")
         self.assertNotIn("operation_id", payload, "a package run is local; it has no control operation")
+
+    def test_an_apply_is_refused_before_the_backup_on_a_nearly_full_volume(self):
+        # R2-014: a 12 MB runtime volume filled during the apply and the run hung.
+        from collections import namedtuple
+        from unittest import mock
+
+        Run = self._run_model()
+        queued = self._queue(Run.ACTION_APPLY)
+        usage = namedtuple("usage", "total used free")(12 << 20, 11 << 20, 1 << 20)
+        with mock.patch("dlux.updater.service.shutil.disk_usage", return_value=usage):
+            self._service().process_next()
+        queued.refresh_from_db()
+        self.assertEqual(queued.status, Run.STATUS_FAILED)
+        self.assertIn("1 MB free", queued.error)
+        self.assertFalse(package_request.trigger_path(self.store).exists())
+        self.assertFalse(apps_backups_exist())
 
     def test_a_rollback_run_reaches_composer_without_a_version(self):
         Run = self._run_model()
@@ -401,6 +423,23 @@ class HandoffCompletionTests(TestCase):
         self.assertEqual(finished.status, Run.STATUS_FAILED)
         self.assertIn("did not acknowledge", finished.error)
         self.assertEqual(State.load().active_run_token, "")
+
+    def test_a_hand_off_on_a_full_volume_fails_without_the_30_minute_wait(self):
+        from collections import namedtuple
+        from unittest import mock
+
+        from dlux.updater.service import RUNTIME_FULL_GRACE, previous_apply_failure
+
+        Run, State = self._models()
+        run = self._applying_run(started_at=timezone.now() - RUNTIME_FULL_GRACE - timedelta(seconds=5))
+        full = namedtuple("usage", "total used free")(12 << 20, 12 << 20, 0)
+        with mock.patch("dlux.updater.service.shutil.disk_usage", return_value=full):
+            finished = self._tick()
+        finished.refresh_from_db()
+        self.assertEqual(finished.status, Run.STATUS_FAILED)
+        self.assertIn("volume is full", finished.error)
+        self.assertEqual(State.load().active_run_token, "")
+        self.assertIsNone(previous_apply_failure(run.target_version), "the release was never tried")
 
     def test_nothing_happens_without_an_active_run(self):
         self.assertIsNone(self._tick())
