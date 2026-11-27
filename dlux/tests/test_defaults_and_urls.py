@@ -2152,7 +2152,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
                 'default_table_density': 'balanced',
                 'default_form_density': 'dense',
                 'default_modal_size': 'compact',
-                # sticky/resize/zebra/honeypot omitted on a full form == toggled off
+                # sticky/resize/zebra omitted on a full form == toggled off; the
+                # honeypot keeps its stored value while public registration is off
                 'languages': '{}',
                 'translations_override': '{}',
                 'public_root': 'on',
@@ -2178,7 +2179,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(saved.public_root_meta_description, 'Hello there')
         self.assertTrue(saved.show_titlebar_on_public)
         self.assertTrue(saved.show_sidebar_on_public)
-        self.assertFalse(saved.honeypot_enabled)
+        # R2-036: its toggle is disabled (never posted) while registration is off.
+        self.assertTrue(saved.honeypot_enabled)
 
     def test_single_step_save_preserves_layout_keys_from_other_step(self):
         request = RequestFactory().get(f'/sys/modals/dlux/systemsettings/1/?step={SETUP_STEP_SECURITY}')

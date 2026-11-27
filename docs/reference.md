@@ -258,8 +258,9 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 - `/sys/users/` and the user-detail page and modal require `auth.view_user` for
   staff users; superusers bypass.
 - `/sys/reset_password/<int:pk>/` requires `auth.change_user` and the same
-  staff, scope and superuser target checks as the user-management modals. A new
-  password equal to the target's current one is refused.
+  staff, scope, superuser and rank checks as the user-management modals
+  (`can_modify_target_user`). A new password equal to the target's current one is
+  refused.
 - `/accounts/profile/` offers `sign_out_other_sessions` only on the user's own
   password-change form, and only while `prevent_multiple_active_sessions` is off.
   When ticked, a successful change keeps the current browser, deletes every other
@@ -335,6 +336,9 @@ Autofill security contract:
 - detail and autofill serialization return only direct fields of the requested model
 - reverse OneToOne expansion such as `user.profile.*` is intentionally excluded
 - reads use the model default manager so scoped query behavior is preserved
+- `auth.User` and `dlux.Profile` rows are limited to the caller's manageable users
+  (the user directory's tiers) and the caller's own row (`restrict_user_rows()`);
+  global data search applies the same limit
 
 #### Preferences
 
@@ -529,7 +533,10 @@ Common keys in `get_system_config()`:
   it instead of starting another.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
-- `registration_throttle_enabled` — Enable cache throttles for public signup.
+- `registration_throttle_enabled` — Enable cache throttles for public signup
+  (default on). While `public_registration_enabled` is off, this and
+  `honeypot_enabled` keep their stored values on save: their toggles are disabled
+  in the page then, so a submission without them changes nothing.
 - `honeypot_enabled` — Enable the hidden `website` bot-trap on the registration
   form (`registration_config.honeypot_enabled`, default on). When on, a submission
   that fills the hidden field is silently redirected to `register_sent`. Exposed as
@@ -966,6 +973,9 @@ def complaint(request):
 | `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
 | `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
 | `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
+| `can_modify_target_user(actor, target)` | `can_manage_target_user` plus `not target_outranks_actor`: the gate for editing, resetting, deactivating or deleting another user |
+| `restrict_user_rows(actor, model, queryset)` | Limits a generic read of `auth.User` / `dlux.Profile` rows to the actor's manageable users plus itself; other models pass through |
+| `target_outranks_actor(actor, target)` | `True` when the target holds a permission (direct or through groups, active or not) that the actor lacks, or is a superuser the actor is not |
 | `get_visible_group_presets(user)` | Preset Groups (auth.Group + GroupProfile) a user may see/assign: global + own-scope for scoped staff, all for superuser/Global Staff |
 | `can_manage_group_preset(actor, group)` | `True` if actor may CRUD/manage-membership on a preset (global presets are superuser/Global-Staff only; scoped staff manage own-scope presets) |
 | `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
@@ -1054,6 +1064,15 @@ See [Task Runner](task-runner.md).
 - `accounts/profile/edit/<pk>/modal/` is self-only
 - dedicated user-management modals follow the same staff/scope/superuser rules as
   `dlux/views/users.py`
+- changing another user — editing (including `is_active`), the permissions modal,
+  a staff password reset, and `delete_user` — goes through
+  `can_modify_target_user()`: the staff/scope/superuser rules of
+  `can_manage_target_user()`, plus the target must not hold any permission the
+  actor lacks (checked with `user_matches_permission_token()`, groups included,
+  and for inactive targets too). A scoped admin with `auth.change_user` therefore
+  cannot reset or edit a staff manager (`dlux.manage_staff`, `dlux.manage_scopes`)
+  in its scope. The edit and permissions modals also require `auth.change_user`
+  (`auth.add_user` to create); users editing themselves keep their own access
 - `/sys/users/` and user-detail surfaces require `auth.view_user` OR
   `dlux.manage_staff` for staff callers (superusers still bypass)
 - **Staff Tier System**: Three non-superuser staff tiers exist:

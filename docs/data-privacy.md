@@ -38,7 +38,8 @@ DjangoLux does not do.
 | **Known devices** | `UserKnownDevice` | Per-user device history keyed by a **signed, hashed** first-party device cookie — device label, **IP address list**, **user-agent list**, first/last seen |
 | **Trusted devices (2FA)** | `TrustedDevice` | Hashed device token, session key, device label, **IP address**, **user agent**, expiry (30-day 2FA trust) |
 | **Presence / online status** | `UserPresenceSession` | Per-user last-seen, device label, **IP address list**, **user-agent list** |
-| **Login lockout** | Django cache (not the DB) | Rolling per-**IP** and per-**username** failed-attempt counters; expire with the configured window/lock duration |
+| **Login lockout** | Django cache (not the DB) | Rolling per-**IP** and per-**username** (normalised) failed-attempt counters and lock keys; expire with the configured window/lock duration |
+| **2FA limits** | Django cache (not the DB) | Per-IP and per-account wrong-code counters and the last accepted TOTP time step per account; expire within minutes |
 | **Public form limits** | Django cache (not the DB) | Per-form POST counters keyed by a `SECRET_KEY`-keyed HMAC of the client address (IPv6: its /64), never the address itself; expire a few seconds after their window ends |
 | **Public registration** | `PublicRegistration` | Email, hashed verification token, **IP address**, **user agent**, activation/approval metadata (only when public registration is enabled) |
 | **Notifications** | `DluxNotification` | User-facing event content and target metadata, delivered only through per-recipient state after scope and view-permission checks |

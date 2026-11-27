@@ -929,6 +929,7 @@ STRINGS = {
     'help_sys_login_lockout_duration_minutes': 'How long sign-in stays blocked once the lock is armed.',
     'login_locked_out': 'Too many failed login attempts. Please try again in about {minutes} minute(s).',
     '2fa_challenge_expired': 'Your sign-in session expired before two-factor verification. Please log in again.',
+    '2fa_challenge_too_many_attempts': 'Too many wrong codes. Please sign in again.',
     'session_ended_idle_timeout': 'Your session ended due to inactivity. Please sign in again.',
     'session_ended_session_timeout': 'Your session has reached its time limit. Please sign in again.',
     'form_sys_client_ip_mode': 'Client IP Source',

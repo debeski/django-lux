@@ -106,6 +106,9 @@ class ActivityLog(ScopedModel):
         from django.utils.timezone import now
         from datetime import timedelta
 
+        if user is not None and not getattr(user, 'is_authenticated', False):
+            user = None
+
         # Debounce window
         time_threshold = now() - timedelta(seconds=2)
 
@@ -120,6 +123,10 @@ class ActivityLog(ScopedModel):
 
         if details:
              duplicate = duplicate.filter(details=details)
+        if user is None:
+            # Anonymous events (failed sign-ins, wrong 2FA codes) differ only by the
+            # attempted account and the sender; keep one row per pair, not per window.
+            duplicate = duplicate.filter(number=number, ip_address=ip_address)
 
         if duplicate.exists():
             return None

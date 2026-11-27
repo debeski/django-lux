@@ -9,13 +9,15 @@ from django.contrib.auth.views import (
     PasswordResetDoneView,
     PasswordResetView,
 )
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 from django.urls import reverse_lazy
 
 from ..auth.password_reset import (
     DluxPasswordResetForm,
     forgot_password_available,
     reset_email_system_name,
+    reset_request_ip_limited,
+    reset_token_generator,
 )
 from .registration import _public_auth_context
 
@@ -42,11 +44,19 @@ class DluxPasswordResetView(_ForgotPasswordMixin, PasswordResetView):
     subject_template_name = 'registration/email/password_reset_subject.txt'
     form_class = DluxPasswordResetForm
     success_url = reverse_lazy('password_reset_done')
+    token_generator = reset_token_generator
 
     def dispatch(self, request, *args, **kwargs):
         # Surface the display name to the email template context.
         self.extra_email_context = {'system_name': reset_email_system_name()}
         return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        from ..utils import get_client_ip
+        if reset_request_ip_limited(get_client_ip(self.request)):
+            # Same answer as a sent mail, so the limit reveals nothing about accounts.
+            return HttpResponseRedirect(self.get_success_url())
+        return super().form_valid(form)
 
 
 class DluxPasswordResetDoneView(_ForgotPasswordMixin, PasswordResetDoneView):
@@ -56,6 +66,7 @@ class DluxPasswordResetDoneView(_ForgotPasswordMixin, PasswordResetDoneView):
 class DluxPasswordResetConfirmView(_ForgotPasswordMixin, PasswordResetConfirmView):
     template_name = 'registration/password_reset_confirm.html'
     success_url = reverse_lazy('password_reset_complete')
+    token_generator = reset_token_generator
 
 
 class DluxPasswordResetCompleteView(_ForgotPasswordMixin, PasswordResetCompleteView):
