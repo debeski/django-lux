@@ -9,6 +9,8 @@ from django.core.signals import setting_changed
 from django.dispatch import receiver
 from django.templatetags.static import static
 
+from .db_errors import note_read_failure
+
 DEFAULT_FONT_SLUG = 'cairo'
 DEFAULT_FONT_FAMILY = 'Cairo'
 
@@ -197,8 +199,8 @@ def _build_available_fonts():
                         'variants': variants,
                     })
                     known_slugs.add(managed.slug)
-        except (AssertionError, LookupError, OperationalError, ProgrammingError, RuntimeError):
-            pass
+        except (AssertionError, LookupError, OperationalError, ProgrammingError, RuntimeError) as exc:
+            note_read_failure(exc)
     return tuple(fonts)
 
 

@@ -42,6 +42,7 @@ TEST_LABELS = [
     'dlux.tests.test_auth_hardening',
     'dlux.tests.test_password_rehash',
     'dlux.tests.test_backup_recovery',
+    'dlux.tests.test_ops_resilience',
     'dlux.tests.test_card_edges',
     'dlux.tests.test_lazy_assets',
     'dlux.tests.test_static_versioning',

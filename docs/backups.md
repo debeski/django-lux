@@ -241,9 +241,14 @@ time is not stalled.
 
 The reaper runs from:
 
+- the schedule entry `dlux-reap-stalled-backups`, every 60 seconds on the task
+  worker, whether or not scheduled backups are on;
 - the Backup & Restore page and its status poller;
 - the scheduled-backup check;
 - the task runner's `worker_started` signal, when a `dlux_worker` starts.
+
+An armed retry therefore starts within a minute of its `next_attempt_at`, with
+nobody watching the page.
 
 A restarted worker therefore retires exactly the backups it abandoned: a run in a
 sibling worker heartbeats every few seconds and never falls inside the window.
@@ -264,6 +269,12 @@ A failed or stalled attempt is retried automatically when all of these hold:
 - fewer than `max_attempts` attempts have run;
 - a `dlux_worker` is running;
 - the backup has no passphrase (see [Passphrases](#passphrases)).
+
+A backup that cannot be stored leaves no file behind: a write that fails part-way
+(a full disk) removes what it wrote, so a retry starts from the same free space.
+On local storage the free space is checked against the backup's size before the
+write, and a backup that cannot fit fails with "Not enough free space in the backup
+folder". An upload through the page follows the same rules.
 
 The row returns to `pending` with `next_attempt_at` set `retry_delay_minutes` ahead.
 A retry re-runs the whole snapshot on the same history row, so the history keeps one
@@ -328,14 +339,26 @@ A restore runs on the task worker when one is running, otherwise inline. It:
    the one before. A header edited to make an increment pass as a full backup, or to
    hang a member on another chain, fails the restore before any data is replaced.
 2. Compares the backup's applied migrations with this system's. A mismatch fails
-   the restore unless **Ignore version mismatch** was chosen. A chain whose members
-   span a schema change is always refused.
+   the restore unless **Ignore version mismatch** was chosen. The error names both
+   DjangoLux versions, how many migrations each side has that the other lacks, and
+   a few of them. A chain whose members span a schema change is always refused.
 3. Replaces the data in one transaction with foreign-key checks deferred. A full
    backup replaces every backed-up model, so a model with no rows in the archive is
    emptied. Implicit many-to-many tables are cleared first, and integrity is
    verified before commit.
 4. Restores the media files, replacing any stored file of the same name.
-5. Clears the cache.
+5. Clears the cache. This signs every user out and resets login lockouts and
+   two-factor state: restored accounts may differ from the ones those sessions
+   belonged to.
+
+From step 3 until the restore ends, every other request gets a 503 "Restore in
+progress" page (JSON for `XMLHttpRequest` and `Accept: application/json`) with
+`Retry-After: 30`, instead of waiting on the locks the restore's transaction holds.
+Only the restore's own status polls are answered. The flag lives in the cache for
+five minutes and every progress report renews it, so a worker that dies mid-restore
+reopens the site on its own. It needs `DatabaseOutageMiddleware`, which
+`dlux_settings()` adds (see
+[Database outages](deployment-configuration.md#database-outages)).
 
 If the task worker dies during a restore, the restore is marked failed as soon as
 the worker is declared lost. A worker that died during step 3 changed no data; one
@@ -351,7 +374,14 @@ exists on this system keeps this system's password. Any other restored superuser
 gets an unusable password and must reset it.
 
 Inline-update rollback changes code and static files only. It never reverses
-database migrations or restores a backup by itself.
+database migrations or restores a backup by itself. After a rollback the database
+keeps the newer release's migrations, so the pre-update backup no longer matches
+it. There are two ways back to that backup:
+
+- update this system to the backup's DjangoLux version again, then restore it;
+- restore it with **Ignore version mismatch**. The backup's rows are loaded into
+  the newer schema, which is safe when every release between the backup's and
+  this one declares `migrations.rollback_compatible` (see [Releasing](RELEASING.md)).
 
 ### Restoring a chain
 

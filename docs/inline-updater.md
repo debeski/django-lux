@@ -140,7 +140,9 @@ container that must exit 0 before `worker` starts:
    exits 0, so it cannot block startup. When the image is below the active release's floor it
    says so on stderr and leaves the pointer alone (see
    [When the image is below the release floor](#when-the-image-is-below-the-release-floor)).
-2. `migrator` applies migrations and collects static assets.
+2. `migrator` applies migrations and collects static assets. Two at once on one
+   PostgreSQL database run one after the other (`DLUX_MIGRATOR_LOCK_TIMEOUT`, see
+   [Deployment Configuration](deployment-configuration.md#core-and-registry-settings)).
 
 Both run under the runtime supervisor (`python -m dlux.updater.supervisor
 --no-watch`), so they use the same runtime-active release gunicorn serves

@@ -295,6 +295,13 @@ python -m dlux startapp billing --register
 
 ## What Happens on First Launch
 
+The first start creates the superuser `admin` with the password in `ADMIN_PASS`
+(`.secrets/.env`). When `ADMIN_PASS` is empty or `admin`, no superuser is created
+and the `migrator` log says so: set a real password there and restart the stack,
+or run `python manage.py createsuperuser`. Changing `ADMIN_PASS` later does not
+touch an existing `admin` account. See
+[Deployment Configuration](deployment-configuration.md#core-and-registry-settings).
+
 On a fresh install, Dlux protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 
 The setup flow first asks the superuser to choose the setup language. That choice

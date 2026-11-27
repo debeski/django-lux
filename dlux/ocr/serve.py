@@ -17,7 +17,9 @@ internal network and publishes no ports.
 import json
 import logging
 import os
+import select
 import signal
+import socket
 import tempfile
 import threading
 import time
@@ -34,6 +36,14 @@ QUEUE_WAIT = float(os.environ.get('OCR_QUEUE_WAIT', '20'))
 WORKERS = max(1, int(os.environ.get('OCR_WORKERS', '1')))
 MAX_CONNECTIONS = WORKERS + max(1, int(os.environ.get('OCR_QUEUE_SIZE', '2')))
 READ_TIMEOUT = max(0.1, float(os.environ.get('OCR_READ_TIMEOUT', '30')))
+# Whole-request deadlines, so a client trickling one header line or a few bytes
+# just inside READ_TIMEOUT cannot hold a connection (and the engine slot) open.
+HEADER_DEADLINE = max(0.1, float(os.environ.get('OCR_HEADER_DEADLINE', '30')))
+MIN_UPLOAD_RATE = max(1024, int(os.environ.get('OCR_MIN_UPLOAD_RATE', str(1024 * 1024))))
+# Connections past MAX_CONNECTIONS still get an answer: /health its status, the
+# rest "busy". Bounded too, and each one is read for at most OVERFLOW_TIMEOUT.
+OVERFLOW_CONNECTIONS = max(1, int(os.environ.get('OCR_OVERFLOW_CONNECTIONS', '8')))
+OVERFLOW_TIMEOUT = 2.0
 DEFAULT_THREADS = int(os.environ.get('OCR_THREADS', '2'))
 MAX_THREADS = max(1, int(os.environ.get('OCR_MAX_THREADS', str(os.cpu_count() or 4))))
 MODES = {'auto', 'ocr'}
@@ -58,20 +68,16 @@ class OCRHTTPServer(ThreadingHTTPServer):
     def __init__(self, address, handler):
         super().__init__(address, handler)
         self._connections = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        self._overflow = threading.BoundedSemaphore(OVERFLOW_CONNECTIONS)
+        self._header_timers = {}
+        self._timers_lock = threading.Lock()
 
     def process_request(self, request, address):
         if not self._connections.acquire(blocking=False):
-            body = b'{"error":"The OCR engine is busy."}'
-            response = (b'HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n'
-                        b'Content-Type: application/json\r\nRetry-After: 30\r\nContent-Length: '
-                        + str(len(body)).encode('ascii') + b'\r\n\r\n' + body)
-            try:
-                request.settimeout(READ_TIMEOUT)
-                request.sendall(response)
-            except OSError:
-                pass
-            finally:
-                self.shutdown_request(request)
+            if self._overflow.acquire(blocking=False):
+                threading.Thread(target=self._answer_overflow, args=(request,), daemon=True).start()
+            else:
+                self._send_raw(request, *busy_answer())
             return
         try:
             request.settimeout(READ_TIMEOUT)
@@ -81,10 +87,93 @@ class OCRHTTPServer(ThreadingHTTPServer):
             raise
 
     def process_request_thread(self, request, address):
+        timer = threading.Timer(HEADER_DEADLINE, _shut, args=(request,))
+        timer.daemon = True
+        with self._timers_lock:
+            self._header_timers[request] = timer
+        timer.start()
         try:
             super().process_request_thread(request, address)
         finally:
+            self.headers_done(request)
             self._connections.release()
+
+    def headers_done(self, request):
+        with self._timers_lock:
+            timer = self._header_timers.pop(request, None)
+        if timer is not None:
+            timer.cancel()
+
+    def _send_raw(self, request, status, payload, extra=b''):
+        body = json.dumps(payload).encode('utf-8')
+        reason = HTTPStatus(status).phrase.encode('ascii')
+        response = (b'HTTP/1.1 ' + str(int(status)).encode('ascii') + b' ' + reason + b'\r\nConnection: close\r\n'
+                    b'Content-Type: application/json\r\n' + extra + b'Content-Length: '
+                    + str(len(body)).encode('ascii') + b'\r\n\r\n' + body)
+        try:
+            request.settimeout(READ_TIMEOUT)
+            request.sendall(response)
+        except OSError:
+            pass
+        finally:
+            self.shutdown_request(request)
+
+    def _answer_overflow(self, request):
+        """Answer a connection past the limit: /health with the status, anything else busy."""
+        try:
+            line = b''
+            deadline = time.monotonic() + OVERFLOW_TIMEOUT
+            try:
+                while b'\n' not in line and len(line) < 4096:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    request.settimeout(remaining)
+                    chunk = request.recv(4096)
+                    if not chunk:
+                        break
+                    line += chunk
+            except OSError:
+                pass
+            if line.split(b'\r\n', 1)[0].split(b' ')[:2] == [b'GET', b'/health']:
+                self._send_raw(request, *health_status())
+            else:
+                self._send_raw(request, *busy_answer())
+        finally:
+            self._overflow.release()
+
+
+def _shut(request):
+    """End a connection that missed its deadline; the blocked read then fails."""
+    try:
+        request.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+
+
+def busy_answer():
+    return HTTPStatus.SERVICE_UNAVAILABLE, {'error': 'The OCR engine is busy.'}, b'Retry-After: 30\r\n'
+
+
+def health_status():
+    if ENGINE is None:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {'status': 'unavailable', 'error': UNAVAILABLE.get('reason', '')}
+    return HTTPStatus.OK, {
+        'status': 'ok', 'engine': ENGINE.name, 'engine_version': ENGINE.version,
+        'model_version': ENGINE.model_version, 'service_version': SERVICE_VERSION,
+        'workers': WORKERS, 'max_threads': MAX_THREADS, 'max_bytes': MAX_BYTES, 'max_pages': MAX_PAGES,
+    }
+
+
+def client_gone(connection):
+    """Whether the client closed its end: readable with nothing to read."""
+    try:
+        readable, _, _ = select.select([connection], [], [], 0)
+        if not readable:
+            return False
+        return connection.recv(1, socket.MSG_PEEK) == b''
+    except (OSError, ValueError):
+        return True
 
 
 def detect_kind(head):
@@ -147,16 +236,33 @@ class Handler(BaseHTTPRequestHandler):
     def error(self, status, message, headers=None):
         self.reply(status, {'error': message}, headers)
 
+    def parse_request(self):
+        parsed = super().parse_request()
+        headers_done = getattr(self.server, 'headers_done', None)
+        if headers_done is not None:
+            headers_done(self.request)
+        return parsed
+
     def do_GET(self):
         if urlparse(self.path).path != '/health':
             return self.error(HTTPStatus.NOT_FOUND, 'Not found.')
-        if ENGINE is None:
-            return self.reply(HTTPStatus.SERVICE_UNAVAILABLE, {'status': 'unavailable', 'error': UNAVAILABLE.get('reason', '')})
-        self.reply(HTTPStatus.OK, {
-            'status': 'ok', 'engine': ENGINE.name, 'engine_version': ENGINE.version,
-            'model_version': ENGINE.model_version, 'service_version': SERVICE_VERSION,
-            'workers': WORKERS, 'max_threads': MAX_THREADS, 'max_bytes': MAX_BYTES, 'max_pages': MAX_PAGES,
-        })
+        self.reply(*health_status())
+
+    def read_body(self, length):
+        """The upload, within READ_TIMEOUT plus the time ``length`` takes at MIN_UPLOAD_RATE."""
+        deadline = time.monotonic() + READ_TIMEOUT + length / MIN_UPLOAD_RATE
+        chunks, received = [], 0
+        while received < length:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('upload deadline')
+            self.connection.settimeout(min(READ_TIMEOUT, remaining))
+            chunk = self.rfile.read1(min(length - received, 1024 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            received += len(chunk)
+        return b''.join(chunks)
 
     def do_POST(self):
         url = urlparse(self.path)
@@ -187,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             queued_ms = round((time.monotonic() - started) * 1000, 1)
             try:
-                body = self.rfile.read(length)
+                body = self.read_body(length)
             except TimeoutError:
                 return self.error(HTTPStatus.REQUEST_TIMEOUT, 'The file upload timed out.')
             if len(body) != length:
@@ -198,7 +304,10 @@ class Handler(BaseHTTPRequestHandler):
             with tempfile.NamedTemporaryFile(suffix='.' + kind) as handle:
                 handle.write(body)
                 handle.flush()
-                result = ENGINE.convert(handle.name, mode=mode, max_pages=max_pages, threads=threads)
+                result = ENGINE.convert(
+                    handle.name, mode=mode, max_pages=max_pages, threads=threads,
+                    cancelled=lambda: client_gone(self.connection),
+                )
         except engines.EngineError as exc:
             return self.error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc))
         except Exception:

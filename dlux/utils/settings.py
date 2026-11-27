@@ -188,6 +188,10 @@ def _reject_placeholder_secret_key(scope):
 # terms: higher runs first).
 DLUX_BUILTIN_TASK_SCHEDULE = {
     "dlux-scheduled-system-backup-check": {"task": "dlux.tasks.run_scheduled_system_backup", "schedule": 900.0},
+    # Retires stalled backups and starts armed retries once their time comes,
+    # whether or not scheduled backups are on and whether or not anyone opens
+    # the backup page. A cheap query when nothing is pending.
+    "dlux-reap-stalled-backups": {"task": "dlux.tasks.reap_stalled_system_backups", "schedule": 60.0},
     # The task is a cheap no-op when updates are disabled or the check is not yet
     # due (it gates on last_checked_at against DLUX_UPDATE_CHECK_INTERVAL).
     "dlux-update-check": {"task": "dlux.tasks.dlux_update_check", "schedule": 3600.0},
@@ -291,6 +295,56 @@ def _apply_cache_resilience(scope, middleware):
         # their headers; outside SessionMiddleware, whose save is what fails.
         session = "django.contrib.sessions.middleware.SessionMiddleware"
         middleware.insert(middleware.index(session) if session in middleware else 0, CACHE_OUTAGE_MIDDLEWARE)
+
+
+DATABASE_OUTAGE_MIDDLEWARE = "dlux.db_outage.DatabaseOutageMiddleware"
+POSTGRES_ENGINES = {"django.db.backends.postgresql", "django.db.backends.postgresql_psycopg2"}
+DEFAULT_DB_CONNECT_TIMEOUT = 5
+# libpq keepalives: a peer that vanished is noticed in about half a minute
+# instead of the kernel's two hours.
+DB_KEEPALIVE_OPTIONS = {"keepalives": 1, "keepalives_idle": 10, "keepalives_interval": 5, "keepalives_count": 3}
+
+
+def _apply_database_resilience(scope, middleware):
+    """Bound how long a request waits on PostgreSQL, and answer 503 when it cannot.
+
+    Unless ``DLUX_DB_FAIL_FAST = False``: every PostgreSQL connection gets a
+    ``connect_timeout`` (``DLUX_DB_CONNECT_TIMEOUT``, 5 s) and TCP keepalives,
+    keeping any value the settings file sets, and ``DatabaseOutageMiddleware``
+    goes just outside the session middleware. A database that is paused, out
+    of connection slots or read-only then costs one short wait and a 503, and a
+    system restore turns requests away instead of hanging them.
+    """
+    scope.setdefault("DLUX_DB_FAIL_FAST", True)
+    if not scope["DLUX_DB_FAIL_FAST"]:
+        return
+    try:
+        connect_timeout = int(scope.get("DLUX_DB_CONNECT_TIMEOUT") or DEFAULT_DB_CONNECT_TIMEOUT)
+    except (TypeError, ValueError):
+        connect_timeout = DEFAULT_DB_CONNECT_TIMEOUT
+    databases = scope.get("DATABASES")
+    if isinstance(databases, dict):
+        resilient = {}
+        for alias, config in databases.items():
+            if isinstance(config, dict) and config.get("ENGINE") in POSTGRES_ENGINES:
+                config = dict(config)
+                options = dict(config.get("OPTIONS") or {})
+                options.setdefault("connect_timeout", max(connect_timeout, 1))
+                for key, value in DB_KEEPALIVE_OPTIONS.items():
+                    options.setdefault(key, value)
+                config["OPTIONS"] = options
+            resilient[alias] = config
+        scope["DATABASES"] = resilient
+    if DATABASE_OUTAGE_MIDDLEWARE not in middleware:
+        # Outside SessionMiddleware and AuthenticationMiddleware, whose reads
+        # are what fail; inside SecurityMiddleware and the CSP middleware.
+        session = "django.contrib.sessions.middleware.SessionMiddleware"
+        for anchor in (CACHE_OUTAGE_MIDDLEWARE, session):
+            if anchor in middleware:
+                middleware.insert(middleware.index(anchor), DATABASE_OUTAGE_MIDDLEWARE)
+                break
+        else:
+            middleware.insert(0, DATABASE_OUTAGE_MIDDLEWARE)
 
 
 DEFAULT_STATIC_BACKEND = "django.contrib.staticfiles.storage.StaticFilesStorage"
@@ -418,6 +472,7 @@ def dlux_settings(scope):
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")
     _apply_cache_resilience(scope, middleware)
+    _apply_database_resilience(scope, middleware)
     scope.setdefault("DLUX_ISOLATE_TEST_CACHE", True)
     if scope["DLUX_ISOLATE_TEST_CACHE"] and _is_test_process():
         scope["CACHES"] = {

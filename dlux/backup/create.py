@@ -9,17 +9,20 @@ from django.apps import apps
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import connection, models, transaction
-from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 from ..utils.archive import build_relation_schema, stream_model_into_zip
 
-from ._shared import _SUPERUSER_PASSWORD_OMITTED, _dlux_version, _log_system_action, get_current_migration_state, logger
+from ._shared import (
+    _SUPERUSER_PASSWORD_OMITTED, _dlux_version, _log_system_action, get_current_migration_state, logger, store_artifact,
+)
 from .chain import (
     INDEX_MEMBER, delete_backup_files, index_root, migration_digest, new_index, read_index_sidecar, row_digest, write_index_sidecar,
 )
 from .config import _backup_config, _is_user_model, _system_model_queryset, get_system_backup_models, get_system_backup_storage_prefix
 from .crypto import BACKUP_KIND, INCREMENT_KIND, DlbPayloadWriter, _clean_passphrase
-from .reporters import BackupCancelled, _BackupReporter, _CallbackReporter, _NullReporter, _ThreadedReporter, _format_count
+from .reporters import (
+    BackupCancelled, _BackupReporter, _CallbackReporter, _NullReporter, _ThreadedReporter, _format_count, format_size,
+)
 from .retry import fail_system_backup
 
 
@@ -235,7 +238,7 @@ def write_system_backup(
             strings.get(
                 "backup_progress_sealing" if encrypt else "backup_progress_sealing_plain",
                 "Finishing encryption ({size})..." if encrypt else "Writing the backup file ({size})...",
-            ).format(size=filesizeformat(writer.size)),
+            ).format(size=format_size(writer.size)),
             stage=STAGE_ENCRYPTING,
         )
         metadata = writer.finish(dest, {
@@ -413,7 +416,7 @@ def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=Fals
                 stage=SystemBackup.STAGE_STORING,
             )
             prefix = get_system_backup_storage_prefix()
-            saved_path = default_storage.save(f"{prefix}/system-{backup.token}.dlb", File(tmp))
+            saved_path = store_artifact(f"{prefix}/system-{backup.token}.dlb", File(tmp), size=size)
             saved_paths.append(saved_path)
         chain = manifest["chain"]
         sidecar = saved_path[:-4] + ".idx" if saved_path.endswith(".dlb") else f"{saved_path}.idx"

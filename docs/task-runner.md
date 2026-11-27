@@ -149,9 +149,9 @@ Celery's arguments (`minute`, `hour`, `day_of_week`, `day_of_month`,
 or 7), evaluates in the project's `TIME_ZONE`, and, like Celery, requires day of
 month **and** day of week to match. `options.priority` (or `priority`),
 `options.queue`, `args` and `kwargs` are honoured. `dlux_settings()` adds
-DjangoLux's four entries (`dlux-state-tick` 5 s,
-`dlux-scheduled-system-backup-check` 900 s, `dlux-update-check` 3600 s,
-`dlux-ocr-background` 60 s at priority -9) next to the project's. A bad entry
+DjangoLux's five entries (`dlux-state-tick` 5 s,
+`dlux-reap-stalled-backups` 60 s, `dlux-scheduled-system-backup-check` 900 s,
+`dlux-update-check` 3600 s, `dlux-ocr-background` 60 s at priority -9) next to the project's. A bad entry
 fails system check `dlux.E102`.
 
 `task` names either a registered `@task` name or the import path of a
@@ -247,8 +247,9 @@ python manage.py dlux_worker [--threads N] [--queue NAME ...] [--no-schedule] [-
    container registers.
 
 `--burst` runs what is due in the calling thread and exits (tests, a one-shot
-cron job). `--no-schedule` runs queued work only. `--check` exits 0 when a worker
-on this host has a fresh heartbeat, for a container healthcheck.
+cron job). `--no-schedule` runs queued work only. `--check` exits 0 when the database answers it and a worker
+on this host has a fresh heartbeat, for a container healthcheck; a database the
+check cannot reach fails it at once, without waiting for the heartbeat to go stale.
 
 Each task runs in a pool thread with its own database connection;
 `close_old_connections()` runs before and after every task.

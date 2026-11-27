@@ -142,3 +142,23 @@ class _CallbackReporter(_NullReporter):
 
 def _format_count(value):
     return f"{int(value or 0):,}"
+
+
+def format_size(value):
+    """``filesizeformat`` in the language the progress strings are in.
+
+    A worker has no request, so Django's active language is ``LANGUAGE_CODE``
+    while ``get_strings()`` follows the system's default language: without this,
+    an English message carried an Arabic unit.
+    """
+    from django.template.defaultfilters import filesizeformat
+    from django.utils import translation
+
+    try:
+        from ..translations import get_current_language_code
+
+        lang = get_current_language_code() or "en"
+    except Exception:
+        lang = "en"
+    with translation.override(lang):
+        return str(filesizeformat(value))

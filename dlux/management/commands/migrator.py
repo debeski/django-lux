@@ -1,4 +1,6 @@
 import os
+import time
+from contextlib import contextmanager
 from glob import glob
 from io import StringIO
 
@@ -7,6 +9,13 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command, get_commands
 from django.core.management.base import BaseCommand, CommandError
+from django.db import connection
+
+# pg_advisory_lock key shared by every migrator of a database ("dlux.migrator").
+MIGRATOR_LOCK_KEY = 0x646C75786D6967
+MIGRATOR_LOCK_POLL_SECONDS = 2.0
+DEFAULT_MIGRATOR_LOCK_TIMEOUT = 900
+DEFAULT_ADMIN_PASSWORD = 'admin'
 
 
 class Command(BaseCommand):
@@ -183,24 +192,76 @@ class Command(BaseCommand):
             self.stderr.write("Check that your STATIC_ROOT is configured and writable.")
             raise
 
+    @contextmanager
+    def exclusive(self):
+        """Hold the database's migrator lock for the whole run.
+
+        Two migrators at once (two workers' ``pre_start`` when the service is
+        scaled) raced: one failed creating a table the other had just made, and
+        ``collectstatic --clear`` on the shared volume deleted the other's files.
+        On PostgreSQL the second run waits on a session advisory lock, up to
+        ``DLUX_MIGRATOR_LOCK_TIMEOUT`` seconds, then finds nothing left to do.
+        """
+        if connection.vendor != 'postgresql':
+            yield
+            return
+        try:
+            timeout = float(os.getenv('DLUX_MIGRATOR_LOCK_TIMEOUT') or DEFAULT_MIGRATOR_LOCK_TIMEOUT)
+        except ValueError:
+            timeout = DEFAULT_MIGRATOR_LOCK_TIMEOUT
+        deadline = time.monotonic() + timeout
+        announced = False
+        while True:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT pg_try_advisory_lock(%s)', [MIGRATOR_LOCK_KEY])
+                if cursor.fetchone()[0]:
+                    break
+            if not announced:
+                self.stdout.write("Another migrator is running on this database; waiting for it to finish...")
+                announced = True
+            if time.monotonic() >= deadline:
+                raise CommandError(
+                    f"Another migrator still holds the migration lock after {int(timeout)} seconds. "
+                    "Check for a stuck migrator, or raise DLUX_MIGRATOR_LOCK_TIMEOUT."
+                )
+            time.sleep(MIGRATOR_LOCK_POLL_SECONDS)
+        try:
+            yield
+        finally:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT pg_advisory_unlock(%s)', [MIGRATOR_LOCK_KEY])
+            except Exception:
+                # A closed connection already released its session lock.
+                pass
+
     def ensure_superuser(self, warnings):
         username = 'admin'
-        email = 'admin@eidc.gov.ly'
-        password = os.getenv("ADMIN_PASS", "admin")
-
-        if password == "admin":
-            self.stdout.write(self.style.WARNING(
-                "ADMIN_PASS not supplied — falling back to default password: 'admin'"
-            ))
+        # No default address: a reset link must never go to a mailbox outside
+        # the deployment. ADMIN_EMAIL sets one where it is wanted.
+        email = os.getenv("ADMIN_EMAIL", "").strip()
+        password = os.getenv("ADMIN_PASS", "")
 
         try:
             User = get_user_model()
-            if not User.objects.filter(username=username).exists():
-                self.stdout.write("Superuser not found. Creating superuser...")
-                User.objects.create_superuser(username=username, email=email, password=password)
-                self.stdout.write(self.style.SUCCESS(f'Successfully created superuser: {username}'))
-            else:
+            if User.objects.filter(username=username).exists():
                 self.stdout.write(self.style.WARNING(f'Superuser {username} already exists.'))
+                return
+            # A guessable first password is a live admin account on every
+            # deployment that forgets to change it: create none instead.
+            if not password.strip() or password == DEFAULT_ADMIN_PASSWORD:
+                message = (
+                    "No superuser created: ADMIN_PASS is "
+                    + ("empty" if not password.strip() else "the default 'admin'")
+                    + ". Set ADMIN_PASS in .secrets/.env and restart the stack, or run "
+                    "'python manage.py createsuperuser'."
+                )
+                self.stdout.write(self.style.WARNING(message))
+                warnings.append(message)
+                return
+            self.stdout.write("Superuser not found. Creating superuser...")
+            User.objects.create_superuser(username=username, email=email, password=password)
+            self.stdout.write(self.style.SUCCESS(f'Successfully created superuser: {username}'))
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"SUPERUSER CREATION FAILED: {e}"))
             self.stderr.write("Check that AUTH_USER_MODEL is correctly configured and the user model has is_superuser field.")
@@ -259,6 +320,10 @@ class Command(BaseCommand):
             raise CommandError("-mm and -nm are mutually exclusive.")
 
         target_apps = self.resolve_target_apps(specified_app)
+        with self.exclusive():
+            self.initialize(target_apps, force_mm, no_migrate)
+
+    def initialize(self, target_apps, force_mm, no_migrate):
         warnings = []
 
         self.stdout.write("DATABASE INITIALIZATION...")

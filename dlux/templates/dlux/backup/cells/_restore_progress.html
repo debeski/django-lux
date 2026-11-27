@@ -11,7 +11,7 @@
         {% if restore.live_eta is not None %}<span class="text-nowrap ms-2"><i class="bi bi-hourglass-split me-1"></i>{{ DLUX_STRINGS.sysbackup_eta_short|default:'~{duration} left'|dlux_format_duration:restore.live_eta }}</span>{% endif %}
     </small>
 {% elif restore.status == 'failed' %}
-    {% if restore.error %}<small class="d-block text-danger">{{ restore.error|truncatechars:120 }}</small>{% endif %}
+    {% if restore.error %}<small class="d-block text-danger text-break">{{ restore.error }}</small>{% endif %}
 {% elif restore.duration_seconds is not None %}
     <small class="text-muted"><i class="bi bi-stopwatch me-1"></i>{{ restore.duration_seconds|dlux_duration }}</small>
 {% endif %}

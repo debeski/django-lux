@@ -22,9 +22,19 @@ class Command(BaseCommand):
         if options["check"]:
             import socket
 
+            from django.db import Error as DatabaseError, connection, transaction
+
             from dlux.taskrunner.queue import live_dlux_workers
 
-            if not live_dlux_workers().filter(hostname=socket.gethostname()[:255]).exists():
+            # The worker's own heartbeat stays fresh for its stale window after
+            # the database goes away; this process asks the database itself.
+            try:
+                connection.ensure_connection()
+                with transaction.atomic():
+                    alive = live_dlux_workers().filter(hostname=socket.gethostname()[:255]).exists()
+            except DatabaseError as exc:
+                raise CommandError(f"The database does not answer: {exc}") from exc
+            if not alive:
                 raise CommandError("No dlux_worker on this host has a fresh heartbeat.")
             self.stdout.write("ok")
             return

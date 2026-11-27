@@ -124,6 +124,12 @@ settings file declares, because generated settings files are never regenerated;
 `DLUX_CACHE_FAIL_FAST = False` keeps the cache and the engine exactly as written.
 See [Cache outages](deployment-configuration.md#cache-outages).
 
+It gives every PostgreSQL connection a `connect_timeout` and TCP keepalives, and
+puts `DatabaseOutageMiddleware` just outside the session middleware, so a database
+that is down, full or read-only answers 503 instead of a 500 or a hung request.
+`DLUX_DB_FAIL_FAST = False` turns this off. See
+[Database outages](deployment-configuration.md#database-outages).
+
 To add a first-class framework setting, follow
 [Adding a System Setting](adding-system-settings.md); it must participate in the
 schema, normalization, forms, import/export, and tests.
