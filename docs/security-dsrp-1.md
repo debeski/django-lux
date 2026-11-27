@@ -142,6 +142,17 @@ scripts, its JavaScript never calls `eval`, `new Function` or string timers, and
 PDF.js runs with `isEvalSupported: false`. Scripts it adds at run time (asset
 bundles, the strings script) carry the page's nonce.
 
+DjangoLux pages need no inline style either, so a project can send
+`style-src 'self'`. Templates carry no `<style>` blocks or `style=""` attributes,
+and scripts never hand markup with `style=` to `innerHTML` or call
+`setAttribute('style', …)`; they style through the CSSOM (`el.style.x = …`,
+`style.setProperty()`), which `style-src` does not govern. The font and theme
+registry rules come from the `/sys/api/styles/<version>.css` stylesheet, and the
+page font is set on `<html>` by `base_head.js`. The vendored Bootstrap, Chart.js,
+datepicker and driver.js style through the CSSOM too. Project templates and
+scripts follow the same rules: move a `style=""` into a class in a static
+stylesheet, and set computed sizes from a script.
+
 The dynamic modal runs the scripts in the markup it fetches. A script that carries
 the nonce of the response it came in runs with the page's nonce; any other inline
 script keeps its own nonce and is blocked. Markup that a stored value smuggles

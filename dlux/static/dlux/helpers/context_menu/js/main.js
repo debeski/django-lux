@@ -717,8 +717,8 @@
                 const checkboxId = `id_${fieldName}_new_${data.id}`;
                 const checkboxHTML = `
                     <input type="checkbox" name="${fieldName}" value="${data.id}" class="btn-check" id="${checkboxId}" checked>
-                    <label class="btn btn-outline-secondary subsection-checkbox-label"
-                           for="${checkboxId}" style="font-size: 1.1rem;"
+                    <label class="btn btn-outline-secondary subsection-checkbox-label dlux-subsection-checkbox-label"
+                           for="${checkboxId}"
                            data-sub-id="${data.id}" data-sub-name="${name}"
                            data-dlux-context="true"
                            data-locked="false">

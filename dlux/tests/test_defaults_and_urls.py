@@ -2988,7 +2988,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('window.TUT_STRINGS', script)
         self.assertNotIn('tutorial-strings-data', template)
         self.assertIn("text('tut_btn_next', 'Next')", script)
-        self.assertIn("html[dir=\"rtl\"] .driver-popover-title", script)
+        stylesheet = (root / 'static' / 'dlux' / 'tutorial' / 'css' / 'main.css').read_text(encoding='utf-8')
+        self.assertIn("html[dir=\"rtl\"] .driver-popover-title", stylesheet)
 
     def test_tutorial_registry_tracks_current_framework_components(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'tutorial' / 'js' / 'main.js'
@@ -3993,12 +3994,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         for path in sorted(templates_root.rglob('*.html')):
             contents = path.read_text(encoding='utf-8')
             rel_path = path.relative_to(templates_root).as_posix()
-            # base.html: dynamic font-face bridge. system_setup.html: a tiny
-            # layout guard that forces the setup shell to a flow box, rendered
-            # live from the template so a stale collected setup stylesheet cannot
-            # reintroduce the position:fixed/measured-top that hid the shell.
-            inline_style_allowed = {'dlux/base.html', 'dlux/setup/main.html'}
-            if re.search(r'<style\b', contents, re.IGNORECASE) and rel_path not in inline_style_allowed:
+            # No template carries a <style> block: projects send style-src 'self'.
+            if re.search(r'<style\b', contents, re.IGNORECASE):
                 violations.append(f'{rel_path}:style-block')
             if inline_script_pattern.search(contents):
                 violations.append(f'{rel_path}:inline-script')

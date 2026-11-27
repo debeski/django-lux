@@ -211,6 +211,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/fonts/<slug>.css` | `@font-face` rules for one font System Settings allows, plus `--dlux-main-font`; public, cached for an hour; 404 for any other font. Linked by `dlux/public_base.html` |
+| `/sys/api/styles/<version>.css` | Every registered font's `@font-face` rules, the font picker samples, custom theme swatches and the default `--dlux-main-font`/`--dlux-font-fallback`; public, cached for good under its version (a digest of the content). Linked by `dlux/base.html` |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |

@@ -38,10 +38,10 @@
         const modalHtml = `
             <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content glass-card border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+                    <div class="modal-content glass-card border-0 shadow-lg dlux-section-info-content">
                         <div class="modal-header border-0 pb-0">
                             <h5 class="modal-title fw-bold text-${variant}"><i class="bi bi-info-circle me-2"></i> ${escapeHtml(title)}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${escapeHtml(window.DLUX_STRINGS?.btn_close || 'Close')}"></button>
                         </div>
                         <div class="modal-body p-4">
                             ${bodyContent}
@@ -74,7 +74,7 @@
             html += `
                 <div class="col-sm-12">
                     <div class="glass-card h-100 p-3">
-                        <div class="info-label-sm mb-2 text-primary fw-bold border-bottom pb-1" style="font-size: 0.8rem;">
+                        <div class="info-label-sm mb-2 text-primary fw-bold border-bottom pb-1 dlux-section-info-model">
                             <i class="bi bi-diagram-2 me-1"></i> ${escapeHtml(modelName)}
                         </div>
                         <ul class="list-group list-group-flush bg-transparent">
@@ -186,7 +186,7 @@
                             <div class="col-md-6">
                                 <div class="mb-2 px-2">
                                     <div class="info-label">${escapeHtml(label)}</div>
-                                    <div class="info-value" style="font-size: 1rem;">${escapeHtml(value || '-')}</div>
+                                    <div class="info-value dlux-section-info-value">${escapeHtml(value || '-')}</div>
                                 </div>
                             </div>
                         `;

@@ -22,20 +22,9 @@
     {{ font_families|json_script:"dlux-font-families" }}
     {% if DLUX_SCANLINK_ENABLED %}{{ scanlink_sites|json_script:"dlux-scanlink-sites" }}{% endif %}
     {% dlux_asset_bundles as DLUX_ASSET_BUNDLES %}{{ DLUX_ASSET_BUNDLES|json_script:"dlux-asset-bundles" }}
-    <style id="dlux-dynamic-fonts" nonce="{{ request.csp_nonce }}">
-        {{ font_face_css|safe }}
-        :root {
-            --dlux-font-fallback: '{{ default_font_family }}', sans-serif;
-            --dlux-main-font: '{{ active_font_family }}', sans-serif;
-        }
-    </style>
-    {% if theme_preview_css %}
-    <style id="dlux-dynamic-theme-previews" nonce="{{ request.csp_nonce }}">
-        {{ theme_preview_css|safe }}
-    </style>
-    {% endif %}
+    {% if DLUX_PAGE_STYLES_URL %}<link rel="stylesheet" href="{{ DLUX_PAGE_STYLES_URL }}" id="dlux-page-styles">{% endif %}
     {% if DLUX_STRINGS_URL %}<script src="{{ DLUX_STRINGS_URL }}" nonce="{{ request.csp_nonce }}"></script>{% endif %}
-    <script src="{% dlux_static 'dlux/base/js/base_head.js' %}" nonce="{{ request.csp_nonce }}" data-clipboard-user="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"></script>
+    <script src="{% dlux_static 'dlux/base/js/base_head.js' %}" nonce="{{ request.csp_nonce }}" data-clipboard-user="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}" data-main-font="{{ active_font_family }}" data-fallback-font="{{ default_font_family }}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}" id="bootstrap-css">
