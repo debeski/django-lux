@@ -59,6 +59,9 @@ optional tag of up to 128 characters; digest references (`@sha256:`) are refused
 Every refusal happens before anything is written.
 
 `startproject` writes `.secrets/.env` readable by its owner only (mode `0600`).
+Set `ADMIN_PASS` in it before the first start: the first migration creates the
+`admin` superuser with that password and creates none while it is empty or
+`admin`. An existing `admin` account is never changed.
 
 For new apps inside a DjangoLux project:
 
@@ -70,7 +73,11 @@ python -m dlux startapp billing --register
 
 The app gets example models named after it (`BillingRecord`, `BillingSection`,
 `BillingChildSection`, `BillingParentSection`), so several generated apps live
-side by side, and list, detail, form and delete pages for `BillingRecord`.
+side by side, and list, detail, form and delete pages for `BillingRecord`. Every
+word those pages show is a `{{ DLUX_STRINGS.key|default:"…" }}` lookup: the
+generic actions use DjangoLux's own keys (`back_to_list`, `btn_edit`, `cancel`,
+`save`, `confirm_delete`, `delete_label`), and the rest are English and Arabic
+entries in the app's `translations.py` ([Translation guide](translation-guide.md)).
 `startapp` refuses an app name that would hide an importable module (the
 standard library or an installed package, such as `json`, `email` or `csp`) or
 that is already an app label (`auth`, `sessions`, `admin`, the project's own

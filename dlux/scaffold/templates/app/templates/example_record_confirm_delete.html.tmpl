@@ -7,20 +7,20 @@
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-body p-4 text-center">
                     <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3"></i>
-                    <h4 class="mb-3">Confirm Delete</h4>
+                    <h4 class="mb-3">{{ DLUX_STRINGS.confirm_delete|default:"Confirm Delete" }}</h4>
+                    <p class="fw-bold mb-2">{{ record.name }}</p>
                     <p class="text-muted mb-4">
-                        Are you sure you want to delete <strong>{{ record.name }}</strong>?
-                        This action cannot be undone.
+                        {{ DLUX_STRINGS.{{ record_model_lower }}_delete_question|default:"Delete this record? This action cannot be undone." }}
                     </p>
 
                     <form method="post">
                         {% csrf_token %}
                         <div class="d-flex gap-2 justify-content-center">
                             <a class="btn btn-outline-secondary rounded-pill px-4" href="{% url '{{ app_name }}:example_record_list' %}">
-                                Cancel
+                                {{ DLUX_STRINGS.cancel|default:"Cancel" }}
                             </a>
                             <button type="submit" class="btn btn-danger rounded-pill px-4">
-                                <i class="bi bi-trash"></i> Delete
+                                <i class="bi bi-trash"></i> {{ DLUX_STRINGS.delete_label|default:"Delete" }}
                             </button>
                         </div>
                     </form>

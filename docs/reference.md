@@ -57,7 +57,8 @@ Generated app scaffold baseline:
 - discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`,
   `urls.py`, `translations.py`, templates, and tests
 - example models named after the app (`<App>Record`, `<App>Section`, …) with list,
-  detail, form and delete templates
+  detail, form and delete templates whose text comes from `DLUX_STRINGS` (the app's
+  `translations.py`, English and Arabic)
 - optional `--register` patching for `INSTALLED_APPS` and root project URLs, planned
   before anything is written ([getting started](getting-started.md#fastest-greenfield-start))
 - modal/list conventions that align with Dlux discovery, sections, and table/filter helpers

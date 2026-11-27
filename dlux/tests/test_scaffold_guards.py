@@ -76,6 +76,16 @@ class GeneratedProjectFileTests(unittest.TestCase):
         self.assertTrue(data.endswith(b"\n"))
         self.assertFalse(data.endswith(b"\n\n"))
 
+    def test_admin_password_has_no_default(self):
+        # R2-039: the first superuser got the password `admin` when ADMIN_PASS was unset.
+        compose = self.read("compose.yml")
+        self.assertNotIn("ADMIN_PASS:-admin", compose)
+        self.assertEqual(compose.count("ADMIN_PASS: ${ADMIN_PASS:-}"), 2)
+        values = dict(line.split("=", 1) for line in self.read(".secrets/.env").splitlines()
+                      if line and not line.startswith("#"))
+        self.assertEqual(values["ADMIN_PASS"], "")
+        self.assertIn("Set `ADMIN_PASS` there before the first start", self.read("README.md"))
+
     def test_secrets_file_is_owner_only(self):
         # R2-109: the file holds the database password and SECRET_KEY.
         mode = stat.S_IMODE((self.root / ".secrets" / ".env").stat().st_mode)
@@ -204,6 +214,31 @@ class StartappTests(unittest.TestCase):
         for name in names:
             with self.subTest(template=name):
                 self.assertTrue((app_root / "templates" / name).is_file())
+
+    def test_generated_templates_show_only_translated_text(self):
+        # Every word a generated page shows comes from DLUX_STRINGS, in English and Arabic.
+        from dlux.translations.strings import ARABIC, ENGLISH
+
+        app_root = self.startapp("vault")
+        namespace = {}
+        exec((app_root / "translations.py").read_text(encoding="utf-8"), namespace)
+        app_strings = namespace["DLUX_STRINGS"]
+        self.assertEqual(set(app_strings["en"]), set(app_strings["ar"]))
+        templates = sorted((app_root / "templates" / "vault").glob("*.html"))
+        self.assertEqual(len(templates), 4)
+        for template in templates:
+            with self.subTest(template=template.name):
+                source = template.read_text(encoding="utf-8")
+                visible = re.sub(r"{%.*?%}|{{.*?}}|<[^>]*>", " ", source, flags=re.DOTALL)
+                self.assertEqual(visible.split(), [], "text outside DLUX_STRINGS lookups")
+                for attribute in re.findall(r'(?:title|placeholder|aria-label)="([^"]*)"', source):
+                    self.assertRegex(attribute.strip(), r"^{{ DLUX_STRINGS\.")
+                keys = re.findall(r"DLUX_STRINGS\.(\w+)\|default:", source)
+                self.assertTrue(keys)
+                for key in keys:
+                    for language, core in (("en", ENGLISH), ("ar", ARABIC)):
+                        self.assertTrue(key in app_strings[language] or key in core, f"{key} ({language})")
+                self.assertEqual(len(keys), source.count("DLUX_STRINGS."), "every lookup has a default")
 
     def test_two_registered_apps_pass_djangos_checks(self):
         # R2-050: identical example model names clashed on Scope's reverse accessors.
