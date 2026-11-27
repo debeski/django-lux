@@ -58,9 +58,13 @@ reference rules: a lowercase path, an optional registry host (with port), and an
 optional tag of up to 128 characters; digest references (`@sha256:`) are refused.
 Every refusal happens before anything is written.
 
-`startproject` writes `.secrets/.env` readable by its owner only (mode `0600`).
-Set `ADMIN_PASS` in it before the first start: the first migration creates the
-`admin` superuser with that password and creates none while it is empty or
+`startproject` writes `.secrets/.env` readable by its owner only (mode `0600`),
+with a random `DJANGO_SECRET_KEY` and a random `POSTGRES_PASSWORD` (URL-safe
+characters only). Change `POSTGRES_PASSWORD` only before the first start: the
+database keeps the value it was created with. `ADMIN_PASS` is the `admin`
+superuser's password and starts empty: `./start.sh` asks for it at a terminal on
+the first start, and `./start.sh check --fix` asks while it is empty. Without
+either, no admin account is created until it is set, and none while it is
 `admin`. An existing `admin` account is never changed.
 
 For new apps inside a DjangoLux project:
