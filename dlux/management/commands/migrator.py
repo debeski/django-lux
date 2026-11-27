@@ -15,6 +15,7 @@ from django.db import connection
 MIGRATOR_LOCK_KEY = 0x646C75786D6967
 MIGRATOR_LOCK_POLL_SECONDS = 2.0
 DEFAULT_MIGRATOR_LOCK_TIMEOUT = 900
+DEFAULT_ADMIN_PASSWORD = 'admin'
 
 
 class Command(BaseCommand):
@@ -239,21 +240,28 @@ class Command(BaseCommand):
         # No default address: a reset link must never go to a mailbox outside
         # the deployment. ADMIN_EMAIL sets one where it is wanted.
         email = os.getenv("ADMIN_EMAIL", "").strip()
-        password = os.getenv("ADMIN_PASS", "admin")
-
-        if password == "admin":
-            self.stdout.write(self.style.WARNING(
-                "ADMIN_PASS not supplied — falling back to default password: 'admin'"
-            ))
+        password = os.getenv("ADMIN_PASS", "")
 
         try:
             User = get_user_model()
-            if not User.objects.filter(username=username).exists():
-                self.stdout.write("Superuser not found. Creating superuser...")
-                User.objects.create_superuser(username=username, email=email, password=password)
-                self.stdout.write(self.style.SUCCESS(f'Successfully created superuser: {username}'))
-            else:
+            if User.objects.filter(username=username).exists():
                 self.stdout.write(self.style.WARNING(f'Superuser {username} already exists.'))
+                return
+            # A guessable first password is a live admin account on every
+            # deployment that forgets to change it: create none instead.
+            if not password.strip() or password == DEFAULT_ADMIN_PASSWORD:
+                message = (
+                    "No superuser created: ADMIN_PASS is "
+                    + ("empty" if not password.strip() else "the default 'admin'")
+                    + ". Set ADMIN_PASS in .secrets/.env and restart the stack, or run "
+                    "'python manage.py createsuperuser'."
+                )
+                self.stdout.write(self.style.WARNING(message))
+                warnings.append(message)
+                return
+            self.stdout.write("Superuser not found. Creating superuser...")
+            User.objects.create_superuser(username=username, email=email, password=password)
+            self.stdout.write(self.style.SUCCESS(f'Successfully created superuser: {username}'))
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"SUPERUSER CREATION FAILED: {e}"))
             self.stderr.write("Check that AUTH_USER_MODEL is correctly configured and the user model has is_superuser field.")

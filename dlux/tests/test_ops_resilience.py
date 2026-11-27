@@ -1070,3 +1070,33 @@ class RestoreErrorTranslationTests(TestCase):
         restore.refresh_from_db()
         self.assertEqual(restore.status, SystemRestore.STATUS_FAILED)
         self.assertEqual(restore.error, 'ملف النسخة الاحتياطية غير موجود في التخزين')
+
+
+class MigratorDefaultPasswordTests(TestCase):
+    """R2-039 (password half): the superuser fell back to the password 'admin'."""
+
+    def _ensure(self, env):
+        command = migrator_module.Command(stdout=StringIO(), stderr=StringIO())
+        warnings = []
+        with mock.patch.dict(os.environ, env):
+            if 'ADMIN_PASS' not in env:
+                os.environ.pop('ADMIN_PASS', None)
+            command.ensure_superuser(warnings)
+        return command.stdout.getvalue(), warnings
+
+    def test_no_superuser_without_a_real_password(self):
+        for env in ({}, {'ADMIN_PASS': ''}, {'ADMIN_PASS': 'admin'}):
+            with self.subTest(env=env):
+                output, warnings = self._ensure(env)
+                self.assertFalse(get_user_model().objects.filter(username='admin').exists())
+                self.assertIn('No superuser created', output)
+                self.assertIn('createsuperuser', warnings[0])
+                self.assertIn('.secrets/.env', warnings[0])
+
+    def test_an_existing_admin_is_never_touched(self):
+        user = get_user_model().objects.create_superuser('admin', '', 'kept-pass-123')
+        output, warnings = self._ensure({'ADMIN_PASS': 'admin'})
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('kept-pass-123'))
+        self.assertIn('already exists', output)
+        self.assertEqual(warnings, [])
