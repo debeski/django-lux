@@ -89,8 +89,14 @@ class GeneratedPolicyTests(SimpleTestCase):
         script_src = re.search(r'^\s*"script-src": (\[.*\]),$', self.settings_source, re.MULTILINE)
         self.assertIsNotNone(script_src)
         self.assertEqual(script_src.group(1), "[SELF, NONCE]")
-        self.assertIn("from csp.constants import NONCE, SELF, UNSAFE_INLINE", self.settings_source)
+        self.assertIn("from csp.constants import NONCE, SELF\n", self.settings_source)
         self.assertNotIn("UNSAFE_EVAL", self.settings_source)
+
+    def test_style_src_allows_no_inline_style(self):
+        style_src = re.search(r'^\s*"style-src": (\[.*\]),$', self.settings_source, re.MULTILINE)
+        self.assertIsNotNone(style_src)
+        self.assertEqual(style_src.group(1), "[SELF]")
+        self.assertNotIn("UNSAFE_INLINE", self.settings_source)
 
     def test_the_generated_policy_passes_the_check(self):
         block = re.search(r'"DIRECTIVES": \{\n(.*?)\n    \}', self.settings_source, re.S).group(1)
