@@ -7,6 +7,7 @@ small leaf registries such as themes/fonts lazily when validating choices.
 import hashlib
 import json
 import re
+import unicodedata
 from copy import deepcopy
 from urllib.parse import urlsplit
 from .booleans import parse_boolean as _to_bool
@@ -130,7 +131,7 @@ def _coerce_import_bool(value):
 def _to_int(value, default, *, min_value=None, max_value=None):
     try:
         parsed = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         parsed = default
     if min_value is not None:
         parsed = max(min_value, parsed)
@@ -259,7 +260,7 @@ def normalize_email_config(value, *, redact_secret=False):
     normalized['host'] = str(config.get('host') or '').strip()
     try:
         normalized['port'] = int(config.get('port') or normalized['port'])
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         normalized['port'] = 587
     normalized['use_tls'] = _coerce_import_bool(config.get('use_tls', normalized['use_tls']))
     normalized['use_ssl'] = _coerce_import_bool(config.get('use_ssl', normalized['use_ssl']))
@@ -692,8 +693,16 @@ def normalize_scanlink_origin(value):
     if parts.username or parts.password or parts.query or parts.fragment or parts.path not in ('', '/'):
         return None
     host = parts.hostname.lower()
-    if '*' in host or any(ch.isspace() for ch in host):
+    # Bidi, zero-width and other format or control characters make a host read
+    # as another one; a trailing dot names the same site twice. ScanLink refuses
+    # both (invalid_site), and compares non-ASCII hosts in their IDNA form.
+    if '*' in host or host.endswith('.') or any(unicodedata.category(ch)[0] in 'CZ' for ch in host):
         return None
+    if not host.isascii():
+        try:
+            host = host.encode('idna').decode('ascii')
+        except UnicodeError:
+            return None
     if ':' in host:
         host = f'[{host}]'
     default_port = 443 if parts.scheme == 'https' else 80

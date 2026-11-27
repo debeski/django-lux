@@ -1038,7 +1038,8 @@ See [Task Runner](task-runner.md).
 | Name | Type | Purpose |
 | --- | --- | --- |
 | `translate_log` | filter | Translate log values with a prefix such as `action` or `model` |
-| `format_log_details` | simple tag | Render structured log details as HTML badges |
+| `format_log_details` | simple tag | Render structured log details as HTML badges; a dict or list value shows as a count (`log_value_fields`, `log_value_items`) and long text is cut at 40 characters |
+| `dlux_column_label` | filter | A table header in the viewer's language from `label_<header in snake case>` (`Updated By` → `label_updated_by`), else the header unchanged; `dlux/tables/table.html` applies it |
 
 ### `sidebar_tags`
 

@@ -1108,6 +1108,41 @@ def _patch_modelform_save_lookup():
         django_forms.BaseModelForm.save = _patched_save
 
 
+def _patch_blank_choice_label():
+    """Django 6.1's ``- Select an option -`` in the viewer's language.
+
+    Django reads ``django.db.models.fields.BLANK_CHOICE_LABEL`` each time a
+    select is built and lets an app's ``ready()`` replace it. Its own ``ar``
+    catalogue has no entry, so the strings table supplies ``blank_choice_label``.
+    A label a project already replaced is left alone.
+    """
+    from django.db.models import fields
+    from django.utils import translation
+    from django.utils.functional import lazy
+
+    original = getattr(fields, 'BLANK_CHOICE_LABEL', None)
+    if original is None or getattr(original, '_dlux_blank_label', False):
+        return
+    with translation.override('en'):
+        if str(original) != '- Select an option -':
+            return
+
+    def resolve():
+        from dlux.translations import get_strings
+        try:
+            label = get_strings().get('blank_choice_label')
+        except Exception:
+            label = None
+        return str(label or original)
+
+    replacement = lazy(resolve, str)()
+    try:
+        replacement._dlux_blank_label = True
+    except AttributeError:
+        pass
+    fields.BLANK_CHOICE_LABEL = replacement
+
+
 # Entry point
 # ──────────────────────────────────────────────────────────
 
@@ -1124,4 +1159,5 @@ def apply_global_translation_patches():
     """Apply global monkey-patches for translations."""
     _patch_django_gettext()
     _patch_model_meta()
+    _patch_blank_choice_label()
     logger.debug("dlux: Global translation patches applied.")

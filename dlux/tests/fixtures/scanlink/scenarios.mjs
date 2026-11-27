@@ -13,7 +13,7 @@ let passed = 0;
 function runtime(file, fetch, secure = true, extra = {}) {
     const { window: windowExtra, ...globals } = extra;
     const window = { isSecureContext: secure, location: { protocol: 'https:' }, setTimeout, DLUX_STRINGS: {}, ...windowExtra };
-    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, MutationObserver: class { observe() {} }, ...globals });
+    const context = vm.createContext({ window, fetch, AbortController, setTimeout, clearTimeout, URLSearchParams, Blob, console: { warn() {}, log() {}, error() {} }, MutationObserver: class { observe() {} }, ...globals });
     vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return context;
 }
@@ -229,15 +229,16 @@ for (const file of [clientPath, standalone].filter(Boolean)) {
             posts.push(url);
             return response({ job_id: 'dlux-job', status: 'queued' });
         }
-        if (url.endsWith('/result')) return { ok: true, blob: async () => 'pdf' };
+        if (url.endsWith('/result')) return { ok: true, blob: async () => new Blob(['%PDF-1.4 scanned']) };
         if (url.includes('/scan/')) return response({ job_id: 'dlux-job', status: 'completed', page_count: 1 });
         return response({ status: 'ok', twain_available: true, busy: false });
     }, true, { document });
     vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
     const scan = () => context.window.DluxScan.scan({ messages: context.window.DluxScan.messagesFor(null) });
-    assert.equal(await scan(), 'pdf');
+    const pdfText = async () => (await scan()).text();
+    assert.equal(await pdfText(), '%PDF-1.4 scanned');
     httpsUp = false;
-    assert.equal(await scan(), 'pdf');
+    assert.equal(await pdfText(), '%PDF-1.4 scanned');
     assert.deepEqual(posts, ['https://localhost:5443/scan', 'http://localhost:5000/scan']);
     passed++;
     helperUp = false;
@@ -300,6 +301,119 @@ function linkingPage(adminSites, state) {
     const declined = linkingPage([], declinedState);
     await assert.rejects(declined.scan({ messages: declined.messagesFor(null) }), (error) => error.code === 'link_declined' && error.message === 'لم يُسمح');
     assert.ok(!declinedState.calls.includes('POST /scan'));
+    passed++;
+}
+
+// DjangoLux's own client hardening (break-it round 2: R2-053, R2-116, R2-117,
+// the widened-list window). The helper's standalone client is not run here.
+const never = (options) => new Promise((resolve, reject) => {
+    if (options && options.signal) options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+});
+
+{
+    // R2-053: an answer that is not ScanLink's health shape is not ScanLink.
+    const context = runtime(clientPath, async () => response({ hello: 'world', version: '9.9.9' }));
+    const client = vm.runInContext('new ScanLink()', context);
+    assert.equal(await client.checkHealth(true), null);
+    assert.equal(client.connectionError.code, 'helper_unavailable');
+    passed++;
+}
+
+{
+    // R2-053: bytes that are not a PDF never become the field's file.
+    const context = runtime(clientPath, async (url) => {
+        if (url.endsWith('/result')) return { ok: true, blob: async () => new Blob(['<html>not a scan</html>'], { type: 'application/pdf' }) };
+        if (url.includes('/scan/')) return response({ job_id: 'fake', status: 'completed', page_count: 1 });
+        return response({ status: 'ok' });
+    });
+    const client = vm.runInContext('new ScanLink()', context);
+    await assert.rejects(client.waitForResult('fake', { pollIntervalMs: 1 }), (error) => error.code === 'invalid_result');
+    passed++;
+}
+
+{
+    // R2-116: a frozen helper ends the wait with helper_stalled, status and result alike.
+    let mode = 'status';
+    const context = runtime(clientPath, async (url, options) => {
+        if (mode === 'status' && url.includes('/scan/')) return never(options);
+        if (url.endsWith('/result')) return never(options);
+        if (url.includes('/scan/')) return response({ job_id: 'frozen', status: 'completed', page_count: 1 });
+        return response({ status: 'ok' });
+    });
+    const client = vm.runInContext('new ScanLink({ statusTimeoutMs: 20, resultTimeoutMs: 20, stallWindowMs: 60 })', context);
+    let started = Date.now();
+    await assert.rejects(client.waitForResult('frozen', { pollIntervalMs: 5, timeoutMs: 5000 }), (error) => error.code === 'helper_stalled');
+    assert.ok(Date.now() - started < 1000, 'the status stall ends within the stall window');
+    mode = 'result';
+    started = Date.now();
+    await assert.rejects(client.getResult('frozen', 20), (error) => error.code === 'helper_stalled');
+    assert.ok(Date.now() - started < 500);
+    passed++;
+
+    // A single slow status answer is retried, not fatal.
+    let slow = 1;
+    const retry = runtime(clientPath, async (url, options) => {
+        if (url.includes('/scan/') && slow-- > 0) return never(options);
+        if (url.endsWith('/result')) return { ok: true, blob: async () => new Blob(['%PDF-1.7']) };
+        if (url.includes('/scan/')) return response({ job_id: 'slow', status: 'completed', page_count: 2 });
+        return response({ status: 'ok' });
+    });
+    const retryClient = vm.runInContext('new ScanLink({ statusTimeoutMs: 20, stallWindowMs: 5000 })', retry);
+    assert.equal(await (await retryClient.waitForResult('slow', { pollIntervalMs: 5 })).text(), '%PDF-1.7');
+    passed++;
+
+    // The whole wait is bounded by its deadline even when no read ever returns.
+    const deadlineContext = runtime(clientPath, async (url, options) => never(options));
+    const deadlineClient = vm.runInContext('new ScanLink({ statusTimeoutMs: 10000, stallWindowMs: 10000 })', deadlineContext);
+    started = Date.now();
+    await assert.rejects(deadlineClient.waitForResult('stuck', { pollIntervalMs: 5, timeoutMs: 60 }), (error) => error.code === 'scan_timeout');
+    assert.ok(Date.now() - started < 1000, 'the deadline is not checked only between polls');
+    passed++;
+}
+
+{
+    // R2-117: codes the page knows are translated; anything else shows the page's
+    // own failed message, never ScanLink's English text or exception details.
+    const document = { querySelectorAll: () => [], addEventListener() {} };
+    const context = runtime(clientPath, async () => response({ status: 'ok' }), true, { document });
+    Object.assign(context.window.DLUX_STRINGS, {
+        scan_lost_message: 'فُقد المسح', scan_failed_message: 'تعذر المسح', scan_stalled_message: 'المساعد متوقف',
+        scan_link_rate_limited_message: 'انتظر', scan_invalid_result_message: 'ليس PDF',
+    });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    const scan = context.window.DluxScan;
+    const messages = scan.messagesFor(null);
+    const expected = {
+        job_not_found: 'فُقد المسح', result_unavailable: 'فُقد المسح', helper_stalled: 'المساعد متوقف',
+        link_rate_limited: 'انتظر', invalid_result: 'ليس PDF', unexpected_error: 'تعذر المسح', scan_failed: 'تعذر المسح',
+        pdf_generation_failed: 'تعذر المسح', callback_not_allowed: 'تعذر المسح', something_new: 'تعذر المسح',
+    };
+    for (const [code, text] of Object.entries(expected)) {
+        assert.equal(scan.errorMessage(messages, { code, message: 'Traceback in C:\\Users\\op\\scanlink.py \u202Eevil' }), text, code);
+    }
+    passed++;
+}
+
+{
+    // R2-052: with no data-scan-* attributes the page's strings table is used.
+    const document = { querySelectorAll: () => [], addEventListener() {} };
+    const context = runtime(clientPath, async () => response({ status: 'ok' }), true, { document });
+    Object.assign(context.window.DLUX_STRINGS, { scan_preparing_label: 'جارٍ التحضير', scan_page_progress_template: 'تم مسح الصفحة {count}' });
+    vm.runInContext(fs.readFileSync(buttonPath, 'utf8'), context);
+    const messages = context.window.DluxScan.messagesFor({ dataset: {} });
+    assert.equal(messages.preparing, 'جارٍ التحضير');
+    assert.equal(messages.pageTemplate, 'تم مسح الصفحة {count}');
+    assert.equal(context.window.DluxScan.messagesFor({ dataset: { scanPreparing: 'override' } }).preparing, 'override');
+    passed++;
+}
+
+{
+    // A linked site whose list gains a site waits on ScanLink's window: say so.
+    const changedState = { calls: [], linkBodies: [], linked: ['https://archive.example'], wasLinked: true };
+    const widened = linkingPage(['https://sales.example'], changedState);
+    const progress = [];
+    assert.equal(await widened.scan({ messages: widened.messagesFor(null), onProgress: (text) => progress.push(text) }), 'pdf');
+    assert.ok(progress.includes('اختر السماح في نافذة ScanLink'), JSON.stringify(progress));
     passed++;
 }
 

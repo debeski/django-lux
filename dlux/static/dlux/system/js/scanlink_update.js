@@ -132,7 +132,7 @@
         function renderLinkRequired(manifest) {
             if (els.conn) {
                 els.conn.textContent = t('scanlink_not_linked', 'Not allowed here');
-                els.conn.className = 'badge bg-warning text-dark';
+                els.conn.className = 'badge text-bg-warning';
             }
             if (els.local) els.local.textContent = t('scanlink_unknown', 'Unknown');
             if (els.status) {

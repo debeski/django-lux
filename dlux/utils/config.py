@@ -261,13 +261,23 @@ def get_client_ip(request):
         return x_real
     return remote_addr or None
 
+# Bidi embedding, override and isolate controls (U+202A-202E, U+2066-2069) and
+# C0/C1 controls. In a name they reverse or hide the text around it in the
+# titlebar and every page title, so names never keep them.
+_NAME_CONTROL_RE = re.compile('[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]')
+
+
+def strip_name_controls(value):
+    return _NAME_CONTROL_RE.sub('', str(value or ''))
+
+
 # Branding Config - Function normalizes language-keyed system display names.
 def normalize_system_names(value):
     names = {}
     if isinstance(value, dict):
         for raw_code, raw_name in value.items():
             code = _normalize_language_code(raw_code)
-            name = str(raw_name or '').strip()
+            name = strip_name_controls(raw_name).strip()
             if code and name:
                 names[code] = name
     return names

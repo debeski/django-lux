@@ -79,6 +79,8 @@ describe('style-src self', { concurrency: 1 }, () => {
 
   for (const variant of [
     { name: 'light LTR', prefs: { theme: 'light', language: 'en' } },
+    { name: 'light RTL', prefs: { theme: 'light', language: 'ar' } },
+    { name: 'dark LTR', prefs: { theme: 'dark', language: 'en' } },
     { name: 'dark RTL', prefs: { theme: 'dark', language: 'ar' } },
   ]) {
     test(`every staff screen loads without a violation (${variant.name})`, { timeout: 180000 }, async () => {

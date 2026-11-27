@@ -106,6 +106,13 @@ body[data-dlux-sidebar-accent="on"] #sidebar {
     overflow: hidden !important;
 }
 
+/* A zero-width sidebar shows nothing, its toolbar included: the theme toggle
+   would otherwise overhang the viewport edge and stay keyboard-focusable. */
+.sidebar[data-sidebar-collapse-mode="hidden"].collapsed .sidebar-toolbar,
+.sidebar[data-sidebar-show-icons="false"][data-sidebar-collapse-mode="icons"].collapsed .sidebar-toolbar {
+    display: none;
+}
+
 
 .sidebar-items-wrapper {
     flex-grow: 1;
@@ -243,6 +250,10 @@ body[data-dlux-sidebar-accent="on"] #sidebar {
         overflow: hidden !important;
         inset-inline-start: 0;
         position: fixed;
+    }
+
+    .sidebar.collapsed .sidebar-toolbar {
+        display: none;
     }
 }
 /* Sidebar rail layout */

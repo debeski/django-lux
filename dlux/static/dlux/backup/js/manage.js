@@ -84,6 +84,10 @@
         });
         if (chainNote) chainNote.hidden = !incremental;
         if (parentField) parentField.hidden = !incremental;
+        const createLabel = createBtn && createBtn.querySelector('[data-sysbackup-create-label]');
+        if (createLabel) {
+            createLabel.textContent = (incremental ? createBtn.dataset.labelIncremental : createBtn.dataset.labelFull) || createLabel.textContent;
+        }
         syncEncryption();
         syncEstimate();
         syncCreateButton();
