@@ -391,12 +391,12 @@ with its own row `SUCCESSFUL` and leaves other queued runs in place.
 
 ## Django before 6.0
 
-DjangoLux still allows `Django>=5.1`. On 5.x the task manager works for
+DjangoLux allows `Django>=5.2`. On 5.2 the task manager works for
 DjangoLux's and the project's `@task` functions: `@dlux.taskrunner.task`, the queue, the worker and the
 scheduler do not use `django.tasks`. Only `dlux.taskrunner.backend` (the
 `django.tasks` adapter) needs Django 6.0; `dlux_settings()` sets `TASKS` only on
-6.0+, and project code written with `django.tasks` needs 6.0 anyway. The test
-suite runs on Django 6.x only.
+6.0+, and project code written with `django.tasks` needs 6.0 anyway. CI runs the
+test suite on Django 5.2 (Python 3.11) and 6.x (Python 3.12 to 3.14).
 
 ## Operating it
 
