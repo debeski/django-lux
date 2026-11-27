@@ -1418,6 +1418,7 @@ def _config_built_once():
         yield memo
     finally:
         config_module._build_system_config = original
+        config_module._config_db_outage = False
 
 
 class Session:

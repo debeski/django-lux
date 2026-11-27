@@ -21,7 +21,7 @@ from django.conf import settings
 from django.core.signals import got_request_exception
 from django.db import utils as db_utils
 
-from .db_errors import is_database_outage
+from .db_errors import DEFAULT_BREAKER_SECONDS, breaker_seconds, is_database_outage
 
 logger = logging.getLogger("dlux.db")
 
@@ -36,7 +36,7 @@ RESTORE_ALLOWED_URL_NAMES = frozenset({"system_restore_status", "system_restore_
 # After a connection attempt fails, the web process fails further attempts at
 # once for this long: a page whose reads each tolerate a missing database would
 # otherwise wait out connect_timeout once per read.
-CONNECT_BREAKER_SECONDS = 5.0
+CONNECT_BREAKER_SECONDS = DEFAULT_BREAKER_SECONDS
 _connect_failed_at = {}
 
 
@@ -58,7 +58,7 @@ def install_connect_breaker():
 
     def connect(self):
         failed_at = _connect_failed_at.get(self.alias)
-        seconds = float(getattr(settings, "DLUX_DB_BREAKER_SECONDS", CONNECT_BREAKER_SECONDS) or 0)
+        seconds = breaker_seconds()
         if failed_at is not None and time.monotonic() - failed_at < seconds:
             raise DatabaseUnavailable(
                 f"The database ({self.alias}) did not answer a connection moments ago; not retrying for {seconds:g} s."

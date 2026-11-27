@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import time
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -28,7 +29,7 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
-from ..db_errors import is_database_outage
+from ..db_errors import breaker_seconds, is_database_outage
 from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -166,13 +167,36 @@ def _system_config_db_unavailable_error(exc):
 # Set while the database does not answer config reads, so the outage is logged
 # once (no traceback) instead of on every config build.
 _config_db_outage = False
+_config_db_failed_at = 0.0
+
+
+class _ConfigReadSkipped(Exception):
+    """The database failed moments ago; this config build does not try it."""
+
+
+def _config_db_breaker_open():
+    """Whether this build skips the database: it failed moments ago, outside a request.
+
+    Outside a request nothing memoises the config, so every translated string
+    rebuilt it and paid one connection attempt per read: hundreds in one
+    ``manage.py check``. A request still tries; the web connect breaker makes
+    that attempt fail fast, and a skipped read there could show the setup wizard.
+    """
+    if not _config_db_outage:
+        return False
+    if time.monotonic() - _config_db_failed_at >= breaker_seconds():
+        return False
+    return _current_request() is None
 
 
 def _note_config_db_outage(exc):
     """Log a database outage once per outage; return whether ``exc`` was one."""
-    global _config_db_outage
+    global _config_db_outage, _config_db_failed_at
+    if isinstance(exc, _ConfigReadSkipped):
+        return True
     if not is_database_outage(exc):
         return False
+    _config_db_failed_at = time.monotonic()
     if _config_db_outage:
         logger.debug("SystemSettings still unreadable: the database is unavailable.")
     else:
@@ -920,6 +944,8 @@ def _build_system_config():
     db_config = {}
     db_outage = False
     try:
+        if _config_db_breaker_open():
+            raise _ConfigReadSkipped()
         from dlux.models import SystemSettings
         sys_settings = SystemSettings.load()
         system_is_configured = bool(getattr(sys_settings, 'is_configured', False))
@@ -1310,7 +1336,7 @@ def _build_system_config():
     # configured" — that bounces authenticated users into the setup wizard. If the
     # persisted row says the system is configured, honor it via a direct, cache-free
     # DB check regardless of whatever went wrong above.
-    if not db_config.get('is_configured'):
+    if not db_outage and not db_config.get('is_configured'):
         try:
             from dlux.models import SystemSettings
             if SystemSettings.objects.filter(pk=1, is_configured=True).exists():

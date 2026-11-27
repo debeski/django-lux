@@ -1112,17 +1112,37 @@ class ConfigOutageLoggingTests(TestCase):
         config._config_db_outage = False
         self.addCleanup(setattr, config, '_config_db_outage', False)
 
-    def _build_while_down(self, times):
+    def _build_while_down(self, times, build=None):
         from django.db.utils import OperationalError
 
         SystemSettings = apps.get_model('dlux', 'SystemSettings')
         refused = OperationalError('connection to server failed: Connection refused\n\tIs the server running?')
         objects = mock.Mock()
         objects.filter.side_effect = refused
-        with mock.patch.object(SystemSettings, 'load', side_effect=refused), \
+        with mock.patch.object(SystemSettings, 'load', side_effect=refused) as load, \
                 mock.patch.object(SystemSettings, 'objects', objects):
             for _ in range(times):
-                self.config._build_system_config()
+                (build or self.config._build_system_config)()
+        return load.call_count + objects.filter.call_count
+
+    def test_outside_a_request_one_failed_read_stops_the_rest_for_the_breaker_window(self):
+        """Runtime-recovery: ~200 translated strings in `manage.py check` each rebuilt
+        the config and tried the database twice, 400 connection attempts in all."""
+        with self.assertLogs('dlux', level='DEBUG'):
+            attempts = self._build_while_down(200, build=self.config.get_system_config)
+        self.assertEqual(attempts, 1)
+        self.config._config_db_failed_at -= 60
+        with self.assertLogs('dlux', level='DEBUG'):
+            self.assertEqual(self._build_while_down(1), 1, 'past the window the database is tried again')
+
+    def test_a_request_still_tries_the_database(self):
+        from django.test import RequestFactory
+
+        with self.assertLogs('dlux', level='DEBUG'):
+            self._build_while_down(1)
+        with mock.patch.object(self.config, '_current_request', return_value=RequestFactory().get('/')), \
+                self.assertLogs('dlux', level='DEBUG'):
+            self.assertEqual(self._build_while_down(1), 1)
 
     def test_outage_logs_one_warning_without_traceback(self):
         with self.assertLogs('dlux', level='DEBUG') as logs:
@@ -1133,6 +1153,7 @@ class ConfigOutageLoggingTests(TestCase):
         self.assertIn('Connection refused', loud[0].getMessage())
         self.assertNotIn('\n', loud[0].getMessage())
 
+    @override_settings(DLUX_DB_BREAKER_SECONDS=0)
     def test_recovery_logs_one_line_then_a_new_outage_warns_again(self):
         with self.assertLogs('dlux', level='DEBUG'):
             self._build_while_down(2)

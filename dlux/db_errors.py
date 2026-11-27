@@ -4,7 +4,17 @@ A leaf module, so code that only needs the classification (config reads, the
 outage middleware) imports it without pulling in the middleware's dependencies.
 """
 
+from django.conf import settings
 from django.db import utils as db_utils
+
+# After a failed attempt, how long further attempts are refused without trying
+# (setting DLUX_DB_BREAKER_SECONDS): the web connect breaker, and config reads
+# outside a request.
+DEFAULT_BREAKER_SECONDS = 5.0
+
+
+def breaker_seconds():
+    return float(getattr(settings, "DLUX_DB_BREAKER_SECONDS", DEFAULT_BREAKER_SECONDS) or 0)
 
 # SQLSTATE classes and codes that mean "the database cannot serve this now",
 # not "this query is wrong": connection exceptions, insufficient resources,
