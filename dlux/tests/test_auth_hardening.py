@@ -276,3 +276,93 @@ class LoginLockoutTests(TestCase):
             self._post('u_noperm', 'wrong', ip=f'10.5.0.{n}')
         response = self._post('u_noperm', 'rightpass12345', ip='10.5.0.9')
         self.assertEqual(response.status_code, 302)
+
+
+class TargetRankTests(TestCase):
+    """R2-009: a scoped admin cannot take over a more-privileged user in its scope."""
+
+    def setUp(self):
+        _fresh()
+        self.alpha = Scope.objects.create(name='Alpha')
+        self.actor = self._user('u_scopeadmin_a', staff=True)
+        _grant(self.actor, 'auth.change_user', 'auth.view_user', 'auth.delete_user')
+        self.big = self._user('u_bigstaff_a', staff=True)
+        _grant(self.big, 'dlux.manage_staff', 'dlux.manage_scopes', 'auth.delete_user')
+        self.peer = self._user('u_plain_a')
+        self.client = Client()
+        self.client.force_login(self.actor)
+
+    def _user(self, username, staff=False):
+        user = User.objects.create_user(username, f'{username}@example.com', 'oldpass12345', is_staff=staff)
+        user.profile.scope = self.alpha
+        user.profile.save(update_fields=['scope'])
+        return user
+
+    def _reset(self, target):
+        return self.client.post(reverse('reset_password', args=[target.pk]), {
+            'reset_password-username': target.username,
+            'reset_password-new_password1': 'NewPass!23456',
+            'reset_password-new_password2': 'NewPass!23456',
+        })
+
+    def test_reset_of_a_higher_ranked_target_is_refused(self):
+        self._reset(self.big)
+        self.big.refresh_from_db()
+        self.assertTrue(self.big.check_password('oldpass12345'))
+
+    def test_reset_of_a_deactivated_higher_ranked_target_is_refused(self):
+        User.objects.filter(pk=self.big.pk).update(is_active=False)
+        self._reset(User.objects.get(pk=self.big.pk))
+        self.big.refresh_from_db()
+        self.assertTrue(self.big.check_password('oldpass12345'))
+
+    def test_reset_of_an_equal_or_lower_target_still_works(self):
+        self._reset(self.peer)
+        self.peer.refresh_from_db()
+        self.assertTrue(self.peer.check_password('NewPass!23456'))
+
+    def test_edit_modal_refuses_a_higher_ranked_target(self):
+        for route in ('modal_user_edit', 'modal_user_permissions'):
+            with self.subTest(route=route):
+                url = reverse(route, args=[self.big.pk])
+                self.assertEqual(self.client.get(url, HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 403)
+                response = self.client.post(
+                    url, {'username': self.big.username, 'email': 'attacker@example.com', 'is_active': 'on'},
+                    HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+                )
+                self.assertEqual(response.status_code, 403)
+        self.big.refresh_from_db()
+        self.assertEqual(self.big.email, 'u_bigstaff_a@example.com')
+
+    def test_edit_modal_needs_change_user(self):
+        viewer = self._user('u_viewer_a', staff=True)
+        _grant(viewer, 'auth.view_user')
+        client = Client()
+        client.force_login(viewer)
+        response = client.post(
+            reverse('modal_user_edit', args=[self.peer.pk]),
+            {'username': self.peer.username, 'email': 'changed@example.com'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_of_a_higher_ranked_target_is_refused(self):
+        # ``delete_user`` is exported for projects to route; call it directly.
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from dlux.views import delete_user
+        request = RequestFactory().post(f'/sys/users/{self.big.pk}/delete/')
+        request.user = self.actor
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+        delete_user(request, self.big.pk)
+        self.big.refresh_from_db()
+        self.assertTrue(self.big.is_active)
+        self.assertEqual(self.big.username, 'u_bigstaff_a')
+
+    def test_rank_helper(self):
+        from dlux.utils import can_modify_target_user, target_outranks_actor
+        self.assertTrue(target_outranks_actor(self.actor, self.big))
+        self.assertFalse(target_outranks_actor(self.actor, self.peer))
+        self.assertFalse(target_outranks_actor(self.actor, self.actor))
+        self.assertFalse(can_modify_target_user(self.actor, self.big))
+        self.assertTrue(can_modify_target_user(self.actor, self.peer))

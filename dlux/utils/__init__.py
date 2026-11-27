@@ -217,6 +217,8 @@ from .authorization import (
 from .users import (
     can_manage_group_preset,
     can_manage_target_user,
+    can_modify_target_user,
+    target_outranks_actor,
     delete_user_preserving_history,
     exclude_global_staff_users,
     get_manageable_users_queryset,
@@ -326,6 +328,8 @@ __all__ = [
     "build_config_groups",
     "can_manage_group_preset",
     "can_manage_target_user",
+    "can_modify_target_user",
+    "target_outranks_actor",
     "collect_related_objects",
     "decrypt_email_secret",
     "email_secret_state",

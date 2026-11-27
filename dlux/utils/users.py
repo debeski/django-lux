@@ -121,6 +121,51 @@ def can_manage_target_user(actor, target_user=None):
             return False
     return True
 
+def _held_permission_tokens(user):
+    """Every ``app_label.codename`` a user holds directly or through groups.
+
+    Read from the tables rather than ``get_all_permissions()``, which answers an
+    empty set for an inactive user: a deactivated administrator still outranks.
+    """
+    Permission = apps.get_model('auth', 'Permission')
+    rows = Permission.objects.filter(
+        Q(user=user) | Q(group__user=user)
+    ).values_list('content_type__app_label', 'codename').distinct()
+    return {f'{app_label}.{codename}' for app_label, codename in rows}
+
+
+# User Management - Function tells whether a target user holds more power than the actor.
+def target_outranks_actor(actor, target_user):
+    """True when ``target_user`` holds a permission ``actor`` lacks.
+
+    This covers staff-manager level targets (``dlux.manage_staff``,
+    ``dlux.manage_scopes``) too: an actor without those cannot change, reset,
+    deactivate or delete someone who has them. Superusers and self are never
+    outranked; superuser targets are handled by ``can_manage_target_user``.
+    """
+    if target_user is None or actor is None:
+        return False
+    if getattr(actor, 'is_superuser', False):
+        return False
+    if getattr(target_user, 'pk', None) is not None and target_user.pk == getattr(actor, 'pk', None):
+        return False
+    if getattr(target_user, 'is_superuser', False):
+        return True
+    from .authorization import user_matches_permission_token
+    return any(
+        not user_matches_permission_token(actor, token)
+        for token in _held_permission_tokens(target_user)
+    )
+
+
+# User Management - Function gates changes (edit, reset, toggle, delete) to another user.
+def can_modify_target_user(actor, target_user=None):
+    """``can_manage_target_user`` plus the rule that the target must not outrank the actor."""
+    if not can_manage_target_user(actor, target_user):
+        return False
+    return not target_outranks_actor(actor, target_user)
+
+
 # ── Permission-preset "Groups" helpers ──────────────────────────────────────
 # A preset is a Django auth Group carrying a GroupProfile sidecar. Native group
 # inheritance already unions the preset's permissions into user.has_perm, so

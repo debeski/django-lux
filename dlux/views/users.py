@@ -27,6 +27,7 @@ from ..forms import DluxAuthenticationForm
 from ..notifications import notify
 from ..utils import (
     can_manage_target_user,
+    can_modify_target_user,
     exclude_global_staff_users,
     get_scope_settings,
     get_user_management_tier_state_for_user,
@@ -439,13 +440,10 @@ def delete_user(request, pk):
         notify.error(s.get('err_cannot_delete_last_superuser'), request=request, action='user_delete_last_superuser_denied', category='users', metadata={'message_key': 'err_cannot_delete_last_superuser'})
         return redirect('manage_users')
 
-    # Restrict to same scope
-    if not request.user.is_superuser:
-        user_scope = get_user_scope(user)
-        requester_scope = get_user_scope(request.user)
-        if requester_scope and user_scope != requester_scope:
-            notify.error(s.get('err_no_delete_permission_user'), request=request, action='user_delete_scope_denied', category='users', metadata={'message_key': 'err_no_delete_permission_user'})
-            return redirect('manage_users')
+    # Same staff-tier, scope and rank rules as every other change to a user.
+    if not can_modify_target_user(request.user, user):
+        notify.error(s.get('err_no_delete_permission_user'), request=request, action='user_delete_scope_denied', category='users', metadata={'message_key': 'err_no_delete_permission_user'})
+        return redirect('manage_users')
 
     if request.method == "POST":
         # Capture original username for logging
@@ -468,7 +466,7 @@ def reset_password(request, pk):
     user = get_object_or_404(User, id=pk)
     ResetPasswordForm = import_string('dlux.forms.ResetPasswordForm')
 
-    if not can_manage_target_user(request.user, user):
+    if not can_modify_target_user(request.user, user):
         s = get_strings()
         notify.error(s.get('err_no_edit_permission_user_reset'), request=request, action='user_change_denied', category='users', metadata={'message_key': 'err_no_edit_permission_user_reset'})
         return redirect('manage_users')

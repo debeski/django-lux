@@ -34,6 +34,7 @@ from ..utils import (
     _get_m2m_through_defaults,
     _create_minimal_instance_from_post,
     can_manage_target_user,
+    can_modify_target_user,
     get_user_scope,
     setup_filter_helper,
     _build_generic_filter_class,
@@ -42,6 +43,7 @@ from ..utils import (
     user_has_model_permission,
     user_has_section_manage_permission,
     user_has_section_view_permission,
+    user_matches_permission_token,
     resolve_detail_field_label,
 )
 from ..system.constants import SETUP_STEP_COUNT
@@ -1168,7 +1170,18 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             return getattr(instance, 'user', None)
         return None
 
-    def _has_special_modal_access(self, model, instance=None):
+    def _user_modal_access(self, target_user, *, mutating, creating=False):
+        actor = self.request.user
+        if not mutating:
+            return can_manage_target_user(actor, target_user)
+        if target_user is not None and target_user.pk == getattr(actor, 'pk', None):
+            return can_manage_target_user(actor, target_user)
+        required = 'auth.add_user' if creating else 'auth.change_user'
+        if not user_matches_permission_token(actor, required):
+            return False
+        return can_modify_target_user(actor, target_user)
+
+    def _has_special_modal_access(self, model, instance=None, *, mutating=False):
         route_name = self._resolve_route_name()
         if self._is_system_settings_model(model):
             return self.request.user.is_superuser
@@ -1176,16 +1189,17 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         if route_name == 'modal_profile_edit':
             return bool(instance and instance.pk == self.request.user.pk)
         if route_name in {'modal_user', 'modal_user_edit', 'modal_user_permissions'} or self._is_user_model(model):
-            return can_manage_target_user(self.request.user, instance)
+            return self._user_modal_access(instance, mutating=mutating, creating=instance is None)
 
         target_user = self._resolve_target_user(model, instance=instance)
         if target_user is not None:
-            return can_manage_target_user(self.request.user, target_user)
+            return self._user_modal_access(target_user, mutating=mutating)
 
         return None
 
     def _guard_model_access(self, model, instance=None, *, show_table=False, show_form=False, action=None):
-        special_access = self._has_special_modal_access(model, instance=instance)
+        mutating = bool(show_form) or action in {'add', 'change', 'delete'}
+        special_access = self._has_special_modal_access(model, instance=instance, mutating=mutating)
         if special_access is not None:
             return special_access
 
