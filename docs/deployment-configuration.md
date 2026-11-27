@@ -139,10 +139,13 @@ row afterwards (`cache.delete("SystemSettings")`).
 | `DLUX_2FA_IP_VERIFY_WINDOW` | Django setting | integer seconds, `600` | Cache window for the per-IP OTP verification limit. |
 | `DLUX_2FA_IP_SEND_LIMIT` | Django setting | integer, `10` | Maximum OTP sends per client IP during the send window. |
 | `DLUX_2FA_IP_SEND_WINDOW` | Django setting | integer seconds, `3600` | Cache window for the per-IP OTP send limit. |
+| `DLUX_2FA_USER_VERIFY_LIMIT` | Django setting | integer, `10` | Maximum wrong OTP codes per account during the account window, across sign-in challenges. |
+| `DLUX_2FA_USER_VERIFY_WINDOW` | Django setting | integer seconds, `900` | Cache window for the per-account OTP limit. |
+| `DLUX_2FA_CHALLENGE_MAX_FAILURES` | Django setting | integer, `5` | Wrong codes after which a sign-in challenge ends and the password step starts again. |
 | `DLUX_PUBLIC_FORM_LIMITS` | Django setting | dict of form bucket to `{'per_address', 'total', 'window'}`, unset | Overrides the limits a `@public_form_limit` view declares, per bucket. `None` turns that limit off; an invalid value is logged and the view's own value applies. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls). |
 
-The challenge window and four per-IP 2FA values are read when the two-factor
-view module loads. Configure them before Django starts; changing them at runtime
+The challenge window, the per-IP and per-account 2FA limits and the challenge
+failure cap are read when the two-factor view module loads. Configure them before Django starts; changing them at runtime
 requires a process restart.
 
 ## Secret and Email Settings
@@ -316,6 +319,11 @@ documentation, but they are not accepted deployment settings:
 - Keep `DLUX_UPDATE_RUNTIME_ROOT` on the generated durable volume with the
   documented read/write split.
 - Do not use `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` as an authorization mechanism.
+- The login page explains a sign-in the browser cannot keep: a `Secure` session
+  cookie on a page served over plain HTTP, or a `SESSION_COOKIE_DOMAIN` this host
+  is not part of. Loopback hosts (`localhost`, `*.localhost`, `127.0.0.0/8`,
+  `::1`) are a secure context where browsers keep `Secure` cookies over HTTP, so
+  only the domain warning applies to them.
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.

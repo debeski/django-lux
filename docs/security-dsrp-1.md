@@ -81,6 +81,10 @@ authorization decision.
   [Content Security Policy](#content-security-policy)).
 - User directory, user detail, reset-password, activity-log, section-management,
   dashboard, user-hub, and sidebar surfaces use helper-backed authorization.
+- Changing another user requires that the target does not outrank the actor
+  (`can_modify_target_user()`), and generic reads of user rows — autofill details,
+  last entry, data search — stay within the user directory's tiers
+  (`restrict_user_rows()`).
 - Built-in system sidebar entries use internal permission tokens:
   `__dlux_user_directory__`, `__dlux_activity_log__`, `__dlux_sections_view__`,
   `__dlux_sections_manage__`, and `__dlux_authenticated__`.
@@ -223,6 +227,17 @@ fallbacks when runtime configuration cannot be resolved.
   `login_lockout_window_minutes` (default 15). A successful login clears the
   counters. The locked POST is rejected with HTTP 429 before authentication runs,
   and `login_lockout_enabled` gates the policy (default on).
+  The username key is the NFKC-normalised, case-folded username — the form Django
+  authenticates with — and an email the login form accepts resolves to its
+  account's username, so compatibility spellings (`ｕ_noperm`, `ｕ＿ｎｏｐｅｒｍ`,
+  `U_NOPERM`) and the email share one counter. Each attempt reserves its slot with
+  an atomic `cache.incr` before the password is checked, so a parallel burst gets
+  at most the threshold of password checks; attempts past it are refused with 429.
+  Every failure writes a `LOGIN_FAILED` audit row and each new lock a `LOCKOUT`
+  row; anonymous events are stored without an actor (`created_by` empty). The
+  audit log's two-second duplicate window keys anonymous events on the attempted
+  account and the client address too, so a burst keeps one row per account and
+  sender in each window.
   `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` and `DLUX_LOGIN_LOCKOUT_SECONDS` are legacy
   fallbacks used only when resolved System Settings cannot be read.
 - **Public form limits.** Anonymous public forms (reviews, complaints, contact
@@ -246,8 +261,28 @@ fallbacks when runtime configuration cannot be resolved.
 - **2FA completion window.** The pre-2FA challenge carries a server timestamp and
   is abandoned after `DLUX_2FA_CHALLENGE_WINDOW_SECONDS` (default 300s), so a
   half-finished challenge cannot persist for the whole session lifetime. This is
-  in addition to the existing 5-minute email-code expiry, 3-attempt per-code
-  lockout, per-IP 2FA send/verify limits, and resend cooldowns.
+  in addition to the 5-minute email-code expiry, 3-attempt per-code lockout,
+  per-IP 2FA send/verify limits, and resend cooldowns.
+- **2FA wrong codes.** Every wrong code is counted before anything else runs:
+  against the client IP (`DLUX_2FA_IP_VERIFY_LIMIT` per
+  `DLUX_2FA_IP_VERIFY_WINDOW`, one counter per flow whatever `intent` a POST
+  names), against the account (`DLUX_2FA_USER_VERIFY_LIMIT`, default 10, per
+  `DLUX_2FA_USER_VERIFY_WINDOW`, default 900s, held across fresh sign-in
+  challenges and cleared by a completed 2FA sign-in), and against the sign-in
+  challenge, which ends after `DLUX_2FA_CHALLENGE_MAX_FAILURES` (default 5) wrong
+  codes and sends the user back to the password step. A wrong code then writes a
+  `2FA_FAILED` audit row naming the pending account in `details.user_id`.
+  Email-code attempts are reserved atomically before the code is compared.
+- **TOTP codes are single-use.** A time step accepted for an account is recorded
+  in the cache; the same code, or an older step, is refused for the next sign-in.
+  `/sys/2fa/setup/totp/` answers 409 once TOTP is enabled, so the live seed is
+  never shown again; disabling TOTP (current password required) clears it for a
+  new enrolment.
+- **Password-reset links.** Reset tokens come from
+  `DluxPasswordResetTokenGenerator`, which also refuses a token stamped more than
+  five minutes ahead of the server clock. One reset mail goes to an address per
+  minute, and one client address may request ten resets an hour; requests past
+  either limit get the same "sent" page as any other.
 - **Idle + absolute session timeouts.** `DluxMiddleware` enforces optional
   sliding-idle (`DLUX_SESSION_IDLE_TIMEOUT_SECONDS`) and hard absolute
   (`DLUX_SESSION_ABSOLUTE_TIMEOUT_SECONDS`) windows beyond Django's
