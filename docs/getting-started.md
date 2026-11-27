@@ -48,6 +48,18 @@ accept the default):
   placeholder.
 - `--no-input` — never prompt (CI); use the flag values or their defaults.
 
+The project name becomes the Compose project name, the folder name and the
+database name (`<name>_db`), so `startproject` refuses a name those cannot use: it
+must be ASCII letters, digits, `-` and `_`, start with a letter, and be at most 50
+characters (`-` becomes `_`). Python keywords, `true`, `false` and `null` (which
+YAML reads as a boolean or null in `compose.yml`'s `name:`), and Windows device
+names (`con`, `nul`, `com1` …) are refused too. `--image` follows Docker's
+reference rules: a lowercase path, an optional registry host (with port), and an
+optional tag of up to 128 characters; digest references (`@sha256:`) are refused.
+Every refusal happens before anything is written.
+
+`startproject` writes `.secrets/.env` readable by its owner only (mode `0600`).
+
 For new apps inside a DjangoLux project:
 
 ```bash
@@ -56,11 +68,31 @@ python -m dlux startapp billing
 python -m dlux startapp billing --register
 ```
 
+The app gets example models named after it (`BillingRecord`, `BillingSection`,
+`BillingChildSection`, `BillingParentSection`), so several generated apps live
+side by side, and list, detail, form and delete pages for `BillingRecord`.
+`startapp` refuses an app name that would hide an importable module (the
+standard library or an installed package, such as `json`, `email` or `csp`) or
+that is already an app label (`auth`, `sessions`, `admin`, the project's own
+`INSTALLED_APPS`), and checks it with the interpreter that runs the command, so
+run it with the project's own environment.
+
+`--register` adds the app to `INSTALLED_APPS` and its URLs to `urlpatterns`
+between `# DjangoLux generated … start` / `… end` marker lines. It reads both
+files with Python's parser, so a hand-edited file keeps its line endings (CRLF
+stays CRLF), a multi-line `from django.urls import (...)` stays as it is (a
+missing `include` or `path` gets its own import line), and text in a docstring or
+comment is never mistaken for the list. It works out both edits before it writes
+anything: when `INSTALLED_APPS` or `urlpatterns` is not a list, a marker line is
+missing, or either file is not writable, it stops without creating the app, and it
+writes the two files together or not at all.
+
 The generated project already includes a Docker baseline, a `worker` service
 running DjangoLux's [Task Runner](task-runner.md) (`dlux_worker`), outbound-only
 `composer-agent` and isolated `composer-executor` services, persistent `dlux_runtime` and private agent-state
 volumes, a Caddy proxy (nginx fallback) with a maintenance/progress page, a `/health/` endpoint, a generated
-`.secrets/.env` file with the bootstrap secret values, baseline
+`.secrets/.env` file with the bootstrap secret values, logging that writes
+warnings and server errors (with their traceback) to the container log, baseline
 `django-cors-headers` / `django-csp` setup in `config/settings.py` (a nonce-only
 `script-src`, see [Content Security Policy](security-dsrp-1.md#content-security-policy)), and a
 tag-driven release pipeline (`release-manifest.json`,

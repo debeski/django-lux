@@ -3,7 +3,7 @@ from django.db import models
 from dlux.models import ScopedModel
 
 
-class ExampleRecord(ScopedModel):
+class {{ record_model }}(ScopedModel):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -16,7 +16,7 @@ class ExampleRecord(ScopedModel):
         return self.name
 
 
-class SectionExample(ScopedModel):
+class {{ model_prefix }}Section(ScopedModel):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     is_section = True
@@ -30,7 +30,7 @@ class SectionExample(ScopedModel):
         return self.name
 
 
-class ChildSectionExample(ScopedModel):
+class {{ model_prefix }}ChildSection(ScopedModel):
     name = models.CharField(max_length=120)
     # No is_section needed here
 
@@ -43,10 +43,10 @@ class ChildSectionExample(ScopedModel):
         return self.name
 
 
-class ParentSectionExample(ScopedModel):
+class {{ model_prefix }}ParentSection(ScopedModel):
     is_section = True
     name = models.CharField(max_length=120)
-    sub = models.ManyToManyField('{{ app_name }}.ChildSectionExample', blank=True, related_name='childparentexample', verbose_name='sub_sections')
+    sub = models.ManyToManyField('{{ app_name }}.{{ model_prefix }}ChildSection', blank=True, related_name='childparentexample', verbose_name='sub_sections')
 
     class Meta:
         default_permissions = ()

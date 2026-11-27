@@ -1,14 +1,14 @@
 import django_filters
 from django.db.models import Q
 
-from .models import ExampleRecord
+from .models import {{ record_model }}
 
 
-class ExampleRecordFilter(django_filters.FilterSet):
+class {{ record_model }}Filter(django_filters.FilterSet):
     keyword = django_filters.CharFilter(method="filter_keyword", label="")
 
     class Meta:
-        model = ExampleRecord
+        model = {{ record_model }}
         fields = ["keyword", "is_active"]
 
     def filter_keyword(self, queryset, name, value):

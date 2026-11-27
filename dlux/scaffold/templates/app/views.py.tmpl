@@ -7,10 +7,10 @@ from django_tables2 import SingleTableMixin
 
 from dlux.utils import get_user_scope, is_scope_enabled, log_user_action, setup_filter_helper
 
-from .filters import ExampleRecordFilter
-from .forms import ExampleRecordForm
-from .models import ExampleRecord
-from .tables import ExampleRecordTable
+from .filters import {{ record_model }}Filter
+from .forms import {{ record_model }}Form
+from .models import {{ record_model }}
+from .tables import {{ record_model }}Table
 
 
 def _scope_filtered_queryset(queryset, user):
@@ -26,25 +26,25 @@ def _scope_filtered_queryset(queryset, user):
     return queryset.filter(scope=user_scope)
 
 
-class ExampleRecordPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
-    model = ExampleRecord
+class {{ record_model }}PermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
+    model = {{ record_model }}
     raise_exception = True
 
     def get_queryset(self):
         return _scope_filtered_queryset(super().get_queryset(), self.request.user)
 
 
-class ExampleRecordListView(ExampleRecordPermissionMixin, SingleTableMixin, FilterView):
-    model = ExampleRecord
-    permission_required = "{{ app_name }}.view_examplerecord"
-    table_class = ExampleRecordTable
-    filterset_class = ExampleRecordFilter
+class {{ record_model }}ListView({{ record_model }}PermissionMixin, SingleTableMixin, FilterView):
+    model = {{ record_model }}
+    permission_required = "{{ app_name }}.view_{{ record_model_lower }}"
+    table_class = {{ record_model }}Table
+    filterset_class = {{ record_model }}Filter
     template_name = "{{ app_name }}/example_record_list.html"
     # Pagination (page size + the "Rows per page" selector) is owned by dlux's
     # DluxTable / django-tables2 patch; no ListView paginate_by needed.
 
     def get_queryset(self):
-        return _scope_filtered_queryset(ExampleRecord.objects.order_by("-created_at"), self.request.user)
+        return _scope_filtered_queryset({{ record_model }}.objects.order_by("-created_at"), self.request.user)
 
     def get_filterset(self, filterset_class):
         filterset = super().get_filterset(filterset_class)
@@ -52,17 +52,17 @@ class ExampleRecordListView(ExampleRecordPermissionMixin, SingleTableMixin, Filt
         return filterset
 
 
-class ExampleRecordDetailView(ExampleRecordPermissionMixin, DetailView):
-    model = ExampleRecord
-    permission_required = "{{ app_name }}.view_examplerecord"
+class {{ record_model }}DetailView({{ record_model }}PermissionMixin, DetailView):
+    model = {{ record_model }}
+    permission_required = "{{ app_name }}.view_{{ record_model_lower }}"
     template_name = "{{ app_name }}/example_record_detail.html"
     context_object_name = "record"
 
 
-class ExampleRecordCreateView(ExampleRecordPermissionMixin, CreateView):
-    model = ExampleRecord
-    permission_required = "{{ app_name }}.add_examplerecord"
-    form_class = ExampleRecordForm
+class {{ record_model }}CreateView({{ record_model }}PermissionMixin, CreateView):
+    model = {{ record_model }}
+    permission_required = "{{ app_name }}.add_{{ record_model_lower }}"
+    form_class = {{ record_model }}Form
     template_name = "{{ app_name }}/example_record_form.html"
 
     def form_valid(self, form):
@@ -79,10 +79,10 @@ class ExampleRecordCreateView(ExampleRecordPermissionMixin, CreateView):
         return reverse("{{ app_name }}:example_record_list")
 
 
-class ExampleRecordUpdateView(ExampleRecordPermissionMixin, UpdateView):
-    model = ExampleRecord
-    permission_required = "{{ app_name }}.change_examplerecord"
-    form_class = ExampleRecordForm
+class {{ record_model }}UpdateView({{ record_model }}PermissionMixin, UpdateView):
+    model = {{ record_model }}
+    permission_required = "{{ app_name }}.change_{{ record_model_lower }}"
+    form_class = {{ record_model }}Form
     template_name = "{{ app_name }}/example_record_form.html"
 
     def form_valid(self, form):
@@ -94,9 +94,9 @@ class ExampleRecordUpdateView(ExampleRecordPermissionMixin, UpdateView):
         return reverse("{{ app_name }}:example_record_list")
 
 
-class ExampleRecordDeleteView(ExampleRecordPermissionMixin, DeleteView):
-    model = ExampleRecord
-    permission_required = "{{ app_name }}.delete_examplerecord"
+class {{ record_model }}DeleteView({{ record_model }}PermissionMixin, DeleteView):
+    model = {{ record_model }}
+    permission_required = "{{ app_name }}.delete_{{ record_model_lower }}"
     template_name = "{{ app_name }}/example_record_confirm_delete.html"
     context_object_name = "record"
 

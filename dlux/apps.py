@@ -63,9 +63,10 @@ class DluxConfig(AppConfig):
         from django.db.models.signals import post_save
         from dlux.ocr.control import settings_saved
         post_save.connect(settings_saved, sender='dlux.SystemSettings', dispatch_uid='dlux.ocr.settings_saved', weak=False)
-        # System checks: DLUX_TASK_SCHEDULE, the CSP script-src.
+        # System checks: DLUX_TASK_SCHEDULE, the CSP script-src, pypdf for document files.
         import dlux.taskrunner.checks  # noqa: F401
         import dlux.security_checks  # noqa: F401
+        import dlux.files.checks  # noqa: F401
 
         # Auto-inject scope handling into ModelForm / FilterSet / Table
         from dlux.patches import apply_scoped_patches, apply_global_translation_patches

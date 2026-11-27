@@ -129,10 +129,15 @@ Generated projects send this policy from `config/settings.py` (django-csp):
 | --- | --- |
 | `script-src` | `'self'`, the request's nonce (`[SELF, NONCE]`) |
 | `style-src` | `'self'`, `'unsafe-inline'` |
-| `default-src`, `frame-ancestors`, `form-action` | `'self'` |
+| `default-src`, `frame-ancestors`, `form-action`, `base-uri` | `'self'` |
+| `object-src` | `'none'` |
 | `img-src` | `'self'`, `data:`, `blob:` |
 | `font-src` | `'self'`, `data:` |
 | `connect-src` | `'self'`, `BASE_URL`, the ScanLink tray origins |
+
+`base-uri 'self'` keeps injected markup from adding a `<base>` element that would
+repoint the page's relative script URLs, and `object-src 'none'` refuses plugin
+content outright instead of leaving it to `default-src`.
 
 Scripts run only from the site or inline with `nonce="{{ request.csp_nonce }}"`.
 There is no `'unsafe-inline'` or `'unsafe-eval'` in `script-src`, so markup injected

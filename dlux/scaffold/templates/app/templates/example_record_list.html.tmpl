@@ -12,7 +12,7 @@
         <button
             type="button"
             class="btn btn-primary rounded-pill"
-            data-dynamic-modal="{% url 'modal_manager' '{{ app_name }}' 'ExampleRecord' 'new' %}"
+            data-dynamic-modal="{% url 'modal_manager' '{{ app_name }}' '{{ record_model }}' 'new' %}"
             data-modal-title="Add Record"
         >
             Add Record

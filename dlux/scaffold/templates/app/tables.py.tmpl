@@ -1,12 +1,12 @@
 from django.urls import reverse
 
 from dlux.tables import DluxTable
-from .models import ExampleRecord
+from .models import {{ record_model }}
 
 
-class ExampleRecordTable(DluxTable):
+class {{ record_model }}Table(DluxTable):
     class Meta(DluxTable.Meta):
-        model = ExampleRecord
+        model = {{ record_model }}
         fields = ("name", "is_active", "created_at")
         dlux_actions = True  # Enable context menu actions.
 
