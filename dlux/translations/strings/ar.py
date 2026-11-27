@@ -7,6 +7,7 @@ Plain data — one key per interface string. Loaded and merged by
 
 STRINGS = {
     # Titlebar
+    'files_active_content': 'لا يُقبل هذا النوع من الملفات لأنه قد يشغّل شيفرة في المتصفح.',
     'files_content_mismatch': 'الملف تالف أو لا يطابق نوعه المذكور في اسمه.',
     'files_not_pages': 'لا يمكن تحويل هذا النوع من الملفات إلى صفحات PDF.',
     'files_too_large': 'حجم الملف أكبر من المسموح.',

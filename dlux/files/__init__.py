@@ -124,6 +124,40 @@ def validate_upload(upload, accept=None, limit=None):
     return file_type
 
 
+#: Uploads a browser runs as a page or script on the site that serves them.
+ACTIVE_EXTENSIONS = (
+    '.htm', '.html', '.js', '.mht', '.mhtml', '.mjs', '.shtml', '.svg', '.svgz', '.xht', '.xhtml', '.xsl', '.xslt',
+)
+_ACTIVE_HEADS = (b'<!doctype html', b'<html', b'<head', b'<body', b'<script', b'<svg', b'<iframe')
+_HEAD_BYTES = 1024
+
+
+def is_active_content(data, filename=''):
+    """Would a browser run this upload as a page or script: by its extension, or markup at its start?"""
+    if _extension(filename) in ACTIVE_EXTENSIONS:
+        return True
+    head = data[:_HEAD_BYTES].lstrip(b'\xef\xbb\xbf \t\r\n').lower()
+    if head.startswith(b'<?xml'):
+        return b'<svg' in head or b'<html' in head
+    return head.startswith(_ACTIVE_HEADS)
+
+
+def refuse_active_content(upload):
+    """Form-friendly refusal of an HTML, SVG or script upload; raises `django.core.exceptions.ValidationError`."""
+    from django.core.exceptions import ValidationError
+
+    try:
+        data = upload.read(_HEAD_BYTES)
+    finally:
+        if hasattr(upload, 'seek'):
+            upload.seek(0)
+    if is_active_content(data, getattr(upload, 'name', '')):
+        raise ValidationError(
+            _message('files_active_content', 'This file type can run code in a browser and is not accepted.'),
+            code='active_content',
+        )
+
+
 def to_pdf_bytes(data, filename='', accept=None):
     """Validate content and return it as PDF bytes (images become pages)."""
     file_type = detect_file_type(data, filename, accept)

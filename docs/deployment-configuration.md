@@ -409,6 +409,16 @@ Whatever a rule above would serve is refused when it is a backup (1.15.5+): a fi
 
 A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: private, no-cache`, so a browser revalidates each time.
 
+**How a stored file is served.** An upload must never run as the site: a page or SVG a staff member uploads would otherwise run its script with the rights of whoever opens it. Every `/media/` file the proxy sends, public or private, carries:
+
+| Header | Sent for | Effect |
+| --- | --- | --- |
+| `X-Content-Type-Options: nosniff` | Every file | The browser keeps the type the proxy names and never guesses one from the content. |
+| `Content-Security-Policy: default-src 'none'; sandbox` | Every file except PDF | A file opened in the browser runs no script, loads nothing and gets an origin of its own. A PDF has no sandbox, which would stop the browser's PDF viewer. |
+| `Content-Disposition: attachment` | Every file except raster images (AVIF, BMP, GIF, ICO, JPEG, PNG, WebP) and PDF | HTML, SVG, XML, JavaScript, text and every other type opens as a download. |
+
+Image previews, the PDF viewer (its native fallback frame included), branding, managed images and fonts keep working: `<img>`, `fetch()` and `@font-face` loads ignore `Content-Disposition`, and an SVG logo shown through `<img>` never runs script. The Caddyfile carries these headers in the `dlux_media_headers` snippet, imported by both `/media/` routes; the nginx template carries them in the `$dlux_media_csp` and `$dlux_media_disposition` maps and the `add_header` lines of every `/media/` location. The dynamic modal also refuses HTML, SVG and script uploads on plain file fields (see [Document files](document-files.md)).
+
 | Setting | Default | Effect |
 | --- | --- | --- |
 | `DLUX_PUBLIC_MEDIA` | `()` | Extra folders under `MEDIA_ROOT` served to anyone, such as `['products/']` for storefront images. With the default proxy, files there still go through the check, which allows them. |
@@ -425,6 +435,8 @@ An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a fo
 Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
 Projects that already deny their own folders in the proxy can keep those rules; they don't conflict.
+
+**Serving headers on existing stacks.** A schema-4 proxy file without the headers above serves an uploaded page or SVG inline, where its script runs as the site. `composer check` reports it as a `stored-files` failure that names each missing header and file, and `./start.sh check --fix` adds them to an unmodified generated proxy file, validates it, archives the original under `.xclude/composer-check/` and recreates the proxy. The same run adds the maintenance page's `Content-Security-Policy`. A proxy file with its own `/media/` rules is reported and left alone: copy the `dlux_media_headers` snippet and its two `import` lines (Caddy), or the two maps and the `add_header` lines (nginx), from a fresh `python -m dlux startproject`, then run `./start.sh restart caddy` (or `nginx`).
 
 ## Cross-site requests (Fetch Metadata)
 
