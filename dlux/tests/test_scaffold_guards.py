@@ -109,7 +109,7 @@ class GeneratedProjectFileTests(unittest.TestCase):
                 directives = {k.value: [ast.unparse(item) for item in v.elts] for k, v in zip(value.keys, value.values)}
         self.assertEqual(directives.get("base-uri"), ["SELF"])
         self.assertEqual(directives.get("object-src"), ["NONE"])
-        self.assertIn("from csp.constants import NONCE, NONE, SELF, UNSAFE_INLINE", self.read("config/settings.py"))
+        self.assertIn("from csp.constants import NONCE, NONE, SELF\n", self.read("config/settings.py"))
         from csp.constants import NONE
 
         self.assertEqual(NONE, "'none'")
