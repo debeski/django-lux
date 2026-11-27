@@ -307,6 +307,37 @@ def _record_twofa_failure(request, user, intent):
     return failures >= LOGIN_2FA_CHALLENGE_MAX_FAILURES
 
 
+def _totp_last_step_key(user):
+    return f"dlux:2fa:totp:last_step:{user.pk}"
+
+
+def _verify_totp_code(user, totp, code):
+    """Accept a TOTP code once: a time step already used for this account is refused."""
+    code = str(code or '').strip()
+    if not code.isdigit() or len(code) != int(getattr(totp, 'digits', 6)):
+        return False
+    interval = int(getattr(totp, 'interval', 30) or 30)
+    current = int(time.time()) // interval
+    matched_step = None
+    for step in (current - 1, current, current + 1):
+        if constant_time_compare(totp.generate_otp(step), code):
+            matched_step = step
+            break
+    if matched_step is None:
+        return False
+    key = _totp_last_step_key(user)
+    last_step = cache.get(key)
+    try:
+        if last_step is not None and matched_step <= int(last_step):
+            return False
+    except (TypeError, ValueError):
+        pass
+    if not cache.add(f"{key}:{matched_step}", 1, timeout=interval * 4):
+        return False
+    cache.set(key, matched_step, timeout=interval * 4)
+    return True
+
+
 def _otp_code_matches(data, raw_code):
     normalized = str(raw_code or '')
     if data.get('code_hash'):
@@ -623,8 +654,7 @@ def verify_otp_view(request, intent='login'):
         if intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
             totp_secret = get_profile_totp_secret(user.profile)
             if pyotp and totp_secret:
-                totp = pyotp.TOTP(totp_secret)
-                is_valid = bool(totp.verify(code, valid_window=1))
+                is_valid = _verify_totp_code(user, pyotp.TOTP(totp_secret), code)
         elif intent == 'login' and method == 'backup_code':
             is_valid = _consume_backup_code(user.profile, code)
         elif intent == 'login' and method == 'email':
@@ -737,6 +767,9 @@ def setup_totp(request):
         return JsonResponse({'status': 'error', 'message': get_strings().get('err_totp_unavailable')}, status=503)
 
     profile = request.user.profile
+    if profile.is_totp_2fa_enabled:
+        # The live seed is never shown again; disable TOTP (password required) to re-enrol.
+        return JsonResponse({'status': 'error', 'message': get_strings().get('err_already_enabled')}, status=409)
     raw_secret = get_profile_totp_secret(profile)
     if not raw_secret:
         raw_secret = pyotp.random_base32()

@@ -155,3 +155,37 @@ class TwoFactorFailureTests(TestCase):
         # Three attempts already reserved by parallel requests: the code is spent.
         cache.set(f'otp_attempts_{self.user.pk}_login', 3, timeout=300)
         self.assertEqual(verify_otp_logic(self.user, '123456', 'login'), (False, '2fa_invalid_code'))
+
+
+class TotpSeedAndReplayTests(TestCase):
+    """R2-035: the live seed is not handed out again and a code works once."""
+
+    def setUp(self):
+        _fresh()
+        import pyotp
+        from dlux.utils import set_profile_totp_state
+        self.user = User.objects.create_user('seeduser', 'seed@example.com', 'seedpass12345')
+        self.secret = pyotp.random_base32()
+        set_profile_totp_state(self.user.profile, raw_secret=self.secret, enabled=True)
+        self.totp = pyotp.TOTP(self.secret)
+
+    def test_setup_refuses_when_totp_is_enabled(self):
+        client = Client()
+        client.force_login(self.user)
+        response = client.post(reverse('setup_totp'), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 409)
+        self.assertNotIn(self.secret, response.content.decode())
+
+    def test_a_code_signs_in_only_once(self):
+        code = self.totp.now()
+        results = []
+        for _ in range(2):
+            client = Client()
+            session = client.session
+            session['pre_2fa_user_id'] = self.user.pk
+            session['pre_2fa_method'] = 'totp'
+            session['pre_2fa_started_at'] = time.time()
+            session.save()
+            client.post(reverse('verify_otp_login'), {'otp_code': code, 'method': 'totp'})
+            results.append('_auth_user_id' in client.session)
+        self.assertEqual(results, [True, False])
