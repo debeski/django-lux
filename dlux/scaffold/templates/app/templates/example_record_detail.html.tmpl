@@ -6,10 +6,10 @@
         <h1 class="mb-0">{{ record.name }}</h1>
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary rounded-pill" href="{% url '{{ app_name }}:example_record_list' %}">
-                <i class="bi bi-arrow-left"></i> Back to List
+                <i class="bi bi-arrow-left"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
             </a>
             <a class="btn btn-primary rounded-pill" href="{% url '{{ app_name }}:example_record_edit' record.pk %}">
-                <i class="bi bi-pencil"></i> Edit
+                <i class="bi bi-pencil"></i> {{ DLUX_STRINGS.btn_edit|default:"Edit" }}
             </a>
         </div>
     </div>
@@ -17,25 +17,25 @@
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body p-4">
             <dl class="row mb-0">
-                <dt class="col-sm-3">Name</dt>
+                <dt class="col-sm-3">{{ DLUX_STRINGS.label_{{ record_model_lower }}_name|default:"Name" }}</dt>
                 <dd class="col-sm-9">{{ record.name }}</dd>
 
-                <dt class="col-sm-3">Description</dt>
+                <dt class="col-sm-3">{{ DLUX_STRINGS.label_{{ record_model_lower }}_description|default:"Description" }}</dt>
                 <dd class="col-sm-9">{{ record.description|default:"-" }}</dd>
 
-                <dt class="col-sm-3">Active</dt>
+                <dt class="col-sm-3">{{ DLUX_STRINGS.label_{{ record_model_lower }}_is_active|default:"Active" }}</dt>
                 <dd class="col-sm-9">
                     {% if record.is_active %}
-                        <span class="badge bg-success">Yes</span>
+                        <span class="badge bg-success">{{ DLUX_STRINGS.{{ record_model_lower }}_yes|default:"Yes" }}</span>
                     {% else %}
-                        <span class="badge bg-secondary">No</span>
+                        <span class="badge bg-secondary">{{ DLUX_STRINGS.{{ record_model_lower }}_no|default:"No" }}</span>
                     {% endif %}
                 </dd>
 
-                <dt class="col-sm-3">Created At</dt>
+                <dt class="col-sm-3">{{ DLUX_STRINGS.label_{{ record_model_lower }}_created_at|default:"Created At" }}</dt>
                 <dd class="col-sm-9">{{ record.created_at }}</dd>
 
-                <dt class="col-sm-3">Updated At</dt>
+                <dt class="col-sm-3">{{ DLUX_STRINGS.label_{{ record_model_lower }}_updated_at|default:"Updated At" }}</dt>
                 <dd class="col-sm-9">{{ record.updated_at }}</dd>
             </dl>
         </div>

@@ -1,20 +1,20 @@
 from django.urls import path
 
 from .views import (
-    ExampleRecordCreateView,
-    ExampleRecordDeleteView,
-    ExampleRecordDetailView,
-    ExampleRecordListView,
-    ExampleRecordUpdateView,
+    {{ record_model }}CreateView,
+    {{ record_model }}DeleteView,
+    {{ record_model }}DetailView,
+    {{ record_model }}ListView,
+    {{ record_model }}UpdateView,
 )
 
 
 app_name = "{{ app_name }}"
 
 urlpatterns = [
-    path("", ExampleRecordListView.as_view(), name="example_record_list"),
-    path("add/", ExampleRecordCreateView.as_view(), name="example_record_add"),
-    path("<int:pk>/", ExampleRecordDetailView.as_view(), name="example_record_detail"),
-    path("<int:pk>/edit/", ExampleRecordUpdateView.as_view(), name="example_record_edit"),
-    path("<int:pk>/delete/", ExampleRecordDeleteView.as_view(), name="example_record_delete"),
+    path("", {{ record_model }}ListView.as_view(), name="example_record_list"),
+    path("add/", {{ record_model }}CreateView.as_view(), name="example_record_add"),
+    path("<int:pk>/", {{ record_model }}DetailView.as_view(), name="example_record_detail"),
+    path("<int:pk>/edit/", {{ record_model }}UpdateView.as_view(), name="example_record_edit"),
+    path("<int:pk>/delete/", {{ record_model }}DeleteView.as_view(), name="example_record_delete"),
 ]

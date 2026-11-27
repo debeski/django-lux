@@ -101,6 +101,7 @@ TEST_LABELS = [
     'dlux.tests.test_mount_access',
     'dlux.tests.test_runtime_supervisor',
     'dlux.tests.test_scaffold',
+    'dlux.tests.test_scaffold_guards',
     'dlux.tests.test_scanlink_connection',
     'dlux.tests.test_scanlink_gate',
     'dlux.tests.test_scanlink_releases',

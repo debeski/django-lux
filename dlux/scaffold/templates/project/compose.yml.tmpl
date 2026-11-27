@@ -232,7 +232,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local_secret}
-      ADMIN_PASS: ${ADMIN_PASS:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=5).read()"]
       interval: 30s
@@ -302,7 +302,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local_secret}
-      ADMIN_PASS: ${ADMIN_PASS:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:-}
     healthcheck:
       test: ["CMD", "python", "manage.py", "dlux_worker", "--check"]
       interval: 30s

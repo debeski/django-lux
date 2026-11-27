@@ -335,6 +335,10 @@ documentation, but they are not accepted deployment settings:
   `Dockerfile`: matching the scaffold takes those two lines. An image built
   `FROM` the project image that needs pip runs `python -m ensurepip` first.
   Rebuild the project image to pick up fixes published after its last build.
+- The generated `gunicorn.py` sets `control_socket_disable = True`. gunicorn 27
+  otherwise opens a control socket (for `gunicornc`) under `$HOME`, which is `/`
+  for the image's non-root user, and logs a permission error on every start. The
+  stack does not use the control interface.
 
 ## File permissions
 

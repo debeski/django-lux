@@ -217,7 +217,9 @@ copies re-link to adopted file versions.
   `COMPOSER_AGENT_RESTART_SERVICES`. Existing projects add the same service and
   allow-list entry; `check --fix` does not add it automatically.
 - **Image dependencies**: install `django-lux[ocr]` (or
-  `django-lux[updater,ocr]`). The scaffold includes the extra by default;
+  `django-lux[updater,ocr]`). The extra installs on Python 3.11 and later; its
+  numpy pin depends on the Python version (2.4.6 on 3.11, 2.5.4 on 3.12 and
+  later). The scaffold includes the extra by default;
   projects without OCR can omit it. Set `INDRA_OCR_MODEL_DIR=/opt/indra/models`
   and run `python -m dlux.ocr.fetch_models --if-installed` during the image
   build. Runtime sets `HF_HUB_OFFLINE=1`; models are never downloaded by `web` or

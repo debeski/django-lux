@@ -17,6 +17,10 @@ accesslog = "-"
 errorlog = "-"
 loglevel = "info"
 
+# No runtime control socket (gunicornc): the stack does not use it, and its
+# default path under $HOME is not writable for the image's non-root user.
+control_socket_disable = True
+
 # Application module
 wsgi_app = "{{ config_package }}.wsgi:application"
 

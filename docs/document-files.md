@@ -7,6 +7,11 @@ registration. Projects keep their models, permissions and naming; they write no
 views, templates or history code. The design decisions are in
 [§8](#8-design-decisions).
 
+Every save of a document file reads and rewrites the PDF with `pypdf`, so the
+project installs the `pdf` extra (`django-lux[pdf]`; generated projects pin
+`django-lux[updater,ocr,pdf]`). While a document file is registered and `pypdf`
+is missing, system check `dlux.W103` names the registered fields.
+
 ## 1. One call
 
 ```python

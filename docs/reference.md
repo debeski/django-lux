@@ -34,7 +34,7 @@ is in [Deployment Configuration](deployment-configuration.md).
 
 Generated project baseline:
 
-- `.secrets/.env` with scaffolded bootstrap secret values
+- `.secrets/.env` with scaffolded bootstrap secret values, readable by its owner only (`0600`)
 - `config/settings.py` wired for env-driven Django secret, Postgres and Redis cache
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter
   CORS/CSP settings
@@ -44,7 +44,11 @@ Generated project baseline:
   socket and answers every Docker request of the agent, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
   `smtp-relay` services. Compose 5.3.0 or later is required for the `worker`
   `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
-- `requirements.txt` pinned to the generated stable `django-lux` release
+- `requirements.txt` pinned to the generated stable `django-lux` release with the
+  `updater`, `ocr` and `pdf` extras, and to gunicorn's major version
+- `config/settings.py` `LOGGING` sending warnings and `django.request` errors, with
+  their traceback, to stderr (the container log); `DEBUG` lowers the root level to
+  `DEBUG`
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a
   proxy-served maintenance/progress page
 
@@ -52,7 +56,11 @@ Generated app scaffold baseline:
 
 - discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`,
   `urls.py`, `translations.py`, templates, and tests
-- optional `--register` patching for `INSTALLED_APPS` and root project URLs
+- example models named after the app (`<App>Record`, `<App>Section`, …) with list,
+  detail, form and delete templates whose text comes from `DLUX_STRINGS` (the app's
+  `translations.py`, English and Arabic)
+- optional `--register` patching for `INSTALLED_APPS` and root project URLs, planned
+  before anything is written ([getting started](getting-started.md#fastest-greenfield-start))
 - modal/list conventions that align with Dlux discovery, sections, and table/filter helpers
 
 ## Management Commands
