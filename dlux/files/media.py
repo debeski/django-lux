@@ -15,10 +15,11 @@ Decisions, in order:
 - a registered document file follows its document: anyone gets it when the
   registration's ``public`` rule passes, otherwise the user must reach the
   document in its scoped queryset and pass its ``view`` access check;
+- the current file of another file field on a document model (an attachment,
+  a photo) follows its document's scope and ``view`` check, in any folder;
 - any other file in a folder that holds registered document files, or one a
   document had before, is refused: a replaced original, a project's own history
-  copy or an orphan has no document left to check. The current file of another
-  field on a document model (an attachment) is the exception;
+  copy or an orphan has no document left to check;
 - everything else needs a signed-in user.
 
 Whatever would be granted is refused when it is a backup: a file in the folder
@@ -110,18 +111,36 @@ def _earlier_document_file(name):
     return FileVersion._base_manager.filter(Q(active_name_before=name) | Q(archived_file=name)).exists()
 
 
-def _attachment_of_a_document(name):
-    """Is ``name`` exactly the current file of an unregistered field on a document model?"""
-    from .specs import file_field_names, registered_document_files
+def _attachment_decision(request, name):
+    """True or False when ``name`` is the file of an unregistered field on a document model, else None.
 
-    registered = {}
+    Such a file (an attachment, a photo) belongs to the same record as the
+    document file, so it follows the same check: the user must reach the
+    document in its scoped queryset and pass its ``view`` access check. Found
+    without regard to case, so a case variant cannot slip past its document;
+    only the exact name is granted.
+    """
+    from dlux.views.sections import _scope_filtered_modal_queryset
+
+    from .specs import file_field_names, registered_document_files
+    from .views import can_access
+
+    specs = {}
     for spec in registered_document_files():
-        registered.setdefault(spec.model, set()).add(spec.field_name)
-    return any(
-        model._base_manager.filter(**{field: name}).exists()
-        for model, fields in registered.items()
-        for field in file_field_names(model) if field not in fields
-    )
+        specs.setdefault(spec.model, []).append(spec)
+    found = False
+    for model, model_specs in specs.items():
+        registered = {spec.field_name for spec in model_specs}
+        for field in file_field_names(model):
+            if field in registered or not model._base_manager.filter(**{f'{field}__iexact': name}).exists():
+                continue
+            found = True
+            for spec in model_specs:
+                queryset = spec.queryset(request, model) if spec.queryset else _scope_filtered_modal_queryset(model, request.user)
+                for document in queryset.filter(**{field: name})[:_DOCUMENT_CANDIDATES]:
+                    if can_access(request, spec, document, 'view'):
+                        return True
+    return False if found else None
 
 
 def _document_decision(request, name):
@@ -166,10 +185,13 @@ def _document_decision(request, name):
                 return True
     if matched:
         return False
-    if not signed_in or not (beside or _earlier_document_file(name)):
+    if not signed_in:
         # Signed out, everything unmatched is refused anyway: no more lookups.
         return None
-    return None if _attachment_of_a_document(name) else False
+    attachment = _attachment_decision(request, name)
+    if attachment is not None:
+        return attachment
+    return False if beside or _earlier_document_file(name) else None
 
 
 def backup_folders():

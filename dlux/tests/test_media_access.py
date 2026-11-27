@@ -116,13 +116,33 @@ class MediaAccessTests(TestCase):
             with self.subTest(name=name):
                 self.assertFalse(self.decide(self.admin, name))
 
-    def test_an_attachment_beside_its_document_file_needs_a_signed_in_user(self):
+    def test_an_attachment_follows_its_document_permission(self):
         from django.contrib.auth.models import AnonymousUser
 
         self.paper.attachment.save('annex.pdf', ContentFile(b'%PDF-1.4'))
-        self.assertTrue(self.decide(self.stranger, self.paper.attachment.name))
-        self.assertFalse(self.decide(AnonymousUser(), self.paper.attachment.name))
-        self.assertFalse(self.decide(self.stranger, self.paper.attachment.name.upper()))
+        name = self.paper.attachment.name
+        self.assertTrue(self.decide(self.reader, name))
+        self.assertTrue(self.decide(self.admin, name))
+        self.assertFalse(self.decide(self.stranger, name))
+        self.assertFalse(self.decide(AnonymousUser(), name))
+        self.assertFalse(self.decide(self.reader, name.upper()))
+
+    def test_an_attachment_in_its_own_folder_stays_in_its_documents_scope(self):
+        # Break-it R2-041: an attachment outside the document files' folder was served to any signed-in user.
+        Paper.all_objects.filter(pk=self.paper.pk).update(attachment='attachments/attach_B1.txt')
+        name = 'attachments/attach_B1.txt'
+        self.assertTrue(self.decide(self.reader, name))
+        self.assertFalse(self.decide(self.stranger, name))
+        self.assertFalse(self.decide(self.stranger, name.upper()))
+        self.assertTrue(self.decide(self.stranger, 'attachments/unrelated.txt'))
+        ScopeSettings.objects.update_or_create(pk=1, defaults={'is_enabled': True})
+        other = Scope.objects.create(name='Other branch')
+        mine = Scope.objects.create(name='My branch')
+        Paper.all_objects.filter(pk=self.paper.pk).update(scope=other)
+        self.reader.profile.scope = mine
+        self.reader.profile.save()
+        cache.clear()
+        self.assertFalse(self.decide(self.reader, name))
 
     def test_other_folders_and_subfolders_need_a_signed_in_user(self):
         for name in ('papers/2026/scan.pdf', 'reports/q1.pdf', 'loose.pdf'):
@@ -143,14 +163,15 @@ class MediaAccessTests(TestCase):
                 self.assertFalse(self.decide(self.admin, name))
         self.assertTrue(self.decide(self.admin, 'scans/2019/other.pdf'))
 
-    def test_a_file_elsewhere_costs_one_lookup_per_document_field(self):
+    def test_a_file_elsewhere_costs_one_lookup_per_file_field_of_a_document_model(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
         with CaptureQueriesContext(connection) as queries:
             self.assertTrue(self.decide(self.stranger, 'reports/q1.pdf'))
         papers = [q['sql'] for q in queries.captured_queries if Paper._meta.db_table in q['sql']]
-        self.assertEqual(len(papers), 1, papers)
+        # The registered pdf_file and the attachment field.
+        self.assertEqual(len(papers), 2, papers)
 
     def test_the_file_the_editor_replaced_stays_on_disk_but_no_one_fetches_it(self):
         from dlux.files.history import save_new_version
