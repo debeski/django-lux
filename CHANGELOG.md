@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **Scaffold Ships Composer Wrapper 8**: `dlux/scaffold/templates/project/start.sh.tmpl` and `start.ps1.tmpl` mirror Composer's wrapper 8 byte for byte (Composer `1.11/deploy_guards`): one `.composer-image` rule with Composer (first non-empty line, ends stripped, no inner whitespace removed), a refusal when a project-root `.env` shadows keys `.secrets/.env` holds, a refusal naming a secrets line written `export KEY=…` or `KEY = value`, a refusal for a Compose file symlinked from outside the project, a warning for Compose variables set only in the shell, and a pointer to `./start.sh agent update` when the deployer pin cannot be resolved. `test_scaffolded_wrappers_declare_the_mirrored_composer_wrapper_version` expects 8.
+
 ## v1.17.0b2
 
 - **A Non-Root Image Starts On Empty Volumes (scaffold, pairs with Composer 1.11.0b2)**: a project image with `USER 10001:0` failed its first `./start.sh`: the worker's `python -m dlux.mount_access gate` exited 78, because Composer's pre-up grant skipped the `static` and `dlux_runtime` volumes that did not exist yet, and Docker then created them from the image's mount points, root 0755 (and no `/opt/dlux-runtime` at all). `Dockerfile.tmpl` now creates every mount point the app containers use (`/app/imports`, `/app/logs`, `/app/media`, `/app/staticfiles`, `/opt/dlux-runtime`) with `chgrp 0` and `chmod g+rwX` in the `RUN` that made the first four, so a new named volume copies a group-writable mode; nothing changes for a root image or for existing volumes. A project that sets `USER 10001:0` in its own `Dockerfile` copies that `RUN` before the `USER` line, which also covers deployments on Composer 1.10.x. `DockerfileMountPointTests` reads the app containers' mounts from the generated `compose.yml` and requires exactly those paths, ahead of any `USER`; `docs/deployment-configuration.md` § File permissions shows the line.

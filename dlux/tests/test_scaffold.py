@@ -405,7 +405,7 @@ class ScaffoldTests(unittest.TestCase):
         constant whenever the templates are re-synced from the composer repo,
         so drift fails loudly instead of going unnoticed.
         """
-        expected = 7
+        expected = 8
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
         templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):
