@@ -189,3 +189,90 @@ class TotpSeedAndReplayTests(TestCase):
             client.post(reverse('verify_otp_login'), {'otp_code': code, 'method': 'totp'})
             results.append('_auth_user_id' in client.session)
         self.assertEqual(results, [True, False])
+
+
+@override_settings(DLUX_CONFIG=LOCKOUT_CONFIG)
+class LoginLockoutTests(TestCase):
+    """R2-008 / R2-088 / R2-033."""
+
+    def setUp(self):
+        _fresh()
+        self.user = User.objects.create_user('u_noperm', 'noperm@example.com', 'rightpass12345')
+
+    def _post(self, username, password, ip='10.0.0.1'):
+        return Client().post(reverse('login'), {'username': username, 'password': password}, REMOTE_ADDR=ip)
+
+    def _lock(self):
+        for n in range(5):
+            # A new address each time, so only the username counter can lock.
+            self._post('u_noperm', 'wrong', ip=f'10.1.0.{n + 1}')
+
+    def test_nfkc_spellings_share_the_lock(self):
+        self._lock()
+        for spelling in ('u_noperm', 'ｕ_noperm', 'ｕ＿ｎｏｐｅｒｍ', 'U_NOPERM'):
+            with self.subTest(spelling=spelling):
+                response = self._post(spelling, 'rightpass12345', ip='10.2.0.1')
+                self.assertEqual(response.status_code, 429)
+
+    def test_email_spelling_shares_the_lock_when_email_sign_in_is_on(self):
+        self._lock()
+        with patch('dlux.auth.registration.public_registration_config', return_value={'enabled': True}):
+            response = self._post('NoPerm@example.com', 'rightpass12345', ip='10.2.0.2')
+        self.assertEqual(response.status_code, 429)
+
+    def test_reservations_count_before_the_password_check(self):
+        from dlux.auth.login_throttle import reserve_login_attempt
+        factory = RequestFactory()
+        # Six requests in flight, none finished: the sixth is refused up front.
+        results = [reserve_login_attempt(factory.post('/accounts/login/', REMOTE_ADDR=f'10.3.0.{n}'), 'u_noperm')
+                   for n in range(6)]
+        self.assertEqual(results[:5], [0] * 5)
+        self.assertGreater(results[5], 0)
+
+    def test_parallel_burst_gets_at_most_threshold_password_checks(self):
+        from dlux.auth import login_throttle
+        factory = RequestFactory()
+        allowed = []
+        barrier = threading.Barrier(20)
+
+        def attempt(n):
+            barrier.wait()
+            request = factory.post('/accounts/login/', REMOTE_ADDR=f'10.4.0.{n}')
+            if login_throttle.reserve_login_attempt(request, 'u_noperm') == 0:
+                allowed.append(n)
+
+        threads = [threading.Thread(target=attempt, args=(n,)) for n in range(20)]
+        # Threads cannot share the test database; the policy values are fixed here.
+        with patch.object(login_throttle, '_enabled', return_value=True), \
+             patch.object(login_throttle, '_max_attempts', return_value=5), \
+             patch.object(login_throttle, '_window_seconds', return_value=900), \
+             patch.object(login_throttle, '_lockout_seconds', return_value=900), \
+             patch.object(login_throttle, '_client_ip', side_effect=lambda request: request.META['REMOTE_ADDR']):
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        self.assertEqual(len(allowed), 5)
+
+    def test_failed_sign_in_writes_an_audit_row(self):
+        self._post('u_noperm', 'wrong')
+        row = _activity_log().objects.get(action='LOGIN_FAILED')
+        self.assertIsNone(row.created_by)
+        self.assertEqual(row.number, 'u_noperm')
+
+    def test_anonymous_failures_are_not_merged_across_accounts_or_senders(self):
+        self._post('u_noperm', 'wrong', ip='10.7.0.1')
+        self._post('someone_else', 'wrong', ip='10.7.0.1')
+        self._post('u_noperm', 'wrong', ip='10.7.0.2')
+        self._post('u_noperm', 'wrong', ip='10.7.0.2')
+        self.assertEqual(_activity_log().objects.filter(action='LOGIN_FAILED').count(), 3)
+
+    def test_lockout_writes_an_audit_row(self):
+        self._lock()
+        self.assertEqual(_activity_log().objects.filter(action='LOCKOUT').count(), 1)
+
+    def test_right_password_after_four_failures_signs_in(self):
+        for n in range(4):
+            self._post('u_noperm', 'wrong', ip=f'10.5.0.{n}')
+        response = self._post('u_noperm', 'rightpass12345', ip='10.5.0.9')
+        self.assertEqual(response.status_code, 302)

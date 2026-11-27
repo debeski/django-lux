@@ -60,8 +60,13 @@ class CustomLoginView(LoginView):
 
     def post(self, request, *args, **kwargs):
         """Reject the attempt up front if this IP/username is currently locked out."""
-        from ..auth.login_throttle import login_lockout_remaining
-        remaining = login_lockout_remaining(request, request.POST.get('username', ''))
+        from ..auth.login_throttle import login_lockout_remaining, reserve_login_attempt
+        username = request.POST.get('username', '')
+        remaining = login_lockout_remaining(request, username)
+        if remaining <= 0:
+            # Reserve the attempt atomically before the password is checked, so a
+            # parallel burst cannot get past the threshold.
+            remaining = reserve_login_attempt(request, username)
         if remaining > 0:
             # Don't flash a toast/notification (it auto-dismisses and pops the
             # notification bar). Render the login page with the exact remaining
