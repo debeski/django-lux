@@ -7,7 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
-## Unreleased
+## v1.17.0b3
 
 - **Backup Retries Start On Their Own (break-it R2-043)**: an armed retry ("Retrying in 5 minutes") waited until someone opened `/sys/backup/` or a worker started, because only the scheduled-backup check (900 s, and only with scheduled backups on) ran the reaper. New built-in schedule entry `dlux-reap-stalled-backups` runs `dlux.tasks.reap_stalled_system_backups` every 60 s on `dlux_worker`, so due retries and stalled rows are handled within a minute.
 - **A Backup That Runs Out Of Disk Leaves Nothing Behind (break-it R2-044)**: `default_storage.save` failing mid-write kept the partial `system-<token>.dlb`, so the disk stayed full and every retry failed and added a `_xxxx` sibling. New `dlux.backup._shared.store_artifact()` picks the name first and removes it when the save fails; the `.dlb`, its `.idx` sidecar and page uploads all go through it. On local storage the free space is checked against the artifact's size first (`BackupStorageFull`, "Not enough free space in the backup folder"), and an upload to a full disk is reported (`backup_upload_store_failed`) instead of a 500.

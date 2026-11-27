@@ -1,19 +1,19 @@
 {
   "schema_version": 2,
-  "version": "1.17.0b2",
+  "version": "1.17.0b3",
   "display": {
-    "summary": "Fixes only: every staging break-in finding and the 1.16 line's known bugs. The doctor tells the truth under failure: a missing task worker, missing static files or an image below the release floor are errors, and a dead database or a paused Redis no longer floods or freezes it. With Redis down, users get a clear page within seconds and stay signed in, instead of an error or a sign-out. An image older than the active release runs its own DjangoLux, and says so. New projects get a nonce-only script policy, Redis snapshots that survive a hard stop and mount points ready for a non-root user; existing projects get warning dlux.W201. Labels a superuser edits now render as text, accent colours keep readable text in every theme, and modal forms re-run their scripts after a refused submit. DLUX_UPDATE_POLICY can limit which updates the app may request. Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release with one additive migration.",
+    "summary": "Fixes only: every finding of two break-in rounds and the 1.16 line's known bugs. Security: an uploaded HTML or SVG file can no longer run as the site, two-factor codes and the login lockout can no longer be guessed around, and a limited admin can no longer take over a more powerful user. pdf.js is current, and the staff screens need no inline styles, so new projects send style-src 'self'. A database outage or a restore answers with a clear page instead of hanging, a corrupted runtime pointer no longer takes the site down, and backups clean up and retry on their own. The doctor tells the truth under failure and never hangs. New projects get a nonce-only script policy, Redis snapshots, mount points ready for a non-root user, no default admin password and wrapper 8. DLUX_UPDATE_POLICY can limit which updates the app may request. Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release with one additive migration.",
     "highlights": [
-      "Fixes only: every staging break-in finding and known bug from the 1.16 line.",
-      "The doctor is truthful under failure and never hangs on a paused Redis or a dead database.",
-      "With Redis down, users get a clear page within seconds and stay signed in.",
-      "An image below the active release's floor runs its own DjangoLux and reports it.",
-      "New projects: nonce-only script-src, Redis snapshots, non-root-ready mount points.",
-      "Superuser-edited labels render as text; accent text is readable in every theme.",
+      "Fixes only: every finding of two break-in rounds and the 1.16 line's known bugs.",
+      "Security: uploaded HTML/SVG never runs as the site; 2FA, lockout and scoped-admin takeovers are closed.",
+      "pdf.js 6.5; staff screens run under style-src 'self'.",
+      "A database outage or a restore shows a clear page; a broken runtime pointer recovers.",
+      "The doctor is truthful under failure and never hangs.",
+      "New projects: nonce-only scripts, no inline styles, no default admin password, wrapper 8.",
       "DLUX_UPDATE_POLICY limits which updates the app may request.",
       "Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.17.0b2"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.17.0b3"
   },
   "requires": {
     "updater_schema": ">=1",
