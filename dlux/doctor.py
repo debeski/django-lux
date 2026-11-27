@@ -32,6 +32,7 @@ from pathlib import Path
 from django.conf import settings
 
 from . import __version__
+from .db_errors import clear_read_failure
 from .utils.settings import PLACEHOLDER_SECRET_KEYS
 
 
@@ -1419,6 +1420,7 @@ def _config_built_once():
     finally:
         config_module._build_system_config = original
         config_module._config_db_outage = False
+        clear_read_failure()
 
 
 class Session:

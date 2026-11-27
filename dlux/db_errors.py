@@ -4,6 +4,8 @@ A leaf module, so code that only needs the classification (config reads, the
 outage middleware) imports it without pulling in the middleware's dependencies.
 """
 
+import time
+
 from django.conf import settings
 from django.db import utils as db_utils
 
@@ -41,6 +43,45 @@ def is_database_outage(exc):
     code = _sqlstate(exc)
     if code:
         return code in _OUTAGE_SQLSTATES or code[:2] in _OUTAGE_SQLSTATE_CLASSES
+    if "no such table" in str(exc).lower():
+        # SQLite's missing table carries no SQLSTATE; PostgreSQL's is 42P01.
+        return False
     # No SQLSTATE: the driver failed before the server answered (refused,
     # timed out, connection closed).
     return isinstance(exc, (db_utils.OperationalError, db_utils.InterfaceError))
+
+
+# The read breaker for code outside a request: system config, the font list and
+# ScopeSettings. Nothing memoises those reads outside a request, so with the
+# database down one `manage.py check` paid a connection attempt per read.
+_read_failed_at = None
+_read_failure = ""
+
+
+def note_read_failure(exc):
+    """Record ``exc`` for the read breaker if it is an outage; return whether it was."""
+    global _read_failed_at, _read_failure
+    if not is_database_outage(exc):
+        return False
+    _read_failed_at = time.monotonic()
+    first_line = (str(exc).strip().splitlines() or [""])[0]
+    _read_failure = f"{type(exc).__name__}: {first_line}"
+    return True
+
+
+def read_recently_failed():
+    """Whether a read outside a request skips the database: one failed moments ago.
+
+    Callers ask only outside a request: a request always tries, and the web
+    connect breaker makes that attempt fail fast.
+    """
+    return _read_failed_at is not None and time.monotonic() - _read_failed_at < breaker_seconds()
+
+
+def last_read_failure():
+    return _read_failure
+
+
+def clear_read_failure():
+    global _read_failed_at
+    _read_failed_at = None

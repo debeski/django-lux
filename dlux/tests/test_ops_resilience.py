@@ -1109,8 +1109,13 @@ class ConfigOutageLoggingTests(TestCase):
         from dlux.utils import config
 
         self.config = config
+        from dlux import db_errors
+
+        self.db_errors = db_errors
         config._config_db_outage = False
+        db_errors.clear_read_failure()
         self.addCleanup(setattr, config, '_config_db_outage', False)
+        self.addCleanup(db_errors.clear_read_failure)
 
     def _build_while_down(self, times, build=None):
         from django.db.utils import OperationalError
@@ -1131,9 +1136,42 @@ class ConfigOutageLoggingTests(TestCase):
         with self.assertLogs('dlux', level='DEBUG'):
             attempts = self._build_while_down(200, build=self.config.get_system_config)
         self.assertEqual(attempts, 1)
-        self.config._config_db_failed_at -= 60
+        self.db_errors._read_failed_at -= 60
         with self.assertLogs('dlux', level='DEBUG'):
             self.assertEqual(self._build_while_down(1), 1, 'past the window the database is tried again')
+
+    def test_one_failed_font_read_stops_config_and_scope_reads_and_logs_one_line(self):
+        """`manage.py check` with no database: the font list, System Settings and
+        ScopeSettings each tried it, 5 connect timeouts (26 s) for one check."""
+        from django.db.utils import OperationalError
+
+        from dlux import fonts
+        from dlux.utils.common import get_scope_settings
+
+        refused = OperationalError('connection to server failed: timeout expired')
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        ScopeSettings = apps.get_model('dlux', 'ScopeSettings')
+        FontFamily = apps.get_model('dlux', 'ManagedFontFamily')
+        fonts.clear_font_cache()
+        self.addCleanup(fonts.clear_font_cache)
+        with mock.patch.object(FontFamily.objects, 'filter', side_effect=refused) as font_read, \
+                mock.patch.object(SystemSettings, 'load', side_effect=refused) as config_read, \
+                mock.patch.object(ScopeSettings, 'load', side_effect=refused) as scope_read, \
+                self.assertLogs('dlux', level='DEBUG') as logs:
+            fonts.get_available_fonts()
+            for _ in range(50):
+                self.config.get_system_config()
+                self.assertIsNone(get_scope_settings())
+        self.assertEqual((font_read.call_count, config_read.call_count, scope_read.call_count), (1, 0, 0))
+        loud = [record.getMessage() for record in logs.records if record.levelno >= 30]
+        self.assertEqual(len(loud), 1, loud)
+        self.assertIn('OperationalError: connection to server failed: timeout expired', loud[0])
+
+    def test_a_missing_sqlite_table_is_not_an_outage(self):
+        from django.db.utils import OperationalError
+
+        self.assertFalse(self.db_errors.note_read_failure(OperationalError('no such table: dlux_scopesettings')))
+        self.assertFalse(self.db_errors.read_recently_failed())
 
     def test_a_request_still_tries_the_database(self):
         from django.test import RequestFactory

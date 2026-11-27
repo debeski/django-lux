@@ -124,7 +124,7 @@ row afterwards (`cache.delete("SystemSettings")`).
 |---|---|---|---|
 | `DLUX_DB_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Gives every PostgreSQL connection in `DATABASES` a `connect_timeout` and TCP keepalives (`keepalives_idle` 10, `keepalives_interval` 5, `keepalives_count` 3) in `OPTIONS`, keeping any value the settings file sets, and puts `dlux.db_outage.DatabaseOutageMiddleware` just outside the session middleware. `False` keeps `DATABASES` and `MIDDLEWARE` as written. |
 | `DLUX_DB_CONNECT_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `5` | The `connect_timeout` given to a PostgreSQL connection that sets none. |
-| `DLUX_DB_BREAKER_SECONDS` | Django setting, read at connect time | seconds, `5` | After a connection attempt fails in a web process, further attempts in that process fail at once for this long (`dlux.db_outage.DatabaseUnavailable`). Outside a request, after a System Settings read fails because the database is down, further system-config builds skip the database for this long. `0` turns both off. |
+| `DLUX_DB_BREAKER_SECONDS` | Django setting, read at connect time | seconds, `5` | After a connection attempt fails in a web process, further attempts in that process fail at once for this long (`dlux.db_outage.DatabaseUnavailable`). Outside a request, after a read of System Settings, Scope Settings or the managed fonts fails because the database is down, further System Settings and Scope Settings reads skip the database for this long. `0` turns both off. |
 
 Generated stacks open a database connection per request, so the connect timeout
 bounds how long a request waits on a database that does not answer. After one
@@ -151,9 +151,11 @@ While the database is down, System Settings fall back to the defaults and the
 `dlux` logger warns once, in one line without a traceback, that the database is
 unavailable. Further failed reads log at debug level until a read succeeds, which
 logs one info line that the database answers again. Outside a request (management
-commands, system checks) the system config is rebuilt on every use, so after a
-failed read the next builds use the defaults without trying the database for
-`DLUX_DB_BREAKER_SECONDS`; a request always tries it.
+commands, system checks) nothing keeps these reads between uses, so after a read
+of System Settings, Scope Settings or the managed fonts fails, the next System
+Settings and Scope Settings reads use the defaults without trying the database for
+`DLUX_DB_BREAKER_SECONDS`; a request always tries it. With the database host
+unreachable, `manage.py check` waits out one `DLUX_DB_CONNECT_TIMEOUT`.
 
 ## Limits and Data Discovery
 

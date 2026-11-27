@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import re
-import time
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -29,7 +28,7 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
-from ..db_errors import breaker_seconds, is_database_outage
+from ..db_errors import clear_read_failure, last_read_failure, note_read_failure, read_recently_failed
 from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -167,7 +166,6 @@ def _system_config_db_unavailable_error(exc):
 # Set while the database does not answer config reads, so the outage is logged
 # once (no traceback) instead of on every config build.
 _config_db_outage = False
-_config_db_failed_at = 0.0
 
 
 class _ConfigReadSkipped(Exception):
@@ -182,35 +180,28 @@ def _config_db_breaker_open():
     ``manage.py check``. A request still tries; the web connect breaker makes
     that attempt fail fast, and a skipped read there could show the setup wizard.
     """
-    if not _config_db_outage:
-        return False
-    if time.monotonic() - _config_db_failed_at >= breaker_seconds():
-        return False
-    return _current_request() is None
+    return read_recently_failed() and _current_request() is None
 
 
 def _note_config_db_outage(exc):
     """Log a database outage once per outage; return whether ``exc`` was one."""
-    global _config_db_outage, _config_db_failed_at
-    if isinstance(exc, _ConfigReadSkipped):
-        return True
-    if not is_database_outage(exc):
+    global _config_db_outage
+    if not isinstance(exc, _ConfigReadSkipped) and not note_read_failure(exc):
         return False
-    _config_db_failed_at = time.monotonic()
     if _config_db_outage:
         logger.debug("SystemSettings still unreadable: the database is unavailable.")
     else:
         _config_db_outage = True
-        first_line = (str(exc).strip().splitlines() or [''])[0]
         logger.warning(
             "Failed to read SystemSettings: the database is unavailable; system config uses "
-            "defaults until it answers (%s: %s).", type(exc).__name__, first_line,
+            "defaults until it answers (%s).", last_read_failure(),
         )
     return True
 
 
 def _note_config_db_answered():
     global _config_db_outage
+    clear_read_failure()
     if _config_db_outage:
         _config_db_outage = False
         logger.info("The database answers again; system config reads SystemSettings.")
