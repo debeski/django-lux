@@ -41,6 +41,24 @@
 	}
 }
 
+# How every stored file under /media/ is served, public or private: the
+# browser never sniffs a type (nosniff), and a file it would run as a page
+# (HTML, SVG, XML, JavaScript, anything not listed below) opens as a download
+# in a sandbox with no script and no requests (Content-Security-Policy), so an
+# upload cannot act on this site with the rights of whoever opens it. Raster
+# images and PDF stay inline for previews and the PDF viewer; a PDF has no
+# sandbox, which would stop the browser's PDF viewer. <img>, fetch() and
+# @font-face loads ignore Content-Disposition. Composer's stored-files check
+# looks for this snippet by name: keep dlux_media_headers.
+# (nginx: the $dlux_media_csp and $dlux_media_disposition maps)
+(dlux_media_headers) {
+	@dlux_media_sandboxed not path *.pdf
+	@dlux_media_download not path *.avif *.bmp *.gif *.ico *.jpeg *.jpg *.pdf *.png *.webp
+	header X-Content-Type-Options "nosniff"
+	header @dlux_media_sandboxed Content-Security-Policy "default-src 'none'; sandbox"
+	header @dlux_media_download Content-Disposition "attachment"
+}
+
 {$CADDY_SITE_ADDRESS::80} {
 	encode zstd gzip
 
@@ -81,6 +99,7 @@
 			root * /opt/dlux-runtime/proxy
 			uri strip_prefix /_dlux
 			header Cache-Control "no-store"
+			header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 			file_server
 		}
 
@@ -109,6 +128,7 @@
 		handle @public_media {
 			uri strip_prefix /media
 			root * /app/media
+			import dlux_media_headers
 			file_server
 		}
 
@@ -147,6 +167,7 @@
 				uri strip_prefix /media
 				root * /app/media
 				header Cache-Control "private, no-cache"
+				import dlux_media_headers
 				file_server
 			}
 		}
@@ -189,6 +210,7 @@
 		handle @down {
 			root * /opt/dlux-runtime/proxy/maintenance
 			rewrite * /index.html
+			header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 			file_server {
 				status 503
 			}

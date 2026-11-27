@@ -410,12 +410,23 @@ Stored files are private by default (stack schema 4). The generated proxy, Caddy
 | `dlux_backups/`, `dlux/assets/private/`, `dlux/file_history/`, plus `DLUX_APP_ONLY_MEDIA` and (1.15.5+) any `.dlb` file | Refused to everyone. The app's own views serve these after their checks (backups, installer downloads, file history). |
 | `public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/`, plus `DLUX_PUBLIC_MEDIA` | Served to anyone (branding on the login page, managed images and fonts). |
 | A registered document file (`register_document_file`) | Served to anyone when its registration's `public(document)` rule returns `True` (a soft-deleted document is never public). Otherwise served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check (`can_access`, else `view_<model>`). A case variant of its name is refused. |
-| Any other file in the same folder as a registered document file, or a file a history row names exactly (`FileVersion.active_name_before` or `archived_file`, in any folder) | Refused to everyone. A replaced original, a project's own history copy kept beside the documents, or an orphan has no document left to check; history copies are served by the history views. The exact current file of another file field on a document model, such as an attachment, is the exception: it needs a signed-in user. Subfolders are judged by their own contents. |
+| The current file of another file field on a document model (an attachment, a photo), in any folder | Follows its document: served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check. A case variant of its name is refused. |
+| Any other file in the same folder as a registered document file, or a file a history row names exactly (`FileVersion.active_name_before` or `archived_file`, in any folder) | Refused to everyone. A replaced original, a project's own history copy kept beside the documents, or an orphan has no document left to check; history copies are served by the history views. Subfolders are judged by their own contents. |
 | Any other stored file | Served to any signed-in user. |
 
 Whatever a rule above would serve is refused when it is a backup (1.15.5+): a file in the folder system backups are written to now (System Settings, Backup, *Automatic export target*, `backup_config.auto_export_target`) or the reports backup folder (`DLUX_CONFIG['reports']['backup_storage_prefix']`), read on each request, or a file a backup record still names after its folder was changed. From 1.15.5 a custom backup folder needs no `DLUX_APP_ONLY_MEDIA` entry; on 1.15.3 and 1.15.4, list it there. The backup folder can't be a public folder, because the proxy serves those without asking: System Settings refuses one, and a stored value that is one falls back to `dlux_backups`. Move any backups already kept in a public folder out of it.
 
 A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: private, no-cache`, so a browser revalidates each time.
+
+**How a stored file is served.** An upload must never run as the site: a page or SVG a staff member uploads would otherwise run its script with the rights of whoever opens it. Every `/media/` file the proxy sends, public or private, carries:
+
+| Header | Sent for | Effect |
+| --- | --- | --- |
+| `X-Content-Type-Options: nosniff` | Every file | The browser keeps the type the proxy names and never guesses one from the content. |
+| `Content-Security-Policy: default-src 'none'; sandbox` | Every file except PDF | A file opened in the browser runs no script, loads nothing and gets an origin of its own. A PDF has no sandbox, which would stop the browser's PDF viewer. |
+| `Content-Disposition: attachment` | Every file except raster images (AVIF, BMP, GIF, ICO, JPEG, PNG, WebP) and PDF | HTML, SVG, XML, JavaScript, text and every other type opens as a download. |
+
+Image previews, the PDF viewer (its native fallback frame included), branding, managed images and fonts keep working: `<img>`, `fetch()` and `@font-face` loads ignore `Content-Disposition`, and an SVG logo shown through `<img>` never runs script. The Caddyfile carries these headers in the `dlux_media_headers` snippet, imported by both `/media/` routes; the nginx template carries them in the `$dlux_media_csp` and `$dlux_media_disposition` maps and the `add_header` lines of every `/media/` location. The dynamic modal also refuses HTML, SVG and script uploads on plain file fields (see [Document files](document-files.md)).
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -433,6 +444,8 @@ An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a fo
 Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
 Projects that already deny their own folders in the proxy can keep those rules; they don't conflict.
+
+**Serving headers on existing stacks.** A schema-4 proxy file without the headers above serves an uploaded page or SVG inline, where its script runs as the site. `composer check` reports it as a `stored-files` failure that names each missing header and file, and `./start.sh check --fix` adds them to an unmodified generated proxy file, validates it, archives the original under `.xclude/composer-check/` and recreates the proxy. The same run adds the maintenance page's `Content-Security-Policy`. A proxy file with its own `/media/` rules is reported and left alone: copy the `dlux_media_headers` snippet and its two `import` lines (Caddy), or the two maps and the `add_header` lines (nginx), from a fresh `python -m dlux startproject`, then run `./start.sh restart caddy` (or `nginx`).
 
 ## Cross-site requests (Fetch Metadata)
 

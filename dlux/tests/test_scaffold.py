@@ -1339,7 +1339,7 @@ class FetchMetadataPolicyTests(unittest.TestCase):
                         "location ^~ /_dlux/maintenance/ {", "location = /_edge-alive {"):
             with self.subTest(open_location=opening):
                 self.assertNotIn("cross_site_request", self._nginx_location(opening))
-        public = re.findall(r"location \^~ /media/\S+ \{[^\n]*\}", self.nginx)
+        public = re.findall(r"location \^~ /media/(?!dlux_backups/)\S+ \{\n.*?\n    \}", self.nginx, re.S)
         self.assertTrue(public)
         for line in public:
             self.assertNotIn("cross_site_request", line)

@@ -483,8 +483,12 @@ From stack schema 3 (Composer 1.7.0 or later) the maintenance page is not a
 project file. It ships in the Composer image; `composer-agent` publishes it on
 every start to `/opt/dlux-runtime/proxy/maintenance/` and the proxy serves it from
 the runtime mount it already has, with its CSS and JS under `/_dlux/maintenance/`
-so they load while `web` is down. A project page goes in `.proxy/maintenance/` and
-is published by `composer check --fix`. A stack stamped with an earlier schema
+so they load while `web` is down. The proxy sends both the page and its assets
+with `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src
+'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri
+'none'; form-action 'none'; frame-ancestors 'self'`, so the page runs only its
+own script and style files, never inline code, and talks only to this site. A project page goes in `.proxy/maintenance/`, follows
+the same policy, and is published by `composer check --fix`. A stack stamped with an earlier schema
 serves `.proxy/maintenance.html` from a bind mount until `composer check --fix`
 (resident agent 1.7.0 or later) migrates it; a customised page is kept as the
 override. See [Stack Schema Stamps](stack-schema.md).

@@ -41,6 +41,25 @@ map "$http_sec_fetch_site:$request_method:$http_sec_fetch_mode:$http_sec_fetch_d
     "~^cross-site:"                                     1;
 }
 
+# How every stored file under /media/ is served, public or private, the nginx
+# form of the Caddyfile's dlux_media_headers snippet: the browser never sniffs
+# a type (nosniff), and a file it would run as a page (HTML, SVG, XML,
+# JavaScript, anything not listed below) opens as a download in a sandbox with
+# no script and no requests (Content-Security-Policy), so an upload cannot act
+# on this site with the rights of whoever opens it. Raster images and PDF stay
+# inline for previews and the PDF viewer; a PDF has no sandbox, which would
+# stop the browser's PDF viewer. An empty value sends no header. Composer's
+# stored-files check looks for these maps by name: keep them.
+map $uri $dlux_media_csp {
+    default     "default-src 'none'; sandbox";
+    "~*\.pdf$"  "";
+}
+
+map $uri $dlux_media_disposition {
+    default                                         "attachment";
+    "~*\.(?:avif|bmp|gif|ico|jpe?g|pdf|png|webp)$"  "";
+}
+
 server {
     listen 80;
     server_name ${NGINX_SERVER_NAME};
@@ -62,11 +81,13 @@ server {
     location = /dlux-maintenance.html {
         alias /opt/dlux-runtime/proxy/maintenance/index.html;
         internal;
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'" always;
     }
 
     location ^~ /_dlux/maintenance/ {
         alias /opt/dlux-runtime/proxy/maintenance/;
         add_header Cache-Control "no-store";
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
     }
 
     location = /_update/status.json {
@@ -105,10 +126,30 @@ server {
 
     # Public media (branding, managed images and fonts, the project's public/
     # folder). Keep in step with dlux.files.media.PUBLIC_MEDIA.
-    location ^~ /media/public/ { root /app; }
-    location ^~ /media/dlux/branding/ { root /app; }
-    location ^~ /media/dlux/assets/image/ { root /app; }
-    location ^~ /media/dlux/assets/font/ { root /app; }
+    location ^~ /media/public/ {
+        root /app;
+        add_header X-Content-Type-Options "nosniff";
+        add_header Content-Security-Policy $dlux_media_csp;
+        add_header Content-Disposition $dlux_media_disposition;
+    }
+    location ^~ /media/dlux/branding/ {
+        root /app;
+        add_header X-Content-Type-Options "nosniff";
+        add_header Content-Security-Policy $dlux_media_csp;
+        add_header Content-Disposition $dlux_media_disposition;
+    }
+    location ^~ /media/dlux/assets/image/ {
+        root /app;
+        add_header X-Content-Type-Options "nosniff";
+        add_header Content-Security-Policy $dlux_media_csp;
+        add_header Content-Disposition $dlux_media_disposition;
+    }
+    location ^~ /media/dlux/assets/font/ {
+        root /app;
+        add_header X-Content-Type-Options "nosniff";
+        add_header Content-Security-Policy $dlux_media_csp;
+        add_header Content-Disposition $dlux_media_disposition;
+    }
 
     # Every other stored file is private: the app decides who gets it before
     # nginx sends it (403 when refused).
@@ -117,6 +158,9 @@ server {
         auth_request /_dlux_media_access;
         root /app;
         add_header Cache-Control "private, no-cache";
+        add_header X-Content-Type-Options "nosniff";
+        add_header Content-Security-Policy $dlux_media_csp;
+        add_header Content-Disposition $dlux_media_disposition;
     }
 
     location = /_dlux_media_access {

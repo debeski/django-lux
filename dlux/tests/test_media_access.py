@@ -116,13 +116,33 @@ class MediaAccessTests(TestCase):
             with self.subTest(name=name):
                 self.assertFalse(self.decide(self.admin, name))
 
-    def test_an_attachment_beside_its_document_file_needs_a_signed_in_user(self):
+    def test_an_attachment_follows_its_document_permission(self):
         from django.contrib.auth.models import AnonymousUser
 
         self.paper.attachment.save('annex.pdf', ContentFile(b'%PDF-1.4'))
-        self.assertTrue(self.decide(self.stranger, self.paper.attachment.name))
-        self.assertFalse(self.decide(AnonymousUser(), self.paper.attachment.name))
-        self.assertFalse(self.decide(self.stranger, self.paper.attachment.name.upper()))
+        name = self.paper.attachment.name
+        self.assertTrue(self.decide(self.reader, name))
+        self.assertTrue(self.decide(self.admin, name))
+        self.assertFalse(self.decide(self.stranger, name))
+        self.assertFalse(self.decide(AnonymousUser(), name))
+        self.assertFalse(self.decide(self.reader, name.upper()))
+
+    def test_an_attachment_in_its_own_folder_stays_in_its_documents_scope(self):
+        # Break-it R2-041: an attachment outside the document files' folder was served to any signed-in user.
+        Paper.all_objects.filter(pk=self.paper.pk).update(attachment='attachments/attach_B1.txt')
+        name = 'attachments/attach_B1.txt'
+        self.assertTrue(self.decide(self.reader, name))
+        self.assertFalse(self.decide(self.stranger, name))
+        self.assertFalse(self.decide(self.stranger, name.upper()))
+        self.assertTrue(self.decide(self.stranger, 'attachments/unrelated.txt'))
+        ScopeSettings.objects.update_or_create(pk=1, defaults={'is_enabled': True})
+        other = Scope.objects.create(name='Other branch')
+        mine = Scope.objects.create(name='My branch')
+        Paper.all_objects.filter(pk=self.paper.pk).update(scope=other)
+        self.reader.profile.scope = mine
+        self.reader.profile.save()
+        cache.clear()
+        self.assertFalse(self.decide(self.reader, name))
 
     def test_other_folders_and_subfolders_need_a_signed_in_user(self):
         for name in ('papers/2026/scan.pdf', 'reports/q1.pdf', 'loose.pdf'):
@@ -143,14 +163,15 @@ class MediaAccessTests(TestCase):
                 self.assertFalse(self.decide(self.admin, name))
         self.assertTrue(self.decide(self.admin, 'scans/2019/other.pdf'))
 
-    def test_a_file_elsewhere_costs_one_lookup_per_document_field(self):
+    def test_a_file_elsewhere_costs_one_lookup_per_file_field_of_a_document_model(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
         with CaptureQueriesContext(connection) as queries:
             self.assertTrue(self.decide(self.stranger, 'reports/q1.pdf'))
         papers = [q['sql'] for q in queries.captured_queries if Paper._meta.db_table in q['sql']]
-        self.assertEqual(len(papers), 1, papers)
+        # The registered pdf_file and the attachment field.
+        self.assertEqual(len(papers), 2, papers)
 
     def test_the_file_the_editor_replaced_stays_on_disk_but_no_one_fetches_it(self):
         from dlux.files.history import save_new_version
@@ -359,7 +380,7 @@ class ProxyTemplateTests(SimpleTestCase):
 
     def test_nginx_serves_public_folders_and_asks_the_app_for_the_rest(self):
         text = (PROXY_TEMPLATES / 'default.conf.template.tmpl').read_text(encoding='utf-8')
-        public = re.findall(r'location \^~ /media/(\S+) \{ root /app; \}', text)
+        public = re.findall(r'location \^~ /media/(\S+) \{\n        root /app;\n', text)
         self.assertEqual(sorted(public), sorted(PUBLIC_MEDIA))
         self.assertIn('auth_request /_dlux_media_access;', text)
         self.assertIn('proxy_set_header X-Forwarded-Uri $request_uri;', text)
@@ -369,3 +390,174 @@ class ProxyTemplateTests(SimpleTestCase):
         self.assertIn('dlux_backups/', APP_ONLY_MEDIA)
         for template in ('Caddyfile.tmpl', 'default.conf.template.tmpl'):
             self.assertIn('/media/dlux_backups/', (PROXY_TEMPLATES / template).read_text(encoding='utf-8'))
+
+
+MEDIA_CSP = "default-src 'none'; sandbox"
+MAINTENANCE_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; "
+    "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+)
+# name → (Content-Security-Policy, Content-Disposition) the proxy must send; every file gets nosniff.
+SERVED_HEADERS = {
+    'attachments/x.html': (MEDIA_CSP, 'attachment'),
+    'attachments/pic.svg': (MEDIA_CSP, 'attachment'),
+    'attachments/feed.xml': (MEDIA_CSP, 'attachment'),
+    'attachments/run.js': (MEDIA_CSP, 'attachment'),
+    'attachments/page.xhtml': (MEDIA_CSP, 'attachment'),
+    'attachments/no_extension': (MEDIA_CSP, 'attachment'),
+    'attachments/notes.txt': (MEDIA_CSP, 'attachment'),
+    'attachments/photo.png': (MEDIA_CSP, None),
+    'attachments/PHOTO.JPG': (MEDIA_CSP, None),
+    'attachments/scan.pdf': (None, None),
+    'attachments/SCAN.PDF': (None, None),
+    'public/flyer.svg': (MEDIA_CSP, 'attachment'),
+    'public/flyer.html': (MEDIA_CSP, 'attachment'),
+    'dlux/branding/logo.png': (MEDIA_CSP, None),
+    'dlux/branding/logo.svg': (MEDIA_CSP, 'attachment'),
+    'dlux/assets/font/dlux.fonts/a.woff2': (MEDIA_CSP, 'attachment'),
+}
+
+
+class ProxyServingHeadersTests(SimpleTestCase):
+    """How the generated proxies serve a stored file (break-it R2-001): an
+    uploaded page or SVG must never run as this site, while images and PDF
+    stay inline for previews and the PDF viewer."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from dlux.scaffold.project import create_project
+
+        cls._tmp = tempfile.TemporaryDirectory()
+        target = Path(cls._tmp.name) / 'demo'
+        create_project('demo', str(target), image='demo:latest', repo='acme/demo', interactive=False)
+        cls.proxy = target / '.proxy'
+        cls.caddyfile = (cls.proxy / 'Caddyfile').read_text(encoding='utf-8')
+        cls.nginx = (cls.proxy / 'default.conf.template').read_text(encoding='utf-8')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+        super().tearDownClass()
+
+    def test_caddy_imports_the_media_headers_in_both_media_routes(self):
+        snippet = re.search(r'^\(dlux_media_headers\) \{\n(.*?)^\}\n', self.caddyfile, re.S | re.M)
+        self.assertIsNotNone(snippet, 'the Caddyfile has no dlux_media_headers snippet')
+        body = snippet.group(1)
+        self.assertIn('header X-Content-Type-Options "nosniff"', body)
+        self.assertIn(f'header @dlux_media_sandboxed Content-Security-Policy "{MEDIA_CSP}"', body)
+        self.assertIn('header @dlux_media_download Content-Disposition "attachment"', body)
+        for opening in ('handle @public_media {', 'handle /media/* {'):
+            with self.subTest(route=opening):
+                start = self.caddyfile.index(opening)
+                block = self.caddyfile[start:self.caddyfile.index('file_server', start)]
+                self.assertIn('import dlux_media_headers', block)
+
+    def test_nginx_sends_the_media_headers_in_every_media_location(self):
+        self.assertIn('map $uri $dlux_media_csp {', self.nginx)
+        self.assertIn('map $uri $dlux_media_disposition {', self.nginx)
+        locations = re.findall(r'^    location (?:\^~ )?/media/(?!dlux_backups/)\S* \{\n(.*?)^    \}\n', self.nginx, re.S | re.M)
+        self.assertEqual(len(locations), len(PUBLIC_MEDIA) + 1)
+        for body in locations:
+            self.assertIn('add_header X-Content-Type-Options "nosniff";', body)
+            self.assertIn('add_header Content-Security-Policy $dlux_media_csp;', body)
+            self.assertIn('add_header Content-Disposition $dlux_media_disposition;', body)
+
+    def test_the_maintenance_page_carries_its_csp_in_both_proxies(self):
+        self.assertEqual(self.caddyfile.count(f'header Content-Security-Policy "{MAINTENANCE_CSP}"'), 2)
+        self.assertIn(f'add_header Content-Security-Policy "{MAINTENANCE_CSP}" always;', self.nginx)
+        self.assertIn(f'add_header Content-Security-Policy "{MAINTENANCE_CSP}";', self.nginx)
+
+    # Live: the generated files in a real Caddy and nginx, with a stub `web` that grants every file.
+
+    def _require_images(self):
+        import subprocess
+
+        if not shutil.which('docker'):
+            self.skipTest('docker is not available')
+        for image in ('caddy:latest', 'nginx:latest'):
+            probe = subprocess.run(['docker', 'image', 'inspect', image], capture_output=True, text=True)
+            if probe.returncode != 0:
+                self.skipTest(f'{image} is not available locally (no daemon, or the image was never pulled)')
+
+    def _start_stack(self, kind):
+        import os
+        import subprocess
+
+        self._require_images()
+        root = Path(tempfile.mkdtemp(dir=self._tmp.name))
+        media, runtime = root / 'media', root / 'runtime'
+        for name in SERVED_HEADERS:
+            path = media / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('<html><body><script>document.title="ran"</script></body></html>', encoding='utf-8')
+        page = runtime / 'proxy' / 'maintenance'
+        page.mkdir(parents=True)
+        (page / 'index.html').write_text('<!doctype html><title>maintenance</title>', encoding='utf-8')
+        (runtime / 'state').mkdir()
+        stub = root / 'stub'
+        stub.write_text(':8000 {\n\trespond /sys/files/media-access/ 204\n\trespond 503\n}\n', encoding='utf-8')
+        for path in (root, media, runtime, *root.rglob('*')):
+            path.chmod(0o755 if path.is_dir() else 0o644)
+
+        tag = f'dlux-media-headers-{kind}-{os.getpid()}'
+        run = lambda *args: subprocess.run(['docker', *args], capture_output=True, text=True, timeout=120)  # noqa: E731
+        self.assertEqual(run('network', 'create', tag).returncode, 0)
+        self.addCleanup(run, 'network', 'rm', tag)
+        started = run('run', '-d', '--rm', '--pull', 'never', '--name', f'{tag}-web', '--network', tag,
+                      '--network-alias', 'web', '-v', f'{stub}:/etc/caddy/Caddyfile:ro', 'caddy:latest')
+        self.assertEqual(started.returncode, 0, started.stderr)
+        self.addCleanup(run, 'rm', '-f', f'{tag}-web')
+        mounts = ['-v', f'{media}:/app/media:ro', '-v', f'{runtime}:/opt/dlux-runtime:ro']
+        if kind == 'caddy':
+            proxy = ['-v', f"{self.proxy / 'Caddyfile'}:/etc/caddy/Caddyfile:ro", 'caddy:latest']
+        else:
+            proxy = ['-e', 'NGINX_SERVER_NAME=localhost', '-e', 'NGINX_MAX_SIZE=10M', '-e', 'NGINX_ENVSUBST_FILTER=NGINX_',
+                     '-v', f"{self.proxy / 'default.conf.template'}:/etc/nginx/templates/default.conf.template:ro",
+                     'nginx:latest']
+        started = run('run', '-d', '--rm', '--pull', 'never', '--name', tag, '--network', tag,
+                      '-p', '127.0.0.1::80', *mounts, *proxy)
+        self.assertEqual(started.returncode, 0, started.stderr)
+        self.addCleanup(run, 'rm', '-f', tag)
+        port = run('port', tag, '80/tcp').stdout.split()[0].rsplit(':', 1)[1]
+        return f'http://127.0.0.1:{port}', runtime
+
+    def _get(self, url):
+        import time
+        import urllib.error
+        import urllib.request
+
+        for _ in range(50):
+            try:
+                with urllib.request.urlopen(url, timeout=10) as response:
+                    return response.status, response.headers
+            except urllib.error.HTTPError as exc:
+                return exc.code, exc.headers
+            except (urllib.error.URLError, ConnectionError):
+                time.sleep(0.2)
+        self.fail(f'{url} never answered')
+
+    def _assert_live_headers(self, kind):
+        base, runtime = self._start_stack(kind)
+        for name, (csp, disposition) in SERVED_HEADERS.items():
+            with self.subTest(proxy=kind, name=name):
+                status, headers = self._get(f'{base}/media/{name}')
+                self.assertEqual(status, 200)
+                self.assertEqual(headers.get('X-Content-Type-Options'), 'nosniff')
+                self.assertEqual(headers.get('Content-Security-Policy'), csp)
+                self.assertEqual(headers.get('Content-Disposition'), disposition)
+        with self.subTest(proxy=kind, name='maintenance assets'):
+            status, headers = self._get(f'{base}/_dlux/maintenance/index.html')
+            self.assertEqual(status, 200)
+            self.assertEqual(headers.get('Content-Security-Policy'), MAINTENANCE_CSP)
+        (runtime / 'state' / 'maintenance').write_text('', encoding='utf-8')
+        with self.subTest(proxy=kind, name='maintenance page on 503'):
+            status, headers = self._get(f'{base}/vault/')
+            self.assertEqual(status, 503)
+            self.assertEqual(headers.get('Content-Security-Policy'), MAINTENANCE_CSP)
+
+    def test_caddy_serves_active_files_as_sandboxed_downloads(self):
+        self._assert_live_headers('caddy')
+
+    def test_nginx_serves_active_files_as_sandboxed_downloads(self):
+        self._assert_live_headers('nginx')
