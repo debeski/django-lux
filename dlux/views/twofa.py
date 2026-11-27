@@ -58,6 +58,11 @@ TWOFA_IP_VERIFY_LIMIT = int(getattr(settings, 'DLUX_2FA_IP_VERIFY_LIMIT', 20))
 TWOFA_IP_VERIFY_WINDOW = int(getattr(settings, 'DLUX_2FA_IP_VERIFY_WINDOW', 600))
 TWOFA_IP_SEND_LIMIT = int(getattr(settings, 'DLUX_2FA_IP_SEND_LIMIT', 10))
 TWOFA_IP_SEND_WINDOW = int(getattr(settings, 'DLUX_2FA_IP_SEND_WINDOW', 3600))
+TWOFA_USER_VERIFY_LIMIT = int(getattr(settings, 'DLUX_2FA_USER_VERIFY_LIMIT', 10))
+TWOFA_USER_VERIFY_WINDOW = int(getattr(settings, 'DLUX_2FA_USER_VERIFY_WINDOW', 900))
+LOGIN_2FA_CHALLENGE_MAX_FAILURES = int(getattr(settings, 'DLUX_2FA_CHALLENGE_MAX_FAILURES', 5))
+EMAIL_OTP_MAX_ATTEMPTS = 3
+ENABLE_INTENTS = frozenset({'enable', 'enable_email', 'enable_phone', 'enable_totp'})
 LOGIN_EMAIL_RESEND_COOLDOWN_SECONDS = 120
 DEFAULT_OTP_RESEND_COOLDOWN_SECONDS = 60
 PRE_2FA_USER_ID_SESSION_KEY = 'pre_2fa_user_id'
@@ -67,6 +72,7 @@ PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY = 'pre_2fa_email_auto_sent'
 PRE_2FA_NEXT_URL_SESSION_KEY = 'pre_2fa_next_url'
 PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY = 'pre_2fa_default_redirect'
 PRE_2FA_STARTED_AT_SESSION_KEY = 'pre_2fa_started_at'
+PRE_2FA_FAILURES_SESSION_KEY = 'pre_2fa_failures'
 
 # Hard window to complete 2FA after the password step succeeds. The pre-2FA
 # session state is abandoned once this elapses, so a half-finished challenge
@@ -199,6 +205,10 @@ def _otp_cache_key(user, intent):
     return f"otp_{user.pk}_{intent}"
 
 
+def _otp_attempts_key(user, intent):
+    return f"otp_attempts_{user.pk}_{intent}"
+
+
 def _otp_cooldown_key(user, intent):
     return f"otp_cooldown_{user.pk}_{intent}"
 
@@ -232,22 +242,40 @@ def _set_otp_cooldown(user, intent='login', recipient_email=None):
     return cooldown_seconds
 
 
+def _intent_family(intent):
+    return 'login' if intent == 'login' else 'enable'
+
+
 def _twofa_ip_key(kind, request, intent='login'):
     ip_address = get_client_ip(request) if request else None
     if not ip_address:
         return None
-    normalized_intent = str(intent or 'login').replace(':', '_')
+    if kind == 'verify':
+        # One counter per flow: a posted intent string must not open a fresh one.
+        normalized_intent = _intent_family(intent)
+    else:
+        normalized_intent = str(intent or 'login').replace(':', '_')
     return f"dlux:2fa:{kind}:ip:{ip_address}:{normalized_intent}"
+
+
+def _twofa_user_key(user):
+    return f"dlux:2fa:verify:user:{user.pk}" if user is not None and user.pk else None
+
+
+def _twofa_user_limited(user):
+    key = _twofa_user_key(user)
+    return bool(key) and int(cache.get(key, 0) or 0) >= TWOFA_USER_VERIFY_LIMIT
 
 
 def _increment_cache_counter(key, timeout):
     if not key:
         return 0
+    cache.add(key, 0, timeout=timeout)
     try:
         return cache.incr(key)
     except ValueError:
-        cache.set(key, 1, timeout=timeout)
-        return 1
+        cache.add(key, 0, timeout=timeout)
+        return cache.incr(key)
 
 
 def _twofa_ip_limited(kind, request, intent='login'):
@@ -262,6 +290,21 @@ def _record_twofa_ip_event(kind, request, intent='login'):
     key = _twofa_ip_key(kind, request, intent)
     timeout = TWOFA_IP_SEND_WINDOW if kind == 'send' else TWOFA_IP_VERIFY_WINDOW
     return _increment_cache_counter(key, timeout)
+
+
+def _record_twofa_failure(request, user, intent):
+    """Count a wrong code against the IP, the account and the sign-in challenge.
+
+    Returns True when the sign-in challenge has used up its attempts.
+    """
+    _record_twofa_ip_event('verify', request, intent)
+    _increment_cache_counter(_twofa_user_key(user), TWOFA_USER_VERIFY_WINDOW)
+    if intent != 'login':
+        return False
+    session = request.session
+    failures = int(session.get(PRE_2FA_FAILURES_SESSION_KEY, 0) or 0) + 1
+    session[PRE_2FA_FAILURES_SESSION_KEY] = failures
+    return failures >= LOGIN_2FA_CHALLENGE_MAX_FAILURES
 
 
 def _otp_code_matches(data, raw_code):
@@ -329,6 +372,7 @@ def _clear_pre_2fa_session_state(request):
         PRE_2FA_NEXT_URL_SESSION_KEY,
         PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY,
         PRE_2FA_STARTED_AT_SESSION_KEY,
+        PRE_2FA_FAILURES_SESSION_KEY,
     ):
         session.pop(key, None)
 
@@ -430,6 +474,7 @@ def send_otp(request, user, intent='login', recipient_email=None):
     if intent == 'enable_email':
         payload['email'] = recipient_email
     cache.set(cache_key, payload, timeout=300)
+    cache.delete(_otp_attempts_key(user, intent))
     _set_otp_cooldown(user, intent, recipient_email)
 
     s = get_strings()
@@ -456,17 +501,21 @@ def verify_otp_logic(user, code, intent='login'):
     if not data:
         return False, '2fa_invalid_code'
 
-    if _otp_code_matches(data, code):
-        cache.delete(cache_key)
-        return True, None
-
-    attempts = int(data.get('attempts', 0)) + 1
-    if attempts >= 3:
+    # Reserve the attempt atomically before comparing, so parallel guesses
+    # cannot share one count.
+    attempts_key = _otp_attempts_key(user, intent)
+    attempts = _increment_cache_counter(attempts_key, 300)
+    if attempts > EMAIL_OTP_MAX_ATTEMPTS:
         cache.delete(cache_key)
         return False, '2fa_invalid_code'
 
-    data['attempts'] = attempts
-    cache.set(cache_key, data, timeout=300)
+    if _otp_code_matches(data, code):
+        cache.delete(cache_key)
+        cache.delete(attempts_key)
+        return True, None
+
+    if attempts >= EMAIL_OTP_MAX_ATTEMPTS:
+        cache.delete(cache_key)
     return False, '2fa_invalid_code'
 
 
@@ -549,11 +598,11 @@ def verify_otp_view(request, intent='login'):
         method = str(request.POST.get('method') or '').strip() or (
             request.session.get(PRE_2FA_METHOD_SESSION_KEY, 'email') if intent == 'login' else 'email'
         )
-        posted_intent = request.POST.get('intent')
-        if posted_intent:
+        posted_intent = str(request.POST.get('intent') or '').strip()
+        if intent != 'login' and posted_intent in ENABLE_INTENTS:
             intent = posted_intent
 
-        if _twofa_ip_limited('verify', request, intent):
+        if _twofa_ip_limited('verify', request, intent) or _twofa_user_limited(user):
             error_msg = s.get('2fa_invalid_code')
             if is_ajax:
                 return JsonResponse({'status': 'error', 'message': error_msg}, status=429)
@@ -592,6 +641,7 @@ def verify_otp_view(request, intent='login'):
 
         if is_valid:
             if intent == 'login':
+                cache.delete(_twofa_user_key(user))
                 login(request, user)
                 _sync_session_device_metadata(request)
                 from ..auth.trust import enforce_single_active_session
@@ -645,9 +695,25 @@ def verify_otp_view(request, intent='login'):
             notify.success(s.get('2fa_enabled_msg'), request=request, action='2fa_enabled', category='security')
             return redirect('user_profile')
 
-        log_audit_event(request, '2fa_failed', '2FA_FAILED', model_name='2fa')
+        challenge_spent = _record_twofa_failure(request, user, intent)
+        try:
+            log_audit_event(
+                request, '2fa_failed', '2FA_FAILED', model_name='2fa',
+                details={'user_id': user.pk, 'method': method, 'intent': intent},
+            )
+        except Exception:
+            logger.warning("Could not write the 2FA failure audit event for user pk=%s", user.pk, exc_info=True)
         error_msg = s.get(error_key)
-        _record_twofa_ip_event('verify', request, intent)
+        if challenge_spent:
+            _clear_pre_2fa_session_state(request)
+            spent_msg = s.get('2fa_challenge_too_many_attempts')
+            if is_ajax:
+                return JsonResponse(
+                    {'status': 'error', 'message': spent_msg, 'redirect_url': reverse('login')},
+                    status=440,
+                )
+            notify.error(spent_msg, request=request, action='2fa_challenge_too_many_attempts', category='security')
+            return redirect('login')
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': error_msg})
         error_message = error_msg

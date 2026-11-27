@@ -926,6 +926,7 @@ STRINGS = {
     'help_sys_login_lockout_duration_minutes': 'مدة بقاء تسجيل الدخول محظوراً بعد تفعيل القفل.',
     'login_locked_out': 'محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد حوالي {minutes} دقيقة.',
     '2fa_challenge_expired': 'انتهت صلاحية جلسة تسجيل الدخول قبل التحقق بخطوتين. يرجى تسجيل الدخول مرة أخرى.',
+    '2fa_challenge_too_many_attempts': 'عدد كبير من الرموز الخاطئة. يرجى تسجيل الدخول مرة أخرى.',
     'session_ended_idle_timeout': 'انتهت جلستك بسبب عدم النشاط. يرجى تسجيل الدخول مرة أخرى.',
     'session_ended_session_timeout': 'انتهت مدة جلستك. يرجى تسجيل الدخول مرة أخرى.',
     'form_sys_client_ip_mode': 'مصدر عنوان IP للعميل',

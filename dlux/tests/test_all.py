@@ -39,6 +39,7 @@ TEST_LABELS = [
     'dlux.tests.test_assisted_entry',
     'dlux.tests.test_audit_visibility',
     'dlux.tests.test_auth_security',
+    'dlux.tests.test_auth_hardening',
     'dlux.tests.test_password_rehash',
     'dlux.tests.test_backup_recovery',
     'dlux.tests.test_card_edges',
