@@ -1112,6 +1112,17 @@ class ReconcileRecoveryTests(TestCase):
             reconciled = service.reconcile()
             self._assert_repointed(store, service, reconciled, NEWER_VERSION)
 
+    def test_a_non_object_pointer_repoints_to_the_staged_recorded_release(self):
+        for content in ("null", "[]"):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as temp_dir:
+                store = self._store(temp_dir)
+                _stage_release(store, NEWER_VERSION)
+                store.active_file.write_text(content, encoding="utf-8")
+                self._record(NEWER_VERSION)
+                service = self._service(store)
+                reconciled = service.reconcile()
+                self._assert_repointed(store, service, reconciled, NEWER_VERSION)
+
     def test_a_recorded_wheel_url_is_never_fetched_when_the_release_is_staged(self):
         # A state row written before 1.10.0 still names the wheel it came from.
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2040,6 +2051,29 @@ class UpdaterApiTests(TestCase):
         # An unrelated version is unaffected.
         self.assertIsNone(previous_apply_failure("1.4.9"))
 
+    def test_a_failed_pre_update_backup_does_not_flag_the_release(self):
+        # R2-103: the release was never tried, so no "already failed to install".
+        from dlux.updater import UpdaterError
+        from dlux.updater.runtime import RuntimeStore
+        from dlux.updater.service import UpdateService, previous_apply_failure
+
+        Run = DluxUpdateRun
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = UpdateService(store=RuntimeStore(temp_dir).ensure())
+            backing_up = Run.objects.create(
+                action=Run.ACTION_APPLY, target_version="1.4.7", status=Run.STATUS_BACKING_UP,
+            )
+            service._handle_failure(backing_up, UpdaterError("The required pre-update system backup failed."))
+            backing_up.refresh_from_db()
+            self.assertEqual(backing_up.status, Run.STATUS_FAILED)
+            self.assertEqual(backing_up.report["failed_stage"], Run.STATUS_BACKING_UP)
+            self.assertIsNone(previous_apply_failure("1.4.7"))
+            applying = Run.objects.create(
+                action=Run.ACTION_APPLY, target_version="1.4.7", status=Run.STATUS_APPLYING,
+            )
+            service._handle_failure(applying, UpdaterError("Composer refused the release."))
+            self.assertEqual(previous_apply_failure("1.4.7")["status"], Run.STATUS_FAILED)
+
     def test_state_endpoint_surfaces_latest_version_failure(self):
         state = DluxUpdateState.load()
         state.latest_version = "1.4.7"
@@ -2788,3 +2822,52 @@ class InlineFloorTests(SimpleTestCase):
 
             assessment = assess_wheel(candidate, wheel, baked_version="1.6.8")
             self.assertTrue(assessment["compatible"])
+
+
+@override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class RollbackSchemaRuleTests(TestCase):
+    """R2-058: older code on a newer schema only where every release left says it may."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.store = RuntimeStore(self._tmp.name).ensure()
+        state = DluxUpdateState.load()
+        state.worker_seen_at = timezone.now()
+        state.active_version = "1.17.2"
+        state.previous_version = "1.16.6"
+        state.save()
+
+    def _stage(self, version, compatible):
+        package = self.store.release_path(version) / "dlux"
+        package.mkdir(parents=True)
+        (package / "release-manifest.json").write_text(json.dumps(
+            {**release_manifest(version), "migrations": {"rollback_compatible": compatible}}
+        ), encoding="utf-8")
+
+    def test_a_release_in_the_span_that_forbids_it_refuses_the_rollback(self):
+        from dlux.updater import UpdaterError
+        from dlux.updater.service import queue_run, serialize_state
+
+        self._stage("1.17.2", True)
+        self._stage("1.17.0", False)
+        self._stage("1.16.0", False)  # below the target: not part of the span
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            with self.assertRaisesRegex(UpdaterError, "DjangoLux 1.17.0 declares"):
+                queue_run(DluxUpdateRun.ACTION_ROLLBACK, "root")
+            state = serialize_state(DluxUpdateState.load())
+        self.assertEqual(state["rollback_blocked_by"], "1.17.0")
+        self.assertFalse(state["rollback_schema_warning"])
+        self.assertFalse(DluxUpdateRun.objects.exists())
+
+    def test_an_allowed_rollback_carries_the_schema_warning(self):
+        from dlux.updater.service import queue_run, serialize_state
+
+        self._stage("1.17.2", True)
+        self._stage("1.17.0", True)
+        with override_settings(DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            state = serialize_state(DluxUpdateState.load())
+            run = queue_run(DluxUpdateRun.ACTION_ROLLBACK, "root")
+        self.assertEqual(run.target_version, "1.16.6")
+        self.assertEqual(state["rollback_blocked_by"], "")
+        self.assertTrue(state["rollback_schema_warning"])

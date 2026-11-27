@@ -36,6 +36,14 @@ how a project developer asks for an outbound call.
 
 `smtp-relay` keeps its own `egress` for outgoing mail and is outside this page.
 
+DjangoLux reads what the agent writes as untrusted: never through a symbolic link
+or a FIFO, a capabilities or key document of at most 64 KiB, and a result of at
+most six times the operation's `max_bytes` (its worst-case JSON escaping) plus
+64 KiB. A document past its cap or nested too deep reads as no answer.
+`capabilities.json` counts as current from 60 seconds ahead of this clock to five
+minutes behind it, so one stamped far in the future does not report an answering
+agent.
+
 ## The rule
 
 **Project code must not open a network connection to the outside world from `web`
@@ -92,7 +100,9 @@ only the fields the operation defines.
    (`agent` no answering agent, `unsupported`, `unapproved`, `invalid`,
    `credentials`, `network`, `provider`, `response`, `blocked`, `limit`, `expired`,
    `timeout`, and `writer` for a process that cannot write the channel) and a
-   message that names the fix. A `web` request cannot write to the channel: queue a
+   message that names the fix. A code the agent answers with outside that list is
+   reported as `provider`, and the agent's detail arrives as one plain line of at
+   most 300 characters, without control characters or direction overrides. A `web` request cannot write to the channel: queue a
    task, cache its result, and read the cache in the request, as weather does.
 
 Secrets (API keys, tokens) are never placed on the volume in the clear: `secret=`

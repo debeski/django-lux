@@ -419,6 +419,42 @@ class ScaffoldTests(unittest.TestCase):
                     "update the expected version here",
                 )
 
+    def test_manage_py_imports_the_active_release_not_the_baked_package(self):
+        # R2-051: the baked `dlux` stayed in sys.modules, so `manage.py` under an
+        # inline release ran (and collected the static files of) the baked one.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            target = root / "demo_project"
+            self.assertEqual(main(["startproject", "demo_project", str(target)]), 0)
+            release = root / "runtime" / "releases" / "99.0.0"
+            (release / "dlux").mkdir(parents=True)
+            (release / "dlux" / "__init__.py").write_text('__version__ = "99.0.0"\n', encoding="utf-8")
+            (release / "dlux" / "release-manifest.json").write_text('{"version": "99.0.0"}', encoding="utf-8")
+            (root / "runtime" / "state").mkdir(parents=True)
+            (root / "runtime" / "state" / "active.json").write_text(
+                json.dumps({"version": "99.0.0", "source": "volume", "path": str(release), "generation": 1}),
+                encoding="utf-8",
+            )
+            probe = (
+                "import runpy, sys\n"
+                f"manage = runpy.run_path({str(target / 'manage.py')!r}, run_name='manage')\n"
+                "manage['_activate_runtime_release']()\n"
+                "import os, dlux\n"
+                "print(dlux.__version__, dlux.__file__, os.environ['PYTHONPATH'].split(os.pathsep)[0])\n"
+            )
+            env = dict(
+                os.environ,
+                DLUX_UPDATE_RUNTIME_ROOT=str(root / "runtime"),
+                PYTHONPATH=str(Path(__file__).resolve().parents[2]),
+            )
+            env.pop("DLUX_BAKED_VERSION", None)
+            output = subprocess.run(
+                [sys.executable, "-c", probe], env=env, capture_output=True, text=True, check=True,
+            ).stdout.split()
+            self.assertEqual(output[0], "99.0.0")
+            self.assertTrue(output[1].startswith(str(release.resolve())))
+            self.assertEqual(output[2], str(release.resolve()))
+
     def test_startapp_creates_expected_files(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

@@ -1356,6 +1356,8 @@ STRINGS = {
     'dlux_update_installed': 'Installed',
     'dlux_update_baked_label': 'baked dlux',
     'dlux_update_retry_failed_note': 'Heads up: version {version} already failed to install{when}. Re-applying it will most likely fail again unless the underlying cause was fixed.',
+    'dlux_update_rollback_schema_warning': 'Rolling back runs older DjangoLux code on this database. The database keeps the newer release\'s migrations; migrations are never reversed. Restoring a backup taken before the update later needs “Ignore version mismatch”.',
+    'dlux_update_rollback_schema_blocked': 'DjangoLux {version} declares that older code cannot run on its database schema, so this rollback is refused. Restore the backup taken before DjangoLux {version} was installed instead: it returns the database and the code together.',
     'dlux_update_retry_ack': 'I understand this version already failed to install and want to retry it at my own responsibility.',
     'dlux_update_skip': 'Skip this version',
     'dlux_update_skip_title': 'Never offer this version again (you can un-skip it later)',

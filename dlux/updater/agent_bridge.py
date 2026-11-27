@@ -46,12 +46,13 @@ def _atomic_json(path, payload):
 
 
 def _read_request(path):
-    raw = Path(path).read_bytes()
-    if len(raw) > MAX_DOCUMENT_BYTES:
-        raise UpdaterError("Agent request exceeds the 64 KiB limit.")
+    try:
+        raw = shared_files.read_bounded(path, MAX_DOCUMENT_BYTES)
+    except shared_files.RefusedFile as exc:
+        raise UpdaterError(f"Agent request {exc}") from exc
     try:
         value = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as exc:
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise UpdaterError("Agent request is not valid JSON.") from exc
     if not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION:
         raise UpdaterError("Agent request schema is unsupported.")

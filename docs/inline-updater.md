@@ -69,8 +69,9 @@ and the policy narrows what it may do. Generated stacks set the switch on in
 
 Both sides refuse. DjangoLux refuses when the request is made (the card, the
 control link, the Operations run) and again when the worker would hand a queued
-request over, so a request made before the policy changed neither backs up nor
-enters maintenance. Composer 1.11.0 or later refuses the same requests on the
+request over (an inline update, an image update or a queued `agent-update`), so a
+request made before the policy changed neither backs up nor enters maintenance nor
+reaches Composer. Composer 1.11.0 or later refuses the same requests on the
 resident pair, which `web` cannot reconfigure: a compromised `web` that writes the
 image trigger or an `agent-update` request directly gets a refusal, not a deploy.
 
@@ -196,14 +197,23 @@ release on `PYTHONPATH` and starts the command in a process group of its own.
 When `state/generation` on the runtime volume changes, which happens on every
 inline update and rollback, it restarts the command:
 
-1. It sends SIGTERM to the whole process group.
-2. It waits until every process in the group has exited. A server still finishing
+1. It sends SIGTERM to its direct child only, so a server that stops its own
+   workers does so: Celery's warm shutdown lets running tasks finish, and
+   gunicorn finishes in-flight requests.
+2. Once the direct child has exited, it sends SIGTERM to what is left of the
+   process group (the server a `bash -c` wrapper started).
+3. It waits until every process in the group has exited. A server still finishing
    an in-flight request keeps its port until then.
-3. After `--grace-seconds` (default 30) it sends SIGKILL to the group.
-4. Only then does it start the command again, under the new release.
+4. After `--grace-seconds` (default 30) it sends SIGKILL to the group.
+5. Only then does it start the command again, under the new release.
 
-A SIGTERM or SIGINT sent to the supervisor (`docker stop`) is forwarded and waited
+A SIGTERM or SIGINT sent to the supervisor (`docker stop`) is passed on and waited
 on the same way, and the supervisor exits with the command's exit code.
+
+Composer restarts `web` after the swap and recreates the service that applies
+migrations. A task service such as a project `celery` that runs under the watching
+supervisor is not restarted by Composer as well: its supervisor already restarted
+it on the generation change, and a second restart stopped it mid-task.
 
 `web`'s command is a `bash -c` wrapper that picks `runserver` or `gunicorn` from
 `DEBUG_STATUS`. It `exec`s the server, so the server is the supervisor's direct
@@ -331,18 +341,21 @@ the update intent is written.
 An inline apply or rollback started from DjangoLux (the Options card or
 `/sys/api/dlux-update/`) runs in the task worker:
 
-1. **Backing up.** The worker takes the backup the run asked for: `backup_mode` is
+1. **Space.** An apply is refused before anything else when the runtime volume has
+   less than 32 MB free, the room to stage a release and still write Composer's
+   status and acknowledgement. The message names the free space.
+2. **Backing up.** The worker takes the backup the run asked for: `backup_mode` is
    `data` (default), `full` or `skip`; a rollback takes a data-only one. The run
    reads *Backing up* ("Creating a data-only pre-update DjangoLux backup."), the
    backup's token is stored on the run, and a failed backup fails the run, so
    Composer is never asked to swap code. The step runs in the release being
    updated *from*.
-2. **Hand-off.** The worker writes `state/package-update-request.json` (the run's
+3. **Hand-off.** The worker writes `state/package-update-request.json` (the run's
    token, mode `apply` or `rollback`, target version and backup mode) and moves
    the run to *applying*. A second request is refused while Composer has not
    acknowledged the first, because two swaps of one volume would race over
    `active.json`.
-3. **Composer** stages, swaps, restarts and health-gates the release, then
+4. **Composer** stages, swaps, restarts and health-gates the release, then
    acknowledges.
 
 `./start.sh dlux update` and `./start.sh dlux rollback` go to Composer directly
@@ -396,7 +409,15 @@ previous release's static files.
 
 A hand-off Composer never acknowledges is failed after 30 minutes. Composer's own
 work is bounded (download, swap, restart, health wait), so past that nothing is
-coming, and a run left active would block every later update. The release may
+coming, and a run left active would block every later update. When the runtime
+volume is full (under 1 MB free) two minutes into the hand-off, the run is failed
+then: Composer can write neither its status nor its acknowledgement, and the
+message says to free space on the volume.
+
+A run that stopped before Composer tried the release (the space check, the
+pre-update backup) does not mark that release as failed: the card's "already
+failed to install" warning and its acknowledgement appear only after a hand-off
+to Composer failed or was rolled back. The release may
 still be active in that case; check the `composer-executor` logs, and trust the
 Options card for what is actually installed.
 
@@ -418,6 +439,16 @@ process that performs the swap: Composer is outside the container.
   the image: exactly how Composer picks its rollback target. A target below the
   baked version is not offered, because reconcile resets anything under that
   floor and the rollback would be undone on the next pass.
+- A rollback runs older code on the newer schema, which is allowed only when the
+  release being left and every release between it and the target that DjangoLux
+  can read (the staged releases, and the release the worker runs) declare
+  `migrations.rollback_compatible: true`. The rollback review then warns that the
+  database keeps the newer migrations, that migrations are never reversed and
+  that restoring a pre-update backup later needs "Ignore version mismatch". When
+  one of them declares `false`, the review names it, the Roll back button stays
+  off and the request is refused: restore the backup taken before that release
+  instead. The state endpoint reports this as `rollback_blocked_by` and
+  `rollback_schema_warning`. Composer's `dlux rollback` applies the same rule.
 - `active_manifest` and `previous_manifest`, the installed release's notes on the
   DjangoLux row and the notes in the rollback review, come from each release's own
   `dlux/release-manifest.json`: the staged release under `releases/<version>/`,
@@ -503,7 +534,9 @@ deployment up to date with a release it is not running, and offer no update.
 
 A volume release carries only DjangoLux; everything it imports comes from the
 image. Its manifest's `requires.baked_image` names the oldest baked DjangoLux it
-runs on. When the image is older than that (an application image rolled back under
+runs on, as `>=X.Y.Z` (a bare version means the same). The supervisor reads it as
+a PEP 440 specifier, so a compound one such as `>=1.17.0,<2.0` is honoured
+whole, and a floor it cannot parse holds the release. When the image is older than that (an application image rolled back under
 it), the supervisor does not put the release on `PYTHONPATH`: `web`, `worker` and
 `manage.py` run the baked package instead, and each process prints one
 `dlux runtime: …` line on stderr naming the release, its floor and the baked
@@ -778,6 +811,21 @@ image. Otherwise:
   warning naming the release that could not be served and why, and records the
   same reason on the update state (`latest_reason`). Nothing on the volume is
   removed.
+
+A pointer that is not a JSON object (`null`, a list, a string), larger than
+64 KiB, a symbolic link or a FIFO is treated exactly like a missing one: the
+supervisor serves the baked package (this needs a project image built on
+DjangoLux 1.17.0 or later; an older supervisor crash-loops on a non-object
+pointer) and reconcile rebuilds it. On an older image, `./start.sh dlux rollback`
+sets the pointer aside (kept as `state/active.json.unusable-<time>`) and restarts
+on the image's release.
+
+Every state document web and worker read from the runtime volume (the pointer,
+the generation, Composer's acknowledgements, status and availability, the agent
+bridge's requests, the link notices, the relay's results) is read the same way:
+never through a symbolic link, never blocking on a FIFO and never past its size
+cap. A planted entry in `state/agent/requests/` is answered as rejected and moved
+to `processed/` without being opened.
 
 The worker's state tick checks the pointer every few seconds, so a pointer lost,
 unreadable or naming a release that is not staged while the stack runs is rebuilt

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -17,7 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from . import UpdaterError, get_baked_version
-from . import channel, check_policy
+from . import channel, check_policy, shared_files
 from . import policy as update_policy
 from .manifest import package_release_notes
 from .runtime import RuntimeStore
@@ -28,6 +29,33 @@ logger = logging.getLogger("dlux.updater")
 # How long a run handed to Composer may sit unacknowledged. Its work is bounded
 # (download, swap, restart, health wait); past this, nothing is coming.
 PACKAGE_HANDOFF_TIMEOUT = timedelta(minutes=30)
+#: Free space an inline update needs on the runtime volume before it is handed over:
+#: the wheel, its unpacked copy and Composer's status and acknowledgement.
+RUNTIME_MIN_FREE_BYTES = 32 * 1024 * 1024
+#: Below this the volume is full: Composer can write neither its status nor its ack.
+RUNTIME_FULL_BYTES = 1024 * 1024
+#: How long a hand-off waits on a full volume before it is failed.
+RUNTIME_FULL_GRACE = timedelta(minutes=2)
+
+
+def runtime_free_bytes(store):
+    """Free bytes on the runtime volume, or None when it cannot be measured."""
+    try:
+        return shutil.disk_usage(store.root).free
+    except OSError:
+        return None
+
+
+def runtime_space_problem(store, minimum=RUNTIME_MIN_FREE_BYTES):
+    """Why the runtime volume is too full to stage a release, or ""."""
+    free = runtime_free_bytes(store)
+    if free is None or free >= minimum:
+        return ""
+    return (
+        f"The DjangoLux runtime volume has {free // (1024 * 1024)} MB free; an inline update "
+        f"needs at least {minimum // (1024 * 1024)} MB to stage a release. Free space on the "
+        "volume (old releases/ and leftovers in staging/), then try again."
+    )
 # How long a success ack may wait for web and worker to report the new release.
 HANDOFF_VERIFY_WINDOW = timedelta(minutes=3)
 WEB_PROBE_TIMEOUT_SECONDS = 5
@@ -280,6 +308,12 @@ def tick_ops_run(service):
         return None
     store = service.store
     if run.status == Ops.STATUS_QUEUED:
+        if run.operation == "agent-update" and not update_policy.allows(update_policy.COMPOSER_UPDATE, store):
+            # The policy can tighten while the run waits for a worker: refuse it
+            # again at hand-over, as the inline and image paths do.
+            run.finish(Ops.STATUS_FAILED, error=update_policy.refusal(update_policy.COMPOSER_UPDATE))
+            run.save(update_fields=["status", "is_active", "completed_at", "error"])
+            return run
         try:
             ops.write_request(
                 store, run.token, run.operation,
@@ -678,6 +712,87 @@ def _sanitize(value, limit=4000):
     return value[-limit:]
 
 
+ROLLBACK_SCHEMA_WARNING = (
+    "Rolling back runs older DjangoLux code on this database. The database keeps the "
+    "newer release's migrations; migrations are never reversed. Restoring a backup "
+    "taken before the update later needs \u201cIgnore version mismatch\u201d."
+)
+
+
+def _declares_rollback_compatible(manifest):
+    """``True``/``False`` as the manifest declares it, ``None`` when it does not say."""
+    if not isinstance(manifest, dict):
+        return None
+    migrations = manifest.get("migrations")
+    value = migrations.get("rollback_compatible") if isinstance(migrations, dict) else None
+    if value is None:
+        value = manifest.get("rollback_compatible")
+    return value if isinstance(value, bool) else None
+
+
+def rollback_schema_blocker(source, target, *, store=None):
+    """The release that forbids running ``target`` on ``source``'s schema, or "".
+
+    Older code may run on a newer schema only when the release being left, and
+    every release between it and the target that this side can read (the staged
+    releases on the runtime volume, and the release this process runs), declare
+    ``migrations.rollback_compatible: true``.
+    """
+    from dlux import __version__
+
+    from .supervisor import _is_newer
+
+    source, target = str(source or "").strip(), str(target or "").strip()
+    if not source or not target or not _is_newer(source, target):
+        return ""
+    manifests = {}
+    store = store or runtime_store()
+    try:
+        staged = store.staged_versions()
+    except Exception:
+        staged = []
+    for version in staged:
+        if _is_newer(version, target) and not _is_newer(version, source):
+            try:
+                manifests[version] = shared_files.load_json(
+                    store.release_path(version) / "dlux" / "release-manifest.json"
+                )
+            except (OSError, ValueError, UpdaterError):
+                continue
+    if str(__version__) == source and source not in manifests:
+        try:
+            manifests[source] = shared_files.load_json(
+                Path(__file__).resolve().parents[1] / "release-manifest.json"
+            )
+        except (OSError, ValueError):
+            pass
+    for version in sorted(manifests, key=lambda item: Version(item), reverse=True):
+        if _declares_rollback_compatible(manifests[version]) is False:
+            return version
+    return ""
+
+
+def rollback_schema_refusal(blocker):
+    return (
+        f"DjangoLux {blocker} declares that older code cannot run on its database schema "
+        "(migrations.rollback_compatible is false), so a rollback below it is refused. "
+        f"Restore the backup taken before DjangoLux {blocker} was installed instead: it "
+        "returns the database and the code together."
+    )
+
+
+def _rollback_schema_state(state):
+    """What the card's rollback review says about the database schema."""
+    if not state.previous_version:
+        return {"rollback_blocked_by": "", "rollback_schema_warning": False}
+    try:
+        blocker = rollback_schema_blocker(state.active_version or state.baked_version, state.previous_version)
+    except Exception:
+        logger.debug("The rollback schema rule could not be evaluated.", exc_info=True)
+        blocker = ""
+    return {"rollback_blocked_by": blocker, "rollback_schema_warning": not blocker}
+
+
 def serialize_state(state):
     report = worker_volume_report(state)
     unavailable_reason = runtime_volume_problem(state) if updates_enabled() else ""
@@ -698,6 +813,7 @@ def serialize_state(state):
         # rather than an empty page.
         "active_manifest": state.active_manifest or {},
         "previous_manifest": state.previous_manifest or {},
+        **_rollback_schema_state(state),
         "latest_compatible": state.latest_compatible,
         "latest_reason": state.latest_reason,
         "last_checked_at": state.last_checked_at.isoformat() if state.last_checked_at else None,
@@ -769,6 +885,11 @@ def get_ui_state():
     return serialize_state(state)
 
 
+_BEFORE_INSTALL_STAGES = frozenset({
+    "queued", "checking", "downloading", "verifying", "preflight", "backing_up",
+})
+
+
 def previous_apply_failure(version):
     """If the most recent apply of ``version`` failed (or was auto-rolled-back),
     return a small dict describing it, else None. Powers a re-apply confirmation
@@ -786,6 +907,10 @@ def previous_apply_failure(version):
         .first()
     )
     if run is None or run.status not in (Run.STATUS_FAILED, Run.STATUS_ROLLED_BACK):
+        return None
+    if (run.report or {}).get("failed_stage") in _BEFORE_INSTALL_STAGES:
+        # The run stopped before the release was tried (the pre-update backup
+        # failed, say): nothing is known against the release itself.
         return None
     when = run.completed_at or run.created_at
     return {
@@ -876,6 +1001,9 @@ def queue_run(action, username="", backup_mode=None):
                 raise UpdaterError("No previous DjangoLux release is available for rollback.")
             source = state.active_version or state.baked_version
             target = state.previous_version
+            blocker = rollback_schema_blocker(source, target)
+            if blocker:
+                raise UpdaterError(rollback_schema_refusal(blocker))
         else:
             source = state.active_version or state.baked_version
             target = ""
@@ -1785,6 +1913,10 @@ class UpdateService:
         pending = package_request.pending_token(self.store)
         if pending:
             raise UpdaterError("Composer is already performing a DjangoLux update.")
+        if mode == package_request.APPLY:
+            problem = runtime_space_problem(self.store)
+            if problem:
+                raise UpdaterError(problem)
         # The snapshot comes first and must succeed: Composer is only told to
         # swap code once there is a backup to come back to. This step lived in
         # the in-container executor and was lost with it in 1.10.0, so inline
@@ -2102,7 +2234,20 @@ class UpdateService:
         may well be active anyway.
         """
         started = run.started_at or run.created_at
-        if not started or timezone.now() - started <= PACKAGE_HANDOFF_TIMEOUT:
+        if not started:
+            return None
+        waited = timezone.now() - started
+        free = runtime_free_bytes(self.store)
+        if free is not None and free < RUNTIME_FULL_BYTES and waited > RUNTIME_FULL_GRACE:
+            # A full volume leaves Composer unable to write its status or its ack,
+            # so waiting out the hand-off timeout would only block every update.
+            self._handle_failure(run, UpdaterError(
+                "The DjangoLux runtime volume is full, so Composer could not report on the "
+                "update. Free space on the volume (leftovers in staging/, old releases/), "
+                "check what the Options card reports as installed, then try again."
+            ), stage=run.STATUS_PREFLIGHT)
+            return run
+        if waited <= PACKAGE_HANDOFF_TIMEOUT:
             return None
         minutes = int(PACKAGE_HANDOFF_TIMEOUT.total_seconds() // 60)
         self._handle_failure(run, UpdaterError(
@@ -2411,7 +2556,7 @@ class UpdateService:
             raise UpdaterError(f"Updater command failed: {' '.join(args)}")
         return completed
 
-    def _handle_failure(self, run, exc):
+    def _handle_failure(self, run, exc, *, stage=None):
         report = run.report or {}
         recovery_unsafe = bool(
             report.get("recovery_failed")
@@ -2428,6 +2573,7 @@ class UpdateService:
             pass
         message = _sanitize(exc)
         run.append_log(message)
+        run.report = {**report, "failed_stage": stage or run.status}
         with transaction.atomic():
             state = _state_model().objects.select_for_update().get(pk=1)
             run.finish(run.STATUS_FAILED, error=message)

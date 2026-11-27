@@ -43,7 +43,7 @@ def ack_path(store=None):
 def read_ack(store=None):
     """Composer's terminal acknowledgement for the last package request, or {}."""
     try:
-        data = json.loads(ack_path(store).read_text(encoding="utf-8"))
+        data = shared_files.load_json(ack_path(store))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -56,8 +56,10 @@ def pending_token(store=None):
     two concurrent swaps of the same volume would race over ``active.json``.
     """
     try:
-        request = json.loads(trigger_path(store).read_text(encoding="utf-8"))
+        request = shared_files.load_json(trigger_path(store))
     except (OSError, ValueError):
+        return ""
+    if not isinstance(request, dict):
         return ""
     token = str(request.get("token") or "").strip()
     if not token:
@@ -117,7 +119,7 @@ def read_availability(store=None):
     as *unknown* rather than as "up to date".
     """
     try:
-        data = json.loads(availability_path(store).read_text(encoding="utf-8"))
+        data = shared_files.load_json(availability_path(store))
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}

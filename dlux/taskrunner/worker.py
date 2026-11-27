@@ -124,6 +124,8 @@ class Worker:
         """Heartbeat, settle runs lost with dead workers, and prune now and then."""
         self.heartbeat()
         queue.recover_lost_runs(resolve=resolve_task, exclude_worker=self.id)
+        if self.schedule:
+            queue.clamp_schedule(self.schedule.values())
         now = time.monotonic()
         if force_prune or now - getattr(self, "_last_prune", 0) >= PRUNE_EVERY:
             self._last_prune = now

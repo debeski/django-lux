@@ -121,7 +121,12 @@ def _v2_to_internal(manifest):
     }
     baked = requires.get("baked_image")
     if baked:
-        internal["image_baseline"] = str(baked).lstrip(">=").strip()
+        from .supervisor import parse_image_floor
+
+        try:
+            internal["image_baseline"] = parse_image_floor(baked)[0]
+        except ValueError as exc:
+            raise UpdaterError("The release manifest has an invalid image floor requirement.") from exc
     # The generated stack files this release needs (the DLUX_STACK_SCHEMA stamp).
     # Composer's `check --fix` migrates a stack; an inline update cannot.
     if requires.get("stack_schema") is not None:

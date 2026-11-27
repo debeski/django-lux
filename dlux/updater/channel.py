@@ -88,7 +88,7 @@ def read_policy(store=None):
     """
     path = policy_path(store)
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = shared_files.read_text(path)
     except FileNotFoundError:
         # Never published, or a deployment that predates channels. Stable.
         return STABLE, ""
@@ -205,7 +205,7 @@ def clear_request(store=None):
 
 def _read_json(path):
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = shared_files.load_json(Path(path))
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}

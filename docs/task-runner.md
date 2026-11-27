@@ -108,7 +108,8 @@ then waits for a free thread like other work.
 worker (system backups, report backups, background jobs, weather, the API status
 probe, OCR on save, the Options Tasks row). It is
 one indexed query: a `DluxTaskWorker` row whose heartbeat is inside `stale_after`
-and that has not stopped. No broker round trip, so web can ask it freely.
+of now, on either side, and that has not stopped. A heartbeat stamped further
+ahead (a clock that ran ahead, then came back) is not a live worker. No broker round trip, so web can ask it freely.
 
 ### Worker hooks
 
@@ -287,8 +288,8 @@ newer outcome; its late result is logged and dropped.
 | Worker dies mid-run, task `requeue_lost` | Back to `READY` (due now), up to `max_recoveries` (3), then `FAILED` | `READY`, due now |
 | Worker dies mid-run, other tasks | `FAILED` (`dlux.taskrunner.WorkerLost`), then the task's `on_lost` is called | `READY`, due now |
 
-A worker is dead when its heartbeat is older than `stale_after` (60 s) or its
-row is marked stopped. Delivery is **at-least-once** for `requeue_lost` tasks
+A worker is dead when its heartbeat is older than `stale_after` (60 s), more than
+`stale_after` ahead of now, or its row is marked stopped. Delivery is **at-least-once** for `requeue_lost` tasks
 (OCR files) and **at-most-once** otherwise. A worker that cannot reach the
 database for longer than `stale_after` while its task keeps running can have
 that task recovered elsewhere; `ocr_file` is safe to run twice (it locks its
@@ -322,6 +323,9 @@ after the run ends), so a slow run or a stopped worker causes one catch-up run,
 not a burst. Cron entries take their next match. A new entry runs at once if it
 is an interval, at its next match if it is cron. A changed entry (task, schedule,
 arguments, priority or queue) is re-armed from now; a removed one is deleted.
+A row is never due later than its entry's next slot from now: one armed further
+ahead (by a clock that ran ahead, or by hand) is brought back to that slot when
+the worker starts and on every maintenance beat, and the worker logs a warning.
 A worker only claims schedule rows for entries in its own `DLUX_TASK_SCHEDULE`,
 so it never runs or re-arms an entry it has no spec for. All workers of one
 deployment should share one schedule: two releases with different schedules

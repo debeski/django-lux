@@ -148,8 +148,10 @@ and skips any record that already has one.
 
 On a generated stack run it as `./start.sh run -m web dlux_backfill_report_activity`
 (add `--apply` to write). A plain `docker compose exec web python manage.py …` runs
-the DjangoLux baked into the image, which lacks the command until the image is
-rebuilt after an inline update. Models without a creation timestamp (`created_at`,
+the same release when the project's `manage.py` is the generated one, which puts
+the runtime-active release on the path and drops the baked package it imported to
+find it. A `manage.py` without that step runs the DjangoLux baked into the image,
+which lacks the command until the image is rebuilt after an inline update. Models without a creation timestamp (`created_at`,
 `created`, `created_on`, `date_created`, `timestamp`, or
 `DLUX_CONFIG['reports']['backup_window_fields']`) are skipped.
 
