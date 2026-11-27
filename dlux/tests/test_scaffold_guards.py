@@ -84,7 +84,29 @@ class GeneratedProjectFileTests(unittest.TestCase):
         values = dict(line.split("=", 1) for line in self.read(".secrets/.env").splitlines()
                       if line and not line.startswith("#"))
         self.assertEqual(values["ADMIN_PASS"], "")
-        self.assertIn("Set `ADMIN_PASS` there before the first start", self.read("README.md"))
+        readme = self.read("README.md")
+        self.assertIn("`./start.sh` asks for it at a terminal on the first start", readme)
+        self.assertIn("no admin account is created until it is set", readme)
+
+    def test_database_password_is_random_per_project(self):
+        # Every new project shipped POSTGRES_PASSWORD=admin_pass.
+        def env_value(root):
+            for line in (root / ".secrets" / ".env").read_text(encoding="utf-8").splitlines():
+                if line.startswith("POSTGRES_PASSWORD="):
+                    return line.split("=", 1)[1]
+            self.fail("POSTGRES_PASSWORD missing from .secrets/.env")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            other = env_value(_project(tmp, "other"))
+        first = env_value(self.root)
+        self.assertNotEqual(first, other)
+        for value in (first, other):
+            self.assertNotEqual(value, "admin_pass")
+            self.assertGreaterEqual(len(value), 32)
+            # Safe in .env parsing, a Postgres URL and Compose interpolation.
+            self.assertRegex(value, r"\A[A-Za-z0-9_-]+\Z")
+        readme = self.read("README.md")
+        self.assertIn("Change `POSTGRES_PASSWORD` only before the first start", readme)
 
     def test_secrets_file_is_owner_only(self):
         # R2-109: the file holds the database password and SECRET_KEY.

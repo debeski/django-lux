@@ -65,6 +65,9 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "stack_schema": stack_schema(),
         "generated_date": date.today().isoformat(),
         "secret_key": secrets.token_urlsafe(38),
+        # URL-safe alphabet: no `$`, quotes, `#` or spaces to trip .env parsing,
+        # libpq or Compose interpolation.
+        "postgres_password": secrets.token_urlsafe(24),
     }
 
     writes = {
