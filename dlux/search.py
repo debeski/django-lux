@@ -446,7 +446,9 @@ def search_data(user, query, lang_code=None, limit=DATA_TOTAL_LIMIT):
         if not condition:
             continue
         try:
-            rows = list(model._default_manager.filter(condition)[:min(DATA_LIMIT_PER_MODEL, remaining)])
+            from .utils.users import restrict_user_rows
+            queryset = restrict_user_rows(user, model, model._default_manager.filter(condition))
+            rows = list(queryset[:min(DATA_LIMIT_PER_MODEL, remaining)])
         except Exception:
             continue
         model_label = str(model._meta.verbose_name).strip().title()

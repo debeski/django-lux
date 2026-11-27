@@ -366,3 +366,45 @@ class TargetRankTests(TestCase):
         self.assertFalse(target_outranks_actor(self.actor, self.actor))
         self.assertFalse(can_modify_target_user(self.actor, self.big))
         self.assertTrue(can_modify_target_user(self.actor, self.peer))
+
+
+class UserRowScopeTests(TestCase):
+    """R2-034: the generic details and last-entry APIs honour the user directory's tiers."""
+
+    def setUp(self):
+        _fresh()
+        alpha = Scope.objects.create(name='Alpha')
+        beta = Scope.objects.create(name='Beta')
+        self.root = User.objects.create_superuser('root', 'root@example.com', 'rootpass12345')
+        self.actor = User.objects.create_user('alpha_admin', 'aa@example.com', 'pass12345678', is_staff=True)
+        self.alpha_user = User.objects.create_user('alpha_user', 'au@example.com', 'pass12345678')
+        self.beta_user = User.objects.create_user('beta_user', 'bu@example.com', 'pass12345678')
+        for user, scope in ((self.actor, alpha), (self.alpha_user, alpha), (self.beta_user, beta)):
+            user.profile.scope = scope
+            user.profile.save(update_fields=['scope'])
+        _grant(self.actor, 'auth.view_user')
+        self.client = Client()
+        self.client.force_login(self.actor)
+
+    def _details(self, pk):
+        return self.client.get(f'/sys/api/details/auth/User/{pk}/')
+
+    def test_details_refuse_other_scopes_and_superusers(self):
+        self.assertEqual(self._details(self.alpha_user.pk).status_code, 200)
+        self.assertEqual(self._details(self.beta_user.pk).status_code, 404)
+        self.assertEqual(self._details(self.root.pk).status_code, 404)
+
+    def test_last_entry_stays_in_scope(self):
+        response = self.client.get('/sys/api/last-entry/auth/User/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content)['_pk'], self.alpha_user.pk)
+        response = self.client.get(f'/sys/api/last-entry/auth/User/?before_id={self.actor.pk}')
+        self.assertEqual(response.status_code, 404)
+
+    def test_data_search_stays_in_scope(self):
+        from dlux.search import search_data
+        labels = ' '.join(row['label'] for row in search_data(self.actor, '_user'))
+        self.assertIn('alpha_user', labels)
+        self.assertNotIn('beta_user', labels)
+        labels = ' '.join(row['label'] for row in search_data(self.actor, 'root'))
+        self.assertNotIn('root', labels)

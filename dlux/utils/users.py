@@ -287,6 +287,32 @@ def get_manageable_users_queryset(actor):
     return qs.none()
 
 
+# User Management - Function limits generic reads of User/Profile rows to the user directory's tiers.
+def restrict_user_rows(actor, model, queryset):
+    """Limit ``auth.User`` and ``dlux.Profile`` rows to what ``actor`` may manage, plus itself.
+
+    Generic read surfaces (autofill details, last entry, data search) check only the
+    model ``view`` permission; ``User`` is not scoped, so without this a scoped
+    ``auth.view_user`` holder reads every user. Other models pass through unchanged.
+    """
+    from django.contrib.auth import get_user_model
+
+    meta = model._meta
+    user_meta = get_user_model()._meta
+    is_user = meta.app_label == user_meta.app_label and meta.model_name == user_meta.model_name
+    is_profile = meta.app_label == 'dlux' and meta.model_name == 'profile'
+    if not (is_user or is_profile):
+        return queryset
+    if actor is None or not getattr(actor, 'is_authenticated', False):
+        return queryset.none()
+    if getattr(actor, 'is_superuser', False):
+        return queryset
+    manageable = get_manageable_users_queryset(actor).values('pk')
+    if is_user:
+        return queryset.filter(Q(pk__in=manageable) | Q(pk=actor.pk))
+    return queryset.filter(Q(user__in=manageable) | Q(user=actor))
+
+
 # Group Presets - Function reconciles a single preset's membership (group-centric).
 def set_group_members(group, selected_users, actor, manageable_users=None):
     """
