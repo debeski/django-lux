@@ -1152,3 +1152,180 @@ class ConfigOutageLoggingTests(TestCase):
             self.config._build_system_config()
         self.assertTrue(any(record.exc_info for record in logs.records))
         self.assertFalse(self.config._config_db_outage)
+
+
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+class _RelayProcess:
+    """``python -m dlux.smtp_relay`` as its own process, on the environment route."""
+
+    def __init__(self, **env):
+        probe = socket.socket()
+        probe.bind(('127.0.0.1', 0))
+        self.port = probe.getsockname()[1]
+        probe.close()
+        environ = {k: v for k, v in os.environ.items() if k != 'DJANGO_SETTINGS_MODULE'}
+        environ.update({
+            'PYTHONPATH': str(_REPO_ROOT), 'PYTHONUNBUFFERED': '1',
+            'SMTP_RELAY_LISTEN_HOST': '127.0.0.1', 'SMTP_RELAY_LISTEN_PORT': str(self.port),
+        })
+        environ.update({k: str(v) for k, v in env.items()})
+        self.proc = subprocess.Popen(
+            [sys.executable, '-m', 'dlux.smtp_relay'], cwd=str(_REPO_ROOT), env=environ,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        )
+        ready = self.proc.stdout.readline()
+        if b'listening' not in ready:
+            self.proc.kill()
+            raise AssertionError(f'relay did not start: {ready!r}')
+
+    def connect(self):
+        sock = socket.create_connection(('127.0.0.1', self.port), timeout=10)
+        reader = sock.makefile('rb')
+        assert reader.readline().startswith(b'220')
+        return sock, reader
+
+    def terminate(self):
+        self.started = time.monotonic()
+        self.proc.send_signal(signal.SIGTERM)
+
+    def wait(self, timeout):
+        rc = self.proc.wait(timeout)
+        self.elapsed = time.monotonic() - self.started
+        self.output = self.proc.stdout.read().decode(errors='replace')
+        return rc
+
+    def close(self):
+        if self.proc.poll() is None:
+            self.proc.kill()
+            self.proc.wait(5)
+        self.proc.stdout.close()
+
+
+class RelayStopsOnSigtermTests(SimpleTestCase):
+    """R2-073 (smtp-relay half): as PID 1 the relay ignored SIGTERM, so `docker stop` killed it."""
+
+    MESSAGE = (b'MAIL FROM:<a@example.invalid>\r\nRCPT TO:<b@example.invalid>\r\nDATA\r\n'
+               b'Subject: r2-073\r\n\r\nbody\r\n.\r\n')
+
+    def _relay(self, **env):
+        relay = _RelayProcess(**env)
+        self.addCleanup(relay.close)
+        return relay
+
+    def _provider(self, delay):
+        provider = _TarpitProvider(delay)
+        self.addCleanup(provider.close)
+        return {'SMTP_RELAY_HOST': '127.0.0.1', 'SMTP_RELAY_PORT': provider.port,
+                'SMTP_RELAY_USE_TLS': 'False', 'SMTP_RELAY_USE_SSL': 'False'}
+
+    def test_sigterm_closes_idle_connections_and_exits_zero(self):
+        relay = self._relay()
+        sock, reader = relay.connect()
+        self.addCleanup(sock.close)
+        relay.terminate()
+        self.assertEqual(relay.wait(5), 0)
+        self.assertLess(relay.elapsed, 3)
+        self.assertTrue(reader.readline().startswith(b'421'))
+        self.assertIn('Dlux SMTP relay stopped', relay.output)
+
+    def test_a_delivery_under_way_finishes_before_the_exit(self):
+        relay = self._relay(**self._provider(delay=0.3))
+        sock, reader = relay.connect()
+        self.addCleanup(sock.close)
+        sock.sendall(self.MESSAGE)
+        for _ in range(3):
+            reader.readline()
+        time.sleep(0.5)
+        relay.terminate()
+        time.sleep(0.2)
+        with self.assertRaises(OSError):
+            socket.create_connection(('127.0.0.1', relay.port), timeout=2).close()
+        self.assertEqual(reader.readline(), b'250 Message accepted\r\n')
+        self.assertTrue(reader.readline().startswith(b'421'))
+        self.assertEqual(relay.wait(8), 0)
+
+    def test_a_delivery_stuck_before_the_greeting_is_given_up_with_421(self):
+        relay = self._relay(SMTP_RELAY_DRAIN_SECONDS=1, SMTP_RELAY_UPSTREAM_TIMEOUT=60, **self._provider(delay=5))
+        sock, reader = relay.connect()
+        self.addCleanup(sock.close)
+        sock.sendall(self.MESSAGE)
+        for _ in range(3):
+            reader.readline()
+        time.sleep(0.3)
+        relay.terminate()
+        self.assertEqual(relay.wait(6), 0)
+        self.assertLess(relay.elapsed, 3.5)
+        # Stalled before the provider's greeting: the relay gives up on it and
+        # tells the client to retry.
+        self.assertTrue(reader.readline().startswith(b'421'))
+
+    def test_a_delivery_stalled_after_the_greeting_is_answered_451(self):
+        provider = _StallAfterBodyProvider()
+        self.addCleanup(provider.close)
+        relay = self._relay(
+            SMTP_RELAY_DRAIN_SECONDS=1, SMTP_RELAY_UPSTREAM_TIMEOUT=60,
+            SMTP_RELAY_HOST='127.0.0.1', SMTP_RELAY_PORT=provider.port,
+            SMTP_RELAY_USE_TLS='False', SMTP_RELAY_USE_SSL='False',
+        )
+        sock, reader = relay.connect()
+        self.addCleanup(sock.close)
+        sock.sendall(self.MESSAGE)
+        for _ in range(3):
+            reader.readline()
+        self.assertTrue(provider.stalled.wait(5))
+        relay.terminate()
+        self.assertEqual(relay.wait(6), 0)
+        self.assertLess(relay.elapsed, 3.5)
+        reply = reader.readline()
+        self.assertTrue(reply.startswith(b'451'), reply)
+        self.assertIn(b'relay stopped', reply)
+
+
+class _StallAfterBodyProvider:
+    """An SMTP server that answers at once, then never acknowledges the message body."""
+
+    def __init__(self):
+        self.stalled = threading.Event()
+        self.sock = socket.socket()
+        self.sock.bind(('127.0.0.1', 0))
+        self.sock.listen(1)
+        self.port = self.sock.getsockname()[1]
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    def _serve(self):
+        try:
+            conn, _ = self.sock.accept()
+        except OSError:
+            return
+        with conn:
+            reader = conn.makefile('rb')
+            try:
+                conn.sendall(b'220 quick\r\n')
+                in_data = False
+                while True:
+                    line = reader.readline()
+                    if not line:
+                        return
+                    if in_data:
+                        if line == b'.\r\n':
+                            self.stalled.set()
+                            reader.readline()
+                            return
+                        continue
+                    if line.upper().startswith(b'DATA'):
+                        in_data = True
+                        conn.sendall(b'354 go\r\n')
+                    else:
+                        conn.sendall(b'250 ok\r\n')
+            except OSError:
+                return
+
+    def close(self):
+        self.sock.close()

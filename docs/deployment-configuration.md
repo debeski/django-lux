@@ -214,9 +214,17 @@ Generated Compose deployments configure that relay's provider in `.secrets/.env`
 | `SMTP_RELAY_MAX_LINE_BYTES` | `1048576` | Longest line accepted. A longer command line gets `500 Line too long` and the connection closes; a longer message line refuses the message with `552` and keeps the session. |
 | `SMTP_RELAY_IDLE_TIMEOUT` | `300` | Seconds the relay waits for the next line before it answers `421` and closes the connection. |
 | `SMTP_RELAY_MAX_CONNECTIONS` | `100` | Open connections the relay serves at once; one more gets `421 Too many connections`. |
+| `SMTP_RELAY_DRAIN_SECONDS` | `8` | On `SIGTERM`, how long deliveries already handed to the provider may take to finish before the relay exits. Keep it below the service's stop grace (`docker stop` waits 10 s by default). |
 
 The relay reads the Email step from the database for every delivery, on a fresh
 connection, so a database restart costs at most the one delivery in flight.
+
+On `SIGTERM` (`docker stop`, `docker compose stop` or a recreate) the relay stops
+accepting connections and answers `421` to every connection with no delivery
+under way. A delivery already handed to the provider gets
+`SMTP_RELAY_DRAIN_SECONDS` to finish and its client gets the provider's answer;
+past that the relay closes the provider connection, the client gets a `451` or
+`421` and the app's sender retries. The relay then exits with status 0.
 
 The relay uses these when the Email step's provider settings are **Environment**,
 or when it cannot read the step at all; the step's timeout applies on both routes.

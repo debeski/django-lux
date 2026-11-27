@@ -26,7 +26,9 @@ The encryption rule, step tracking and failure codes live in
 """
 
 import asyncio
+import contextlib
 import os
+import signal
 import smtplib
 import socket
 import sys
@@ -82,8 +84,14 @@ DEFAULT_MAX_LINE_BYTES = 1024 * 1024
 # RFC 5321 §4.5.3.2: a server waits at least five minutes for the next command.
 DEFAULT_IDLE_TIMEOUT = 300
 DEFAULT_MAX_CONNECTIONS = 100
+# On SIGTERM, deliveries already handed to the provider get this long to finish.
+# Below `docker stop`'s default 10 s grace, so the relay exits before it is killed.
+DEFAULT_DRAIN_SECONDS = 8
 
 _active_connections = 0
+# Connection handler task -> its state, for the drain on SIGTERM.
+_clients = {}
+_stopping = False
 
 
 def listen_address():
@@ -110,6 +118,10 @@ def idle_timeout():
 
 def max_connections():
     return max(_env_int("SMTP_RELAY_MAX_CONNECTIONS", DEFAULT_MAX_CONNECTIONS), 1)
+
+
+def drain_seconds():
+    return max(_env_int("SMTP_RELAY_DRAIN_SECONDS", DEFAULT_DRAIN_SECONDS), 0)
 
 
 def stored_email_config():
@@ -262,7 +274,9 @@ def deliver(mail_from, recipients, message_bytes):
         # timeout, and the app stops listening before the reason arrives.
         if smtp is not None:
             smtp.close()
-        if deadline.expired:
+        if deadline.stopped:
+            exc = TimeoutError("the relay stopped before the provider finished the delivery")
+        elif deadline.expired:
             exc = TimeoutError(f"the provider did not finish the delivery within {timeout} seconds")
         raise step_error(
             exc, tracker.step, host=host, port=port, use_tls=use_tls, use_ssl=use_ssl, timeout=timeout,
@@ -281,12 +295,27 @@ class _DeliveryDeadline:
     ``deliver`` reports as a timeout of the step it reached.
     """
 
+    _live = set()
+    _live_lock = threading.Lock()
+
     def __init__(self, seconds):
         self.expired = False
+        self.stopped = False
         self._smtp = None
         self._timer = threading.Timer(max(float(seconds), 0.1), self._expire)
         self._timer.daemon = True
+        with self._live_lock:
+            self._live.add(self)
         self._timer.start()
+
+    @classmethod
+    def stop_all(cls):
+        """End every delivery still running: the relay is stopping."""
+        with cls._live_lock:
+            live = list(cls._live)
+        for deadline in live:
+            deadline.stopped = True
+            deadline._expire()
 
     def watch(self, smtp):
         self._smtp = smtp
@@ -304,6 +333,8 @@ class _DeliveryDeadline:
 
     def cancel(self):
         self._timer.cancel()
+        with self._live_lock:
+            self._live.discard(self)
 
 
 def _provider_tls_context(upstream, host, port, use_tls, use_ssl):
@@ -370,6 +401,7 @@ async def handle_client(reader, writer):
     global _active_connections
     peer = writer.get_extra_info("peername")
     _active_connections += 1
+    _clients[asyncio.current_task()] = {"delivering": False}
     try:
         if _active_connections > max_connections():
             await _send(writer, "421 Too many connections, try again later")
@@ -383,8 +415,14 @@ async def handle_client(reader, writer):
         # A health check or reachability probe that hangs up without QUIT is
         # routine, not a fault worth a traceback.
         pass
+    except asyncio.CancelledError:
+        # The relay is stopping and this connection had no delivery under way.
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(_send(writer, "421 Relay shutting down, try again later"), 1)
+        raise
     finally:
         _active_connections -= 1
+        _clients.pop(asyncio.current_task(), None)
         writer.close()
         try:
             await writer.wait_closed()
@@ -472,10 +510,12 @@ async def _converse(reader, writer, peer):
             if oversized:
                 await _send(writer, "552 Message exceeds configured size limit")
                 continue
+            state = _clients.get(asyncio.current_task(), {})
+            state["delivering"] = True
             try:
                 # Blocking smtplib work belongs off the event loop, or one slow
                 # upstream would stall every other connection.
-                await asyncio.to_thread(deliver, mail_from, recipients, b"".join(chunks))
+                await _in_daemon_thread(deliver, mail_from, recipients, b"".join(chunks))
                 await _send(writer, "250 Message accepted")
             except Exception as exc:
                 print(
@@ -484,6 +524,11 @@ async def _converse(reader, writer, peer):
                     flush=True,
                 )
                 await _send(writer, f"451 Relay delivery failed: {smtp_reason(exc)}")
+            finally:
+                state["delivering"] = False
+            if _stopping:
+                await _send_quietly(writer, "421 Relay shutting down, try again later")
+                break
         elif upper == "QUIT":
             await _send(writer, "221 Bye")
             break
@@ -491,13 +536,95 @@ async def _converse(reader, writer, peer):
             await _send(writer, "502 Command not implemented")
 
 
+def _settle(future, result, error):
+    if future.done():
+        return
+    if error is not None:
+        future.set_exception(error)
+    else:
+        future.set_result(result)
+
+
+async def _in_daemon_thread(func, *args):
+    """``func(*args)`` on a daemon thread, so a provider stuck past the drain
+    cannot hold the process open the way a joined pool thread would."""
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+
+    def run():
+        try:
+            outcome = (func(*args), None)
+        except BaseException as exc:
+            outcome = (None, exc)
+        with contextlib.suppress(RuntimeError):
+            loop.call_soon_threadsafe(_settle, future, *outcome)
+
+    threading.Thread(target=run, name="smtp-relay-delivery", daemon=True).start()
+    return await future
+
+
+async def _drain(seconds):
+    """Close idle connections now; give deliveries under way ``seconds`` to finish."""
+    global _stopping
+    _stopping = True
+    loop = asyncio.get_running_loop()
+    cancelled = set()
+
+    def cancel_idle():
+        for task, state in list(_clients.items()):
+            if not state["delivering"] and task not in cancelled:
+                cancelled.add(task)
+                task.cancel()
+
+    deadline = loop.time() + seconds
+    while _clients and loop.time() < deadline:
+        cancel_idle()
+        await asyncio.sleep(0.05)
+    if _clients:
+        # Past the bound: cut the provider connections, so each client is told
+        # 451 and its sender retries, instead of the container being killed.
+        _DeliveryDeadline.stop_all()
+        deadline = loop.time() + 1
+        while _clients and loop.time() < deadline:
+            cancel_idle()
+            await asyncio.sleep(0.05)
+    for task in list(_clients):
+        task.cancel()
+
+
 async def serve():
+    """Listen until SIGTERM or SIGINT, then drain and return (exit status 0).
+
+    As PID 1 in its container the process has no default SIGTERM action, so
+    without the handler `docker stop` would wait out its grace and kill it.
+    """
+    global _stopping
+    _stopping = False
     host, port = listen_address()
     server = await asyncio.start_server(handle_client, host, port, limit=max_line_bytes())
     sockets = ", ".join(str(sock.getsockname()) for sock in server.sockets or [])
     print(f"Dlux SMTP relay listening on {sockets}", flush=True)
-    async with server:
-        await server.serve_forever()
+    loop = asyncio.get_running_loop()
+    stop = asyncio.Event()
+    handled = []
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(signum, stop.set)
+            handled.append(signum)
+        except (NotImplementedError, RuntimeError, ValueError):
+            pass
+    try:
+        await stop.wait()
+    finally:
+        for signum in handled:
+            loop.remove_signal_handler(signum)
+        server.close()
+    seconds = drain_seconds()
+    print(f"Dlux SMTP relay stopping: {len(_clients)} connection(s) open, up to {seconds} s for deliveries", flush=True)
+    await _drain(seconds)
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(server.wait_closed(), 1)
+    print("Dlux SMTP relay stopped", flush=True)
 
 
 def main():
