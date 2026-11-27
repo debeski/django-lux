@@ -147,6 +147,11 @@ session or System Settings, in the language of `LANGUAGE_CODE`.
 The same middleware answers 503 "Restore in progress" while a
 [system restore](backups.md#restore) replaces the data.
 
+While the database is down, System Settings fall back to the defaults and the
+`dlux` logger warns once, in one line without a traceback, that the database is
+unavailable. Further failed reads log at debug level until a read succeeds, which
+logs one info line that the database answers again.
+
 ## Limits and Data Discovery
 
 | Setting | Source | Type / default | Purpose |

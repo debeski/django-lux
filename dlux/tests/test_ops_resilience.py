@@ -1100,3 +1100,55 @@ class MigratorDefaultPasswordTests(TestCase):
         self.assertTrue(user.check_password('kept-pass-123'))
         self.assertIn('already exists', output)
         self.assertEqual(warnings, [])
+
+
+class ConfigOutageLoggingTests(TestCase):
+    """Runtime-recovery follow-up: a database outage logs once, not a traceback per config build."""
+
+    def setUp(self):
+        from dlux.utils import config
+
+        self.config = config
+        config._config_db_outage = False
+        self.addCleanup(setattr, config, '_config_db_outage', False)
+
+    def _build_while_down(self, times):
+        from django.db.utils import OperationalError
+
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        refused = OperationalError('connection to server failed: Connection refused\n\tIs the server running?')
+        objects = mock.Mock()
+        objects.filter.side_effect = refused
+        with mock.patch.object(SystemSettings, 'load', side_effect=refused), \
+                mock.patch.object(SystemSettings, 'objects', objects):
+            for _ in range(times):
+                self.config._build_system_config()
+
+    def test_outage_logs_one_warning_without_traceback(self):
+        with self.assertLogs('dlux', level='DEBUG') as logs:
+            self._build_while_down(5)
+        loud = [record for record in logs.records if record.levelno >= 30]
+        self.assertEqual(len(loud), 1, [record.getMessage() for record in loud])
+        self.assertIsNone(loud[0].exc_info)
+        self.assertIn('Connection refused', loud[0].getMessage())
+        self.assertNotIn('\n', loud[0].getMessage())
+
+    def test_recovery_logs_one_line_then_a_new_outage_warns_again(self):
+        with self.assertLogs('dlux', level='DEBUG'):
+            self._build_while_down(2)
+        with self.assertLogs('dlux', level='INFO') as logs:
+            self.config._build_system_config()
+            self.config._build_system_config()
+        answered = [record for record in logs.records if 'answers again' in record.getMessage()]
+        self.assertEqual(len(answered), 1)
+        with self.assertLogs('dlux', level='WARNING') as logs:
+            self._build_while_down(3)
+        self.assertEqual(len(logs.records), 1)
+
+    def test_other_errors_keep_their_traceback(self):
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        with mock.patch.object(SystemSettings, 'load', side_effect=RuntimeError('bad row')), \
+                self.assertLogs('dlux', level='WARNING') as logs:
+            self.config._build_system_config()
+        self.assertTrue(any(record.exc_info for record in logs.records))
+        self.assertFalse(self.config._config_db_outage)

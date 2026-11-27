@@ -1405,6 +1405,8 @@ def _config_built_once():
 
     original = config_module._build_system_config
     memo = {}
+    # The report shows a database outage once, even if this process logged it already.
+    config_module._config_db_outage = False
 
     def build_once():
         if 'config' not in memo:

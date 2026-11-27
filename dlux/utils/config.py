@@ -28,6 +28,7 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
+from ..db_errors import is_database_outage
 from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -161,6 +162,34 @@ def _system_config_db_unavailable_error(exc):
             )
         )
     return False
+
+# Set while the database does not answer config reads, so the outage is logged
+# once (no traceback) instead of on every config build.
+_config_db_outage = False
+
+
+def _note_config_db_outage(exc):
+    """Log a database outage once per outage; return whether ``exc`` was one."""
+    global _config_db_outage
+    if not is_database_outage(exc):
+        return False
+    if _config_db_outage:
+        logger.debug("SystemSettings still unreadable: the database is unavailable.")
+    else:
+        _config_db_outage = True
+        first_line = (str(exc).strip().splitlines() or [''])[0]
+        logger.warning(
+            "Failed to read SystemSettings: the database is unavailable; system config uses "
+            "defaults until it answers (%s: %s).", type(exc).__name__, first_line,
+        )
+    return True
+
+
+def _note_config_db_answered():
+    global _config_db_outage
+    if _config_db_outage:
+        _config_db_outage = False
+        logger.info("The database answers again; system config reads SystemSettings.")
 
 # ── intra-package imports (shared + feature deps) ──
 from .common import DEFAULT_LANGUAGE_CATALOG, _coerce_import_bool, _normalize_asset_url
@@ -889,6 +918,7 @@ def _build_system_config():
     
     # DB settings
     db_config = {}
+    db_outage = False
     try:
         from dlux.models import SystemSettings
         sys_settings = SystemSettings.load()
@@ -1267,6 +1297,8 @@ def _build_system_config():
             logger.debug(
                 "SystemSettings are unavailable while building system config; using defaults."
             )
+        elif _note_config_db_outage(exc):
+            db_outage = True
         else:
             logger.warning(
                 "Failed to read SystemSettings while building system config; using defaults for the failed fields.",
@@ -1288,8 +1320,13 @@ def _build_system_config():
                 logger.debug(
                     "SystemSettings are unavailable during fallback is_configured check."
                 )
+            elif _note_config_db_outage(exc):
+                db_outage = True
             else:
                 logger.warning("Fallback is_configured DB check failed.", exc_info=True)
+
+    if not db_outage:
+        _note_config_db_answered()
 
     db_config = expand_system_config_groups(db_config)
 
