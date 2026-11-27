@@ -494,6 +494,51 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.latest_reason, "DjangoLux is up to date.")
             self.assertEqual(reconciled.latest_version, "1.8.9", "the known latest is still reported")
 
+    def test_a_release_installed_outside_a_check_raises_the_recorded_latest(self):
+        """`./start.sh dlux update` left the recorded latest behind the install.
+
+        The last check had recorded 1.17.0b1; the host then installed 1.17.0b2
+        without a check run, and `latest_version` stayed 1.17.0b1 until somebody
+        pressed "Check updates".
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.17.0b2").mkdir()
+            store.write_active("1.17.0b2", source="volume", generation=3)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.16.3"
+            state.active_version = "1.17.0b1"
+            state.latest_version = "1.17.0b1"
+            state.latest_wheel_url = "https://example.invalid/django_lux-1.17.0b1.whl"
+            state.latest_compatible = False
+            state.latest_reason = "DjangoLux is up to date."
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.16.3"):
+                reconciled = UpdateService(store=store).reconcile()
+
+            self.assertEqual(reconciled.active_version, "1.17.0b2")
+            self.assertEqual(reconciled.latest_version, "1.17.0b2")
+            self.assertEqual(reconciled.latest_wheel_url, "")
+            self.assertFalse(reconciled.latest_compatible)
+            self.assertEqual(reconciled.latest_reason, "DjangoLux is up to date.")
+
+    def test_a_newer_recorded_latest_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.release_path("1.17.0b1").mkdir()
+            store.write_active("1.17.0b1", source="volume", generation=4)
+            state = DluxUpdateState.load()
+            state.baked_version = "1.16.3"
+            state.active_version = "1.17.0b1"
+            state.latest_version = "1.17.0b2"
+            state.latest_compatible = True
+            state.save()
+            with mock.patch("dlux.updater.service.get_baked_version", return_value="1.16.3"):
+                reconciled = UpdateService(store=store).reconcile()
+
+            self.assertEqual(reconciled.latest_version, "1.17.0b2")
+            self.assertTrue(reconciled.latest_compatible)
+
     def test_the_rollback_target_is_derived_from_the_volume(self):
         """The Rollback button never appeared on a Composer-executed stack.
 

@@ -1188,6 +1188,22 @@ class UpdateService:
             state.latest_compatible = False
             state.latest_reason = "DjangoLux is up to date."
             changed.extend(["latest_compatible", "latest_reason"])
+        # A release installed outside a check run (`./start.sh dlux update` on the
+        # host) can be newer than the latest one the last check recorded. The
+        # installed release is then the newest known, so the recorded one is
+        # raised to it, never past it.
+        if state.latest_version and self._version_is_newer(effective, state.latest_version):
+            for field, value in {
+                "latest_version": effective,
+                "latest_wheel_url": "",
+                "latest_wheel_sha256": "",
+                "latest_manifest": {},
+                "latest_compatible": False,
+                "latest_reason": "DjangoLux is up to date.",
+            }.items():
+                if getattr(state, field) != value:
+                    setattr(state, field, value)
+                    changed.append(field)
         if changed:
             state.save(update_fields=list(dict.fromkeys(changed + ["updated_at"])))
         return state

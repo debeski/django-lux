@@ -7,6 +7,11 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## Unreleased
+
+- **One Period After A System-Check Message (b2 acceptance F3)**: the doctor's `settings.django_checks` finding printed `dlux.W201` as "…so injected script can run.." because the message ends with a period and the finding added one; `_check_django_system_checks.listed()` now drops each message's trailing period before joining them, so the line ends with exactly one.
+- **Recorded Latest Release Follows A Host Install (b2 acceptance F4)**: after `./start.sh dlux check` and `./start.sh dlux update` installed 1.17.0b2, `DluxUpdateState.latest_version` stayed at the 1.17.0b1 the last check run recorded until someone pressed "Check updates". `UpdateService.reconcile()` now raises `latest_version` to the active release when that is newer, clears the stale `latest_wheel_url`, `latest_wheel_sha256` and `latest_manifest`, and keeps `latest_compatible` off; raising an offer stays with a check run.
+
 ## v1.17.0b2
 
 - **A Non-Root Image Starts On Empty Volumes (scaffold, pairs with Composer 1.11.0b2)**: a project image with `USER 10001:0` failed its first `./start.sh`: the worker's `python -m dlux.mount_access gate` exited 78, because Composer's pre-up grant skipped the `static` and `dlux_runtime` volumes that did not exist yet, and Docker then created them from the image's mount points, root 0755 (and no `/opt/dlux-runtime` at all). `Dockerfile.tmpl` now creates every mount point the app containers use (`/app/imports`, `/app/logs`, `/app/media`, `/app/staticfiles`, `/opt/dlux-runtime`) with `chgrp 0` and `chmod g+rwX` in the `RUN` that made the first four, so a new named volume copies a group-writable mode; nothing changes for a root image or for existing volumes. A project that sets `USER 10001:0` in its own `Dockerfile` copies that `RUN` before the `USER` line, which also covers deployments on Composer 1.10.x. `DockerfileMountPointTests` reads the app containers' mounts from the generated `compose.yml` and requires exactly those paths, ahead of any `USER`; `docs/deployment-configuration.md` § File permissions shows the line.

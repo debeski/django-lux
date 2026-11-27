@@ -336,7 +336,9 @@ def _check_django_system_checks(ctx):
     warnings = [message for message in messages if checks.WARNING <= message.level < checks.ERROR]
 
     def listed(found):
-        shown = '; '.join(f'{message.id or "?"} ({message.obj}): {message.msg}' for message in found[:5])
+        shown = '; '.join(
+            f'{message.id or "?"} ({message.obj}): {str(message.msg).removesuffix(".")}' for message in found[:5]
+        )
         return shown + (f' (+{len(found) - 5} more)' if len(found) > 5 else '')
 
     remedy = 'Run: python manage.py check, and fix what it lists (or add the ids to SILENCED_SYSTEM_CHECKS).'
