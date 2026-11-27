@@ -1,4 +1,4 @@
-# composer-wrapper: 7
+# composer-wrapper: 8
 Set-StrictMode -Version Latest
 
 # The wrapper resolves its own image before any composer code can run, so the
@@ -23,20 +23,26 @@ $composerChannelImage = if ($composerChannel -eq "beta") { "debeski/composer:bet
 
 # `.composer-image` holds the digest the last verified update pinned, written by
 # composer itself (`update self`, `agent update`, `check --beta` / `--stable`).
-# It is read with the same pattern composer uses (case-sensitive), so a
-# malformed lock falls back to the channel tag in both places.
-# COMPOSER_SELF_IMAGE still beats it.
+# It is read with the rule composer uses: the first non-empty line, stripped at
+# its ends (and of a byte-order mark), must match the pattern whole
+# (case-sensitive); nothing inside it is removed. A malformed lock falls back to
+# the channel tag in both places. COMPOSER_SELF_IMAGE still beats it.
 $composerLockFile = Join-Path $composerScriptRoot ".composer-image"
 $composerLockPattern = '^debeski/composer:v[0-9]+(\.[0-9]+){1,2}((a|b|rc)[0-9]+)?@sha256:[0-9a-f]{64}$'
 function Read-ComposerLock {
     if (-not (Test-Path -LiteralPath $composerLockFile)) { return "" }
     try {
-        $raw = (Get-Content -LiteralPath $composerLockFile -TotalCount 1 -ErrorAction Stop)
+        $lines = @(Get-Content -LiteralPath $composerLockFile -ErrorAction Stop)
     } catch {
         return ""
     }
-    $value = ("$raw" -replace '\s', '')
-    if ($value -cmatch $composerLockPattern) { return $value }
+    foreach ($line in $lines) {
+        $value = "$line".TrimStart([char]0xFEFF).Trim(" ", "`t", "`r", "`v", "`f")
+        if ($value) {
+            if ($value -cmatch $composerLockPattern) { return $value }
+            return ""
+        }
+    }
     return ""
 }
 $composerLockImage = Read-ComposerLock
@@ -63,26 +69,91 @@ function Get-ComposerContainerRoot {
 }
 
 # Secrets reach every composer run, the pin included: validating the Compose
-# edit interpolates the same variables a deploy does.
+# edit interpolates the same variables a deploy does. The first file that exists
+# is used; one that leaves out keys a later file holds is a stray copy shadowing
+# the real one, and is refused rather than deployed on compose defaults.
 $secretArgs = @()
+$secretKeys = @()
+$secretSource = ""
 foreach ($candidate in @(".env", "secrets/.env", ".secrets/.env")) {
   $secretPath = Join-Path $projectRoot $candidate
   if (-not (Test-Path -LiteralPath $secretPath -PathType Leaf)) {
     continue
   }
-  $secretKeys = @(
-    Get-Content -LiteralPath $secretPath | ForEach-Object {
-      if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=') { $matches[1] }
+  $secretLines = @(Get-Content -LiteralPath $secretPath)
+  $keys = @(
+    $secretLines | ForEach-Object {
+      if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=') { $matches[1] }
     }
   )
-  if ($secretKeys.Count -eq 0) {
+  if ($secretSource) {
+    $missing = @($keys | Where-Object { $secretKeys -notcontains $_ })
+    if ($missing.Count -gt 0) {
+      throw "Two secrets files: $secretSource is used, but $candidate holds keys it does not ($($missing -join ', ')). A stray $secretSource would deploy on compose defaults. Move the one you do not use into .xclude/, or merge them."
+    }
+    continue
+  }
+  # Docker reads the file as --env-file: KEY=value lines, no `export`, no spaces around `=`.
+  for ($n = 0; $n -lt $secretLines.Count; $n++) {
+    if ($secretLines[$n] -match '^\s*export\s' -or $secretLines[$n] -match '^\s*[A-Za-z_][A-Za-z0-9_]*\s+=') {
+      throw "Secrets file $secretPath, line $($n + 1): write KEY=value, with no 'export' and no spaces around '=' (Docker reads this file with --env-file)."
+    }
+  }
+  if ($keys.Count -eq 0) {
     throw "Secrets file contains no environment values: $secretPath"
   }
+  $secretKeys = $keys
+  $secretSource = $candidate
   $secretArgs = @(
     "--env-file", $secretPath,
-    "-e", "COMPOSER_INHERITED_SECRET_KEYS=$($secretKeys -join ',')"
+    "-e", "COMPOSER_INHERITED_SECRET_KEYS=$($keys -join ',')"
   )
-  break
+}
+
+# The deployer sees only the project directory, so a Compose file linked from
+# outside it cannot be read there.
+$composeNames = @("compose.yml", "docker-compose.yml")
+$composeNamed = ""
+$composeDev = $false
+for ($i = 0; $i -lt $args.Count; $i++) {
+  $token = "$($args[$i])"
+  if (($token -eq "-f" -or $token -eq "--file") -and $i + 1 -lt $args.Count) { $composeNamed = "$($args[$i + 1])"; $i++; continue }
+  if ($token -like "--file=*") { $composeNamed = $token.Substring(7); continue }
+  if ($token -eq "-d" -or $token -eq "--dev") { $composeDev = $true }
+}
+if ($composeNamed) { $composeNames = @($composeNamed) } elseif ($composeDev) { $composeNames += "compose.dev.yml" }
+$projectPrefix = [System.IO.Path]::GetFullPath($projectRoot).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+foreach ($composeName in $composeNames) {
+  $composePath = if ([System.IO.Path]::IsPathRooted($composeName)) { $composeName } else { Join-Path $projectRoot $composeName }
+  $composeItem = Get-Item -LiteralPath $composePath -Force -ErrorAction SilentlyContinue
+  if (-not $composeItem -or -not $composeItem.LinkType) { continue }
+  $linkTarget = "$(@($composeItem.Target)[0])"
+  if (-not [System.IO.Path]::IsPathRooted($linkTarget)) { $linkTarget = Join-Path (Split-Path -Parent $composePath) $linkTarget }
+  $linkTarget = [System.IO.Path]::GetFullPath($linkTarget)
+  if (-not $linkTarget.StartsWith($projectPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "$composeName is a symbolic link to $linkTarget, outside the project directory $projectRoot. The Composer container mounts only the project directory, so it cannot read that file: copy it into the project, or link to a file inside it."
+  }
+}
+
+# Compose variables come from the secrets file only: one set in this shell
+# never reaches Composer, so say so rather than deploy without it.
+$shellOnly = @()
+$ignoredVariables = @("HOME", "USER", "PATH", "PWD", "SHELL", "TERM", "HOSTNAME", "UID", "GID")
+foreach ($composeName in $composeNames) {
+  $composePath = if ([System.IO.Path]::IsPathRooted($composeName)) { $composeName } else { Join-Path $projectRoot $composeName }
+  if (-not (Test-Path -LiteralPath $composePath -PathType Leaf)) { continue }
+  $composeText = Get-Content -LiteralPath $composePath -Raw
+  foreach ($match in [regex]::Matches("$composeText", '\$\{([A-Za-z_][A-Za-z0-9_]*)')) {
+    $variable = $match.Groups[1].Value
+    if ($variable -like "COMPOSER_*" -or $ignoredVariables -contains $variable) { continue }
+    if ($secretKeys -contains $variable -or $shellOnly -contains $variable) { continue }
+    if (Test-Path -LiteralPath "Env:$variable") { $shellOnly += $variable }
+  }
+}
+if ($shellOnly.Count -gt 0) {
+  $secretName = if ($secretSource) { $secretSource } else { "a secrets file" }
+  $secretTarget = if ($secretSource) { $secretSource } else { ".secrets/.env" }
+  [Console]::Error.WriteLine("Warning: $($shellOnly -join ', ') set in this shell, not in ${secretName}: Composer reads Compose variables from the secrets file only, so this run does not use the shell's value. Put it in $secretTarget to use it.")
 }
 
 # The deployer can only be refreshed here: a composer already running from
@@ -137,7 +208,10 @@ function Invoke-ComposerPin {
         $resolver, "update", "self", "--pin"
     )
     & docker @pinArgs | Out-Host
-    if ($LASTEXITCODE -ne 0) { return $false }
+    if ($LASTEXITCODE -ne 0) {
+        [Console]::Error.WriteLine("The Composer pin could not be resolved with $resolver. If it printed only a usage line, that release predates this route: run '.\start.ps1 agent update', which moves the pin with the resident pair.")
+        return $false
+    }
     $script:composerLockImage = Read-ComposerLock
     if (-not $script:composerLockImage) {
         # Nothing to pin yet (composer said why): keep the deployer just installed.
