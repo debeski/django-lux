@@ -14,7 +14,7 @@ class SessionCookieProblemTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
-    def _request(self, secure=False, host="localhost", **headers):
+    def _request(self, secure=False, host="decrees.example.test", **headers):
         return self.factory.get("/accounts/login/", secure=secure, HTTP_HOST=host, **headers)
 
     @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None)
@@ -22,6 +22,17 @@ class SessionCookieProblemTests(SimpleTestCase):
         message = session_cookie_problem(self._request())
         self.assertIn("Secure", message)
         self.assertIn("HTTP", message)
+
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None, ALLOWED_HOSTS=["*"])
+    def test_loopback_hosts_keep_secure_cookies_over_http(self):
+        # R2-101: browsers treat loopback as a secure context and keep the cookie.
+        for host in ("localhost", "localhost:8162", "app.localhost", "127.0.0.1:8000", "[::1]:8000"):
+            with self.subTest(host=host):
+                self.assertEqual(session_cookie_problem(self._request(host=host)), "")
+
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None, ALLOWED_HOSTS=["*"])
+    def test_a_lan_address_over_http_is_still_reported(self):
+        self.assertIn("Secure", session_cookie_problem(self._request(host="192.168.1.20:8000")))
 
     @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None)
     def test_the_same_page_over_https_is_fine(self):
@@ -66,12 +77,17 @@ class SessionCookieProblemTests(SimpleTestCase):
     def test_a_plain_deployment_reports_nothing(self):
         self.assertEqual(session_cookie_problem(self._request()), "")
 
-    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN="example.gov.ly")
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN="example.gov.ly", ALLOWED_HOSTS=["*"])
     def test_the_transport_is_named_before_the_domain(self):
-        # Both are wrong on http://localhost; fixing the transport first is the
+        # Both are wrong on http://192.168.1.20; fixing the transport first is the
         # advice that also works for a deployment behind a proxy.
-        message = session_cookie_problem(self._request(host="localhost"))
+        message = session_cookie_problem(self._request(host="192.168.1.20"))
         self.assertIn("Secure", message)
+
+    @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN="example.gov.ly")
+    def test_loopback_still_reports_a_foreign_cookie_domain(self):
+        message = session_cookie_problem(self._request(host="localhost"))
+        self.assertIn("example.gov.ly", message)
 
     @override_settings(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_DOMAIN=None)
     def test_the_sites_own_wording_is_used_when_it_has_one(self):

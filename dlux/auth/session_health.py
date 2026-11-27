@@ -13,11 +13,17 @@ were not written for:
 * ``SESSION_COOKIE_DOMAIN`` naming a domain this request did not come from.
 
 A deployment reached over its real hostname and TLS never sees either. A stack
-opened on ``localhost`` sees both, and the only symptom is a login form that
-keeps coming back. So the login page says so.
+opened on another host or address over plain HTTP sees them, and the only
+symptom is a login form that keeps coming back. So the login page says so.
+
+Loopback hosts (``localhost``, ``*.localhost``, ``127.0.0.0/8``, ``::1``) are a
+secure context: browsers keep Secure cookies there over plain HTTP, so the
+Secure warning is not shown for them.
 """
 
 from __future__ import annotations
+
+import ipaddress
 
 from django.conf import settings
 
@@ -29,6 +35,27 @@ def _host(request):
         # get_host() raises on a host outside ALLOWED_HOSTS; that is a different
         # misconfiguration with its own error page, and not this one to report.
         return ""
+
+
+def _is_loopback_host(host):
+    host = (host or "").strip("[]").rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _request_host_name(request):
+    try:
+        raw = request.get_host() or ""
+    except Exception:
+        return ""
+    raw = raw.lower()
+    if raw.startswith("["):
+        return raw[1:raw.find("]")] if "]" in raw else raw
+    return raw.split(":")[0]
 
 
 def _https_behind_unconfigured_proxy(request):
@@ -58,6 +85,7 @@ def session_cookie_problem(request, strings=None):
         getattr(settings, "SESSION_COOKIE_SECURE", False)
         and not request.is_secure()
         and not _https_behind_unconfigured_proxy(request)
+        and not _is_loopback_host(_request_host_name(request))
     ):
         return strings.get(
             "login_cookie_insecure",
