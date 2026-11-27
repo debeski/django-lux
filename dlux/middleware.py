@@ -38,11 +38,18 @@ class DluxMiddleware:
 
     @classmethod
     def _is_strings_script(cls, request):
-        try:
-            sample = reverse('dlux_strings', kwargs={'lang': 'en', 'version': '0' * 16})
-        except Exception:
-            return False
-        return request.path.startswith(cls._path_directory(sample))
+        """The strings script or the page stylesheet: the same file for everyone."""
+        for name, kwargs in (
+            ('dlux_strings', {'lang': 'en', 'version': '0' * 16}),
+            ('dlux_page_styles', {'version': '0' * 16}),
+        ):
+            try:
+                sample = reverse(name, kwargs=kwargs)
+            except Exception:
+                continue
+            if request.path.startswith(cls._path_directory(sample)):
+                return True
+        return False
 
     def _setup_guard_allowed(self, request):
         allowed_exact_paths = set()
@@ -490,7 +497,7 @@ class DluxMiddleware:
 
         try:
             if self._is_strings_script(request):
-                # The same table for every visitor: no session, device, timeout
+                # The same file for every visitor: no session, device, timeout
                 # or setup handling, which would also mark it Vary: Cookie.
                 return self.get_response(request)
 

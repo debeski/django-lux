@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -876,17 +877,29 @@ def _update_summary(details):
     return ', '.join(names[:3]) + f" +{len(names) - 3}"
 
 
+_CRUD_MESSAGES = {
+    'create': ('notify_crud_created', 'Created {model}: {object}'),
+    'delete': ('notify_crud_deleted', 'Deleted {model}: {object}'),
+    'update': ('notify_crud_updated', 'Updated {model}: {object}'),
+    'update_fields': ('notify_crud_updated_fields', 'Updated {model}: {object} ({fields})'),
+}
+
+
 def _crud_message(instance, action, details=None):
+    from .translations import get_strings
+
     model_label = str(getattr(instance._meta, 'verbose_name', instance.__class__.__name__))
     object_label = str(instance)
-    if action == 'create':
-        return f"Created {model_label}: {object_label}"
-    if action == 'delete':
-        return f"Deleted {model_label}: {object_label}"
-    summary = _update_summary(details)
-    if summary:
-        return f"Updated {model_label}: {object_label} ({summary})"
-    return f"Updated {model_label}: {object_label}"
+    summary = _update_summary(details) if action not in ('create', 'delete') else ''
+    kind = action if action in ('create', 'delete') else ('update_fields' if summary else 'update')
+    key, fallback = _CRUD_MESSAGES[kind]
+    try:
+        template = str(get_strings().get(key) or fallback)
+    except Exception:
+        template = fallback
+    # One pass, so a model or object name containing "{fields}" stays literal.
+    values = {'model': model_label, 'object': object_label, 'fields': summary}
+    return re.sub(r'\{(model|object|fields)\}', lambda match: values[match.group(1)], template)
 
 
 def notify_model_event(instance, action, *, details=None, activity_log=None, request=None, user=None):

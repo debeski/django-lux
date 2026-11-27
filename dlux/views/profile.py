@@ -71,10 +71,12 @@ def _parse_session_datetime(value):
 
 
 def _device_label(user_agent):
+    from ..translations import get_strings
+    strings = get_strings()
     user_agent = str(user_agent or '').strip()
     lowered = user_agent.lower()
     if not user_agent:
-        return 'Unknown device'
+        return strings.get('device_unknown', 'Unknown device')
 
     if 'edg/' in lowered or 'edge/' in lowered:
         browser = 'Edge'
@@ -85,7 +87,7 @@ def _device_label(user_agent):
     elif 'safari/' in lowered:
         browser = 'Safari'
     else:
-        browser = 'Browser'
+        browser = strings.get('device_browser_generic', 'Browser')
 
     if 'android' in lowered:
         platform = 'Android'
@@ -98,9 +100,10 @@ def _device_label(user_agent):
     elif 'linux' in lowered:
         platform = 'Linux'
     else:
-        platform = 'device'
+        platform = strings.get('device_platform_generic', 'device')
 
-    return f'{browser} on {platform}'
+    pattern = str(strings.get('device_label_pattern') or '{browser} on {platform}')
+    return pattern.replace('{browser}', browser).replace('{platform}', platform)
 
 
 def _session_device_metadata_from_request(request):

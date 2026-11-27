@@ -219,6 +219,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/fonts/<slug>.css` | `@font-face` rules for one font System Settings allows, plus `--dlux-main-font`; public, cached for an hour; 404 for any other font. Linked by `dlux/public_base.html` |
+| `/sys/api/styles/<version>.css` | Every registered font's `@font-face` rules, the font picker samples, custom theme swatches and the default `--dlux-main-font`/`--dlux-font-fallback`; public, cached for good under its version (a digest of the content). Linked by `dlux/base.html` |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |
@@ -1055,7 +1056,8 @@ See [Task Runner](task-runner.md).
 | Name | Type | Purpose |
 | --- | --- | --- |
 | `translate_log` | filter | Translate log values with a prefix such as `action` or `model` |
-| `format_log_details` | simple tag | Render structured log details as HTML badges |
+| `format_log_details` | simple tag | Render structured log details as HTML badges; a dict or list value shows as a count (`log_value_fields`, `log_value_items`) and long text is cut at 40 characters |
+| `dlux_column_label` | filter | A table header in the viewer's language from `label_<header in snake case>` (`Updated By` → `label_updated_by`), else the header unchanged; `dlux/tables/table.html` applies it |
 
 ### `sidebar_tags`
 

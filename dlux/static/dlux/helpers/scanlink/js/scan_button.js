@@ -6,37 +6,53 @@
 
     const SCAN_WAIT_MS = 11 * 60 * 1000;
 
+    // A message is the element's data-scan-* override, else the page's strings
+    // table, else English. The widget renders data-scan-* only when it has the
+    // translated strings, so an untranslated attribute never hides DLUX_STRINGS.
+    const MESSAGES = {
+        label: ["scanLabel", "scan_label", "Scan"],
+        preparing: ["scanPreparing", "scan_preparing_label", "Preparing scan"],
+        selecting: ["scanSelecting", "scan_selecting_label", "Select a scanner"],
+        processing: ["scanProcessing", "scan_processing_label", "Scanning"],
+        pageTemplate: ["scanPageTemplate", "scan_page_progress_template", "Page {count} scanned"],
+        generating: ["scanGenerating", "scan_generating_label", "Generating PDF"],
+        completed: ["scanCompleted", "scan_completed_label", "Scanned"],
+        helperUnavailable: ["scanHelperUnavailable", "scan_helper_unavailable_message", "Start ScanLink on this computer and try again. If your browser asks to connect to this computer, choose Allow."],
+        insecureOrigin: ["scanInsecureOrigin", "scan_insecure_origin_message", "Open this application using its secure address, or contact your support team to enable scanning."],
+        requestUncertain: ["scanRequestUncertain", "scan_request_uncertain_message", "The scan request lost its connection. Check ScanLink before starting another scan."],
+        busy: ["scanBusy", "scan_busy_message", "Another scan is already running. Wait for it to finish, then try again."],
+        cancelled: ["scanCancelled", "scan_cancelled_message", "The scan was cancelled."],
+        timeout: ["scanTimeout", "scan_timeout_message", "The scan took too long to finish."],
+        stalled: ["scanStalled", "scan_stalled_message", "The scan helper appears to be stuck. Check the ScanLink tray app, scanner dialog, or scanner driver and try again."],
+        noScanners: ["scanNoScanners", "scan_no_scanners_message", "No TWAIN scanner is available on this computer."],
+        openSource: ["scanOpenSource", "scan_open_source_failed_message", "The selected scanner could not be opened."],
+        noPages: ["scanNoPages", "scan_no_pages_message", "The scanner returned no pages. Check that paper is loaded, then try again."],
+        acquireFailed: ["scanAcquireFailed", "scan_acquire_failed_message", "The scanner stopped before the scan finished. Check the scanner and try again."],
+        workerCrashed: ["scanWorkerCrashed", "scan_worker_crashed_message", "ScanLink's scanning process stopped unexpectedly. Try again; if it happens again, restart ScanLink."],
+        lost: ["scanLost", "scan_lost_message", "ScanLink restarted or the scan was lost. Scan again."],
+        invalidResult: ["scanInvalidResult", "scan_invalid_result_message", "ScanLink did not return a PDF. Scan again; if it happens again, restart ScanLink."],
+        originNotAllowed: ["scanOriginNotAllowed", "scan_origin_not_allowed_message", "ScanLink on this computer has not allowed this site. Scan again and choose Allow in the ScanLink window."],
+        linking: ["scanLinking", "scan_linking_message", "Choose Allow in the ScanLink window on this computer to let this site scan."],
+        linkDeclined: ["scanLinkDeclined", "scan_link_declined_message", "ScanLink was not allowed to scan for this site. Wait a few minutes, scan again and choose Allow."],
+        linkTimeout: ["scanLinkTimeout", "scan_link_timeout_message", "Nobody answered the ScanLink window. Scan again and choose Allow."],
+        linkPending: ["scanLinkPending", "scan_link_pending_message", "ScanLink is waiting for an answer about another site. Answer its window, then scan again."],
+        linkRateLimited: ["scanLinkRateLimited", "scan_link_rate_limited_message", "ScanLink asked about this site a moment ago. Wait a few minutes, then scan again."],
+        failed: ["scanFailed", "scan_failed_message", "The scan could not be completed."],
+    };
+
     function messagesFor(element) {
         const data = (element && element.dataset) || {};
         const strings = window.DLUX_STRINGS || {};
-        return {
-            label: data.scanLabel || "Scan",
-            preparing: data.scanPreparing || "Preparing scan",
-            selecting: data.scanSelecting || "Select a scanner",
-            processing: data.scanProcessing || "Scanning",
-            pageTemplate: data.scanPageTemplate || "Page {count} scanned",
-            generating: data.scanGenerating || "Generating PDF",
-            completed: data.scanCompleted || "Scanned",
-            helperUnavailable: data.scanHelperUnavailable || strings.scan_helper_unavailable_message || "Start ScanLink on this computer and try again. If your browser asks to connect to this computer, choose Allow.",
-            insecureOrigin: data.scanInsecureOrigin || strings.scan_insecure_origin_message || "Open this application using its secure address, or contact your support team to enable scanning.",
-            requestUncertain: data.scanRequestUncertain || strings.scan_request_uncertain_message || "The scan request lost its connection. Check ScanLink before starting another scan.",
-            busy: data.scanBusy || "Another scan is already running.",
-            cancelled: data.scanCancelled || "The scan was cancelled.",
-            timeout: data.scanTimeout || "The scan took too long to finish.",
-            noScanners: data.scanNoScanners || "No TWAIN scanner is available on this computer.",
-            openSource: data.scanOpenSource || "The selected scanner could not be opened.",
-            noPages: data.scanNoPages || strings.scan_no_pages_message || "The scanner returned no pages. Check that paper is loaded, then try again.",
-            acquireFailed: data.scanAcquireFailed || strings.scan_acquire_failed_message || "The scanner stopped before the scan finished. Check the scanner and try again.",
-            workerCrashed: data.scanWorkerCrashed || strings.scan_worker_crashed_message || "ScanLink's scanning process stopped unexpectedly. Try again; if it happens again, restart ScanLink.",
-            originNotAllowed: data.scanOriginNotAllowed || strings.scan_origin_not_allowed_message || "ScanLink on this computer has not allowed this site. Scan again and choose Allow in the ScanLink window.",
-            linking: data.scanLinking || strings.scan_linking_message || "Choose Allow in the ScanLink window on this computer to let this site scan.",
-            linkDeclined: data.scanLinkDeclined || strings.scan_link_declined_message || "ScanLink was not allowed to scan for this site. Wait a few minutes, scan again and choose Allow.",
-            linkTimeout: data.scanLinkTimeout || strings.scan_link_timeout_message || "Nobody answered the ScanLink window. Scan again and choose Allow.",
-            linkPending: data.scanLinkPending || strings.scan_link_pending_message || "ScanLink is waiting for an answer about another site. Answer its window, then scan again.",
-            failed: data.scanFailed || "The scan could not be completed.",
-        };
+        const messages = {};
+        Object.keys(MESSAGES).forEach(function (name) {
+            const [attribute, key, fallback] = MESSAGES[name];
+            messages[name] = data[attribute] || strings[key] || fallback;
+        });
+        return messages;
     }
 
+    // Every message is the page's own: ScanLink's text is English, may carry
+    // exception details or paths, and comes from whatever answers on the port.
     function errorMessage(messages, error) {
         switch (error && error.code) {
             case "insecure_origin":
@@ -45,6 +61,8 @@
                 return messages.helperUnavailable;
             case "scan_request_uncertain":
                 return messages.requestUncertain;
+            case "helper_stalled":
+                return messages.stalled;
             case "busy":
                 return messages.busy;
             case "scanner_selection_cancelled":
@@ -65,6 +83,11 @@
                 return messages.acquireFailed;
             case "scan_worker_crashed":
                 return messages.workerCrashed;
+            case "job_not_found":
+            case "result_unavailable":
+                return messages.lost;
+            case "invalid_result":
+                return messages.invalidResult;
             case "origin_not_allowed":
                 return messages.originNotAllowed;
             case "link_declined":
@@ -73,18 +96,10 @@
                 return messages.linkTimeout;
             case "link_pending":
                 return messages.linkPending;
-            case "too_many_links":
-            case "origin_required":
-            case "invalid_payload":
-            case "invalid_sites":
-            case "invalid_site":
-            case "too_many_sites":
-            case "payload_too_large":
-            case "invalid_host":
-            case "local_only":
-                return messages.failed;
+            case "link_rate_limited":
+                return messages.linkRateLimited;
             default:
-                return (error && error.message) || messages.failed;
+                return messages.failed;
         }
     }
 
@@ -138,11 +153,14 @@
             await scanLink.link(sites);
             health = await scanLink.checkHealth(true);
         } else if (health && health.link && health.link.linked && !sameSites(health.link.sites, sites)) {
+            // A list that gains a site opens ScanLink's window again.
+            onProgress(messages.linking, { status: "linking" });
             try {
                 await scanLink.link(sites);
             } catch (error) {
                 // The site stays linked with its previous list; scanning goes on.
             }
+            onProgress(messages.preparing, { status: "queued" });
         }
         if (!health) throw scanLink.connectionError || new window.ScanLinkError(messages.helperUnavailable, "helper_unavailable");
         return health;

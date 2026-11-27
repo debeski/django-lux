@@ -5,6 +5,7 @@ Split from the original ``dlux/utils.py`` (kept intact, inert).
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 from copy import deepcopy
@@ -197,6 +198,64 @@ def export_system_settings_payload(instance=None):
         'dlux_version': __version__,
         'settings': data,
     }
+
+# A config export is small. Anything much larger is not one, and parsing it
+# would only waste memory before failing.
+SYSTEM_SETTINGS_IMPORT_MAX_BYTES = 2 * 1024 * 1024
+
+
+class SettingsImportError(ValueError):
+    """An uploaded settings file that cannot be imported. ``code`` names the
+    translated message: ``too_large``, ``invalid_json`` or ``invalid_file``."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+def _finite_float(text):
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f'non-finite number {text}')
+    return value
+
+
+def _refuse_constant(name):
+    raise ValueError(f'{name} is not JSON')
+
+
+def read_system_settings_import(raw):
+    """Parse and normalize an uploaded settings file (bytes or text).
+
+    Raises ``SettingsImportError`` for every file it cannot import: too large,
+    not UTF-8 JSON (a UTF-8 byte-order mark is allowed), NaN or infinite numbers,
+    nesting deep enough to exhaust the parser, or not a settings payload.
+    """
+    if isinstance(raw, str):
+        raw = raw.encode('utf-8')
+    raw = raw or b''
+    if len(raw) > SYSTEM_SETTINGS_IMPORT_MAX_BYTES:
+        raise SettingsImportError('too_large')
+    try:
+        payload = json.loads(
+            raw.decode('utf-8-sig') or '{}',
+            parse_constant=_refuse_constant,
+            parse_float=_finite_float,
+        )
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise SettingsImportError('invalid_json') from exc
+    try:
+        return payload, normalize_system_settings_import_payload(payload)
+    except (ValueError, TypeError, OverflowError, RecursionError) as exc:
+        raise SettingsImportError('invalid_file') from exc
+
+
+def settings_import_error_message(error, strings):
+    return {
+        'too_large': strings.get('settings_import_too_large', 'That file is too large to be a settings export.'),
+        'invalid_json': strings.get('settings_import_invalid_json', 'That file is not valid JSON.'),
+    }.get(error.code) or strings.get('settings_import_invalid_file', 'That file is not a settings export.')
+
 
 # System Import Export - Function validates exported or raw settings payloads.
 def normalize_system_settings_import_payload(payload):

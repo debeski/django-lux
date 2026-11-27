@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import logging
 from urllib.parse import urlparse
-from csp.constants import NONCE, NONE, SELF, UNSAFE_INLINE
+from csp.constants import NONCE, NONE, SELF
 from dlux.system.constants import SCANLINK_CONNECT_ORIGINS
 from dlux.utils import get_project_version, get_secret, dlux_settings
 
@@ -175,7 +175,9 @@ CONTENT_SECURITY_POLICY = {
         # Scripts come from this site, or inline with nonce="{{ request.csp_nonce }}".
         # No 'unsafe-inline' or 'unsafe-eval': DjangoLux needs neither.
         "script-src": [SELF, NONCE],
-        "style-src": [SELF, UNSAFE_INLINE],
+        # Styles come only from this site's stylesheets; DjangoLux sets computed
+        # styles through the CSSOM, which style-src does not govern.
+        "style-src": [SELF],
         "img-src": [SELF, "data:", "blob:"],
         "font-src": [SELF, "data:"],
         # ScanLink talks to a tray app on the operator's own workstation. Listing

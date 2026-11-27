@@ -3,7 +3,7 @@
 from django.urls import path, re_path
 from . import views, api
 from django.contrib.auth import views as auth_views
-from .views.public import font_stylesheet
+from .views.public import font_stylesheet, page_stylesheet
 from .views.jobs import dlux_job_download_view, dlux_job_status_view
 from .views.strings import strings_script
 from .views.weather import weather_current, weather_location_result, weather_locations
@@ -15,6 +15,7 @@ from .ocr import views as ocr_views
 
 urlpatterns = [
     path('fonts/<slug:slug>.css', font_stylesheet, name='font_stylesheet'),
+    re_path(r'^sys/api/styles/(?P<version>[0-9a-f]{16})\.css$', page_stylesheet, name='dlux_page_styles'),
     re_path(
         r'^sys/api/strings/(?P<lang>[A-Za-z0-9_-]{1,16})\.(?P<version>[0-9a-f]{16})\.js$',
         strings_script, name='dlux_strings',

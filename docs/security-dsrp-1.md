@@ -132,7 +132,7 @@ Generated projects send this policy from `config/settings.py` (django-csp):
 | Directive | Sources |
 | --- | --- |
 | `script-src` | `'self'`, the request's nonce (`[SELF, NONCE]`) |
-| `style-src` | `'self'`, `'unsafe-inline'` |
+| `style-src` | `'self'` |
 | `default-src`, `frame-ancestors`, `form-action`, `base-uri` | `'self'` |
 | `object-src` | `'none'` |
 | `img-src` | `'self'`, `data:`, `blob:` |
@@ -150,6 +150,19 @@ into a page cannot run script, and neither can an inline `on…=` handler or a
 scripts, its JavaScript never calls `eval`, `new Function` or string timers, and
 PDF.js runs with `isEvalSupported: false`. Scripts it adds at run time (asset
 bundles, the strings script) carry the page's nonce.
+
+DjangoLux pages need no inline style either, so `style-src` is `'self'` alone.
+Templates carry no `<style>` blocks or `style=""` attributes, and scripts never hand markup with `style=` to `innerHTML` or call
+`setAttribute('style', …)`; they style through the CSSOM (`el.style.x = …`,
+`style.setProperty()`), which `style-src` does not govern. The font and theme
+registry rules come from the `/sys/api/styles/<version>.css` stylesheet, and the
+page font is set on `<html>` by `base_head.js`. The vendored Bootstrap, Chart.js,
+datepicker and driver.js style through the CSSOM too. Project templates and
+scripts follow the same rules: move a `style=""` into a class in a static
+stylesheet, and set computed sizes from a script. An existing project keeps the
+`style-src` its own settings hold; once its templates and scripts follow these
+rules, set `"style-src": [SELF]` and drop `UNSAFE_INLINE` from its `csp.constants`
+import if nothing else uses it.
 
 The dynamic modal runs the scripts in the markup it fetches. A script that carries
 the nonce of the response it came in runs with the page's nonce; any other inline
@@ -172,7 +185,7 @@ or `'unsafe-eval'`. It becomes an error in v1.20.0
 above, then set:
 
 ```python
-from csp.constants import NONCE, SELF, UNSAFE_INLINE
+from csp.constants import NONCE, SELF
 
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {

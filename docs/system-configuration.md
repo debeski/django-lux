@@ -84,7 +84,15 @@ section with the rest of the wizard (see
 System Settings modal editors opened from Options use these same categories but show
 only the selected category. Setup export/import is intended for reusable development
 and staging configuration: it exports settings JSON, not uploaded logo/favicon
-binaries or host-specific email verification state.
+binaries or host-specific email verification state. An imported file, in the wizard
+or on Options, is at most 2 MB of UTF-8 JSON (a byte-order mark is allowed). A file
+that is larger, is not JSON, holds `NaN` or an infinite number, nests too deep to
+parse or is not a settings payload is refused with a translated message, and
+nothing changes.
+
+System names are stored without bidi embedding, override or isolate controls
+(U+202A–U+202E, U+2066–U+2069) or other control characters, which would reverse or
+hide the text around them in the titlebar and every page title.
 
 ### Home pages and search
 

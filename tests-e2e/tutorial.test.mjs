@@ -64,7 +64,9 @@ test('the tutorial follows the active Arabic display language and current Option
     assert.equal(tutorial.next, 'التالي');
     assert.equal(tutorial.skip, 'إلغاء');
     assert.match(tutorial.progress, /^1 من \d+$/);
-    assert.ok(Number(tutorial.progress.split(' ').at(-1)) >= 15, 'the Options tour omitted current components');
+    // 14 at 390px: the closed sidebar is zero-width there, so its theme toggle
+    // is not laid out and the tour has no Theme switcher step to show.
+    assert.ok(Number(tutorial.progress.split(' ').at(-1)) >= 14, 'the Options tour omitted current components');
     assert.equal(tutorial.controlsDir, 'rtl');
     assert.equal(tutorial.textDirection, 'rtl');
     assert.equal(tutorial.textAlign, 'right');

@@ -46,3 +46,29 @@
     width: 90px;
     height: 6px;
 }
+
+.dynamic-modal-skeleton {
+    background: rgba(108, 117, 125, 0.22);
+}
+
+.dynamic-modal-spinner-lg {
+    width: 3rem;
+    height: 3rem;
+}
+
+.dlux-section-info-content {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.dlux-section-info-model {
+    font-size: 0.8rem;
+}
+
+.dlux-section-info-value {
+    font-size: 1rem;
+}
+
+.dlux-online-status-col {
+    width: 28px;
+}

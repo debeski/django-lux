@@ -445,3 +445,15 @@ html[dir="rtl"] .timeline-dot {
     right: auto;
     left: 5px;
 }
+
+/* Activity detail badges wrap inside the card instead of widening it. */
+.timeline-content {
+    min-width: 0;
+}
+
+.timeline-content .badge {
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
