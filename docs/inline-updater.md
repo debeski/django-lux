@@ -153,6 +153,12 @@ The entrypoint's boot gate, `DLUX_BOOT_GATE`, covers the paths where Compose ski
 `pre_start`: a container restarting under its restart policy, which is what a host
 reboot does.
 
+`docker compose start worker` on a stopped `worker` is refused by Compose itself
+("no hook runner container found … run `docker compose up worker` to prepare fresh
+runners"): `start` only reuses the step containers `up` prepared, and a previous
+start consumed them. Start it with `./start.sh`, which
+prepares the steps again and runs them before `worker`.
+
 | Value | Used by | Behaviour |
 | --- | --- | --- |
 | `off` | the `pre_start` steps | No gate. A step inherits the entrypoint and would otherwise wait for the migrations it applies. |
@@ -442,9 +448,11 @@ process that performs the swap: Composer is outside the container.
 - A rollback runs older code on the newer schema, which is allowed only when the
   release being left and every release between it and the target that DjangoLux
   can read (the staged releases, and the release the worker runs) declare
-  `migrations.rollback_compatible: true`. The rollback review then warns that the
-  database keeps the newer migrations, that migrations are never reversed and
-  that restoring a pre-update backup later needs "Ignore version mismatch". When
+  `migrations.rollback_compatible: true`. The rollback review then warns that a
+  rollback changes code and static files only and never reverses migrations, so
+  the pre-update backup no longer matches the database: restoring it later means
+  updating back to its version first, or **Ignore database version mismatch**
+  (see [Backups](backups.md)). When
   one of them declares `false`, the review names it, the Roll back button stays
   off and the request is refused: restore the backup taken before that release
   instead. The state endpoint reports this as `rollback_blocked_by` and
