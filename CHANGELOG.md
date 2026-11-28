@@ -7,6 +7,10 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.17.0
+
+- **Stable 1.17.0 (fix line, security)**: Promote the published and accepted 1.17.0b3, which includes 1.17.0b1 and b2. Every finding of break-it rounds 1 and 2 and the 1.16 line's known bugs are fixed: stored HTML/SVG uploads never run as the site (`/media/` served with `nosniff`, a sandboxing CSP and `attachment`), wrong two-factor codes and Unicode look-alike usernames are counted, a limited admin cannot change a more powerful user, pdf.js is 6.5.438 (CVE-2024-4367), staff screens run under `style-src 'self'`, a database outage or restore answers with a 503 page, a broken runtime pointer recovers, and backups clean up and retry. New projects get a nonce-only script policy, no default admin password, a random `POSTGRES_PASSWORD` and wrapper 8. Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release. No changes from the beta.
+
 ## v1.17.0b3
 
 - **Backup Retries Start On Their Own (break-it R2-043)**: an armed retry ("Retrying in 5 minutes") waited until someone opened `/sys/backup/` or a worker started, because only the scheduled-backup check (900 s, and only with scheduled backups on) ran the reaper. New built-in schedule entry `dlux-reap-stalled-backups` runs `dlux.tasks.reap_stalled_system_backups` every 60 s on `dlux_worker`, so due retries and stalled rows are handled within a minute.

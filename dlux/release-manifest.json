@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "1.17.0b3",
+  "version": "1.17.0",
   "display": {
     "summary": "Fixes only: every finding of two break-in rounds and the 1.16 line's known bugs. Security: an uploaded HTML or SVG file can no longer run as the site, two-factor codes and the login lockout can no longer be guessed around, and a limited admin can no longer take over a more powerful user. pdf.js is current, and the staff screens need no inline styles, so new projects send style-src 'self'. A database outage or a restore answers with a clear page instead of hanging, a corrupted runtime pointer no longer takes the site down, and backups clean up and retry on their own. The doctor tells the truth under failure and never hangs. New projects get a nonce-only script policy, Redis snapshots, mount points ready for a non-root user, no default admin password and wrapper 8. DLUX_UPDATE_POLICY can limit which updates the app may request. Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release with one additive migration.",
     "highlights": [
@@ -13,7 +13,7 @@
       "DLUX_UPDATE_POLICY limits which updates the app may request.",
       "Needs Django 5.2 and Composer 1.11.0b1 or later; updates inline from any 1.16 release."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.17.0b3"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.17.0"
   },
   "requires": {
     "updater_schema": ">=1",
