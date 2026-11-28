@@ -132,8 +132,12 @@ class GeneratedProjectFileTests(unittest.TestCase):
         self.assertEqual(directives.get("base-uri"), ["SELF"])
         self.assertEqual(directives.get("object-src"), ["NONE"])
         self.assertIn("from csp.constants import NONCE, NONE, SELF\n", self.read("config/settings.py"))
-        from csp.constants import NONE
 
+    def test_csp_none_constant_is_the_none_keyword(self):
+        try:
+            from csp.constants import NONE
+        except ImportError:
+            self.skipTest("django-csp is not installed")
         self.assertEqual(NONE, "'none'")
 
     def test_logging_sends_request_errors_with_traceback_to_stderr(self):

@@ -149,17 +149,22 @@ def stored_email_config():
         from dlux.models import SystemSettings
         from dlux.utils import normalize_email_config
 
+        # Inside a transaction the connection belongs to the caller: closing it
+        # would end that transaction, so read once and leave it open.
+        owned = not connection.in_atomic_block
         try:
             for attempt in (1, 2):
-                close_old_connections()
+                if owned:
+                    close_old_connections()
                 try:
                     return normalize_email_config(SystemSettings.load().email_config)
                 except DatabaseError:
-                    connection.close()
-                    if attempt == 2:
+                    if not owned or attempt == 2:
                         raise
+                    connection.close()
         finally:
-            connection.close()
+            if owned:
+                connection.close()
     except Exception as exc:
         print(
             f"SMTP relay could not read Dlux UI config, using env fallback: {exc}",

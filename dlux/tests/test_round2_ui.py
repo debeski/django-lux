@@ -199,7 +199,10 @@ class ArabicStringsTests(TestCase):
             self.assertEqual(template.render(Context({'header': 'Decree Number'})), 'Decree Number')
 
     def test_djangos_blank_choice_label_is_translated(self):
-        from django.db.models.utils import get_blank_choice_label
+        try:
+            from django.db.models.utils import get_blank_choice_label
+        except ImportError:
+            self.skipTest("this Django has no BLANK_CHOICE_LABEL")
 
         with _ArabicRequest():
             self.assertEqual(str(get_blank_choice_label()), '- اختر خياراً -')

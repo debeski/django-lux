@@ -362,7 +362,7 @@ import socket
 import threading
 import time
 
-from django.db import InterfaceError
+from django.db import InterfaceError, connection
 
 from dlux import smtp_relay
 
@@ -382,8 +382,11 @@ class RelayConfigAfterDatabaseRestartTests(TestCase):
                 raise InterfaceError('connection already closed')
             return real()
 
+        # The relay reads on a pool thread, outside any transaction.
         with mock.patch.dict(os.environ, {'DJANGO_SETTINGS_MODULE': 'dlux.tests.settings'}), \
                 mock.patch.object(SystemSettings, 'load', side_effect=load), \
+                mock.patch.object(connection, 'in_atomic_block', False), \
+                mock.patch('django.db.close_old_connections'), \
                 mock.patch('django.db.connection.close') as close:
             config = smtp_relay.stored_email_config()
         self.assertIsNotNone(config)
@@ -392,11 +395,23 @@ class RelayConfigAfterDatabaseRestartTests(TestCase):
 
     def test_each_read_retires_a_stale_connection_first(self):
         with mock.patch.dict(os.environ, {'DJANGO_SETTINGS_MODULE': 'dlux.tests.settings'}), \
+                mock.patch.object(connection, 'in_atomic_block', False), \
                 mock.patch('django.db.close_old_connections') as retire, \
                 mock.patch('django.db.connection.close') as close:
             smtp_relay.stored_email_config()
         retire.assert_called_once()
         close.assert_called_once()
+
+    def test_inside_a_transaction_the_callers_connection_is_left_open(self):
+        # Closing a connection inside atomic() would end the caller's transaction
+        # (on PostgreSQL every later query then fails with "connection already closed").
+        self.assertTrue(connection.in_atomic_block)
+        with mock.patch.dict(os.environ, {'DJANGO_SETTINGS_MODULE': 'dlux.tests.settings'}), \
+                mock.patch('django.db.close_old_connections') as retire, \
+                mock.patch('django.db.connection.close') as close:
+            self.assertIsNotNone(smtp_relay.stored_email_config())
+        retire.assert_not_called()
+        close.assert_not_called()
 
 
 class _Relay:
