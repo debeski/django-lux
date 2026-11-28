@@ -831,8 +831,11 @@ A pointer that is not a JSON object (`null`, a list, a string), larger than
 supervisor serves the baked package (this needs a project image built on
 DjangoLux 1.17.0 or later; an older supervisor crash-loops on a non-object
 pointer) and reconcile rebuilds it. On an older image, `./start.sh dlux rollback`
-sets the pointer aside (kept as `state/active.json.unusable-<time>`) and restarts
-on the image's release.
+sets the pointer aside (kept as `state/active.json.unusable-<time>`), advances the
+generation and restarts on the image's release. Reconcile reads a missing pointer
+under a new generation as a return to the image: it records the baked release as
+active and writes no pointer back, so `state/active.json` stays absent until the
+next update.
 
 Every state document web and worker read from the runtime volume (the pointer,
 the generation, Composer's acknowledgements, status and availability, the agent
