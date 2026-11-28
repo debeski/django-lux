@@ -112,6 +112,9 @@
     --bs-btn-hover-border-color: var(--primal_dark);
     --bs-link-color: var(--primal);
     --bs-link-hover-color: var(--primal_dark);
+    /* Bootstrap 5.3 colours links from the -rgb pair. */
+    --bs-link-color-rgb: var(--primal-rgb);
+    --bs-link-hover-color-rgb: 148, 163, 184;
     /* Dark Mode Specific Bootstrap Vars */
     --bs-body-bg: var(--body);
     --bs-body-color: var(--title);

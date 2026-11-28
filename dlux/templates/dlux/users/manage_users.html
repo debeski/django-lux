@@ -53,7 +53,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="deleteModalLabel">{{ DLUX_STRINGS.confirm_delete }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                     </div>
                     <div class="modal-body">
                         <p>{{ DLUX_STRINGS.delete_user_msg }} <strong><span id="userName"></span></strong>؟</p>
@@ -73,7 +73,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="resetPasswordModalLabel">{{ DLUX_STRINGS.reset_password }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body dlux-form">
                     {% if form_reset %}
@@ -93,7 +93,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body" id="scopeModalBody">
                     <!-- Content loaded via AJAX -->
@@ -112,7 +112,7 @@
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content glass-card">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body" id="groupModalBody">
                     <!-- Content loaded via AJAX -->
@@ -134,7 +134,7 @@
                     <h5 class="modal-title text-danger">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ DLUX_STRINGS.scope_warning_title }}
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body">
                     <p class="fw-bold">{{ DLUX_STRINGS.scope_warning_msg }}</p>

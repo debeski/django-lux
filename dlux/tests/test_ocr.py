@@ -644,7 +644,7 @@ class ContractTests(TestCase):
         self.assertIn('image: ${WEB_IMAGE:-', ocr_block)
         self.assertIn('command: ["python", "-m", "dlux.ocr.serve"]', ocr_block)
         root = Path(scaffold_init).parent / 'templates' / 'project'
-        self.assertIn('django-lux[updater,ocr]==', (root / 'requirements.txt.tmpl').read_text())
+        self.assertIn('django-lux[updater,ocr,pdf]==', (root / 'requirements.txt.tmpl').read_text())
         self.assertIn('RUN python -m dlux.ocr.fetch_models --if-installed', (root / 'Dockerfile.tmpl').read_text())
         self.assertIn('  ocr:\n    build: .\n    image: !reset null\n', (root / 'compose.dev.yml.tmpl').read_text())
         self.assertEqual(template.count('COMPOSER_AGENT_RESTART_SERVICES: "web,worker,smtp-relay,caddy,ocr"'), 2)

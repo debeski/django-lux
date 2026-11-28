@@ -240,10 +240,15 @@ def ocr_file(context, result_id):
     with growing delays, and the file is given up once they are used.
     """
     from .ocr.client import OCRBusy, OCRUnavailable
-    from .ocr.service import give_up, run
+    from .ocr.service import give_up, run, run_was_recovered
 
     try:
-        run(result_id)
+        # A run put back after its worker died finds the row still "running"
+        # under the claim the dead worker held; it takes that claim over.
+        if run_was_recovered(context.run_id):
+            run(result_id, takeover=True)
+        else:
+            run(result_id)
     except OCRBusy as exc:
         wait = max(1, int(exc.retry_after or 30))
         raise Retry(wait + random.randint(0, wait), counts=False) from exc

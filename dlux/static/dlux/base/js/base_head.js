@@ -9,7 +9,17 @@
         if (Array.isArray(window.DluxModalRequests)) window.DluxModalRequests.push(event);
     }, true);
 
-    const clipboardUser = document.currentScript?.dataset.clipboardUser;
+    const headData = document.currentScript?.dataset || {};
+    // The page font, set through the CSSOM: a style-src 'self' policy blocks
+    // inline style elements, not this. The page stylesheet carries the defaults.
+    if (headData.fallbackFont) {
+        document.documentElement.style.setProperty('--dlux-font-fallback', `'${headData.fallbackFont}', sans-serif`);
+    }
+    if (headData.mainFont) {
+        document.documentElement.style.setProperty('--dlux-main-font', `'${headData.mainFont}', sans-serif`);
+    }
+
+    const clipboardUser = headData.clipboardUser;
     if (clipboardUser !== undefined) {
         try {
             const prefix = 'dlux:entry-clipboard:';
@@ -140,18 +150,5 @@
                 document.documentElement.classList.add(`accessibility-${mode}`);
             }
         });
-    }
-
-    for (let index = 0; index < localStorage.length; index += 1) {
-        const key = localStorage.key(index);
-        if (!key || !key.endsWith('Collapsed') || localStorage.getItem(key) !== 'true') {
-            continue;
-        }
-
-        const storageKeyBase = key.replace('Collapsed', '');
-        const style = document.createElement('style');
-        style.id = `fouc-${storageKeyBase}`;
-        style.textContent = `#${storageKeyBase}Body { display: none !important; }`;
-        document.head.appendChild(style);
     }
 })();

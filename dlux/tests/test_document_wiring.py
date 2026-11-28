@@ -191,3 +191,60 @@ class DocumentFileWiringTests(TestCase):
         response = self.client.post(url, {'title': 'Annual report', 'pdf_file': SimpleUploadedFile('new.pdf', pdf_bytes(3))}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertTrue(response.json().get('success'), response.content[:500])
         self.assertEqual(FileVersion.all_objects.get().action_type, 'replace')
+
+
+class AttachmentForm(forms.ModelForm):
+    class Meta:
+        model = Paper
+        fields = ['title', 'attachment']
+
+
+class PlainFileFieldUploadTests(TestCase):
+    """Break-it R2-001: a plain file field took an HTML or SVG upload that then ran as the site."""
+
+    def setUp(self):
+        self.media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.media, True)
+        override = override_settings(MEDIA_ROOT=self.media)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def form(self, name, data):
+        return apply_document_file_fields(AttachmentForm({'title': 'x'}, {'attachment': SimpleUploadedFile(name, data)}))
+
+    def test_pages_svg_and_scripts_are_refused(self):
+        for name, data in (
+            ('x.html', b'<html><script>alert(1)</script></html>'),
+            ('pic.svg', b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'),
+            ('PIC.SVG', b'<svg/>'),
+            ('run.js', b'alert(1)'),
+            ('page.xhtml', b'<html/>'),
+            ('renamed.txt', b'\xef\xbb\xbf  <!DOCTYPE html><script>alert(1)</script>'),
+            ('noext', b'<svg onload="alert(1)"/>'),
+            ('drawing.xml', b'<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        ):
+            with self.subTest(name=name):
+                form = self.form(name, data)
+                self.assertFalse(form.is_valid())
+                self.assertIn('active_content', [error.code for error in form.errors.as_data()['attachment']])
+
+    def test_ordinary_files_are_kept(self):
+        for name, data in (('notes.txt', b'plain notes'), ('scan.pdf', b'%PDF-1.4'), ('photo.png', png_bytes()),
+                           ('feed.xml', b'<?xml version="1.0"?><invoice/>'), ('table.csv', b'a,b\n1,2\n')):
+            with self.subTest(name=name):
+                form = self.form(name, data)
+                self.assertTrue(form.is_valid(), form.errors)
+
+    def test_a_field_that_lists_its_own_extensions_decides_itself(self):
+        from django.core.validators import FileExtensionValidator
+
+        field = Paper._meta.get_field('attachment')
+        validator = FileExtensionValidator(['svg'])
+        field.validators.append(validator)
+        self.addCleanup(field.validators.remove, validator)
+        self.assertTrue(self.form('logo.svg', b'<svg/>').is_valid())
+
+    def test_the_check_is_added_once(self):
+        form = apply_document_file_fields(apply_document_file_fields(AttachmentForm()))
+        names = [type(validator).__name__ for validator in form.fields['attachment'].validators]
+        self.assertEqual(names.count('_ActiveContentValidator'), 1)

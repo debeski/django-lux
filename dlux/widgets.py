@@ -25,6 +25,9 @@ class DluxFileInput(forms.ClearableFileInput):
         except Exception:
             strings = {}
         data['field_label'] = self.field_label
+        # Widgets render without context processors; the Scan button's messages
+        # (helpers/scanlink/scan_messages.html) need the active language's table.
+        context.setdefault('DLUX_STRINGS', strings)
         # A caller asking for a scan button only gets one where the deployment
         # has turned ScanLink on; otherwise the button is the thing that fires
         # the localhost probe.

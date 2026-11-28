@@ -26,6 +26,9 @@ uses `setdefault`, so explicitly declared Django settings win.
 |---|---|---|---|
 | `DLUX_CONFIG` | Django setting | `dict`, `{}` | Code-owned defaults layered beneath database System Settings. See [Project Configuration](project-configuration.md#dlux_config). |
 | `DLUX_SKIP_CONFIG_IMPORT` | Environment | boolean, unset/false | Skip automatic first-launch `config.json` import in migrator and setup-page requests. Accepts `1`, `true`, `yes`, or `on` (case-insensitive). Keeps manual setup/import available; does not reset configured systems. Composer 1.5.3+ injects it with `--skip-config`; requires DjangoLux 1.9.4+. |
+| `ADMIN_PASS` | Environment, read by `migrator` | string, empty | Password of the `admin` superuser `migrator` creates when no user of that name exists. Empty or `admin` creates no superuser: `migrator` warns, and the stack starts without one until `ADMIN_PASS` is set and the stack restarted, or `python manage.py createsuperuser` is run. An existing `admin` account is never changed. |
+| `ADMIN_EMAIL` | Environment, read by `migrator` | string, empty | That superuser's email address. Empty leaves the account without one, so no password-reset link goes anywhere until an address is set. |
+| `DLUX_MIGRATOR_LOCK_TIMEOUT` | Environment, read by `migrator` | seconds, `900` | How long a `migrator` waits for another one on the same PostgreSQL database. Each run holds a session advisory lock from its first migration to its last setup step, so a second run (two workers' `pre_start` at once) waits, then finds nothing left to do, instead of failing on a table the first created. |
 | `DLUX_CUSTOM_FONTS` | Django setting | `list` or `tuple`, empty | Registers project-owned WOFF2 families. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_CUSTOM_THEMES` | Django setting | `list` or `tuple`, empty | Registers project-owned scoped theme CSS. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_MIDDLEWARE` | Django setting | dotted path, `dlux.middleware.DluxMiddleware` | Selects the middleware inserted by `dlux_settings()`. A compatible replacement must preserve the setup guard and session/security behavior the project needs. |
@@ -115,6 +118,45 @@ singleton row with `QuerySet.update()` instead of `save()` sets a new
 `cache_revision` (`uuid.uuid4().hex`) in the same update, or deletes the cached
 row afterwards (`cache.delete("SystemSettings")`).
 
+## Database outages
+
+| Setting | Source | Type / default | Purpose |
+|---|---|---|---|
+| `DLUX_DB_FAIL_FAST` | Django setting, read by `dlux_settings()` | boolean, `True` | Gives every PostgreSQL connection in `DATABASES` a `connect_timeout` and TCP keepalives (`keepalives_idle` 10, `keepalives_interval` 5, `keepalives_count` 3) in `OPTIONS`, keeping any value the settings file sets, and puts `dlux.db_outage.DatabaseOutageMiddleware` just outside the session middleware. `False` keeps `DATABASES` and `MIDDLEWARE` as written. |
+| `DLUX_DB_CONNECT_TIMEOUT` | Django setting, read by `dlux_settings()` | seconds, `5` | The `connect_timeout` given to a PostgreSQL connection that sets none. |
+| `DLUX_DB_BREAKER_SECONDS` | Django setting, read at connect time | seconds, `5` | After a connection attempt fails in a web process, further attempts in that process fail at once for this long (`dlux.db_outage.DatabaseUnavailable`). Outside a request, after a read of System Settings, Scope Settings or the managed fonts fails because the database is down, further System Settings and Scope Settings reads skip the database for this long. `0` turns both off. |
+
+Generated stacks open a database connection per request, so the connect timeout
+bounds how long a request waits on a database that does not answer. After one
+attempt fails, the web process refuses further attempts for
+`DLUX_DB_BREAKER_SECONDS` without waiting, so a page whose reads each tolerate a
+missing database pays the timeout once, not once per read. The task worker and
+management commands have no breaker and try every time.
+
+`DatabaseOutageMiddleware` answers a request that failed because the database could
+not serve it with a 503 page "Database not responding" (JSON for `XMLHttpRequest`
+and `Accept: application/json`) and `Retry-After: 15`, instead of a 500. It covers
+errors raised in a view and in inner middleware such as the session and
+authentication middleware. It counts as an outage: a connection that failed or
+closed, SQLSTATE classes `08` (connection), `53` (insufficient resources, such as
+"too many clients") and `57` (operator intervention: shutdown, cannot connect now,
+statement timeout), and `25006` (read-only transaction). Any other database error,
+such as a missing table, stays a 500. The page is built without the database, the
+session or System Settings, in the language of `LANGUAGE_CODE`.
+
+The same middleware answers 503 "Restore in progress" while a
+[system restore](backups.md#restore) replaces the data.
+
+While the database is down, System Settings fall back to the defaults and the
+`dlux` logger warns once, in one line without a traceback, that the database is
+unavailable. Further failed reads log at debug level until a read succeeds, which
+logs one info line that the database answers again. Outside a request (management
+commands, system checks) nothing keeps these reads between uses, so after a read
+of System Settings, Scope Settings or the managed fonts fails, the next System
+Settings and Scope Settings reads use the defaults without trying the database for
+`DLUX_DB_BREAKER_SECONDS`; a request always tries it. With the database host
+unreachable, `manage.py check` waits out one `DLUX_DB_CONNECT_TIMEOUT`.
+
 ## Limits and Data Discovery
 
 | Setting | Source | Type / default | Purpose |
@@ -139,10 +181,13 @@ row afterwards (`cache.delete("SystemSettings")`).
 | `DLUX_2FA_IP_VERIFY_WINDOW` | Django setting | integer seconds, `600` | Cache window for the per-IP OTP verification limit. |
 | `DLUX_2FA_IP_SEND_LIMIT` | Django setting | integer, `10` | Maximum OTP sends per client IP during the send window. |
 | `DLUX_2FA_IP_SEND_WINDOW` | Django setting | integer seconds, `3600` | Cache window for the per-IP OTP send limit. |
+| `DLUX_2FA_USER_VERIFY_LIMIT` | Django setting | integer, `10` | Maximum wrong OTP codes per account during the account window, across sign-in challenges. |
+| `DLUX_2FA_USER_VERIFY_WINDOW` | Django setting | integer seconds, `900` | Cache window for the per-account OTP limit. |
+| `DLUX_2FA_CHALLENGE_MAX_FAILURES` | Django setting | integer, `5` | Wrong codes after which a sign-in challenge ends and the password step starts again. |
 | `DLUX_PUBLIC_FORM_LIMITS` | Django setting | dict of form bucket to `{'per_address', 'total', 'window'}`, unset | Overrides the limits a `@public_form_limit` view declares, per bucket. `None` turns that limit off; an invalid value is logged and the view's own value applies. See [DSRP-1](security-dsrp-1.md#rate-limiting--session-controls). |
 
-The challenge window and four per-IP 2FA values are read when the two-factor
-view module loads. Configure them before Django starts; changing them at runtime
+The challenge window, the per-IP and per-account 2FA limits and the challenge
+failure cap are read when the two-factor view module loads. Configure them before Django starts; changing them at runtime
 requires a process restart.
 
 ## Secret and Email Settings
@@ -172,6 +217,22 @@ Generated Compose deployments configure that relay's provider in `.secrets/.env`
 | `SMTP_RELAY_PASSWORD` | empty | Provider password. Reaches the `smtp-relay` service only. |
 | `SMTP_RELAY_TLS_VERIFY` | `True` | Check the provider's certificate and host name before signing in. `False` accepts any certificate. Environment route only; the Email step has its own switch. |
 | `SMTP_RELAY_CA_FILE` | empty | Path, inside `smtp-relay`, of a PEM bundle of CA certificates the relay trusts besides the system CAs. Applies to both routes. |
+| `SMTP_RELAY_UPSTREAM_TIMEOUT` | `60` | Seconds one delivery to the provider may take in total, connect to the end of the message, when the Email step sets no timeout. |
+| `SMTP_RELAY_MAX_MESSAGE_BYTES` | `10485760` | Largest message accepted (`552` above it). |
+| `SMTP_RELAY_MAX_LINE_BYTES` | `1048576` | Longest line accepted. A longer command line gets `500 Line too long` and the connection closes; a longer message line refuses the message with `552` and keeps the session. |
+| `SMTP_RELAY_IDLE_TIMEOUT` | `300` | Seconds the relay waits for the next line before it answers `421` and closes the connection. |
+| `SMTP_RELAY_MAX_CONNECTIONS` | `100` | Open connections the relay serves at once; one more gets `421 Too many connections`. |
+| `SMTP_RELAY_DRAIN_SECONDS` | `8` | On `SIGTERM`, how long deliveries already handed to the provider may take to finish before the relay exits. Keep it below the service's stop grace (`docker stop` waits 10 s by default). |
+
+The relay reads the Email step from the database for every delivery, on a fresh
+connection, so a database restart costs at most the one delivery in flight.
+
+On `SIGTERM` (`docker stop`, `docker compose stop` or a recreate) the relay stops
+accepting connections and answers `421` to every connection with no delivery
+under way. A delivery already handed to the provider gets
+`SMTP_RELAY_DRAIN_SECONDS` to finish and its client gets the provider's answer;
+past that the relay closes the provider connection, the client gets a `451` or
+`421` and the app's sender retries. The relay then exits with status 0.
 
 The relay uses these when the Email step's provider settings are **Environment**,
 or when it cannot read the step at all; the step's timeout applies on both routes.
@@ -290,7 +351,7 @@ release verification, maintenance, recovery, and rollback behavior.
 
 | Setting | Source | Type / default | Purpose |
 |---|---|---|---|
-| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | What `dlux_worker` runs on a schedule: DjangoLux adds its four entries (state tick, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. |
+| `DLUX_TASK_SCHEDULE` | Django setting, merged by `dlux_settings()` | dict of beat-style entries | What `dlux_worker` runs on a schedule: DjangoLux adds its five entries (state tick, stalled-backup reaper, scheduled-backup check, update check, OCR background scan) next to the project's. Entry shape matches `CELERY_BEAT_SCHEDULE` (`task`, `schedule` as seconds, `timedelta` or `crontab`, `args`, `kwargs`, `options.priority`); `dlux.taskrunner.crontab` replaces `celery.schedules.crontab`. |
 | `DLUX_TASK_RUNNER` | Django setting | dict, see defaults | Worker tuning: `threads` (4), `queues` (`["default"]`), `express_queues` (`["dlux-mail"]`: served by every worker on one extra thread kept for them, see [Task Runner](task-runner.md#priorities)), `poll_interval` (1 s), `heartbeat_interval` (10 s), `stale_after` (60 s, when a silent worker's runs count as lost), `keep_successful` (1 day) and `keep_failed` (7 days) retention, `max_recoveries` (3), `shutdown_grace` (25 s). |
 
 DjangoLux's own background work always runs on `dlux_worker` (the `worker`
@@ -316,6 +377,11 @@ documentation, but they are not accepted deployment settings:
 - Keep `DLUX_UPDATE_RUNTIME_ROOT` on the generated durable volume with the
   documented read/write split.
 - Do not use `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` as an authorization mechanism.
+- The login page explains a sign-in the browser cannot keep: a `Secure` session
+  cookie on a page served over plain HTTP, or a `SESSION_COOKIE_DOMAIN` this host
+  is not part of. Loopback hosts (`localhost`, `*.localhost`, `127.0.0.0/8`,
+  `::1`) are a secure context where browsers keep `Secure` cookies over HTTP, so
+  only the domain warning applies to them.
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
@@ -327,6 +393,10 @@ documentation, but they are not accepted deployment settings:
   `Dockerfile`: matching the scaffold takes those two lines. An image built
   `FROM` the project image that needs pip runs `python -m ensurepip` first.
   Rebuild the project image to pick up fixes published after its last build.
+- The generated `gunicorn.py` sets `control_socket_disable = True`. gunicorn 27
+  otherwise opens a control socket (for `gunicornc`) under `$HOME`, which is `/`
+  for the image's non-root user, and logs a permission error on every start. The
+  stack does not use the control interface.
 
 ## File permissions
 
@@ -402,12 +472,23 @@ Stored files are private by default (stack schema 4). The generated proxy, Caddy
 | `dlux_backups/`, `dlux/assets/private/`, `dlux/file_history/`, plus `DLUX_APP_ONLY_MEDIA` and (1.15.5+) any `.dlb` file | Refused to everyone. The app's own views serve these after their checks (backups, installer downloads, file history). |
 | `public/`, `dlux/branding/`, `dlux/assets/image/`, `dlux/assets/font/`, plus `DLUX_PUBLIC_MEDIA` | Served to anyone (branding on the login page, managed images and fonts). |
 | A registered document file (`register_document_file`) | Served to anyone when its registration's `public(document)` rule returns `True` (a soft-deleted document is never public). Otherwise served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check (`can_access`, else `view_<model>`). A case variant of its name is refused. |
-| Any other file in the same folder as a registered document file, or a file a history row names exactly (`FileVersion.active_name_before` or `archived_file`, in any folder) | Refused to everyone. A replaced original, a project's own history copy kept beside the documents, or an orphan has no document left to check; history copies are served by the history views. The exact current file of another file field on a document model, such as an attachment, is the exception: it needs a signed-in user. Subfolders are judged by their own contents. |
+| The current file of another file field on a document model (an attachment, a photo), in any folder | Follows its document: served only to a signed-in user who reaches the document in its scoped queryset and passes its `view` access check. A case variant of its name is refused. |
+| Any other file in the same folder as a registered document file, or a file a history row names exactly (`FileVersion.active_name_before` or `archived_file`, in any folder) | Refused to everyone. A replaced original, a project's own history copy kept beside the documents, or an orphan has no document left to check; history copies are served by the history views. Subfolders are judged by their own contents. |
 | Any other stored file | Served to any signed-in user. |
 
 Whatever a rule above would serve is refused when it is a backup (1.15.5+): a file in the folder system backups are written to now (System Settings, Backup, *Automatic export target*, `backup_config.auto_export_target`) or the reports backup folder (`DLUX_CONFIG['reports']['backup_storage_prefix']`), read on each request, or a file a backup record still names after its folder was changed. From 1.15.5 a custom backup folder needs no `DLUX_APP_ONLY_MEDIA` entry; on 1.15.3 and 1.15.4, list it there. The backup folder can't be a public folder, because the proxy serves those without asking: System Settings refuses one, and a stored value that is one falls back to `dlux_backups`. Move any backups already kept in a public folder out of it.
 
 A refusal is a 403 from the proxy. Allowed private files carry `Cache-Control: private, no-cache`, so a browser revalidates each time.
+
+**How a stored file is served.** An upload must never run as the site: a page or SVG a staff member uploads would otherwise run its script with the rights of whoever opens it. Every `/media/` file the proxy sends, public or private, carries:
+
+| Header | Sent for | Effect |
+| --- | --- | --- |
+| `X-Content-Type-Options: nosniff` | Every file | The browser keeps the type the proxy names and never guesses one from the content. |
+| `Content-Security-Policy: default-src 'none'; sandbox` | Every file except PDF | A file opened in the browser runs no script, loads nothing and gets an origin of its own. A PDF has no sandbox, which would stop the browser's PDF viewer. |
+| `Content-Disposition: attachment` | Every file except raster images (AVIF, BMP, GIF, ICO, JPEG, PNG, WebP) and PDF | HTML, SVG, XML, JavaScript, text and every other type opens as a download. |
+
+Image previews, the PDF viewer (its native fallback frame included), branding, managed images and fonts keep working: `<img>`, `fetch()` and `@font-face` loads ignore `Content-Disposition`, and an SVG logo shown through `<img>` never runs script. The Caddyfile carries these headers in the `dlux_media_headers` snippet, imported by both `/media/` routes; the nginx template carries them in the `$dlux_media_csp` and `$dlux_media_disposition` maps and the `add_header` lines of every `/media/` location. The dynamic modal also refuses HTML, SVG and script uploads on plain file fields (see [Document files](document-files.md)).
 
 | Setting | Default | Effect |
 | --- | --- | --- |
@@ -425,6 +506,8 @@ An entry with a wildcard (`*`, `?` or `[…]`) is a file pattern instead of a fo
 Before switching, list any folder your site shows to signed-out visitors (product photos, for example) in `DLUX_PUBLIC_MEDIA`, or move those files under `media/public/`.
 
 Projects that already deny their own folders in the proxy can keep those rules; they don't conflict.
+
+**Serving headers on existing stacks.** A schema-4 proxy file without the headers above serves an uploaded page or SVG inline, where its script runs as the site. `composer check` reports it as a `stored-files` failure that names each missing header and file, and `./start.sh check --fix` adds them to an unmodified generated proxy file, validates it, archives the original under `.xclude/composer-check/` and recreates the proxy. The same run adds the maintenance page's `Content-Security-Policy`. A proxy file with its own `/media/` rules is reported and left alone: copy the `dlux_media_headers` snippet and its two `import` lines (Caddy), or the two maps and the `add_header` lines (nginx), from a fresh `python -m dlux startproject`, then run `./start.sh restart caddy` (or `nginx`).
 
 ## Cross-site requests (Fetch Metadata)
 

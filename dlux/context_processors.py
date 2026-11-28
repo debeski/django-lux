@@ -47,6 +47,7 @@ from .discovery import (
     annotate_sidebar_notification_counts,
     build_sidebar_navigation,
 )
+from .page_styles import page_stylesheet_version
 from .themes import generate_theme_preview_css, get_theme_names, get_theme_options
 
 
@@ -813,7 +814,13 @@ def dlux_context(request):
     )
     available_fonts = get_available_fonts()
     allowed_fonts = normalize_allowed_fonts(final_config.get('allowed_fonts'))
+    # base.html links the page stylesheet; font_face_css stays for project
+    # templates that print the rules themselves (PDF renders).
     context['font_face_css'] = generate_font_face_css(allowed_fonts)
+    try:
+        context['DLUX_PAGE_STYLES_URL'] = reverse('dlux_page_styles', kwargs={'version': page_stylesheet_version()})
+    except NoReverseMatch:
+        context['DLUX_PAGE_STYLES_URL'] = ''
     context['default_font_family'] = get_default_font_family()
     context['font_families'] = {
         font['slug']: font['family']

@@ -28,6 +28,7 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
+from ..db_errors import clear_read_failure, last_read_failure, note_read_failure, read_recently_failed
 from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -162,6 +163,49 @@ def _system_config_db_unavailable_error(exc):
         )
     return False
 
+# Set while the database does not answer config reads, so the outage is logged
+# once (no traceback) instead of on every config build.
+_config_db_outage = False
+
+
+class _ConfigReadSkipped(Exception):
+    """The database failed moments ago; this config build does not try it."""
+
+
+def _config_db_breaker_open():
+    """Whether this build skips the database: it failed moments ago, outside a request.
+
+    Outside a request nothing memoises the config, so every translated string
+    rebuilt it and paid one connection attempt per read: hundreds in one
+    ``manage.py check``. A request still tries; the web connect breaker makes
+    that attempt fail fast, and a skipped read there could show the setup wizard.
+    """
+    return read_recently_failed() and _current_request() is None
+
+
+def _note_config_db_outage(exc):
+    """Log a database outage once per outage; return whether ``exc`` was one."""
+    global _config_db_outage
+    if not isinstance(exc, _ConfigReadSkipped) and not note_read_failure(exc):
+        return False
+    if _config_db_outage:
+        logger.debug("SystemSettings still unreadable: the database is unavailable.")
+    else:
+        _config_db_outage = True
+        logger.warning(
+            "Failed to read SystemSettings: the database is unavailable; system config uses "
+            "defaults until it answers (%s).", last_read_failure(),
+        )
+    return True
+
+
+def _note_config_db_answered():
+    global _config_db_outage
+    clear_read_failure()
+    if _config_db_outage:
+        _config_db_outage = False
+        logger.info("The database answers again; system config reads SystemSettings.")
+
 # ── intra-package imports (shared + feature deps) ──
 from .common import DEFAULT_LANGUAGE_CATALOG, _coerce_import_bool, _normalize_asset_url
 from .localization import _merge_translation_layers, _normalize_language_code, normalize_language_catalog
@@ -261,13 +305,23 @@ def get_client_ip(request):
         return x_real
     return remote_addr or None
 
+# Bidi embedding, override and isolate controls (U+202A-202E, U+2066-2069) and
+# C0/C1 controls. In a name they reverse or hide the text around it in the
+# titlebar and every page title, so names never keep them.
+_NAME_CONTROL_RE = re.compile('[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]')
+
+
+def strip_name_controls(value):
+    return _NAME_CONTROL_RE.sub('', str(value or ''))
+
+
 # Branding Config - Function normalizes language-keyed system display names.
 def normalize_system_names(value):
     names = {}
     if isinstance(value, dict):
         for raw_code, raw_name in value.items():
             code = _normalize_language_code(raw_code)
-            name = str(raw_name or '').strip()
+            name = strip_name_controls(raw_name).strip()
             if code and name:
                 names[code] = name
     return names
@@ -889,7 +943,10 @@ def _build_system_config():
     
     # DB settings
     db_config = {}
+    db_outage = False
     try:
+        if _config_db_breaker_open():
+            raise _ConfigReadSkipped()
         from dlux.models import SystemSettings
         sys_settings = SystemSettings.load()
         system_is_configured = bool(getattr(sys_settings, 'is_configured', False))
@@ -1267,6 +1324,8 @@ def _build_system_config():
             logger.debug(
                 "SystemSettings are unavailable while building system config; using defaults."
             )
+        elif _note_config_db_outage(exc):
+            db_outage = True
         else:
             logger.warning(
                 "Failed to read SystemSettings while building system config; using defaults for the failed fields.",
@@ -1278,7 +1337,7 @@ def _build_system_config():
     # configured" — that bounces authenticated users into the setup wizard. If the
     # persisted row says the system is configured, honor it via a direct, cache-free
     # DB check regardless of whatever went wrong above.
-    if not db_config.get('is_configured'):
+    if not db_outage and not db_config.get('is_configured'):
         try:
             from dlux.models import SystemSettings
             if SystemSettings.objects.filter(pk=1, is_configured=True).exists():
@@ -1288,8 +1347,13 @@ def _build_system_config():
                 logger.debug(
                     "SystemSettings are unavailable during fallback is_configured check."
                 )
+            elif _note_config_db_outage(exc):
+                db_outage = True
             else:
                 logger.warning("Fallback is_configured DB check failed.", exc_info=True)
+
+    if not db_outage:
+        _note_config_db_answered()
 
     db_config = expand_system_config_groups(db_config)
 

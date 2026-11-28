@@ -34,7 +34,7 @@ is in [Deployment Configuration](deployment-configuration.md).
 
 Generated project baseline:
 
-- `.secrets/.env` with scaffolded bootstrap secret values
+- `.secrets/.env` with scaffolded bootstrap secret values, readable by its owner only (`0600`)
 - `config/settings.py` wired for env-driven Django secret, Postgres and Redis cache
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter
   CORS/CSP settings
@@ -44,7 +44,11 @@ Generated project baseline:
   socket and answers every Docker request of the agent, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal
   `smtp-relay` services. Compose 5.3.0 or later is required for the `worker`
   `pre_start` migration hooks; `./start.sh check --fix` repairs existing stacks.
-- `requirements.txt` pinned to the generated stable `django-lux` release
+- `requirements.txt` pinned to the generated stable `django-lux` release with the
+  `updater`, `ocr` and `pdf` extras, and to gunicorn's major version
+- `config/settings.py` `LOGGING` sending warnings and `django.request` errors, with
+  their traceback, to stderr (the container log); `DEBUG` lowers the root level to
+  `DEBUG`
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a
   proxy-served maintenance/progress page
 
@@ -52,7 +56,11 @@ Generated app scaffold baseline:
 
 - discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`,
   `urls.py`, `translations.py`, templates, and tests
-- optional `--register` patching for `INSTALLED_APPS` and root project URLs
+- example models named after the app (`<App>Record`, `<App>Section`, …) with list,
+  detail, form and delete templates whose text comes from `DLUX_STRINGS` (the app's
+  `translations.py`, English and Arabic)
+- optional `--register` patching for `INSTALLED_APPS` and root project URLs, planned
+  before anything is written ([getting started](getting-started.md#fastest-greenfield-start))
 - modal/list conventions that align with Dlux discovery, sections, and table/filter helpers
 
 ## Management Commands
@@ -211,6 +219,7 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/fonts/<slug>.css` | `@font-face` rules for one font System Settings allows, plus `--dlux-main-font`; public, cached for an hour; 404 for any other font. Linked by `dlux/public_base.html` |
+| `/sys/api/styles/<version>.css` | Every registered font's `@font-face` rules, the font picker samples, custom theme swatches and the default `--dlux-main-font`/`--dlux-font-fallback`; public, cached for good under its version (a digest of the content). Linked by `dlux/base.html` |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/files/media-access/` | Asked by the proxy before it serves a private `/media/` file (`X-Forwarded-Uri`); answers 204 or 403. `DluxMiddleware` also answers this root URI when the project mounts `dlux.urls` under a prefix. See [Stored files](deployment-configuration.md#stored-files-media). |
@@ -258,8 +267,9 @@ shipped pages call are left out; `dlux/urls.py` has every route.
 - `/sys/users/` and the user-detail page and modal require `auth.view_user` for
   staff users; superusers bypass.
 - `/sys/reset_password/<int:pk>/` requires `auth.change_user` and the same
-  staff, scope and superuser target checks as the user-management modals. A new
-  password equal to the target's current one is refused.
+  staff, scope, superuser and rank checks as the user-management modals
+  (`can_modify_target_user`). A new password equal to the target's current one is
+  refused.
 - `/accounts/profile/` offers `sign_out_other_sessions` only on the user's own
   password-change form, and only while `prevent_multiple_active_sessions` is off.
   When ticked, a successful change keeps the current browser, deletes every other
@@ -335,6 +345,9 @@ Autofill security contract:
 - detail and autofill serialization return only direct fields of the requested model
 - reverse OneToOne expansion such as `user.profile.*` is intentionally excluded
 - reads use the model default manager so scoped query behavior is preserved
+- `auth.User` and `dlux.Profile` rows are limited to the caller's manageable users
+  (the user directory's tiers) and the caller's own row (`restrict_user_rows()`);
+  global data search applies the same limit
 
 #### Preferences
 
@@ -529,7 +542,10 @@ Common keys in `get_system_config()`:
   it instead of starting another.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
-- `registration_throttle_enabled` — Enable cache throttles for public signup.
+- `registration_throttle_enabled` — Enable cache throttles for public signup
+  (default on). While `public_registration_enabled` is off, this and
+  `honeypot_enabled` keep their stored values on save: their toggles are disabled
+  in the page then, so a submission without them changes nothing.
 - `honeypot_enabled` — Enable the hidden `website` bot-trap on the registration
   form (`registration_config.honeypot_enabled`, default on). When on, a submission
   that fills the hidden field is silently redirected to `register_sent`. Exposed as
@@ -966,6 +982,9 @@ def complaint(request):
 | `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
 | `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
 | `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
+| `can_modify_target_user(actor, target)` | `can_manage_target_user` plus `not target_outranks_actor`: the gate for editing, resetting, deactivating or deleting another user |
+| `restrict_user_rows(actor, model, queryset)` | Limits a generic read of `auth.User` / `dlux.Profile` rows to the actor's manageable users plus itself; other models pass through |
+| `target_outranks_actor(actor, target)` | `True` when the target holds a permission (direct or through groups, active or not) that the actor lacks, or is a superuser the actor is not |
 | `get_visible_group_presets(user)` | Preset Groups (auth.Group + GroupProfile) a user may see/assign: global + own-scope for scoped staff, all for superuser/Global Staff |
 | `can_manage_group_preset(actor, group)` | `True` if actor may CRUD/manage-membership on a preset (global presets are superuser/Global-Staff only; scoped staff manage own-scope presets) |
 | `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
@@ -1037,7 +1056,8 @@ See [Task Runner](task-runner.md).
 | Name | Type | Purpose |
 | --- | --- | --- |
 | `translate_log` | filter | Translate log values with a prefix such as `action` or `model` |
-| `format_log_details` | simple tag | Render structured log details as HTML badges |
+| `format_log_details` | simple tag | Render structured log details as HTML badges; a dict or list value shows as a count (`log_value_fields`, `log_value_items`) and long text is cut at 40 characters |
+| `dlux_column_label` | filter | A table header in the viewer's language from `label_<header in snake case>` (`Updated By` → `label_updated_by`), else the header unchanged; `dlux/tables/table.html` applies it |
 
 ### `sidebar_tags`
 
@@ -1054,6 +1074,15 @@ See [Task Runner](task-runner.md).
 - `accounts/profile/edit/<pk>/modal/` is self-only
 - dedicated user-management modals follow the same staff/scope/superuser rules as
   `dlux/views/users.py`
+- changing another user — editing (including `is_active`), the permissions modal,
+  a staff password reset, and `delete_user` — goes through
+  `can_modify_target_user()`: the staff/scope/superuser rules of
+  `can_manage_target_user()`, plus the target must not hold any permission the
+  actor lacks (checked with `user_matches_permission_token()`, groups included,
+  and for inactive targets too). A scoped admin with `auth.change_user` therefore
+  cannot reset or edit a staff manager (`dlux.manage_staff`, `dlux.manage_scopes`)
+  in its scope. The edit and permissions modals also require `auth.change_user`
+  (`auth.add_user` to create); users editing themselves keep their own access
 - `/sys/users/` and user-detail surfaces require `auth.view_user` OR
   `dlux.manage_staff` for staff callers (superusers still bypass)
 - **Staff Tier System**: Three non-superuser staff tiers exist:

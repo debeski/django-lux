@@ -83,7 +83,9 @@ ocr = [
     "indra-ocr==1.1.2",
     "onnxruntime==1.31.0",
     "opencv-python-headless==5.0.0.93",
-    "numpy==2.5.4",
+    # numpy 2.5 publishes no Python 3.11 wheels.
+    "numpy==2.4.6; python_version < '3.12'",
+    "numpy==2.5.4; python_version >= '3.12'",
     "pypdfium2==5.14.0",
     "huggingface_hub==2.3.0",
 ]

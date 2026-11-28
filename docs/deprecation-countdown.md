@@ -86,6 +86,15 @@ calls `window.pdfjsLib.getDocument()` keeps working (Archive's
 to `const pdfjsLib = await window.DluxPdfJs.load()`; the stand-in is removed in
 v2.0.
 
+### `destroy()` on a loaded PDF.js document
+
+PDF.js 6 removed `PDFDocumentProxy.prototype.destroy()`; a document is released
+by destroying its loading task. So that project code calling `pdf.destroy()` on
+a resolved document keeps working (Archive's
+`documents/composition/js/paper.js`), `DluxPdfJs.load().getDocument()` restores a
+`destroy()` on the returned document that destroys the loading task. Call
+`loadingTask.destroy()` instead; the document-level shim is removed in v2.0.
+
 ### `dlux/tutorial/main.html`
 
 The guided tour loads on its first click, so `dlux/base.html` does not include

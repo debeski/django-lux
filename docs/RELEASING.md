@@ -241,6 +241,14 @@ axes. Schema 2 states facts and lets the updater decide:
 }
 ```
 
+`migrations.rollback_compatible` says whether the code of the release before
+this one runs on this release's schema. A rollback across several releases is
+safe only when every release it crosses declares `true`; the Updates card and
+Composer's downgrade guard check the releases they can read (the active, staged
+and target manifests). A release that declares `rollback_compatible: false`
+therefore needs a span-aware rollback guard first, because a release the stack
+never ran is invisible to both.
+
 `migrations.effect` is one of `none`, `state_only`, `additive`, `altering`,
 `destructive`. A release is offered inline only when `install.inline` is
 `allowed` **and** the effect is one of the first three — `install.inline` is a
@@ -255,6 +263,12 @@ no `python` or dependency key: the wheel already declares those in
 could only ever disagree with the authority. `services` is what schema 1 had no
 way to state — 1.8.0 requires Composer as a running service, and the manifest
 could not say so.
+
+`requires.baked_image` is a single floor, `">=X.Y.Z"`. `release_check` refuses any
+other form: supervisors before DjangoLux 1.17.0 strip the leading `>=` and read the
+rest as one version, so a compound specifier (`">=1.17.0b1,<2.0"`) would hold the
+release on them. Current supervisors and Composer read the value as a PEP 440
+specifier and hold a release whose floor they cannot parse.
 
 **Unknown values fail closed.** An unrecognised `migrations.effect`, an
 unrecognised `install.inline`, or *any* unknown key inside `requires` is refused

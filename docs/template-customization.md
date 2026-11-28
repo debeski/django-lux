@@ -145,7 +145,7 @@ hand-code a third public page chrome.
 
 | Shell | Use it for | What it carries |
 | --- | --- | --- |
-| `dlux/base.html`, public mode | The public homepage and any public page that needs the sidebar, the titlebar's controls, the dynamic modal or other DjangoLux scripts. | The full DjangoLux runtime: client settings, URL map, strings and nonce-carrying scripts and styles. It needs a `script-src` with the request nonce and a `style-src` that allows inline styles. |
+| `dlux/base.html`, public mode | The public homepage and any public page that needs the sidebar, the titlebar's controls, the dynamic modal or other DjangoLux scripts. | The full DjangoLux runtime: client settings, URL map, strings and nonce-carrying scripts. It needs a `script-src` with the request nonce; `style-src 'self'` is enough. |
 | `dlux/public_base.html` | Citizen-facing project pages such as catalogues, notices and public forms, served under a strict policy (`script-src 'self'; style-src 'self'`). | Markup and stylesheets only. No configuration, URL map, preferences, strings or staff scripts, and nothing inline, so it renders the same for every visitor, signed in or not. |
 
 `dlux/public_base.html` follows the public page settings:

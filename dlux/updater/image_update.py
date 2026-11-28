@@ -69,9 +69,13 @@ def status_path(store=None):
     return _state_dir(store) / STATUS_FILENAME
 
 
+#: Composer's live status carries the progress log, so it may exceed a request.
+STATUS_MAX_BYTES = 1024 * 1024
+
+
 def read_deploy_status(store=None):
     try:
-        data = json.loads(status_path(store).read_text(encoding="utf-8"))
+        data = shared_files.load_json(status_path(store), STATUS_MAX_BYTES)
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -112,7 +116,7 @@ def read_composer_ack(store=None):
     writes it after every child exit, even if status publication itself fails.
     """
     try:
-        data = json.loads(ack_path(store).read_text(encoding="utf-8"))
+        data = shared_files.load_json(ack_path(store))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}

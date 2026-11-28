@@ -84,7 +84,15 @@ section with the rest of the wizard (see
 System Settings modal editors opened from Options use these same categories but show
 only the selected category. Setup export/import is intended for reusable development
 and staging configuration: it exports settings JSON, not uploaded logo/favicon
-binaries or host-specific email verification state.
+binaries or host-specific email verification state. An imported file, in the wizard
+or on Options, is at most 2 MB of UTF-8 JSON (a byte-order mark is allowed). A file
+that is larger, is not JSON, holds `NaN` or an infinite number, nests too deep to
+parse or is not a settings payload is refused with a translated message, and
+nothing changes.
+
+System names are stored without bidi embedding, override or isolate controls
+(U+202A–U+202E, U+2066–U+2069) or other control characters, which would reverse or
+hide the text around them in the titlebar and every page title.
 
 ### Home pages and search
 
@@ -241,8 +249,9 @@ that relay signs in to any certificate until the stack runs a project image buil
 
 **SMTP timeout** is how long to wait for the provider, through the relay or
 directly, on either settings route. Blank keeps the default: 60 seconds through
-the relay, 30 seconds direct. Through the relay, web waits 15 seconds longer than
-the relay, so the relay's reason arrives first.
+the relay, 30 seconds direct. Through the relay it bounds the whole delivery, and
+web waits 15 seconds longer than the relay, so the relay's reason arrives first
+and a send web gave up on is never delivered later.
 
 **Apply email settings** saves the Email step, timeout included, without leaving
 it; **Send test email** then sends with the applied configuration, which is the

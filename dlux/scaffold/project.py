@@ -7,8 +7,7 @@ from pathlib import Path
 from .. import __version__
 from ..contracts.stack import stack_schema
 from ._shared import (
-    ScaffoldError,
-    _normalize_identifier,
+    _normalize_project_name,
     _normalize_repo_slug,
     _prepare_root,
     _prompt,
@@ -26,7 +25,7 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
     reference that exists in no registry — update discovery then silently never
     fires.
     """
-    normalized_project_name = _normalize_identifier(project_name, "project_name")
+    normalized_project_name = _normalize_project_name(project_name)
     config_package = "config"
     target_root = Path(destination) if destination else Path(normalized_project_name)
     target_root = target_root.resolve()
@@ -66,6 +65,9 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "stack_schema": stack_schema(),
         "generated_date": date.today().isoformat(),
         "secret_key": secrets.token_urlsafe(38),
+        # URL-safe alphabet: no `$`, quotes, `#` or spaces to trip .env parsing,
+        # libpq or Compose interpolation.
+        "postgres_password": secrets.token_urlsafe(24),
     }
 
     writes = {
@@ -107,7 +109,9 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "project/package/wsgi.py.tmpl": target_root / config_package / "wsgi.py",
     }
 
+    # The secrets file holds the database password and SECRET_KEY: owner only.
+    modes = {target_root / ".secrets" / ".env": 0o600}
     for template_name, destination_path in writes.items():
-        _write_rendered(template_name, destination_path, context)
+        _write_rendered(template_name, destination_path, context, mode=modes.get(destination_path))
 
     return target_root

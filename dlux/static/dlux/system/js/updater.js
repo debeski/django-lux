@@ -94,6 +94,7 @@
         const failedWarning = modalElement?.querySelector('[data-dlux-update-failed-warning]');
         const failedAck = modalElement?.querySelector('[data-dlux-update-failed-ack]');
         const failedText = modalElement?.querySelector('[data-dlux-update-failed-text]');
+        const schemaNote = modalElement?.querySelector('[data-dlux-update-schema-note]');
         const skipButton = modalElement?.querySelector('[data-dlux-update-skip]');
         const modalRecheckButton = modalElement?.querySelector('[data-dlux-update-recheck]');
         // Release channel and check interval are set once and then left alone,
@@ -248,7 +249,8 @@
         function restoreReviewActionState() {
             if (!reviewPanel || reviewPanel.hidden || !submit) return;
             const ackRequired = failedWarning && !failedWarning.classList.contains('d-none');
-            submit.disabled = Boolean(ackRequired && failedAck && !failedAck.checked);
+            const blocked = schemaNote && schemaNote.classList.contains('alert-danger') && !schemaNote.classList.contains('d-none');
+            submit.disabled = Boolean(blocked || (ackRequired && failedAck && !failedAck.checked));
             if (skipButton) skipButton.disabled = false;
             if (modalRecheckButton) modalRecheckButton.disabled = false;
         }
@@ -1158,6 +1160,21 @@
                     ? (root.dataset.imageMaintenanceNote || root.dataset.maintenanceNote || maintenanceEl.textContent)
                     : (root.dataset.maintenanceNote || maintenanceEl.textContent);
             }
+            // A rollback runs older code on the newer schema: say so, and refuse
+            // it when a release in between forbids that (the server refuses too).
+            const blockedBy = isRollback ? String(state.rollback_blocked_by || '') : '';
+            if (schemaNote) {
+                let note = '';
+                if (blockedBy) {
+                    note = (root.dataset.labelRollbackSchemaBlocked || '').split('{version}').join(blockedBy);
+                } else if (isRollback && state.rollback_schema_warning) {
+                    note = root.dataset.labelRollbackSchemaWarning || '';
+                }
+                schemaNote.textContent = note;
+                schemaNote.classList.toggle('d-none', !note);
+                schemaNote.classList.toggle('alert-danger', Boolean(blockedBy));
+                schemaNote.classList.toggle('alert-warning', !blockedBy);
+            }
             // Re-apply guard: warn (and require an explicit acknowledgment) when
             // re-installing a wheel version that already failed a previous apply.
             // Only for a normal wheel apply — a rollback/image target is different.
@@ -1200,7 +1217,7 @@
             submit.hidden = false;
             // When a prior failure requires acknowledgment, the confirm button
             // stays disabled until the operator ticks the "retry anyway" box.
-            submit.disabled = requireAck;
+            submit.disabled = requireAck || Boolean(blockedBy);
             password.disabled = false;
             setModalLocked(false);
             reloadOnClose = false;

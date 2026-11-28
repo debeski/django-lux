@@ -7,6 +7,9 @@ code calls ``window.DluxAssets.load(name)``. Stylesheets load before scripts, an
 scripts run in the order listed here. A bundle with ``css_before_theme`` puts its
 stylesheets at ``<meta name="dlux-lazy-styles">``, ahead of the theme; the others
 go at the end of ``<body>``, after it.
+
+A bundle's ``module`` and ``worker`` are ES modules that its own loader imports
+instead of ``DluxAssets``: ``dlux/pdf/js/pdfjs.js`` imports PDF.js from them.
 """
 
 SETTINGS_SELECTOR = ', '.join((
@@ -64,9 +67,10 @@ ASSET_BUNDLES = {
         'css': ('dlux/tutorial/css/main.css',),
         'js': ('dlux/tutorial/js/driver.js', 'dlux/tutorial/js/main.js'),
     },
-    # PDF.js, loaded when the PDF viewer or page editor opens a file.
+    # PDF.js, imported by DluxPdfJs when the PDF viewer or page editor opens a file.
     'pdf': {
-        'js': ('dlux/pdf/vendor/pdf.min.js',),
+        'module': 'dlux/pdf/vendor/pdf.min.js',
+        'worker': 'dlux/pdf/vendor/pdf.worker.min.js',
     },
 }
 
@@ -79,6 +83,9 @@ def asset_bundle_urls(static_url):
             'css': [static_url(path) for path in bundle.get('css', ())],
             'js': [static_url(path) for path in bundle.get('js', ())],
         }
+        for key in ('module', 'worker'):
+            if bundle.get(key):
+                entry[key] = static_url(bundle[key])
         if bundle.get('selector'):
             entry['selector'] = bundle['selector']
         if bundle.get('css_before_theme'):

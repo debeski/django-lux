@@ -66,8 +66,10 @@
                 </div>
                 <button type="submit"
                         id="sysbackup-create-btn"
-                        class="btn btn-primary rounded-pill text-nowrap">
-                    <i class="bi bi-file-zip-fill me-1"></i>{{ DLUX_STRINGS.sysbackup_create }}
+                        class="btn btn-primary rounded-pill text-nowrap"
+                        data-label-full="{{ DLUX_STRINGS.sysbackup_create }}"
+                        data-label-incremental="{{ DLUX_STRINGS.sysbackup_create_incremental|default:'Create Incremental Backup' }}">
+                    <i class="bi bi-file-zip-fill me-1"></i><span data-sysbackup-create-label>{{ DLUX_STRINGS.sysbackup_create }}</span>
                 </button>
             </fieldset>
         </form>

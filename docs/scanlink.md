@@ -27,8 +27,16 @@ The administrator lists the other websites in System Settings → Extra Features
 origins in `extra_config['scanlink']['sites']`, at most 19). Use it when the same
 workstations scan for another DjangoLux site. This site is always allowed and is
 not listed. Every page sends the list (`json_script` `dlux-scanlink-sites`); when it
-no longer matches what ScanLink holds for this site, the next scan updates ScanLink
-without asking again.
+no longer matches what ScanLink holds for this site, the next scan sends it. A list
+that only drops sites is updated without asking. A list that gains a site opens
+ScanLink's window again, naming the added sites, and the page shows the same *Choose
+Allow* message while it waits; if the operator does not allow them, the site keeps
+the list it had and the scan goes on.
+
+ScanLink and DjangoLux store a website as its origin in ASCII: a non-ASCII host is
+kept in its IDNA (`xn--`) form, and an address whose host carries invisible, bidi
+or other control characters, or ends in a dot, is refused, so the approval window
+always shows the host the browser will report.
 
 Operators remove a site from the ScanLink tray menu (**Linked Websites → Unlink**).
 IT can allow sites without the window by listing them in `cors_origins` in
@@ -45,7 +53,10 @@ For every scan, `ScanLink.startScan()`:
 
 1. Checks `GET /health`, first on the transport that last answered, then on the
    other one. Each attempt, including its response body, has a three-second
-   timeout.
+   timeout. Only a JSON answer with `"status": "ok"` counts as ScanLink. When
+   ScanLink answers only on HTTP :5000, the client logs a console warning: plain
+   HTTP on localhost has no per-user identity, so on a shared computer another
+   user's program could answer on that port.
 2. Sends the scan POST once, to the transport that just answered. If HTTPS stops
    answering (for example after a ScanLink restart whose certificate setup
    failed), the next scan uses HTTP :5000.
@@ -57,8 +68,17 @@ For every scan, `ScanLink.startScan()`:
    another scan. It never resubmits a scan automatically.
 
 Status and result reads (`GET /scan/<job_id>` and `/scan/<job_id>/result`) keep
-the HTTPS/HTTP fallback. File fields and the PDF editor share the English/Arabic
-guidance in `dlux/helpers/scanlink/scan_messages.html`.
+the HTTPS/HTTP fallback, and every request has a deadline, body included: a status
+read 10 seconds, the result 60 seconds, the scan POST 15 seconds (then
+`scan_request_uncertain`), `POST /link` 135 seconds. A slow status answer is
+retried; when ScanLink has not answered for 30 seconds the scan ends with
+`helper_stalled`. The result must start with `%PDF-`; anything else ends the scan
+with `invalid_result` and never reaches the file field.
+
+File fields and the PDF editor share the translated messages in
+`dlux/helpers/scanlink/scan_messages.html`. The file widget passes the active
+language's strings table to it; rendered without one, it emits no attributes and
+`scan_button.js` reads `window.DLUX_STRINGS` instead.
 
 The page waits up to 11 minutes for a scan, longer than ScanLink's own job deadline
 (10 minutes plus 15 s), so a slow scan ends with ScanLink's reason rather than the
@@ -72,10 +92,15 @@ translated:
 | `scan_worker_crashed` | ScanLink's scanning process stopped; try again, then restart ScanLink. |
 | `origin_not_allowed` | ScanLink has not allowed this site; scan again and choose Allow in its window. |
 | `link_declined`, `link_timeout`, `link_pending` | The operator chose Don't allow, did not answer, or another site's window is open. |
+| `link_rate_limited` | ScanLink asked about this site a moment ago; wait a few minutes. |
 | `acquire_timeout`, `scan_timeout`, `scan_idle_timeout` | The scan took too long. |
-| `payload_too_large`, `invalid_host`, `local_only`, `too_many_links` | The scan could not be completed. |
+| `helper_stalled` | ScanLink stopped answering; check its tray app, the scanner dialog or the driver. |
+| `job_not_found`, `result_unavailable` | ScanLink restarted or the scan was lost; scan again. |
+| `invalid_result` | ScanLink did not return a PDF; scan again, then restart ScanLink. |
+| Any other code | The scan could not be completed. |
 
-A code the page does not know shows ScanLink's own message.
+The page never shows ScanLink's own message: it is English, can carry exception
+details or file paths, and comes from whatever answers on the port.
 
 On the helper side, ScanLink keeps a job in `generating_pdf` until the child
 process exits and the PDF is stored, and enforces the parent scan deadline even

@@ -20,6 +20,7 @@ from ..utils import (
     get_user_scope,
     is_global_staff,
     is_scope_enabled,
+    restrict_user_rows,
     user_has_model_permission,
 )
 
@@ -48,7 +49,8 @@ def _scope_filter_queryset(user, queryset):
     return queryset.filter(scope=user_scope)
 
 def _visible_queryset(user, model):
-    return _scope_filter_queryset(user, model._default_manager.all())
+    queryset = restrict_user_rows(user, model, model._default_manager.all())
+    return _scope_filter_queryset(user, queryset)
 
 def _is_sensitive_api_field(field_name):
     lowered = (field_name or "").lower()

@@ -20,7 +20,9 @@ def main():
         return 1
     heartbeat = root / "state" / "updater-heartbeat"
     try:
-        age = time.time() - float(heartbeat.read_text(encoding="utf-8").strip())
+        from .shared_files import read_text
+
+        age = time.time() - float(read_text(heartbeat, 64).strip())
     except (OSError, ValueError):
         return 1
     return 0 if 0 <= age <= 45 else 1

@@ -58,8 +58,11 @@ describe('backup page layout', { concurrency: 1 }, () => {
       const first = await full('data');
       await full('full');
       await page.reload({ waitUntil: 'networkidle' });
+      const createLabel = () => page.locator('#sysbackup-create-btn [data-sysbackup-create-label]').textContent();
+      assert.equal(await createLabel(), 'Create Full Backup');
       await page.locator('#sysbackup-kind').selectOption('incremental');
       assert.equal(await page.locator('#sysbackup-parent-field').isVisible(), true);
+      assert.equal(await createLabel(), 'Create Incremental Backup');
       const refresh = page.waitForResponse((response) =>
         response.url().includes('backup_parent=' + first.token));
       await page.locator('#sysbackup-parent').selectOption(first.token);

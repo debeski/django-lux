@@ -46,6 +46,7 @@ from ..system.constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_VALUES,
 )
+from ..db_errors import note_read_failure, read_recently_failed
 from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
 from ..themes import is_valid_theme, normalize_allowed_themes
 from ..translations import get_current_language_code, get_strings
@@ -237,11 +238,15 @@ def get_scope_settings():
 
     if request is not None and hasattr(request, SCOPE_SETTINGS_REQUEST_ATTR):
         return getattr(request, SCOPE_SETTINGS_REQUEST_ATTR)
+    if request is None and read_recently_failed():
+        return None
 
     try:
         row = apps.get_model('dlux', 'ScopeSettings').load()
-    except (LookupError, ProgrammingError, OperationalError):
-        # Model or table not ready (migrations, an empty database): not memoised.
+    except (LookupError, ProgrammingError, OperationalError) as exc:
+        # Model or table not ready (migrations, an empty database), or the
+        # database is down: not memoised.
+        note_read_failure(exc)
         return None
 
     if request is not None:

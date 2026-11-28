@@ -96,6 +96,14 @@ class RuntimeStore:
             raise UpdaterError("The update run token is invalid.")
         return self.staging / safe
 
+    def _read_pointer(self):
+        from .supervisor import ACTIVE_POINTER_MAX_BYTES
+
+        payload = json.loads(shared_files.read_bounded(self.active_file, ACTIVE_POINTER_MAX_BYTES))
+        if not isinstance(payload, dict):
+            raise UpdaterError("active.json is not a JSON object.")
+        return payload
+
     def read_active(self, baked_version):
         """What the supervisor serves: the volume release ``active.json`` names, or
         the baked image package.
@@ -114,7 +122,7 @@ class RuntimeStore:
         if not self.active_file.exists():
             return fallback
         try:
-            payload = json.loads(self.active_file.read_text(encoding="utf-8"))
+            payload = self._read_pointer()
             version = self.normalize_version(payload.get("version"))
             source = payload.get("source")
             if source == "image":
@@ -150,7 +158,7 @@ class RuntimeStore:
         the field literally.
         """
         try:
-            payload = json.loads(self.active_file.read_text(encoding="utf-8"))
+            payload = self._read_pointer()
             return self.normalize_version(payload.get("version"))
         except Exception:
             return None
@@ -177,7 +185,7 @@ class RuntimeStore:
 
     def read_generation(self):
         try:
-            return max(0, int(self.generation_file.read_text(encoding="utf-8").strip()))
+            return max(0, int(shared_files.read_text(self.generation_file, 64).strip()))
         except (OSError, ValueError):
             return 0
 

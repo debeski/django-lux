@@ -32,8 +32,16 @@ def _activate_runtime_release():
     os.environ.setdefault("DLUX_BAKED_VERSION", baked_version() or "")
     root = Path(os.getenv("DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"))
     release = resolve_release(root)
-    if release is not None:
-        sys.path.insert(0, str(release))
+    if release is None:
+        return
+    sys.path.insert(0, str(release))
+    current = os.environ.get("PYTHONPATH", "")
+    if str(release) not in current.split(os.pathsep):
+        os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, (str(release), current)))
+    # Resolving the release imported the baked package; drop it so the next
+    # `import dlux` loads the release instead.
+    for name in [name for name in sys.modules if name == "dlux" or name.startswith("dlux.")]:
+        del sys.modules[name]
 
 
 def main():

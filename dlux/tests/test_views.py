@@ -2990,8 +2990,11 @@ class TwoFactorSecurityViewTests(TestCase):
             def __init__(self, secret):
                 captured['secret'] = secret
 
-            def verify(self, code, valid_window=0):
-                return code == '654321'
+            interval = 30
+            digits = 6
+
+            def generate_otp(self, step):
+                return '654321'
 
         self.user.profile.totp_secret = 'JBSWY3DPEHPK3PXP'
         self.user.profile.is_totp_2fa_enabled = True

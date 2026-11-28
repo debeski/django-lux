@@ -35,7 +35,7 @@ def _link_notice_path(store):
 
 def read_link_notice(store):
     try:
-        value = json.loads(_link_notice_path(store).read_text(encoding="utf-8"))
+        value = shared_files.load_json(_link_notice_path(store))
     except (OSError, ValueError):
         return {}
     return value if isinstance(value, dict) else {}
@@ -75,7 +75,7 @@ def write_enroll_request(store, control_url, pairing_token, operation_id=None):
 
 def read_enroll_request(store):
     try:
-        value = json.loads(_enroll_request_path(store).read_text(encoding="utf-8"))
+        value = shared_files.load_json(_enroll_request_path(store))
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None
@@ -127,7 +127,7 @@ def queued_request():
 
 def read_agent_status(store):
     try:
-        value = json.loads(_agent_status_path(store).read_text(encoding="utf-8"))
+        value = shared_files.load_json(_agent_status_path(store))
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None

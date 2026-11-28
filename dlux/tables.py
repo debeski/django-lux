@@ -164,7 +164,7 @@ class UserTable(DluxTable):
         verbose_name="",
         empty_values=(),
         orderable=False,
-        attrs={"td": {"class": "text-center ps-2 pe-1"}, "th": {"class": "text-center ps-2 pe-1", "style": "width:28px"}},
+        attrs={"td": {"class": "text-center ps-2 pe-1"}, "th": {"class": "text-center ps-2 pe-1 dlux-online-status-col"}},
     )
     username = tables.Column(verbose_name="Username")
     phone = tables.Column(verbose_name="Phone Number", accessor='profile.phone', default='-')

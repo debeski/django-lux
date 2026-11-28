@@ -115,6 +115,17 @@ class OpsRunLifecycleTests(TestCase):
         self.assertEqual(request["operation"], "check")
         self.assertEqual(run.status, DluxOpsRun.STATUS_RUNNING)
 
+    def test_a_queued_agent_update_is_refused_when_the_policy_tightened(self):
+        # R2-042: queued while allowed, handed over after the policy became `none`.
+        run = DluxOpsRun.objects.create(operation="agent-update", requested_by_username="root")
+        with override_settings(DLUX_UPDATE_POLICY="none", DLUX_UPDATE_RUNTIME_ROOT=self._tmp.name):
+            tick_ops_run(self.service)
+        run.refresh_from_db()
+        self.assertEqual(run.status, DluxOpsRun.STATUS_FAILED)
+        self.assertFalse(run.is_active)
+        self.assertIn("Composer updates", run.error)
+        self.assertFalse(ops.request_path(self.store).exists())
+
     def test_the_answer_finishes_the_run_with_its_findings(self):
         run = self._queue()
         tick_ops_run(self.service)

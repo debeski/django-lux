@@ -1,4 +1,5 @@
 import json
+import re
 
 from django import template
 from django.utils.html import escape, format_html
@@ -36,6 +37,18 @@ def translate_log(value, prefix=''):
     
     # Look up
     return dlux_strings.get(key, value)
+
+@register.filter
+def dlux_column_label(value):
+    """A table header in the viewer's language when the strings table has
+    ``label_<header in snake case>`` (``Updated By`` -> ``label_updated_by``);
+    otherwise the header as given."""
+    text = str(value or '')
+    if not text:
+        return value
+    key = 'label_' + re.sub(r'\W+', '_', text.strip().lower()).strip('_')
+    return get_strings().get(key) or value
+
 
 @register.simple_tag
 def format_log_details(details):
@@ -95,11 +108,11 @@ def format_log_details(details):
                         new_val,
                     ))
             else:
-                # Generic key-value
+                # Generic key-value: a structure is summarised, long text cut.
                 html_parts.append(format_html(
-                    '<span class="badge bg-secondary me-1">{}: {}</span>',
+                    '<span class="badge bg-secondary me-1 dlux-log-badge">{}: {}</span>',
                     field_label,
-                    _prepare_log_value(field, changes),
+                    _summarise_log_value(field, changes, dlux_strings),
                 ))
 
     return mark_safe("".join(str(part) for part in html_parts))
@@ -117,6 +130,15 @@ def _prepare_log_value(field_name, value):
     if isinstance(value, (dict, list)):
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
     return str(value)
+
+
+def _summarise_log_value(field_name, value, strings):
+    if isinstance(value, dict) and not is_sensitive_activity_field_name(field_name):
+        return str(strings.get('log_value_fields', '{count} fields')).replace('{count}', str(len(value)))
+    if isinstance(value, list) and not is_sensitive_activity_field_name(field_name):
+        return str(strings.get('log_value_items', '{count} items')).replace('{count}', str(len(value)))
+    text = _prepare_log_value(field_name, value)
+    return text if len(text) <= 40 else text[:40] + '…'
 
 
 def _render_detail_value(kind, label, value):

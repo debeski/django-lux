@@ -18,6 +18,14 @@ var ScanLink = window.ScanLink || class ScanLink {
         this.httpsUrl = options.httpsUrl || "https://localhost:5443";
         this.protocol = options.protocol || "scanlink";
         this.healthTimeoutMs = options.healthTimeoutMs || 3000;
+        // Every other request has a deadline too, so a frozen or stalled helper
+        // ends the wait instead of keeping the page busy for as long as it hangs.
+        this.statusTimeoutMs = options.statusTimeoutMs || 10000;
+        this.resultTimeoutMs = options.resultTimeoutMs || 60000;
+        this.submitTimeoutMs = options.submitTimeoutMs || 15000;
+        // POST /link waits up to two minutes for the operator's answer.
+        this.linkTimeoutMs = options.linkTimeoutMs || 135000;
+        this.stallWindowMs = options.stallWindowMs || 30000;
         this.connectionError = null;
 
         this.onStatus = options.onStatus || (() => {});
@@ -83,10 +91,31 @@ var ScanLink = window.ScanLink || class ScanLink {
                 if (refusal.code === "origin_not_allowed") throw refusal;
                 return null;
             }
-            return response.ok ? await response.json() : null;
+            if (!response.ok) return null;
+            const health = await response.json();
+            // Anything else answering on the port is not ScanLink.
+            return health && typeof health === "object" && health.status === "ok" ? health : null;
         } finally {
             clearTimeout(timer);
         }
+    }
+
+    _stalled() {
+        return new ScanLinkError("ScanLink stopped answering.", "helper_stalled");
+    }
+
+    // Runs `work(signal)` under a deadline: the request is aborted and the call
+    // rejects with `helper_stalled` once `timeoutMs` passes, body read included.
+    _timed(timeoutMs, work) {
+        const controller = new AbortController();
+        let timer = null;
+        const deadline = new Promise((resolve, reject) => {
+            timer = setTimeout(() => {
+                reject(this._stalled());
+                controller.abort();
+            }, Math.max(1, timeoutMs));
+        });
+        return Promise.race([work(controller.signal), deadline]).finally(() => clearTimeout(timer));
     }
 
     _connectionFailure(cause) {
@@ -107,23 +136,32 @@ var ScanLink = window.ScanLink || class ScanLink {
             if (!await this.checkHealth()) {
                 throw this.connectionError;
             }
-            const response = await this._fetchResponse("/scan", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-                mode: "cors",
-            });
-
-            if (!response.ok) {
-                throw await this._responseToError(response, "Failed to start scan.");
-            }
-
             let data;
             try {
-                data = await response.json();
-                if (!data || !data.job_id) throw new Error("Missing scan job ID");
+                data = await this._timed(this.submitTimeoutMs, async (signal) => {
+                    const response = await this._fetchResponse("/scan", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                        mode: "cors",
+                        signal,
+                    });
+                    if (!response.ok) {
+                        throw await this._responseToError(response, "Failed to start scan.");
+                    }
+                    let body;
+                    try {
+                        body = await response.json();
+                    } catch (error) {
+                        throw this._uncertainRequest(error);
+                    }
+                    if (!body || !body.job_id) throw this._uncertainRequest(new Error("Missing scan job ID"));
+                    return body;
+                });
             } catch (error) {
-                throw this._uncertainRequest(error);
+                // A stalled answer may still have started the scan.
+                if (error && error.code === "helper_stalled") throw this._uncertainRequest(error);
+                throw error;
             }
             this.currentJobId = data.job_id;
             this.onStatus(data);
@@ -135,31 +173,44 @@ var ScanLink = window.ScanLink || class ScanLink {
         }
     }
 
-    async getStatus(jobId) {
-        const response = await this._fetchResponse(`/scan/${jobId}`, {
-            method: "GET",
-            mode: "cors",
+    async getStatus(jobId, timeoutMs = this.statusTimeoutMs) {
+        return this._timed(timeoutMs, async (signal) => {
+            const response = await this._fetchResponse(`/scan/${jobId}`, {
+                method: "GET",
+                mode: "cors",
+                signal,
+            });
+
+            if (!response.ok) {
+                throw await this._responseToError(response, "Failed to get scan status.");
+            }
+
+            return response.json();
         });
-
-        if (!response.ok) {
-            throw await this._responseToError(response, "Failed to get scan status.");
-        }
-
-        return response.json();
     }
 
     async waitForResult(jobId, options = {}) {
         const pollIntervalMs = options.pollIntervalMs || 1000;
         const timeoutMs = options.timeoutMs || 10 * 60 * 1000;
-        const startedAt = Date.now();
+        const deadline = Date.now() + timeoutMs;
         let previousPageCount = 0;
         let lastSignature = null;
+        let lastAnswer = Date.now();
 
-        while (Date.now() - startedAt < timeoutMs) {
+        while (Date.now() < deadline) {
             let status;
             try {
-                status = await this.getStatus(jobId);
+                status = await this.getStatus(jobId, Math.min(this.statusTimeoutMs, deadline - Date.now()));
+                lastAnswer = Date.now();
             } catch (error) {
+                // One slow answer is retried; a helper silent for the whole stall
+                // window, or past the scan's deadline, ends the wait.
+                if (error && error.code === "helper_stalled" && Date.now() < deadline
+                    && Date.now() - lastAnswer < this.stallWindowMs) {
+                    await this._sleep(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())));
+                    continue;
+                }
+                if (error && error.code === "helper_stalled" && Date.now() >= deadline) break;
                 const normalized = this._normalizeError(error, "Failed while waiting for scan result.");
                 this.onError(normalized);
                 throw normalized;
@@ -183,7 +234,14 @@ var ScanLink = window.ScanLink || class ScanLink {
             }
 
             if (status.status === "completed") {
-                const blob = await this.getResult(jobId);
+                let blob;
+                try {
+                    blob = await this.getResult(jobId, Math.max(1000, Math.min(this.resultTimeoutMs, deadline - Date.now())));
+                } catch (error) {
+                    const normalized = this._normalizeError(error, "Failed to download the scanned PDF.");
+                    this.onError(normalized);
+                    throw normalized;
+                }
                 this.onComplete(jobId, status.page_count || 0);
                 return blob;
             }
@@ -194,7 +252,7 @@ var ScanLink = window.ScanLink || class ScanLink {
                 throw error;
             }
 
-            await this._sleep(pollIntervalMs);
+            await this._sleep(Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())));
         }
 
         const timeoutError = new ScanLinkError("The scan timed out while waiting for a result.", "scan_timeout");
@@ -202,17 +260,25 @@ var ScanLink = window.ScanLink || class ScanLink {
         throw timeoutError;
     }
 
-    async getResult(jobId) {
-        const response = await this._fetchResponse(`/scan/${jobId}/result`, {
-            method: "GET",
-            mode: "cors",
+    async getResult(jobId, timeoutMs = this.resultTimeoutMs) {
+        const blob = await this._timed(timeoutMs, async (signal) => {
+            const response = await this._fetchResponse(`/scan/${jobId}/result`, {
+                method: "GET",
+                mode: "cors",
+                signal,
+            });
+
+            if (!response.ok) {
+                throw await this._responseToError(response, "Failed to download the scanned PDF.");
+            }
+
+            return response.blob();
         });
-
-        if (!response.ok) {
-            throw await this._responseToError(response, "Failed to download the scanned PDF.");
+        // Only a PDF becomes the field's file, whatever answered on the port.
+        if (!blob || typeof blob.slice !== "function" || await blob.slice(0, 5).text() !== "%PDF-") {
+            throw new ScanLinkError("ScanLink did not return a PDF.", "invalid_result");
         }
-
-        return response.blob();
+        return blob;
     }
 
     async downloadResult(jobId, filename = null) {
@@ -247,21 +313,24 @@ var ScanLink = window.ScanLink || class ScanLink {
         // for a website that is already linked); rejects with link_declined,
         // link_pending or link_timeout otherwise.
         if (!this.preferredUrl) await this.checkHealth(true);
-        let response;
-        try {
-            response = await this._fetchResponse("/link", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sites }),
-                mode: "cors",
-            });
-        } catch (error) {
-            throw this._connectionFailure(error);
-        }
-        if (!response.ok) {
-            throw await this._responseToError(response, "ScanLink did not link this website.");
-        }
-        return response.json();
+        return this._timed(this.linkTimeoutMs, async (signal) => {
+            let response;
+            try {
+                response = await this._fetchResponse("/link", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sites }),
+                    mode: "cors",
+                    signal,
+                });
+            } catch (error) {
+                throw this._connectionFailure(error);
+            }
+            if (!response.ok) {
+                throw await this._responseToError(response, "ScanLink did not link this website.");
+            }
+            return response.json();
+        });
     }
 
     _uncertainRequest(cause) {
@@ -275,6 +344,7 @@ var ScanLink = window.ScanLink || class ScanLink {
         let lastError = null;
 
         for (const baseUrl of candidates) {
+            if (options.signal && options.signal.aborted) break;
             try {
                 const response = await fetch(`${baseUrl}${path}`, options);
                 this._setPreferredUrl(baseUrl);
@@ -284,6 +354,7 @@ var ScanLink = window.ScanLink || class ScanLink {
                 lastError = error;
             }
         }
+        if (options.signal && options.signal.aborted) throw this._stalled();
 
         this.onConnectionChange(false);
         this.connectionError = readOnly ? this._connectionFailure(lastError) : this._uncertainRequest(lastError);
@@ -300,6 +371,11 @@ var ScanLink = window.ScanLink || class ScanLink {
     }
 
     _setPreferredUrl(baseUrl) {
+        if (baseUrl === this.httpUrl && this.httpsUrl && this.preferredUrl !== baseUrl && typeof console !== "undefined") {
+            // Plain HTTP on localhost has no per-user identity: on a shared
+            // computer another user's process could answer on the port.
+            console.warn("ScanLink answered over HTTP; HTTPS (localhost:5443) was not available.");
+        }
         this.preferredUrl = baseUrl;
     }
 

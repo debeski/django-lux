@@ -48,6 +48,25 @@ accept the default):
   placeholder.
 - `--no-input` — never prompt (CI); use the flag values or their defaults.
 
+The project name becomes the Compose project name, the folder name and the
+database name (`<name>_db`), so `startproject` refuses a name those cannot use: it
+must be ASCII letters, digits, `-` and `_`, start with a letter, and be at most 50
+characters (`-` becomes `_`). Python keywords, `true`, `false` and `null` (which
+YAML reads as a boolean or null in `compose.yml`'s `name:`), and Windows device
+names (`con`, `nul`, `com1` …) are refused too. `--image` follows Docker's
+reference rules: a lowercase path, an optional registry host (with port), and an
+optional tag of up to 128 characters; digest references (`@sha256:`) are refused.
+Every refusal happens before anything is written.
+
+`startproject` writes `.secrets/.env` readable by its owner only (mode `0600`),
+with a random `DJANGO_SECRET_KEY` and a random `POSTGRES_PASSWORD` (URL-safe
+characters only). Change `POSTGRES_PASSWORD` only before the first start: the
+database keeps the value it was created with. `ADMIN_PASS` is the `admin`
+superuser's password and starts empty: `./start.sh` asks for it at a terminal on
+the first start, and `./start.sh check --fix` asks while it is empty. Without
+either, no admin account is created until it is set, and none while it is
+`admin`. An existing `admin` account is never changed.
+
 For new apps inside a DjangoLux project:
 
 ```bash
@@ -56,11 +75,35 @@ python -m dlux startapp billing
 python -m dlux startapp billing --register
 ```
 
+The app gets example models named after it (`BillingRecord`, `BillingSection`,
+`BillingChildSection`, `BillingParentSection`), so several generated apps live
+side by side, and list, detail, form and delete pages for `BillingRecord`. Every
+word those pages show is a `{{ DLUX_STRINGS.key|default:"…" }}` lookup: the
+generic actions use DjangoLux's own keys (`back_to_list`, `btn_edit`, `cancel`,
+`save`, `confirm_delete`, `delete_label`), and the rest are English and Arabic
+entries in the app's `translations.py` ([Translation guide](translation-guide.md)).
+`startapp` refuses an app name that would hide an importable module (the
+standard library or an installed package, such as `json`, `email` or `csp`) or
+that is already an app label (`auth`, `sessions`, `admin`, the project's own
+`INSTALLED_APPS`), and checks it with the interpreter that runs the command, so
+run it with the project's own environment.
+
+`--register` adds the app to `INSTALLED_APPS` and its URLs to `urlpatterns`
+between `# DjangoLux generated … start` / `… end` marker lines. It reads both
+files with Python's parser, so a hand-edited file keeps its line endings (CRLF
+stays CRLF), a multi-line `from django.urls import (...)` stays as it is (a
+missing `include` or `path` gets its own import line), and text in a docstring or
+comment is never mistaken for the list. It works out both edits before it writes
+anything: when `INSTALLED_APPS` or `urlpatterns` is not a list, a marker line is
+missing, or either file is not writable, it stops without creating the app, and it
+writes the two files together or not at all.
+
 The generated project already includes a Docker baseline, a `worker` service
 running DjangoLux's [Task Runner](task-runner.md) (`dlux_worker`), outbound-only
 `composer-agent` and isolated `composer-executor` services, persistent `dlux_runtime` and private agent-state
 volumes, a Caddy proxy (nginx fallback) with a maintenance/progress page, a `/health/` endpoint, a generated
-`.secrets/.env` file with the bootstrap secret values, baseline
+`.secrets/.env` file with the bootstrap secret values, logging that writes
+warnings and server errors (with their traceback) to the container log, baseline
 `django-cors-headers` / `django-csp` setup in `config/settings.py` (a nonce-only
 `script-src`, see [Content Security Policy](security-dsrp-1.md#content-security-policy)), and a
 tag-driven release pipeline (`release-manifest.json`,
@@ -255,6 +298,13 @@ python -m dlux startapp billing --register
 ```
 
 ## What Happens on First Launch
+
+The first start creates the superuser `admin` with the password in `ADMIN_PASS`
+(`.secrets/.env`). When `ADMIN_PASS` is empty or `admin`, no superuser is created
+and the `migrator` log says so: set a real password there and restart the stack,
+or run `python manage.py createsuperuser`. Changing `ADMIN_PASS` later does not
+touch an existing `admin` account. See
+[Deployment Configuration](deployment-configuration.md#core-and-registry-settings).
 
 On a fresh install, Dlux protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 

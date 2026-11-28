@@ -4187,6 +4187,23 @@ class SystemSettingsForm(
                 if lang_code in hero:
                     cleaned[field_name] = hero.get(lang_code, '')
 
+    REGISTRATION_SAFEGUARD_FIELDS = ('registration_throttle_enabled', 'honeypot_enabled')
+
+    def _keep_registration_safeguards(self, cleaned):
+        """Keep the sign-up throttle and honeypot while public registration is off.
+
+        Their toggles are disabled in the page until registration is switched on,
+        and a disabled checkbox is never posted, so an unchecked value here is not
+        an operator's choice.
+        """
+        if cleaned.get('public_registration_enabled'):
+            return
+        imported = getattr(self, '_imported_settings', None) or {}
+        for name in self.REGISTRATION_SAFEGUARD_FIELDS:
+            if name in imported:
+                continue
+            cleaned[name] = bool(self.initial.get(name, True))
+
     def clean(self):
         cleaned = super().clean()
         self._imported_settings = self._read_imported_settings()
@@ -4240,6 +4257,7 @@ class SystemSettingsForm(
                 'show_sidebar': bool(public_root_config.get('show_sidebar_on_public', False)),
             },
         })
+        self._keep_registration_safeguards(cleaned)
         registration_config = self._schema_group_from_cleaned('registration_config')
         cleaned['registration_config'] = registration_config
         cleaned.update(registration_config)

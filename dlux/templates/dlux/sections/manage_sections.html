@@ -95,7 +95,7 @@
         <div class="modal-content glass-card border-0">
           <div class="modal-header border-0">
             <h5 class="modal-title" id="addSubsectionModalLabel_{{ subsection.name }}"><i class="bi bi-plus-circle me-2"></i>{{ DLUX_STRINGS.add_label }} {{ subsection.verbose_name }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
           </div>
           <div class="modal-body dlux-form">
             {% crispy subsection.form %}
@@ -117,7 +117,7 @@
             <div class="modal-content glass-card border-0">
                 <div class="modal-header border-0">
                     <h5 class="modal-title"><i class="bi bi-list-task me-2"></i>{{ DLUX_STRINGS.subsections }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
                 <div class="modal-body" id="viewSubsectionsModalBody">
                     <div class="text-center py-3">

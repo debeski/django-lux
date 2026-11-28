@@ -121,6 +121,51 @@ def can_manage_target_user(actor, target_user=None):
             return False
     return True
 
+def _held_permission_tokens(user):
+    """Every ``app_label.codename`` a user holds directly or through groups.
+
+    Read from the tables rather than ``get_all_permissions()``, which answers an
+    empty set for an inactive user: a deactivated administrator still outranks.
+    """
+    Permission = apps.get_model('auth', 'Permission')
+    rows = Permission.objects.filter(
+        Q(user=user) | Q(group__user=user)
+    ).values_list('content_type__app_label', 'codename').distinct()
+    return {f'{app_label}.{codename}' for app_label, codename in rows}
+
+
+# User Management - Function tells whether a target user holds more power than the actor.
+def target_outranks_actor(actor, target_user):
+    """True when ``target_user`` holds a permission ``actor`` lacks.
+
+    This covers staff-manager level targets (``dlux.manage_staff``,
+    ``dlux.manage_scopes``) too: an actor without those cannot change, reset,
+    deactivate or delete someone who has them. Superusers and self are never
+    outranked; superuser targets are handled by ``can_manage_target_user``.
+    """
+    if target_user is None or actor is None:
+        return False
+    if getattr(actor, 'is_superuser', False):
+        return False
+    if getattr(target_user, 'pk', None) is not None and target_user.pk == getattr(actor, 'pk', None):
+        return False
+    if getattr(target_user, 'is_superuser', False):
+        return True
+    from .authorization import user_matches_permission_token
+    return any(
+        not user_matches_permission_token(actor, token)
+        for token in _held_permission_tokens(target_user)
+    )
+
+
+# User Management - Function gates changes (edit, reset, toggle, delete) to another user.
+def can_modify_target_user(actor, target_user=None):
+    """``can_manage_target_user`` plus the rule that the target must not outrank the actor."""
+    if not can_manage_target_user(actor, target_user):
+        return False
+    return not target_outranks_actor(actor, target_user)
+
+
 # ── Permission-preset "Groups" helpers ──────────────────────────────────────
 # A preset is a Django auth Group carrying a GroupProfile sidecar. Native group
 # inheritance already unions the preset's permissions into user.has_perm, so
@@ -240,6 +285,32 @@ def get_manageable_users_queryset(actor):
     if actor_scope:
         return qs.filter(profile__scope=actor_scope)
     return qs.none()
+
+
+# User Management - Function limits generic reads of User/Profile rows to the user directory's tiers.
+def restrict_user_rows(actor, model, queryset):
+    """Limit ``auth.User`` and ``dlux.Profile`` rows to what ``actor`` may manage, plus itself.
+
+    Generic read surfaces (autofill details, last entry, data search) check only the
+    model ``view`` permission; ``User`` is not scoped, so without this a scoped
+    ``auth.view_user`` holder reads every user. Other models pass through unchanged.
+    """
+    from django.contrib.auth import get_user_model
+
+    meta = model._meta
+    user_meta = get_user_model()._meta
+    is_user = meta.app_label == user_meta.app_label and meta.model_name == user_meta.model_name
+    is_profile = meta.app_label == 'dlux' and meta.model_name == 'profile'
+    if not (is_user or is_profile):
+        return queryset
+    if actor is None or not getattr(actor, 'is_authenticated', False):
+        return queryset.none()
+    if getattr(actor, 'is_superuser', False):
+        return queryset
+    manageable = get_manageable_users_queryset(actor).values('pk')
+    if is_user:
+        return queryset.filter(Q(pk__in=manageable) | Q(pk=actor.pk))
+    return queryset.filter(Q(user__in=manageable) | Q(user=actor))
 
 
 # Group Presets - Function reconciles a single preset's membership (group-centric).

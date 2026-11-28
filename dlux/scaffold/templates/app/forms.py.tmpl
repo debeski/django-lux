@@ -2,12 +2,12 @@ from django import forms
 
 from dlux.utils import set_field_attrs
 
-from .models import ExampleRecord
+from .models import {{ record_model }}
 
 
-class ExampleRecordForm(forms.ModelForm):
+class {{ record_model }}Form(forms.ModelForm):
     class Meta:
-        model = ExampleRecord
+        model = {{ record_model }}
         fields = ["name", "description", "is_active"]
 
     def __init__(self, *args, **kwargs):

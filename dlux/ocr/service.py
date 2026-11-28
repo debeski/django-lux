@@ -164,14 +164,35 @@ def send_task(result):
     transaction.on_commit(send)
 
 
-def run(result_id):
-    """Read one row's file. Raises ``OCRUnavailable`` when the caller should retry later."""
+def run_was_recovered(run_id):
+    """Whether task run ``run_id`` was put back after the worker running it died."""
+    if not run_id:
+        return False
+    from django.apps import apps
+
+    try:
+        DluxTaskRun = apps.get_model('dlux', 'DluxTaskRun')
+        return DluxTaskRun.objects.filter(pk=run_id, recoveries__gt=0).exists()
+    except Exception:
+        log.warning('Could not read task run %s.', run_id, exc_info=True)
+        return False
+
+
+def run(result_id, *, takeover=False):
+    """Read one row's file. Raises ``OCRUnavailable`` when the caller should retry later.
+
+    A ``running`` row is left alone while its claim is fresh, unless ``takeover``
+    says the claim belonged to this task's own lost run.
+    """
     from dlux.models import FileText
 
     with transaction.atomic():
         result = FileText.all_objects.select_for_update().filter(pk=result_id).first()
-        if result is None or result.status == 'done' or (result.status == 'running' and not _stale(result)):
+        claimed = result is not None and result.status == 'running' and not _stale(result)
+        if result is None or result.status == 'done' or (claimed and not takeover):
             return result
+        if claimed:
+            log.warning('OCR for file text %s takes over the claim of a run lost with its worker.', result.pk)
         if not config()['enabled']:
             raise OCRUnavailable('OCR is disabled; queued work will retry after it is enabled.')
         document = result.document

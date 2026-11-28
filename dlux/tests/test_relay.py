@@ -158,6 +158,50 @@ class RelayTests(SimpleTestCase):
             "operation_id": "someone-else", "request_digest": ticket.digest, "status": "ok", "data": "forged"}))
         self.assertEqual(relay.read_result(ticket, self.store), {})
 
+    def _plant_result(self, ticket, payload):
+        results = relay.relay_root(self.store) / "results"
+        results.mkdir(exist_ok=True)
+        path = results / f"{ticket.id}.json"
+        path.write_text(payload if isinstance(payload, str) else json.dumps(payload))
+        return path
+
+    def test_hostile_results_are_bounded_and_never_raise_past_the_reader(self):
+        # R2-096: a deep result raised RecursionError; a huge one was read whole.
+        self.agent.publish()
+        ticket = relay.submit("finance.cbl_page", store=self.store)
+        self._plant_result(ticket, "[" * 200000 + "]" * 200000)
+        self.assertEqual(relay.read_result(ticket, self.store), {})
+        limit = relay._result_limit(ticket.op, self.store)
+        self._plant_result(ticket, json.dumps({
+            "operation_id": ticket.id, "request_digest": ticket.digest, "status": "ok",
+            "data": "A" * limit,
+        }))
+        self.assertEqual(relay.read_result(ticket, self.store), {})
+
+    def test_an_unknown_error_code_and_escapes_never_reach_the_caller(self):
+        self.agent.publish()
+        ticket = relay.submit("finance.cbl_page", store=self.store)
+        self._plant_result(ticket, {
+            "operation_id": ticket.id, "request_digest": ticket.digest, "status": "error",
+            "error": "<script>alert(1)</script>",
+            "detail": "\x1b]8;;http://evil\x07click\x1b]8;;\x07 \u202eboom" + "x" * 500,
+        })
+        with self.assertRaises(RelayError) as caught:
+            relay.wait(ticket, 1, self.store)
+        self.assertEqual(caught.exception.code, "provider")
+        self.assertNotIn("\x1b", caught.exception.detail)
+        self.assertNotIn("\u202e", caught.exception.detail)
+        self.assertLessEqual(len(caught.exception.detail), 300)
+
+    def test_capabilities_stamped_in_the_future_are_not_an_answering_agent(self):
+        self.agent.publish()
+        path = relay.relay_root(self.store) / "capabilities.json"
+        document = json.loads(path.read_text())
+        document["updated_at"] = (timezone.now() + timedelta(days=365)).isoformat()
+        path.write_text(json.dumps(document))
+        self.assertEqual(relay.capabilities(self.store), {})
+        self.assertFalse(relay.status(self.store)["answering"])
+
     def test_a_read_only_volume_is_a_writer_error_not_an_oserror(self):
         from unittest.mock import patch
 

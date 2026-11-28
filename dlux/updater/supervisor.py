@@ -10,14 +10,69 @@ release manifest — no Django setup.
 """
 
 import argparse
+import errno
 import importlib.metadata
 import json
 import os
 from pathlib import Path
 import signal
+import stat
 import subprocess
 import sys
 import time
+
+
+_READ_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NONBLOCK", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+)
+
+
+class RefusedFile(OSError):
+    """A runtime-volume entry that is not a regular file within its size cap."""
+
+
+def _refusal(info, limit):
+    if stat.S_ISLNK(info.st_mode):
+        return "it is a symbolic link"
+    if stat.S_ISFIFO(info.st_mode):
+        return "it is a FIFO"
+    if stat.S_ISDIR(info.st_mode):
+        return "it is a directory"
+    if not stat.S_ISREG(info.st_mode):
+        return "it is not a regular file"
+    if info.st_size > limit:
+        return f"it is larger than {limit} bytes"
+    return ""
+
+
+def read_bounded(path, limit):
+    """The bytes of regular file ``path``, at most ``limit`` of them.
+
+    Either side of the volume can plant an entry, so the read never blocks (a
+    FIFO), never follows a link and never reads past ``limit``. Anything else
+    raises ``RefusedFile``; a missing or unreadable file raises its ``OSError``.
+    """
+    path = Path(path)
+    reason = _refusal(os.lstat(path), limit)
+    if not reason:
+        try:
+            descriptor = os.open(path, _READ_FLAGS)
+        except OSError as exc:
+            if exc.errno != errno.ELOOP:
+                raise
+            reason = "it is a symbolic link"
+        else:
+            with os.fdopen(descriptor, "rb") as stream:
+                reason = _refusal(os.fstat(stream.fileno()), limit)
+                if not reason:
+                    data = stream.read(limit + 1)
+                    if len(data) <= limit:
+                        return data
+                    reason = f"it is larger than {limit} bytes"
+    raise RefusedFile(f"{path.name} was refused: {reason}.")
 
 
 def baked_version():
@@ -77,6 +132,43 @@ def _is_newer(candidate, baseline):
         return True
 
 
+def parse_image_floor(raw):
+    """``(lowest, specifier)`` for a ``requires.baked_image`` value.
+
+    A bare version means ``>=`` that version. A compound PEP 440 specifier
+    (``>=1.17.0b1,<2.0``) is kept whole; ``lowest`` is its ``>=`` bound, or "".
+    An empty value is ``("", None)``. Raises ``ValueError`` for anything else.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
+    text = str(raw or "").strip()
+    if not text:
+        return "", None
+    if text[0].isdigit():
+        text = f">={text}"
+    try:
+        specifier = SpecifierSet(text, prereleases=True)
+    except InvalidSpecifier as exc:
+        raise ValueError(f"requires.baked_image {raw!r} is not a version specifier") from exc
+    lowest = ""
+    for clause in specifier:
+        if clause.operator == ">=" and (not lowest or _is_newer(clause.version, lowest)):
+            lowest = clause.version
+    return lowest, specifier
+
+
+def _release_floor_text(release):
+    try:
+        manifest = json.loads((Path(release) / "dlux" / "release-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, RecursionError):
+        return ""
+    if not isinstance(manifest, dict):
+        return ""
+    requires = manifest.get("requires")
+    floor = requires.get("baked_image") if isinstance(requires, dict) else None
+    return str(floor or manifest.get("image_baseline") or "").strip()
+
+
 def release_image_floor(release):
     """The oldest baked DjangoLux an image needs to run ``release``, or "".
 
@@ -86,30 +178,36 @@ def release_image_floor(release):
     that rebuild.
     """
     try:
-        manifest = json.loads((Path(release) / "dlux" / "release-manifest.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        return parse_image_floor(_release_floor_text(release))[0]
+    except ValueError:
         return ""
-    if not isinstance(manifest, dict):
-        return ""
-    requires = manifest.get("requires")
-    floor = requires.get("baked_image") if isinstance(requires, dict) else None
-    return str(floor or manifest.get("image_baseline") or "").strip().lstrip(">=").strip()
 
 
 def image_floor_problem(release, baked):
     """Why this image cannot run volume ``release``, or "" when it can.
 
     An unknown baked version or a release without a floor is not a problem: both
-    were served before the floor was enforced.
+    were served before the floor was enforced. A floor this supervisor cannot
+    parse holds the release, so a malformed manifest never runs by accident.
     """
-    floor = release_image_floor(release)
+    raw = _release_floor_text(release)
     baked = str(baked or "").strip()
-    if not floor or not baked or not _is_newer(floor, baked):
+    if not raw or not baked:
         return ""
-    return (
-        f"DjangoLux {Path(release).name} needs a project image with DjangoLux {floor} "
-        f"or later, but this image bakes {baked}"
-    )
+    name = Path(release).name
+    try:
+        lowest, specifier = parse_image_floor(raw)
+    except ValueError:
+        return f"DjangoLux {name} declares an image floor this image cannot read ({raw[:80]})"
+    try:
+        from packaging.version import InvalidVersion, Version
+
+        if Version(baked) in specifier:
+            return ""
+    except InvalidVersion:
+        return ""
+    wanted = f"DjangoLux {lowest} or later" if str(specifier) == f">={lowest}" else f"DjangoLux {specifier}"
+    return f"DjangoLux {name} needs a project image with {wanted}, but this image bakes {baked}"
 
 
 def held_release_outcome(baked, running):
@@ -144,6 +242,23 @@ def _report_fallback(problem, baked):
     )
 
 
+ACTIVE_POINTER_MAX_BYTES = 64 * 1024
+
+
+def read_active_pointer(root):
+    """The ``state/active.json`` object, or ``{}`` when it is missing or unusable.
+
+    Anything other than a JSON object (``null``, a list, a string, an oversized
+    or unreadable file) counts as a missing pointer: the baked package is served
+    and ``reconcile`` rebuilds the file.
+    """
+    try:
+        payload = json.loads(read_bounded(Path(root) / "state" / "active.json", ACTIVE_POINTER_MAX_BYTES))
+    except (OSError, ValueError, RecursionError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def runtime_fallback(root, baked=None):
     """Why the active volume release is not served on this image, or "".
 
@@ -152,14 +267,14 @@ def runtime_fallback(root, baked=None):
     root = Path(root)
     if baked is None:
         baked = os.environ.get("DLUX_BAKED_VERSION") or baked_version()
+    payload = read_active_pointer(root)
     try:
-        payload = json.loads((root / "state" / "active.json").read_text(encoding="utf-8"))
         version = str(payload.get("version") or "").strip()
         release = (root / "releases" / version).resolve()
         release.relative_to((root / "releases").resolve())
         if payload.get("source") == "volume" and release.is_dir() and _is_newer(version, baked):
             return image_floor_problem(release, baked)
-    except (OSError, ValueError, TypeError, AttributeError, json.JSONDecodeError):
+    except (OSError, ValueError, TypeError):
         pass
     return ""
 
@@ -185,9 +300,8 @@ def resolve_release(root, baked=None):
     root = Path(root)
     if baked is None:
         baked = os.environ.get("DLUX_BAKED_VERSION") or baked_version()
-    active_file = root / "state" / "active.json"
+    payload = read_active_pointer(root)
     try:
-        payload = json.loads(active_file.read_text(encoding="utf-8"))
         version = str(payload.get("version") or "").strip()
         source = payload.get("source")
         release = (root / "releases" / version).resolve()
@@ -197,7 +311,7 @@ def resolve_release(root, baked=None):
             if not problem:
                 return release
             _report_fallback(problem, baked)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+    except (OSError, ValueError, TypeError):
         pass
     return None
 
@@ -216,7 +330,7 @@ def runtime_environment(root):
 
 def generation(root):
     try:
-        return max(0, int((Path(root) / "state" / "generation").read_text(encoding="utf-8").strip()))
+        return max(0, int(read_bounded(Path(root) / "state" / "generation", 64).decode("ascii").strip()))
     except (OSError, ValueError):
         return 0
 
@@ -275,16 +389,32 @@ def _wait_group(process, seconds, interval):
 
 
 def stop_child(process, grace_seconds, sig=signal.SIGTERM):
-    """Stop the child's whole process group and return the direct child's exit code.
+    """Stop the child, then its group, and return the direct child's exit code.
 
-    Returns only once every process of the group has exited, so a restart never
-    starts the next generation while the old server still holds its port. The
-    group is SIGKILLed after ``grace_seconds``.
+    The signal goes to the direct child first, so a server that shuts its own
+    workers down (Celery's warm shutdown, gunicorn's graceful stop) does so: a
+    signal to the whole group reached Celery's pool children mid-task. Once the
+    direct child has exited, whatever is left of its group (a ``bash -c``
+    wrapper's server) gets the signal too. Returns only once every process of
+    the group has exited, so a restart never starts the next generation while
+    the old server still holds its port. The group is SIGKILLed after
+    ``grace_seconds``.
     """
-    signal_group(process, sig)
-    if not _wait_group(process, grace_seconds, 0.1):
-        signal_group(process, signal.SIGKILL)
-        _wait_group(process, KILL_WAIT_SECONDS, 0.05)
+    try:
+        process.send_signal(sig)
+    except (ProcessLookupError, PermissionError):
+        pass
+    deadline = time.monotonic() + grace_seconds
+    forwarded = False
+    while _group_running(process):
+        if not forwarded and process.poll() is not None:
+            signal_group(process, sig)
+            forwarded = True
+        if time.monotonic() >= deadline:
+            signal_group(process, signal.SIGKILL)
+            _wait_group(process, KILL_WAIT_SECONDS, 0.05)
+            break
+        time.sleep(0.1)
     return process.wait()
 
 
@@ -311,8 +441,6 @@ def main(argv=None):
         nonlocal stopping, forwarded_signal
         stopping = True
         forwarded_signal = signum
-        if child is not None:
-            signal_group(child, signum)
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)

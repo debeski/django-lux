@@ -104,7 +104,6 @@ from ...utils import (
     email_features_unlocked,
     get_system_config,
     has_section_models,
-    normalize_system_settings_import_payload,
     normalize_email_config,
     normalize_client_ip_config,
     normalize_language_catalog,
@@ -199,16 +198,20 @@ class PreservedValueMixin:
         uploaded = self.cleaned_data.get('settings_import_file')
         if not uploaded:
             return {}
+        from ...translations import get_strings
+        from ...utils.import_export import (
+            SYSTEM_SETTINGS_IMPORT_MAX_BYTES,
+            SettingsImportError,
+            read_system_settings_import,
+            settings_import_error_message,
+        )
         try:
             if hasattr(uploaded, 'seek'):
                 uploaded.seek(0)
-            raw = uploaded.read()
-            if isinstance(raw, bytes):
-                raw = raw.decode('utf-8')
-            parsed = json.loads(raw or '{}')
-            return normalize_system_settings_import_payload(parsed)
-        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            self.add_error('settings_import_file', str(exc) or "Invalid setup import file.")
+            _payload, normalized = read_system_settings_import(uploaded.read(SYSTEM_SETTINGS_IMPORT_MAX_BYTES + 1))
+            return normalized
+        except SettingsImportError as exc:
+            self.add_error('settings_import_file', settings_import_error_message(exc, get_strings()))
             return {}
 
     def _apply_schema_group_initials(self, storage_field, source, *, hidden_field=True):

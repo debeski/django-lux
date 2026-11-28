@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import logging
 from urllib.parse import urlparse
-from csp.constants import NONCE, SELF, UNSAFE_INLINE
+from csp.constants import NONCE, NONE, SELF
 from dlux.system.constants import SCANLINK_CONNECT_ORIGINS
 from dlux.utils import get_project_version, get_secret, dlux_settings
 
@@ -175,7 +175,9 @@ CONTENT_SECURITY_POLICY = {
         # Scripts come from this site, or inline with nonce="{{ request.csp_nonce }}".
         # No 'unsafe-inline' or 'unsafe-eval': DjangoLux needs neither.
         "script-src": [SELF, NONCE],
-        "style-src": [SELF, UNSAFE_INLINE],
+        # Styles come only from this site's stylesheets; DjangoLux sets computed
+        # styles through the CSSOM, which style-src does not govern.
+        "style-src": [SELF],
         "img-src": [SELF, "data:", "blob:"],
         "font-src": [SELF, "data:"],
         # ScanLink talks to a tray app on the operator's own workstation. Listing
@@ -184,8 +186,40 @@ CONTENT_SECURITY_POLICY = {
         "connect-src": [SELF, BASE_URL, *SCANLINK_CONNECT_ORIGINS],
         "frame-ancestors": [SELF],
         "form-action": [SELF],
+        # An injected <base> cannot repoint the page's relative script URLs.
+        "base-uri": [SELF],
+        "object-src": [NONE],
     }
 }
+
+# Errors and warnings go to stderr, which the container log keeps. Django's
+# default sends django.request errors only to mail_admins when DEBUG is off, so
+# a 500 would leave no traceback. django.request logs only server errors here;
+# the proxy and gunicorn access logs already record 4xx responses.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {
+            "format": "[{asctime}] [{process}] [{levelname}] {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "plain",
+        },
+    },
+    "root": {"handlers": ["stderr"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": [], "level": "INFO", "propagate": True},
+        "django.request": {"handlers": [], "level": "ERROR", "propagate": True},
+    },
+}
+if DEBUG:
+    LOGGING["root"]["level"] = "DEBUG"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

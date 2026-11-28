@@ -7,13 +7,13 @@
         <div class="col-xl-8">
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-                    <h1 class="h3 mb-4">{{ app_title }} Form</h1>
+                    <h1 class="h3 mb-4">{{ DLUX_STRINGS.{{ record_model_lower }}_form_title|default:"{{ app_title }} Form" }}</h1>
                     <form method="post">
                         {% csrf_token %}
                         {{ form|crispy }}
                         <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a class="btn btn-outline-secondary rounded-pill" href="{% url '{{ app_name }}:example_record_list' %}">Cancel</a>
-                            <button type="submit" class="btn btn-success rounded-pill">Save</button>
+                            <a class="btn btn-outline-secondary rounded-pill" href="{% url '{{ app_name }}:example_record_list' %}">{{ DLUX_STRINGS.cancel|default:"Cancel" }}</a>
+                            <button type="submit" class="btn btn-success rounded-pill">{{ DLUX_STRINGS.save|default:"Save" }}</button>
                         </div>
                     </form>
                 </div>

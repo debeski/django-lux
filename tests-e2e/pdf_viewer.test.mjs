@@ -37,19 +37,45 @@ print(render_to_string('dlux/pdf/viewer.html', {
 }))
 `], { cwd: ROOT, env: { ...process.env, DJANGO_SETTINGS_MODULE: 'dlux.tests.settings', PYTHONPATH: ROOT } }).toString();
 
-const page_html = (withPdfJs) => `<!doctype html><html><head><meta charset="utf-8">
+const viewerFor = (source) => execFileSync(PY, ['-c', `
+import django; django.setup()
+from types import SimpleNamespace
+from django.template.loader import render_to_string
+print(render_to_string('dlux/pdf/viewer.html', {
+    'source_url': '${source}', 'download_url': '${source}', 'file_name': 'poc.pdf',
+    'pdf_features': {'editing_enabled': False, 'history_enabled': False},
+    'request': SimpleNamespace(csp_nonce='n'),
+}))
+`], { cwd: ROOT, env: { ...process.env, DJANGO_SETTINGS_MODULE: 'dlux.tests.settings', PYTHONPATH: ROOT } }).toString();
+
+const PDF_BUNDLE = { pdf: { css: [], js: [], module: '/static/dlux/pdf/vendor/pdf.min.js', worker: '/static/dlux/pdf/vendor/pdf.worker.min.js' } };
+
+const page_shell = (viewer, bundle, head = '') => `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/static/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="/static/bootstrap/bootstrap-icons.css">
 <link rel="stylesheet" href="/static/dlux/pdf/css/main.css">
-<style>.column { width: 520px; margin: 20px; }</style>
-</head><body><div class="column">${VIEWER}</div>
-<script type="application/json" id="dlux-asset-bundles">${JSON.stringify(withPdfJs
-  ? { pdf: { css: [], js: ['/static/dlux/pdf/vendor/pdf.min.js'] } }
-  : { pdf: { css: [], js: ['/static/dlux/pdf/vendor/missing.js'] } })}</script>
+<style>.column { width: 520px; margin: 20px; }</style>${head}
+</head><body><div class="column">${viewer}</div>
+<script type="application/json" id="dlux-asset-bundles">${JSON.stringify(bundle)}</script>
 <script src="/static/dlux/base/js/lazy.js"></script>
 <script src="/static/dlux/pdf/js/pdfjs.js"></script>
 <script src="/static/dlux/pdf/js/viewer.js"></script>
 </body></html>`;
+
+const page_html = (withPdfJs) => page_shell(
+  VIEWER,
+  withPdfJs ? PDF_BUNDLE : { pdf: { css: [], js: [], module: '/static/dlux/pdf/vendor/missing.js' } },
+);
+
+// CVE-2024-4367 ran a font's FontMatrix payload through the page; the guard,
+// installed before any viewer code, records an alert() call or the PoC's global.
+const CVE_GUARD = `
+<script>
+window.__pwned = false;
+Object.defineProperty(globalThis, '__pdfjs_pwned', { set() { window.__pwned = true; }, get() { return window.__pwned; }, configurable: true });
+window.alert = function () { window.__pwned = true; };
+</script>`;
+const cve_html = () => page_shell(viewerFor('/fixtures/cve-2024-4367.pdf'), PDF_BUNDLE, CVE_GUARD);
 
 let server;
 let browser;
@@ -61,6 +87,11 @@ before(async () => {
     if (url === '/' || url === '/fallback') {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(page_html(url === '/'));
+      return;
+    }
+    if (url === '/cve') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(cve_html());
       return;
     }
     const root = url.startsWith('/fixtures/') ? path.join(HERE, 'fixtures') : STATIC;
@@ -204,5 +235,24 @@ describe('without pdf.js', () => {
     assert.equal(await page.locator('[data-pdf-next]').isDisabled(), true);
     await page.locator('[data-pdf-fullscreen]').click();
     await page.waitForFunction(() => Boolean(document.fullscreenElement));
+  });
+});
+
+describe('CVE-2024-4367', () => {
+  test('a crafted FontMatrix runs no script in the viewer', async () => {
+    const dialogs = [];
+    await page?.close();
+    page = await browser.newPage({ viewport: { width: 1000, height: 800 }, deviceScaleFactor: 2 });
+    page.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.dismiss().catch(() => {}); });
+    await page.goto(BASE + '/cve', { waitUntil: 'networkidle' });
+    // The viewer either draws the (benign) page or falls back; either way the
+    // payload must not run. Give the font path time to be reached.
+    await page.waitForFunction(() => {
+      const v = document.querySelector('.dlux-pdf-viewer');
+      return v && (v.dataset.pdfZoom || v.classList.contains('is-fallback'));
+    }, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => window.__pwned), false);
+    assert.deepEqual(dialogs, []);
   });
 });

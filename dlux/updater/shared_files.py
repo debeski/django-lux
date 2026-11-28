@@ -13,12 +13,18 @@ contract read the same constants.
 """
 from __future__ import annotations
 
+import json
 import os
 import secrets
 from pathlib import Path
 
+# The supervisor runs before any release is importable, so the reader lives there.
+from .supervisor import RefusedFile, read_bounded  # noqa: F401
+
 SHARED_DIR_MODE = 0o775
 SHARED_FILE_MODE = 0o664
+#: The ceiling for one state document (pointer, ack, status, request) on the volume.
+MAX_STATE_BYTES = 65536
 
 
 def _set_mode(path, mode):
@@ -73,3 +79,22 @@ def write_bytes(path, data, *, fsync=False):
 
 def write_text(path, text, *, fsync=False):
     return write_bytes(path, str(text).encode("utf-8"), fsync=fsync)
+
+
+def read_text(path, limit=MAX_STATE_BYTES):
+    """``read_bounded`` decoded as UTF-8 (a decoding error is a ``ValueError``)."""
+    return read_bounded(path, limit).decode("utf-8")
+
+
+def load_json(path, limit=MAX_STATE_BYTES):
+    """The JSON value in ``path`` through ``read_bounded``.
+
+    Raises ``OSError`` when the file is missing, unreadable or refused, and
+    ``ValueError`` when it is not JSON (a document nested too deep included), the
+    same two families ``json.loads(path.read_text())`` raised.
+    """
+    data = read_bounded(path, limit)
+    try:
+        return json.loads(data.decode("utf-8"))
+    except RecursionError as exc:
+        raise ValueError("The document is nested too deeply.") from exc

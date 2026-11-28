@@ -11,6 +11,7 @@ import struct
 import tempfile
 import threading
 from django.conf import settings
+from .errors import BackupError
 
 
 DLB_MAGIC = b"DLB1"
@@ -71,7 +72,7 @@ def _derive_backup_key(salt_hex, *, encryption=None, passphrase=None):
     if key_source == "passphrase":
         seed = _clean_passphrase(passphrase)
         if not seed:
-            raise ValueError("Backup passphrase is required")
+            raise BackupError("sysrestore_error_passphrase_required", "Backup passphrase is required")
     else:
         seed = _django_secret_key_seed()
 
@@ -111,17 +112,18 @@ def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
         if not header:
             break
         if len(header) != 8:
-            raise ValueError("Truncated backup container")
+            raise BackupError("sysrestore_error_truncated", "Truncated backup container")
         (length,) = struct.unpack(">Q", header)
         token = src.read(length)
         if len(token) != length:
-            raise ValueError("Truncated backup container")
+            raise BackupError("sysrestore_error_truncated", "Truncated backup container")
         try:
             plain = fernet.decrypt(token)
         except InvalidToken:
             # InvalidToken carries no message, which left failed restores blank.
-            raise ValueError(
-                "Wrong passphrase or server key for this backup, or the file is corrupted"
+            raise BackupError(
+                "sysrestore_error_wrong_key",
+                "Wrong passphrase or server key for this backup, or the file is corrupted",
             ) from None
         dest.write(plain)
         consumed += len(header) + length
@@ -301,13 +303,13 @@ def read_dlb_metadata(fileobj):
     """Read and return the cleartext metadata header; leaves the stream at the payload."""
     magic = fileobj.read(len(DLB_MAGIC))
     if magic != DLB_MAGIC:
-        raise ValueError("Not a Dlux backup (.dlb) file")
+        raise BackupError("sysrestore_error_not_dlb", "Not a Dlux backup (.dlb) file")
     (length,) = struct.unpack(">I", fileobj.read(4))
     if length <= 0 or length > 10 * 1024 * 1024:
-        raise ValueError("Corrupt backup metadata header")
+        raise BackupError("sysrestore_error_corrupt_header", "Corrupt backup metadata header")
     metadata = json.loads(fileobj.read(length).decode("utf-8"))
     if metadata.get("kind") not in BACKUP_KINDS:
-        raise ValueError("Unsupported backup kind")
+        raise BackupError("sysrestore_error_unsupported_kind", "Unsupported backup kind")
     return metadata
 
 
@@ -333,7 +335,7 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None, on_chunk=None):
         return metadata, tmp
     salt_hex = str(encryption.get("salt") or "")
     if not salt_hex:
-        raise ValueError("Backup metadata is missing encryption parameters")
+        raise BackupError("sysrestore_error_missing_encryption", "Backup metadata is missing encryption parameters")
     tmp = tempfile.TemporaryFile()
     try:
         _decrypt_stream(

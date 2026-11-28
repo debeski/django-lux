@@ -38,9 +38,11 @@ overwrite host-project data.
 
 Register project-owned themes with `DLUX_CUSTOM_THEMES` and WOFF2 font families with
 `DLUX_CUSTOM_FONTS`. Registered items join the same registry used by setup,
-validation, allowlists, previews, per-user selection and the `/fonts/<slug>.css`
-stylesheet that `dlux/public_base.html` links; do not add a parallel
-selector or stylesheet loading path.
+validation, allowlists, previews, per-user selection, the
+`/sys/api/styles/<version>.css` stylesheet that `dlux/base.html` links and the
+`/fonts/<slug>.css` stylesheet that `dlux/public_base.html` links; do not add a
+parallel selector or stylesheet loading path. A face is only downloaded when a
+page uses its family, so the page stylesheet lists every registered font.
 
 A rule that applies to one named theme (`:root.theme-dark .x`) lives in that theme's
 stylesheet under `dlux/static/dlux/themes/css/`, never in a feature stylesheet;
@@ -121,6 +123,12 @@ of signing users out. This overrides timeouts and the session engine the
 settings file declares, because generated settings files are never regenerated;
 `DLUX_CACHE_FAIL_FAST = False` keeps the cache and the engine exactly as written.
 See [Cache outages](deployment-configuration.md#cache-outages).
+
+It gives every PostgreSQL connection a `connect_timeout` and TCP keepalives, and
+puts `DatabaseOutageMiddleware` just outside the session middleware, so a database
+that is down, full or read-only answers 503 instead of a 500 or a hung request.
+`DLUX_DB_FAIL_FAST = False` turns this off. See
+[Database outages](deployment-configuration.md#database-outages).
 
 To add a first-class framework setting, follow
 [Adding a System Setting](adding-system-settings.md); it must participate in the

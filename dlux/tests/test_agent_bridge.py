@@ -116,6 +116,38 @@ class AgentBridgeTests(TestCase):
             )
             self.assertEqual(result["status"], "rejected")
 
+    def test_a_planted_fifo_or_link_is_rejected_without_blocking(self):
+        # R2-095: read_bytes() on a FIFO never returned and hung dlux_state_tick.
+        import os
+        import threading
+
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir,
+        ):
+            store = RuntimeStore(temp_dir).ensure()
+            requests_dir(store).mkdir(parents=True, exist_ok=True)
+            fifo_id, link_id = str(uuid.uuid4()), str(uuid.uuid4())
+            os.mkfifo(requests_dir(store) / f"{fifo_id}.json")
+            elsewhere = Path(temp_dir) / "elsewhere.json"
+            elsewhere.write_text("{}", encoding="utf-8")
+            (requests_dir(store) / f"{link_id}.json").symlink_to(elsewhere)
+
+            done = []
+            worker = threading.Thread(
+                target=lambda: done.append(consume_agent_requests(SimpleNamespace(store=store))),
+                daemon=True,
+            )
+            worker.start()
+            worker.join(5)
+            self.assertFalse(worker.is_alive(), "consume_agent_requests blocked on a FIFO")
+            self.assertEqual(done, [2])
+            for operation_id in (fifo_id, link_id):
+                result = json.loads((results_dir(store) / f"{operation_id}.json").read_text(encoding="utf-8"))
+                self.assertEqual(result["status"], "rejected")
+                self.assertIn("refused", result["error"])
+            self.assertFalse(list(requests_dir(store).iterdir()))
+            self.assertEqual(elsewhere.read_text(encoding="utf-8"), "{}")
+
     def test_processed_requests_are_archived_so_later_requests_are_not_starved(self):
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(
             DLUX_UPDATE_RUNTIME_ROOT=temp_dir,

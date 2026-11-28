@@ -11,7 +11,6 @@ runs against a populated, live system, so it inverts the defaults:
 
 Three views: preview (parse + diff), apply (snapshot + write), revert.
 """
-import json
 
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
@@ -30,12 +29,14 @@ from ..translations import get_current_language_code, get_strings
 from ..utils import (
     apply_system_settings_import,
     export_system_settings_payload,
-    normalize_system_settings_import_payload,
 )
 
-# A config export is small. Anything much larger is not one, and parsing it
-# would only waste memory before failing.
-MAX_IMPORT_BYTES = 2 * 1024 * 1024
+from ..utils.import_export import (
+    SYSTEM_SETTINGS_IMPORT_MAX_BYTES as MAX_IMPORT_BYTES,
+    SettingsImportError,
+    read_system_settings_import,
+    settings_import_error_message,
+)
 
 # Session key holding the pending change set. Keeping it server-side means the
 # diff the operator approved is the diff that applies — a client that re-posts
@@ -79,18 +80,9 @@ def settings_import_preview_view(request):
         )
 
     try:
-        payload = json.loads(upload.read().decode('utf-8'))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return JsonResponse(
-            {'ok': False, 'message': strings.get(
-                'settings_import_invalid_json', 'That file is not valid JSON.')},
-            status=400,
-        )
-
-    try:
-        incoming = normalize_system_settings_import_payload(payload)
-    except ValueError as exc:
-        return JsonResponse({'ok': False, 'message': str(exc)}, status=400)
+        payload, incoming = read_system_settings_import(upload.read(MAX_IMPORT_BYTES + 1))
+    except SettingsImportError as exc:
+        return JsonResponse({'ok': False, 'message': settings_import_error_message(exc, strings)}, status=400)
 
     _, current = _current_settings()
     source = {

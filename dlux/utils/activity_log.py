@@ -353,6 +353,9 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
             user = get_current_user()
         except Exception:
             user = None
+    if user is not None and not getattr(user, 'is_authenticated', False):
+        # Sign-in failures and other anonymous events are logged without an actor.
+        user = None
 
     # When an explicit model_name override is given (e.g. "password", "session"), it is a
     # synthetic event label that does not correspond to `instance`'s model, so don't derive

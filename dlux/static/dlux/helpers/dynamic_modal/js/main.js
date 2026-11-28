@@ -265,8 +265,21 @@
         });
     }
 
+    // Placeholder bars carry their size in data-* and get it through the CSSOM
+    // (applySkeletonSizes), so the markup holds no style attribute.
     function skeletonBlock(width, height = '1rem') {
-        return `<span aria-hidden="true" class="d-block rounded" style="width: ${width}; height: ${height}; background: rgba(108, 117, 125, 0.22);"></span>`;
+        return `<span aria-hidden="true" class="d-block rounded dynamic-modal-skeleton" data-skeleton-width="${width}" data-skeleton-height="${height}"></span>`;
+    }
+
+    function applySkeletonSizes(root) {
+        root.querySelectorAll('.dynamic-modal-skeleton').forEach(block => {
+            block.style.width = block.dataset.skeletonWidth || '';
+            block.style.height = block.dataset.skeletonHeight || '';
+        });
+    }
+
+    function loadingLabel() {
+        return window.DLUX_STRINGS?.loading || 'Loading...';
     }
 
     // Initialize modal instance safely
@@ -398,17 +411,18 @@
             overlay.style.background = 'var(--bs-body-bg, #fff)';
             overlay.style.opacity = '0.96';
             overlay.innerHTML = `
-                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Loading...</span>
+                <div class="spinner-border text-primary dynamic-modal-spinner-lg" role="status">
+                    <span class="visually-hidden"></span>
                 </div>
             `;
+            overlay.querySelector('.visually-hidden').textContent = loadingLabel();
             modalBody.style.position = 'relative';
             modalBody.appendChild(overlay);
         } else {
             modalBody.style.position = '';
             modalBody.style.minHeight = `${DEFAULT_LOADING_MIN_HEIGHT}px`;
             modalBody.innerHTML = `
-                <div class="dynamic-modal-loading-shell w-100 p-4" style="min-height: ${DEFAULT_LOADING_MIN_HEIGHT}px;">
+                <div class="dynamic-modal-loading-shell w-100 p-4">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         ${skeletonBlock('42%', '1.4rem')}
                         ${skeletonBlock('18%', '1.1rem')}
@@ -421,11 +435,15 @@
                     </div>
                     <div class="d-flex align-items-center justify-content-center mt-4">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                            <span class="visually-hidden"></span>
                         </div>
                     </div>
                 </div>
             `;
+            const shell = modalBody.querySelector('.dynamic-modal-loading-shell');
+            shell.style.minHeight = `${DEFAULT_LOADING_MIN_HEIGHT}px`;
+            shell.querySelector('.visually-hidden').textContent = loadingLabel();
+            applySkeletonSizes(shell);
         }
         
         // Open at the viewer's active modal-size preference so the dialog is the

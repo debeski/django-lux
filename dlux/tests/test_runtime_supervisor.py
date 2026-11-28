@@ -39,6 +39,26 @@ note("start")
 time.sleep(120)
 """
 
+# A stand-in for a Celery master: its pool child records "stop" if it is
+# signalled itself; on SIGTERM the master finishes the pool and says so.
+MASTER = """\
+import signal, subprocess, sys, time
+python, server, events = sys.argv[1], sys.argv[2], sys.argv[3]
+pool = subprocess.Popen([python, server, events, "0"])
+
+def warm(*_):
+    time.sleep(0.5)
+    pool.kill()
+    pool.wait()
+    with open(events, "a", encoding="utf-8") as handle:
+        handle.write("pool-finished\\n")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, warm)
+while True:
+    time.sleep(1)
+"""
+
 # The generated web command's shape: a compound bash -c, so bash forks the
 # server instead of exec'ing it and dies on SIGTERM before the server does.
 WRAPPER = 'if true; then echo starting; "$0" "$@"; fi'
@@ -115,6 +135,21 @@ class StopChildTests(_ServerTestCase):
         self.assertEqual(self.events(), ["start"])
         self.assertFalse(_group_exists(child.pid))
         self.assertIsNotNone(child.returncode)
+
+
+    def test_a_master_that_stops_its_own_pool_is_signalled_alone(self):
+        # R2-112: a signal to the whole group reached Celery's pool children
+        # mid-task; the master's warm shutdown never got the chance to finish them.
+        (self.dir / "master.py").write_text(MASTER, encoding="utf-8")
+        child = subprocess.Popen(
+            [sys.executable, str(self.dir / "master.py"), sys.executable, str(self.server), str(self.events_file)],
+            start_new_session=True,
+        )
+        self.addCleanup(self._kill_leftovers, child.pid)
+        _wait_for(lambda: self.events() == ["start"])
+        supervisor.stop_child(child, grace_seconds=30)
+        self.assertEqual(self.events(), ["start", "pool-finished"])
+        self.assertFalse(_group_exists(child.pid))
 
 
 class GenerationRestartTests(_ServerTestCase):
@@ -194,6 +229,33 @@ class ResolveReleaseTests(SimpleTestCase):
     def test_missing_state_falls_back_to_baked(self):
         root = Path(tempfile.mkdtemp())
         (root / "state").mkdir(parents=True)
+        self.assertIsNone(supervisor.resolve_release(root, baked="1.5.11"))
+
+
+    def test_a_non_object_pointer_is_a_missing_pointer(self):
+        # R2-002: `null` or `[]` crashed the PID-1 supervisor with AttributeError.
+        for content in ("null", "[]", '"1.6.0"', "42", "{not json"):
+            with self.subTest(content=content):
+                root = self._volume("1.6.0")
+                (root / "state" / "active.json").write_text(content, encoding="utf-8")
+                self.assertIsNone(supervisor.resolve_release(root, baked="1.5.11"))
+                self.assertEqual(supervisor.runtime_fallback(root, baked="1.5.11"), "")
+                env = supervisor.runtime_environment(root)
+                self.assertNotIn(str(root / "releases"), env.get("PYTHONPATH", ""))
+
+    def test_a_planted_pointer_is_never_followed_or_blocked_on(self):
+        root = self._volume("1.6.0")
+        pointer = root / "state" / "active.json"
+        pointer.unlink()
+        os.mkfifo(pointer)
+        self.assertIsNone(supervisor.resolve_release(root, baked="1.5.11"))
+        pointer.unlink()
+        target = root / "elsewhere.json"
+        target.write_text(json.dumps({"version": "1.6.0", "source": "volume"}), encoding="utf-8")
+        pointer.symlink_to(target)
+        self.assertIsNone(supervisor.resolve_release(root, baked="1.5.11"))
+        pointer.unlink()
+        pointer.write_text(" " * (supervisor.ACTIVE_POINTER_MAX_BYTES + 1) + "{}", encoding="utf-8")
         self.assertIsNone(supervisor.resolve_release(root, baked="1.5.11"))
 
 
